@@ -5,6 +5,6 @@
   </picture>
 </p>
 
-<h1 align="center">Dexpace Ruby SDK</h1>
+<h1 align="center">Ruby SDKs Platform</h1>
 
 The Ruby SDK for dexpace.
