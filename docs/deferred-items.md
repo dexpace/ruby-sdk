@@ -60,10 +60,20 @@ against the design pass itself rather than an implementation phase.
 - **Why:** HTTP-22 (MAY) is header-name interning. HTTP-48–HTTP-50 (SHOULD) are convenience
   helpers layered on the header model that already exists; none of the four changes what the MVP's
   HTTP domain model is required to do.
-- **Pick-up condition:** no named trigger; picked up when convenience helpers are prioritized over
-  minimal public surface.
+- **Pick-up condition:** originally none. **Target: phase 6 (Retry, Redirect and
+  Authentication)**, named by phase 1's register sweep on 2026-09-05 — that is where the helpers
+  first get a caller, because a re-issued request carries `If-Match`/`If-None-Match` (HTTP-50's
+  aggregator) and an entity-tag (HTTP-48). Until then they are unbuilt SHOULDs and a MAY, and
+  `docs/first-release.md` carries them in its readiness list so a release decision sees them
+  without reading this register.
 - **Cites:** HTTP-22, HTTP-48, HTTP-49, HTTP-50
-- **Status:** deferred
+- **Status:** deferred. Phase 1 owns all four IDs and ships the gem they would live in, and built
+  none of them: HTTP-22 is a MAY whose observable contract (value equality by folded name) already
+  holds without interning, and HTTP-48–HTTP-50 are SHOULD-level helpers over a header model that
+  has no caller for them yet. **Not UNSCHEDULED**: that status is for a row whose pick-up condition
+  a phase met and declined to act on, and this row's condition — convenience helpers prioritized
+  over minimal public surface — never fired, because phase 1 deliberately kept the surface minimal.
+  What the row lacked was a target phase, which the sweep supplied.
 
 ### DEF-3 — BODY-36, BODY-12: memory-mapped view and platform zero-copy file transfer
 
@@ -305,4 +315,55 @@ execution step 7.
 - **Cites:** NFR-3
 - **Status:** deferred
 
-next id: DEF-24
+## Filed by phase 1 — Core HTTP Domain Model
+
+Every entry below names a target phase or an explicit pick-up condition, per the roadmap's
+execution step 7.
+
+### DEF-24 — The suppressed-exception trail on the error root
+
+- **Deferred by:** phase 1, 2026-09-05
+- **Why:** Design §5 gives `Dexpace::Error` a `#suppressed` array frozen once populated, a
+  `#full_message` override that renders the trail, and a `Dexpace.attach_suppressed(primary,
+  secondary)` helper carrying RETRY-34's self-suppression guard. Phase 1 creates the root — and
+  fixes its shape, a module rather than a base class, so XCUT-4's "transport errors belong to the
+  runtime's I/O-error family" stays reachable under Ruby's single inheritance — but ships it
+  empty. The trail exists for RECOV-12's close-while-throwing rule and for PAGE-13/PAGE-15,
+  SSE-29/SSE-36 and RETRY-34; none of those has a caller until the recovery chain lands, and an
+  attach helper with no chain to attach in would fix an interface before its first use.
+- **Pick-up condition:** phase 4 (Execution Context and Pipelines), with the recovery chain that
+  is its first caller.
+- **Cites:** RECOV-12, RETRY-34, PAGE-13, PAGE-15, SSE-29, SSE-36, XCUT-4
+- **Status:** deferred
+
+### DEF-25 — Wire-boundary re-validation of header names and outbound values
+
+- **Deferred by:** phase 1, 2026-09-05
+- **Why:** Design §4 and §10.10 admit that HTTP-2/SEAM-29's constructor privacy cannot be closed
+  in Ruby — `send` reaches a private `new` by design, and duck typing admits impersonation — and
+  name one mitigation that matters: header-name and outbound-value validation (HTTP-17, HTTP-18,
+  XCUT-18) runs **again** inside every transport adapter, immediately before dispatch, so a forged
+  model cannot smuggle a CRLF into a header name even if it never met a builder. Phase 1 ships the
+  predicate as public API — `Dexpace::HeaderSyntax`, with YARD, an RBS signature and a row in the
+  runtime surface manifest — precisely so an adapter in another gem can call it. The call site is
+  a transport, and phase 1 ships none.
+- **Pick-up condition:** phase 8 (Transports and Async Runtime), in each adapter's dispatch path;
+  phase 9's conformance suite is where the assertion that it happened belongs.
+- **Cites:** HTTP-2, HTTP-17, HTTP-18, XCUT-18, SEAM-29
+- **Status:** deferred
+
+### DEF-26 — The body member's type and HTTP-46's by-value body comparison
+
+- **Deferred by:** phase 1, 2026-09-05
+- **Why:** HTTP-6 requires a request and a response to carry an optional body, and HTTP-46
+  requires request equality to compare the body by value. The BODY model is spec ch.06 and phase
+  3's, so phase 1 carries the member opaquely: HTTP-7's presence check is the only thing asked of
+  it, its RBS type is `untyped`, and equality delegates to whatever `==` the object has. Giving it
+  a type here would fix the body interface a phase ahead of the requirements that shape it.
+- **Pick-up condition:** phase 3 (I/O and Body Lifecycle) — it narrows `Request#body` and
+  `Response#body` in `sig/` and adds the by-value equality test against a real body type. Both are
+  a narrowing of a public signature, which is why it is recorded rather than left to be noticed.
+- **Cites:** HTTP-6, HTTP-46, BODY-1, NFR-4
+- **Status:** deferred
+
+next id: DEF-27

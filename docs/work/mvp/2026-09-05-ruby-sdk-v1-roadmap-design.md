@@ -83,7 +83,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | Phase | Name | Gem(s) | Product-spec refs | sdk-design refs |
 |---|---|---|---|---|
 | 0 | Scaffold and Quality Gates | workspace root, plus all six MVP gems at `0.0.0` with empty `lib`/`sig`/`test`: `dexpace-core`, `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`, `dexpace-conformance` | §20 — `NFR-1`–`NFR-17`, every gate stood up as machinery and none closed here; phase 9 dispositions them. `NFR-5`'s SimpleCov `minimum_coverage 80` is wired here and inert until phase 1 lands code | §2.3, §2.4, §9 |
-| 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's) |
+| 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9 |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12 |
 | 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1 |
@@ -324,3 +324,42 @@ list, re-verified against a real 4.0.6 interpreter, which is 23 entries rather t
 corpus recorded from 3.4.10, with `tsort` leaving the default set at 4.1 and
 `Gem::BUNDLED_GEMS::SINCE` undefined on the 3.2 floor. Ruby 4.0 has shipped since the roadmap was
 written, so the 4.0 matrix column is an ordinary required row and the development pin is 4.0.6.
+
+**2026-09-05** — Phase 1 design and plan filed, the same day as the roadmap and phase 0.
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md` and
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model.md`. Nothing is implemented; the
+checklist is written at execution time, per execution step 6. Scope is the phase-1 row's 39 IDs
+plus `HTTP-1`/`HTTP-2` and `SEAM-29` as three further checklist rows — 42 in all: appendix C rows
+37 and 38 assign the framing pair to the **Core HTTP domain model** subsystem, phase 2's row is
+`SEAM-1`–`SEAM-30` alone, and this document's own accounting already reads "the ch.02 framing pair
+phase 1 satisfies by construction", so the pair is carried here rather than treated as seam work;
+`SEAM-29` is a row because this phase honours **both** its MUSTs, the uniform `<name> is required`
+message and the shared generic builder contract that lets a helper accept any builder (spec ch.03
+§3.8). `--gaps HTTP` reports 53 of 53 substantive, so the phase budgets no reading beyond its own
+chapter. No segmentation design: one chapter, one gem, 39 IDs. The deferral sweep read all
+twenty-three rows and picked up none. It gave **`DEF-2` a target phase it never had — phase 6**,
+where `REDIR`/`AUTH` give `HTTP-48`–`HTTP-50`'s conditional-request helpers their first caller;
+UNSCHEDULED would have been wrong, because that status is for a condition a phase met and declined
+and this row's condition (convenience helpers prioritised over minimal public surface) never fired.
+The four unmet SHOULDs and the MAY are also listed in `docs/first-release.md`. Three rows were
+filed: `DEF-24` (the error root's suppressed trail, phase 4), `DEF-25` (wire-boundary re-validation
+inside every transport, phase 8) and `DEF-26` (the `body` member's type and `HTTP-46`'s by-value
+half, phase 3). Two decisions bind
+every later phase and are recorded as deviations P1-1 and P1-2 with a Design §4 and a Design §5
+addendum: public wire-model constants are **flat** (`Dexpace::Request`, defined under
+`lib/dexpace/http/`), and `Dexpace::Error` is a **module** included by every core error class,
+because `XCUT-4` puts transport errors in Ruby's `IOError` family and single inheritance makes a
+class root and that requirement mutually exclusive. Two facts verified against real interpreters
+during planning changed the design rather than being noted after the fact: `Data#with` **does not
+call an `initialize` override on Ruby 3.2.11** (it does on 3.4.10 and 4.0.6), so the design's
+derivation path would skip every `HTTP-4`/`SEAM-29` check on the declared floor — closed by a
+shared `#with` in `Dexpace::Model`; and `String#strip` strips trailing NUL and raises on invalid
+UTF-8, so `HTTP-17`'s trim is SP and HTAB only and every validator reads bytes. An independent
+review of both documents added a third rule that binds every later phase: **no `.build` is a bare
+`new` wrapper** — validation lives in each `Data` type's `initialize`, because `.build` is public,
+`#with` routes every derivation through it and `send(:new, …)` reaches the constructor regardless,
+so a rule enforced only in a `Builder` is a rule three callers walk around. Four knowledge
+notes were filed before the plan was written: `module-organization` (the flat-constant departure),
+`error-handling` (the module root and the absent `Assert` facade), `type-system` (no `T::Enum`;
+closed sets are frozen `Data` types over a frozen table) and `data-modeling` (`## Superseded`: the
+`Data#with` behaviour, verified per interpreter).

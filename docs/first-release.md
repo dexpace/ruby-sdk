@@ -28,6 +28,11 @@ them at `0.0.0` until the first release:
 - [ ] `SECURITY.md` contact confirmed reachable and monitored
 - [ ] RubyGems ownership settled for every gem name above, and trusted publishing configured
       (OIDC-based, no long-lived API key committed anywhere)
+- [ ] A decision on the four unbuilt convenience requirements in the HTTP domain model —
+      `HTTP-48` (ETag), `HTTP-49` (HTTP range) and `HTTP-50` (the conditional-request aggregator),
+      all SHOULD-level, plus `HTTP-22` (header-name interning, a MAY). Phase 1 built none of them
+      and phase 6 is their target (`DEF-2`); this line exists so a release that ships before phase
+      6 states that it ships without them rather than discovering it afterwards
 
 ## Release path
 
