@@ -242,4 +242,67 @@ against the design pass itself rather than an implementation phase.
 - **Cites:** none
 - **Status:** deferred
 
-next id: DEF-20
+## Filed by phase 0 — Scaffold and Quality Gates
+
+Every entry below names a target phase or an explicit pick-up condition, per the roadmap's
+execution step 7.
+
+### DEF-20 — The release path: signed publication and the release half of NFR-12
+
+- **Deferred by:** phase 0, 2026-09-05
+- **Why:** `NFR-16` asks for cryptographically signed artifacts with signing enforced on the
+  release/CI path and gracefully optional locally. There is no release path: nothing is
+  published, every gem is at `0.0.0`, RubyGems ownership is unsettled and trusted publishing is
+  not configured (`docs/first-release.md`). A signing step wired to a path that does not exist
+  would be a gate over nothing, which is the failure mode phase 0 is built to avoid. Phase 0
+  does build `gates:reproducible`, so `NFR-12`'s build half is satisfied; the release half — a
+  published artifact byte-identical to a rebuild from its tag — waits with the rest.
+- **Pick-up condition:** the RubyGems-ownership and trusted-publishing blockers in
+  `docs/first-release.md` close. No phase owns it; it is release-gated, like `DEF-19`.
+- **Cites:** NFR-16, NFR-12
+- **Status:** deferred
+
+### DEF-21 — The runtime half of the version-skew guard
+
+- **Deferred by:** phase 0, 2026-09-05
+- **Why:** Design §2.3 pairs the `~> MAJOR.MINOR` constraint with a registration-time assertion
+  on `Dexpace::VERSION`, so a mismatched core/adapter pair fails loudly at `require` time rather
+  than at the first seam call. Phase 0 builds the static half — `gates:gemspec_audit` derives
+  the expected constraint from `VERSIONS` and asserts every adapter declares it. The runtime
+  half hangs on require-time seam self-registration, which is design §10 item 8 and phase 2's
+  scope; defining a public `Dexpace.register` in phase 0 would fix an API phase 2 must be free
+  to shape.
+- **Pick-up condition:** phase 2 (Seam Foundations), with the registration call it belongs to.
+- **Cites:** NFR-14, SEAM-5, SEAM-6, SEAM-7
+- **Status:** deferred
+
+### DEF-22 — `dexpace-conformance`'s framework-agnostic assertion objects
+
+- **Deferred by:** phase 0, 2026-09-05
+- **Why:** Design §9.3 fixes the shape: each assertion is a callable that returns cleanly or
+  raises a `Dexpace::Conformance::Failure` carrying the expected and actual values, with thin
+  Minitest and RSpec drivers over it, so Minitest never becomes a runtime constraint on a
+  consumer. Phase 0 creates the gem skeleton because the roadmap's phase-0 row lists all six MVP
+  gems, and lays the test-directory convention and one shared Minitest base — but an assertion
+  object with no transport contract to assert against would fix an interface before the
+  contract it serves exists.
+- **Pick-up condition:** phase 8, which owns this gem's gemspec, its version and its first
+  release; phase 9 adds the remaining suites.
+- **Cites:** none
+- **Status:** deferred
+
+### DEF-23 — A Steep target over a test tree
+
+- **Deferred by:** phase 0, 2026-09-05
+- **Why:** The styleguide holds test helpers to the same type discipline as `lib/`
+  (`testing/de6fe7e3`), which this port answers in `docs/knowledge/notes/testing.md`: there is
+  no Sorbet sigil to write, and a test tree gets RBS coverage only where the `Steepfile` names a
+  test target. Phase 0 names six targets, one per gem, and none over `test/` — the only test
+  code that exists is a shared base class and six smoke suites, and adding a seventh target over
+  them would buy a checked `assert_equal` call.
+- **Pick-up condition:** when a gem's test support becomes production-quality code worth
+  checking — phase 8's conformance helpers at the earliest.
+- **Cites:** NFR-3
+- **Status:** deferred
+
+next id: DEF-24

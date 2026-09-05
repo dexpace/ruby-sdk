@@ -378,6 +378,7 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are zero phase directories under `docs/work/*/`; `mvp/` is the only delivery and holds only the v1
-  roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`.
+- There is one phase directory under `docs/work/*/`; `mvp/` is the only delivery, and it holds the v1
+  roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/` — phase 0's design
+  and plan, with the checklist still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

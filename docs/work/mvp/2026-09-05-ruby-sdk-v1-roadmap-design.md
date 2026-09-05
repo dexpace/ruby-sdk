@@ -303,3 +303,24 @@ that, since the probe's `claims` check reads numerals and the phase-directory co
 corrected by hand in the change that files this document. And phase 0 owns rewriting `CLAUDE.md`'s "After scaffold
 — planned, none of these exist yet" command block from what it actually built, along with the gem-count and
 phase-directory-count sentences the `claims` check does read.
+
+**2026-09-05** — Phase 0 design and plan filed, on the same day as the roadmap.
+`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md` and
+`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md`. Nothing is implemented;
+the checklist is written at execution time, per execution step 6. Scope is `NFR-1`–`NFR-17` as
+machinery plus `SEAM-1` and `SEAM-2`; no ID is dispositioned here and phase 9 owns the answers.
+The deferral sweep read all nineteen seeded rows and picked up none — `DEF-19` comes closest and
+its condition, published gems to point at, is not met — the phase creates six gem
+directories, but nothing is published and every gem stays at `0.0.0`. Four rows
+were filed: `DEF-20` (the release path, release-gated), `DEF-21` (the runtime version-skew
+assertion, phase 2), `DEF-22` (the conformance assertion objects, phase 8) and `DEF-23` (a Steep
+target over a test tree, condition-gated). Five knowledge notes were filed before the plan was
+written, because a resolution recorded only in a design document is re-litigated by whoever reads
+the corpus next: no committed `Gemfile.lock` and no `bundle install --frozen`; the file header is
+frozen-string-literal then SPDX with no Sorbet sigil to place second; `# typed: strict` applies
+nowhere, test files included; the production assertion primitive is the domain model's own
+validation helper and lands in phase 1; and — under `## Superseded` — the Ruby 4.0 bundled-gem
+list, re-verified against a real 4.0.6 interpreter, which is 23 entries rather than the six the
+corpus recorded from 3.4.10, with `tsort` leaving the default set at 4.1 and
+`Gem::BUNDLED_GEMS::SINCE` undefined on the 3.2 floor. Ruby 4.0 has shipped since the roadmap was
+written, so the 4.0 matrix column is an ordinary required row and the development pin is 4.0.6.

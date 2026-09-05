@@ -1,0 +1,9 @@
+# formatting-and-tooling — notes
+
+Hand-written. `../harvested/formatting-and-tooling.md` is what the documents say; this file is
+what the implementation found, and it wins. Each entry names the harvested entry it answers by
+that entry's stable key.
+
+## Conflicts
+- **The file header is `# frozen_string_literal: true` and an SPDX line; there is no `# typed:` sigil to place second.** Resolves `formatting-and-tooling/82fd4af5`. The sigil rule is conditional on Sorbet, which `../notes/type-system.md` records this port as not having, but that resolution lives in a different topic file and a reader auditing the formatting group by chapter never sees it — so the second line of every file in this repository is decided here rather than by inference. What the SDK does instead: line 1 is `# frozen_string_literal: true`, line 2 is `# SPDX-License-Identifier: MIT`, then a blank line, then the requires or the namespace. The SPDX line is `NFR-13`'s mandate and is checked by a custom RuboCop cop rather than by review, which is a strengthening of the reference's own position (the specification records the header as enforced by review convention); it takes the second-line slot the sigil would have held, so the styleguide's actual shape — two mandatory header comments forming a visible pair, separated from the file's content by one blank line — is preserved with a different second comment. Everything else rule 1.4 asks for is adopted unchanged: the frozen-string-literal comment is mandatory on every `.rb` file even though Ruby 4.0 freezes by default, and no other magic comment is committed. The styleguide-amendment alternative (making rule 1.4's second line the project's chosen second header rather than the Sorbet sigil specifically) was considered and not taken; this is recorded as an SDK deviation instead.
+  <sub>review · `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md` · high · sha:manual-phase0-file-header</sub>
