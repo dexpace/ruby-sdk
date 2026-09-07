@@ -84,7 +84,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 |---|---|---|---|---|
 | 0 | Scaffold and Quality Gates | workspace root, plus all six MVP gems at `0.0.0` with empty `lib`/`sig`/`test`: `dexpace-core`, `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`, `dexpace-conformance` | §20 — `NFR-1`–`NFR-17`, every gate stood up as machinery and none closed here; phase 9 dispositions them. `NFR-5`'s SimpleCov `minimum_coverage 80` is wired here and inert until phase 1 lands code | §2.3, §2.4, §9 |
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
-| 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9 |
+| 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12 |
 | 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1 |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
@@ -363,3 +363,67 @@ notes were filed before the plan was written: `module-organization` (the flat-co
 `error-handling` (the module root and the absent `Assert` facade), `type-system` (no `T::Enum`;
 closed sets are frozen `Data` types over a frozen table) and `data-modeling` (`## Superseded`: the
 `Data#with` behaviour, verified per interpreter).
+
+**2026-09-07** — Phase 2 design and plan filed. The design landed a day earlier and was committed
+on its own, at `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md`; the plan is
+`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md`. Nothing is implemented; the checklist
+is written at execution time, per execution step 6. Scope is the phase-2 row's thirty IDs,
+`SEAM-1`–`SEAM-30`, one checklist row each — with **`SEAM-29`'s row a cross-reference to phase 1**,
+which honoured both of its MUSTs ahead of this phase, because dropping the row would leave an ID
+inside this phase's stated range with no row in the phase that owns the range. No segmentation
+design: one chapter, one gem, thirty IDs, fewer than phase 1's forty-two rows. The deferral sweep
+read all twenty-six rows and **picked up `DEF-21`**, whose pick-up condition named phase 2
+explicitly: the runtime half of the version-skew guard is now a required `core:` keyword on
+`Dexpace::Registry#register`. It gave **`DEF-1`'s `SEAM-28` half a target it never had — phase 5**,
+where an operation identifier first has both the context chain it attaches to (phase 4's) and a
+consumer for it; UNSCHEDULED would have been wrong, because that row's condition — "picked up
+opportunistically" — is not a condition any phase could meet. Five rows were filed: `DEF-27` (the
+two disposal routes for `close_quietly`'s rescued error, phases 4 and 5), `DEF-28` (the pivot's
+`deadline:` keyword and the clock behind it, phase 5), `DEF-29` (moving the three in-memory fakes
+into `dexpace-conformance`, phase 8), `DEF-30` (presence-gated auto-activation, instrumentation
+only, post-v1) and `DEF-31` (`SEAM-25`'s lifecycle event on the first close of an owned executor,
+phase 5). The **open-items register gained its first entry, `OI-1`**: five `SEAM` IDs —
+`SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28` — appear nowhere in the specification's
+prose and exist only as appendix-C rows, so this document's own gap paragraph and
+`scripts/knowledge.rb --gaps SEAM`, which both send a reader to
+`docs/product-spec/03-pluggable-seams-and-extension-model.md` for `SEAM-22` and `SEAM-28`, name a
+chapter that does not carry them. The pointer is derived mechanically from appendix C's subsystem
+cell and is not wrong about the subsystem; the instruction built on it is unfollowable. Phase 2
+read all five out of appendix C directly. Four knowledge notes were filed before the plan was
+written: `module-organization` (require-time seam self-registration is the one load-time side
+effect this repository permits, against the styleguide's "no global registry mutation at file
+scope"), `data-modeling` (a seam is a duck type plus a `.conforms?` predicate plus an RBS interface,
+never a Sorbet abstract module), `concurrency-and-async` — a new file — (core's shared mutable state
+is a frozen `Data` snapshot swapped under a `Thread::Mutex`, because `concurrent-ruby` is a gem),
+and `url-and-query-encoding` — a new file, under `## Superseded` — (`SEAM-27`'s base composition is
+not RFC 3986 reference resolution, and `URI.join` is banned by a phase-0 cop). Three facts verified
+against real interpreters during planning changed the design rather than being noted after it.
+`URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` is `https://host/pets` on 3.2.11 and
+4.0.6 alike, dropping both the base path segment and the base query that `SEAM-27`'s own
+conformance example requires to survive — so the composition is hand-built and design §3.5's
+sentence is superseded for this seam while staying correct for `REDIR-13` in phase 6. A bare
+`Thread` inside `module Dexpace::Async` resolves to Ruby's `Thread` until `dexpace-async-thread` is
+required and to `Dexpace::Async::Thread` afterwards, and core's own suite never requires that gem —
+a bug that cannot fail in the tree that contains it, so the phase adds a **sixth custom cop**
+alongside a behavioural test that defines the adapter's constant and re-runs the pivot. And `Gem` is
+undefined under `ruby --disable-gems`, so `DEF-21`'s comparison is hand-rolled and `Gem::Requirement`
+appears only in the test that cross-checks it. Thirteen decisions are recorded as deviations P2-1
+through P2-13, with a Design §3 addendum (two entries) and a Design §9 addendum (one), for
+consolidation into design §10 and audit in `docs/deviations.md`. An independent review of both
+documents reproduced four behavioural defects in the plan's own fences on all three interpreters —
+a composed cancellation token reporting a reason different from the one it had just handed its
+handler; a per-token rather than per-registration `#on_cancel` guard, which left a second waiter on
+one token blocked forever and was a flat `SEAM-18` violation; a registry that called a factory and
+the conformance predicate while holding a non-reentrant mutex; and a cop that flagged its own
+accepted case — and every one is fixed in the filed plan. A second review found four more, all reproduced: a
+resolution claim released only on the `StandardError` path, so a `LoadError` from a factory wedged
+the registry into a silent spin; `#swap` restoring a captured snapshot that still carried a
+completed resolution's closed gate, the same wedge through the seam every adapter suite uses; a
+method-level `else` in the sync-to-async bridge that let a raise escape the posted block and leave
+the future permanently unsettled; and three lock tests that passed under the very shape their
+comments said they rejected. All four are fixed, and each guard was run red against the pre-fix
+code first. The plan's **44 `ruby` fences are extracted, written to the 41 files they name and
+run**: 169 runs, 537 assertions, 0 failures on 3.2.11 and 3.4.10 and 545 on 4.0.6, warning-free
+under `ruby -w` and identical across six seeds. The RuboCop cop is the one fence that cannot run
+against this project's toolchain — no RuboCop is installed until phase 0 — and was executed during
+review on RuboCop 1.90.0 through phase 0's verbatim harness: 17 runs, 61 assertions, 0 failures.

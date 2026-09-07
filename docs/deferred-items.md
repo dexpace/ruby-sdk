@@ -49,10 +49,20 @@ against the design pass itself rather than an implementation phase.
 - **Why:** Both are below MUST level. SEAM-24 (SHOULD) asks for cross-thread diagnostic-context
   propagation beyond fiber-local storage; SEAM-28 (MAY) asks for a stable operation identifier on
   the projection. Neither is needed for the fiber-local context storage the MVP ships.
-- **Pick-up condition:** SEAM-24 ships together with `dexpace-async-async` (see DEF-11); SEAM-28
-  has no named trigger and is picked up opportunistically.
+- **Pick-up condition:** SEAM-24 ships together with `dexpace-async-async` (see DEF-11).
+  **SEAM-28 targets phase 5 (Configuration and Observability)**, named by phase 2's register sweep
+  on 2026-09-07 — it had no trigger, and "picked up opportunistically" was not a condition any
+  phase could meet.
 - **Cites:** SEAM-24, SEAM-28
-- **Status:** deferred
+- **Status:** deferred. Phase 2 owns both IDs and ships the gem they would live in, and built
+  neither. **SEAM-28 is not UNSCHEDULED**: that status is for a row whose pick-up condition a phase
+  *met* and declined to act on, and this row's condition never fired, because the opportunity does
+  not exist yet. Both halves of the MAY need machinery phase 2 does not have — the request's
+  context chain (`CTX`, phase 4) for "attached to the request's context chain", and a consumer for
+  the identifier (instrumentation, phase 5) for "for instrumentation/tracing" — and **phase 5 is
+  the first phase that has both**, which is why it is the target rather than phase 4. Phase 2 does
+  fix the contract SEAM-24's cancellation half will map in both directions:
+  `Dexpace::Cancellation` in one and `Dexpace::Async::Completer#on_cancel` in the other.
 
 ### DEF-2 — HTTP-22, HTTP-48, HTTP-49, HTTP-50: name interning and ETag/Range/conditional-request helpers
 
@@ -284,7 +294,17 @@ execution step 7.
   to shape.
 - **Pick-up condition:** phase 2 (Seam Foundations), with the registration call it belongs to.
 - **Cites:** NFR-14, SEAM-5, SEAM-6, SEAM-7
-- **Status:** deferred
+- **Status:** picked-up (2026-09-07, phase 2). `Dexpace::Registry#register(key, factory, core:)`
+  takes the adapter's `~> MAJOR.MINOR` requirement as a **required** keyword and raises
+  `Dexpace::SeamError` naming the key, the requirement and `Dexpace::VERSION` on skew — required
+  rather than optional, because an optional skew check is a skew check nobody passes. The
+  comparison is hand-rolled and accepts only the two-segment pessimistic form design §2.3 mandates,
+  refusing anything else rather than partially reinterpreting it: `Gem` is undefined under
+  `ruby --disable-gems` (verified on 3.2.11 and 4.0.6) and `rubygems` is not on phase 0's require
+  allowlist, so `Gem::Requirement` cannot be a runtime dependency. It appears in the **test**
+  instead, where the comparison is cross-checked against `Gem::Requirement#satisfied_by?` over a
+  grid of versions. Recorded as deviation P2-7. This is also what replaces `SEAM-10`, whose
+  multi-loader de-duplication is vacuous in Ruby (design §10.9).
 
 ### DEF-22 — `dexpace-conformance`'s framework-agnostic assertion objects
 
@@ -366,4 +386,138 @@ execution step 7.
 - **Cites:** HTTP-6, HTTP-46, BODY-1, NFR-4
 - **Status:** deferred
 
-next id: DEF-27
+## Filed by phase 2 — Seam Foundations
+
+Every entry below names a target phase or an explicit pick-up condition, per the roadmap's
+execution step 7.
+
+### DEF-27 — `Dexpace.close_quietly`'s two error-disposal routes
+
+- **Deferred by:** phase 2, 2026-09-07
+- **Why:** Design §3.7 makes `Dexpace.close_quietly(resource)` the single sanctioned exit for a
+  close on a cleanup or discard path, and fixes exactly two ways the rescued failure may be
+  disposed of and never a third: **attached to the primary exception's suppressed trail when there
+  is a primary exception in flight, and emitted as an `http.instrumentation.*` diagnostic through
+  §8.1's facade when there is not.** Phase 2 has neither. The suppressed trail is
+  `Dexpace::Error#suppressed`, which phase 1 deferred to phase 4 as `DEF-24`; the diagnostic needs
+  the instrumentation facade, which is phase 5's. Building either here would fix an interface a
+  later phase must be free to shape — the same objection phase 0 raised against defining
+  `Dexpace.register` early, and it applies unchanged. So phase 2 ships the helper with its
+  null-safety (`CFG-21`'s last clause) and its `rescue StandardError`, **drops the rescued error**,
+  says so in the YARD block, and asserts the current behaviour in a test so the day a route lands
+  that test is what has to change. The two loud exceptions §3.7 names are honoured from the start
+  and do not come through here: an explicit `#close` by a caller propagates its failure
+  (`SSE-30`), and a `#release` raising during the latched close propagates once (`BODY-27`).
+- **Pick-up condition:** phase 4 supplies the first route with `DEF-24`'s `#suppressed` and
+  `Dexpace.attach_suppressed`; **phase 5 supplies the second with §8.1's facade and closes this
+  row**. A close failure swallowed with no diagnostic is a leaked connection nobody can diagnose,
+  which is why the row exists rather than the behaviour being accepted.
+- **Cites:** SEAM-30, CFG-21, RECOV-12, XCUT-13, OBS-3
+- **Status:** deferred
+
+### DEF-28 — The pivot's `deadline:` keyword and the clock behind it
+
+- **Deferred by:** phase 2, 2026-09-07
+- **Why:** Design §3.3 writes the pivot's blocking wait as `#value(deadline: nil)` and
+  `#wait(deadline: nil)`. Phase 2 ships `#value(cancellation: nil)` and `#wait(cancellation: nil)`
+  instead, and no `deadline:`. `SEAM-18`'s interruption clause — the only seam requirement the
+  blocking wait has to satisfy — is about **cancellation**, and a cancellation token is what both
+  transport seams already thread as their third argument. A deadline is a different thing: it needs
+  a clock, a monotonic time source and an interruptible delay, all of which are `CFG-15`–`CFG-21`
+  and phase 5's, and building one here would fix their shape a phase ahead of the requirements that
+  define them. Recorded as deviation P2-5. The narrowing is safe against the `NFR-4` API lock in
+  the one direction that matters: adding a keyword later **widens** a signature, and the lock fails
+  when a public signature "disappears or narrows".
+- **Pick-up condition:** phase 5 (Configuration and Observability), with `CFG-15`–`CFG-21`'s clock
+  and interruptible-delay primitives. `Dexpace::Cancellation.any` is the composition point a
+  deadline-derived token plugs into, and `Cancellation.over` is public for exactly that.
+- **Cites:** SEAM-18, CFG-15, CFG-17, CFG-18, CFG-20, CFG-21, NFR-4
+- **Status:** deferred
+
+### DEF-29 — Moving the in-memory fakes into `dexpace-conformance`
+
+- **Deferred by:** phase 2, 2026-09-07
+- **Why:** The roadmap's cross-cutting constraint 4 has phases 1 through 7 test against an
+  in-memory fake transport implementing only the `SEAM-11`/`SEAM-16` seams. Phase 1 needed none —
+  every type it shipped was a pure value — so phase 2 is the first phase that needs one and decides
+  where it lives: `gems/dexpace-core/test/support/`, as `FakeTransport`, `FakeAsyncTransport` and
+  `FakeCodec`, **not public API**. Four reasons. `NFR-11`'s scan is over `sig/`, so a fake in
+  `test/` is invisible to it, which is the correct outcome. A published fake would need a YARD
+  block, an RBS mirror and a row in the runtime surface manifest, after which changing its shape is
+  a public API change diffed against a release tag (`NFR-4`) — a real cost paid forever for a
+  convenience. `dexpace-conformance` is the gem chartered to publish adapter test doubles
+  (design §9.3) and is phase 8's, so publishing a competing fake from core would give a third-party
+  adapter author two answers to one question. And phases 3 through 7 all ship `dexpace-core`, so a
+  core test-support file is reachable by every phase the constraint names, with nothing published.
+- **Pick-up condition:** the first consumer outside `dexpace-core`. Phase 8 at the earliest,
+  alongside `DEF-22`'s framework-agnostic assertion objects — and the moment they move is also the
+  moment `DEF-23`'s "a gem's test support becomes production-quality code worth checking" condition
+  is worth re-reading.
+- **Cites:** SEAM-11, SEAM-16, NFR-4, NFR-11
+- **Status:** deferred
+
+### DEF-30 — Presence-gated auto-activation for instrumentation
+
+- **Deferred by:** phase 2, 2026-09-07
+- **Why:** Design §3.6 permits activating an adapter because a library happens to be loaded **for
+  instrumentation only**, and argues the asymmetry rather than assuming it: for a transport or a
+  codec, "whatever happens to be installed silently wins" is an auditability failure — a `Gemfile`
+  change could reroute every request through a different HTTP library with different TLS defaults
+  and different timeout semantics, which is what `SEAM-5`'s loud-failure branches exist to prevent
+  — while for instrumentation the worst outcome of guessing wrong is a span that is or is not
+  emitted. Phase 2 ships all three seam registries and **no auto-activation hook of any kind**,
+  because it ships no instrumentation seam and so has nothing to activate; a mechanism in the
+  registry with no caller and one obvious wrong use is worse than its absence. A test asserts the
+  hook is absent, so this is a recorded decision rather than an omission.
+- **Pick-up condition:** an instrumentation seam exists to activate — phase 5 (Configuration and
+  Observability) at the earliest — and its first and only sanctioned user is
+  `dexpace-instrumentation-otel` (see DEF-17), which is post-v1. No transport or codec adapter may
+  ever use it, and that restriction travels with this row.
+- **Cites:** SEAM-5, SEAM-2, OBS-31
+- **Status:** deferred
+
+### DEF-31 — SEAM-25's lifecycle event on the first close of an owned executor
+
+- **Deferred by:** phase 2, 2026-09-07
+- **Why:** `SEAM-25` requires an async-runtime adapter that owns an executor to implement close as
+  "an idempotent, ownership-aware release: **only the first close shuts the owned executor and
+  emits the lifecycle event**, later closes are true no-ops." Phase 2 ships the whole of that
+  sentence except the event. `Dexpace::Closeable` supplies the latch, the ownership rule and the
+  once-only `#release`, verified under contention; there is nothing to emit an event *through*,
+  because the instrumentation facade is `docs/sdk-design-ruby/08-instrumentation-and-configuration.md`
+  §8.1 and phase 5's. Defining an event shape here would fix the facade's interface two phases
+  ahead of the requirements that define it, which is the objection phase 0 raised against defining
+  `Dexpace.register` early and phase 2 raised again against `close_quietly`'s disposal routes
+  (`DEF-27`). Recorded rather than left implicit because the phase-2 checklist marks `SEAM-25` ✅
+  for the release half, and a ✅ with an unstated missing clause is exactly the drift the
+  one-row-per-ID convention exists to prevent.
+- **Pick-up condition:** phase 5 (Configuration and Observability), with §8.1's facade — that is
+  where the event can be emitted. The first thing in this repository that actually **owns** an
+  executor is phase 8's `dexpace-async-thread`, so phase 8 is where the emission gets a real
+  subject and where `dexpace-conformance` asserts "close twice → executor shut once, one event".
+- **Cites:** SEAM-25, ASYNC-15, ASYNC-16, XCUT-13, OBS-3
+- **Status:** deferred
+
+### DEF-32 — the handler failures `Hooks.notify` drops after the first
+
+- **Deferred by:** phase 2, 2026-09-08
+- **Why:** Three phase-2 sites publish state under a mutex and then notify a list of caller-supplied
+  callbacks outside it: `Cancellation::Source#cancel`, `Async::Completer#settle` and
+  `Async::Completer#request_cancel`. Written as a bare `hooks.each { |hook| hook.call(…) }`, one
+  raising handler drops every later-registered handler and propagates to whoever published the
+  state — the same `SEAM-18` failure as "a second waiter on one token blocks forever", arriving from
+  the write side, and verified on 3.2.11, 3.4.10 and 4.0.6. `Dexpace::Hooks.notify` runs the whole
+  list and then re-raises the **first** failure. The failures **after** the first are dropped, and
+  that is the deferral: `docs/sdk-design-ruby/03-seam-and-adapter-mapping.md` §3.7 names two
+  disposal routes for a rescued error and phase 2 has neither. Dropping every failure instead was
+  rejected for the reason `close_quietly`'s own row gives (`DEF-27`): a handler that raises into a
+  void is a bug nothing reports, and phase 2 has no diagnostic channel at all.
+- **Pick-up condition:** phase 4, with `DEF-24`'s `Dexpace::Error#suppressed`. That is the first
+  carrier a second failure can be attached to, and the change is confined to `Hooks.notify`: attach
+  each later failure to the first through `Dexpace.attach_suppressed`, then re-raise as now. Phase 5
+  may additionally emit an `http.instrumentation.*` diagnostic per dropped failure once §8.1's
+  facade exists (`DEF-27` waits on the same two routes); it does not replace the trail.
+- **Cites:** SEAM-13, SEAM-18, SEAM-16, XCUT-13
+- **Status:** deferred
+
+next id: DEF-33

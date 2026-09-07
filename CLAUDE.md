@@ -380,7 +380,6 @@ probe compares each against the live tree, and a count written anywhere else in 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
 - There are three phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/` and `phase2/`. `phase0/` and `phase1/` each carry that phase's design and plan;
-  `phase2/` carries its design alone, its plan still to be written. Every checklist is written at
-  execution time.
+  `phase1/` and `phase2/` — each carrying that phase's design and plan, with every checklist still
+  to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

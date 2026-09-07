@@ -83,10 +83,13 @@ Where the thirty land, in the design's own §3 order:
 | `SEAM-3`, `SEAM-4` | The byte-stream provider seam, retired (§10.1) | 🚫, named reason |
 | `SEAM-5`–`SEAM-9` | `Dexpace::Registry` | ✅ |
 | `SEAM-10` | Vacuous in Ruby (§10.9), replaced by the version-skew guard this phase builds | N/A + `DEF-21` picked up |
-| `SEAM-11`–`SEAM-13`, `SEAM-15` | `Dexpace::Transport`, `Dexpace::ClosedError` | ✅ |
-| `SEAM-14`, `SEAM-25` | `Dexpace::Closeable` | ✅ |
+| `SEAM-11`, `SEAM-13` | `Dexpace::Transport` | ✅ |
+| `SEAM-15` | `Dexpace::ClosedError` and the documented rule that an *owning* transport raises it | ✅ for the class and the rule; **no raise site**, because this phase ships no owning transport — phase 8's adapters are the first, and `dexpace-conformance` asserts it per adapter (`DEF-22`) |
+| `SEAM-12` | The seam's shape, which forces no per-request state onto shared storage | ⏳ `DEF-22` — concurrency safety is a property of an implementation and this phase ships none |
+| `SEAM-14` | `Dexpace::Closeable`, taken by both `SEAM-18` bridges | ✅ |
+| `SEAM-25` | `Dexpace::Closeable`'s idempotent, ownership-aware release | ✅ for the release; the clause "and emits the lifecycle event" is `DEF-31`, phase 5 |
 | `SEAM-16`, `SEAM-17`, `SEAM-30` | `Dexpace::Async::Future`, `Dexpace::Async::Completer`, `Dexpace::AsyncTransport` | ✅ |
-| `SEAM-18` | The two bridges, on `Dexpace::Transport` and `Dexpace::AsyncTransport` | ✅ |
+| `SEAM-18` | `Dexpace::Bridge::AsyncOver` and `Dexpace::Bridge::SyncOver` | ✅ |
 | `SEAM-19`–`SEAM-21`, `SEAM-23` | `Dexpace::Serde` and its failure hierarchy | ✅ |
 | `SEAM-22` | Replaced by the witness protocol (§10.14); the seam-level half — `#load` takes an explicit witness and there is no witness-less overload — is fixed here | 🚫 mechanism, named reason |
 | `SEAM-24` | Cross-thread diagnostic propagation | ⏳ `DEF-1`, rides on `DEF-11` |
@@ -112,7 +115,7 @@ the property anyway, because three seams still need it.
 | `PIPE-33`'s pipeline-level sync↔async bridge, which reuses this phase's `SEAM-18` bridges rather than building a second pair | 4 |
 | `RECOV-12`'s suppressed-exception trail, and therefore one of `close_quietly`'s two disposal routes | 4 — `DEF-24` |
 | `CFG-15`–`CFG-21`'s clock, deadlines and interruptible delay, and therefore `#value(deadline:)` | 5 — `DEF-28` |
-| `OBS`/§8.1's instrumentation facade, and therefore `close_quietly`'s other disposal route and any presence-gated auto-activation | 5 — `DEF-27`, `DEF-30` |
+| `OBS`/§8.1's instrumentation facade, and therefore `close_quietly`'s other disposal route, `SEAM-25`'s lifecycle event, and any presence-gated auto-activation | 5 — `DEF-27`, `DEF-31`, `DEF-30` |
 | `SERDE-*` — the witness protocol, `Tristate`, and every concrete codec behaviour | 7 |
 | Every concrete adapter: `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-async-thread`, and `dexpace-conformance`'s assertion objects | 8 — `DEF-22` |
 | `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause, the port's three known-unsatisfied MUSTs | 8 marks them, `DEF-18`; §10.5 |
@@ -172,10 +175,12 @@ this is the phase that defines the async surface it would have appeared in.
 ## Corpus reading, and what it settled
 
 The phase-start pair was run before anything here was written.
-`ruby scripts/knowledge.rb --section conflicts --brief` returns nineteen entries across fourteen
-topic files, of which the six styleguide-versus-design conflicts **all print
-`[overridden by notes/…]`**; none is open, and none of the six is re-litigated here.
-`--origin note --brief` returns sixteen note entries across nine files — the six conflicts plus
+`ruby scripts/knowledge.rb --section conflicts --brief` returned nineteen entries across fourteen
+topic files **before this phase's own four notes landed** (it reads 22 across 15 after them), of
+which the six styleguide-versus-design conflicts **all print `[overridden by notes/…]`**; none is
+open, and none of the six is re-litigated here.
+`--origin note --brief` returned sixteen note entries across nine files, again before this phase's
+four — twenty across eleven after them — the six conflicts plus
 phase 0's five and phase 1's five — and nothing in that set contradicts this phase's plan. Two are
 load-bearing here and are cited at their point of use: `module-organization/6e69ad04` (public
 constants are flat; directories organise files) and `error-handling/d2eadac4` (`Dexpace::Error` is
@@ -360,12 +365,15 @@ lib/dexpace/error/seam_error.rb             Dexpace::SeamError
 lib/dexpace/error/closed_error.rb           Dexpace::ClosedError
 lib/dexpace/error/cancelled_error.rb        Dexpace::CancelledError
 lib/dexpace/closeable.rb                    Dexpace::Closeable   (+ Dexpace.close_quietly)
+lib/dexpace/hooks.rb                        Dexpace::Hooks       (private_constant)
 lib/dexpace/cancellation.rb                 Dexpace::Cancellation
 lib/dexpace/cancellation/source.rb          Dexpace::Cancellation::Source
 lib/dexpace/async/settlement.rb             Dexpace::Async::Settlement
 lib/dexpace/async/completer.rb              Dexpace::Async::Completer
 lib/dexpace/async/future.rb                 Dexpace::Async::Future
 lib/dexpace/registry.rb                     Dexpace::Registry
+lib/dexpace/bridge/async_over.rb            Dexpace::Bridge::AsyncOver
+lib/dexpace/bridge/sync_over.rb             Dexpace::Bridge::SyncOver
 lib/dexpace/transport.rb                    Dexpace::Transport
 lib/dexpace/async_transport.rb              Dexpace::AsyncTransport
 lib/dexpace/serde.rb                        Dexpace::Serde
@@ -386,9 +394,13 @@ Two files at the repository root, outside every gem:
 .rubocop/test/cops_test.rb                          MODIFIED: the sixth cop's cases
 ```
 
-Seventeen new `lib/` files, seventeen `sig/` mirrors, seventeen `test/` mirrors, three test-support
+Twenty new `lib/` files, nineteen `sig/` mirrors, nineteen `test/` mirrors, three test-support
 files, one cop with its cases, and three already-existing files that gain content: `lib/dexpace.rb`,
 `sig/dexpace.rbs` and the repository-root `test/fixtures/surface/dexpace-core.txt`.
+`lib/dexpace/hooks.rb` is the one file with neither mirror: it is a `private_constant`, so it is not
+public API by this repository's own definition -- no `sig/` signature, no YARD gate entry -- and a
+test cannot name `Dexpace::Hooks` to exercise it directly. Its three call sites are where its
+behaviour is asserted.
 
 **The placement rule is phase 1's and is applied, not re-decided** (`module-organization/6e69ad04`,
 deviation P1-1): a public constant the design names without a namespace is flat and its file sits
@@ -400,8 +412,13 @@ with a namespace keeps it — `Dexpace::Async::Future`, `Dexpace::Serde::Seriali
 `Dexpace::Transport`; §3.4 names `Dexpace::Serde::SerializationError` and `DeserializationError`;
 §3.5 names `Dexpace::Operation`; §3.7 names `Dexpace::Closeable`, `Dexpace.close_quietly` and
 `Dexpace::ClosedError`; §3.3 names `Dexpace::Cancellation`. Every one of those names is taken from
-the design rather than invented. **Three constants the design does not name**, and the reason for
-each: `Dexpace::Registry` (P2-10), `Dexpace::AsyncTransport` (P2-1) and `Dexpace::SeamError`.
+the design rather than invented. **Constants the design's own §3 does not name**, and the reason for each: `Dexpace::Registry`
+(P2-10), `Dexpace::AsyncTransport` (P2-1), `Dexpace::SeamError`, the `Dexpace::Bridge` namespace
+holding both `SEAM-18` bridges (P2-13), `Dexpace::Cancellation::Subscription` (P2-14), and the
+public methods P2-11 and P2-14 enumerate. `Dexpace::Hooks` is not among them: it is a
+`private_constant` (P2-15) and therefore not public API by this repository's own definition. Every one of them
+is `NFR-4`-locked at the first release tag, which is why each has a ledger row rather than a
+comment.
 
 `Dexpace.close_quietly` lives in `lib/dexpace/closeable.rb` beside the contract it serves. That
 file therefore defines one public *constant* and one module function, which is what
@@ -463,13 +480,41 @@ class or any `#call`-shaped builder, because require-time registration happens b
 application has configured anything. `#resolve` builds the winning factory once and memoises the
 instance. `#install(instance)` takes an instance.
 
-**State is one frozen `Data` snapshot, swapped under a `Thread::Mutex`.** Four members —
-`factories` (a frozen `Hash`), `resolved`, `handed_out`, `explicit` — so a reader takes one
-unsynchronised read of a single reference and sees a consistent, fully-constructed, frozen picture
-or the previous one, never a torn mixture. Writes serialise under the mutex, which is held across
-the swap and across nothing else. That is `SEAM-9`'s three clauses implemented rather than argued,
-and it is `IO-39`'s lock-free-read property surviving the seam that used to state it. The
+**State is one frozen `Data` snapshot, swapped under a `Thread::Mutex`.** Five members —
+`factories` (a frozen `Hash`), `resolved`, `handed_out`, `explicit` and `resolving` — so a reader
+takes one unsynchronised read of a single reference and sees a consistent, fully-constructed, frozen
+picture or the previous one, never a torn mixture. Writes serialise under the mutex, which is held
+across the swap and across nothing else. That is `SEAM-9`'s three clauses implemented rather than
+argued, and it is `IO-39`'s lock-free-read property surviving the seam that used to state it. The
 alternative the styleguide prefers, `Concurrent::Map`, is a gem (note above).
+
+**No factory call and no `.conforms?` call happens under that mutex**, and the `resolving` member
+is what makes that possible. The obvious shape — build inside `synchronize` so the scan runs once —
+deadlocks with `ThreadError: deadlock; recursive locking` the moment a factory resolves anything
+from the same registry, because Ruby's `Thread::Mutex` is non-reentrant (verified), and it breaks
+this design's own rule that a mutex is held across a snapshot swap and nothing else. Instead the
+claim *is* a snapshot swap: the winner puts a `Thread::Queue` in `resolving` and builds outside the
+lock, and every other caller blocks on that queue until the winner closes it. `SEAM-9`'s "a
+concurrent first-access cannot run the discovery scan twice" survives with the scan unlocked, and
+the wait is scheduler-transparent for the same reason the pivot's is. A resolution that raises
+clears the slot and every waiter retries, which is `SEAM-7`'s re-evaluability rather than a
+regression — and the slot is released in an `ensure`, not on a `rescue StandardError` path, because
+a factory can raise a `LoadError` and a claim released only for `StandardError` leaves a closed
+gate latched and every later `#resolve` spinning silently. An explicit `#install` that lands while
+a build is in flight wins, and the built provider is discarded **and closed** through
+`Dexpace.close_quietly`: a transport provider is the archetypal owner of a pool (`SEAM-14`), and
+this phase already closes exactly this shape in `Completer#fulfil` (`SEAM-30`).
+
+**The `resolving` slot therefore records the claiming fiber as well as the gate**, and a factory
+that resolves the registry building it raises `Dexpace::SeamError` at that call. Without the owner,
+that caller parks on the gate it took itself and never returns, and every later caller then parks
+on the same gate: measured, one self-resolving thread plus four unrelated resolvers left five hung,
+and a two-registry cycle hung too, on every supported Ruby. The build-under-`@write` shape this
+replaced raised `ThreadError: deadlock; recursive locking` immediately from the offending call, and
+that scenario is the stated motivation for replacing it — so a silent registry-wide wedge would be
+a straight regression, not a trade. The owner is a `Fiber` rather than a `Thread` for the same
+reason `Thread::Mutex`'s own ownership is per-fiber: two fibers of one thread can genuinely wait on
+each other, while a factory that spawns a *thread* and resolves from it is not re-entrant at all.
 
 `#resolve`'s branches, which are `SEAM-5` verbatim:
 
@@ -493,8 +538,17 @@ on the object in the resolved slot** — never `==` and never the factory (`seam
 | empty | succeeds silently | `SEAM-5` |
 | holds `t` (`equal?`) | no-op | `SEAM-6` |
 | holds a different object, explicitly installed | raise `Dexpace::InvalidArgumentError` naming incumbent and rejected | `SEAM-6` |
-| holds a different object, auto-resolved, never handed out | replace silently | `SEAM-8` |
+| holds a different object, auto-resolved, never handed out | replace silently | `SEAM-8` — **vacuous in production**, see below |
 | holds a different object, auto-resolved, already handed out | replace **and warn** | `SEAM-8` |
+
+**The fourth row is `SEAM-8`'s negative clause holding vacuously, and saying so is the honest
+reading.** `SEAM-8` warrants no warning "when the resolved provider was never actually returned",
+and in this port `#resolve` hands out the provider in the same call that resolves it — so an
+auto-resolved-but-never-handed-out slot is unreachable through the ordinary API. The branch is
+implemented rather than collapsed for two reasons: collapsing it would warn on a state the
+requirement explicitly says warrants no warning, the day a non-delivering resolution path is added;
+and the unchecked swap seam `SEAM-6` sanctions does reach that state, which is where the test
+exercises it. What the test may not claim — and does not — is that any production path reaches it.
 
 `#register` carries the same rule one level down: re-registering the `equal?` factory under the same
 key is a no-op, and a different factory under an occupied key raises naming both — so a double
@@ -511,6 +565,16 @@ an `http.instrumentation.*` diagnostic when §8.1's facade exists. Emitting it o
 overrides" `SEAM-6` permits, taken explicitly and in the safest shape Ruby offers: block-scoped,
 restoring the prior snapshot in an `ensure`, documented as test-scoped and performing no conflict
 check. A bare setter would be the same capability with no restore.
+
+**Two members are spliced from the live state rather than restored**, and the rule is the same for
+both: the live value is the only correct one. `resolving`, because a resolution can be in flight
+when the swap begins and can complete inside the block, and putting that snapshot's now-closed gate
+back leaves every later `#resolve` popping a closed queue forever. `factories`, because an adapter
+registers itself as a side effect of being `require`d and **Ruby will not re-run a `require`**: a
+registration reverted by the `ensure` is gone for the rest of the process, silently — verified,
+`swap(:fake) { register(:key, …) }` left `#registered_keys` empty. `resolved`, `explicit` and
+`handed_out` *are* restored, because scoping an override to a block is what `#swap` is for and an
+`#install` inside the block is part of that override.
 
 ### The version-skew guard (`DEF-21`, picked up here)
 
@@ -542,8 +606,8 @@ passing.
 
 ## `Dexpace::Transport` — the synchronous transport seam
 
-**Satisfies:** `SEAM-11`, `SEAM-12`, `SEAM-13`, `SEAM-15`, and `SEAM-2` for this seam.
-**Design:** §3.2. **Corpus:** `transport-adapter/1e63c819`, `/da577942`, `/e25582ce`, `/938e4c9a`,
+**Satisfies:** `SEAM-11`, `SEAM-13`, `SEAM-15`, and `SEAM-2` for this seam; `SEAM-12`'s *shape*,
+with the requirement itself ⏳ against `DEF-22`. **Design:** §3.2. **Corpus:** `transport-adapter/1e63c819`, `/da577942`, `/e25582ce`, `/938e4c9a`,
 `/c3d2d69c`; `porting-method/bf484e8e`.
 
 **A transport is any object responding to `#call(request, options, cancellation)` and returning a
@@ -586,9 +650,15 @@ is fixed here and nowhere else: cancellation reaches a transport as the **third 
 ordinary value, and the transport honours it by checking `#cancelled?` at every point it resumes
 from a wait. Phase 8's adapters do the honouring; `dexpace-conformance` asserts it.
 
-**`SEAM-15` is a MAY and this port takes it explicitly** (§3.7): a send after close raises
-`Dexpace::ClosedError`, documented at the seam rather than left undefined, because "undefined" in
-Ruby means whatever `NoMethodError` the internals happen to produce.
+**`SEAM-15` is a MAY and this port takes it explicitly** (§3.7), in a narrower form than "a send
+after close raises": **a transport that owns the resource it closed raises `Dexpace::ClosedError`
+from a later send.** A wrapper that only *borrows* closes nothing and stays usable — which is what
+both `SEAM-18` bridges do, and raising there would break `XCUT-22`'s "the caller owns its lifecycle
+and may keep using it after the SDK component is closed". Phase 2 therefore ships the error class
+and the documented rule and **no raise site**, because it ships no owning transport; phase 8's
+adapters are the first owners and `dexpace-conformance` is where the raise is asserted. Documented
+rather than left undefined, because "undefined" in Ruby means whatever `NoMethodError` the
+internals happen to produce.
 
 **One gap, admitted rather than papered over.** The synchronous and asynchronous transport seams
 have the *same* structural shape — `#call(request, options, cancellation)` — and differ only in
@@ -746,11 +816,74 @@ the same field.
 split as `Completer`/`Future` and for the same reason — Ruby has no package-private visibility, so
 the alternative is a `send` through the boundary. A `Source` holds one frozen `Data` snapshot
 (`cancelled`, `reason`) swapped under a `Thread::Mutex`, with `#on_cancel` handlers run outside the
-lock. A `Cancellation` holds a frozen list of sources, so `#cancelled?` is `any?` over them,
-`#reason` is the first cancelled source's, and `.any(*tokens)` is the concatenation of their
-source lists rather than a new subscription graph. `.none` is a frozen singleton over an empty
-list, so the common case allocates nothing and can never be cancelled. `Cancellation.new` is
-`private_class_method`; `.none`, `.source` and `.any` are the factories.
+lock.
+
+**A token is frozen, holds no state, and subscribes to nothing until a caller registers a
+callback.** `#cancelled?` and `#reason` are computed from the sources on every call, and the winner
+is the cancelled source with the earliest `#cancelled_at` — a monotonic nanosecond stamp each
+`Source` takes when it cancels. Two alternatives were tried and rejected. Reading `#reason` off the
+first cancelled source in *list* order is wrong, and this phase's own test caught it: a composed
+token would report a different reason from the one its `#on_cancel` handler had just been handed,
+for the whole life of the token, which is the single thing a composed token must not do.
+Subscribing at construction to latch the winner is correct but leaks — a token retains one closure
+on every source for as long as that source lives, and `.any` composing a client-lifetime token with
+a per-call deadline token, which is exactly what `.any` is for and what phase 5's `DEF-28` will do
+on every request, retained 201 closures on one source over 200 compositions, measured on 3.2.11 and
+4.0.6. Ordering by the stamp gets the same answer with no subscription at all.
+
+**What the stamp buys is convergence, not atomicity, and the residual is recorded rather than
+claimed away.** A `Source` takes its stamp *before* it takes its own mutex, so a source with the
+earlier stamp can publish its state after a handler has already fired on a later-stamped one, and
+`#reason` then flips to the earlier one — a handler and a subsequent `#reason` read disagreeing.
+Demonstrated deterministically on 3.2.11, 3.4.10 and 4.0.6 by holding one source's mutex across the
+other's `#cancel`, and seen in a free-running race 2 times in 120,000 on 3.2.11. **No stamp
+placement closes it**: the two sources hold two different mutexes and nothing orders them, so moving
+the read inside the lock narrows the window without removing it, and a token-level latch is the
+subscription-at-construction leak this design already rejected. What holds unconditionally, and is
+what a caller may rely on: the token is cancelled, every reason it ever reports belongs to a source
+that really was cancelled, and the value converges once every racing source has published. **Ties
+are not the problem and are not treated as one** — 0 same-nanosecond collisions in 100,000 stamps,
+a 50 ns median gap between successive `CLOCK_MONOTONIC` reads, 1 ns resolution, measured on all
+three interpreters; two sources stamped inside one nanosecond tie-break on list order.
+
+**`#on_cancel` guards per registration, not per token**, and it is the only method that
+subscribes. Each registered block is invoked exactly once whether the token watches one source or
+several, and the guard is a flag private to that registration; a single "something already fired"
+flag on the token would silently drop every registration after the first, which is how a second
+waiter on one token blocks forever — a `SEAM-18` violation no single-waiter test can see. The
+handler is handed `#reason` rather than the firing source's own, so a handler and a later `#reason`
+read agree in every ordering the handler itself can observe; the paragraph above states the window
+they can still disagree across.
+
+**`#on_cancel` returns an unsubscribe handle**, `Cancellation::Subscription`, whose `#detach`
+withdraws that one registration from every source the token observes through
+`Cancellation::Source#off_cancel`. Composition subscribing to nothing is only half of what keeps a
+long-lived source from accumulating closures; the other half is that a registration made for a
+bounded wait is withdrawn when that wait ends. `Completer#await` is the one caller in `lib/`, and it
+detaches in an `ensure`. Without it, `.any(client_token, per_call_token)` with
+`future.value(cancellation:)` — what phase 5's `DEF-28` does on every request — retains one closure,
+and through it one response, per request on the client-lifetime source: measured 200 of 200, with
+500 100 KB responses still reachable after `GC.start`, identically on all three interpreters.
+Deviation P2-14.
+
+**Every handler runs, whatever an earlier one did.** `Source#cancel` publishes its snapshot under
+the mutex and then notifies through `Dexpace::Hooks.notify` rather than a bare
+`hooks.each { |hook| hook.call(reason) }`: in a bare `each` one raising handler drops every
+later-registered handler and propagates to the canceller, which is the "a second waiter on one
+token blocks forever" `SEAM-18` failure arriving from the write side. `Hooks.notify` runs the whole
+list, then re-raises the first failure — re-raising rather than dropping, because phase 2 has
+neither of §3.7's two disposal routes (`DEF-24`'s suppressed trail, phase 4; §8.1's diagnostic,
+phase 5) and a handler that raises into a void is a bug nothing reports. It is safe to re-raise
+*there* in a way it is not at the naive site, because the state is already published and every other
+handler has already run. The failures after the first are dropped until `#suppressed` exists to
+carry them: `DEF-32`. Deviation P2-15.
+
+`#sources` is **protected**, and composition therefore goes through `#merged_with(*others)`, an
+instance method: a class method has the class as `self` and cannot call a protected instance
+method, which is what would force `#sources` public if `.any` did the work itself. `.none` is a
+**frozen** singleton over an empty list that allocates no mutex and no hook list, so the common
+case allocates nothing and can never be cancelled. `Cancellation.new` is `private_class_method`;
+`.none`, `.source`, `.over` and `.any` are the factories.
 
 **What phase 2 does not build:** deadline-derived tokens, the interruptible delay, and the clock —
 all `CFG-15`–`CFG-21`, phase 5 (`DEF-28`). `.any` composes tokens, which is what a per-call derived
@@ -827,8 +960,10 @@ A duck type of six methods and a `.conforms?` predicate over them:
 `Encoding::BINARY` *is* Ruby's byte array; `#dump_bytes` differs from `#dump_string` only in the
 encoding tag, which is the whole of the distinction `SEAM-20` draws — and both ship because the tag
 is load-bearing at §3.1's encoding boundary and a caller wanting BINARY should not have to remember
-`#b`. `#dump` is documented as the shorthand for `#dump_to` and is not part of `.conforms?`, so a
-codec that implements the four named profiles conforms without also defining an alias.
+`#b`. `#dump(value, sink)` is §3.4's shorthand for `#dump_to`; an adapter may define it and the
+`Dexpace::Serde` YARD block says so, but it is deliberately **not** in the conformance contract —
+requiring the alias would make the shorthand mandatory, which is the opposite of what a shorthand
+is, so a codec implementing the four named profiles conforms without it.
 
 **`SEAM-19`'s undefaulted media type is enforced at the seam, not at the codec.** `.conforms?`
 requires `#media_type`; `Dexpace::Serde` supplies no default and has no fallback constant to fall
@@ -938,6 +1073,16 @@ identical on 3.2.11 and 4.0.6.
 **Satisfies:** `SEAM-18`, and exercises `SEAM-30`. **Design:** §3.3; §5.3's `PIPE-33` note.
 **Corpus:** `transport-adapter/4edbefc7`, `/85d9d8ed`; `concurrency-and-async/a1ec6ce4`, `/08a0e08d`.
 
+**Both bridges live in `Dexpace::Bridge`, one per file**, rather than under the seam module that
+exposes them (P2-13). `Dexpace::Transport::AsyncOver` would sit beside `Dexpace::Transport::NetHTTP`
+and `::AsyncHTTP` — two adapter namespaces — and a reader meeting three constants there cannot tell
+which core owns, which is exactly the confusion P2-1 keeps the async *seam* out of. Both include
+`Dexpace::Closeable` with `owned: false`: each holds a caller-supplied transport, and `AsyncOver`
+additionally a caller-supplied executor, and creates neither, so close latches and releases nothing
+and never cascades to the wrapped transport (`SEAM-14`'s ownership clause, `XCUT-22`). Without this
+the phase would ship two objects that call themselves transports and answer no `#close` at all,
+which `SEAM-14` requires of "both transport seams".
+
 **`Dexpace::Transport.async_over(transport, executor:)`** wraps a blocking transport as an async one.
 The `executor:` keyword is **required and has no default** — `SEAM-18` says so in as many words, and
 the reason is that a shared global pool would be starved by blocking work. The executor is a duck
@@ -950,7 +1095,9 @@ This is the one place in phase 2 where core itself can produce a response nobody
 of, so it is where `SEAM-30` is actually exercised rather than merely stated: the posted block
 performs the blocking send, re-checks cancellation on return (check-after-resume), and on a lost
 race hands the response to `Completer#fulfil`, which closes it through `Dexpace.close_quietly` and
-returns `false`.
+returns `false`. A raise from `#post` **itself** — a shut-down pool, a rejected task — is routed to
+`Completer#fail` alongside a raise from the wrapped transport, because `ASYNC-2` and `PIPE-30` ask
+for one normalisation and a caller of an async seam should never have to `rescue` around `#call`.
 
 **`Dexpace::AsyncTransport.sync_over(transport)`** wraps an async transport as a blocking one. Its
 three clauses:
@@ -995,7 +1142,7 @@ them as such rather than as gaps.
 Phase 0 built three mechanised checks for `SEAM-1` and put `json`, `net/http`, `net/protocol`,
 `open-uri`, `socket` and `resolv` on the require **denylist** for `SEAM-2`. Phase 2 adds no
 dependency, no allowlist entry and no denied require, so both rows are carried by the same three
-gates running green over seventeen more files. What phase 2 adds is the part a gate cannot see:
+gates running green over twenty more files. What phase 2 adds is the part a gate cannot see:
 
 - **`SEAM-2`'s "the core MUST NOT reference any concrete implementation of a seam by name"** now has
   something to be true *of*. Three registries exist and every one of them starts empty; core never
@@ -1051,7 +1198,7 @@ exercises, and a non-obvious branch names the ID that forced it. Every suite sub
 owns it, and the checklist written at execution time names the plan task, not this document. Three
 IDs are exercised in more than one file by nature: `SEAM-2` in `registry_test.rb` (the error names
 no gem) and in `transport_test.rb`/`serde_test.rb` (the registries start empty); `SEAM-30` in
-`async/completer_test.rb` (the lost-race close) and in `transport_test.rb` (the bridge's discard
+`async/completer_test.rb` (the lost-race close) and in `transport/async_over_test.rb` (the bridge's discard
 path); `SEAM-14` in `closeable_test.rb` and in each fake's own suite.
 
 **The concurrency tests, which are the ones a reader would otherwise write wrong.**
@@ -1067,6 +1214,11 @@ path); `SEAM-14` in `closeable_test.rb` and in each fake's own suite.
 | `Completer#fulfil` on an already-settled future | returns `false` **and** closes the response it was handed exactly once (`SEAM-30`) |
 | `#cancel` on an already-settled future | a no-op; the delivered response is **not** closed (`SEAM-16`, `ASYNC-20`) |
 | `Cancellation::Source#cancel` called twice with two reasons | the first reason wins; `#on_cancel` handlers run exactly once |
+| a factory that calls `#resolve` on the registry building it, and a two-registry cycle | `Dexpace::SeamError` at the offending call, and the registry re-evaluable for every other caller afterwards — never a park on the claim's own gate |
+| a `Cancellation::Source` or a `Completer` with a raising hook among three | every hook still runs; the state is published before any of them does; the first failure is re-raised after the whole list (`SEAM-18`, `DEF-32`) |
+| `Completer#on_cancel { raise }` then `Future#cancel` | the future is settled as cancelled and every waiter unblocks — a cancellation always publishes an outcome |
+| 200 `future.value(cancellation: .any(client_token, per_call_token))` calls that block first | the client-lifetime source retains **zero** hooks afterwards; the future must not already be settled, or `#await` never arms and the test passes under the leak |
+| a `register` performed inside a `#swap` block | survives the block's `ensure`; `resolved`/`explicit`/`handed_out` are restored and `factories`/`resolving` are not |
 
 **The scheduler-transparency test**, which is the one that proves the pivot's central claim rather
 than restating it: a probe `Fiber.scheduler` written in the test tree, a `Fiber.schedule`d consumer
@@ -1115,7 +1267,8 @@ registry is still usable after a rejected `register`, a `Completer` is still usa
 
 **Visibility is asserted with `respond_to?`, never with `assert_predicate`** — phase 1's finding,
 which bites here too: `Future#settled?` and `Cancellation#cancelled?` are public and
-`Future.new` is private, and Minitest sends past `private` on the 3.2 floor.
+`Cancellation.new` and `Operation.new` are private, and Minitest sends past `private` on the 3.2
+floor. (`Future.new` is deliberately **not** private — see the pivot section above.)
 
 **One test asserts the fake transports themselves conform**, because a fake that has drifted from
 the seam is a suite that proves nothing: `Dexpace::Transport.conforms?(FakeTransport.new)` and
@@ -1156,8 +1309,13 @@ design §10; it is frozen.
 | P2-6 | `SEAM-8`'s warning is emitted through `Kernel#warn` | `SEAM-8`; design §8.1 | Verified: `Kernel#warn` routes through `Warning.warn`, so a host can intercept, redirect or silence it, and it is suppressed when `$VERBOSE` is `nil`. `SEAM-8` is a SHOULD asking for a warning rather than a failure, which is exactly what a suppressible advisory channel is for. §8.1's facade does not exist until phase 5 and may add an event then; it does not replace this |
 | P2-7 | `DEF-21`'s version comparison is hand-rolled and accepts only `~> MAJOR.MINOR` | design §2.3; `NFR-14`; phase 0's require allowlist | Verified: `Gem` and `Gem::Version` are undefined under `ruby --disable-gems` on 3.2.11 and 4.0.6, and `rubygems` is not on the allowlist. Restricting the accepted form to the two-segment `~>` the design mandates means one rule with one meaning rather than a partial `Gem::Requirement` reimplementation; anything else is refused. The test cross-checks the comparison against `Gem::Requirement` over a grid, where RubyGems is present |
 | P2-8 | A sixth custom cop, `Dexpace/QualifiedCoreConstant` | design §9's gate table; phase 0's P0-3 precedent | Verified: a bare `Thread` inside `module Dexpace::Async` silently rebinds to `Dexpace::Async::Thread` when the adapter gem is required, and core's own suite never requires it — a bug that cannot fail in the tree that contains it. Addendum §9-A1 |
-| P2-9 | **Private** snapshot `Data` types — `Registry::State` and `Cancellation::Source::State`, both `private_constant` — do not include `Dexpace::Model` and expose no `.build` | phase 1's construction rule; `data-modeling/677b01de` | Phase 1's rule governs public models, and each of its three reasons is about a public constructor: `.build` is public API, `#with` routes derivation through it, and `send(:new, …)` reaches the constructor anyway. A `private_constant` snapshot has no public constructor, no caller derivation and no required-field contract, and including `Model` would put a `#with`→`.build` round trip on the registry's write path with no validation to run. They stay `Data` because `concurrency-and-async/2c743901` asks for immutable `Data` at every concurrency boundary, which is exactly what they are. The rule and its boundary: **a `Data` that is public API follows phase 1's construction rule without exception** — `Dexpace::Async::Settlement` and `Dexpace::Operation` both do — and only a `private_constant` snapshot is exempt |
+| P2-9 | **Private** snapshot `Data` types — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State`, all `private_constant` — do not include `Dexpace::Model` and expose no `.build` | phase 1's construction rule; `data-modeling/677b01de` | Phase 1's rule governs public models, and each of its three reasons is about a public constructor: `.build` is public API, `#with` routes derivation through it, and `send(:new, …)` reaches the constructor anyway. A `private_constant` snapshot has no public constructor, no caller derivation and no required-field contract, and including `Model` would put a `#with`→`.build` round trip on the registry's write path with no validation to run. They stay `Data` because `concurrency-and-async/2c743901` asks for immutable `Data` at every concurrency boundary, which is exactly what they are. The rule and its boundary: **a `Data` that is public API follows phase 1's construction rule without exception** — `Dexpace::Async::Settlement` and `Dexpace::Operation` both do — and only a `private_constant` snapshot is exempt |
 | P2-10 | `Dexpace::Registry` is public API — YARD, RBS and a surface-manifest row — where the design names no such constant | design §3.6; `api-design/b0e18938` | `SEAM-5`–`SEAM-9`'s five branches are implemented once and delegated to by three seams; documenting them once on the class beats documenting them three times on the delegators, and a third-party seam author needs the same mechanism. The alternative — an internal helper — still appears in the runtime surface manifest, because that gate walks `Dexpace`'s constant tree, so "internal" would have bought a YARD exemption and nothing else |
+| P2-11 | Six public methods and one public class method the design's §3 does not name: `Cancellation.over`, `Cancellation#merged_with`, `Completer#await`, `Completer#request_cancel`, `Completer#settled?`, `Completer#outcome`, `Registry.callable?`, `Cancellation::Source#cancelled_at` | design §3.3, §3.6; `NFR-4`; `api-design/b0e18938` | `NFR-4` locks every public signature at the first release tag, so a name that arrives by accident is locked by accident. Each survives for a stated reason: `.over` is the class-level constructor `#merged_with` and phase 5's deadline source both need; `#merged_with` exists so `#sources` can stay **protected**, which a class-method `.any` cannot do; `#await` and `#request_cancel` are what the `Future` facade delegates to, and Ruby offers no package-private visibility that would let the facade reach them otherwise — the alternative is a cross-object `send`, a hole in the boundary the pair exists to draw; `#settled?` and `#outcome` are the producer's legitimate "did I lose the race" query; `Registry.callable?` is the runtime half of the `#call` duck type both transport seams share, and lives on `Registry` because `Registry` is what validates a provider; `Source#cancelled_at` is what a composed token orders its sources by, and is what lets a token subscribe to nothing at construction. `Serde::CONTRACT`, `Operation::TARGETS`, `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are all `private_constant` for the same reason |
+| P2-12 | The `SEAM-8` warning is observed in tests through a block-scoped `WarningCapture`, not through phase 0's warning allowlist | phase 0's `test/support/dexpace_test_case.rb`; `NFR-6` | The design said this phase would add the first entry to phase 0's zero-entry allowlist. An allowlist entry is a message pattern that stays permitted for the life of the suite, so every later warning matching it is swallowed too, and it presumes an allowlist API shaped the way the design guessed. `WarningCapture` prepends to `Warning`'s singleton class **after** phase 0's raising module, so it sits ahead in the ancestor chain, records only inside its own block, and delegates outside it — verified on 3.2.11, 3.4.10 and 4.0.6. Narrower, and it needs nothing of phase 0 but the ordering |
+| P2-13 | Both `SEAM-18` bridges live in a `Dexpace::Bridge` namespace, one file each, rather than under the seam module that exposes them | design §3.3, §5.3; P2-1 | The design names neither constant. `Dexpace::Transport::AsyncOver` would sit beside the adapter namespaces `Dexpace::Transport::NetHTTP` and `::AsyncHTTP`, and a reader meeting three constants there cannot tell which one core owns — which is exactly the seat P2-1 keeps the async *seam* out of. Both bridges are also `Dexpace::Closeable` with `owned: false`, which is what makes `SEAM-14`'s "both transport seams MUST be closeable" true of the two transports this phase actually ships |
+| P2-14 | `Cancellation#on_cancel` returns a `Cancellation::Subscription` handle rather than `self`, and `Cancellation::Source` gains a public `#off_cancel(hook)` | design §3.3; `SEAM-13`, `SEAM-18`; `NFR-4` | The design describes registration and says nothing about withdrawing one, which leaves `Completer#await` no way to detach the hook it arms on the caller's token. That hook reaches the `Completer` and through it the response the future settled with, so `.any(client_token, per_call_token)` with `future.value(cancellation:)` — what phase 5's `DEF-28` does on every request — retained one closure and one response per request on the client-lifetime source: measured 200 of 200, and 500 100 KB responses still reachable after `GC.start`, on 3.2.11, 3.4.10 and 4.0.6. Composing without subscribing fixes only the composition half of that leak. The cost is one public constant and one public method, both locked by `NFR-4` at the first release tag, which is why they are here and not in a comment |
+| P2-15 | `Dexpace::Hooks`, a `private_constant` module supplying the one `notify(hooks, argument)` loop `Cancellation::Source#cancel`, `Completer#settle` and `Completer#request_cancel` all run | design §3.3, §3.7; `SEAM-18` | The design describes the notification three times and names no home for it, and a bare `hooks.each { |hook| hook.call(…) }` at each site drops every handler after a raising one and propagates to whoever published the state — the `SEAM-18` "a second waiter blocks forever" failure from the write side, verified on all three interpreters. One implementation runs the whole list and then re-raises the first failure; re-raising rather than dropping, because phase 2 has neither of §3.7's disposal routes (`DEF-24`, phase 4; §8.1, phase 5) and a handler raising into a void is a bug nothing reports. `DEF-32` carries the failures after the first. It is a `private_constant` and therefore not public API: no `sig/` mirror, no YARD gate entry, no surface-manifest row |
 
 ## Deferrals Filed by Phase 2
 
@@ -1171,6 +1329,8 @@ per the roadmap's execution step 7. (The heading avoids the literal words the ho
 | `DEF-28` | `#value(deadline:)` and `#wait(deadline:)` on the pivot, and the clock behind them | Phase 5, with `CFG-15`–`CFG-21`. Adding the keyword widens the signature, so it is not an `NFR-4` break |
 | `DEF-29` | Moving the in-memory fake transport, async transport and codec out of `gems/dexpace-core/test/support/` and into `dexpace-conformance` | Condition: the first consumer outside `dexpace-core`. Phase 8 at the earliest, alongside `DEF-22`'s assertion objects |
 | `DEF-30` | Presence-gated auto-activation, which §3.6 permits for instrumentation only | Condition: an instrumentation seam exists to activate — phase 5 at the earliest, and the first user is `dexpace-instrumentation-otel` (`DEF-17`), which is post-v1 |
+| `DEF-32` | The handler failures `Dexpace::Hooks.notify` drops after re-raising the first. Every hook runs and the first failure is re-raised; the rest have nowhere to go, because §3.7's two disposal routes do not exist yet | Phase 4, with `DEF-24`'s `Dexpace::Error#suppressed` — the first carrier a second failure can attach to. Phase 5 may add a diagnostic per dropped failure once §8.1's facade exists; it does not replace the trail |
+| `DEF-31` | `SEAM-25`'s lifecycle event — "only the first close shuts the owned executor **and emits the lifecycle event**". `Dexpace::Closeable` implements the idempotent, ownership-aware release; there is no event facade to emit through | Phase 5, with §8.1's instrumentation facade. The emitting adapter is phase 8's `dexpace-async-thread`, the first thing in this repository that owns an executor |
 
 ### Deferral-register sweep
 
@@ -1182,7 +1342,7 @@ row, not to scan for its own name. All twenty-six rows were read.
 - **`DEF-21` — picked up.** Its pick-up condition names phase 2 explicitly: "phase 2 (Seam
   Foundations), with the registration call it belongs to." Phase 2 defines that call, so the runtime
   half of the version-skew guard lands with it, as the required `core:` keyword on
-  `Registry#register`. `Status` moves to `picked-up (2026-09-06, phase 2)` and the row stays, so
+  `Registry#register`. `Status` moves to `picked-up (2026-09-07, phase 2)` and the row stays, so
   every existing citation of `DEF-21` still resolves.
 - **`DEF-1` — the `SEAM-28` half now targets phase 5; the `SEAM-24` half is untouched.** This is the
   only other row whose requirements are inside phase 2's ID range and whose code would live in the
@@ -1196,12 +1356,16 @@ row, not to scan for its own name. All twenty-six rows were read.
   (`DEF-11`), which is post-v1 — and phase 2 notes only that it fixes the contract `SEAM-24`'s
   cancellation half will map: `Cancellation` in one direction and `Completer#on_cancel` in the
   other.
-- **`DEF-22` — untouched, and load-bearing for this phase's honesty.** Several `SEAM` MUSTs are
-  properties of an *implementation* rather than of a seam — `SEAM-12`'s concurrency safety,
-  `SEAM-13`'s cancellation honouring, `SEAM-14`/`SEAM-25`'s real ownership, `SEAM-30`'s orphan close
-  in a real adapter. Phase 2 satisfies each at the seam and in core's own implementations; the
-  per-adapter assertion is `dexpace-conformance`'s, which is this row. No new deferral is filed for
-  them, because filing one would duplicate `DEF-22`.
+- **`DEF-22` — untouched, and it now carries a checklist row.** Several `SEAM` MUSTs are properties
+  of an *implementation* rather than of a seam — `SEAM-12`'s concurrency safety, `SEAM-13`'s
+  cancellation honouring, `SEAM-14`/`SEAM-25`'s real ownership over a resource the SDK created,
+  `SEAM-30`'s orphan close in a real adapter. Phase 2 satisfies what a seam can satisfy and core's
+  own implementations satisfy the rest — but **`SEAM-12` is marked ⏳ against this row rather than
+  ✅**, because the phase ships no transport implementation at all and a requirement about
+  implementations cannot be met by a shape. `SEAM-13`, `SEAM-14`, `SEAM-25` and `SEAM-30` stay ✅
+  because each has something in this phase that actually implements it — the third argument and its
+  token, `Dexpace::Closeable` and the two bridges that take it, and `Completer#fulfil`'s orphan
+  close. No new deferral is filed, because filing one would duplicate `DEF-22`.
 - **`DEF-18` — untouched.** `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause are phase 8's to
   mark. Phase 2 is where the cooperative-cancellation shape that causes them is fixed, and it says
   so in "Out of scope" above rather than re-opening the trade.
