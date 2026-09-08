@@ -746,4 +746,49 @@ execution step 7.
 - **Cites:** XCUT-4, XCUT-5, XCUT-6, XCUT-7, XCUT-8, RECOV-15, RECOV-17, RETRY-1, RETRY-37, NFR-4
 - **Status:** deferred
 
-next id: DEF-39
+### DEF-39 — PIPE-39's standard-resilience constructors, and PIPE-32's `redirect: :unsupported` argument
+
+- **Deferred by:** phase 4c, 2026-09-08
+- **What is deferred:** `Dexpace::Pipeline.standard(transport, …)` and
+  `Dexpace::AsyncPipeline.standard(transport, …)` — the second of the two convenience constructors
+  `PIPE-39` names, "a standard pipeline that installs the default resilience pillars over a transport
+  (sync: redirect+retry+instrumentation; async: retry+instrumentation with a caller-supplied scheduler
+  for non-blocking backoff)" — together with the explicit `redirect: :unsupported` argument design
+  §5.3 specifies on the async one, which is how `PIPE-32`'s sync/async asymmetry is made visible at the
+  call site rather than silent.
+- **What is not deferred, stated because the row is easy to read as larger than it is:** `PIPE-24`'s
+  installation semantics ship in full and are tested. `Dexpace::Pipeline::Builder#install_preset(entries)`
+  validates up front that no target pillar is occupied, rejects the whole call installing nothing on any
+  collision, never overlays, and shares one validate-then-commit implementation with `PIPE-23`'s
+  `#reload`. `PIPE-39`'s **first** constructor ships as `Pipeline.direct` / `AsyncPipeline.direct`, and
+  `PIPE-35`'s two seeding constructors — `Builder.flattening` and `Builder.nesting`, which design §12's
+  `PIPE` row also counts under `PIPE-39` — ship in full.
+- **Why:** the three step families the constructor installs do not exist in phase 4. The redirect and
+  retry pillar steps are phase 6's (`REDIR-1`–`REDIR-28`, `RETRY-1`–`RETRY-45`) and the instrumentation
+  step is phase 5's. A constructor named for the defaults it installs, installing nothing, is worse than
+  its absence: a caller reaches for it *instead of* composing the pillars by hand and gets a bare
+  transport with the word "standard" on it. `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`
+  forbids exactly that in its R14 — "must not ship a preset that silently installs nothing while claiming
+  to install the defaults". A middle option was considered and rejected in phase 4c's R14:
+  `Pipeline.standard(transport, redirect:, retry:, instrumentation:)` with three required keyword
+  arguments would install what the caller names and be testable today, but it is `#install_preset` under
+  a second name and it locks three public keyword names under `NFR-4` before the objects they name
+  exist — phase 2's own objection to building `deadline:` early (`DEF-28`, deviation P2-5) and phase 0's
+  against defining `Dexpace.register` early.
+- **Pick-up condition:** **phase 6**, the first phase in which all three families exist. Phase 6 writes
+  the two constructors **over** `Builder#install_preset` and writes no second installation path; the
+  mechanism is built and waiting, so what phase 6 adds is a step set and two names. `PIPE-32`'s
+  documentation clause is already discharged in phase 4 (the asymmetry is stated in the design and in
+  `Dexpace::AsyncPipeline`'s YARD); what travels here is the argument that makes it visible at the call
+  site.
+- **Consequence for the checklists:** phase 4c carries `PIPE-39` as ⏳ citing this row with its met half
+  named, `PIPE-24` as ✅, and `PIPE-32` as ✅ whose substantive clause — "the async standard pipeline
+  MUST NOT follow HTTP redirects at the pipeline layer" — holds vacuously until this row is picked up,
+  because until then there is no async standard pipeline. Phase 4c deliberately does **not** make
+  `Stages::REDIRECT` un-installable on the async path: `PIPE-28` requires "the identical stage identities
+  and staging policy" in both runtimes, and a builder that rejected a REDIRECT step for one build method
+  and accepted it for the other would be two staging policies.
+- **Cites:** PIPE-24, PIPE-28, PIPE-32, PIPE-39, NFR-4
+- **Status:** deferred
+
+next id: DEF-40

@@ -803,4 +803,85 @@ same regexp and would need the same change.
 thing with nothing checking them. This one is the opposite failure: a cross-reference that resolves
 correctly and is then *reported* as something it is not, by a tool that is working exactly as written.
 
-next id: OI-17
+### OI-17 — the surgical pipeline edits are keyed by step type, and every lambda step has the same type
+
+- **Opened:** 2026-09-08, phase 4c's design
+- **Status:** open
+- **Cites:** PIPE-18, PIPE-19, PIPE-20, PIPE-21
+
+`PIPE-18`, `PIPE-19`, `PIPE-20` and `PIPE-21` are four MUSTs whose subject is an **anchor type**:
+insert-after and insert-before place a step "immediately after/before the FIRST existing step that is an
+instance of a given anchor type"; replace "swap[s] the FIRST existing instance of the anchor type";
+remove "MUST delete EVERY step that is an instance of the given type"; and an edit whose anchor type has
+no instance "MUST fail with an error identifying the missing type".
+
+`docs/sdk-design-ruby/05-pipeline-architecture.md` §5.1 separately requires that "a step is any object
+responding to `#call(request, cursor)` — again `#call`, so a `lambda` is a step and Ruby's middleware
+muscle memory transfers". **Every lambda's class is `Proc`** — verified 2026-09-08 on 3.2.11, 3.4.10 and
+4.0.6: `->(r, c) {}.class` is `Proc` and `#instance_of?(Proc)` is `true`, for every lambda.
+
+The two requirements are individually satisfiable and jointly reach less far than either implies. In a
+pipeline holding two lambda steps, `remove(Proc)` deletes **both** — which is exactly `PIPE-20`'s stated
+semantics and is almost certainly not what the caller meant — and `insert_after(Proc, step)` anchors on
+whichever lambda the flattening happens to place first, which is well-defined and arbitrary. There is no
+spelling of the four edits that addresses one lambda and not the other, because the API's addressing
+key is the type and the type is shared. Neither the specification nor the design notices it: `PIPE-18`
+was written against a host where a step is a class.
+
+**Why it is filed rather than only documented.** Phase 4c's mitigation is a YARD sentence on each
+surgical edit saying that a step intended as an anchor should be a named class, and that is the right
+mitigation for the phase — but a caller who meets the case has no recourse in the API, and phase 9's
+conformance pass will exercise the four edits against class-typed steps and would never see it. Three
+repairs are available and the choice is not this design's: an optional caller-supplied name or tag on
+`Entry` that the edits may anchor on instead of a type; rejecting `Proc` as an anchor type outright,
+which would make `PIPE-20`'s "delete EVERY instance" unreachable for lambdas rather than surprising; or
+leaving it and recording the limit in `docs/sdk-documentation/`. The first is the only one that makes
+the four MUSTs reach a lambda step at all.
+
+**Its relation to `OI-1`, `OI-2` and `OI-12`.** Those three are requirements that cannot be *followed*
+because a pointer does not resolve. This one is a requirement that can be followed and then does less
+than it says, for a case a second requirement makes legal — so it is a conjunction failure rather than a
+missing chapter, and it is the first of that shape in the register.
+
+### OI-18 — `Transport.async_over` accepts an *async* transport silently and yields a future of a future; the mirror direction is loud
+
+- **Opened:** 2026-09-08, phase 4c's review
+- **Status:** open
+- **Cites:** SEAM-18, SEAM-2, PIPE-26, PIPE-33, PIPE-34, ASYNC-2
+
+Phase 2 gave both transport seams **one** conformance predicate. `Dexpace::Transport.conforms?` and
+`Dexpace::AsyncTransport.conforms?` are each `Dexpace::Registry.callable?(object, arity: 3)`, and phase 2 recorded
+the consequence honestly: the predicate reads `#parameters` and the two seams differ only in **return type**,
+which `#parameters` cannot see. What phase 2 did not have, and phase 4c does, is a pair of core-owned classes with
+identical `#call(request, options = …, cancellation = …)` shapes and different return types sitting in the same
+namespace — `Dexpace::Pipeline` and `Dexpace::AsyncPipeline` — plus a design that tells callers to reach the
+`PIPE-33`/`PIPE-34` bridges by composing exactly those two classes with exactly those two bridges (phase 4c's
+R13, deviation P4-35). That makes the mistake cheap to make and it is not symmetric:
+
+- **`AsyncTransport.sync_over(sync_pipeline)` is loud.** `Dexpace::Bridge::SyncOver#call` checks
+  `future.is_a?(Dexpace::Async::Future)` and raises `Dexpace::SeamError` naming the class it got. The caller
+  learns at the first send.
+- **`Transport.async_over(async_pipeline, executor:)` is silent, at every layer and for ever.**
+  `Bridge::AsyncOver#deliver` posts the send and hands whatever comes back to `Completer#fulfil(response)`;
+  `fulfil` passes it to `Settlement.success(response)`, whose only validation is "exactly one of response or
+  error" — verified by reading phase 2's plan, tasks 5, 9 and 11. So the outer `Future#value` returns the **inner
+  `Future`**, no exception is raised anywhere, and the caller meets a `NoMethodError` on `#status` or `#body` at
+  whatever distance from the mistake their code happens to put it. The response is also never closed, because
+  nothing on that path knows there is one inside.
+
+**Why it is filed rather than fixed here.** The predicate, both bridges, `Completer#fulfil` and `Settlement` are
+all phase 2's and are committed and reviewed; phase 4c neither introduces nor widens the gap, and its own
+disposition — shipping no bridge at all — is what a review would ask for. Three repairs are available and the
+choice is phase 8's or a phase-2 amendment's, not phase 4c's: type-check the delivered value in
+`Bridge::AsyncOver#deliver` the way `SyncOver#call` already type-checks the returned future, which makes the two
+bridges symmetric and costs one `is_a?`; refuse a `Dexpace::Async::Future` return at `async_over` construction
+time by test-calling nothing and instead having `AsyncPipeline` (and future async adapters) answer a marker
+predicate the sync seam checks for absence of; or leave it and document the trap on both bridges. The first is the
+narrowest and is the one this item recommends.
+
+**Its relation to `OI-17`.** Both are conjunction failures rather than unresolvable pointers — a mechanism that is
+correct about the thing it was designed for and silent about a case a second decision made reachable. `OI-17` is
+the API's addressing key; this one is the seam's conformance key. Neither is caught by any gate in the phase-0
+set, because both are type distinctions Ruby does not carry at the point they are made.
+
+next id: OI-19

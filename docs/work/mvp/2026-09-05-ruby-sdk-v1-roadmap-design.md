@@ -86,7 +86,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
-| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md); 4b design: [`phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`](./phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md) |
+| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md); 4b design: [`phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`](./phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md); 4c design: [`phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`](./phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md) |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14 |
@@ -952,3 +952,47 @@ any transform. The charter's statement of the third shape is corrected in passin
 step is `response -> response` and raises, not `response -> outcome` — `RECOV-4`'s "(response→response)"
 and `RECOV-15`'s "the status→typed-exception mapping **response step**" both say so, and it is what
 lets a two-phase contract span every shape and keeps `Outcome` out of the `PIPE` layer entirely.
+
+**2026-09-08** — Phase 4c design filed, the fourth and last phase-4 document.
+`docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`, with its plan and checklist
+still to be written. Scope is the charter's 40 `PIPE` IDs with **one row moved**: `PIPE-39` goes from ✅
+to ⏳ against a new `DEF-39`, because R14's resolution ships one of that requirement's two named
+constructors and defers the other. Thirty-seven ship, three carry ⏳ — `PIPE-33` (`DEF-18`, four of five
+clauses met), `PIPE-36` (`DEF-4`) and `PIPE-39` (`DEF-39`).
+
+**Three decisions shape everything else in the document.** **4c ships no bridge**: a built pipeline is a
+transport (`PIPE-26`), so `PIPE-33` and `PIPE-34` are phase 2's `Transport.async_over` and
+`AsyncTransport.sync_over` composed with a pipeline, and the phase adds no wrapper, no wait and no
+signature — which is the strongest available form of the charter's "no deadline-less unconditional
+block" constraint and files no second row beside `DEF-28` (P4-35). **Cursor-scoped state is keyed by
+`(stage, key)` rather than by key alone**, and its only write is an argument to `#fork`: under a flat
+namespace a `RETRY` pillar step sits between REDIRECT and AUTH, may fork, and could write the very key
+AUTH reads — so §6.2's own sentence, "no step downstream of AUTH can [set the marker] either", and
+§10.15's "structurally impossible rather than defended against" would be true of non-pillar steps only.
+Namespacing by the writing step's stage, chosen by the runtime from the frozen entry table, makes both
+literally true, and the five tests R11 demands assert the **negative** (P4-28, P4-29). And **the
+standard-resilience preset ships as a mechanism with no step set**: `PIPE-24`'s all-or-nothing
+installation is a general `Builder#install_preset`, real and tested against probe steps today, while the
+redirect/retry/instrumentation set it would install defers to phase 6 (P4-34, `DEF-39`).
+
+**One fact was floor-only and changed a decision.** The cursor's single-use latch is an unsynchronised
+instance variable, because a cursor is created per step invocation and never published. Measured: eight
+threads through that latch let more than one caller past on **29 of 2000 runs on 3.2.11 and 0 of 2000 on
+3.4.10 and 4.0.6**. So `PIPE-15`'s "reusing the handle MUST be treated as a defect" is honoured and the
+detection is sequential-only — stated in the YARD as P4-33 — and **4c ships no test asserting the race**,
+because at 29 in 2000 — 1.5 % — the single-shot form of that test is a flake on the floor as well, and only its
+2000-run aggregate form is green there and red on the other three columns. Two other
+facts license the object model: `Data` responds to `<=>` through `Kernel#<=>`, so `sort_by(&:stage)`
+raises `ArgumentError` at the first two-stage pipeline and nothing sorts a stage at run time; and every
+lambda's class is `Proc`, which is what `OI-17` records.
+
+Fourteen deviations are filed, `P4-26` through `P4-39`. One deferral, **`DEF-39`**. Two open items,
+both conjunction failures rather than the unresolvable pointers `OI-1`, `OI-2` and `OI-12` record.
+**`OI-17`** — `PIPE-18`–`PIPE-21`'s surgical edits are keyed by step type and every lambda step shares
+one type, so a pipeline holding two lambdas cannot address either surgically. **`OI-18`**, filed by the
+design's review — the two transport seams share one `#parameters` predicate, so
+`Transport.async_over(async_pipeline, executor:)` is accepted and silently yields a future of a future
+with the inner response never closed, while `AsyncTransport.sync_over(sync_pipeline)` raises at the
+first send; every object involved is phase 2's, and phase 4c neither introduces nor widens it, but
+`Pipeline` and `AsyncPipeline` are what make it cheap to hit. One corpus note, under
+`docs/knowledge/notes/pipeline.md`; `harvested/` untouched.
