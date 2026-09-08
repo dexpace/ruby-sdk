@@ -567,4 +567,142 @@ The narrow reading — that these are not "caller mistakes" because the caller c
 Global Constraints assert the stronger reading, and a constraint that is true of most call sites and
 silently false at two is worse than one stated with its exceptions.
 
-next id: OI-12
+### OI-12 — Eighteen RECOV requirements exist only as appendix-C rows, and both the roadmap and `--gaps` send a reader to a chapter that does not carry them
+
+- **Opened:** 2026-09-08, phase 4 segmentation design
+- **Status:** open
+- **Cites:** RECOV-17, RECOV-18, RECOV-19, RECOV-20, RECOV-21, RECOV-22, RECOV-23, RECOV-24,
+  RECOV-25, RECOV-26, RECOV-27, RECOV-28, RECOV-29, RECOV-30, RECOV-31, RECOV-32, RECOV-33, RECOV-34
+
+`docs/product-spec/08-execution-pipelines.md` §8.2 states `RECOV-1` through `RECOV-16` and stops.
+Verified 2026-09-08 with a repository-wide grep: **`RECOV-17` through `RECOV-34` appear nowhere in
+`docs/product-spec/` outside appendix C** — eighteen of the prefix's thirty-four IDs, and the largest
+such cluster found so far.
+
+Two instructions are built on the chapter carrying them, and neither is followable:
+
+- The v1 roadmap's gap paragraph — "Phase 4: `RECOV-17`–`RECOV-31`, read out of
+  `docs/product-spec/08-execution-pipelines.md` §8.2 — 15 IDs, the largest cluster in the corpus and
+  the one place a phase must plan for reading the specification directly rather than querying it."
+- `ruby scripts/knowledge.rb --gaps RECOV`, whose trailing line reads "read these out of
+  docs/product-spec/08-execution-pipelines.md". The pointer is derived mechanically from appendix
+  C's subsystem cell and is not wrong about the *subsystem*; it is unfollowable as an instruction.
+
+**This is the third instance of one shape, which is why it is worth a third item rather than a note
+on the first two.** `OI-1` recorded five `SEAM` IDs in the same position, `OI-2` recorded `IO-6`, and
+this records eighteen `RECOV` IDs. At three occurrences across three prefixes the pattern is a
+property of appendix C's relationship to the prose chapters — appendix C is the superset, and the
+chapters are not obliged to state every row they own — rather than three separate omissions, and any
+future fix should be to the derivation (`--gaps` could say "appendix C only" when the chapter does
+not carry the ID) rather than to three roadmap sentences.
+
+**Three of the eighteen are not gaps only because the *design* rescued them.** `RECOV-32`,
+`RECOV-33` and `RECOV-34` have substantive corpus entries — `pipeline/785eab36`, `pipeline/2e998896`,
+`pipeline/7f286969`, `retry-and-resilience/58d2faad`, `retry-and-resilience/c9228a67` — every one of
+them role `design`, drawn from `docs/sdk-design-ruby/05-pipeline-architecture.md` and
+`/06-retry-redirect-and-authentication.md`. So "the corpus cannot answer" and "the specification
+cannot answer" are independent facts here, and `--gaps` measures only the first: its fifteen uncited
+IDs understate the eighteen a reader cannot find in a chapter.
+
+**What phase 4 did instead.** `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md` read
+all eighteen out of appendix C directly and dispositioned each: `RECOV-32` and `RECOV-33` are the two
+header-stamping steps design §5.1 ships in core and stay phase 4's; the other sixteen are the
+recovery-stack retry engine and are deferred to phase 6 as `DEF-35` (`RECOV-31` was already `DEF-5`).
+The reading budget the roadmap asks a phase to plan for therefore largely transfers with the work,
+and phase 6 inherits it alongside `docs/product-spec/09-retry-and-resilience.md`, which states the
+same rules in prose under `RETRY` IDs it *can* read.
+
+### OI-13 — `Fiber#storage=` is the only write side `ASYNC-9`/`ASYNC-11` can use, and it warns on every supported Ruby and behaves differently on the floor
+
+- **Opened:** 2026-09-08, phase 4 segmentation design review
+- **Status:** open
+- **Cites:** ASYNC-9, ASYNC-10, ASYNC-11, ASYNC-12, OBS-10, OBS-23, OBS-24, CFG-15, NFR-7
+
+Design §8.1 fixes the diagnostic-context carrier as fiber storage and fixes the adapter's shape with
+it: `dexpace-async-thread` "saves the worker's prior storage, installs the captured snapshot for the
+work's duration and restores it in an `ensure` (**ASYNC-9**)", with an absent context "capturing as
+empty and reinstating as a clear rather than a raise (**ASYNC-11**)". `Fiber[]=` writes one key;
+saving and restoring a *whole* map — which is what save/install/restore means — needs `Fiber#storage=`,
+and `Fiber.new(storage:)` cannot serve, because a pooled worker's fiber already exists when the task
+arrives. Two facts about that setter, verified 2026-09-08 on 3.2.11, 3.4.10 and 4.0.6 via
+`mise exec ruby@<v>`:
+
+- **It warns on every call, on all three, and at the default warning level.**
+  `Fiber#storage= is experimental and may be removed in the future!` is emitted **per call**, not once
+  per process (two calls, two warnings, verified), and it appears with plain `ruby` as well as
+  `ruby -w` — it is not gated behind verbose mode. This repository's gate set runs the real suite
+  under `ruby -w` with **warnings failing the build**
+  (`docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.2), so a per-task save/restore emits
+  one warning per task and fails that gate. The warning's category is `:experimental`, so
+  `Warning[:experimental] = false` silences it — but that is a **process-global** flag, and a library
+  setting one on its host is the same imposition the port already refuses for `Regexp.timeout`
+  (`CLAUDE.md`, design §4/§6.3), so it is not a fix an adapter may reach for unasked. The remaining
+  routes are a scoped `Warning.warn` filter around the call or an `NFR-7` waiver carrying its reason;
+  which one is right is the deciding phase's call, and neither is free.
+- **`Fiber.current.storage = nil` is not uniform across the range.** On 3.2.11 it leaves
+  `Fiber.current.storage` as `{}`; on 3.4.10 and 4.0.6 it leaves it as `nil`. `= {}` yields `{}` on
+  all three. So the obvious spelling of `ASYNC-11`'s "reinstating an empty context clears the target"
+  reads back differently on the floor than on the rest of the matrix, which is exactly the shape of
+  bug an unqualified version claim hides.
+
+Neither fact is phase 4's to act on: `CTX`'s store is a `Hash` behind a `Thread::Mutex` and touches
+fiber storage nowhere, which is the line
+`docs/knowledge/notes/observability.md` now draws. It is recorded here because the phases that *do*
+act on it — 5 for `OBS-10`/`OBS-23`/`OBS-24`, 8 for `ASYNC-8`–`ASYNC-12` — will meet the design's
+sentence, reach for `Fiber#storage=`, and find a gate in the way; and because "experimental and may
+be removed" is a supported-range risk that belongs in a register before an adapter is built on it,
+not after. What is **not** claimed here: that fiber storage is the wrong carrier. Read-side
+inheritance is uniform and copy-on-write across the whole range, re-verified in the same session and
+recorded in that note. Only the write side is in question.
+
+### OI-14 — Four independent cross-reference failures in four documents, and nothing mechanically checks the class
+
+- **Opened:** 2026-09-08, phase 4 segmentation design review
+- **Status:** open
+- **Cites:** none — this is about the citations themselves, not about a requirement
+
+**The instance that prompted it.** `DEF-32`'s *Why* cites
+`docs/sdk-design-ruby/03-seam-and-adapter-mapping.md` §3.7. **That file has never existed.** The
+chapter is `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`, and its §3.7 is the right
+section, so the pointer is one filename wrong and otherwise correct — which is exactly why it
+survived phase 2's own review, phase 3's register sweep and phase 4's. `DEF-32` is committed phase-2
+work and the register is append-only apart from `Status`/`Resolution`, so **the row is not edited**;
+this item is where the finding lives.
+
+**The pattern, which is the actual item.** This is the fourth of one shape, in four documents, by
+four authors, found by four different readers:
+
+| Item | The cross-reference | How it fails |
+|---|---|---|
+| `OI-1` | the gap pointer for five `SEAM` IDs | names a chapter that does not carry them |
+| `OI-2` | every statement of `IO-6`'s content | cites the retired `SEAM-3`; the ID lives only in appendix C |
+| `OI-12` | the roadmap's gap paragraph, and `--gaps`'s own trailing line, for eighteen `RECOV` IDs | pointer unfollowable, characterisation wrong twice |
+| this row | `DEF-32`'s design-chapter citation | filename that was never right |
+
+They are not four careless authors. They are one failure mode: **a cross-reference nobody
+mechanically checks.** Every one is a claim of the form "X is stated at Y" where Y is a repository
+path, a chapter number, or a requirement-ID-to-chapter mapping — all three of them derivable, none of
+them derived. Prose is reviewed for whether it is *true*; a pointer is reviewed for whether it *looks*
+right, and all four look right.
+
+**What would resolve it, stated so someone can decide rather than so this row can decide.** A
+link-and-citation check over `docs/` that (a) resolves every `docs/sdk-design-ruby/NN-*.md` and
+`docs/product-spec/NN-*.md` filename appearing in prose against the tree, and (b) checks
+requirement-ID-to-chapter claims — "`IO-6`, read out of `docs/product-spec/05-i-o-contracts.md`" —
+against where the ID actually appears. `.claude/skills/housekeeping/probe.rb` is its natural home: it
+already carries `links` and `citations` checks, and it already derives each repository fact **once,
+from the repository** rather than checking one document against another, which is precisely the
+discipline all four of these needed and did not get. The shape of the gap is narrow and worth naming:
+`links` resolves only Markdown link syntax — `[text](target)` and reference links — so a path written
+as prose in backticks, which is how every one of these four was written, is never resolved by
+anything; and `citations` resolves only the `OI-<n>`/`DEF-<n>` register namespace. Extending those two
+to backticked repository paths and to ID-to-chapter claims is a smaller step than building a new tool,
+and it is the step that would have caught all four.
+
+**Worth stating plainly: the probe passes on all four.** `ruby .claude/skills/housekeeping/probe.rb`
+reports "no drift found" with `DEF-32`'s dead filename in the tree, and reported it while `OI-1`,
+`OI-2` and `OI-12`'s pointers were live too. That is not a probe defect — it never claimed this
+ground — but it is why four instances accumulated before anyone counted them, and it is the reason
+this row argues for the check rather than for a fifth manual correction.
+
+next id: OI-15

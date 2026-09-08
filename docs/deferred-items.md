@@ -593,4 +593,75 @@ execution step 7.
 - **Cites:** BODY-19, BODY-22, BODY-32, BODY-34, IO-9, CFG-1, CFG-2, CFG-3, CFG-4, OBS-35, NFR-4
 - **Status:** deferred
 
-next id: DEF-35
+### DEF-35 — RECOV-17–RECOV-30 and RECOV-34: the recovery-stack retry engine
+
+- **Deferred by:** phase 4 segmentation, 2026-09-08
+- **Why:** These fifteen `RECOV` IDs describe the recovery-aware **retry stack**, not recovery-chain
+  machinery: eligibility classification off a capability (`RECOV-17`), the re-sendability gate
+  (`RECOV-18`), re-classification of each re-sent response (`RECOV-19`), the attempt cap and
+  total-timeout budget (`RECOV-20`), the exponential-plus-jitter formula (`RECOV-21`), the pacing
+  hint's precedence over it (`RECOV-22`), the parser's totality (`RECOV-23`), its four recognised
+  forms (`RECOV-24`), the X-RateLimit-Reset jitter (`RECOV-25`), overflow-safe duration arithmetic
+  (`RECOV-26`), the cancellable inter-attempt wait (`RECOV-27`), per-call statelessness
+  (`RECOV-28`), the parse-failure-never-masks rule (`RECOV-29`), the one-calculator-one-parser rule
+  (`RECOV-30`) and construction-time configuration validation (`RECOV-34`). Every one has a `RETRY`
+  twin whose Ruby mapping is written in
+  `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` §6.1, and
+  `docs/sdk-design-ruby/12-appendix-requirement-coverage-index.md`'s `RECOV` row already places
+  `RECOV-34` there; `docs/sdk-design-ruby/` cites `RECOV-17` through `RECOV-30` nowhere at all.
+  Two of the fifteen make the deferral **forced rather than preferred**. `RECOV-27` requires a wait
+  that is cancellable and does not pin an execution carrier, whose Ruby mechanism — §8.3's
+  `Clock#sleep(duration, cancellation:)` over a `Thread::Queue` — sits behind `CFG-15`'s injectable
+  time seam, which is phase 5's and which phase 2 deliberately kept off the async pivot until then
+  (`DEF-28`); the alternative, `Kernel#sleep`, is named non-conforming by the requirement itself.
+  And `RETRY-13` requires both stacks to compute backoff "via the one shared calculator using the
+  one shared set of constants … the stacks MUST NOT carry independent backoff formulas or duplicated
+  constants", which `RECOV-30` restates at SHOULD level from this side — so building the recovery
+  half two phases before the stage half is exactly the drift both requirements exist to prevent, and
+  `RETRY-12`'s default tuning constants come from phase 5's configuration chain in any case. Phase 4
+  ships the recovery **chain** (`RECOV-1`–`RECOV-16`, `RECOV-32`, `RECOV-33`) the engine installs
+  into, which is the substrate the roadmap's cross-phase obligation 3 names.
+- **Pick-up condition:** **phase 6 (Retry, Redirect and Authentication)**, with `RETRY`'s two stacks
+  and the one shared calculator the roadmap's phase-6 segmentation bullet already requires to land
+  before either stack. Phase 6's segmentation design carries these fifteen alongside
+  `RETRY-1`–`RETRY-45` and decides whether each is a separate checklist row or a cross-reference to
+  its twin; none may be dropped on the grounds that the twin is satisfied, because the roadmap's
+  phase-4 row states the range `RECOV-1`–`RECOV-34`. Read this row together with `DEF-6`, which
+  defers `RETRY-29`/`RETRY-38`/`RETRY-43` into the same phase, and with `DEF-5`, which already
+  defers `RECOV-31` — the sixteenth ID of this cluster — post-MVP.
+- **What this costs phase 6, stated plainly so its segmentation design does not have to count.**
+  The roadmap already calls phase 6 the largest at **111** prefix IDs (`RETRY` 45, `REDIR` 28,
+  `AUTH` 38). **This row adds the work of fifteen more on top of that 111** — the implementation of
+  `RECOV-17`–`RECOV-30` and `RECOV-34`, which is this row's whole scope — so phase 6's segmentation
+  design budgets for **111 + 15**. **`RECOV-31` is the cluster's sixteenth ID and is deliberately not
+  counted here**: `DEF-5` defers it post-MVP ("picked up together with `RETRY-38` if the per-attempt
+  ordinal header feature is ever built") and `DEF-6` defers `RETRY-38` itself with "no named
+  trigger", so no register schedules its implementation in phase 6 and budgeting for it would book
+  work nothing has scheduled. Phase 6 may carry a ⏳ row for it beside `RETRY-38`'s; a row is not a
+  budget. Fifteen and sixteen are both correct numbers about different sets — fifteen is this
+  deferral, sixteen is the cluster the phase-4 segmentation design identified — and conflating them
+  is the one arithmetic mistake this row exists to prevent. No requirement ID moves: the fifteen keep
+  their phase-4 checklist rows as ⏳ citing this row, and phase 6 carries its own rows or
+  cross-references for them, which is the two-rows-one-obligation treatment phase 2 gave `SEAM-29`
+  and phase 3b gave `HTTP-46`. The roadmap's phase-6 segmentation bullet was corrected in place on
+  2026-09-08 to say so.
+- **The twin-by-twin mapping, so it is not re-derived.** Each of the sixteen restates, scoped to the
+  recovery stack, a rule the `RETRY` chapter states in prose phase 6 can actually read — which is
+  also why the corpus has no entry for fifteen of them (see `OI-12`): `RECOV-17` ↔ `RETRY-37`,
+  `RETRY-1`, `XCUT-6`/`XCUT-7`; `RECOV-18` ↔ `RETRY-5`, `RETRY-6`, `RETRY-7`, `RETRY-8`;
+  `RECOV-19` ↔ `RETRY-36`; `RECOV-20` ↔ `RETRY-27`, `RETRY-14`; `RECOV-21` ↔ `RETRY-9`, `RETRY-10`,
+  `RETRY-11`; `RECOV-22` ↔ `RETRY-20`, `RETRY-21`; `RECOV-23` ↔ `RETRY-16`, `RETRY-17`;
+  `RECOV-24` ↔ `RETRY-15`, `RETRY-19`, `RETRY-21`; `RECOV-25` ↔ `RETRY-15`'s X-RateLimit-Reset
+  jitter clause; `RECOV-26` ↔ `RETRY-11`, `RETRY-18`; `RECOV-27` ↔ `RETRY-23`, `RETRY-26`, `XCUT-3`;
+  `RECOV-28` ↔ `RETRY-42`; `RECOV-29` ↔ `RETRY-22`; `RECOV-30` ↔ `RETRY-13`, `RETRY-14`,
+  `RETRY-28`; `RECOV-31` ↔ `RETRY-38` (design §11.20: "the same feature under two IDs at two modal
+  levels", already `DEF-5`); `RECOV-34` ↔ design §6.1's construction-time validation and §10.18's
+  substituted ~292-year bound. Derived and verified by the phase-4 segmentation design against
+  appendix C; `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md` carries it as a table
+  with the same content.
+- **Cites:** RECOV-17, RECOV-18, RECOV-19, RECOV-20, RECOV-21, RECOV-22, RECOV-23, RECOV-24,
+  RECOV-25, RECOV-26, RECOV-27, RECOV-28, RECOV-29, RECOV-30, RECOV-34, RECOV-31 (see DEF-5),
+  RETRY-13, RETRY-27, RETRY-28, RETRY-37, RETRY-42, CFG-15
+- **Status:** deferred
+
+next id: DEF-36

@@ -275,7 +275,7 @@ Each is one line plus the chapter to read before touching the area.
   its own scope and exposes `#close` (§7.1).
 - **`Fiber[:key]` is the diagnostic-context carrier, not `Thread.current[:key]`** — `Fiber[]` is inherited by a
   child fiber, a new `Thread` and an `Enumerator`'s internal fiber; `Thread.current[]`, despite the name, is
-  fiber-local and visible in none of them (§8.2).
+  fiber-local and visible in none of them (§8.1).
 - **Bytes on the wire are always `Encoding::BINARY`** — a streaming body yields BINARY `String` chunks (Rack's de
   facto protocol, P14), and core retags to BINARY on ingress rather than trusting a declared charset (§3.1).
 - **Pin `URI::RFC3986_PARSER` explicitly for every parse and every resolution; never rely on `DEFAULT_PARSER`** —
@@ -378,10 +378,13 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are four phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are five phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/` and `phase3/`. The first three carry that phase's design and plan; `phase3/`
-  carries its segmentation design, `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`,
-  and two sub-phase directories — `phase3/phase3a/` and `phase3/phase3b/`, each holding that
-  sub-phase's design and plan. Every checklist is still to be written at execution time.
+  `phase1/`, `phase2/`, `phase3/` and `phase4/`. The first three carry that phase's design and plan;
+  `phase3/` carries its segmentation design,
+  `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
+  carries its segmentation design alone,
+  `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, with no sub-phase directory yet.
+  Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

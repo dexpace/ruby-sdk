@@ -189,6 +189,7 @@ still the cheaper option.
 | Encoding and binary strings | `--prefix IO --section rules --brief` and `--topic io-and-byte-streams,serde --section rules --brief` | `--prefix-info IO`, `--gaps IO` | live |
 | Fiber scheduler, thread safety | `--prefix ASYNC --section rules --brief`, `--topic concurrency-and-async --section rules --brief`, `--chapter 9` | `--prefix-info ASYNC`, `--gaps ASYNC,SEAM` | live |
 | Resource lifecycle and stream ownership | `--topic resource-management --section rules --brief` and `--chapter 13` | read styleguide `13-resource-management.md` | live |
+| Pipeline composition and execution context | `--topic pipeline,execution-context,cancellation-and-timeouts --section rules --brief` and `--prefix CTX,RECOV,PIPE --section rules --brief` | `--prefix-info PIPE`, `--gaps CTX,RECOV,PIPE` | live |
 | Styleguide-vs-design conflicts | `--section conflicts --brief` | resolve via a note under notes/ | live |
 
 A regex with an alternation cannot live in a Markdown cell without an escape that would be copied

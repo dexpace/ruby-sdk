@@ -86,7 +86,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
-| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1 |
+| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md) |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14 |
@@ -187,19 +187,43 @@ avoid is a real and observed failure. Phase 0 carries no requirement scope, so t
   dependency and eight more edges like it: this bullet formerly read "`IO-28`'s pump". `IO-28` is the tee's
   no-direct-backing-buffer prohibition, restated at the body layer by `BODY-37`; the pump is `IO-17`.)
 - **Phase 4 (94 IDs), expected 4a execution context, 4b recovery-chain primitives, 4c stage-based pipeline.**
-  `PIPE`'s steps thread state through `CTX`'s promotion chain and `RECOV-10`/`RECOV-11` re-assert cancellation on
-  the current context, so 4a leads both. §8's two layers must not be collapsed into one — the design quotes the
-  prohibition — so 4b and 4c stay separate segments even though `RECOV-32`/`RECOV-33` put header-stamping steps
-  inside the recovery chain rather than in a pillar.
+  4a leads both, and the order is a **convenience**. §8's two layers must not be collapsed into one — the design
+  quotes the prohibition — so 4b and 4c stay separate segments even though `RECOV-32`/`RECOV-33` put
+  header-stamping steps inside the recovery chain rather than in a pillar. (**Corrected in place 2026-09-08** by
+  the phase-4 segmentation design, which adopted the three-way cut and the letters but found the stated reason
+  false on both halves: this bullet formerly read "`PIPE`'s steps thread state through `CTX`'s promotion chain and
+  `RECOV-10`/`RECOV-11` re-assert cancellation on the current context, so 4a leads both." `PIPE`'s steps thread
+  state through their own **per-call cursor** (`PIPE-11` says so outright; `PIPE-13`, `PIPE-16`, `PIPE-17`,
+  design §5.1's cursor-scoped state), and `CTX-<n>` is cited in no specification chapter outside ch.07 and in no
+  design section outside §5.4, §8.1, §11.11 and §12 bar a single `CTX-9` **comparison** in §5.2 that reads
+  nothing from it; `RECOV-10` carries no cancellation or context clause at all, and `RECOV-11`'s "current
+  context" is rendered by design §5.2 as **the ambient cancellation token**, `Dexpace::Cancellation`, which phase
+  2 already built. Nothing in `RECOV` or `PIPE` consumes `CTX`, so the three sub-phases are independent and each
+  sub-phase design must say so in its own Prerequisite section.)
 - **Phase 5 (78 IDs), expected 5a configuration, 5b instrumentation and observability.** The cut follows the
   §15/§16 line and the order is a real, if soft, dependency: `OBS-35`'s log-level resolution wants `CFG`'s layered
   lookup, which design §10.16 records alongside the configuration chain, so 5a leads deliberately. 5b is where
   `CTX-14`/`CTX-15`'s instrumentation bundle gets its `OBS-25`/`OBS-26` sentinels populated.
-- **Phase 6 (111 IDs, the largest), expected 6a retry, 6b redirect, 6c authentication.** Two spec-forced facts
-  constrain the cut. `RETRY` is two cooperating stacks over two different substrates — the recovery-chain half
+- **Phase 6 (111 prefix IDs of its own, the largest, plus `DEF-35`'s fifteen), expected 6a retry, 6b redirect,
+  6c authentication.** (**Corrected in place 2026-09-08** by the phase-4 segmentation design: this bullet
+  formerly opened "Phase 6 (111 IDs, the largest)". The **count is unchanged and the phase-6 row above is
+  unchanged** — no requirement ID moved, and `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28` and `AUTH-1`–`AUTH-38`
+  still sum to 111 — but the **scope** the number stood for is now stale. `DEF-35` moves the *work* of fifteen
+  `RECOV` IDs into this phase: `RECOV-17`–`RECOV-30` and `RECOV-34`, the recovery-stack retry engine, whose
+  checklist rows stay in phase 4 as ⏳ and whose implementation lands here. **Phase 6's segmentation design must
+  budget for 111 + 15 and not for 111**, and it decides whether each of the fifteen is a separate checklist row
+  or a cross-reference to its `RETRY` twin — `DEF-35` carries the twin-by-twin table so the mapping does not
+  have to be re-derived. The cluster phase 4 identified is *sixteen* IDs; the sixteenth, `RECOV-31`, is **not**
+  in `DEF-35` and is **not** phase-6 work — `DEF-5` defers it post-MVP and `DEF-6` defers its `RETRY-38` twin
+  with no named trigger — so it may carry a row here but never a budget line. Phase 6 is by this margin the
+  largest phase in the roadmap, and it was already the largest before the fifteen arrived.) Two spec-forced facts
+  constrain the cut, and `DEF-35` is a direct consequence of the first. `RETRY` is two cooperating stacks over
+  two different substrates — the recovery-chain half
   (§9.4 cites `RECOV-16`) and the stage-based pillar step (§8.3 cites `RETRY-27`/`RETRY-28`) — and they must not
   carry independent backoff formulas or duplicated constants, so the shared calculator lands before either stack
-  and `RETRY` cannot be split along its two stacks. `REDIR-24` fixes the redirect loop outer and auth stamping
+  and `RETRY` cannot be split along its two stacks. That is precisely why phase 4 cannot build the recovery
+  half: a calculator built two phases early is the duplication `RETRY-13` forbids, so the recovery-stack engine
+  waits for the phase that owns the shared calculator. `REDIR-24` fixes the redirect loop outer and auth stamping
   inner, per hop, and `REDIR-11`'s cross-origin suppression signal is consumed by `AUTH`'s stamping step, so
   neither pillar half finishes without the other's contract fixed; phase 6's segmentation design settles whether
   that is one segment or two with a shared contract landed first.
@@ -671,3 +695,137 @@ unexecuted plan, the window is `OI-8`'s, and phase 3b is deliberately built so i
 **no 3b test asserts a chunk granularity in either direction**. One deviation row added, **`P3-22`**,
 for the per-variant accessors P3-14's constant list does not enumerate. No new deferral: `DEF-34`
 stands as the design filed it, and the plan's Task 14 amends `DEF-3` and marks `DEF-26` picked up.
+
+**2026-09-08** — Phase 4 segmentation design filed, at
+`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, the second the segmentation rule has
+produced. No sub-phase design or plan exists yet and nothing is implemented. **The cut is three ways,
+on the specification's own §7 / §8.2 / §8.1 line — the letters the bullet above expects — and every
+boundary is a CONVENIENCE, not a dependency.** The expectation is adopted; its stated reason is not,
+and the bullet is corrected in place above. `CTX-<n>` is cited in no specification chapter outside
+ch.07 and in no design section outside §5.4, §8.1, §11.11 and §12 — the one exception being a
+`CTX-9` **comparison** in §5.2 that reads nothing from `CTX` and is what mis-files two
+`error-handling` corpus entries under that ID. What `PIPE`'s steps thread state
+through is their own per-call cursor (`PIPE-11`/`PIPE-13`/`PIPE-16`/`PIPE-17`, design §5.1's
+cursor-scoped state), and `RECOV-10` has no cancellation or context clause while `RECOV-11`'s "current
+context" is design §5.2's **ambient cancellation token**, phase 2's `Dexpace::Cancellation`. So nothing in
+`RECOV` or `PIPE` consumes `CTX`, and each sub-phase design must state its independence in its own
+Prerequisite section rather than inherit a chain by habit — the treatment this document already
+prescribes for phase 7. The recommended order `4a → 4b → 4c` has three convenience reasons: `4a` is
+smallest and carries the phase's one irreversible external handshake (cross-phase obligation 1's
+`CTX-14`/`CTX-15` bundle shape); `4b` lands the error primitives `DEF-24`, `DEF-27`'s first route and
+`DEF-32` all wait on, and `DEF-32` changes behaviour phase 2 shipped; `4c` is largest and benefits
+from having real steps to install. Two other cuts were rejected: two ways (both pipeline layers in
+one segment) on §8.3's prohibition and on 74 IDs being larger than any sub-phase the expectations
+contain, and four ways (splitting `4c` into a sync runtime and an async mirror) on `PIPE-28`, which
+requires one `Stages` module both runtimes flatten through — a boundary there would put at risk the
+exact property `PIPE-28` exists to guarantee, and would be strictly linear besides.
+
+**The scope finding is the document's largest, and it moves work rather than IDs.** Phase 4's
+arithmetic reconciles exactly — verified mechanically against appendix C: `CTX` 20 contiguous rows,
+`RECOV` 34, `PIPE` 40, 645 total, no duplicate, 20 + 34 + 40 = 94, level split 82 MUST / 10 SHOULD /
+2 MAY — but **sixteen `RECOV` IDs are the recovery-stack retry engine and not recovery-chain
+machinery**. `RECOV-17`–`RECOV-31` and `RECOV-34` each have a `RETRY` twin whose Ruby mapping is
+written in design §6.1 (a phase-6 chapter), design §12's own `RECOV` row places `RECOV-34` there, and
+`docs/sdk-design-ruby/` cites `RECOV-17` through `RECOV-30` nowhere at all. Two of them make the
+disposition **forced rather than preferred**: `RECOV-27`'s cancellable, non-pinning inter-attempt
+wait is §8.3's `Clock#sleep(duration, cancellation:)` behind `CFG-15`'s injectable time seam, which
+is phase 5's and which phase 2 deliberately kept off the pivot (`DEF-28`) — a phase-4 hand-roll is
+technically reachable (`Thread::Queue#pop(timeout:)` is on the 3.2 floor) but would fix `CFG-15`'s
+shape a phase early, which is exactly what `DEF-28` declined to do, and the shortcut a plain
+`Kernel#sleep` would be is ruled out by `RECOV-27`'s own "not a plain sleep" and by `RETRY-26`'s
+"non-conforming" — and `RETRY-13` forbids the two stacks
+carrying independent backoff formulas, which is exactly what building the recovery half two phases
+early would produce. Filed as **`DEF-35`** — **fifteen** of them, target **phase 6**; the sixteenth,
+`RECOV-31`, was already `DEF-5`'s and stays post-MVP. Nothing in this document's cells changes:
+phase 4 still owns all 94 checklist rows and builds 76 outright, carrying 18 as ⏳ under the legend
+cross-cutting constraint 3 already defines — one of the eighteen, `PIPE-33`, met in part rather than
+not at all. Cross-phase obligation 3 reads as confirmation once its words are taken at face
+value — the *substrates* are phase 4's, the *stacks* are phase 6's. **The consequence lands on phase
+6, and it is stated in three places so its segmentation design does not have to count.** Phase 6 was
+already the largest at 111 prefix IDs (`RETRY` 45, `REDIR` 28, `AUTH` 38); `DEF-35` adds the *work*
+of fifteen more on top of that 111, so **phase 6's segmentation design budgets for 111 + 15, not
+111** — `RECOV-31`, the cluster's sixteenth, is `DEF-5`'s post-MVP row and is not phase-6 work. No
+requirement ID moves — the fifteen keep their phase-4 rows as ⏳ and phase 6 carries its own rows or
+cross-references, the two-rows-one-obligation treatment phase 2 gave `SEAM-29`. The
+phase-6 segmentation bullet above is corrected in place accordingly; the **phase-6 row itself is
+unchanged and correct**, because its three prefix ranges still sum to 111. `DEF-35` carries the
+twin-by-twin `RECOV`→`RETRY` mapping so phase 6 re-derives nothing.
+
+**The gap-ID claim was checked and is right about the IDs and wrong about where to read them.**
+`--gaps CTX,RECOV,PIPE` reports 20/20 `CTX` and 40/40 `PIPE` substantive with **zero roll-up-only
+entries in any of the three prefixes** — so the appendix-B roll-up hazard does not fire for phase 4
+at all — and exactly the fifteen uncited `RECOV-17`–`RECOV-31` this document's paragraph above names (a
+different fifteen from `DEF-35`'s: that set drops `RECOV-31` and adds `RECOV-34`).
+But §8.2 states `RECOV-1` through `RECOV-16` and stops: verified by repository-wide grep,
+**`RECOV-17` through `RECOV-34` appear nowhere in `docs/product-spec/` outside appendix C** —
+eighteen IDs, not fifteen, and three of them (`RECOV-32`, `RECOV-33`, `RECOV-34`) escape `--gaps`
+only because the *design* names them. Filed as **`OI-12`**, the third instance of `OI-1`'s and
+`OI-2`'s shape and the largest; at three occurrences across three prefixes it is a property of
+appendix C's relationship to the prose chapters rather than three omissions. The budget is also not
+what the paragraph implies: fourteen of the fifteen uncited IDs move to phase 6 with `DEF-35` and
+the fifteenth, `RECOV-31`, is `DEF-5`'s post-MVP row, so the *reading for implementation* leaves
+phase 4 either way and what phase 4 owes is one disposition pass over eighteen appendix-C rows,
+which this document performed.
+
+**`PIPE-33` is phase 4's, and §10.5's trade is not re-opened.** Four of its five normative clauses
+are met and phase 2 built most of the machinery: no default executor exists to fall into (core ships
+the executor as a `#post`-shaped duck type), a built pipeline *is* a transport (`PIPE-26`) so
+`Transport.async_over` runs it as one opaque unit, options are threaded, and cancel-without-interrupt
+completes as cancelled. The interrupt clause is not met, for §8.3's reason, and `4c`'s row is ⏳
+citing `DEF-18` and §10.5 with the four met clauses named. Phase 8's disposition of the same ID is a
+re-assertion at the point the antecedent becomes real — `dexpace-async-thread` is what creates a
+worker to fail to interrupt — not a second decision, the same two-rows-one-obligation treatment phase
+2 gave `SEAM-29`. Phase 2's design also records a **binding obligation** honoured here: phase 4 wraps
+a `Dexpace::Pipeline` with phase 2's two `SEAM-18` bridges and builds no second pair.
+
+**Three facts verified on 3.2.11, 3.4.10 and 4.0.6 shaped the document, and two changed a decision.**
+A `#full_message` override — which design §5.2 specifies for the suppressed trail — is **invisible to
+Ruby's default uncaught-exception printer** on all three; `#detailed_message` reaches it, exists on
+the 3.2 floor, and is what Ruby's own `#full_message` calls, so overriding `detailed_message` alone
+satisfies **both** paths while `full_message` alone reaches only an explicit `#full_message` call and
+misses the report a reader of a crashed process actually sees. That is `DEF-24`'s content. And the
+`#cause` cycle `XCUT-9` guards against is **not reachable the way design §5.2 says it is**:
+`raise y, cause: x` on an already-linked pair raises `ArgumentError: circular causes`,
+`raise s, cause: s` leaves the cause `nil`, and `Exception#exception` returns a new object with a nil
+cause — the cycle is reachable only through a caller-defined `#cause` override, which is exactly the
+shape core cannot control, so the guard stays necessary and only the test that proves it changes. A
+phase-4 implementer testing the stated route would get an `ArgumentError` and could reasonably drop
+the guard. Third, `Fiber[:key]`'s inheritance holds across the whole supported range and is
+**copy-on-write**, and it is the carrier for `OBS`/`ASYNC` diagnostic context and **not** for `CTX`,
+whose store `CTX-7`/`CTX-11`/`CTX-19` require to be bounded and strongly reachable. Also recorded
+without changing a decision: `ObjectSpace::WeakKeyMap` is undefined on 3.2.11 (`CTX-19`'s lint);
+`NoMatchingPatternError` is inside `StandardError` while `LoadError` and `NotImplementedError` are
+outside it, which sets `RECOV-2`'s conversion boundary; and a value-equality delete over the context
+store evicts a structurally identical live sibling, reproducing `CTX-9`'s trap in one line.
+
+**Three knowledge notes were filed before the document was finished** — two under
+`docs/knowledge/notes/error-handling.md` (`## Superseded`: `error-handling/34f54b5e`'s
+`#full_message` mechanism, and `error-handling/11c6f36c`'s cause-cycle route) and one new file,
+`docs/knowledge/notes/observability.md` (`## Superseded`: widening `observability/e0f1e864` across
+the range and drawing the fiber-storage-versus-`CTX` line). All three print
+`[overridden by notes/…]`; `harvested/` is untouched. A **new audit group** was added to the
+`knowledge-lookup` skill's table before it was run, per the first retrospective rule: **Pipeline
+composition and execution context**. Fourteen risks are named for the sub-phase designs and none is
+decided here; the Deviation Ledger is empty, since every mechanism substitution phase 4 relies on is
+already catalogued in design §10 items 5, 6, 15, 17 and 18. One further citation slip was found and
+**fixed in the same change**: `CLAUDE.md`'s constraints list cited design "§8.2" for `Fiber[:key]`
+versus `Thread.current[:key]` and the passage is in §8.1, so the section number is corrected and
+nothing else in that sentence is touched. A wrong section pointer in the working contract sends every
+later phase to the wrong page, which is the same class of unfollowable pointer `OI-2` and `OI-12`
+record.
+
+**The document's adversarial review, same day, confirmed the three central claims and corrected the
+counts they were stated with.** The `RECOV`→`RETRY` twin mapping was re-derived ID by ID against
+appendix C and holds; the `CTX`-independence result holds, with the one exception now stated (a
+`CTX-9` comparison in design §5.2 that reads nothing from `CTX`); `OI-12`'s eighteen and its
+unfollowable pointer were re-verified by grep. Corrected: `DEF-35` defers **fifteen** IDs and not
+sixteen, so phase 6 budgets **111 + 15**; `PIPE-33` has **five** normative clauses of which four are
+met, not four of which three are; phase 4 carries **18** ⏳ rows, not 17; and
+`Dexpace/NoThreadInterrupt` is a **phase-0** cop, not phase 2's. `DEF-35`'s own register row carried
+the same off-by-one in its cost bullet and was corrected with the rest, so all three places a
+phase-6 planner can enter from now say 111 + 15 and name `RECOV-31` as the excluded sixteenth. One
+new open item, **`OI-13`**: `Fiber#storage=` — the write side of the carrier design §8.1 fixes for
+`ASYNC-9`/`ASYNC-11` — warns on every call on all three interpreters at the default warning level,
+against a gate set that fails on warnings, and `= nil` reads back `{}` on 3.2.11 and `nil` on the
+other two. Nothing in `CTX`, `RECOV` or `PIPE` touches fiber storage, so it is phases 5 and 8 that
+will meet it.
