@@ -520,4 +520,29 @@ execution step 7.
 - **Cites:** SEAM-13, SEAM-18, SEAM-16, XCUT-13
 - **Status:** deferred
 
-next id: DEF-33
+### DEF-33 — exercising IO-38's cross-thread close guarantee on a Ruby without a GVL
+
+- **Deferred by:** phase 3a, 2026-09-08
+- **Why:** `IO-38` requires that "the CLOSE state of a source/buffer MUST be observable across threads
+  to the slices derived from it, so that a close on one thread reliably invalidates a slice being read
+  on another (no torn or stale reads)", and
+  `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 fixes the mechanism: the flag is
+  "written and read through a `Thread::Mutex` rather than relying on the GVL, **so the guarantee
+  survives JRuby and TruffleRuby**". Phase 3a ships all of that — the synchronised write phase 2
+  already had, the synchronised **read** phase 2 did not (deviation P3-6), the invalidation of every
+  derived view, and a cross-thread test sequenced through a `Thread::Queue` so it is deterministic
+  rather than flaky. What it cannot ship is an interpreter on which the mechanism is load-bearing. The
+  CI matrix is CRuby 3.2 / 3.3 / 3.4 / 4.0, and on every row of it the GVL would hide a missing lock:
+  the test passes with the mutex and passes without it, so it proves the behaviour and not the
+  mechanism. Recorded rather than left implicit because the phase-3a checklist marks `IO-38` ✅ and a
+  ✅ whose only evidence is an argument about a platform nobody runs is exactly the drift the
+  one-row-per-ID convention exists to prevent.
+- **Pick-up condition:** a non-CRuby row is added to the CI matrix. No phase in v1 plans one, so this
+  names the **event** rather than a phase — the same shape `DEF-3`'s `BODY-36` half was given by
+  phase 3's segmentation sweep, and recorded so a later reader does not mistake an unscheduled
+  condition for a forgotten one. When it is met, the work is one job, not new code: run
+  `gems/dexpace-core`'s `IO` suite unchanged and confirm the cross-thread close test still passes.
+- **Cites:** IO-38, IO-37, IO-22, IO-42, NFR-17
+- **Status:** deferred
+
+next id: DEF-34

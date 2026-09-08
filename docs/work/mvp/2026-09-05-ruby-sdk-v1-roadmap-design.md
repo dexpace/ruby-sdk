@@ -85,7 +85,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 0 | Scaffold and Quality Gates | workspace root, plus all six MVP gems at `0.0.0` with empty `lib`/`sig`/`test`: `dexpace-core`, `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`, `dexpace-conformance` | §20 — `NFR-1`–`NFR-17`, every gate stood up as machinery and none closed here; phase 9 dispositions them. `NFR-5`'s SimpleCov `minimum_coverage 80` is wired here and inert until phase 1 lands code | §2.3, §2.4, §9 |
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
-| 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12 |
+| 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md) |
 | 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1 |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
@@ -182,7 +182,10 @@ avoid is a real and observed failure. Phase 0 carries no requirement scope, so t
 - **Phase 3 (79 prefix IDs plus 12 jointly numbered), expected 3a I/O contracts and 3b body lifecycle.** The cut
   follows the spec's own ch.05/ch.06 line. `IO-40` forbids the streaming contracts from owning any timeout or
   deadline — enforcement belongs to the transport — which keeps I/O free of transport concerns; `BODY-17`'s
-  tee-on-write builds on `IO-28`'s pump, so 3a leads 3b as a dependency, not a convenience.
+  tee-on-write builds on the tee sink of `IO-25`–`IO-29` and on `IO-17`'s pump, so 3a leads 3b as a dependency,
+  not a convenience. (**Corrected in place 2026-09-08** by the phase-3 segmentation design, which confirmed the
+  dependency and eight more edges like it: this bullet formerly read "`IO-28`'s pump". `IO-28` is the tee's
+  no-direct-backing-buffer prohibition, restated at the body layer by `BODY-37`; the pump is `IO-17`.)
 - **Phase 4 (94 IDs), expected 4a execution context, 4b recovery-chain primitives, 4c stage-based pipeline.**
   `PIPE`'s steps thread state through `CTX`'s promotion chain and `RECOV-10`/`RECOV-11` re-assert cancellation on
   the current context, so 4a leads both. §8's two layers must not be collapsed into one — the design quotes the
@@ -427,3 +430,150 @@ run**: 169 runs, 537 assertions, 0 failures on 3.2.11 and 3.4.10 and 545 on 4.0.
 under `ruby -w` and identical across six seeds. The RuboCop cop is the one fence that cannot run
 against this project's toolchain — no RuboCop is installed until phase 0 — and was executed during
 review on RuboCop 1.90.0 through phase 0's verbatim harness: 17 runs, 61 assertions, 0 failures.
+
+**2026-09-08** — Phase 3 segmentation design filed, at
+`docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`. It is the first segmentation
+design the rule above has produced; no sub-phase design or plan exists yet, and nothing is
+implemented. **The cut is two ways, on the spec's own ch.05/ch.06 line, and 3a leads 3b as a
+dependency** — the expectation in the segmentation bullet, adopted on evidence rather than
+inherited: eight named edges run 3a→3b (`BODY-17`–`BODY-21`/`BODY-37` on the `IO-25`–`IO-29` tee,
+`BODY-3` on the `IO-7`–`IO-10` buffer, `BODY-10` on `IO-12`/`IO-17`, `BODY-22`–`BODY-29` on
+`IO-19`/`IO-20`/`IO-41`/`IO-42`, `BODY-32`/`BODY-33` on `IO-9`'s ceiling, `HTTP-41`/`BODY-14` on
+`BufferedSource`, `HTTP-42` on `IO-13`, `BODY-8` on `IO-6`) and none runs back. The one edge that
+would have — `BufferedSource.over(body)` is a 3a artifact taking a body — is removed by fixing the
+canonical body *representation* (§10.2's `#each`-yielding-BINARY duck type) in 3a while the body
+*production contract* (`HTTP-36`/`BODY-1`) stays 3b's; no ID moves. Three ways was considered twice
+and rejected twice: a request-side/response-side pair, the only candidate offering real
+independence, is crossed by four MUSTs (`HTTP-52`/`BODY-30` re-serving an error body as a
+*replayable* body, `BODY-34`'s one shared preview size across both sides, `BODY-32`, and the shared
+short-write/zero-read helper); a model-then-capture pair is coherent but strictly linear and buys no
+merge, since a phase returns to `mvp` as one pull request. 3b at 49 IDs is the largest sub-phase the
+expectations contain, and the mitigation is a stated constraint on 3b's plan — model before wrappers
+— rather than a third document. Scope reconciles exactly: 42 + 49 = 91, the roadmap's 79 prefix IDs
+plus 12 jointly numbered, verified mechanically against appendix C (`IO` 42 contiguous rows, `BODY`
+37, `HTTP` 53, 645 total, no duplicate), with the `HTTP` family partitioning with no residue across
+phases 1 and 3. **The roadmap's arithmetic is correct**; two spec-reading traps are recorded instead
+— ch.06 §6.3's `HTTP-16-body` label is not a requirement ID (canonical `HTTP-16` is phase 1's header
+insertion-order SHOULD), and `BODY-6`/`BODY-7` are two checklist rows although ch.06 states their
+content inside `BODY-3`'s bullet. The gap-ID claim was checked and is half right: `IO-32`–`IO-35`
+are the retired provider apparatus exactly as this document says, but **`IO-6` is a live MUST** —
+ownership-on-wrap — that appears in no spec chapter and no design chapter, whose content §3.1 and the
+corpus both attribute to the retired `SEAM-3`, and whose bridge half survives in ch.05 only under
+`IO-16`, a SHOULD. Filed as `OI-2`; 3a reads it from appendix C. `DEF-26` is **picked up by 3b** (it
+needs a body type to narrow `sig/` to, which 3a's duck type is not), and the `NFR-4` narrowing is
+free because the lock diffs against a release tag that does not exist. `DEF-3` stays deferred and
+gains what it lacked: `BODY-12`'s transport-dispatch clause targets **phase 8** with `DEF-10`, its
+body-side clause is 3b's to decide, and `BODY-36` gets an explicit pick-up condition — core's
+dependency budget changing — in place of "no named trigger", because Ruby has no stdlib `mmap` and
+both routes to one are barred by `SEAM-1`. No new deferral was filed: a segmentation design decides a
+cut, not the interfaces whose absence a deferral records. Four facts verified on 3.2.11, 3.4.10 and
+4.0.6 shaped the document rather than being noted after it. `IO#read(n, buf)` and
+`StringIO#read(n, buf)` **overwrite** the destination buffer where `IO-1` requires a tail-append, so
+3a's read primitive cannot delegate to Ruby's read-into form. `StringIO#read(n, buf)`'s encoding
+behaviour **changed at exactly Ruby 3.4** — BINARY-forced on 3.2.11, destination-tag-preserving from
+3.4 — the same floor-straddling shape as `URI::DEFAULT_PARSER`. Defining `Dexpace::IO` shadows
+`::IO` for every file inside `module Dexpace`, and the dangerous case is silent: `x.is_a?(IO)` and
+`IO === x` return **false** for a real `::IO` with no error, while phase 2's
+`Dexpace/QualifiedCoreConstant` covers neither that constant nor any path phase 3 writes. And §7.1's
+`Enumerator`-`ensure` asymmetry, verified there on 3.4.10 alone, holds on the floor and the ceiling
+too, so the rule that resource acquisition and release never live inside an `Enumerator` block binds
+phase 3 before it binds phase 7. **One knowledge note was filed** before the document was finished,
+`docs/knowledge/notes/pagination.md` — a new file superseding `pagination/d626cf17` and widening
+`pagination/731d9f17` with that last fact; the other three Ruby facts override no harvested rule and
+so earned none. Ten risks are named for the sub-phase designs and none is decided
+here; the Deviation Ledger is empty, since every mechanism substitution phase 3 relies on is already
+catalogued in design §10 items 1, 2, 10, 11, 12 and 18.
+
+**2026-09-08** — Phase 3a design filed, at
+`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`, the first
+sub-phase design the segmentation rule has produced. Nothing is implemented; the plan and
+the checklist are still to be written. Scope is the segmentation design's 42 `IO` IDs
+unchanged — 34 implemented, eight 🚫 citing design §10.1 — plus the three things the
+charter assigns 3a without a new ID: §10.2's canonical body **representation**,
+`BufferedSource.over` with its no-ownership exception, and `MAX_MATERIALIZED_BYTES`.
+**Three verified facts reshaped the design rather than being noted after it, and the first
+is the largest.** `IO.copy_stream` — which is literally what
+`Net::HTTP#send_request_with_body_stream` calls — drives a duck-typed source through
+`readpartial(len, buf)`, or `read(len, buf)` when there is no `#readpartial`, with **one
+buffer object reused across every call** and expected overwritten, on 3.2.11, 3.4.10 and
+4.0.6 alike. `IO-1` requires the opposite, so `IO-1`'s primitive and `IO-16`'s host-native
+bridge **cannot be the same Ruby method**: the primitive is `#read_into(dest, count:)` and
+`#read`/`#readpartial`/`#getbyte`/`#each` keep Ruby's semantics, which is what makes design
+§3.1's "`IO-16` is satisfied by construction" true rather than merely asserted (R2, R4).
+Second, `IO.copy_stream` terminates cleanly on an `EOFError` **subclass** raised by a
+duck-typed `#readpartial`, so `Dexpace::EndOfStreamError < ::EOFError` is load-bearing:
+outside that family every streaming upload phase 8 performs would fail. Third,
+`force_encoding` on a **frozen** `String` raises `FrozenError` even when the target encoding
+is already the string's own, and a Rack-style body under `# frozen_string_literal: true`
+yields frozen chunks — so the ingress retag is `String#b` and never `force_encoding`, and
+every encoding test uses non-ASCII bytes because a BINARY string appended with an ASCII-only
+UTF-8 one stays BINARY and passes under the bug. All four risks the segmentation design
+assigned 3a are resolved: **R1** extends `Dexpace/QualifiedCoreConstant` with the constant
+`IO` and a third watched namespace, the one-segment `Dexpace`, making the rule repository-wide
+over every gem's `lib/` — `File`, `StringIO` and `Tempfile` are deliberately not added, under
+a standing rule that a constant joins the list in the same change that creates its shadow —
+and the mitigation that actually matters is that core never writes `is_a?(IO)` at all;
+**R2** fixes `#read_into`'s four return values, its eager `IO-3` rejection and the fill hook
+that normalises `readpartial`'s `EOFError` and `read`'s `nil` to `-1` at most once per stream;
+**R3** states `IO-6`'s ownership rule once, citing `IO-6` and design §10.12 rather than the
+retired `SEAM-3`, and names `.over`'s exception and the absence of any borrowing variant in
+the same place; **R4** finds §3.1's "satisfied by construction" claim false as written and
+true after the rename, and pins it with an end-to-end `IO.copy_stream` test rather than an
+inference. R5–R10 are untouched and remain 3b's. The object model is
+`Dexpace::IO::{Buffer, BufferedSource, BufferedSink, TeeSink, TypedReads, TypedWrites}` plus
+`MAX_MATERIALIZED_BYTES`, two flat error classes `Dexpace::StreamError < ::IOError` and
+`Dexpace::EndOfStreamError < ::EOFError`, and three RBS interfaces; `#peek` and `#slice`
+return a `BufferedSource` rather than a new public type. **One change reaches back into a
+phase-2 constant**: `Dexpace::Closeable#closed?` is changed to read the latch under the close
+mutex, because `IO-38` is the first requirement that reads the flag from a second thread and
+§3.1 declines to rely on the GVL "so the guarantee survives JRuby and TruffleRuby" — measured
+at about 40 ns per call, paid once per public call and never per byte. Twelve deviations are
+recorded as P3-1 through P3-12 with a Design §3 addendum carrying two entries. One deferral
+was filed, **`DEF-33`** — exercising `IO-38` on a Ruby without a GVL, whose condition is an
+event rather than a phase because the matrix is CRuby-only and the GVL would hide a missing
+lock on every row. The **open-items register gained `OI-3`**: phase 1's "verified inert
+outside core" holds only for a *top-level* `include Dexpace`; a consumer's own
+`class C; include Dexpace` puts `Dexpace` ahead of `Object` in the ancestry, so `x.is_a?(IO)`
+is silently `false` there — a finding about every flat `Dexpace::` constant sharing a name
+with a core class, not only about `Dexpace::IO`. Three knowledge notes were filed before the
+document was finished — `io-and-byte-streams` (two `## Superseded` entries: the read split and
+the frozen-chunk retag), `message-bodies` (`## Conflicts`: `IO-6` and not `SEAM-3` is the
+ownership rule's home, the corpus half of `OI-2`) and `resource-management` (`## Conflicts`:
+the styleguide's per-call I/O timeout rules do not reach this layer, because `IO-40` forbids
+it). A sixth audit group, **resource lifecycle and stream ownership**, was added to the
+`knowledge-lookup` skill's table before it was run, per the first retrospective rule.
+
+**2026-09-08** — Phase 3a plan filed, the same day as the phase-3 segmentation design and the 3a
+design. `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts.md`. **Fifteen numbered TDD
+tasks**, in build order: the cop extension; `Closeable#closed?` under the close mutex; the two error
+classes; `Dexpace::IO` with the ceiling and the three RBS interfaces; `TypedReads` in five steps —
+the `#read_into` primitive with the chunk store, the typed reads with the `IO-9` ceiling, the line
+machine, the host-native bridge, the views; `BufferedSource`; `TypedWrites`; `Buffer`;
+`BufferedSink`; `TeeSink`; and one deliberate closing task for the entry point, the two regenerated
+artifacts and the checklist. Nothing is implemented; the checklist is written at execution time, per
+execution step 6. Every `ruby` fence was extracted and run: **43 fences, on 3.2.11, 3.4.10 and 4.0.6,
+203 runs / 819 assertions / 0 failures** (823 assertions on 4.0.6 for phase 2's Minitest-6 reason),
+warning-free under `ruby -w` with `RUBYOPT=-W:deprecated`, identical across five seeds; the nine
+`rbs` fences pass `rbs validate`; the cop's cases run **18 runs / 52 assertions / 0 failures** on
+RuboCop 1.90.0, and the cop finds **0 offenses** over the eighteen files of the finished `lib/` tree.
+The plan's own fences were then re-extracted from the filed document and the whole tree rebuilt from
+them, which is how the five-fragment assembly of `typed_reads.rb` is known to reconstruct rather than
+assumed to. **Task 2's guard was run red** against phase 2's unsynchronised `#closed?` on all three
+interpreters — `ThreadError expected but nothing was raised` — because a one-line behaviour change
+with no signature change is invisible to `gates:sig_diff`, so that assertion is the only thing
+standing between P3-6 and a silent revert. The design's three open questions are answered in the
+plan: the chunk store `shift`s a fully consumed chunk and never `byteslice`s a partially consumed
+head one, so the fill path copies a chunk at most once and not at all when the upstream already
+yields frozen BINARY chunks; `#each` yields whatever the upstream returned, because `.over` must
+preserve the wrapped body's chunking for `BODY-17`; and the one allocating `IO-9` test runs on every
+matrix row, measured at 0.0002–0.0006 s and under 20 MB peak RSS because the guard reads `#bytesize`
+without touching the lazily mapped pages. **One deviation was added, `P3-13`** — `#read` and
+`#readpartial` leave `outbuf` tagged `Encoding::BINARY`, because `::IO#read` preserves the
+destination's tag while `StringIO#read` changed at exactly Ruby 3.4, so Ruby's own readers disagree
+across this port's floor and only BINARY gives one answer on every row. **No deferral was filed**;
+the register was read in full and no row is picked up. The **open-items register gained `OI-4`**: a
+source retains every view derived from it until it closes and the deregistration is an `Array#delete`
+— bounded everywhere 3a can see, and first non-obvious in phase 3b's per-attempt response-logging
+drain. Planning also found the one way to ship the cop broken: `module Dexpace; module IO` is itself
+a bare `IO` const inside `module Dexpace`, so without a definition-site guard the cop rejects
+`lib/dexpace/io.rb`, the very file that creates the hazard — two accepted rows now pin it.
