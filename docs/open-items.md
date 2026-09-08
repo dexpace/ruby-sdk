@@ -705,4 +705,102 @@ reports "no drift found" with `DEF-32`'s dead filename in the tree, and reported
 ground — but it is why four instances accumulated before anyone counted them, and it is the reason
 this row argues for the check rather than for a fifth manual correction.
 
-next id: OI-15
+### OI-15 — "the monotonic counter" names two unrelated objects, and the phase-4 segmentation design's exclusions table assigns the phrase to phase 5
+
+- **Opened:** 2026-09-08, phase 4a design
+- **Status:** open
+- **Cites:** CTX-4, CTX-6, CFG-15, CFG-16, RETRY-26
+
+**The collision.** `CTX-4` requires that each call's store key append "a process-wide, monotonically
+increasing counter" to a `traceId:spanId` rendering, and `CTX-6` requires that counter to be "a single
+process-wide monotone counter shared by all three flavors' default-key generation". That is an
+**integer sequence**: it has no unit, no relation to time, no wall clock behind it, and Ruby's
+arbitrary-precision `Integer` means it cannot even wrap. It is phase 4's, and phase 4a builds it.
+
+`CFG-16` requires that the time seam's "monotonic counter must be non-decreasing and used only for
+measuring elapsed durations between its own readings (its absolute value is not meaningful)". That is
+an **elapsed-time clock**. It is phase 5's, deferred by `DEF-28`, and `RETRY-26`'s cancellable wait is
+its first caller.
+
+**Why this is a finding and not a coincidence of vocabulary.**
+`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`'s *Exclusions* table carries the row
+"`CFG-15`–`CFG-21` — the clock, **the monotonic counter**, the interruptible sleep,
+`future.value(deadline:)` — 5 (`DEF-28`)". The row is correct about `CFG-16` and it is the only place a
+phase-4 reader is told where "the monotonic counter" lives — so a `4a` designer reading the charter's
+own scope table before reading `CTX-4` learns that the counter they need is somebody else's. The same
+document's `4a` scope paragraph says the opposite two pages earlier ("the process-wide monotonic
+counter `CTX-4`'s key appends"), so the document is internally consistent only to a reader who has read
+both. `DEF-28`'s own text ("the clock behind them") has the same shape.
+
+**What is not claimed.** Neither document is wrong. Each sentence is true of the object it is about.
+The failure is that one phrase names two objects in one phase's scope, and nothing distinguishes them
+at the point of use.
+
+**Why it is filed rather than fixed.** The phase-4 segmentation design is committed and adversarially
+reviewed, and a finding against a committed phase belongs in a register rather than in an edit. Phase
+4a's own design states the distinction explicitly under *Cross-cutting constraints* and in its
+*Out of scope* table, which is the mitigation available to it.
+
+**Its relation to `OI-14`.** This is the same family — a cross-reference that reads correctly and
+resolves to the wrong thing, with nothing mechanically checking it — and it is the variant `OI-14`'s
+proposed link-and-citation check would **not** catch. That check resolves repository paths and
+requirement-ID-to-chapter claims; both are derivable. A phrase that is ambiguous between two
+requirement IDs is not a broken pointer at all, and no tool this repository could reasonably build
+would find it. What would: naming the object rather than its adjective. `CTX-4`'s is a **call-sequence
+counter** and `CFG-16`'s is an **elapsed-time counter**, and a document that writes either full phrase
+cannot be misread.
+
+### OI-16 — `[overridden by notes/…]` prints for every key a note backticks, including rules it adopts
+
+- **Opened:** 2026-09-08, phase 4a design review
+- **Status:** open
+- **Cites:** NFR-4
+
+**The mechanism.** `Corpus#link_overrides` in `scripts/knowledge.rb` scans each note's whole text for
+`` `<topic>/<8 hex>` `` — `CITED_KEY`, a bare backticked-key regexp — and, for every match, appends the
+note's location to the harvested entry's `overridden_by`. There is no other signal: the CLI has one
+relation, and it renders it as `[overridden by notes/…]` on the harvested entry's location line in every
+query result. A note therefore cannot cite a harvested rule **in support** of what it says without
+simultaneously marking that rule as overruled.
+
+**What it costs, measured rather than asserted.** 77 of the 2 166 harvested entries currently carry the
+marker. At least six of those are rules the naming note states in so many words that it is *not*
+weakening:
+
+- `notes/concurrency-and-async.md:8` marks `concurrency-and-async/c0fab747`, `/ee54cb68` and `/f261a143`,
+  in the sentence "The rules in this chapter that the substitution does **not** weaken are adopted
+  verbatim and are what make the shape safe".
+- `notes/execution-context.md:8` marks `execution-context/d6a723dd` and, again, `c0fab747`, under "The
+  rules the substitution does **not** weaken and which are adopted verbatim".
+- `notes/execution-context.md:10` marks `api-design/b0e18938` and `module-organization/64e84d64`, both
+  cited as rules the decision *rests on*. `b0e18938` is the minimal-public-surface rule that phase 2's
+  `P2-11`, phase 3a's `P3-8` and phase 4a's `P4-2` and `P4-11` all stand on; it now reads, in every query
+  that returns it, as having been overridden by a note about execution contexts.
+
+`io-and-byte-streams/d2b47c89` shows a second symptom: a key backticked twice in one note is listed twice
+in that entry's marker.
+
+**Why this is a finding and not a style complaint.** `CLAUDE.md` and the `knowledge-lookup` skill both
+describe the marker as the mechanism by which a correction is made visible — "a backticked
+`<topic>/<8 hex>` key naming the harvested rule it overrides, which makes that rule print
+`[overridden by notes/…]` in every query result". The phase-start query pair exists so a plan does not
+assume as settled something an implementation found otherwise; a marker that fires on citation as well as
+on correction inverts that for the cited rule, and it does so silently. The rules most likely to be cited
+in support are the general, cross-cutting ones — minimal surface, smallest critical section, full nesting
+form — which are exactly the rules a false "overridden" reading is most expensive on.
+
+**Why it is filed rather than fixed.** The fix is a tool or convention change, not an edit to any one
+document. Rewriting phase 4a's note alone to avoid backticking the two rules it adopts would remove the
+citation the corpus convention asks for, and would leave `notes/concurrency-and-async.md`, which is
+committed, doing the same thing — an inconsistency without a repair. Three shapes are available and the choice is not this review's:
+a second relation in the note format (a `## Adopts` heading, or a `cites:` marker the regexp skips);
+scoping `CITED_KEY` to the entry's first sentence, where a supersede names its target; or rendering the
+two differently (`[answered by …]` versus `[cited by …]`) so a reader can tell them apart. Whichever is
+taken, `ruby scripts/verify_knowledge_structure.rb` and `ruby scripts/knowledge_drift.rb` both walk the
+same regexp and would need the same change.
+
+**Its relation to `OI-14` and `OI-15`.** Both of those are cross-references that resolve to the wrong
+thing with nothing checking them. This one is the opposite failure: a cross-reference that resolves
+correctly and is then *reported* as something it is not, by a tool that is working exactly as written.
+
+next id: OI-17

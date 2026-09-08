@@ -86,7 +86,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
-| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md) |
+| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md) |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14 |
@@ -829,3 +829,55 @@ new open item, **`OI-13`**: `Fiber#storage=` — the write side of the carrier d
 against a gate set that fails on warnings, and `= nil` reads back `{}` on 3.2.11 and `nil` on the
 other two. Nothing in `CTX`, `RECOV` or `PIPE` touches fiber storage, so it is phases 5 and 8 that
 will meet it.
+
+**2026-09-08** — **Phase 4a's design filed**, `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`,
+the first sub-phase document under phase 4 and the third sub-phase design overall, after `3a`'s and
+`3b`'s. Twenty `CTX` IDs, all implemented, none deferred and none carried as ⏳ — the only sub-phase so far whose whole scope ships. It
+resolves the charter's `R1`–`R4` and leaves `R5`–`R14` to `4b` and `4c` untouched. **The phase's one
+irreversible external handshake is now signed**: cross-phase obligation 1's instrumentation bundle is
+`Dexpace::Instrumentation::Bundle`, a frozen `Data` with **eight** members exposing `CTX-14`'s ninth —
+validity — as a derived `#valid?`, because `OBS-26` makes an all-zero identifier invalid by MUST and a
+stored flag would let a bundle contradict its own identifiers. Beside it ship `Bundle::NONE`,
+`TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, and the two frozen no-op singletons `NO_SPAN` and
+`NO_TRACER_FACTORY`, the latter carrying the one method `CTX-20`'s embedded MUST forces. `DEF-37` records
+the five-clause contract phase 5 implements against and the six things it may not redo. `DEF-36` defers the
+configuration source for the store's cap, `MAX_TRACKED_CONTEXTS = 1024` — `AUTH-19`'s number, because §5.4
+requires one shared bounded-map implementation and two default bounds would make that claim two-valued.
+
+Four decisions were forced by facts run on 3.2.11, 3.4.10 and 4.0.6 rather than by taste, and two of them
+became corpus notes under the new `docs/knowledge/notes/execution-context.md`. **A frozen `Data` cannot carry
+a close latch** — the ivar write raises `FrozenError` — so a context is not a `Dexpace::Closeable`, and it
+needs no latch, because `CTX-9`'s identity-conditional eviction is already idempotent. **The cap-draining
+loop is degenerate under one mutex** — and the proof is structural rather than measured: insert and drain
+share one `synchronize`, so exactly one key arrives per critical section and the loop body can run at most
+once. `CTX-12`'s stated convergence rationale is vacuous here. The note records the argument *and* the
+count that fails to support it — 8000 inserts at cap 64 giving 7936 iterations is `inserts − final size`,
+reproduced identically by a split-lock drain and by a bare `if` — because the inverse inference would
+remove the lock, and a reader who trusted the count would have nothing to stop them.
+**A `private_constant` on `Dexpace` is bare-name reachable from every full-nesting descendant and from
+nothing else, per file and not per gem**, which is what makes `Dexpace::BoundedMap` shareable with phase 6's
+`AUTH-19` and phase 9's `XCUT-14` without a public constant, conditional on
+`module-organization/64e84d64`'s full nesting form — and which is why `NO_SPAN` and `NO_TRACER_FACTORY` are
+public for the reference *form* a conformance assertion writes, never because they cross a gem boundary.
+And **`ObjectSpace::WeakKeyMap.new` parses on 3.2.11 where the constant is undefined**, which is why
+`CTX-19`'s prohibition becomes a seventh custom cop, `Dexpace/NoWeakReferences`, whose test table is a table
+of source strings and needs no version guard; its behavioural counterpart discriminates a strong `Hash`
+(1000 of 1000 registered contexts after three `GC.start`s) from an `ObjectSpace::WeakMap` (0 of 1000) and
+deliberately not from an `ObjectSpace::WeakKeyMap`, which holds values strongly and so keeps every entry
+alive — that spelling is the cop's to catch, and the two halves are scoped accordingly.
+
+Eleven deviations are filed, `P4-1` through `P4-11`, opening phase 4's ledger. The one a later phase is most
+likely to trip on is `P4-1`: the three context flavours are **flat** — `Dexpace::DispatchContext`,
+`RequestContext`, `ExchangeContext` — and §5.4's "three distinct `Data` classes sharing a module" is read as
+a module they *include*, because `Dexpace::Context::Request` would shadow phase 1's `Dexpace::Request` for
+every file inside that namespace and `Dexpace/QualifiedCoreConstant` cannot express the fix. Two new open
+items. **`OI-16`**, from the design's review: the corpus CLI has one relation and derives it from any
+backtick, so `[overridden by notes/…]` now prints against `api-design/b0e18938` and
+`module-organization/64e84d64` — two rules phase 4a's note *rests on* — and against three
+`concurrency-and-async` rules a committed note says in words that it does not weaken; 77 of 2 166 harvested
+entries carry the marker. And **`OI-15`**: "the monotonic counter" names `CTX-4`'s call-sequence counter
+and `CFG-16`'s elapsed-time counter, and the phase-4 segmentation design's own exclusions table assigns the phrase to phase 5 — true of
+`CFG-16` and misleading about `CTX-4`, which is phase 4a's to build. Filed rather than fixed, because the
+charter is committed. **4a confirms the charter's independence result from the inside**: `--phase 2` and
+`--phase 3` cite 70 and 152 distinct requirement IDs between them and **not one `CTX` ID**, and `4b` and
+`4c` are obliged to consume nothing 4a ships.

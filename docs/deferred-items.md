@@ -664,4 +664,57 @@ execution step 7.
   RETRY-13, RETRY-27, RETRY-28, RETRY-37, RETRY-42, CFG-15
 - **Status:** deferred
 
-next id: DEF-36
+### DEF-36 — the configuration source for the execution-context store's cap
+
+- **Deferred by:** phase 4a, 2026-09-08
+- **Why:** `CTX-11` requires the context store to "enforce a maximum number of tracked entries" and names
+  no number; `XCUT-14` states the same general rule for every bounded map and names none either. Phase 4a
+  ships `Dexpace::ContextStore::MAX_TRACKED_CONTEXTS = 1024`, a `ContextStore.new(cap:)` keyword that
+  reaches it, and one process-wide store built with the default. What it cannot ship is any way for an
+  application to change the **process-wide** store's bound, because the configuration chain does not
+  exist until phase 5. A fixed 1024 is conforming — `CTX-11` asks for a bound, not for a tunable one, and
+  `CTX-19` makes that bound "the leak backstop" rather than the primary cleanup mechanism — but an
+  application running many thousands of concurrent calls would legitimately want to raise it, and an
+  application with a tight memory budget to lower it. The value 1024 is `AUTH-19`'s stated default for a
+  bounded store of exactly this shape and is the only number the specification supplies for one; phase
+  4a's deviation `P4-9` argues it.
+- **Pick-up condition:** phase 5, with `CFG-1`–`CFG-4`'s layered chain. The attachment point already
+  exists and the work is one wiring: read the cap from the chain when constructing the process-wide
+  store. **No signature changes** — `ContextStore.new(cap:)` is already keyword-shaped with a documented
+  default — so `NFR-4`'s API lock is not prejudiced. The same shape as `DEF-34`, which defers the
+  configuration source for phase 3b's body-logging caps, and as `DEF-28` before it.
+- **Cites:** CTX-11, CTX-13, CTX-19, XCUT-14, AUTH-19, CFG-1, CFG-2, CFG-3, CFG-4, NFR-4
+- **Status:** deferred
+
+### DEF-37 — the no-op span and tracer protocols behind phase 4a's three instrumentation singletons
+
+- **Deferred by:** phase 4a, 2026-09-08
+- **Why:** `CTX-14` requires the correlation bundle to expose "an active span, and a per-operation tracer
+  factory", and `CTX-15` requires the disabled-tracing default to carry "a no-op span and no-op tracer
+  factory". Roadmap cross-phase obligation 1 makes the bundle's **shape** phase 4's and forbids deferring
+  it — "Phase 4 fixes the shape and ships the bundle in core; phase 5 implements the sentinels and
+  populates rather than replaces it. Phase 4 cannot defer the decision to phase 5, and phase 5 cannot
+  redefine it." The *protocols* of a span and a tracer are a different matter: they are `OBS-21`–`OBS-25`,
+  phase 5's, and fixing them in phase 4 would be the same error in the other direction. So phase 4a ships
+  three frozen singletons — `Dexpace::Instrumentation::NO_SPAN`, `NO_TRACER_FACTORY` and the
+  `private_constant` `NO_TRACER` — and exactly **one** method between them,
+  `NO_TRACER_FACTORY#tracer(name = nil, version = nil)`, which `CTX-20`'s embedded MUST ("Its factory
+  method MUST be safe to invoke concurrently from multiple threads") forces into existence: a factory
+  with no factory method cannot satisfy a MUST about that method. `NO_SPAN` responds to nothing beyond
+  `Object`'s own surface, and the RBS interfaces `_Span` and `_Tracer` are declared **empty** on purpose,
+  so the type system states the deferral rather than a comment doing it.
+- **Pick-up condition:** phase 5, with `OBS-25` ("a no-op Tracer returning a shared no-op Span, a no-op
+  Span whose current-scope is a cached singleton … Selecting a no-op path MUST NOT allocate per call").
+  The classes behind all three singletons are `private_constant` and therefore **not** `NFR-4`-locked, so
+  phase 5 gives them their methods and widens `_Span`/`_Tracer`, and the three objects keep the identity
+  phase 4 published — which is what makes `OBS-25`'s allocation clause assertable by reference identity
+  from `dexpace-conformance`, and why those two constants are public where phase 4a's other new
+  internals are not. **What phase 5 may not do**, per obligation 1: introduce a second no-op span or
+  tracer, replace either published singleton, rename or remove a `Bundle` member, change `Bundle#valid?`
+  from derived to stored, replace `TraceIdFlavour` with a bare `Symbol`, or give `Bundle` a second
+  `NONE`. Phase 4a's deviations `P4-6`, `P4-7` and `P4-8` record the three shape decisions phase 5
+  inherits.
+- **Cites:** CTX-14, CTX-15, CTX-20, OBS-21, OBS-25, OBS-26, OBS-27, NFR-4
+- **Status:** deferred
+
+next id: DEF-38
