@@ -91,10 +91,23 @@ against the design pass itself rather than an implementation phase.
 - **Why:** BODY-36 (MAY) has no stdlib mmap to build on. BODY-12 (SHOULD) platform zero-copy file
   transfer is an optimisation over the file-backed body the MVP already ships correctly, just not
   zero-copy.
-- **Pick-up condition:** BODY-12 lands with an `IO.copy_stream` path post-MVP; BODY-36 has no
-  named trigger.
-- **Cites:** BODY-36, BODY-12
-- **Status:** deferred
+- **Pick-up condition:** **BODY-12, clause 1 — met and discharged by phase 3b, 2026-09-08.** The
+  file-backed body's write is `::IO.copy_stream(handle, sink, count, offset)`, verified on 3.2.11,
+  3.4.10 and 4.0.6 to accept a duck-typed `#write` destination, honour the `(length, offset)` window,
+  leave the source handle's own cursor untouched, and return the byte count that gives `BODY-13` its
+  short-write detection. **BODY-12, clause 2 — the transport recognising a file-backed body by type
+  and dispatching a true zero-copy kernel path — targets phase 8**, alongside `DEF-10`, which is the
+  same feature seen from the transport side; phase 3b discharges the body-layer half of it by making
+  `Dexpace::FileBody` a named public class exposing `#path`, `#offset` and `#count` (and deliberately
+  *not* `#to_path`, which would make `IO.copy_stream(body, sink)` copy the whole file and ignore the
+  body's window). **BODY-36 — core's dependency budget changes.** Ruby's standard library has no
+  `mmap`; the only routes are a C extension or the `mmap` gem, both barred from `dexpace-core` by
+  `SEAM-1`/`NFR-1`, so this names the **event** rather than a phase and no phase in v1 can meet it.
+  Recorded so a later reader does not mistake an unmeetable condition for a forgotten one. Both
+  sharpenings were stated by the phase-3 segmentation design's deferral sweep and are performed here
+  by phase 3b, which owns both IDs.
+- **Cites:** BODY-36, BODY-12, BODY-11, BODY-13, TRANSPORT-28
+- **Status:** deferred (BODY-12 clause 1 discharged 2026-09-08, phase 3b)
 
 ### DEF-4 — PIPE-36: pillar-step stage locking
 
@@ -384,7 +397,12 @@ execution step 7.
   `Response#body` in `sig/` and adds the by-value equality test against a real body type. Both are
   a narrowing of a public signature, which is why it is recorded rather than left to be noticed.
 - **Cites:** HTTP-6, HTTP-46, BODY-1, NFR-4
-- **Status:** deferred
+- **Status:** picked-up (2026-09-08, phase 3b) — `sig/` narrows `Request#body` and `Response#body` to
+  `Dexpace::Body?`, the production contract of `HTTP-36`/`BODY-1` rather than design §10.2's `#each`
+  duck type, and `HTTP-46`'s by-value body comparison is tested against real body types. Deviation
+  P3-15 records why the narrowing target is the module and not the duck type, and why no coercion is
+  added at `Request::Builder`. `HTTP-46` stays phase 1's ID and carries a cross-reference row in phase
+  3b's checklist
 
 ## Filed by phase 2 — Seam Foundations
 
@@ -545,4 +563,34 @@ execution step 7.
 - **Cites:** IO-38, IO-37, IO-22, IO-42, NFR-17
 - **Status:** deferred
 
-next id: DEF-34
+## Filed by phase 3b — Body Lifecycle
+
+### DEF-34 — the configuration source for the body-logging caps and the enablement predicate
+
+- **Deferred by:** phase 3b, 2026-09-08
+- **Why:** `BODY-34` requires that "the in-memory capture on both sides MUST be bounded by one shared
+  preview-size configuration" and that body logging "MUST be engaged only when body-level logging is
+  enabled"; `BODY-19` requires the request-side tap to be "bounded by a configurable cap"; and
+  `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 asks for `IO-9`/`BODY-32`'s
+  materialisation ceiling to be "configurable through the same layered chain as every other limit (§8.2)
+  rather than a frozen constant". **There is no configuration chain until phase 5**, and there is no
+  instrumentation facade to ask whether body-level logging is on. Phase 3b ships everything that does
+  not need one: `Dexpace::RequestLoggingBody` takes `tap_limit:` (defaulting to `::Float::INFINITY`,
+  which is `BODY-19`'s own stated default for direct wrapper use) and `Dexpace::ResponseLoggingBody`
+  takes a **required** `preview_bytes:`, so one value can drive both sides the moment something has one;
+  and the enablement clause is satisfied *structurally* — nothing in core constructs either wrapper, so
+  they are off the path unless the instrumentation layer builds one. Phase 3a made the matching decision
+  for the ceiling, shipping `Dexpace::IO::MAX_MATERIALIZED_BYTES` as a frozen constant with no keyword,
+  and phase 3b deliberately adds none either: a `ceiling:` keyword on a preview operation would give one
+  stream two ceilings, which is the failure the phase-3 segmentation design's boundary 8 pins.
+- **Pick-up condition:** phase 5, when `CFG-1`–`CFG-4`'s layered chain and `OBS-35`'s body-level-logging
+  setting exist. The work is then three wirings and no new mechanism: read the shared preview size from
+  the chain into both wrappers, gate their construction on the enablement setting, and give
+  `MAX_MATERIALIZED_BYTES` a configured source. Every one of those is a **widening** of a signature that
+  is narrower today — adding a default to `preview_bytes:`, adding an optional keyword — so `NFR-4`'s
+  API lock is not prejudiced by shipping the narrow surface now. This is `DEF-28`'s precedent applied
+  verbatim: phase 2 shipped `#value(cancellation:)` and deferred `deadline:` for the same reason.
+- **Cites:** BODY-19, BODY-22, BODY-32, BODY-34, IO-9, CFG-1, CFG-2, CFG-3, CFG-4, OBS-35, NFR-4
+- **Status:** deferred
+
+next id: DEF-35

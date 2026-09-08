@@ -382,6 +382,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
   `phase1/`, `phase2/` and `phase3/`. The first three carry that phase's design and plan; `phase3/`
   carries its segmentation design, `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`,
-  and the sub-phase directory `phase3/phase3a/`, holding 3a's design and plan — `phase3b/` does not
-  exist yet. Every checklist is still to be written at execution time.
+  and two sub-phase directories — `phase3/phase3a/` and `phase3/phase3b/`, each holding that
+  sub-phase's design and plan. Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

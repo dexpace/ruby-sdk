@@ -328,4 +328,243 @@ on the work, not a specification of it.
 
 **Resolution:** *(open)*
 
-next id: OI-7
+### OI-7 — design §3.1's decode recipe destroys every non-ASCII byte, and its target-less `#encode` follows a process global
+
+- **Opened:** 2026-09-08, phase 3b (body lifecycle) design
+- **Status:** open
+- **Cites:** HTTP-42, HTTP-24, IO-13, BODY-16
+
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 fixes exactly one decode boundary and
+names the mechanism: `Response#body_string`, "which applies the media type's charset via
+`String#encode(invalid: :replace, undef: :replace)` and falls back to UTF-8 when absent or unknown". The
+**rule** is right and phase 3b implements it unchanged. The **mechanism** is wrong in two independent
+ways, each verified on 2026-09-08 against 3.2.11, 3.4.10 and 4.0.6.
+
+**It mangles the payload.** The same paragraph requires the port to retag every response body to
+`Encoding::BINARY` on ingress and never trust a transport's tagging, so the bytes reaching that call are
+BINARY. From BINARY, every byte at or above `0x80` is an *undefined character in the source encoding*,
+which `undef: :replace` replaces: `"café".b.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace)`
+returns `"caf"` followed by two U+FFFD replacement characters — one per byte of the two-byte UTF-8 `é` —
+and is not `==` to the correct answer on any of the three interpreters. The bytes have to be **retagged**
+to the declared charset first, which is what phase 3a's `Dexpace::IO::TypedReads#read_string(encoding)`
+already does, and only then transcoded.
+
+**And its result depends on a process global the host controls.** The cited call passes no target
+encoding, and `String#encode(invalid: :replace, undef: :replace)` with none converts to
+`Encoding.default_internal`. With `Encoding.default_internal = ::Encoding::ISO_8859_1` — a single line
+any host application may have run — the same call on the same string returns an ISO-8859-1 result with
+the accented character destroyed, while the explicit-target form is unaffected; verified both ways on all
+three. That is the same passes-where-you-look shape §3.5 pins `URI::RFC3986_PARSER` against and that
+`IO-14` avoids `IO#gets` and `$/` for, and it is the reason this is a finding rather than a nit: a
+library must not let a host global decide what its decode returns.
+
+Why it matters beyond phase 3. §3.1 is frozen and is the sentence a later reader copies. Nothing
+mechanical catches it: the result is a well-formed `String`, `rbs`/`steep` see a `String` either way, and
+**an ASCII-only test fixture passes under the bug** — the same trap phase 3a recorded for its ingress
+retag, which is why every encoding test in phase 3 uses non-ASCII content.
+
+What phase 3b does, and what would resolve the item. `Response#body_string` resolves the charset from
+`Dexpace::MediaType#charset` (phase 1 already returns `nil` for an absent **or** unknown-to-this-Ruby
+charset, so `HTTP-42`'s fallback needs no second validation and `Encoding.find` cannot raise), retags
+through `#read_string`, then transcodes with **both** encodings named:
+`#encode(enc, invalid: :replace, undef: :replace)`. Verified `valid_encoding?` for UTF-8 bytes declared
+UTF-8, ISO-8859-1 bytes declared ISO-8859-1, and ISO-8859-1 bytes mis-declared as UTF-8. What would
+resolve the item is one corrected sentence in §3.1 the next time §3 is deliberately amended by a human;
+until then the corpus note against `io-and-byte-streams/fbcb4d19` in
+`docs/knowledge/notes/io-and-byte-streams.md` is what stops the next reader repeating the recipe. It is
+**not** a deviation from the reference contract — `HTTP-42` is satisfied exactly — which is why it lands
+here and not in `docs/deviations.md`, the same judgement phase 3a made for `OI-2`.
+
+**Resolution:** *(open)*
+
+### OI-8 — `TeeSink#clear_tap` is `NFR-4`-locked public API with no core caller
+
+- **Opened:** 2026-09-08, phase 3b (body lifecycle) design
+- **Status:** open
+- **Cites:** BODY-18, BODY-17, IO-26, IO-29, NFR-4
+
+Phase 3a shipped `Dexpace::IO::TeeSink#clear_tap` for one stated reason — its design says the method
+"exists because `BODY-18` requires the tap cleared at the start of every write of the wrapped body" —
+and its `3a→3b` contract table hands it to phase 3b as "`#clear_tap` for `BODY-18`'s per-attempt
+reset". Phase 3b satisfies `BODY-18` a different way, and the difference is forced rather than chosen:
+`TeeSink.new(primary:, tap_limit:)` binds its primary **at construction**, and a retry writes to a
+different sink on a different connection, so one tee cannot span two attempts. `Dexpace::RequestLoggingBody`
+therefore builds a **fresh** `TeeSink` per `#write_to` call. That satisfies `BODY-18` by construction —
+a fresh tap cannot accumulate an earlier attempt's bytes — and is strictly stronger than clearing one,
+because it also drops the previous attempt's memory rather than retaining a cleared buffer for the
+wrapper's lifetime. The consequence is that `#clear_tap` has **no caller anywhere in core**, while
+being a public method with a YARD block and an RBS signature, which is this repository's own definition
+of public surface and is therefore locked by `NFR-4` at the first release tag.
+
+Why it is recorded rather than fixed. Rewriting a committed, adversarially reviewed 3a plan on the
+strength of an unreviewed 3b design decision is the wrong order: the fresh-tee approach is this
+document's, it has not been reviewed, and a plan that removes a method from a reviewed document to suit
+an unreviewed one inverts the dependency the sub-phase split exists to keep clean. Phase 3a stays as
+committed.
+
+What would resolve it, and why the window is now. Phase 3b's plan and its review confirming the
+fresh-tee-per-write mechanism, after which **phase 3a's plan may drop `#clear_tap` before execution** —
+neither plan has been executed, no gem exists, every gem is at `0.0.0` and nothing is published
+(`docs/first-release.md`), so removing the method costs one edit to an unexecuted plan and one line of
+its `sig/` mirror. After the first release tag the same removal is a public signature disappearing,
+which `NFR-4`'s API lock treats as a breaking change requiring a major bump. That asymmetry is the whole
+reason this is filed now rather than noticed later. The alternative resolution is equally admissible and
+costs nothing: keep `#clear_tap` as a deliberate convenience for an SDK author reusing a tee directly,
+with its YARD saying that core does not call it and why — but that has to be a decision someone made,
+not a method nobody removed.
+
+**Resolution:** *(open)*
+
+### OI-9 — `BufferedSource.wrapping` delivers one byte per read, so every wrapping-backed transfer is one syscall per byte
+
+- **Opened:** 2026-09-08, phase 3b (body lifecycle) plan
+- **Status:** open
+- **Cites:** IO-1, IO-2, IO-16, BODY-10, BODY-17, BODY-22, HTTP-39, HTTP-42
+
+`Dexpace::IO::BufferedSource.wrapping(io)` — the factory a transport uses to build a response body,
+and the one phase 3b's `Dexpace::StreamBody` uses to read a caller's upload stream — returns **one
+byte** from `#read_into(dest, count: N)` for any positive `N` whenever its buffer is empty, and
+yields **one-byte chunks** from `#each`. Measured on 3.2.11, 3.4.10 and 4.0.6 on 2026-09-08: 200 000
+bytes come back as 200 000 chunks through 200 001 `readpartial(1)` calls, taking ~0.21 s where the
+same 200 000 bytes through a `Dexpace::IO::Buffer` or a `BufferedSource.over` source take 0.000 s.
+The three interpreters agree to within a few milliseconds.
+
+The cause is one line, in two places with the same shape. `#read_into` fills through
+`#fill_once_if_empty`, which is hard-coded to `ensure_buffered(1)` — that is, `fill(1)` — and
+`#fill_from_upstream(min_bytes)` then calls `readpartial([min_bytes, 1].max)`, so the count the
+caller asked for never reaches the upstream. `#store_take_chunk`'s empty refill inside `#each` and
+`#drain_all` is the same. Passing the requested count instead — `fill(count)`, which still fills
+**once** and still returns whatever came back — is non-blocking and satisfies `IO-1`'s "at least 1
+when byteCount is positive and the source is not exhausted" exactly as `fill(1)` does. `#read(n)` is
+already the efficient path and is not affected, because `#read_up_to` calls `ensure_buffered(length)`;
+but `#read(n)` blocks until it has `n` bytes or end of stream, so it is not a substitute for the
+primitive on a socket.
+
+This is a **throughput** defect and not a correctness one. Every read returns the right bytes in the
+right order, every `IO` requirement is met, and phase 3a's suite is green and stays green — which is
+why no gate would have caught it and why it is filed rather than fixed by a bug report. It reaches
+phase 3b's `Dexpace::StreamBody` upload pump, `Dexpace::ResponseBody`'s readers,
+`Dexpace::Response#body_string` and `Dexpace::ResponseLoggingBody`'s drain, and it will reach every
+transport phase 8 writes, since `BufferedSource.wrapping` is how a response body is built.
+
+Why it is recorded rather than fixed. It is phase 3a's code, phase 3a's plan is committed and
+adversarially reviewed, and rewriting it from an unreviewed phase-3b plan inverts the dependency the
+sub-phase split exists to keep clean — the same order-of-work argument `OI-8` makes.
+
+What would resolve it, and why the window is now. `OI-8`'s window, exactly: **neither plan has been
+executed**, no gem exists under `gems/`, every gem is at `0.0.0` and nothing is published
+(`docs/first-release.md`), so the fix is one line inside an unexecuted plan's Task 5 fragment and
+changes no signature, no constant and no test. Phase 3b is deliberately built so the fix costs it
+nothing: **no test in phase 3b asserts a chunk granularity in either direction**, and its plan's
+decision 4 states that the body layer invents no block size and asks the source for the whole
+remaining count, so 3b's throughput improves with 3a's fix and none of its 266 tests change. After
+the first release tag the same edit is still not an `NFR-4` break — no signature moves — but it is
+then a behaviour change against a shipped gem rather than a correction to an unexecuted plan.
+
+**Resolution:** *(open)*
+
+### OI-10 — the response-body surface `Response#close`, `#body_string` and `#body_bytes` are written against is `#source` + `#close`, and two of the three bodies that can occupy `Response#body` do not have it
+
+- **Opened:** 2026-09-08, phase 3b (body lifecycle) design review
+- **Status:** resolved (2026-09-08)
+- **Cites:** HTTP-41, HTTP-42, HTTP-43, BODY-14, BODY-16, BODY-23, BODY-24, BODY-30, BODY-34, HTTP-52
+
+Phase 3b adds three methods to phase 1's `Dexpace::Response`. Its design states `#close` as "`body&.close`
+and nothing else", and `#body_string`/`#body_bytes` as convenience readers that close the body in an
+`ensure` (`BODY-16`); its plan writes them against **two** members of the body — `body.source` for the
+bytes and `body.close` for the release. Neither member is on the contract they are called through:
+`Dexpace::Body`, the module every body includes and the type `DEF-26` narrows `Response#body` to,
+declares `#write_to`, `#media_type`, `#content_length`, `#replayable?`, `#to_replayable`, `#each` and the
+equality trio, and **neither `#source` nor `#close`**.
+
+Three body types can legitimately sit in `Response#body`, and only one of them satisfies what those
+three methods call:
+
+| Body | `#source` | `#close` | Put there by |
+|---|---|---|---|
+| `Dexpace::ResponseBody` | yes | yes (`Closeable`) | the transport (`HTTP-41`/`BODY-14`) |
+| `Dexpace::ResponseLoggingBody` | **no** — the same accessor is named `#read` | yes (`Closeable`) | phase 5's body logging (`BODY-22`–`BODY-29`, `BODY-34`) |
+| `Dexpace::BufferBody` | **no** | **no** | phase 4's `Recovery.buffer_error_body` (`BODY-30`/`HTTP-52`) |
+
+So `response.close` raises `NoMethodError` on a response whose error body has been buffered, and
+`response.body_string` raises on that one **and** on any response whose body has been wrapped for
+logging. Neither is reachable from phase 3b's own suite, because every `Response` it builds carries a
+bare `ResponseBody` — which is exactly why it is filed rather than caught: the first failure is in
+phase 4, against code phase 3 shipped and phase 3's tests pass over.
+
+`BODY-30` is the sharp end. Its canonical text requires the buffered copy to be "readable independently
+and repeatably (**decode it, then snapshot it**) after the original transport connection is released" —
+that is `Response#body_string` followed by a snapshot, over a `BufferBody`, twice. Under the current
+design the decode cannot run at all, and if `#close` were added naively as "close the buffer" the second
+read would return nothing. Both halves of the requirement therefore constrain the answer rather than
+merely inviting one.
+
+What would resolve it. One name for the response-body read handle — `#source`, which is the word
+`HTTP-41`/`BODY-14` uses ("its read handle (source)") and the name `ResponseBody` already has — declared
+on `Dexpace::Body` beside a default `#close`, and implemented by all three: `ResponseBody` unchanged;
+`ResponseLoggingBody#source` in place of (or aliased from) `#read`, returning the same
+`Dexpace::IO::BufferedSource` in both regimes; and `BufferBody#source` returning a **fresh** `#peek` view
+per call, which is `BODY-30`'s "repeatably" and does not collide with `BODY-14`'s "the same underlying
+handle every time", a rule about the single-use response body and not about a replayable buffer-backed
+copy. `Dexpace::Body#close` defaults to a **no-op** — a body that owns no transport resource has nothing
+to release, and `BODY-30` positively requires that `#body_string`'s `ensure`-close leave the buffered
+copy readable — with `Closeable#close` overriding it in the two classes that do own something (the
+include order is `include Dexpace::Body` then `include Dexpace::Closeable`, so `Closeable` wins). That
+also removes the `body.close if body.respond_to?(:close)` guard `Body.buffer_bounded` currently needs,
+which is the same hole seen from inside the body layer.
+
+It was filed rather than fixed on discovery because it is a coordinated change across a design and a
+plan that are reviewed separately and must agree: it adds two members to `Dexpace::Body`, two to
+`BufferBody`, and renames one on `ResponseLoggingBody`, each with an RBS mirror, a surface-snapshot line
+and a test.
+
+**Resolution:** resolved 2026-09-08 by the phase-3b design and plan together, to the shape above and
+with no residue. `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` declares
+`#source` and a **default no-op `#close`** on `Dexpace::Body` (contract table under "`Dexpace::Body` —
+the contract, the factories, the constants"), states the three-body table that says which body answers
+`#source` how and why two of those three cells are forced by `BODY-30` rather than chosen, renames
+`ResponseLoggingBody`'s drain accessor from `#read` to `#source`, gives `BufferBody` a fresh `#peek`
+view per `#source` call and the module's no-op `#close`, fixes the include order as
+`include Dexpace::Body` then `include Dexpace::Closeable` so `Closeable#close` wins where a body owns
+something, and drops the `respond_to?(:close)` guard from `Body.buffer_bounded`. The decision carries
+Deviation Ledger row **P3-23** — a contract widening rather than a naming row, which is why it is not
+absorbed into P3-14 — and the testing strategy now drives `#close`, `#body_string` and `#body_bytes`
+over a `Response` built on each of the three bodies in turn, with `BODY-30`'s own "decode it, then
+snapshot it" as one test, because the shape of this defect was a green suite that only ever used the
+one body which happened to have the members. The plan's half lands in the same change under the
+manager's coordination.
+
+### OI-11 — a caller mistake in an argument can still leave core as a stdlib exception class
+
+- **Opened:** 2026-09-08, phase 3b (body lifecycle) plan review
+- **Status:** open
+- **Cites:** HTTP-4, SEAM-29, HTTP-38, HTTP-51, BODY-35
+
+Phase 3b's Global Constraints fix two error vocabularies and no third: `Dexpace::InvalidArgumentError`
+for "a caller mistake in an argument", `Dexpace::StreamError` for a stream-contract violation. Two
+call sites in phase 3b do not hold to it, and both were found by probing rather than by a test,
+because no test passes the input that reaches them.
+
+- `Dexpace::Body.string(text, encoding: ::Encoding::UTF_8)` calls `text.encode(encoding)`, which
+  raises `Encoding::UndefinedConversionError` for a `String` whose bytes cannot be represented in the
+  target. Verified on 3.4.10: `Dexpace::Body.string("caf\xE9".b)` raises
+  `Encoding::UndefinedConversionError: "\xE9" from ASCII-8BIT to UTF-8`. It is exactly a caller
+  mistake in an argument, and `HTTP-4`/`SEAM-29`'s whole point is that such a failure names the field
+  in one error class.
+- `Dexpace::Body.multipart(parts, subtype:)` interpolates `subtype` into `MediaType.parse`, so a
+  malformed subtype raises out of phase 1's parser rather than naming `subtype`.
+
+Not fixed in phase 3b, deliberately. The fix at each site is a `rescue` that re-raises as
+`Dexpace::InvalidArgumentError` naming the argument, which is three lines — but the two sites are not
+the only ones with this shape (phase 1's coercions through `Method.of`, `Status.of`, `Protocol.parse`
+and `URL.parse!` each decide the same question, and `URL.parse!` already re-wraps while the others do
+not), and a rule about which stdlib exception classes core re-wraps at an argument boundary is a
+cross-phase decision one sub-phase should not settle alone. Recording it keeps the question visible
+for the phase that owns the answer rather than letting each new factory decide it again.
+
+The narrow reading — that these are not "caller mistakes" because the caller could have encoded the
+`String` itself — is available and is why this is an item and not a defect. It is recorded because the
+Global Constraints assert the stronger reading, and a constraint that is true of most call sites and
+silently false at two is worse than one stated with its exceptions.
+
+next id: OI-12

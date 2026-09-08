@@ -85,7 +85,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 0 | Scaffold and Quality Gates | workspace root, plus all six MVP gems at `0.0.0` with empty `lib`/`sig`/`test`: `dexpace-core`, `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`, `dexpace-conformance` | §20 — `NFR-1`–`NFR-17`, every gate stood up as machinery and none closed here; phase 9 dispositions them. `NFR-5`'s SimpleCov `minimum_coverage 80` is wired here and inert until phase 1 lands code | §2.3, §2.4, §9 |
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
-| 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md) |
+| 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
 | 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1 |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
@@ -577,3 +577,97 @@ source retains every view derived from it until it closes and the deregistration
 drain. Planning also found the one way to ship the cop broken: `module Dexpace; module IO` is itself
 a bare `IO` const inside `module Dexpace`, so without a definition-site guard the cop rejects
 `lib/dexpace/io.rb`, the very file that creates the hazard — two accepted rows now pin it.
+
+**2026-09-08** — Phase 3b design filed, at
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`, the second and last
+sub-phase design under the phase-3 segmentation. Scope is the charter's **49 IDs**: `BODY-1`–`BODY-11`,
+`BODY-13`–`BODY-35`, `BODY-37`, `HTTP-36`–`HTTP-45`, `HTTP-51` and `HTTP-52`. It ships **twelve public
+constants** — `Dexpace::Body`, a module that is simultaneously the production contract every body
+includes, the one home `HTTP-38`'s factories need, and the type `sig/` narrows to; the seven request-body
+variants `BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody` and
+`MultipartBody`; `ResponseBody`; the two logging wrappers; and `TypedResponse` — plus three additions to
+phase-1 types and the `+`-for-space form encoder phase 1 explicitly handed to phase 3. Constants are
+**flat under `lib/dexpace/http/body/`** per P1-1: a `Dexpace::Body::` namespace was rejected rather than
+merely not chosen, because its natural member names are `File`, `Buffer` and `Response`, three constants
+the body code uses constantly, and `OI-3`/P3-7 show that shadowing is silent for `is_a?`.
+
+The charter's six risks are all resolved. **R5**: three caps, not one — the 64 MiB ceiling stays a
+constant with no keyword (a second ceiling is what boundary 8 pins), `BODY-30`'s 1 MiB is fixed by the
+requirement, and only the logging preview size is a parameter, with `DEF-34` filed for its source.
+**R6**: the twelve names, one ledger row. **R7**: `TypedResponse`'s handler is `#call(response)`, wide
+enough that phase 7's status-aware handler drops *into* it rather than replacing it, and narrow enough
+that a lambda is a test double. **R8**: the line against phase 4 is the argument type — `Body.buffer_bounded(body,
+cap:)` and the one constant are phase 3b's, `Status#error?` is already phase 1's, and the step that reads
+a *response* is phase 4's; `buffer_bounded` is deliberately status-blind so the body layer cannot get
+`BODY-31` wrong. **R9**: `BODY-9`'s mark/reset is seekability, and it is implemented, not vacuous.
+**R10**: `IO-42` governs surfaces — the captured buffer is exempt and survives the wrapper's close
+(`BODY-28`), the over-cap tail is not and raises after it (`BODY-24`), and the wrapper's close does not
+close the buffer.
+
+**Three verified Ruby facts changed the document.** `String#encode` applied to the BINARY bytes the I/O
+layer delivers replaces every byte at or above `0x80`, so design §3.1's decode recipe destroys every
+non-ASCII payload; and the same call, having no target argument, follows the process-global
+`Encoding.default_internal`. The boundary is retag-then-transcode with both encodings named — `OI-7`,
+plus a corpus note. `respond_to?(:rewind)` is `true` for a pipe, a socket, a `StringIO` and a `File`
+alike, so `BODY-9`'s antecedent is `pos` + `seek(pos)`, which raises `Errno::ESPIPE` on a pipe with
+nothing consumed and is a genuine no-op on a seekable stream — and replay rewinds to the construction
+position, not to byte 0. And §7.1's `Enumerator` rule reaches an **ordinary `#each` method**: driven
+through `to_enum(:each)` and abandoned, its `ensure` does not run either, and `block_given?` is `true`
+under that drive so no in-method guard helps — which is why `FileBody`'s residue is documented rather
+than closed, on §10.10's precedent. Both findings earned corpus notes, superseding
+`io-and-byte-streams/fbcb4d19` and `pagination/f57c50f6`; `harvested/` is untouched.
+
+**Deviations `P3-14` through `P3-21`.** One deferral, **`DEF-34`** (phase 5's configuration source for
+the body-logging caps and the enablement predicate). **`DEF-26` is picked up** — `sig/` narrows
+`Request#body` and `Response#body` to `Dexpace::Body?` and `HTTP-46` gets a cross-reference row, the
+treatment phase 2 gave `SEAM-29`. **`DEF-3` is amended in place**, performing the two sharpenings the
+segmentation design stated and did not perform: `BODY-12`'s first clause is discharged here through
+`::IO.copy_stream`, its second targets phase 8 with `DEF-10`, and `BODY-36` gets the explicit pick-up
+condition it lacked. One cross-phase observation against 3a, filed as **`OI-8`** rather than
+worked around: `TeeSink#clear_tap` was shipped for `BODY-18`, and 3b satisfies `BODY-18` by building a
+fresh tee per write — which is strictly stronger, because `TeeSink` binds its primary at construction so
+one tee cannot span two attempts — leaving the method public, `NFR-4`-locked and uncalled by core. 3a
+stays as committed; the item names the window in which 3a's plan may drop the method without a break,
+which is before either plan executes and before the first release tag.
+
+**2026-09-08** — Phase 3b plan filed,
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`. Fourteen numbered tasks in build
+order: the contract and `BytesBody`, then `BufferBody`, the form encoder, `StreamBody`,
+`ChunkedBody`/`FormBody`, `FileBody`, `MultipartBody`, `ResponseBody` with the decode boundary,
+`Body.buffer_bounded`, the two logging wrappers, `TypedResponse`, `OI-4`'s measurement, and the
+wiring that regenerates the surface snapshot and the RBS baseline once. Every `ruby` and `rbs` fence
+was extracted, written to the file it names and run on **3.2.11, 3.4.10 and 4.0.6** over phase 3a's
+own committed `lib/` fences: **266 runs, 767 assertions, 0 failures** (899 assertions on 4.0.6, for
+phase 2's stated Minitest-6 counting reason), stable across five seeds, stderr empty on every row,
+warning-free under `ruby -w` with `RUBYOPT=-W:deprecated`, and `rbs -I sig validate` exiting 0 on all
+three. A tree rebuilt **from the filed document's own fences** reproduces every `lib/`, `sig/` and
+`test/` file byte for byte and the same counts. A **fifty-mutation battery**, one edit per
+requirement mechanism, was run and all fifty were caught; three were missed on the first pass and
+each fixed a real weakness — a race-safe-rewind test that raced instead of overlapping, an `IO-42`
+test that could not see the buffer being closed, and an `HTTP-45` test whose fibers never contended
+for the lock.
+
+The plan answers the design's five open questions: `MultipartBody#content_length` is lazy and
+memoised (so the class is deliberately not frozen), `Body.string` encodes eagerly at construction,
+the copy chunk size is whatever the source's own read returned with `FileBody` delegating to
+`::IO.copy_stream`, task order is stated, and `OI-4`'s measurement is a task whose deliverable is the
+number. That number: one view per `BODY-23` read, holding zero bytes, at 9 allocated objects (10 on
+4.0.6), with quadratic deregistration that costs 0.005 s at 1 000 live views and 0.46–0.52 s at
+10 000 — so the bound stops being obvious above roughly a thousand simultaneously-live unclosed
+views, which nothing in `BODY-22`–`BODY-29` produces. `OI-4` stays open with the measurement in its
+Resolution field and phase 3a's view registry unchanged, which is what the item asked for.
+
+**Two findings the design could not have had, both from running the code.** `Encoding.default_internal =`
+emits a warning under `ruby -w`, so `DexpaceTestCase`'s `Warning.warn` override turns the design's own
+mandated hostile-global decode test into a failure — both the set and the restore. The plan ships the
+narrowest fix, `$VERBOSE = nil` around exactly those two assignments, plus a test asserting `-w` is
+still live inside the block so the suppression cannot silently widen. And a second cross-phase
+observation against 3a, filed as **`OI-9`**: `BufferedSource.wrapping(io)` returns **one byte** per
+`#read_into` and yields one-byte chunks from `#each` — 200 000 chunks for 200 000 bytes, ~0.21 s where
+the in-memory paths are unmeasurable — because `#read_into` fills through a hard-coded
+`ensure_buffered(1)` rather than the count the caller asked for. It is a throughput defect and not a
+correctness one, so no gate catches it and 3a's suite stays green; the fix is one line in an
+unexecuted plan, the window is `OI-8`'s, and phase 3b is deliberately built so it costs nothing —
+**no 3b test asserts a chunk granularity in either direction**. One deviation row added, **`P3-22`**,
+for the per-variant accessors P3-14's constant list does not enumerate. No new deferral: `DEF-34`
+stands as the design filed it, and the plan's Task 14 amends `DEF-3` and marks `DEF-26` picked up.
