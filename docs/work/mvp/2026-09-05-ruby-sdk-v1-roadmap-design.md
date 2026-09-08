@@ -86,7 +86,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
-| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md) |
+| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md); 4b design: [`phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`](./phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md) |
 | 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14 |
@@ -881,3 +881,74 @@ and `CFG-16`'s elapsed-time counter, and the phase-4 segmentation design's own e
 charter is committed. **4a confirms the charter's independence result from the inside**: `--phase 2` and
 `--phase 3` cite 70 and 152 distinct requirement IDs between them and **not one `CTX` ID**, and `4b` and
 `4c` are obliged to consume nothing 4a ships.
+
+**2026-09-08** — Phase 4b design filed, the third phase-4 document.
+`docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`, with its plan and
+checklist still to be written. Scope is the charter's: `RECOV-1`–`RECOV-16` plus `RECOV-32`/`RECOV-33`
+built, fifteen ⏳ rows citing `DEF-35` and one citing `DEF-5`. **No backoff calculator, no
+pacing-header parser and no wait of any kind**, cancellable or otherwise — `RETRY-13` forbids the
+first and `CFG-15` owns the third, and the ⏳ rows are rows rather than work.
+
+Five decisions were forced by facts run on 3.2.11, 3.4.10 and 4.0.6 rather than argued. **The
+suppressed trail cannot live on `Dexpace::Error`**, because every primary `RECOV-12`, `DEF-27` and
+`DEF-32` hand it is a *caller's* exception and a method defined only on the SDK's root raises
+`NoMethodError` on the first one — so the trail is `Dexpace::Suppressible`, a separate module the root
+includes and `Dexpace.attach_suppressed` `extend`s onto anything else. It has to be separate because
+`rescue M` matches a module reached through a singleton class (verified), so extending a third-party
+`IOError` with the rescue root would make `rescue Dexpace::Error` catch errors the SDK never raised.
+A `#detailed_message` override reaches the default uncaught-exception printer through `extend` exactly
+as through inclusion, and `super` preserves `did_you_mean`. **`RECOV-10`'s "rethrow UNCHANGED" is
+broken by the obvious Ruby spelling**: `raise error` assigns `$!` as that error's `#cause`, and `$!` is
+thread-scoped, so it is non-`nil` inside a method called from a *caller's* `rescue` — ordinary consumer
+code, needing no `rescue` anywhere in core. Every unwrap is `raise error, cause: nil`, which suppresses
+the assignment and does not clear a legitimate pre-existing cause. **`XCUT-9`'s visited set is
+`{}.compare_by_identity` and not a `Set`**: `Exception#==` is structural by Ruby's own definition, so an
+`Array`-tracked walk truncates a two-node chain to one entry, and a `Set` is right only until a
+caller-supplied error class overrides `hash`/`eql?` — measured, `Set[a].include?(b)` is `true` there.
+Core's errors are not `Data`, so the reason the corpus gave for that rule was false about this codebase
+while the rule itself was load-bearing. The **fixture** that shows the truncation is part of the
+finding: the pair must be two *never-raised* errors chained through a `#cause` override, because a
+`raise`-built pair is not `==` on 3.2.11 — 3.2's backtrace carries a `rescue in <method>` frame the
+parent's lacks — so a test built the obvious way passes on the matrix's floor against the very bug it
+exists to catch. **`RECOV-11` has nothing to do**: phase 2's cancellation is
+idempotent and latched with no clearable flag, so converting a `CancelledError` to a `Failure` cannot
+swallow the signal, and the requirement's own words are "a port preserves whatever its cancellation
+primitive is" — asserted on the token in a test rather than implemented as a wrapper. And **the
+exhaustiveness `else` arm joins `RECOV-2`'s fatal-family passthrough** rather than becoming a `Failure`,
+because `NoMatchingPatternError` is inside `StandardError` and converting a core defect into an outcome
+a recovery step may swallow is the demotion `error-handling/3bfdf6f0` forbids.
+
+Fourteen deviations are filed, `P4-12` through `P4-25`. The one a later phase is most likely to trip on
+is `P4-20`: `Dexpace::ProtocolError` is **one class carrying `#status`** with no per-status subclass
+tree, because `XCUT-4` names exactly two top-level branches and `XCUT-7` decides retry eligibility from
+a configured status set and never from a class — a generated SDK that wants its own typed errors passes
+`factory:` to the error-mapping step instead. One deferral, **`DEF-38`**: that class ships without
+`XCUT-5`'s baked retryability flag, because the flag's "SINGLE shared status classifier" is `RETRY-1`'s
+and phase 6's, and adding a method later widens. No new open items. Three corpus notes were filed
+before the design was finished — two under `docs/knowledge/notes/error-handling.md` and a new
+`docs/knowledge/notes/pipeline.md`.
+
+**`DEF-24` and `DEF-32` are discharged by this design and `DEF-27`'s first route is supplied**, with
+the register edits left to 4b's plan on phase 3b's precedent. `DEF-32`'s finding is worth recording
+here because it is a negative: **none of phase 2's three `Hooks.notify` tests changes its assertions.**
+Each raises from exactly one handler, so the suppressed trail is empty and the behaviour is identical
+before and after; what `DEF-32` actually costs is a **fourth** test at the
+`Cancellation::Source#cancel` site with two raising handlers — the only case that distinguishes the two
+behaviours — five prose statements in committed phase-2 documents that become false (three about the
+dropped failures, two naming `Dexpace::Error#suppressed` as the carrier, which P4-12 disproves for
+this call site), and one line of code the row does not mention: `Hooks.notify`'s trailing
+`raise failure` becomes `raise failure, cause: nil`, because it re-raises an error it has been
+carrying rather than one it just rescued, which is the scope the `pipeline` note claims. Its effect
+is narrow and is stated narrowly — `cause: nil` suppresses an assignment the re-raise would make and
+cannot undo one a hook's own `raise` already made — and the same measurement fixes the `RECOV-10`
+test's fixture: the `Failure` must carry a **constructed** error, never a raised one, or
+`assert_nil error.cause` fails against the correct implementation. **4b confirms
+the charter's independence result from its own side**: it consumes nothing 4a ships, and the single
+thing crossing the 4b/4c line is a contract rather than an ordering — the three shipped steps are one
+`#apply(value)` transform each with a `#phase` of `:request` or `:response`, plus one default
+`#call(value)` that forwards to `#apply` so a transform is a recovery-chain step with no adapter at
+all, and 4c writes **one** generic adapter that reads `#phase` rather than a second implementation of
+any transform. The charter's statement of the third shape is corrected in passing: the error-mapping
+step is `response -> response` and raises, not `response -> outcome` — `RECOV-4`'s "(response→response)"
+and `RECOV-15`'s "the status→typed-exception mapping **response step**" both say so, and it is what
+lets a two-phase contract span every shape and keeps `Outcome` out of the `PIPE` layer entirely.

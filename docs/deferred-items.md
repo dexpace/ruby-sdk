@@ -717,4 +717,33 @@ execution step 7.
 - **Cites:** CTX-14, CTX-15, CTX-20, OBS-21, OBS-25, OBS-26, OBS-27, NFR-4
 - **Status:** deferred
 
-next id: DEF-38
+### DEF-38 — XCUT-5's baked retryability flag on the protocol error, and the shared status classifier
+
+- **Deferred by:** phase 4b, 2026-09-08
+- **Why:** `RECOV-15` requires the error-mapping step to map a 400..599 response to "the matching typed
+  exception", and phase 3b's own API table assigns that step and `XCUT-8`'s exception factory to phase 4,
+  so phase 4b must ship something to map **to**: `Dexpace::ProtocolError`, `XCUT-4`'s branch (a), carrying
+  `#response` and `#status`, with `ProtocolError.for(response)` raising for a non-error status and
+  `.for_or_nil(response)` returning `nil` — `XCUT-8`'s two forms verbatim. What phase 4b does **not**
+  ship is the error's retryability flag. `XCUT-5` fixes both the flag and its source in one sentence:
+  "The baked retryability flag of a protocol (status-carrying) error MUST be computed ONCE at
+  construction from a SINGLE shared status classifier, never hardcoded per status subclass. That
+  classifier MUST treat 408, 429, and all 5xx EXCEPT 501 and 505 as retryable" — and that classifier is
+  `RETRY-1`'s, the same object `XCUT-6`'s open-capability path and `XCUT-7`'s configurable
+  retryable-status set are defined against, all three of them phase 6's. Building one in phase 4 would
+  fix a phase-6 seam a phase early and give the SDK two places a status classification could live, which
+  is the drift the word SINGLE is in the requirement to prevent. It is the same objection the phase-4
+  segmentation design used to move `RECOV-27` under `DEF-35` (its wait is `CFG-15`'s object, phase 5's)
+  and that phase 2 used to decline `deadline:` (`DEF-28`).
+- **Pick-up condition:** phase 6, with `RETRY-1`–`RETRY-45`. The attachment point already exists and the
+  work is one method: add `#retryable?` to `Dexpace::ProtocolError`, computed once at construction from
+  the classifier phase 6 builds for `RETRY-1`, and add **no** second protocol-error type. Adding a method
+  **widens** a signature, which `NFR-4`'s "disappears or narrows" lock permits, so shipping the class
+  without the predicate now prejudices nothing. `DEF-35` targets the same phase and the two are read
+  together: `DEF-35`'s `RECOV-17` is the eligibility rule that consults `XCUT-7`'s configured set rather
+  than this flag, and getting that relationship backwards is what `XCUT-5`'s own closing NOTE warns
+  against.
+- **Cites:** XCUT-4, XCUT-5, XCUT-6, XCUT-7, XCUT-8, RECOV-15, RECOV-17, RETRY-1, RETRY-37, NFR-4
+- **Status:** deferred
+
+next id: DEF-39
