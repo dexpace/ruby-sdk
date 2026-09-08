@@ -884,4 +884,101 @@ correct about the thing it was designed for and silent about a case a second dec
 the API's addressing key; this one is the seam's conformance key. Neither is caught by any gate in the phase-0
 set, because both are type distinctions Ruby does not carry at the point they are made.
 
-next id: OI-19
+### OI-19 — the runtime surface snapshot does not hold a `Data`-generated reader for any type using this repository's `class X < Data.define(...)` convention
+
+- **Opened:** 2026-09-08, phase 4a's plan
+- **Status:** open
+- **Cites:** NFR-4, NFR-3, P4-11, P1-4
+
+`CLAUDE.md`'s Public API Surface section, and design deviation `P4-11` restating it for this
+phase, both say the same thing: "`Data.define`'s generated readers … are all invisible to
+[RBS]. So the RBS diff is paired with a **runtime surface snapshot** … Each catches what the other
+cannot see." **Verified directly against phase 0's own walker
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md`'s `Surface.walk`, which
+calls `mod.public_instance_methods(false)`), on 3.2.11, 3.4.10 and 4.0.6: it does not.**
+`public_instance_methods(false)` returns only methods defined directly on the class named, and for
+every value type in this repository — `class Status < Data.define(:code)` in phase 1 and every one
+after it, this phase's `DispatchContext`, `RequestContext`, `ExchangeContext`, `Bundle` and
+`TraceIdFlavour` included — the `Data`-generated readers are defined on the **anonymous class
+`Data.define` returns**, which is that type's `superclass`, not on the type itself:
+
+```
+Dexpace::DispatchContext.instance_methods(false)             # => [:promote_to_request]
+Dexpace::DispatchContext.superclass.instance_methods(false)  # => [:bundle, :call_key, :store]
+```
+
+on all three interpreters. This is specific to the **subclassing** idiom this SDK uses throughout
+(`P1-4`'s construction pattern): `Foo = Data.define(:a, :b) do; def extra; end; end` — assigning
+the `Data.define` return directly to a constant, with a block, instead of subclassing it — gives
+`Foo.instance_methods(false) == [:a, :b, :extra]` and `Foo.superclass == Data`, on all three, so
+the gap is a consequence of the chosen convention and not of `Data.define` or of any interpreter.
+
+**Consequence for `NFR-4`.** A `Data`-generated reader can be renamed or removed without the
+runtime snapshot noticing at all — the RBS diff still catches it, because phase 1 already writes
+every reader out explicitly in `sig/` for exactly the reason `P1-4`/`CLAUDE.md` state — so "each
+catches what the other cannot see" holds for what `sig_diff` alone would miss, but the runtime
+snapshot's contribution for a `Data`-generated reader specifically is nothing, not a second gate.
+`#==`/`#eql?`/`#hash`/`#to_h`/`#with` — the methods `Data` itself defines, one level further up —
+are absent from every `Data`-based type's row in every gem's snapshot for the identical reason, and
+always have been since phase 1's first regeneration; this item is the first place the absence was
+checked and confirmed rather than assumed benign.
+
+**Why filed rather than fixed here.** `tools/surface.rb` (phase 0, Task 14) is committed and
+reviewed, and every `Data`-based type in every gem is affected identically — this is a phase-0-owned
+tool and a repository-wide convention question, not something a sub-phase changes as a side effect
+of its own plan. Two repairs are available and the choice belongs to phase 0's owner or a review:
+walk `mod.superclass.instance_methods(false)` too when `mod.superclass` is itself a `Data.define`
+return value (narrow, but couples the walker to a naming heuristic for an anonymous class); or
+accept the split as-is and amend `CLAUDE.md`'s and `P1-4`'s stated rationale to say the runtime
+snapshot's role is method definitions only, never member accessors — which is what the RBS diff
+already alone provides. Neither is taken here.
+
+### OI-20 — the drain's second discriminating measurement is not reachable from `ContextStore`'s public surface, and `Metrics/ParameterLists` cannot be satisfied by a keywords-everywhere API
+
+- **Opened:** 2026-09-08, phase 4a's plan review
+- **Status:** open
+- **Cites:** CTX-11, CTX-12, XCUT-14, NFR-7, OI-6
+
+Two findings, filed together because each is a place where a rule this repository already holds
+cannot be enforced by the mechanism the documents assume, and neither is a sub-phase's to settle.
+
+**The drain measurement.** `docs/knowledge/notes/execution-context.md` and phase 4a's design both
+record that the aggregate drain-iteration count (`8000 − 64 = 7936`) is vacuous — it reproduces
+under a split-lock drain and under a single `if` with no loop — and both name the two measurements
+that do discriminate: "the maximum iterations in any one call" and "the maximum size ever
+observed". Phase 4a's plan ships the first, in its observable form (from a store at `cap`, every
+further insert evicts exactly one occupant and the size is never observed above `cap`); it does
+**not** ship the second, because it cannot. `Dexpace::ContextStore#size` delegates to
+`BoundedMap#size`, which takes the same `Thread::Mutex` as the insert — so a reader can never
+observe the transient `cap + 1`. Measured: a split-lock `BoundedMap`, acquiring the mutex
+separately for the insert and for the drain, sampled by four concurrent `#size` readers across
+64 000 inserts from 32 threads at `cap` 8, reported a maximum of exactly 8 on six consecutive
+runs, identical to six runs of the shipped one-`synchronize` form. The note's own `9`-at-`cap`-8
+observation was taken from **inside** the prototype's hash, which no test written against the
+public surface can reach.
+
+What that leaves: the one-`synchronize` insert-and-drain — on which `CTX-7`'s "registered,
+overwritten, and removed concurrently without external locking" and `CTX-8`'s "deterministically
+admit exactly one winner" both rest — is held by the source, by `BoundedMap`'s own comment and by
+the corpus note, and by **no test**. Narrowing the lock's scope would be invisible to the suite on
+CRuby, which is the same shape `DEF-33` records for the non-CRuby matrix row. What would resolve
+it: either an internal probe seam on `BoundedMap` that a test can read without the mutex (a
+`private_constant`'s test surface, which phase 2 declined for `Dexpace::Hooks` and which would
+need the same argument made deliberately), or a non-CRuby matrix row on which an unsynchronised
+read-modify-write is observable. Neither belongs to 4a.
+
+**`Metrics/ParameterLists`.** RuboCop counts keyword arguments by default
+(`CountKeywordArgs: true`) and `api-design/1d9e6e0b` makes every public parameter a keyword, so the
+cop's `Max: 4` — which phase 0 set and every phase plan's Global Constraints restate — is
+unsatisfiable for any model with more than four members. Phase 4a is the first phase where that
+bites at scale: seven methods trip it (`Bundle.build` and `#initialize` at 8,
+`ExchangeContext`'s pair at 6, `RequestContext`'s pair at 5, `NO_TRACER_FACTORY#tracer` at 5), all
+carrying exactly the member set the design fixes. 4a pays it with named inline disables, which is
+phase 0's own convention for a directive; the alternative — one reviewed `CountKeywordArgs: false`
+line — is a `.rubocop.yml` diff and belongs with `OI-6`, whose resolution paragraph already says a
+config change is not a sub-phase's to make. Recorded here so that whoever closes `OI-6` has the
+measured count rather than an impression.
+
+**Resolution:** *(open)*
+
+next id: OI-21

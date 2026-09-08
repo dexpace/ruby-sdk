@@ -996,3 +996,54 @@ with the inner response never closed, while `AsyncTransport.sync_over(sync_pipel
 first send; every object involved is phase 2's, and phase 4c neither introduces nor widens it, but
 `Pipeline` and `AsyncPipeline` are what make it cheap to hit. One corpus note, under
 `docs/knowledge/notes/pipeline.md`; `harvested/` untouched.
+
+**2026-09-08** — Phase 4a plan filed,
+`docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context.md`. **Nine numbered TDD tasks**,
+in build order: `Dexpace::ContextConflictError`; `Dexpace::Context` and the `FakeContext` test
+double; `Dexpace::BoundedMap` (private) and `Dexpace::ContextStore`; `Dexpace::Instrumentation::TraceIdFlavour`;
+the two no-op singletons, `NO_SPAN` and `NO_TRACER`/`NO_TRACER_FACTORY`; `Dexpace::Instrumentation::Bundle`;
+`Dexpace::CallKey` (private) and the promotion chain — `DispatchContext`, `RequestContext`,
+`ExchangeContext` — with `CTX-9`'s trap added to the store's suite once a real `Data` context
+exists to build it from; the seventh cop, `Dexpace/NoWeakReferences`; and one closing task for the
+entry point, the two regenerated artifacts and the checklist. Nothing is implemented; the checklist
+is written at execution time, per execution step 6. All twenty `CTX` IDs are covered.
+
+The design's four open questions are all resolved, one against a fetched artefact rather than by
+inference: **`#tracer`'s arity** does not match the design's own speculative recommendation —
+`opentelemetry-api` 1.11.0's actual `TracerProvider#tracer`, read from the gem fetched from
+rubygems.org during planning, is `(deprecated_name = nil, deprecated_version = nil, name: nil,
+version: nil, attributes: nil)`, and the plan ships that shape rather than the two-positional-
+argument guess, per the design's own "the gem's wins" rule. **`BoundedMap` needs no RBS**, confirmed
+by running `rbs -I sig validate` against the whole sig tree this phase adds plus phase 1/2
+stand-ins, clean. **The `CTX-19` reachability test runs on every matrix row**, at a measured cost of
+noise (0.03 s of a 0.035 s suite). **`FakeContext` is required explicitly**, from the two suites
+that use it, never from `test_helper.rb`.
+
+Every `ruby` fence was extracted to a scratch tree outside the repository and run: **67 runs / 327
+assertions / 0 failures** on 3.2.11 and 3.4.10, **345 assertions on 4.0.6** (Ruby 4.0.6's bundled
+Minitest 6.0.0 counts some composite assertions more granularly than 5.25.x, the same shape phase
+3a recorded), identical across five seeds, warning-free under `ruby -w` with
+`RUBYOPT=-W:deprecated`; the seventh cop's own suite — 17 runs / 50 assertions / 0 failures — ran
+against RuboCop 1.90.0 on the one interpreter with the gem installed, which is sufficient because
+`CopCase` pins the parse target rather than following the host interpreter. Two facts were
+re-verified directly rather than only cited from the design: a method on a frozen `Data` subclass
+writing an ivar raises `FrozenError` on all three, and `ObjectSpace::WeakKeyMap` is undefined on
+3.2.11 and defined on 3.4.10/4.0.6.
+
+**One finding surfaced while deriving Task 9's own expected runtime-surface-snapshot content, and
+it is filed as `OI-19` rather than silently corrected.** Loading this phase's classes and calling
+phase 0's own walker method (`mod.public_instance_methods(false)`) directly shows that a
+`Data`-generated reader — `DispatchContext#bundle`, `Bundle#trace_id`, and every one like them, in
+every gem, since phase 1 — never appears in a regenerated runtime surface snapshot: the reader is
+defined on the anonymous class `Data.define` returns, which is the named subclass's `superclass`,
+and `public_instance_methods(false)` does not look there. This holds on all three interpreters and
+contradicts `P4-11`'s and `CLAUDE.md`'s own stated reason for pairing the runtime snapshot with the
+RBS diff ("each catches what the other cannot see") — the runtime half catches nothing for a
+`Data`-generated reader specifically, and always has not, since phase 1's first regeneration. Not
+fixed here: `tools/surface.rb` is phase 0's and every gem is affected identically. A second item,
+`OI-20`, was filed by the plan's review: the design's second discriminating drain measurement —
+"the maximum size ever observed" — is not reachable through `ContextStore`'s public surface
+(`#size` takes the same mutex as the insert, so a split-lock `BoundedMap` sampled by four
+concurrent readers across 64 000 inserts never reports above the cap), and `Metrics/ParameterLists:
+4` is unsatisfiable for a keywords-everywhere API, which seven methods in this phase demonstrate.
+No deviation and no deferral were filed; the registers were read and no row was picked up.
