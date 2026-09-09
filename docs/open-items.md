@@ -981,4 +981,91 @@ measured count rather than an impression.
 
 **Resolution:** *(open)*
 
-next id: OI-21
+### OI-21 — `CFG-35` and `XCUT-5` define the same status classifier, and `DEF-38` assigns it to phase 6 without accounting for `CFG-35` being a phase-5 ID
+
+- **Opened:** 2026-09-09, phase 5 segmentation design
+- **Status:** open
+- **Cites:** CFG-35, XCUT-5, XCUT-6, XCUT-7, RETRY-1, DEF-38, OI-15
+
+`XCUT-5` (MUST): the baked retryability flag "MUST be computed ONCE at construction from a **SINGLE
+shared status classifier** … That classifier MUST treat 408, 429, and all 5xx EXCEPT 501 and 505 as
+retryable." `CFG-35` (SHOULD): "A shared retryability classifier SHOULD exist and treat these HTTP
+status codes as retryable: 408, 429, and all 5xx EXCEPT 501 and 505 … Where the classifier is
+implemented, this exact status-code set is a hard contract so exception construction and the retry
+policy agree." Same set, same object, two IDs in two phases.
+
+`DEF-38`, filed by phase 4b and committed, says that classifier is "`RETRY-1`'s, the same object
+`XCUT-6`'s open-capability path and `XCUT-7`'s configurable retryable-status set are defined
+against, **all three of them phase 6's**" — correct about `XCUT-6` and `XCUT-7`, and silent about
+`CFG-35`, whose home is phase 5 and whose text is where the built-in set is stated at requirement
+level. Nothing is wrong in either document; the failure is that one object is named by two
+requirements in two phases with no cross-reference at either end. It is the `OI-15` shape — a
+sentence that reads correctly and resolves to the wrong phase — and, like `OI-15`, it is filed
+rather than fixed because the register row is committed and adversarially reviewed.
+
+`XCUT-5`'s own closing NOTE is what a reader must not lose: the baked flag is **not** what the retry
+step consults, so the built-in classifier (`CFG-35`/`XCUT-5`) and the configurable set (`XCUT-7`)
+are legitimately two objects and only the first is in question here.
+
+What would resolve it: phase 5a's `R1` decides whether the classifier lands in phase 5, defers to
+phase 6 beside `DEF-38`, or splits status half from throwable half — and whichever it picks, both
+ends gain the cross-reference this row records as missing.
+
+**Resolution:** *(open)*
+
+### OI-22 — `CFG-20`'s cancel-with-interrupt clause is `ASYNC-3`'s under a second ID, is unsatisfiable under §8.3, and no register row cites `CFG-20`
+
+- **Opened:** 2026-09-09, phase 5 segmentation design
+- **Status:** open
+- **Cites:** CFG-20, ASYNC-3, ASYNC-4, PIPE-33, DEF-18, DEF-31, SEAM-25
+
+Design §10.5 names `ASYNC-3`, `ASYNC-4` and `PIPE-33` and stops. `DEF-18` cites `ASYNC-3` and
+`PIPE-33`. §12's `CFG` row says `CFG-20` is "reshaped as the pivot", which does not say a clause is
+unmet. §10 item 4 lists `CFG-20` among the IDs it touches but argues the mechanism substitution
+rather than the gap. `docs/first-release.md` carries no line. So a phase-5 checklist row for
+`CFG-20` has three citations available and none of them states what is missing.
+
+The disposition is not in doubt — `CFG-20` is a SHOULD, three of its four clauses are met, and the
+fourth is the same prohibition §10.5 already settles, so **the port gains no fourth unsatisfied
+MUST**. But the roadmap's one-row-per-ID convention exists to stop a ✅ or a ⏳ with an unstated
+missing clause, which is exactly what phase 2 recorded for `SEAM-25` when it filed `DEF-31`. Filed
+so the row phase 5a writes has something true to cite. The parallel worth reading beside it is
+§11.20's `RECOV-31`/`RETRY-38` — "the same feature under two IDs" — and the phase-4 treatment of it.
+
+What would resolve it: a citation that names the unmet clause. Phase 5a's `R7` decides the form —
+⏳ against `DEF-18` with a note that the row does not cite `CFG-20`, ✅-with-clauses naming the three
+that are met, or a partial marker of its own.
+
+**Resolution:** *(open)*
+
+### OI-23 — the housekeeping probe's `citations` check cannot see a backticked register ID, which is the form this repository writes 92% of them in
+
+- **Opened:** 2026-09-09, phase 5 segmentation design
+- **Status:** open
+- **Cites:** none
+
+`Citations#check_file` in `.claude/skills/housekeeping/probe.rb` scans `Prose.unfenced(...)`, and
+`unfenced` blanks inline code spans as well as fenced and indented blocks, "so a link or a citation
+ID that appears only as an EXAMPLE, inside code, is not read as an actual link or citation." That
+reasoning is sound for a link and wrong for a register ID here, because `CLAUDE.md`'s own
+requirement-ID convention backticks every ID and every document follows it.
+
+Measured across the tracked `docs/`, `scripts/` and `.claude/` trees on 2026-09-09, excluding the
+two register files and the skill's own test fixtures: **996 backticked `OI-`/`DEF-` mentions against
+83 bare ones**, so the check inspects about one citation in thirteen. Reproduced directly: a scratch
+file under `docs/work/` naming two undefined open-item IDs, one wrapped in backticks and one bare,
+produces exactly one finding — the bare one.
+
+The immediate consequence was the phase 5 segmentation design itself, which cited `OI-21`, `OI-22`
+and this row before any of them existed, in the repository's normal backticked form, while the check
+that exists to catch precisely that returned "no drift found". A human filing those rows had no
+mechanical reminder that they were still unfiled, which is the failure mode the check was built for.
+
+This is the `OI-14` and `OI-16` family — a mechanism that reports clean over a set it never looked
+at. Filed rather than fixed because the fix is a judgement about the check (blank inline code for
+links but not for register IDs? scan `asserted` rather than `unfenced`? both, with the example case
+handled by an explicit ignore marker?) and belongs with whoever owns the skill.
+
+**Resolution:** *(open)*
+
+next id: OI-24
