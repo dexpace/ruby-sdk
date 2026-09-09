@@ -539,8 +539,11 @@ in the fact itself. Nothing here is claimed across a range that was not run.
    `[a] == [b]` false, `[a].eql?([b])` false. **The NaN hash depends on the payload, and that is the trap
    in this fact.** `Float#hash` digests the bit pattern, so two NaNs hash equal only when their payloads
    agree: two distinct objects built from the same bits (`[0x7FF8000000000000].pack("Q").unpack1("D")`,
-   twice) give `[a].hash == [b].hash` **true**, while `0.0/0.0` and `"nan".to_f` — both NaN, different
-   payloads — give **false**, reproduced across three interpreter processes. So Ruby's array hash agrees
+   twice) give `[a].hash == [b].hash` **true**, while `0.0/0.0` and `-(0.0/0.0)` — both NaN, sign bits
+   differing — give **false**, reproduced across three interpreter processes. **The witness has to be built
+   by arithmetic:** `"nan".to_f` is `0.0` and `#nan?` on it is `false` (`String#to_f` never raises and
+   returns `0.0` for an unparseable string), and `Float("nan")` raises `ArgumentError` — so a pair written
+   with either one is not a NaN pair at all and asserts something else entirely. So Ruby's array hash agrees
    with `CFG-34` for one NaN and disagrees for another, which is worse than disagreeing consistently. And
    the values themselves are **not quotable**: `Float#hash` is seeded per process, so `(0.0/0.0).hash`
    differs on every run and only the equal/unequal relation within one process is stable — no test asserts a
@@ -829,7 +832,7 @@ to public later is a widening `NFR-4` permits; the reverse is a break.
 `==`, `eql?` or `#hash`:
 
 - two NaNs are **equal** (`CFG-34`), which neither `==` nor `eql?` gives — **and the hash side does not come
-  free**. `Float#hash` digests the bit pattern, so `(0.0/0.0).hash` and `"nan".to_f.hash` differ (verified
+  free**. `Float#hash` digests the bit pattern, so `(0.0/0.0).hash` and `-(0.0/0.0).hash` differ (verified
   fact 7), and only a NaN built from the same payload as its counterpart hashes equal to it. `DeepValue.hash`
   therefore folds **every** NaN to one fixed seed, tested against two NaNs with different payloads rather
   than against one literal reused;
@@ -1545,7 +1548,8 @@ in-memory fake transport; 5a touches no transport at all. The only real I/O in t
   written with one NaN passes against a broken implementation. Assert `DeepValue.equal?([a], [b])` is true
   with `a` and `b` distinct, and assert `!a.equal?(b)` in the same test so the precondition is visible. The
   second trap is on the hash side and is the one verified fact 7 exists to expose: build the pair as
-  `0.0/0.0` and `"nan".to_f`, whose **payloads differ**, and assert
+  `0.0/0.0` and `-(0.0/0.0)`, whose **payloads differ** and both of which are genuinely
+  `#nan?` — `"nan".to_f` is `0.0`, and assert
   `DeepValue.hash([a]) == DeepValue.hash([b])`. A pair built from one bit pattern hashes equal through
   `Float#hash` alone, so it passes against an implementation that never folds NaN — and that implementation
   breaks `CFG-33`'s mutual consistency on the first NaN a caller did not construct the same way.
