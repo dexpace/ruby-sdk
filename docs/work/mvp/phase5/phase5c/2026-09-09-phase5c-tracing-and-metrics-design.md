@@ -507,8 +507,16 @@ property and the plan re-measures them anyway as part of `OBS-25`'s own test.
    the read allocates one `Hash` per call (1003 / 1000), with none present it allocates nothing.
    `Symbol#name` returns the **same frozen `String`** on every call (`equal?` true, `frozen?` true);
    `Symbol#to_s` returns a new unfrozen one (1001 / 1000; over a two-key storage the difference is
-   1007 / 1000 for `name` against 5001 / 1000 for `to_s`). *What it licenses:* the key constants are frozen
-   `String`s — the form `OBS-23` and `OBS-10` both write — and `OBS-23`'s push and restore cost nothing.
+   1007 / 1000 for `name` against 5001 / 1000 for `to_s`). *What it licenses:* `OBS-23`'s push and restore
+   cost nothing whichever key type is used, and — the half that decided the type — `Symbol` keys with a
+   `Symbol#name` fold to `OBS-39`'s `String` field key, which is what `R11` settled and `5b`'s `P5-24`
+   ships. **The draft read this fact as licensing frozen `String` key constants, "the form `OBS-23` and
+   `OBS-10` both write", and that inference was wrong twice over**: the two requirements quote the *wire*
+   names `'trace.id'` and `'span.id'` and fix no Ruby type, and `Fiber#storage=` rejects a `String` key
+   with `TypeError` while `Fiber[]=` silently interns it — so a `String` constant is the one form that
+   behaves differently through the two APIs. The sentence is corrected here rather than left to be
+   rediscovered; `Diagnostics::TRACE_ID` and `::SPAN_ID` are `Symbol`s, they are `5b`'s, and 5c ships no
+   key-name constant.
    *What it does not license:* any claim about `5b`'s fold being free. The whole-map read allocates a `Hash`
    per event once anything is in storage, and a fold spelled with `Symbol#to_s` allocates one `String` per
    key per event. Both are `5b`'s to pay or avoid; 5c owes the fact, not the fix.
@@ -610,8 +618,27 @@ tracer factory) — but made both slots **required and undefaulted**, on the gro
 defaulted without naming an object `5c` had not yet shipped. That ground is an artefact of parallel
 authorship: `NO_METER` ships in this segment, in the same phase. **5c's defaults stand**, and `5b`'s `P5-33`
 is rewritten around reason 3 above — `CTX-14` already puts a `tracer_factory` on every context, so a required
-keyword makes every caller restate an object the request's own context carries. The precedence stated above is
-the one `5b`'s step implements; nothing in `5b` contradicts it.
+keyword makes every caller restate an object the request's own context carries.
+
+**The precedence's first clause has no implementation path in phase 5, and this is `OI-31`.** Found at the
+5b/5c plan reconciliation, after both designs were written, and stated here because reason 3 above is where
+the unimplementable clause is argued for. **No mechanism exists by which a pipeline step can reach a
+`RequestContext` or an `Instrumentation::Bundle`.** Phase 4c is explicit that "4c does not consume 4a at all";
+`Dexpace::Pipeline::Cursor`'s whole surface is `#call`, `#fork`, `#may_fork?`, `#request`, `#options`,
+`#cancellation`, `#state(stage)` and `#spent?`, with no context reader; `Dexpace::Request`'s members are
+`(:method, :url, :headers, :body)`; `Dexpace::RequestOptions`'s are `(:timeout, :max_retries, :tags)`; and
+`PIPE-11` forbids reading per-call state from ambient storage. `CTX-11`'s `ContextStore` is not the channel
+either — it is keyed by a per-call key the step does not hold, and `CTX-13` lets it evict any entry including
+the newest. So clauses two and three are implementable today and clause one is not.
+
+**What that costs, exactly: nothing that phase 5 asserts.** With no bundle reachable the step resolves to its
+own keyword and to `Bundle::NONE`, which is `OBS-34`'s and `XCUT-19`(e)'s *default* configuration — no tracer,
+no meter, level `none` — and `OBS-34`'s conformance clause is discharged against the step's keyword, not
+against a context. The clause is a widening, and `api-design/1d9e6e0b` makes a widening non-breaking, so
+nothing here is prejudiced by shipping the two-clause resolution now. The phase that would close it is
+**phase 6**, which owns the pillar steps and is the first thing that either widens `Cursor` with a context
+reader or has a `Pipeline.standard` (`DEF-39`) thread a bundle in at construction. Neither is 5b's or 5c's to
+choose. `OI-31` carries the finding; both plans state the degradation at the call site.
 
 ### `OBS-34`'s independence of the log level, and the half 5c owes
 
@@ -960,7 +987,7 @@ lib/dexpace/instrumentation/no_span.rb           MODIFIED: NO_SPAN's private cla
 lib/dexpace/instrumentation/no_tracer.rb         MODIFIED: NO_TRACER's private class gains OBS-25's methods
 lib/dexpace/instrumentation/trace_id_flavour.rb  MODIFIED: OBS-27's #generate, and #sampled? on Bundle's side
 lib/dexpace/instrumentation/bundle.rb            MODIFIED: #sampled? only — no member changes (boundary 10)
-lib/dexpace.rb                                   MODIFIED: explicit requires for the six new files
+lib/dexpace.rb                                   MODIFIED: explicit requires for the five new files
 
 test/support/recording_span.rb                   the fake recording span
 test/support/recording_tracer.rb                 the fake tracer + factory, one tracer per operation
@@ -1006,12 +1033,23 @@ class (`data-modeling/b74a2869`).
   `Diagnostics::TRACE_ID` and `::SPAN_ID` — `5b`'s constants — from the bundle and returns a `Scope` carrying
   all three restores. For a **non-recording** span, skips the push and delegates to `.activate` — the
   requirement's own words.
-- **`.with_correlated_span(span, bundle) { |span| … }`** — the block form of the above, and what `5b`'s **sync**
-  step calls. `5b`'s `AsyncStep` cannot use a block form — the span outlives `#call` and the restore happens
-  in the future's `#on_settle` callback — so it takes `.correlate` and closes the handle itself, which is the
-  non-lexical case `P5-45` keeps the bare handle for. Both of `5b`'s steps call `.correlate` rather than
-  `.activate`, because `OBS-23`'s non-recording branch already delegates to plain activation and a caller
-  branching on the recording flag would be re-deriving that.
+- **`.with_correlated_span(span, bundle) { |span| … }`** — the block form of the above. It is implemented in
+  terms of `.correlate` plus one `ensure`, so there is one code path and not two, and it is the form a caller
+  whose scope is purely lexical should reach for; 5c's own `OBS-22`/`OBS-23` suite drives it.
+
+  **Both of `5b`'s steps take the handle form, and this document previously said the sync one takes the
+  block.** Corrected at reconciliation, on `5b`'s argument rather than by fiat. `AsyncStep` cannot use a
+  block at all — the span outlives `#call` and the restore happens in the future's `#on_settle` callback —
+  which is the non-lexical case `P5-45` keeps the bare handle for. `Step` *could*, but its `#call` already
+  owns a `begin`/`rescue`/`ensure` for `span.finish` and the two unwrapped meter calls, so
+  `with_correlated_span` would add a block frame and a second nesting level around a body that needs the
+  `ensure` regardless; and `AsyncStep < Step` shares one `correlate_span` helper, which a split of forms
+  would break. `P5-45` is not reopened: it fixes which form is *primary in the API*, not which form every
+  caller must use, and both forms ship.
+
+  Both of `5b`'s steps call `.correlate` rather than `.activate`, because `OBS-23`'s non-recording branch
+  already delegates to plain activation and a caller branching on the recording flag would be re-deriving
+  that.
 
 The current-span slot key is a `private_constant`; it is never part of the diagnostic context and must not be
 folded, so it is deliberately *not* one of the two published key names and is named so it cannot collide with
@@ -1174,16 +1212,20 @@ interface _Span                                   # widened from 4a's empty decl
   def set_attribute: (String key, untyped value) -> self
   def add_event: (String name, ?attributes: Hash[String, untyped]?) -> self
   def record_error: (Exception error, ?attributes: Hash[String, untyped]?) -> self
+  def status=: (untyped status) -> untyped
   def finish: (?end_timestamp: Time?) -> void
+  def context: () -> Bundle
 end
 
 interface _Tracer                                 # widened from 4a's empty declaration
-  def start_span: (String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?) -> _Span
-  def in_span: [T] (String name, ?attributes: Hash[String, untyped]?) { (_Span) -> T } -> T
+  def start_span: (String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?,
+                   ?with_parent: untyped?) -> _Span
+  def in_span: [T] (String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?) { (_Span) -> T } -> T
 end
 
-interface _TracerFactory                          # unchanged from 4a
-  def tracer: (?String? name, ?String? version) -> _Tracer
+interface _TracerFactory                          # unchanged from 4a — reproduced verbatim
+  def tracer: (?String? deprecated_name, ?String? deprecated_version, ?name: String?,
+               ?version: String?, ?attributes: Hash[String, untyped]?) -> _Tracer
 end
 
 interface _Scope
@@ -1203,6 +1245,18 @@ interface _Histogram
   def record: (Numeric amount, ?attributes: Hash[String, untyped]?) -> void
 end
 ```
+
+**Three printings in this block were out of step with this document's own prose, and all three are corrected
+above rather than left for the plan to work around.** `_Span` showed five methods where the `NO_SPAN` table
+seven rows up lists seven — `#status=` and `#context` were missing. `_Tracer` showed `#start_span` with three
+parameters and `#in_span` with two, where the `NO_TRACER` paragraph below spells
+`#start_span(name, attributes: nil, kind: nil, with_parent: nil)` and `#in_span(name, attributes: nil,
+kind: nil)`. **And `_TracerFactory` was printed with two parameters where 4a shipped five.** The first two were this block being written before the object-model sections it summarises settled; the third
+is more serious, because `_TracerFactory` is **released**. 4a's declaration is the five-argument mirror of
+`OpenTelemetry::Trace::TracerProvider#tracer` (`P4-8`), it is the one on disk, boundary 10 forbids redefining
+it, and narrowing a released interface is an `NFR-4` break — so the document is corrected, not the interface.
+`5c`'s plan already ships all three in their corrected form and recorded the divergence from this printing;
+those notes now describe corrections that have been made rather than ones still owed.
 
 `_HTTPTracer` is deliberately **not** declared: eleven methods with no core caller would be eleven
 `NFR-4`-locked signatures asserting a shape nothing checks, and `HTTPTracer` is a **module** an implementer
@@ -1389,10 +1443,10 @@ What 5c ships as a stable contract:
 |---|---|
 | **`5b`**, on `OBS-10` | Nothing 5c declares: the key constants are `5b`'s `Diagnostics::TRACE_ID` and `::SPAN_ID`, `Symbol`s, and 5c reads them (`R11`). What 5c supplies is the **fact**: `Fiber.current.storage` returns `Symbol` keys and a fresh unfrozen `Hash` per read, so convert with `Symbol#name`, never `Symbol#to_s` (verified fact 3), and `:"trace.id".name` is not `equal?` to a `"trace.id"` frozen literal |
 | **`5b`**, on `OBS-34`'s step | `NO_TRACER_FACTORY` (4a's) as the `tracer_factory:` default and `NO_METER` as the `meter:` default, both constants, neither a configuration read. Precedence: the context's bundle when it is not `Bundle::NONE`, else the keyword, else the constant (`R11`) |
-| **`5b`**, on `OBS-34`'s independence clause | `Tracing.with_correlated_span`, `Tracing.correlate` and `NO_METER`'s instruments read no log level and hold no sink, by construction and by a load-time assertion in 5c's own suite. **That assertion does not discharge `OBS-34`'s conformance clause** — the `5b` step test at level `none` does; the two are named as two (`R11`) |
+| **`5b`**, on `OBS-34`'s independence clause | `Tracing.correlate` (the form both of `5b`'s steps take), `Tracing.with_correlated_span` and `NO_METER`'s instruments read no log level and hold no sink, by construction and by a load-time assertion in 5c's own suite. **That assertion does not discharge `OBS-34`'s conformance clause** — the `5b` step test at level `none` does; the two are named as two (`R11`) |
 | **`5b`**, on `OBS-24` | Nothing binding: `5b` owns the decision and reached the same answer, `P5-23`. 5c's contribution is the measurement `5b` need not re-derive — `Fiber.current.storage` already returns a fresh unfrozen `Hash`, so the snapshot's immutability is one `freeze` — and `P5-49`'s gap, which `5b`'s union restore inherits (`R12`) |
 | **`5b`**, on `OBS-32` | Nothing. 5c fixes no instrument name, unit or attribute set; `5b` declares `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION` for the step's two instruments, and `OBS-32`'s units, descriptions and attribute sets stay ⏳ `DEF-9` until `dexpace-instrumentation-otel` lands (`R11`) |
-| **`5b`**, on `OBS-31` | `interface _Meter`, `_Counter` and `_Histogram`, declared **filled**, here and only here — `5b`'s empty `_Meter` was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. `5b`'s `meter:` types as `Dexpace::_Meter` |
+| **`5b`**, on `OBS-31` | `interface _Meter`, `_Counter` and `_Histogram`, declared **filled**, here and only here — `5b`'s empty `_Meter` was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. `5b`'s `meter:` types as `Dexpace::Instrumentation::_Meter` — the interfaces are declared inside `module Instrumentation`, so a bare `_Meter` is what `step.rbs` writes |
 | **`5b`**, on test doubles | `RecordingTracer`, `RecordingSpan` and `RecordingMeter` under `test/support/`, 5c's files (`P5-48`). `5b`'s step tests consume them and add no second set; the method names in them are 5c's |
 | **Phase 6**, on `OBS-28`/`OBS-29` | `HTTPTracer` with its eleven no-op methods, `NULL`, `CallableAdapter`, and the ordering contract. Phase 6 wires the operation and per-attempt groups with `DEF-39`'s `Pipeline.standard`; it does not redefine the vocabulary (`R14`) |
 | **Phase 6**, on `RETRY`'s events | `#attempt_started`, `#attempt_failed(context, error, next_delay)` and `#retries_exhausted` are the three names the retry step emits, and `OBS-29`'s adjacency clause — retries-exhausted immediately followed by `operation_failed` **with the same throwable** — is a constraint on the retry step, not on the vocabulary |
@@ -1414,7 +1468,7 @@ is preferred to a collision.
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P5-40 | Public constants design §8.1 does not name: `Dexpace::Instrumentation::Tracing`, `::Scope`, `::NO_SCOPE`, `::HTTPTracer`, `::NO_METER`; and the RBS interfaces `_Scope`, `_Meter`, `_Counter`, `_Histogram`. **`NULL` and `CallableAdapter` are §8.1's own names and are not deviations** | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11, phase 4a's P4-2 and phase 5a's P5-1 precedent | §8.1 names exactly two Ruby identifiers for this segment — `Dexpace::Instrumentation::NULL` at §8.1 line 10 and `CallableAdapter` at line 13 — verified by grepping the tracked `docs/` tree and re-verified at reconciliation. `NFR-4` locks every public name at the first release tag, so a name arriving by accident is locked by accident. Each is chosen for a stated reason in the object-model section. **`::TRACE_ID_KEY` and `::SPAN_ID_KEY` were in the draft's list and are not shipped**: the two key constants are `5b`'s (`R11`) |
-| P5-41 | Public **methods** design §8.1 does not name: `Tracing.current_span`, `.activate`, `.with_span`, `.correlate`, `.with_correlated_span`; `Scope#close`; `TraceIdFlavour#generate_trace_id`; `Bundle#sampled?`; the seven methods on `NO_SPAN`'s class and the two on `NO_TRACER`'s; `HTTPTracer`'s eleven; `NO_METER#create_counter`/`#create_histogram` and the instruments' `#add`/`#record` | `NFR-4`; phase 2's P2-11, phase 4a's P4-11, phase 5a's P5-2 | `NFR-4` locks a public *signature*, not only a name. Two deserve naming here. **`Tracing.activate` has no core caller** — `5b`'s sync step takes the block form and its async step takes `correlate`'s handle — and is public because `OBS-22`'s words are "return a scope handle" and its conformance test nests two by hand; the block forms are implemented in terms of it, so there is one code path rather than two. **`Bundle#sampled?` has no core caller either** and is added because 4a explicitly reserved it for phase 5 and because a two-hex-char byte whose low bit nobody can read is a member with no reader |
+| P5-41 | Public **methods** design §8.1 does not name: `Tracing.current_span`, `.activate`, `.with_span`, `.correlate`, `.with_correlated_span`; `Scope#close`; `TraceIdFlavour#generate_trace_id`; `Bundle#sampled?`; the seven methods on `NO_SPAN`'s class and the two on `NO_TRACER`'s; `HTTPTracer`'s eleven; `NO_METER#create_counter`/`#create_histogram` and the instruments' `#add`/`#record` | `NFR-4`; phase 2's P2-11, phase 4a's P4-11, phase 5a's P5-2 | `NFR-4` locks a public *signature*, not only a name. Two deserve naming here. **`Tracing.activate` has no core caller** — both of `5b`'s steps take `correlate`'s handle, and 5c's own block forms are implemented in terms of it — and is public because `OBS-22`'s words are "return a scope handle" and its conformance test nests two by hand; the block forms are implemented in terms of it, so there is one code path rather than two. **`Bundle#sampled?` has no core caller either** and is added because 4a explicitly reserved it for phase 5 and because a two-hex-char byte whose low bit nobody can read is a member with no reader |
 | P5-42 | **No method in this segment takes a `**` keyword splat.** Every attributes parameter is one named optional keyword carrying a frozen `Hash`, against the shape every Ruby tracing and metrics library uses | `OBS-25` ("Selecting a no-op path MUST NOT allocate per call"); `api-design/1d9e6e0b`; verified fact 1 | Measured on 3.4.10: `def m(x, **attributes)` allocates one `Hash` per call **even with no keyword argument passed** (1002 / 1000), and a forwarding wrapper doubles it; the named form allocates nothing. `OBS-25` is a MUST and the splat makes it unsatisfiable. Recorded as a deviation rather than as a style note because the splat is what an implementer copying `opentelemetry-api` will write, `api-design/1d9e6e0b` reads as licensing it, and **nothing mechanised catches it** — an open item is proposed for that |
 | P5-43 | `OBS-29`'s "One tracer instance corresponds 1:1 to a single logical operation lifecycle" is read as binding **stateful** tracers only; `NO_TRACER_FACTORY#tracer` returns one shared object on every call | `OBS-29`, `OBS-25`, `CTX-20`; phase 4a's fixed shape and boundary 10 | The two MUSTs are in literal conflict: `OBS-25` requires the no-op factory to return a shared no-op tracer and to allocate nothing per call, and `OBS-29` requires one tracer per operation. They are consistent only if the 1:1 clause is about per-operation *state*, which a stateless no-op has none of. 4a fixed the shared return and boundary 10 forbids changing it, so the obligation is restated where it can bind — `_Tracer`'s YARD as an implementer contract — and asserted against `RecordingTracer`, whose factory returns a fresh instance per call |
 | P5-44 | **No span-id generator ships.** `OBS-27`'s generation is implemented for trace ids only | `OBS-26`, `OBS-27`; `OI-8`'s shape; phase 4a's P4-7 | `OBS-27`'s scope is "Trace-id generation" and `OBS-26` states the span-id rule as a *validity* rule, which 4a's span-id pattern already enforces at `Bundle.build`. Core creates no spans, so a generator would be `NFR-4`-locked public surface with no caller — `OI-8`'s exact shape. An adapter that creates spans generates its own span ids, which is what every tracing runtime already does |

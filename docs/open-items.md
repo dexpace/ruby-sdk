@@ -1338,4 +1338,49 @@ disposition and cite this row.
 
 **Resolution:** *(open)*
 
-next id: OI-31
+### OI-31 — the instrumentation step's slot precedence names a context bundle a pipeline step cannot reach
+
+- **Opened:** 2026-09-09, phase 5b/5c plan reconciliation pass
+- **Status:** open
+- **Cites:** OBS-34, CTX-14, CTX-15, PIPE-11, OBS-25, NFR-4
+
+The reconciled contract between `5b` and `5c` fixes how the instrumentation step resolves its tracer
+factory and its meter, in three clauses: **the request context's instrumentation bundle when it is not
+`Bundle::NONE`, else the step's constructor keyword, else the constant.** `5c`'s design argues for it from
+`CTX-14` ("Each context MUST carry a correlation/instrumentation metadata bundle exposing at minimum … an
+active span, and a per-operation tracer factory"), and `5b`'s `P5-33` adopts it.
+
+**The first clause has no implementation path.** Nothing in the shipped surface lets a pipeline step reach a
+`RequestContext` or an `Instrumentation::Bundle`:
+
+- Phase 4c's design states outright that "4c does not consume 4a at all", and gives `Dexpace::Pipeline::Cursor`
+  the surface `#call`, `#fork`, `#may_fork?`, `#request`, `#options`, `#cancellation`, `#state(stage)` and
+  `#spent?` — no context reader among them.
+- `Dexpace::Request`'s members are `(:method, :url, :headers, :body)`; `Dexpace::RequestOptions`'s, the other
+  thing `Cursor` hands out, are `(:timeout, :max_retries, :tags)`. Neither carries a bundle.
+- `PIPE-11` forbids the remaining route: "Per-request mutable state MUST live in the per-call cursor (carried
+  and forked by next), never on the step", which rules out reading a context from ambient storage.
+- `CTX-11`'s `ContextStore` is not a back door. It is keyed by a per-call key the step does not hold, and
+  `CTX-13` explicitly permits the store to evict any entry, "the most-recently inserted included".
+
+**Why it is an open item and not a blocker.** With no bundle reachable the step degrades to its own
+`tracer_factory:` / `meter:` keywords and to `Bundle::NONE` — which is exactly `OBS-34`'s and `XCUT-19`(e)'s
+*default* configuration: no tracer, no meter, log level `none`. `OBS-34`'s conformance clause ("at none assert
+no request/response events but the span still starts/ends and the counter/histogram still record") is
+discharged against the step's keyword and does not depend on a context being reachable, so **no phase-5
+assertion is weakened and no signature moves.** Adding the clause later is a widening, which
+`api-design/1d9e6e0b` makes non-breaking under `NFR-4`.
+
+**What would resolve it: phase 6.** It owns the pillar steps and is the first thing that would either widen
+`Cursor` with a context reader or have `Pipeline.standard` (`DEF-39`) thread a bundle in at construction.
+Whichever it picks, `bundle_for` in `5b`'s step is the one method that changes. Until then both plans state
+the two-clause resolution at the call site rather than describing a three-clause rule they do not implement.
+
+This is not a `DEF-` row: nobody consciously postponed the clause — both designs argued for it in parallel
+worktrees and neither checked that a step could reach a context. That is the discovered-after-the-fact shape
+`open-items.md` holds, and it is the same family as `OI-14`, `OI-27` and `OI-30`: a sentence that reads
+correctly and resolves to something that is not there.
+
+**Resolution:** *(open)*
+
+next id: OI-32

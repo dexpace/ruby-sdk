@@ -288,7 +288,7 @@ And the one sentence in design §8.1 that the whole security argument rests on:
 | `OBS-28`–`OBS-30` — the HTTP-tracer vocabulary and its ordering contract, and the must-not-throw SPI clause | `5c`. 5b honours `OBS-20`'s half of the asymmetry by **not** wrapping tracer or meter calls; it does not define the callbacks |
 | `OBS-31`–`OBS-33` — the metrics SPI, the no-op meter, the counter and histogram contracts | `5c`. 5b's step takes a meter through a slot and calls it; it ships none |
 | `OBS-32`'s instrument **units**, descriptions and attribute sets | `5c`, ⏳ `DEF-9`; its conformance clause needs a recording meter, which core does not ship. **The two instrument *names* are 5b's**, reversed at reconciliation: the step is the only caller of `create_counter`/`create_histogram` in core, so the object *is* 5b's, and `OBS-34` cannot record without a name (`R11`) |
-| `CFG-1`–`CFG-38` — the layered chain, the clock, the proxy model, the five utilities | `5a`. 5b consumes `Configuration#string` and `Configuration::Keys` and adds two key names |
+| `CFG-1`–`CFG-38` — the layered chain, the clock, the proxy model, the five utilities | `5a`. 5b consumes `Configuration#string` and `Configuration::Keys` and adds **one** key name, `LOG_PREVIEW_BYTES`. **Corrected at the plan reconciliation: this said two.** `DEF-34`'s pick-up condition names three wirings — the shared preview size, the body-logging enablement gate, and a configured source for `MAX_MATERIALIZED_BYTES` — and only the first needs a name that does not exist. The enablement gate reads `5a`'s shipped `Keys::LOG_LEVEL` (`"LOG_LEVEL"`, `OBS-35`'s published name), which 5b must not restate, rename or revalue; `Keys::MAX_MATERIALIZED_BYTES` is `5a`'s too and `5a` supplied that third wiring |
 | `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a **thread hop** in an adapter | 8. 5b owns the carrier and `OBS-24`'s bridge; `dexpace-async-thread` owns the pooled-worker save/install/restore and is what `OI-13` will meet |
 | `BODY-17`–`BODY-29`, `BODY-34`, `IO-9`, `BODY-32` — the two logging body wrappers and the materialisation ceiling | 3a and 3b, built. 5b supplies the configured preview size and the enablement gate (`DEF-34`) and adds no keyword to either wrapper |
 | `HTTP-42`'s decode boundary and `Response#body_string` | 3b, built. `OBS-38`'s preview renderer follows its corrected recipe (`OI-7`) and does not replace it |
@@ -996,6 +996,15 @@ Every name below is `5c`'s and is written out rather than deferred: `_TracerFact
 per request — `OBS-31` returns shared instrument singletons and `OBS-25` forbids per-call allocation on the
 no-op path, so a per-request `create_counter` would pay a lookup for nothing.
 
+**`attributes:` is optional on both instruments and 5b passes none, which is stated because a reader will
+expect dimensions.** `OBS-31`'s MUST is that the Meter manufacture instruments "each accepting per-measurement
+key/value attributes" — an obligation on the *instrument*, and 5c's `_Counter#add` / `_Histogram#record`
+declare it as `?attributes: Hash[String, untyped]?`. No `OBS` requirement fixes an attribute set for these two
+instruments: `OBS-32`'s semantic conventions, which would, are `5c`'s ⏳ `DEF-9`. And 5c's verified fact 1
+prices the alternative — an inline hash literal at a call site allocates ~1 per call whether or not the callee
+splats — so an invented dimension set would cost one allocation per request to carry a vocabulary nothing has
+chosen. When `DEF-9` lands, the set is hoisted to a frozen constant and passed; neither signature changes.
+
 ```
 def call(request, cursor)
   started  = @clock.monotonic
@@ -1014,8 +1023,8 @@ rescue ::StandardError => e
 ensure
   scope.close                                                        # 5c's Scope#close — OBS-22, OBS-23
   span.finish                                                        # 5c's _Span#finish — OBS-21
-  @request_counter.add(1, attributes: ...)                           # 5c's _Counter#add
-  @latency_histogram.record(@clock.monotonic - started, attributes: ...)  # 5c's _Histogram#record
+  @request_counter.add(1)                                            # 5c's _Counter#add
+  @latency_histogram.record((@clock.monotonic - started) * 1000.0)   # 5c's _Histogram#record
 end
 ```
 
@@ -1027,8 +1036,12 @@ default allow-list `OBS-10` mandates would have nothing to fold on any request.
 
 **`5c` prefers the block form, and 5b's async step is where that preference cannot reach.** `5c`'s `P5-45`
 makes `Tracing.with_correlated_span(span, bundle) { … }` the primary form and the bare handle secondary, on
-`resource-management/bf5560dc`'s block rule, and its interface table says "This is what `5b`'s step calls".
-For `Step` that is right and the body above can be written as one block; for `AsyncStep` it is not, because
+`resource-management/bf5560dc`'s block rule, and its design said the block form "is what `5b`'s **sync** step
+calls". **That sentence was corrected at the plan reconciliation and now reads the other way**: both steps take
+the handle. For `Step` the block form would work, but `#call` already owns a `begin`/`rescue`/`ensure` for
+`span.finish` and the two unwrapped meter calls, so a block would add a frame and a nesting level around a body
+that needs the `ensure` regardless — and `AsyncStep < Step` shares one `correlate_span` helper, which a split of
+forms would break. For `AsyncStep` a block is impossible outright, because
 the span outlives `#call` — the future settles later and the `ensure` above moves into the `#on_settle`
 callback, so activation and close are two statements on two stacks and the handle is the only form that
 expresses it. **Both steps therefore use `correlate`/`#close`**, so one shape covers both runtimes, which is
@@ -1252,22 +1265,26 @@ lib/dexpace/instrumentation/async_step.rb         Dexpace::Instrumentation::Asyn
 lib/dexpace/closeable.rb                          MODIFIED: close_quietly's diagnostic route (DEF-27, closes it)
 lib/dexpace/hooks.rb                              MODIFIED: the per-dropped-failure diagnostic (DEF-32)
 lib/dexpace/proxy/resolution.rb                   MODIFIED: an event beside each Kernel#warn (P5-8, discharged)
-lib/dexpace/configuration/keys.rb                 MODIFIED: two key names 5b reads (DEF-34)
+lib/dexpace/configuration/keys.rb                 MODIFIED: ONE key name 5b adds, LOG_PREVIEW_BYTES (DEF-34);
+                                                  LOG_LEVEL is 5a's and is read, not redeclared
 
-test/support/recording_sink.rb                    the fake sink every emission test asserts on
-test/support/diagnostic_context.rb                the ensure-restore helper every Diagnostics test uses
+test/support/recording_sink.rb                    Dexpace::RecordingSink — the fake sink every emission test
+                                                  asserts on. Flat under Dexpace, on 5a's FakeClock precedent
+test/support/diagnostic_context.rb                Dexpace::DiagnosticContext — the ensure-restore helper every
+                                                  Diagnostics test uses
 
-                                                  NOT 5b's, and reused rather than duplicated:
-test/support/recording_tracer.rb                  5c's fake tracer factory + tracer  (P5-48)
-test/support/recording_span.rb                    5c's fake recording span
-test/support/recording_meter.rb                   5c's fake meter + counter + histogram
+                                                  NOT 5b's, and reused rather than duplicated (P5-48):
+test/support/recording_tracer.rb                  5c's Dexpace::RecordingTracerFactory + ::RecordingTracer
+test/support/recording_span.rb                    5c's Dexpace::RecordingSpan
+test/support/recording_meter.rb                   5c's Dexpace::RecordingMeter, ::RecordingCounter,
+                                                  ::RecordingHistogram — 5b declares none of the three
 ```
 
 Fifteen new `lib/` files, **thirteen** `sig/` mirrors and thirteen `test/` mirrors — `render.rb` and
 `emitter.rb` are `private_constant`s and get neither, per P2-15 and P4-3, and their behaviour is asserted at
 their call sites — four already-existing `lib/` files that gain content, with `sig/` mirrors updated for the
 two of those that are public surface (`hooks.rb` and `proxy/resolution.rb` are `private_constant`s and
-`configuration/keys.rb`'s mirror gains two constants), **two** test-support files, and the repository-root
+`configuration/keys.rb`'s mirror gains **one** constant), **two** test-support files, and the repository-root
 `test/fixtures/surface/dexpace-core.txt`.
 
 **The draft listed four test-support files and now lists two.** The recording tracer and the recording meter
@@ -1276,7 +1293,9 @@ recording clause of `OBS-21`, `OBS-29`, `OBS-30` and `OBS-31` against them (`P5-
 them rather than adding a second set — which is this document's own open question 6 answered from the other
 side, and which keeps one fake per idea rather than the drift `DEF-29` would otherwise have to consolidate.
 
-**Every 5b constant is under `Dexpace::Instrumentation::`**, and that is phase 1's placement rule applied
+**Every 5b constant in `lib/` is under `Dexpace::Instrumentation::`** — the two doubles under `test/support/`
+are flat under `Dexpace`, which is `5a`'s convention and is the point of keeping a test-only name out of the
+shipping namespace. That placement is phase 1's rule applied
 rather than re-decided (P1-1, `module-organization/6e69ad04`): a public constant the design names *with* a
 namespace keeps it, and §8.1 names `Dexpace::Instrumentation::Event`, `Event::INERT` and
 `Dexpace::Instrumentation::Bundle` while phase 4a already shipped three more under the same namespace. The
@@ -1327,7 +1346,7 @@ frozen constants and covered by §9.1's surface snapshot, because a 'stable' voc
 drifts on the first refactor". `OBS-39`'s "MUST be stable and predictable" is therefore mechanised, not
 promised.
 
-`Keys` — fourteen: twelve for `OBS-39`'s named minimum, plus the two instrument names `R11` moved here:
+`Keys` — fifteen: thirteen for `OBS-39`'s named minimum, plus the two instrument names `R11` moved here:
 
 | Constant | Value | Requirement |
 |---|---|---|
@@ -1340,6 +1359,7 @@ promised.
 | `Keys::HTTP_REQUEST_BODY_PREVIEW`, `::HTTP_RESPONSE_BODY_PREVIEW` | `"http.request.body.preview"`, `"http.response.body.preview"` | `OBS-36`, `OBS-38`; emitted only at `HTTPLogging::BODY` |
 | `Keys::HTTP_REQUEST_HEADER_PREFIX`, `::HTTP_RESPONSE_HEADER_PREFIX` | `"http.request.header."`, `"http.response.header."` | `OBS-39`'s header fields, and the prefixes the reserved-key table matches for `OBS-16`/`OBS-17` redaction |
 | `Keys::ERROR_TYPE` | `"error.type"` | `OBS-39`'s failure event |
+| `Keys::CAUSE` | `"cause"` | `OBS-39`'s failure event, second half: "and the throwable cause attached". **Added at the plan reconciliation, 2026-09-09**, and it is the thirteenth rather than a thirteenth invented: `Event#emit` already wrote this key, as a bare `"cause"` literal in `event.rb`, which put an emitted field key outside the vocabulary `OBS-39` requires to be "stable and predictable" and outside the surface-snapshot coverage §8.1 asks for. `Event#cause(error)` is the only writer and `Render.render` is what shapes the value |
 | `Keys::INSTRUMENT_REQUEST_COUNT`, `::INSTRUMENT_REQUEST_DURATION` | `"http.client.request.count"`, `"http.client.request.duration"` | `OBS-34`'s two instruments, named with `OBS-32`'s recommended spellings. Added at reconciliation (`R11`); `OBS-32`'s units, descriptions and attribute sets stay `5c`'s ⏳ `DEF-9` |
 
 `Events` — eight, of which six carry `OBS-20`'s `http.instrumentation.` prefix (five diagnostics and the
@@ -1854,7 +1874,7 @@ end
 because the populating phase was a *different* phase held open by `DEF-37`; here `5c` populates it in the same
 phase, so an empty declaration would be widened before it was ever released — and two declarations of one
 interface name is an **`rbs validate` failure**, not a merge conflict. `5c`'s filled `_Meter`, `_Counter` and
-`_Histogram` are the ones that ship, and the step's `meter:` types as `Dexpace::_Meter`, `5c`'s. This is the
+`_Histogram` are the ones that ship, and the step's `meter:` types as `Dexpace::Instrumentation::_Meter`, `5c`'s — a bare `_Meter` in `step.rbs`, which is written inside `module Instrumentation`. This is the
 same rule 5b already follows for `_Span`, `_Tracer` and `_TracerFactory`, which are phase 4a's and which 5b
 does not redeclare.
 
@@ -1962,7 +1982,14 @@ in-memory fake transport; the two steps are driven through a `Dexpace::Pipeline`
 
 **Two doubles of 5b's own, both fakes** (`testing/7ecef8e8`, `/630ba094`), under
 `gems/dexpace-core/test/support/`, each required explicitly by the suites that use it (phase 2's precedent) —
-plus three of `5c`'s that 5b's step tests **reuse rather than reimplement**.
+plus three of `5c`'s **files** that 5b's step tests **reuse rather than reimplement**.
+
+**Both of 5b's are flat under `Dexpace`, not under `Dexpace::Instrumentation`.** `5a` set the convention with
+`Dexpace::FakeClock`, `Dexpace::FakeSource` and `Dexpace::ProbeScheduler` — the most recent phase, and the one
+whose shape this sub-phase follows — and `5c`'s six recording doubles follow it too, so `RecordingSink` sits
+beside `Dexpace::DiagnosticContext` rather than one level deeper than it. The draft nested it as
+`Dexpace::Instrumentation::RecordingSink`, which would have put a test-only constant inside the shipping
+namespace the runtime surface manifest walks and made 5b inconsistent with its own second double.
 
 - **`RecordingSink`** — a real in-memory `_Sink`: the eight methods, with per-severity enablement the test
   sets and an array of every rendered payload. It is what every `OBS-1`–`OBS-9`, `OBS-39` and `OBS-40`
@@ -1971,7 +1998,11 @@ plus three of `5c`'s that 5b's step tests **reuse rather than reimplement**.
   `ensure`. **Every `Diagnostics` test uses it**, because `testing/4ef070df` requires every test to run alone
   in any order and a leaked `Fiber[:"trace.id"]` is visible to every later test on the same thread. This is
   the double most likely to be skipped and the one whose absence produces the most confusing failure.
-- **`5c`'s `RecordingTracer`, `RecordingSpan` and `RecordingMeter`, consumed and not redefined.** They record
+- **`5c`'s `recording_tracer.rb`, `recording_span.rb` and `recording_meter.rb`, consumed and not redefined.**
+  Three files, **six** constants: `Dexpace::RecordingSpan`; `Dexpace::RecordingTracerFactory` and
+  `Dexpace::RecordingTracer` (a *separate* factory constant, not a nested `RecordingTracer::Factory`); and
+  `Dexpace::RecordingMeter` with `Dexpace::RecordingCounter` and `Dexpace::RecordingHistogram`. **5b declares
+  none of the six**, including the counter and the histogram. They record
   call names and arguments against `5c`'s own protocols, and `5c` asserts every recording clause of `OBS-21`,
   `OBS-29`, `OBS-30` and `OBS-31` against them (`P5-48`). The draft wrote 5b versions of the tracer and the
   meter because the names were `5c`'s to confirm and `5c` did not exist; the names are now confirmed and two
@@ -2067,7 +2098,7 @@ a stable contract:
 | **`5c`**, on `OBS-23` | `Diagnostics::TRACE_ID` and `::SPAN_ID`, **`Symbol`s**, and `Diagnostics::DEFAULT_KEYS`, from `lib/dexpace/instrumentation/diagnostics.rb`, which requires nothing else in 5b and defines no `Event`. `5c` cites them and declares no second pair (`R11`, settled) |
 | **`5c`**, on `OBS-24` | `Diagnostics.capture` / `.with`, and the decision that `Fiber#storage=` is never called in `lib/`. `OBS-23`'s per-key push and restore uses `Fiber[]=` and inherits the decision rather than re-deriving it (`R12`) |
 | **`5c`**, on `OBS-34` | `Instrumentation::Step` and `::AsyncStep` with `tracer_factory:` and `meter:` as keywords defaulting to `NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence `5c` fixed. **`5c` ships no second step and no third slot** (boundary 15, `R11`, `DEF-42`) |
-| **`5c`**, on `OBS-31` | Nothing. `interface _Meter` is `5c`'s, declared filled, together with `_Counter` and `_Histogram`; 5b's empty declaration was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. 5b **consumes** them: `meter:` types as `Dexpace::_Meter` |
+| **`5c`**, on `OBS-31` | Nothing. `interface _Meter` is `5c`'s, declared filled, together with `_Counter` and `_Histogram`; 5b's empty declaration was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. 5b **consumes** them: `meter:` types as `Dexpace::Instrumentation::_Meter`, reached by bare name from inside `module Instrumentation` |
 | **`5c`**, on `OBS-20` | `Instrumentation.contain`. **`5c` may not wrap a tracer or meter call in it**, and 5b may not stop wrapping its own emissions (boundary 3). 5b's step calls `5c`'s tracer, scope, span and instrument methods **outside** `contain`, in the `ensure`, which is the same rule seen from the caller's side |
 | **`5c`**, on `OBS-32` | `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`, the two names the step's instruments are created under. `5c` declares no instrument name, unit or attribute set, and `OBS-32` stays ⏳ `DEF-9` for the units, descriptions and attribute sets (`R11`) |
 | **`5c`**, on test doubles | Nothing 5b ships. 5b's suite **consumes** `5c`'s `RecordingTracer`, `RecordingSpan` and `RecordingMeter` under `test/support/` and adds no second set (`P5-48`) |
@@ -2126,7 +2157,7 @@ deliberate.
 | P5-30 | The default header-name allow-list's exact membership is chosen, not derived, and excludes `www-authenticate` and `proxy-authenticate` | `OBS-18` ("MUST contain only diagnostic, non-credential headers"); `XCUT-19`(c) | `OBS-18` names a property and no list, and `NFR-4` locks whatever list ships. Twenty-six names are enumerated in the object model. The two challenge headers are excluded even though a challenge is not a credential, because a Digest challenge carries a server nonce and whether that is loggable is `AUTH`'s question, phase 6's. Default-deny means an omission is safe and an inclusion is not, so the list errs short |
 | P5-31 | `OBS-38`'s text/binary discrimination set is chosen, and its decode is phase 3b's corrected recipe rather than design §3.1's | `OBS-38`; `HTTP-42`; `OI-7` | `OBS-38` says "charset-aware for text … binary-safe for non-text" and gives no test. `TEXT_SUBTYPES` plus `type == "text"` plus the RFC 6839 `+json`/`+xml` suffixes is the discriminator, and an **absent** media type is binary — rendering unknown bytes as text is how a log line acquires a control character. The decode retags before transcoding and names both encodings; verified that §3.1's form returns `"caf"` plus two replacement characters for `"café".b`. `OI-7` is the open item and §3.1 is frozen |
 | P5-32 | `OBS-19` is carried **⏳ against a deferral** rather than as §12's "vacuous" | §12's `OBS` row; `OBS-19`; `OI-8`; the charter's 5b scope table | §12 records `OBS-19` as vacuous for `Net::HTTP` and does **not** list it as deferred, and the charter's 5b scope table expects the policy to ship. "Vacuous" names no target, no gem and no event, so a one-row-per-ID checklist has nothing to cite; and shipping a three-mode public policy with no core caller is the `OI-8` shape the charter's own `R10` forbids. The requirement's subject is a transport that drops a header, core has none, and the two halves the policy needs — `Severity` and a per-name latch — both ship here with `OBS-40` as the latch's exercising caller. `R10` |
-| P5-33 | The step's `tracer_factory:` and `meter:` slots are keywords **defaulted** to `Dexpace::Instrumentation::NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword | `OBS-34`; `CTX-14`, `CTX-15`; `OBS-25`; `NFR-4`; `api-design/1d9e6e0b`, `/a9943041`, `/634ccc4b`; `5c`'s `R11` | **Rewritten at reconciliation; the draft made both slots required and undefaulted and `5c`'s answer won.** The draft's reason — `meter:` cannot be defaulted without naming a `5c` object that did not exist — was an artefact of parallel authorship, and `NO_METER` ships in the same phase. On the merits: `CTX-14` already puts a `tracer_factory` on every context and `CTX-15`/`OBS-25` make `Bundle::NONE`'s the published no-op, so a required keyword would make every caller — phase 6's `Pipeline.standard` included — restate an object the request's context already carries; `OBS-34` defaults logging to `none` and `XCUT-19`(e) makes body logging off by default, so the untraced, unmetered step is this SDK's *default* configuration and ought to be writable without naming two constants; and `OBS-25`'s allocation clause is asserted by reference identity from a qualified constant, which a constant default is. A configuration read stays rejected for the reason the draft gave and `5c` gave independently: no tier of `5a`'s `String`-valued chain can carry a tracer factory. `NFR-4` decides nothing here — the lock bites on *changing* a default, not on having one. Recorded because the shipped signature differs from the one this document first argued for |
+| P5-33 | The step's `tracer_factory:` and `meter:` slots are keywords **defaulted** to `Dexpace::Instrumentation::NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword | `OBS-34`; `CTX-14`, `CTX-15`; `OBS-25`; `NFR-4`; `api-design/1d9e6e0b`, `/a9943041`, `/634ccc4b`; `5c`'s `R11` | **Rewritten at reconciliation; the draft made both slots required and undefaulted and `5c`'s answer won.** The draft's reason — `meter:` cannot be defaulted without naming a `5c` object that did not exist — was an artefact of parallel authorship, and `NO_METER` ships in the same phase. On the merits: `CTX-14` already puts a `tracer_factory` on every context and `CTX-15`/`OBS-25` make `Bundle::NONE`'s the published no-op, so a required keyword would make every caller — phase 6's `Pipeline.standard` included — restate an object the request's context already carries; `OBS-34` defaults logging to `none` and `XCUT-19`(e) makes body logging off by default, so the untraced, unmetered step is this SDK's *default* configuration and ought to be writable without naming two constants; and `OBS-25`'s allocation clause is asserted by reference identity from a qualified constant, which a constant default is. A configuration read stays rejected for the reason the draft gave and `5c` gave independently: no tier of `5a`'s `String`-valued chain can carry a tracer factory. `NFR-4` decides nothing here — the lock bites on *changing* a default, not on having one. Recorded because the shipped signature differs from the one this document first argued for. **The first clause of the precedence is unimplementable in phase 5 and is `OI-31`:** no mechanism exists by which a pipeline step reaches a `RequestContext` or an `Instrumentation::Bundle` — 4c "does not consume 4a at all", `Cursor` has no context reader, `Request`'s members are `(:method, :url, :headers, :body)`, `RequestOptions`'s are `(:timeout, :max_retries, :tags)`, and `PIPE-11` forbids ambient carriage. The step therefore resolves to its keyword and to `Bundle::NONE`, which is `OBS-34`'s and `XCUT-19`(e)'s **default** configuration, so `OBS-34`'s conformance clause is unaffected; the missing clause is a widening phase 6 supplies, not a signature change |
 | P5-34 | 5b ships **two** steps, `Step` and `AsyncStep`, over one `private_constant` `Emitter` | `OBS-17` ("The redaction policy MUST be shared by the sync and async logging paths so it cannot drift"); `PIPE-28`; 4c's `_Step`/`_AsyncStep` | Two steps sharing one policy *object* satisfy the letter and drift the moment one grows a field the other lacks. Two steps sharing one `Emitter` — which owns every `logger.event(…)` call and every field key in the sub-phase — cannot. `PIPE-28` requires identical stage identities in both runtimes, and `OBS-37`'s deferral presupposes an async logging path exists to skip capture on |
 | P5-35 | `RedactionPolicy#omit_disallowed_headers` defaults to `false`, emitting the fixed `REDACTED` marker rather than omitting the header | `OBS-18` (a boolean policy with no stated default) | A header that was present and redacted and a header that was absent are different facts to a reader, and collapsing them loses the one that matters when a request fails on an auth header nobody realised was sent. That is `OBS-3`'s own null-versus-absent argument arriving at a second place in the same sub-phase, and the requirement's own ordering — "either emitted with a fixed redaction marker … or omitted entirely" — puts the marker first |
 | P5-36 | `HTTPLogging.resolve(configuration, key:, default:)` takes its configuration key as a **required** keyword with no default, and `Configuration::Keys::LOG_LEVEL` is a name a caller may pass rather than a fallback | `OBS-35`'s embedded MUST ("The SDK MUST NOT bake in a default config key name"); `CFG-14`; `5a`'s own reconciliation | `CFG-14` asks for "stable well-known key constants … for … SDK log level" and `OBS-35` forbids baking one in, and the two are only consistent one way. `5a` fixed it and 5b implements it: the constant exists and nothing falls back to it. Restated as a ledger row rather than inherited silently, because `.resolve` is 5b's method and a required keyword with an obvious default is exactly what a later reader supplies a default for. `.parse` is the sibling for a caller who holds a level `String` and no `Configuration`, which is also what makes 5b's independence from `5a` concrete |
