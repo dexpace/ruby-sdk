@@ -791,4 +791,55 @@ execution step 7.
 - **Cites:** PIPE-24, PIPE-28, PIPE-32, PIPE-39, NFR-4
 - **Status:** deferred
 
-next id: DEF-40
+## Filed by phase 5a — Configuration and the Clock
+
+### DEF-40 — CFG-35's throwable half: classifying an error as retryable from its cause chain
+
+- **Deferred by:** phase 5a, 2026-09-09
+- **What is deferred:** the second clause of `CFG-35` (SHOULD) — "and SHOULD treat a throwable as
+  retryable iff it or any throwable in its cause chain is an IO/timeout error. Cause-chain traversal
+  MUST be cycle-safe (terminate on a self-referential chain)." Phase 5a ships the **status** half of
+  the same requirement as `Dexpace::Retryability.retryable_status?`, which is `XCUT-5`'s "SINGLE
+  shared status classifier" with the exact set 408, 429 and all 5xx except 501 and 505. It ships
+  **no** method for the throwable half — not a stub and not a predicate returning `false`.
+- **Why:** the clause names a class of error that `dexpace-core` cannot name. Verified on Ruby
+  3.4.10, with and without `--disable-gems`: `defined?(::SocketError)`, `defined?(::Timeout)`,
+  `defined?(::OpenSSL)` and `defined?(::Net)` are all `nil` in a bare interpreter, and core may
+  `require` none of `socket`, `timeout` or `net/http` — all three are on phase 0's require
+  **denylist by name**. `openssl` is the one exception and is not elided: it is on the require
+  **allowlist**, so `OpenSSL::SSL::SSLError` is nameable at the price of loading the largest
+  extension in the stdlib at core's require time, for one class out of a set whose other three
+  members stay unreachable — a cost, not a prohibition, and the reason phase 5a declined it.
+  What core can reference without a require is `::IOError`, `::EOFError` and
+  `::Errno::*`, and those do not form the set the clause is about: `SocketError < StandardError`,
+  `Errno::ETIMEDOUT < SystemCallError < StandardError` and `Timeout::Error < RuntimeError`, so none
+  of the three is an `IOError`, while phase 3a's `Dexpace::StreamError` **is** one. An
+  `is_a?(::IOError)` classifier would therefore mark a short-read stream error retryable and a
+  connection timeout not retryable — wrong in both directions — and `CFG-35`'s own last sentence
+  would then freeze that wrongness: "Where the classifier is implemented, this exact status-code set
+  is a hard contract so exception construction and the retry policy agree." Shipping a wrong shared
+  object is worse than shipping half of one, which is the inverse of the drift the word SINGLE
+  usually warns about, and it is why the status half is **not** deferred with it: the status set is
+  fully expressible in core and is the half `XCUT-5` calls SINGLE.
+- **Pick-up condition:** phase 6, with `XCUT-6`'s retryability capability and `RETRY-1`. `XCUT-6`
+  requires that "for such errors the classifier queries the **capability** (is-Retryable and the
+  flag), not a concrete-type match", which is exactly the mechanism that lets
+  `dexpace-transport-net_http` declare `Errno::ETIMEDOUT` retryable without core naming it; phase
+  8's `Dexpace::TransportError` is the other half. The walk is `Dexpace.each_cause`, phase 4b's,
+  already cycle-safe by reference identity (`XCUT-9`), so `CFG-35`'s cycle-safety clause needs no
+  second implementation. Adding a method **widens**, which `NFR-4`'s "disappears or narrows" lock
+  permits, so shipping the status half alone now prejudices nothing.
+- **The cross-reference `OI-21` records as missing, supplied from the phase-5 end:** `DEF-38` says
+  the shared classifier is "`RETRY-1`'s, the same object `XCUT-6`'s open-capability path and
+  `XCUT-7`'s configurable retryable-status set are defined against, all three of them phase 6's",
+  and does not mention `CFG-35`. Phase 5a's `R1` resolves that: **the status classifier is phase
+  5's and lives in `Dexpace::Retryability`**, phase 6 computes `DEF-38`'s baked `#retryable?` from
+  it rather than building a second one, and only this row's clause travels to phase 6. `XCUT-7`'s
+  configurable set — default `{408, 429, 500, 502, 503, 504}` — remains a different object, which
+  `XCUT-5`'s own closing NOTE is there to keep separate.
+- **Consequence for the checklists:** phase 5a carries `CFG-35` as ⏳ citing this row with its met
+  half named, and phase 6 carries its own row.
+- **Cites:** CFG-35, XCUT-5, XCUT-6, XCUT-7, XCUT-9, RETRY-1, DEF-38, OI-21, NFR-4
+- **Status:** deferred
+
+next id: DEF-41

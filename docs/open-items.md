@@ -1068,4 +1068,43 @@ handled by an explicit ignore marker?) and belongs with whoever owns the skill.
 
 **Resolution:** *(open)*
 
-next id: OI-24
+### OI-24 — the audit group for `CFG` returns 36 of 38 IDs while `--prefix-info` reports 38 of 38
+
+- **Opened:** 2026-09-09, phase 5a (Configuration and the Clock) design
+- **Status:** open
+- **Cites:** CFG-14, CFG-29
+
+The `knowledge-lookup` skill's tenth audit-group row — *Observability, configuration and
+redaction*, added by the phase-5 segmentation design for exactly this material — is
+`--topic observability,configuration,redaction-and-security --section rules --brief` **and**
+`--prefix CFG,OBS --section rules --brief`. Running the second half returns 37 entries covering
+**36 distinct `CFG` IDs**. `CFG-14` and `CFG-29` are absent, because the corpus files both under the
+`Reference` section rather than `Rules`: `configuration/8b79358e` (`CFG-14`, the well-known key
+constants) and `configuration/60b0e938` (`CFG-29`, RFC 1123 formatting), both sourced from
+`docs/product-spec/16-configuration.md`.
+
+Meanwhile `--prefix-info CFG` reports "38 of 38 IDs have a substantive entry, 0 are roll-up only, 0
+are uncited" and `--gaps CFG` reports nothing. So a designer who runs the skill's own audit-group
+row and counts what comes back reads 36 rules, is told separately that there are 38, and has no
+signal that the two numbers are about different things. Both missing IDs are load-bearing in phase
+5a and were read from chapter 16 and appendix C instead.
+
+Checked mechanically on 2026-09-09. The `OBS` half of the same audit group loses none of its 40, so
+this is not a general property of `--section rules` but a per-ID filing decision that happens to
+fall on two `CFG` IDs — which is worse than a systematic gap, because comparing the two halves of
+one group gives no hint of it.
+
+This is the `OI-14` and `OI-16` family — a mechanism that reports clean over a set it never looked
+at. Filed rather than fixed because the fix is a judgement about the tool or the harvest (should
+`--section rules` fall back to `Reference` for an ID with no `Rules` entry? should `--prefix-info`
+report the per-section split? should the two entries be re-harvested as rules?) and belongs with
+whoever owns the corpus.
+
+What would resolve it: either of those tool changes, or a documented reading step in the skill. The
+mitigation available today is one line and phase 5a's design states it for the next phase to copy —
+run `--prefix <P> --section rules` and diff the IDs it returns against the prefix's canonical range,
+rather than trusting the entry count.
+
+**Resolution:** *(open)*
+
+next id: OI-25

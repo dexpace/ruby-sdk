@@ -388,6 +388,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
   and a plan. `phase5/` carries its segmentation design,
-  `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and no sub-phase directory yet.
+  `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and one sub-phase directory,
+  `phase5/phase5a/`, holding a design with the plan still to be written.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
