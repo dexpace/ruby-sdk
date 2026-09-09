@@ -4340,8 +4340,13 @@ A `CFG` ID in scope with no row is the single failure this repository's process 
   either**; both 4b's and 4c's plans made exactly that mistake. Confirm with:
   `grep -n '^### DEF-40 \|^### OI-24 ' docs/deferred-items.md docs/open-items.md`
 - No `P5-<n>`, `DEF-<n>` or `OI-<n>` is invented by this plan. The ledger is `P5-1`–`P5-15` and it
-  is the 5a **design**'s; a sixteenth deviation found at execution time is appended there as `P5-16`
-  and consolidated into design §10, never renumbered and never duplicated into a second list.
+  is the 5a **design**'s; a sixteenth deviation found at execution time is appended there as
+  **`P5-50`** and consolidated into design §10, never renumbered and never duplicated into a second
+  list. **`P5-16` is not free and this sentence was repointed on 2026-09-09**: 5b's design took
+  `P5-16`–`P5-38` as an actual ledger and 5c's took `P5-40`–`P5-49`, both written concurrently with
+  each other and after this plan, so the next number no sub-phase has claimed is `P5-50`. `P5-39` is
+  a **deliberate** gap — 5b reserved `P5-16`–`P5-39` and used twenty-three of the twenty-four — and
+  is not a lost row; nothing is renumbered to close it.
 
 - [ ] **Step 6: Update `CLAUDE.md`'s claims sentences**
 
