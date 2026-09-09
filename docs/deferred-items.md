@@ -842,4 +842,70 @@ execution step 7.
 - **Cites:** CFG-35, XCUT-5, XCUT-6, XCUT-7, XCUT-9, RETRY-1, DEF-38, OI-21, NFR-4
 - **Status:** deferred
 
-next id: DEF-41
+### DEF-41 — OBS-19's header-drop verbosity policy
+
+- **Deferred by:** phase 5b, 2026-09-09
+- **What is deferred:** the whole of `OBS-19` (SHOULD) — "A transport that drops a caller-set request
+  header it cannot encode SHOULD surface the drop with a configurable verbosity policy offering at
+  least: log every occurrence at WARN; log the first drop per header name at WARN and subsequent
+  drops of that name at verbose; or log only at verbose. The default SHOULD be the
+  once-per-header-name policy." Phase 5b ships **no** policy object, no mode constants and no
+  reporting method.
+- **Why:** the requirement's subject is stated in its first six words — *a transport that drops*. Core
+  has no transport and drops no header: `HTTP-17`/`HTTP-18`'s wire-boundary re-validation is `DEF-25`,
+  phase 8's, and it **raises** rather than drops, which is the port's general shape and not an
+  accident. Design §12's `OBS` row already records the emission site as "vacuous for `Net::HTTP`,
+  which raises on an unencodable header rather than dropping it, and binds any adapter that drops".
+  A public, `NFR-4`-locked three-mode policy with no core caller and no core test is `OI-8`'s exact
+  shape, and the phase-5 segmentation design's `R10` forbids it in as many words: "It must not ship a
+  policy with no caller and no test that exercises it." Before the first release tag not shipping a
+  method costs one edit; after it, removing one is a public signature disappearing, which `NFR-4`
+  treats as breaking.
+- **What is NOT deferred, stated because the row is easy to read as larger than it is:** both halves
+  the policy is built from ship in phase 5b and are exercised. `Dexpace::Instrumentation::Severity`
+  supplies the two levels the three modes are expressed in (`WARNING` and `VERBOSE`), and the
+  once-per-key latch supplies the throttle, with `OBS-40`'s once-per-logger collision diagnostic as
+  its caller and its test. Phase 8 writes a small `Data` over both.
+- **Pick-up condition:** **phase 8**, at the first adapter that drops a caller-set header rather than
+  raising on it — which is `TRANSPORT-8`'s subject and is not `dexpace-transport-net_http`. The
+  policy lands at that call site, with a test that drops the same header name twice and asserts one
+  WARN then one verbose line. If no v1 adapter drops, the row names the **event** rather than a
+  phase, in the shape `DEF-33` and `DEF-3`'s `BODY-36` half were given.
+- **Consequence for the checklists:** phase 5b carries `OBS-19` as ⏳ citing this row; phase 8 carries
+  its own row. Deviation `P5-32` records that design §12 words the same disposition as "vacuous", and
+  `OI-27` records that the phase-5 charter's 5b scope table words it as shipping.
+- **Cites:** OBS-19, TRANSPORT-8, HTTP-17, HTTP-18, XCUT-19, NFR-4, DEF-25, OI-8, OI-27
+- **Status:** deferred
+
+### DEF-42 — OBS-29's HTTP-tracer lifecycle wiring: the vocabulary ships with no emitter
+
+- **Deferred by:** phase 5c, 2026-09-09
+- **Why:** `OBS-29`'s own last sentence anticipates this — "This is a documented emission contract;
+  pipeline/transport wiring to emit it is a follow-up, so it is not yet runtime-enforced." Phase 5c
+  ships `Dexpace::Instrumentation::HTTPTracer` (eleven no-op methods across `OBS-28`'s three
+  groups), the frozen `NULL` instance design §8.1 names, the `CallableAdapter` bus shape, and the
+  ordering test §8.1 requires, driven through a conformant emitter fake exactly as `OBS-29`'s
+  conformance clause prescribes. **Nothing in phase 5 emits any of it.** The per-attempt group —
+  attempt started, attempt failed with next delay, retries exhausted — has no emitter until phase
+  6's retry step exists; the five transport milestones have none until phase 8's adapters open a
+  socket. Wiring only the operation-lifecycle triple was considered and rejected: it needs a third
+  slot on `5b`'s instrumentation step, which the phase-5 charter's boundary 15 does not grant, and
+  `OBS-29`'s ordering clauses are not separable — "retries-exhausted (when it fires) is immediately
+  followed by operationFailed with the same throwable" cannot be honoured by a step that cannot see
+  attempts, so a partial wiring satisfies three clauses and structurally cannot satisfy the fourth
+  while reading as wired. Phase 5b's design confirms the two-slot reading from the other side and
+  adds no third slot.
+- **Pick-up condition:** phase 6, with the retry step that emits the per-attempt group and with
+  `DEF-39`'s `Pipeline.standard`, which `PIPE-24`/`PIPE-39` already target at phase 6 as "the first
+  phase in which all three families exist". The transport-milestone group follows in phase 8 with
+  the first adapter. The vocabulary itself does not change: `OBS-28`'s "Every event method SHOULD
+  default to a no-op so adding a new event is a non-breaking change" is what makes wiring a subset
+  safe, and phase 5c's ordering test is the regression the wiring must keep green.
+- **Consequence for the checklists:** phase 5c carries `OBS-29` as ✅ with the unwired halves named
+  in the row and this row cited; phase 6 carries its own row. `OI-29` records the separate finding
+  that `CTX-14`'s bundle member and `OBS-29`'s per-operation factory are two different objects,
+  which phase 6 is the first phase to need distinguished.
+- **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29
+- **Status:** deferred
+
+next id: DEF-43

@@ -1107,4 +1107,235 @@ rather than trusting the entry count.
 
 **Resolution:** *(open)*
 
-next id: OI-25
+### OI-25 — design §8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does
+
+- **Opened:** 2026-09-09, phase 5b (logging facade and redaction) design
+- **Status:** open
+- **Cites:** OBS-4, OBS-5, OBS-8, NFR-4
+
+`docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 fixes the event object's surface in
+a code block: `#field(key, value)   #tag(key, value)   #event(name)   #cause(error)   #emit`. Four of
+the five are traceable to a requirement — `#field` to `OBS-3`, `#event` to `OBS-4`, `#cause` to
+`OBS-39`, `#emit` to `OBS-8`. **`#tag` is not.** No `OBS` requirement names a tag other than `OBS-4`'s
+reserved `event` tag, which the same block gives to `#event(name)`; §8.1's own prose mentions `#tag`
+nowhere after the code block; and `OBS-5`'s precedence rule enumerates exactly three contributing
+sources — per-event field, global context, folded diagnostic context — so a fourth channel would have
+no precedence over any of them and no rule about what happens when it collides.
+
+The one place a reader will think this item missed something is `OBS-8`, which says "Field/tag/cause
+accumulation is not required to be thread-safe (single-thread build)". That names a *tag accumulator*
+and is the closest chapter 15 comes to `#tag` — but the tag it names is `OBS-4`'s, the single reserved
+categorisation tag that `#event(name)` sets and an empty name clears. Nothing in the chapter gives a
+tag a **key**, which is what the two-argument `#tag(key, value)` signature is for, and that is the gap.
+
+Why it matters. `NFR-4` locks a public signature at the first release tag, and §8.1 is the document a
+phase-5 implementer copies the surface from. Shipping `#tag` gives the SDK a public, YARD-documented,
+RBS-signed method with no requirement, no default, no precedence rule and no caller — which is `OI-8`'s
+exact shape, filed while phase 3a's `TeeSink#clear_tap` was in the same position. Not shipping it and
+being wrong costs nothing before the first release, because adding a method widens.
+
+What phase 5b does. Ships `#field`, `#event`, `#cause` and `#emit`, and not `#tag`, recorded as
+deviation `P5-18`.
+
+What would resolve it. Either a reading of `#tag` that names the requirement it serves and its
+precedence relative to `OBS-5`'s three sources — in which case phase 5b's plan adds it — or one
+corrected line in §8.1 the next time §8 is deliberately amended by a human. It is filed rather than
+fixed because §8.1 is frozen and because the alternative reading may exist and the phase-5b design
+could not find it.
+
+**Resolution:** *(open)*
+
+### OI-26 — `Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`, and the cop that exists for exactly this cannot carry the name
+
+- **Opened:** 2026-09-09, phase 5b (logging facade and redaction) design
+- **Status:** open
+- **Cites:** OBS-1, OBS-2, SEAM-1, NFR-1
+
+Design §8.1 calls the facade `Logger` (`Logger#event` performs the enabled check) and phase 5b ships
+`Dexpace::Instrumentation::Logger`. Inside `module Dexpace; module Instrumentation; … end; end` — which
+is the full nesting form every file in this repository uses — a bare `Logger` resolves to that constant,
+and inside an **adapter gem** that has `require "logger"` in its own gemspec and reopens the same
+namespace, it still resolves to that constant rather than to `::Logger`. That is the shadowing hazard
+`Dexpace/QualifiedCoreConstant` (P2-8, extended by phase 3a as P3-7) exists to catch, and phase 5a met
+the same hazard for `ENV` and avoided it by choosing a different name (`Sources::ENVIRONMENT`, `P5-3`).
+
+The name cannot be avoided here the way `ENV` was, and the cop cannot cover it. §8.1 names the facade
+`Logger` and the sink duck type is deliberately *the stdlib `Logger` surface as a structural subset*, so
+the word is doing real work rather than being a coincidence. And adding `Logger` to the cop's
+`SHADOWED` list would flag every legitimate bare `Logger` reference in every adapter gem that declares
+the dependency — which is the budget `NFR-2` exists to permit. So the cop is silent on the one name in
+the repository where the shadow is deliberate and the consequence is a bundled gem.
+
+Why it matters, concretely. `logger` becomes a bundled gem in Ruby 4.0
+(`Gem::BUNDLED_GEMS::SINCE["logger"] == "4.0.0"`, re-verified 2026-09-09), so an author who writes a
+bare `Logger` inside the namespace intending the stdlib one gets phase 5b's facade instead — and the
+failure is a `NoMethodError` about `#event` or `#enabled?`, which points nowhere near the cause. The
+inverse mistake is worse and is what the require-allowlist gate does catch: a `require "logger"` in
+core fails the build by name.
+
+What phase 5b does. Keeps the name, records deviation `P5-38`, and mitigates in the two places it can:
+the default sink is `NULL_SINK` and not `NullLogger`, so there is only one `Logger`-shaped name in the
+namespace; and every reference to either constant in phase 5b's own code is fully qualified.
+
+What would resolve it. A cop that flags a bare `Logger` reference *only inside `module Dexpace`*, which
+is a scope `Dexpace/QualifiedCoreConstant` does not currently express; or a decision to rename the
+facade, which is a §8.1 amendment. Both are judgements for whoever owns the cop set.
+
+**Resolution:** *(open)*
+
+### OI-27 — the phase-5 segmentation design's 5b scope table states an outcome its own R10 leaves open
+
+- **Opened:** 2026-09-09, phase 5b (logging facade and redaction) design
+- **Status:** open
+- **Cites:** OBS-19, NFR-4
+
+`docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`'s 5b scope table dispositions `OBS-19`
+as "Partially satisfied — **the verbosity policy and its once-per-name throttle ship**; the emission
+site is vacuous for `Net::HTTP`". Its `R10`, two hundred lines later, says the opposite is equally
+available: "`5b` decides between shipping the three-mode verbosity policy … **and recording the
+requirement vacuous with a cross-reference row for phase 8**. It must not ship a policy with no caller
+and no test that exercises it."
+
+Both sentences are defensible and they are not the same sentence. A sub-phase designer who reads the
+scope table as binding — which is what a scope table is for, and what the charter's other twenty-six
+rows are — implements a policy the charter's own risk section then tells them not to ship. A designer
+who reads `R10` first finds an open decision the scope table has already made.
+
+This is the `OI-14` family — a cross-reference failure inside a document rather than between two — and
+it is filed rather than fixed because the charter is committed and adversarially reviewed. It is the
+second time a phase-5 sub-phase design has had to correct its charter on a point the charter states
+twice (phase 5a corrected verified fact 2's inference about `Time.httpdate`), which is what makes it a
+register entry rather than a note in one document. The precedent for the sub-phase's reading winning is
+phase 4c's correction of the charter's `PIPE-39` row.
+
+What phase 5b does. Follows `R10`, defers `OBS-19` as `DEF-41`, and records the divergence from the
+scope table as deviation `P5-32`.
+
+What would resolve it. One corrected cell in the charter's 5b scope table, by a human, the next time
+the charter is deliberately amended.
+
+**Resolution:** *(open)*
+
+### OI-28 — a `**` keyword splat allocates a Hash per call even when nothing is passed, and nothing mechanised distinguishes it from the named keyword the styleguide's rule is about
+
+- **Opened:** 2026-09-09, phase 5c (tracing and metrics) design
+- **Status:** open
+- **Cites:** OBS-1, OBS-25, NFR-7, OI-6
+
+`api-design/1d9e6e0b` requires keyword arguments on every public method and gives its reason as
+backward compatibility: "a new keyword with a default is always backward-compatible". That reason is
+a property of **named** keywords. Measured on `ruby 3.4.10 (2026-06-30 revision 2b0b7728dc) +PRISM
+[x86_64-linux]`, the only interpreter installed on this machine, 1000 iterations each, `GC` disabled,
+in a file carrying `# frozen_string_literal: true`: `def m(x, **attributes)` called as `m(e)` — with
+no keyword argument at all — allocates **1002–1005** objects, one `Hash` per call; called as
+`m(e, **FROZEN)` it allocates 1003–1004; a wrapper forwarding `**kw` to another `**kw` allocates
+2003–2004. The named form `def m(x, attributes: nil)` allocates 2–4 whether or not the keyword is
+passed, and a four-keyword signature called with one positional argument allocates 1–2 — the
+measurement floor. (Reproduced independently on 2026-09-09 by the pass that reconciled the phase-5b
+and phase-5c designs; the run-to-run spread is warm-up, and the per-call cost is 1 or 0 in every run.)
+
+Two requirements make this a correctness question rather than a performance one. `OBS-25` (MUST):
+"Selecting a no-op path MUST NOT allocate per call." `OBS-1` (MUST): a disabled log event "MUST
+allocate nothing". Both are asserted by allocation count, and both are unsatisfiable for any method
+written with a splat — including a method whose callers never pass a keyword.
+
+Nothing catches it. RuboCop has no cop for it, the styleguide rule reads as licensing it, `**opts` is
+the spelling `opentelemetry-api` and every Ruby metrics library uses, and the failure is silent: an
+implementation with a splat passes every behavioural test and fails only the two allocation
+assertions, in two different phases, one of them in a different gem (`DEF-22`). Phase 5c pays it with
+`P5-42` — a stated deviation forbidding the splat across its own SPI — which binds one segment and
+nothing else.
+
+What would resolve it: a custom cop in the `Dexpace/` family forbidding `**` in a public signature
+under `lib/`, in the shape of `Dexpace/NoTimeParse` and `Dexpace/NoThreadInterrupt` — both of which
+exist for the same reason, that the idiomatic spelling is the wrong one and a reviewer will not catch
+it every time. That is a `.rubocop.yml` and cop-source change and belongs with `OI-6`, whose
+resolution paragraph already records that a config change is not a sub-phase's to make.
+
+**Resolution:** *(open)*
+
+### OI-29 — "per-operation tracer factory" names two different objects, and phase 4a bound the bundle's member to the one that is per-library
+
+- **Opened:** 2026-09-09, phase 5c (tracing and metrics) design
+- **Status:** open
+- **Cites:** CTX-14, CTX-20, OBS-25, OBS-28, OBS-29, DEF-37
+
+`CTX-14` (MUST) requires the correlation bundle to expose "a per-operation tracer factory" and
+`CTX-20` (SHOULD) calls it "The per-operation tracer factory carried on the instrumentation bundle …
+Its factory method MUST be safe to invoke concurrently from multiple threads, **because operation
+starts are not serialized**". `OBS-29` (MUST) says of the *HTTP-tracer* vocabulary in §15.7: "One
+tracer instance corresponds 1:1 to a single logical operation lifecycle (**created by the factory per
+operation**)." Read together they describe one object created once per operation.
+
+That reading is not available, and the proof needs nothing outside this repository's own normative
+text: `OBS-25` (MUST) requires "a no-op Tracer returning a shared no-op Span" and "a no-op HTTP-tracer
+/ tracer-factory", and requires that "Selecting a no-op path MUST NOT allocate per call" — so the
+no-op factory MUST return the same object every time, which is the opposite of one instance per
+operation. Phase 4a's `P4-8` then bound `Bundle#tracer_factory` to `opentelemetry-api`'s
+`TracerProvider` shape — `#tracer(name = nil, version = nil)`, positional — for a good and stated
+reason: "an application already running OpenTelemetry gets spans with no adapter code" is only true if
+`OpenTelemetry.tracer_provider` can be passed straight into `Bundle.build(tracer_factory:)`. A
+`TracerProvider` is keyed by instrumentation-library name and version rather than by operation, which
+is what makes that pass-through work at all. **That last sentence is an unverified claim about a gem
+neither phase 4a nor phase 5c could install** — `opentelemetry-api` is not present on this machine,
+re-checked 2026-09-09 — and it is recorded as the motivation for `P4-8`, not as a measured fact; the
+argument above does not depend on it.
+
+So the specification's "tracer factory" and this port's `Bundle#tracer_factory` are not the same kind
+of object: the bundle's produces **span** tracers (`OBS-21`–`OBS-25`, `Tracer`/`Span`) and is
+legitimately shared or cached, while `OBS-29`'s produces **HTTP-tracers** (`OBS-28`'s eleven-method
+event vocabulary) and is legitimately per-operation. Nothing is broken today, because phase 5c ships
+the HTTP-tracer vocabulary without a factory and without an emitter (`DEF-42`). What is missing is the
+cross-reference: `CTX-14`'s member and `OBS-29`'s factory read as one object in four documents —
+appendix C, design §8.1, `DEF-37` and phase 4a's `R3` — and phase 6, which wires the vocabulary, is
+the first phase that needs them to be two. It is the `OI-15` and `OI-21` shape: a sentence that reads
+correctly and resolves to the wrong object.
+
+Phase 5c records the reconciliation it adopted as `P5-43` — `OBS-29`'s 1:1 clause binds stateful
+tracers only, so a shared stateless `NO_TRACER` satisfies both MUSTs — which is sound for the no-op
+and says nothing about a recording one. Filed rather than fixed because `DEF-37` and phase 4a's
+handshake are committed and adversarially reviewed, and because the fix is either a second bundle
+member (which roadmap obligation 1 forbids phase 5 from adding) or a separate HTTP-tracer factory
+slot, which is phase 6's to shape when it has an emitter.
+
+**Resolution:** *(open)*
+
+### OI-30 — the phase-5 segmentation design assigns `OBS-24` to `5b` in prose and to `5c` in its arithmetic, and both scope tables sum correctly either way
+
+- **Opened:** 2026-09-09, phase 5b/5c reconciliation pass
+- **Status:** open
+- **Cites:** OBS-24, OBS-10, OBS-23, OI-14, OI-27
+
+`docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md` says twice, in prose, that `OBS-24`
+is `5b`'s. Line 233: "`OBS-24` goes to `5b`: it is the context snapshot itself, with no span in it."
+Risk `R12` repeats it: "`5b` owns `OBS-24` and `5c` owns `OBS-23`, so the decision is stated once and
+cited by the other."
+
+Its arithmetic says the opposite. The `5b` ID-set sentence (line 424) reads "exactly `OBS-1`–`OBS-20`
+together with `OBS-34`–`OBS-40`: 20 + 7 = **27**", which excludes `OBS-24`; the `5c` Implemented row
+(line 445) reads "`OBS-21`–`OBS-31`, `OBS-33`", which includes it.
+
+**Nothing mechanical catches this, and that is the point.** The phase total is 78 under either
+reading — 27 + 13 or 28 + 12 — so a checklist built from the charter's own tables reconciles against
+the roadmap's count and reports clean while one requirement sits in the wrong segment. Both
+sub-phase designs inherited the arithmetic: `5b` listed `OBS-21`–`OBS-27` as out of scope while
+owning `OBS-24` in its own `R12` section, and neither document gave `OBS-24` a scope-table row at
+all until the reconciliation pass added one.
+
+The prose is right and the arithmetic is wrong: `OBS-24` is the whole-map diagnostic-context
+snapshot, it has no span in it, and `OBS-10`'s default fold — which is `5b`'s — is what reads the
+keys it captures. The reconciliation pass corrected the sub-phase tables to `5b` = 28 and `5c` = 12,
+left the cut and the phase total untouched, and did not edit the charter.
+
+This is the `OI-14` and `OI-27` family: a sentence that reads correctly and resolves to the wrong
+place, with no check that would notice. It differs from `OI-27` in being an arithmetic
+inconsistency rather than a prose one, which is why it survived a document that was reviewed for
+exactly this class of error.
+
+What would resolve it: a correction in place to the charter's two scope tables, stated as a
+correction, by whoever owns that document — the sub-phase designs already carry the corrected
+disposition and cite this row.
+
+**Resolution:** *(open)*
+
+next id: OI-31
