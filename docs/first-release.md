@@ -30,9 +30,18 @@ them at `0.0.0` until the first release:
       (OIDC-based, no long-lived API key committed anywhere)
 - [ ] A decision on the four unbuilt convenience requirements in the HTTP domain model —
       `HTTP-48` (ETag), `HTTP-49` (HTTP range) and `HTTP-50` (the conditional-request aggregator),
-      all SHOULD-level, plus `HTTP-22` (header-name interning, a MAY). Phase 1 built none of them
-      and phase 6 is their target (`DEF-2`); this line exists so a release that ships before phase
-      6 states that it ships without them rather than discovering it afterwards
+      all SHOULD-level, plus `HTTP-22` (header-name interning, a MAY). Phase 1 built none of them.
+      **`DEF-2`'s phase-6 target was corrected on 2026-09-09: it does not fire.** Phase 6 carries a
+      conditional header but constructs none — `REDIR-3`/`REDIR-4` preserve, `REDIR-5` strips,
+      `AUTH-30` copies — so the four are still unbuilt after phase 6 and this decision is still owed
+- [ ] **Phase 8's first transport adapter must wrap every stdlib I/O and timeout error it lets
+      escape** — `Errno::ETIMEDOUT`, `SocketError`, `Timeout::Error` and their kin — in something
+      answering `#retryable?` (`Dexpace::TransportError` or equivalent), defaulting to `true` per
+      `XCUT-4` branch (b). `RETRY-2`'s classification is a capability-only query (`XCUT-6`,
+      `DEF-40`), so a bare unwrapped stdlib error classifies as **not retryable**, which is a silent
+      retry-eligibility regression for exactly the class of failure `RETRY-4` calls "always
+      retryable". It is invisible until an adapter exists to test it against, and reachable the
+      first time a real socket times out. Recorded by phase 6a's design as deviation `P6-4`
 
 ## Release path
 

@@ -191,6 +191,7 @@ still the cheaper option.
 | Resource lifecycle and stream ownership | `--topic resource-management --section rules --brief` and `--chapter 13` | read styleguide `13-resource-management.md` | live |
 | Pipeline composition and execution context | `--topic pipeline,execution-context,cancellation-and-timeouts --section rules --brief` and `--prefix CTX,RECOV,PIPE --section rules --brief` | `--prefix-info PIPE`, `--gaps CTX,RECOV,PIPE` | live |
 | Observability, configuration and redaction | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix CFG,OBS --section rules --brief` | `--prefix-info CFG`, `--prefix-info OBS`, `--gaps CFG,OBS` | live |
+| Resilience: retry, redirect and authentication | `--topic retry-and-resilience,redirect-handling,authentication,cancellation-and-timeouts --section rules --brief` and `--prefix RETRY,REDIR,AUTH --section rules --brief` | `--prefix-info RETRY`, `--gaps RETRY,REDIR,AUTH,RECOV` | live |
 | Styleguide-vs-design conflicts | `--section conflicts --brief` | resolve via a note under notes/ | live |
 
 A regex with an alternation cannot live in a Markdown cell without an escape that would be copied

@@ -225,8 +225,20 @@ avoid is a real and observed failure. Phase 0 carries no requirement scope, so t
   half: a calculator built two phases early is the duplication `RETRY-13` forbids, so the recovery-stack engine
   waits for the phase that owns the shared calculator. `REDIR-24` fixes the redirect loop outer and auth stamping
   inner, per hop, and `REDIR-11`'s cross-origin suppression signal is consumed by `AUTH`'s stamping step, so
-  neither pillar half finishes without the other's contract fixed; phase 6's segmentation design settles whether
-  that is one segment or two with a shared contract landed first.
+  neither pillar half finishes without the other's contract fixed. (**Corrected in place 2026-09-09** by the
+  phase-6 segmentation design: this sentence formerly ended "phase 6's segmentation design settles whether that
+  is one segment or two with a shared contract landed first." **That decision was already made, by phase 4c on
+  2026-09-08**, and phase 6 inherits it rather than taking it.
+  `docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md` fixes the stage order —
+  `PRE_REDIRECT` 100 → `REDIRECT` 200 → … → `AUTH` 800, `PIPE-2` — ships `Cursor#fork(state:)`,
+  `Cursor#state(stage)` and the restriction that only the forking step's own stage may write state, and writes
+  its `R11` negative assertions against `Stages::REDIRECT` by name. The redirect step forks per hop with
+  `state: {cross_origin: …}`; the auth step reads `cursor.state(Stages::REDIRECT)`; **phase 6 adds no marker to
+  the request and strips nothing**, which is design §10.15's claim. So the cut is **three independent
+  segments** — 6a retry, 6b redirect, 6c authentication — with no shared-contract sub-phase, and the only thing
+  needing both halves is an end-to-end credential-leak test, a convergence point rather than a build-order
+  dependency. The `REDIR-24` and `REDIR-11` facts stated above are unchanged and still constrain the
+  implementation.)
 - **Phase 7 (107 IDs), expected 7a serde, 7b SSE, 7c pagination.** The cut is spec-forced and so is the
   independence: `SSE-37` is a MUST that core parsing and streaming hold no serialization dependency, and §12's
   chapter intro requires the pagination engine to be transport-agnostic and serde-agnostic, with `PAGE-8`

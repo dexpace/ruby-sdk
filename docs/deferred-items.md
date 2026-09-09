@@ -76,7 +76,17 @@ against the design pass itself rather than an implementation phase.
   aggregator) and an entity-tag (HTTP-48). Until then they are unbuilt SHOULDs and a MAY, and
   `docs/first-release.md` carries them in its readiness list so a release decision sees them
   without reading this register.
-- **Cites:** HTTP-22, HTTP-48, HTTP-49, HTTP-50
+- **Correction, 2026-09-09 (phase 6 segmentation design): the phase-6 target does not fire.** Phase 6
+  *carries* a conditional header; it constructs none. `REDIR-3` and `REDIR-4` preserve the original
+  headers verbatim, `REDIR-5` removes `Content-*` and drops the body, and `AUTH-30`'s replay copies the
+  request — none of the three builds a conditional header, parses an ETag or validates a Range. So
+  `HTTP-48`–`HTTP-50` still have no caller when phase 6 ends, and `HTTP-22` is untouched by it. The row
+  stays **deferred and is still not UNSCHEDULED**, by the register's own definition: phase 6 does not
+  *meet* the condition and decline it, it merely fails to fire it. **What is owed is a new target or the
+  event shape** — phase 7's pagination and conditional-request interplay is the next candidate, and the
+  alternative is the event shape `DEF-33` and `DEF-3`'s `BODY-36` half were given. See also
+  `docs/first-release.md`, whose readiness line named phase 6 on the same stale reasoning.
+- **Cites:** HTTP-22, HTTP-48, HTTP-49, HTTP-50, REDIR-3, REDIR-5, AUTH-30
 - **Status:** deferred. Phase 1 owns all four IDs and ships the gem they would live in, and built
   none of them: HTTP-22 is a MAY whose observable contract (value equality by folded name) already
   holds without interning, and HTTP-48–HTTP-50 are SHOULD-level helpers over a header model that
@@ -905,7 +915,20 @@ execution step 7.
   in the row and this row cited; phase 6 carries its own row. `OI-29` records the separate finding
   that `CTX-14`'s bundle member and `OBS-29`'s per-operation factory are two different objects,
   which phase 6 is the first phase to need distinguished.
-- **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29
+- **Correction, 2026-09-09 (phase 6 segmentation design and `6a`'s design): the stated route for the
+  operation-lifecycle triple is unavailable in the phase this row's condition names.** "A third slot on
+  `5b`'s instrumentation step" is a statement about a *slot*, which leaves the *stage* implicit. `5b`'s
+  `Dexpace::Instrumentation::Step` declares `#stage` returning `Stages::LOGGING` (order 1100) and phase 4c
+  rejects any install supplying a different `stage:` for a step that declares one, so the step cannot be
+  moved; `REDIRECT`, `RETRY` and `AUTH` are 200, 500 and 800, so a step at `LOGGING` runs once per hop, per
+  attempt and per auth replay, and an operation-scoped triple emitted there fires many times per operation.
+  The site that works is `Stages::PRE_REDIRECT` (order 100, `PIPE-37`) — a **new step**, not a slot on an
+  existing one, and no phase-6 ID justifies its `NFR-4` surface. Phase `6a` therefore discharges the
+  **per-attempt half only** (its retry step emits attempt-started, attempt-failed-with-next-delay and
+  retries-exhausted) and leaves the operation-lifecycle triple unwired, per its `R15`. Filed as `OI-32`.
+  **This row is picked up but not closed by phase 6**: the transport-milestone group still waits for phase
+  8's first adapter, and the triple now waits on whoever ships the `PRE_REDIRECT`-adjacent step.
+- **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29, OI-32, PIPE-2, PIPE-37
 - **Status:** deferred
 
 next id: DEF-43

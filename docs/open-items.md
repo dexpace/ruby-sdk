@@ -1381,6 +1381,75 @@ worktrees and neither checked that a step could reach a context. That is the dis
 `open-items.md` holds, and it is the same family as `OI-14`, `OI-27` and `OI-30`: a sentence that reads
 correctly and resolves to something that is not there.
 
+**Decided 2026-09-09, phase 6 segmentation design and `6a`'s design; not yet landed.** Of the two
+candidates this row names, **(b) is rejected on the merits**: a bundle threaded at `Pipeline.standard`
+construction is *per-pipeline*, while `CTX-14`/`CTX-20`/`OBS-23`'s bundle is *per-operation*, so (b) cannot
+carry a per-request span — it merely re-spells clause 2 and leaves clause 1 dead **including for the
+preset**. **(a) is adopted, and completed**: this row states only the consumer side, so the resolution is a
+read-only per-call accessor on `Dexpace::Pipeline::Cursor` **plus one optional seeding keyword on the
+pipeline's call path**, both widenings under `NFR-4` per `api-design/1d9e6e0b`, with `PIPE-11` naming the
+cursor as the home and `PIPE-17` giving the fork semantics. `bundle_for` in `5b`'s step gains its first
+clause in the same task. **Phase `6a` builds it** (phase 6 segmentation `R13`); if `6b` or `6c` executes
+first the task travels with it, and the other two designs consume the reader without re-implementing it.
+`6a`'s `DEF-42` emission task does **not** depend on the widening, because `OI-29` establishes that
+`OBS-29`'s HTTP-tracer is not `Bundle#tracer_factory` — `6a`'s retry step reads its per-operation tracer
+from a factory called with `cursor` itself.
+
+**Resolution:** *(open — the mechanism is decided; the row closes when `6a` lands it)*
+
+### OI-32 — `OBS-29`'s operation-lifecycle triple cannot be emitted from `Stages::LOGGING`, so `DEF-42`'s stated wiring route is unavailable in the phase its pick-up condition names
+
+- **Opened:** 2026-09-09, phase 6 segmentation design and `6a`'s design
+- **Status:** open
+- **Cites:** OBS-28, OBS-29, PIPE-2, PIPE-37, DEF-42, OI-29
+
+`DEF-42` explains phase 5's decision not to wire `OBS-29`'s operation-lifecycle triple as "it needs a
+third slot on `5b`'s instrumentation step, which the phase-5 charter's boundary 15 does not grant" — a
+statement about a *slot*, which leaves the *stage* implicit.
+
+Verified 2026-09-09: `5b`'s `Dexpace::Instrumentation::Step` declares `#stage` returning
+`Dexpace::Pipeline::Stages::LOGGING` and is installed with no `stage:` argument, and phase 4c rejects with
+`Dexpace::PipelineError` any install supplying a different `stage:` for a step that declares one — **so the
+step cannot be moved.** `Stages::LOGGING` is order 1100 while `REDIRECT`, `RETRY` and `AUTH` are 200, 500
+and 800, so once phase 6's pillars exist a step at `LOGGING` runs once per redirect hop, per retry attempt
+and per auth replay. An operation-scoped triple emitted from there fires many times per operation, which
+contradicts `OBS-29`'s "One tracer instance corresponds 1:1 to a single logical operation lifecycle".
+
+The site that satisfies the clause is `Stages::PRE_REDIRECT`, order 100, which phase 4c states is "outside
+every pillar's fork, so a step there is invoked once" and which `PIPE-37` already reserves for
+terminal-response-only steps — and that is a **new step**, not a slot on an existing one. Phase 6a decided
+under its `R15` not to ship it: no phase-6 ID justifies the `NFR-4` surface, and `OBS-28`'s "Every event
+method SHOULD default to a no-op so adding a new event is a non-breaking change" is what makes wiring the
+per-attempt group alone safe.
+
+Nothing is broken today, because nothing emits the triple. This is the `OI-14`/`OI-27`/`OI-30`/`OI-31`
+family: a sentence that reads correctly and resolves to something that is not there. `DEF-42`'s row carries
+the corresponding correction to its pick-up route.
+
 **Resolution:** *(open)*
 
-next id: OI-32
+### OI-33 — `AUTH-4`–`AUTH-7`'s tier resolution presupposes an `AuthDescriptor` producer that no phase names
+
+- **Opened:** 2026-09-09, phase 6c design
+- **Status:** open
+- **Cites:** AUTH-1, AUTH-4, AUTH-5, AUTH-6, AUTH-7
+
+The resolver takes a per-call, an operation and a client `AuthDescriptor`, in that preference order, and
+`6c` ships it as a correct, tested, stateless pure function. What no phase specifies — not 1 through 5, and
+not `AUTH`'s own 38 IDs — is **where a per-call or operation-level `AuthDescriptor` is carried**:
+`docs/sdk-design-ruby/` names no field on `Request`, on `RequestOptions`, or on any `Operation` construct for
+it, and no `AUTH` requirement asks for one. `AUTH-1`–`AUTH-7` describe the descriptor and the resolver as
+data and a function, never a carrier.
+
+`6c` ships the AUTH pillar step accepting an already-resolved credential (or a caller-supplied
+`Scheme => credential` table) at construction time, treating the resolver as a standalone library object
+whose caller — presumably Operation-building code, outside `AUTH`'s scope entirely — invokes it and threads
+the result into the step. If that Operation-level wiring is never built in a later phase, `AUTH-4`–`AUTH-7`'s
+resolver ships correct and exercised only by its own unit tests, never by an end-to-end call path.
+
+Same shape as `OI-14`, `OI-27`, `OI-30` and `OI-31`: a sentence that reads correctly and resolves to
+something not yet built. Filed as a candidate rather than assumed settled by shipping the resolver alone.
+
+**Resolution:** *(open)*
+
+next id: OI-34

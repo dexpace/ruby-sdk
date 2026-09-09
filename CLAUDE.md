@@ -378,10 +378,10 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are six phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are seven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/` and `phase5/`. The first three carry that phase's design and plan;
-  `phase3/` carries its segmentation design,
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/` and `phase6/`. The first three carry that phase's
+  design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
   carries its segmentation design,
@@ -389,7 +389,14 @@ probe compares each against the live tree, and a count written anywhere else in 
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
   and a plan. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
-  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; `phase5a/` holds a
-  design and a plan, `phase5b/` and `phase5c/` a design each with the plan still to be written.
+  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds a design
+  and a plan. `phase6/` carries its segmentation design,
+  `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
+  directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
+  (authentication); each holds a design and a plan. Phase 6 is the largest phase in the roadmap:
+  111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus `DEF-35`'s fifteen `RECOV` IDs
+  (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
+  their phase-4 rows stay ⏳. Its three sub-phases are independent — phase 4c already fixed the
+  `REDIR-11`/`AUTH-29` cross-origin contract the roadmap left open — so their order is convenience.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
