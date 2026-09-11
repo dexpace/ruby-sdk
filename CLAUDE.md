@@ -378,9 +378,9 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are seven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are eight phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/` and `phase6/`. The first three carry that phase's
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/` and `phase7/`. The first three carry that phase's
   design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
@@ -398,5 +398,13 @@ probe compares each against the live tree, and a count written anywhere else in 
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
   their phase-4 rows stay ⏳. Its three sub-phases are independent — phase 4c already fixed the
   `REDIR-11`/`AUTH-29` cross-origin contract the roadmap left open — so their order is convenience.
+  `phase7/` carries its segmentation design,
+  `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`, and three sub-phase
+  directories — `phase7/phase7a/` (serialization), `phase7/phase7b/` (server-sent events) and
+  `phase7/phase7c/` (pagination); each holds a design and a plan. Phase 7 is 107 IDs
+  (`SERDE-1`–`30`, `SSE-1`–`41`, `PAGE-1`–`36`) and ships the workspace's second real gem,
+  `dexpace-serde-json`, inside `7a`. Its three sub-phases are independent — `SSE-37` makes `7b`'s
+  serde-independence a mechanised MUST, and §12's chapter intro states the same property for
+  pagination — so their order is convenience.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
