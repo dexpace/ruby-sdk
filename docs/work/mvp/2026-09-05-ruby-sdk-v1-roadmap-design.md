@@ -70,8 +70,11 @@ deferral sweep. A deviation goes to the phase's own `## Deviation Ledger`, then 
 `docs/deviations.md`, whose 19 rows read `design only — not yet built` until the phase that builds the gem flips one.
 
 **8. Three MUSTs are known-unsatisfied; do not re-open the trade.** `ASYNC-3` and `PIPE-33`'s interrupt clause are
-unsatisfied and `ASYNC-4` vacuous (design §10.5, carried as `DEF-18`): phase 8 marks all three ⏳ citing it, phase
-10 audits the ledger. `DEF-19` is release-gated — to be tracked in `docs/first-release.md`, closable by no phase.
+unsatisfied and `ASYNC-4` vacuous (design §10.5, carried as `DEF-18`): phase 8 marks `ASYNC-3` and `PIPE-33`'s
+interrupt clause ⏳ citing it and `ASYNC-4` **N/A**, per §10.5's own distinction between an unsatisfied MUST and a
+vacuous one (**corrected in place 2026-09-11** by the phase-8 segmentation design; the earlier sentence summarised
+all three as ⏳, and `DEF-18`'s `Cites:` line carries only the first two — `ASYNC-4` is on no register row and
+should not be); phase 10 audits the ledger. `DEF-19` is release-gated — to be tracked in `docs/first-release.md`, closable by no phase.
 
 **9. Pointers, not copies.** The domain-model construction pattern (`CLAUDE.md`, design §4) and the constraints that
 will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from a phase document, never copied into one.
@@ -87,10 +90,10 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
 | 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
 | 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md); 4b design: [`phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`](./phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md); 4c design: [`phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`](./phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md) |
-| 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17 |
-| 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15 |
+| 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17; segmentation design: [`phase5/2026-09-09-phase5-segmentation-design.md`](./phase5/2026-09-09-phase5-segmentation-design.md); 5a design: [`phase5/phase5a/2026-09-09-phase5a-configuration-design.md`](./phase5/phase5a/2026-09-09-phase5a-configuration-design.md); 5b design: [`phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`](./phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md); 5c design: [`phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md`](./phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md) |
+| 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15; segmentation design: [`phase6/2026-09-09-phase6-segmentation-design.md`](./phase6/2026-09-09-phase6-segmentation-design.md); 6a design: [`phase6/phase6a/2026-09-09-phase6a-retry-design.md`](./phase6/phase6a/2026-09-09-phase6a-retry-design.md); 6b design: [`phase6/phase6b/2026-09-09-phase6b-redirect-design.md`](./phase6/phase6b/2026-09-09-phase6b-redirect-design.md); 6c design: [`phase6/phase6c/2026-09-09-phase6c-authentication-design.md`](./phase6/phase6c/2026-09-09-phase6c-authentication-design.md) |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14; segmentation design: [`phase7/2026-09-10-phase7-segmentation-design.md`](./phase7/2026-09-10-phase7-segmentation-design.md); 7a design: [`phase7/phase7a/2026-09-10-phase7a-serialization-design.md`](./phase7/phase7a/2026-09-10-phase7a-serialization-design.md); 7b design: [`phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`](./phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md); 7c design: [`phase7/phase7c/2026-09-10-phase7c-pagination-design.md`](./phase7/phase7c/2026-09-10-phase7c-pagination-design.md) |
-| 8 | Transports and Async Runtime | `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-async-thread`, and `dexpace-conformance` — phase 8 owns that gem: its gemspec, its version and its first release, shipping the transport conformance suite | §17 — `TRANSPORT-1`–`TRANSPORT-30` (30); §18 — `ASYNC-1`–`ASYNC-22` (22) | §3.2, §3.3, §3.7, §9.3, §10.5 |
+| 8 | Transports and Async Runtime | `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-async-thread`, and `dexpace-conformance` — phase 8 owns that gem: its gemspec, its version and its first release, shipping the transport conformance suite | §17 — `TRANSPORT-1`–`TRANSPORT-30` (30); §18 — `ASYNC-1`–`ASYNC-22` (22) | §3.2, §3.3, §3.7, §9.3, §10.5; segmentation design: [`phase8/2026-09-11-phase8-segmentation-design.md`](./phase8/2026-09-11-phase8-segmentation-design.md); 8a design: [`phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`](./phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md); 8b design: [`phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md`](./phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md); 8c design: [`phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md`](./phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md) |
 | 9 | Cross-Cutting Invariants and Conformance | `dexpace-conformance` — adds the remaining suites to phase 8's gem, owning neither its gemspec nor its release; every gem audited | §19 — `XCUT-1`–`XCUT-24` (24); §20 — `NFR-1`–`NFR-17` (17); appendix B | §9, §9.3, §10.19 |
 | 10 | Deviation Reconciliation and Release Readiness | every gem (audit-led; ships code where the audit finds a defect) | appendix C — every ID named by design §10's 19 entries | §10, §11, §12 |
 
@@ -245,10 +248,35 @@ avoid is a real and observed failure. Phase 0 carries no requirement scope, so t
   keeping the engine stateless and shareable. No sub-phase may depend on another, order is convenience only, and
   each sub-phase's plan must say so in its own Prerequisite section rather than inheriting a chain by habit.
   This is also the phase that ships the workspace's second real gem, `dexpace-serde-json`.
-- **Phase 8 (52 nominal IDs, effectively more), expected 8a transports, 8b async runtime.** Raw count alone
-  would not force a split; shipping four gems does, and so does the per-gem conformance work the count does not
-  see. The cut is the §17/§18 line, which is also the `SEAM-11`-versus-`SEAM-16`/`SEAM-17` line — a synchronous
-  transport and an async-runtime bridge over the core pivot are genuinely different concerns.
+- **Phase 8 (52 nominal IDs, effectively more), expected 8a transports, 8b async runtime.** Raw count
+  alone would not force a split; shipping four gems does, and so does the per-gem conformance work the
+  count does not see. The cut is the §17/§18 line, which is also the
+  `SEAM-11`-versus-`SEAM-16`/`SEAM-17` line — a synchronous transport and an async-runtime bridge over
+  the core pivot are genuinely different concerns. (**Corrected in place 2026-09-11** by the phase-8
+  segmentation design, which took a **three-way** cut — `8a` synchronous transport and the conformance
+  gem, `8b` async-runtime adapter, `8c` asynchronous transport — and found the stated reason false on
+  the §17 side. **The count is unchanged and the phase-8 row above is unchanged**: `TRANSPORT-1`–`30`
+  and `ASYNC-1`–`22` still sum to 52 and no ID moves. What is wrong is the claim that the chapter line
+  *is* the seam line. Five of §17's thirty requirements — `TRANSPORT-7`, `TRANSPORT-8`,
+  `TRANSPORT-9`, `TRANSPORT-21` and `TRANSPORT-23` — have an **async-only antecedent** and are
+  `SEAM-16`'s, so a synchronous-transport segment cannot exercise them, and §17's own preamble names
+  "§7 / **SEAM-11, SEAM-16**" together in its first sentence. In the other direction the pairing is too
+  tidy rather than wrong: fifteen of §18's twenty-two impose an **executor, worker, pooled-thread or
+  bridge** obligation — `SEAM-18` and `SEAM-25` — while §18's own preamble names **`SEAM-17`** as its
+  interchange point, so the chapter line is not the seam line in either direction.
+  `dexpace-transport-async_http` sits on neither side of the chapter line:
+  it is a transport by chapter — §2.1 calls it "The reference *asynchronous* transport" — and is
+  **not** an async-runtime adapter by §18's own definition, because
+  it bridges nothing: it implements the SPI natively over a reactor. So it gets its own segment. The
+  three sub-phases are **independent** and every boundary is a **convenience**; `dexpace-async-thread`
+  declares `dexpace-core` and nothing else, `dexpace-transport-async_http` declares `async-http` and
+  needs no thread pool, and the two shared artifacts — §9.3's `TCPServer` fixture and `DEF-22`'s
+  assertion protocol — are **assigned to `8a`**, with each design stating whether it wrote or consumed
+  them if the sub-phases run out of order. One task is
+  phase-level because it lands in a gem none of the three ships: `Dexpace::TransportError < ::IOError`
+  in `dexpace-core`, which closes `docs/first-release.md`'s standing phase-8 blocker. Cross-cutting
+  constraint 4's "phase 8 brings the first real socket" is confirmed and is worth narrowing: `8a` and
+  `8c` bring it and `8b` brings none.)
 
 ---
 
@@ -1059,3 +1087,343 @@ fixed here: `tools/surface.rb` is phase 0's and every gem is affected identicall
 concurrent readers across 64 000 inserts never reports above the cap), and `Metrics/ParameterLists:
 4` is unsatisfiable for a keywords-everywhere API, which seven methods in this phase demonstrate.
 No deviation and no deferral were filed; the registers were read and no row was picked up.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 4b plan filed,
+`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives.md`. **Fifteen numbered TDD tasks**
+in strict dependency order: `Suppressible` and the error root; the phase-2 error-trail integration that
+discharges `DEF-32` and supplies `DEF-27`'s first disposal route; the cycle-safe `Dexpace.each_cause`
+with its cyclic fixtures; `OutcomeError`; `ProtocolError`; `Outcome` with `Success` and `Failure`;
+`Recovery` and `buffer_error_body`; the `Transform` contract; the idempotency-key, client-identity and
+error-mapping steps; `RequestChain`; `Ownership` (private) and `ResponseChain`; the `Orchestrator`; and
+one closing task for the wiring, the two regenerated artifacts, the checklist and the register edits.
+All 34 `RECOV` IDs are accounted for — 18 implemented, 15 ⏳ under `DEF-35`, one under `DEF-5` — and
+every ledger row `P4-12`–`P4-25` lands in a named task. The design's five open questions are resolved
+in the front matter and carried through the tasks: `Ownership` gets its own file, so "the asymmetry
+lives in one place" is verifiable by opening one; `ErrorMappingStep`'s default `factory:` is a frozen
+private lambda rather than a `Method` allocated per `.build`; `Dexpace.each_cause` **stops** at a
+raising `#cause` rather than propagating, because a classification walk must never be the thing that
+crashes an application inspecting an ill-behaved third-party exception, with a fourth fixture class
+asserting it; `DEF-32`'s fourth `Hooks.notify` test goes at **one** site, `Cancellation::Source#cancel`,
+since all three sites delegate to the same private helper; and `ProtocolError`'s message carries **no
+body preview**, because redaction is phase 5's and an exception message is the likeliest thing to be
+logged. No new deviation, no new deferral and no new open item.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 4c plan filed,
+`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline.md`, closing phase 4. **Eleven numbered
+tasks**: `PipelineError`; `Stage` and `Stages`; the pipeline test doubles; the `Step` protocol and its
+conformance predicate; the `Entry` model; `Cursor` with `SyncDriver` and `AsyncDriver`; `Builder`; the
+sync runtime; `TransformStep` as the one generic 4b adapter; the async runtime and `map_response`; and
+one closing wiring task. All 40 `PIPE` IDs are accounted for in a per-ID table naming the owning task
+and its evidence, with `PIPE-33`, `PIPE-36` and `PIPE-39` ⏳ against `DEF-18`, `DEF-4` and `DEF-39`.
+Both of the design's open questions are resolved, and the first found a gap in the design's own count:
+the nine `PipelineError` message forms `P4-37` enumerates are **eleven**, because `R10`'s precedence
+table rejects two further install-time cases (a step declaring `#stage` installed with a different
+`stage:`, and a step declaring neither) that no `PIPE` ID forces and that therefore cite `R10` rather
+than a requirement — the shape claim is unaffected, only the count read low, so no new deviation was
+filed. Every message form is asserted **at the site that raises it**, never against a hand-constructed
+error. `Stages::ALL` and `::PILLARS` are merely frozen and not `Ractor.make_shareable`d, because a
+response holds a body holding an `IO` and 4c makes no shareability claim for anything in the pipeline.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5 segmentation design filed, at
+`docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, the third the segmentation rule has
+produced. **The cut is three ways, not the roadmap's two** — `5a` configuration and the clock (38 IDs),
+`5b` the logging facade and redaction (27 as the charter counted them), `5c` tracing and metrics (13) —
+**and every boundary is a CONVENIENCE**, which corrects the roadmap's phase-5 bullet twice over: its
+`OBS-35` dependency argument rests on a SHOULD, and the `CFG`↔`OBS` edges run both ways, since
+`CFG-24`/`CFG-25` require a **warning log** on invalid proxy configuration and `CFG-21`'s best-effort
+close is `DEF-27`'s second disposal route, both of which need §8.1's facade. The second boundary falls
+inside chapter 15 at the §15.4/§15.5 line; the sentinels `OBS-25`–`OBS-27` are populated in `5c`, not
+`5b`, against the bullet's expectation. The phase-5 row's ranges and its total of 78 are confirmed
+unchanged. `CFG-20` is argued at length **not** to be a fourth unsatisfied MUST: its cancel-with-interrupt
+clause is `ASYNC-3`'s mechanism under a second ID, and §10.5's ledger is not widened. The deferral sweep
+read all thirty-nine rows, picked up four, closed a fifth open since phase 2, half-supplied two and filed
+**none** — a segmentation design decides a cut, not the interfaces whose absence a deferral records, and
+phase 5's one candidate of `DEF-35`'s shape (`CFG-35`'s classifier) is answered "phase 5 builds it".
+The Deviation Ledger is empty. A tenth audit group, *Observability, configuration and redaction*, was
+added to the `knowledge-lookup` skill's table before the group was run.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5a design filed, at
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md`. Thirty-eight `CFG` IDs, one
+chapter, one gem: 34 implemented, `CFG-19` satisfied **by construction** (this port's pivot delivers the
+caller's own exception, so there is no wrapper to unwrap and no `unwrap` method ships — `P5-11`, which is
+`OI-8`'s shape), and `CFG-20`, `CFG-34` and `CFG-35` partially satisfied with the unmet clause named in
+each row. Six decisions were forced by facts run on real interpreters rather than argued. `CFG-18`'s
+non-blocking delay **raises `Dexpace::SeamError`** when no `Fiber.scheduler` is registered rather than
+degrading to a thread-backed delay, because there is no non-blocking path without one and a degraded
+delay would satisfy three MUST clauses while violating the SHOULD's headline (`P5-9`). `CFG-30`/`CFG-31`
+are parsed by an owned anchored grammar, because `Time.httpdate` accepts RFC 850, asctime and a leading
+space — two date formats with no `'Xxx, '` prefix, which is the exact prefix `CFG-31`'s strictness clause
+is about (`P5-12`). `Dexpace::Proxy` overrides **both** `#to_s` and `#inspect`, because `#inspect` is what
+`p`, a log interpolation and an assertion failure message print, and overriding only `#to_s` satisfies
+`CFG-22`'s letter while leaking the password through the likeliest path (`P5-7`). `UUID`'s generator is
+memoised in `Thread.current[:…]` — the carrier `CLAUDE.md`'s constraint list names as the *wrong* one —
+because here non-inheritance is the property wanted, and the deviation is recorded precisely because the
+`CLAUDE.md` sentence reads as a blanket rule (`P5-13`). Fifteen deviations, `P5-1`–`P5-15`, opening
+phase 5's ledger. One deferral, **`DEF-40`** (`CFG-35`'s throwable half, phase 6, with `XCUT-6`'s
+capability and `Dexpace::TransportError`). One open item, **`OI-24`**: the skill's own audit-group row
+returns 36 of 38 `CFG` IDs while `--prefix-info` reports 38 of 38, because two are filed under
+`Reference` rather than `Rules` — the `OI-14`/`OI-16` family, a mechanism reporting clean over a set it
+never looked at.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5a plan filed,
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration.md`. **Seventeen numbered TDD tasks**
+shipping the four-tier configuration chain with its atomic process-wide publication slot, the injectable
+`Clock` seam and its cancellable queue-backed sleep, `Dexpace::Async.delay`, RFC 1123 formatting and the
+owned anchored parser, non-cryptographic UUIDs, deep value equality, the `XCUT-5` retryability status
+classifier, the static build/runtime descriptor, and the proxy model with its non-throwing,
+credential-masking resolver — all 38 `CFG` IDs, plus `XCUT-5`, picking up `DEF-28`, `DEF-36` and part of
+`DEF-34`. The design's open questions are resolved in the front matter and carried through the tasks;
+`OI-22` (the citation `CFG-20`'s checklist row carries) and `OI-24` are the rows it cites rather than
+re-derives. Nothing is implemented; the checklist is written at execution time.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5b design filed, at
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`, **written
+concurrently with `5c`'s and reconciled with it the same day** — every place the two segments meet was
+drafted as an assumption marked *pending reconciliation* and each marker is resolved in place, with the
+section saying which side won. **The reconciliation found something neither document had noticed:
+`OBS-24` had a scope-table row in neither**, the one-row-per-ID failure the convention exists to prevent.
+It is 5b's, making this segment **28** IDs and `5c` **12** against a charter whose arithmetic and whose
+prose disagree — filed as `OI-30` rather than fixed by editing the committed charter, on phase 4c's
+precedent. The segment ships the structured-logging facade the whole SDK writes through, the redaction
+policy, the payload preview renderer and the instrumentation step at `Stages::LOGGING`. `R10` is the
+decision a later phase trips on: `OBS-19`'s three-mode header-drop policy **does not ship**, because the
+requirement's subject is a transport that drops and core has none — deferred as **`DEF-41`** with both
+halves it is built from (`Severity`'s two levels, the once-per-key latch) shipping and exercised.
+Deviations `P5-16`–`P5-38` in the reserved block. Three open items: **`OI-25`** (§8.1 names
+`Event#tag(key, value)` and no chapter-15 requirement does, so a fourth field channel would have no
+precedence rule), **`OI-26`** (`Instrumentation::Logger` shadows the stdlib `Logger` and the cop cannot
+carry the name, because the sink duck type is deliberately that surface) and **`OI-27`** (the charter's
+5b scope table states an outcome its own `R10` leaves open).
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5b plan filed,
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction.md`. **Seventeen numbered tasks**
+shipping the four-tier severity enum, the frozen `Keys`/`Events` vocabularies, the duck-typed sink with
+its frozen `NULL_SINK`, the total rendering subsystem with 8 KiB byte-sliced truncation, the
+`Fiber[]`-based diagnostic-context bridge with its per-key union restore, the redaction engine and the
+`Stages::LOGGING` step with tracer and meter slots `5c` populates — 28 IDs, 26 implemented and two ⏳
+(`OBS-19` under `DEF-41`, `OBS-37` under `DEF-9`) — discharging `XCUT-19`, `XCUT-20` and `XCUT-11`,
+closing `DEF-27`, taking `DEF-32`'s optional diagnostic half, supplying `DEF-31`'s shutdown-event shape
+and picking up `DEF-34`'s two remaining wirings. Its fences were re-executed against `5c`'s changed
+fences after the reconciliation rather than left at the pre-reconciliation figures.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5c design filed, at
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md`, the other half of the
+concurrent pair, reconciled with `5b`'s the same day. Twelve IDs, eleven implemented and `OBS-32` ⏳
+under the pre-existing `DEF-9`: the span and scope protocols behind phase 4a's three published
+singletons, the current-span carrier, log correlation pushing and restoring `trace.id`/`span.id`,
+W3C and Datadog trace-id generation with zero-draw coercion, `Bundle#sampled?`, `HTTPTracer`'s
+HTTP-shaped vocabulary with its ordering contract, and the metrics SPI with an allocation-free no-op
+meter. The deviation ledger starts at **`P5-40`** and is deliberately non-contiguous with `5a`'s;
+`P5-39` is a deliberate unused number, not a lost row. One deferral, **`DEF-42`** — `OBS-29`'s
+vocabulary ships with **no emitter**: the per-attempt group has none until phase 6's retry step and the
+transport milestones none until phase 8, and wiring only the operation-lifecycle triple was considered
+and rejected because `OBS-29`'s exhausted→failed pairing is not honourable by a step that cannot see
+attempts. Two open items: **`OI-28`** (a `**` keyword splat allocates a `Hash` per call even when
+nothing is passed — independently reproduced at reconciliation, ~1 per call — which makes `OBS-25`'s and
+`OBS-1`'s allocation MUSTs unsatisfiable for any method written with one, and nothing mechanised
+distinguishes it from the named keyword the styleguide's rule is about) and **`OI-29`** ("per-operation
+tracer factory" names two different objects, and phase 4a bound the bundle's member to the one that is
+per-library; the filed row rests on the internal contradiction between `OBS-25` and `OBS-29` rather than
+on a claim about a gem neither phase could install).
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5c plan filed,
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`, closing phase 5. **Thirteen
+numbered tasks** over the tracing and metrics SPI, bounded by `OBS-20`, `OBS-30`, `CTX-20`, `XCUT-11`
+and `XCUT-20`, consuming `SEAM-28`'s stable operation identifier and closing `DEF-37` and `DEF-1`'s
+`SEAM-28` half. It carries the reconciliation's `OBS-24` finding in its own goal statement rather than
+leaving it to the design alone, and cites `OI-30` for the charter's arithmetic.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6 segmentation design filed, at
+`docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md` (the file carries a `2026-09-09` prefix;
+it was added to the repository on the 10th). **The cut is three ways — `6a` retry, `6b` redirect, `6c`
+authentication — and every boundary is a CONVENIENCE.** The roadmap's phase-6 bullet left one question
+open, whether the `REDIR-24`/`REDIR-11`/`AUTH-29` coupling makes redirect and auth one segment or two;
+the answer is two, and the reason is that **phase 4c already fixed the contract on 2026-09-08** —
+`Cursor#fork(state:)` and `Cursor#state(stage)`, with only the forking step's own stage able to write —
+so there is nothing left for a shared-contract sub-phase to land. The budget is **111 own IDs plus
+`DEF-35`'s fifteen `RECOV` rows**, which land in `6a` with their own checklist rows while their phase-4
+rows stay ⏳. The sweep read all forty-two register rows, picked up six, closed three outright, left
+three deferred with a correction owed to one, and filed **none**. `OI-31`'s cursor widening is assigned
+to `6a`, and `DEF-40` is picked up and closed there. The Deviation Ledger is empty.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6a design filed, at
+`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-design.md`. **Sixty requirement IDs — forty-five
+`RETRY` plus `DEF-35`'s fifteen `RECOV` — the largest sub-phase in the roadmap.** It builds **one**
+shared policy core (the classification consult, the re-sendability gate, the backoff calculator, the
+pacing-header parser and the tuning constants) and the **two** stacks that consume it: the recovery-chain
+retry installed beneath phase 4b's `Orchestrator` with a total-timeout budget, and the pillar step at
+`Stages::RETRY` with a sync and an async driver. One calculator, because `RETRY-13` forbids two. Seven
+deviations, `P6-1`–`P6-7`, of which **`P6-4`** is the one a later phase acts on: phase 8's first
+transport adapter must wrap every stdlib I/O and timeout error it lets escape in something answering
+`#retryable?`, because `RETRY-2`'s classification is a capability-only query and a bare `SocketError` or
+`Errno::ETIMEDOUT` classifies as **not** retryable — filed as a `docs/first-release.md` blocker and
+closed in design by phase 8. No new deferral: `6a` closes `DEF-35`, `DEF-38` and `DEF-40` and picks up
+half of `DEF-42`, declining the operation-lifecycle triple under its `R15` because the site that works is
+`Stages::PRE_REDIRECT` and that is a **new step**, not a slot — the finding filed as `OI-32`.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6a plan filed,
+`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`. **Fourteen numbered tasks** over one frozen
+`Resilience::Policy` module and the two stacks it feeds — `RecoveryRetry` beneath phase 4b's
+`Orchestrator`, and `RetryStep`/`AsyncRetryStep` at `Stages::RETRY` — satisfying all 45 `RETRY` IDs and
+all fifteen `DEF-35` `RECOV` IDs, picking up and closing `DEF-38` and `DEF-40` and half of `DEF-42`, and
+**executing `OI-31`'s cursor widening**: a read-only per-call accessor on `Cursor` plus one optional
+seeding keyword on the call path, both `NFR-4` widenings, which is the resolution that row records as
+decided in planning and closing at execution.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6b design filed, at
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-design.md`, the shortest sub-phase design so
+far. Twenty-eight `REDIR` IDs, one chapter, no second gem: one iterative follower at `Stages::REDIRECT`,
+forking a fresh `Cursor` for **every** hop including the first, resolving `Location` through
+`URI::RFC3986_PARSER`, and enforcing every credential-hygiene rule against the **seed** origin rather
+than the previous hop. The correctness stake is named rather than assumed: `REDIR-7`'s unconditional
+`Authorization` strip and `REDIR-11`'s cross-origin signal are what stop a bearer token surviving a
+cross-origin redirect, and `REDIR-8`'s seed-origin comparison is what both rest on. One deviation
+candidate — `REDIR-17`'s max-hops cap enforced as a hard ceiling checked **before** a configured
+predicate is consulted, rather than folded into the decision `REDIR-20` lets a predicate override —
+deliberately **left unnumbered**, because three sub-phases were writing ledgers concurrently and a number
+assigned in isolation could collide. Its proposed corpus note became `docs/knowledge/notes/redirect-handling.md`,
+filed by phase 6's follow-through under `redirect-handling` rather than the `url-and-query-encoding`
+topic `6b` proposed: measured, assigning `userinfo = nil` and rendering gives the credential back
+unchanged while `userinfo = ""` clears both — a silent failure, so the assertion is on the rendered URL
+and never on `#userinfo` being `nil`.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6b plan filed,
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`. **Fifteen numbered tasks** over one
+iterative pillar step that never calls its own `#call`: per hop it classifies the status, fast-paths a
+non-redirect with no allocation (`REDIR-21`), otherwise allocates a `ConditionSnapshot` and consults
+either a configured predicate or the built-in decision. All 28 `REDIR` IDs, with `REDIR-27` ⏳ under the
+pre-existing `DEF-7` and no code written for it, plus `6b`'s share of the shared
+`Resilience::Resend` replayability predicate that `REDIR-6`, `RETRY-5` and `AUTH-31` all consult.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6c design filed, at
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-design.md`. Thirty-eight `AUTH` IDs,
+**all implemented, no ⏳ row and no deferral** — the only sub-phase of phase 6 with none, `AUTH-29`'s
+stripping clause satisfied by construction because nothing is ever added to strip. It ships the
+descriptor and tier resolver, the four credential types with variant-specific equality and redaction, the
+RFC 7235 challenge parser, the Basic and Digest handlers with a bounded per-nonce counter store, the
+composing challenge handler, static key stamping, and the AUTH pillar step with its HTTPS guard,
+cross-origin suppression, 401 re-challenge replay and bearer cache, on both runtimes. Five deviations,
+`P6-1`–`P6-5`, numbered in isolation and knowingly colliding with `6a`'s — resolved at consolidation into
+design §10, which is the failure `6b` avoided by not numbering at all. One finding: **`OI-33`**,
+`AUTH-4`–`AUTH-7`'s tier resolution presupposes an `AuthDescriptor` producer that no phase names — no
+field on `Request`, on `RequestOptions` or on any `Operation` construct, and no `AUTH` requirement asking
+for one — so the resolver ships correct and, absent later Operation-level wiring, exercised only by its
+own unit tests. The `OI-14`/`OI-27`/`OI-30`/`OI-31` family.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6c plan filed,
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication.md`, closing phase 6. **Seventeen
+numbered tasks**, opening with a task that re-verifies on the 3.2 floor and the 4.0 column every fact the
+design flags before anything depends on it. The zero-dependency rule is carried explicitly through a
+chapter that invites breaking it: Basic is `["u:p"].pack("m0")` and never `Base64`, Digest is
+`Digest::MD5`/`Digest::SHA256` and never `OpenSSL::Digest`, the cnonce is `SecureRandom.hex(16)` and
+never `Random` — every one already on phase 0's allowlist, so the plan adds no require-allowlist diff.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7 segmentation design filed, at
+`docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md` (the file carries a `2026-09-10` prefix;
+it was added on the 11th). **107 IDs, no ID moving in or out, cut three ways — `7a` serialization (30),
+`7b` SSE (41), `7c` pagination (36) — and the independence is spec-forced rather than merely chosen**:
+`SSE-37` is a MUST that core parsing and streaming hold no serialization dependency, and §12's chapter
+intro requires the pagination engine to be transport- and serde-agnostic. Phase 7 is also the phase that
+ships the workspace's **second real gem**, `dexpace-serde-json`, inside `7a`. The sweep read all
+forty-two rows and touches four: `DEF-8` is carried as a ⏳ row **inside** `7b`'s 41 rather than picked
+up; `DEF-2`'s floated phase-7 target is **declined**, with a re-target at an *event* proposed in its
+place; and two rows are left whose conditions the phase's work bears on. It files **none** and its
+Deviation Ledger is empty. Spec-forced boundary 5 is the `SSE-37` require-and-constant audit, extended
+over core's pagination layer, and it is assigned to whichever of `7b` and `7c` lands first.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7a design filed, at
+`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md`. Thirty `SERDE` IDs, all
+implemented, **no deferral**, across **two gems**: `dexpace-core`'s witness protocol — the
+class-object-and-combinator shape design §10.14 substituted for the reference's reflective type token —
+with its four combinators and decode context, the `Tristate` three-state PATCH type, the native-form
+encode walk that makes `SERDE-15`/`SERDE-19`/`SERDE-20` structural rather than a per-model discipline,
+the `SERDE-2` body factory, the two response handlers supplied into phase 3b's `TypedResponse`; and
+`dexpace-serde-json`'s codec, which fills that gem's `lib/` and is the one place the `json >= 2.19.9`
+floor is declared. Nine deviations, `P7-1`–`P7-9`. Four findings proposed for the registers, the first
+being that phase 2 declared `interface _Codec` and never wrote its body, so `SERDE-2`'s default
+Content-Type crosses a type boundary nothing declares — settled here by typing the interface
+`(Dexpace::MediaType | String)` and coercing at `Body.serialized`. One corpus note is drafted for
+`docs/knowledge/notes/serde.md`, a `## Reference` entry beside `serde/b5e5efc8`: a decoded JSON `String`
+can be UTF-8-tagged and **invalid**, and neither layer that produces it raises. The note is written by
+the plan's final task at execution time and is not filed yet.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7a plan filed,
+`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization.md`. **Nineteen numbered tasks** across
+the two gems, ending with the codec that declares the `json` floor. All thirty `SERDE` IDs, three
+carrying a deviation row and six a stated clause; no deferral is filed.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b design filed, at
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`. Forty-one `SSE` IDs,
+forty implemented and `SSE-41` carried as a ⏳ row under the pre-existing `DEF-8` — **the
+second-largest sub-phase in the roadmap**, after `6a`'s sixty and phase 3b's forty-nine. It ships the
+WHATWG line and field state machine, the immutable five-field event value, the resource-owning
+single-pass streaming facade with its four termination paths, and the typed adapter with its three
+caller-supplied mapper outcomes. It owns the resolution of **`OI-5`** and proposes three corrections to
+that row, the third of which changes what its resolution says: the requirement obliging the line cap is
+`SSE-19`, a MAY, not `SSE-11`, a MUST about the `retry` field's magnitude, and the row's premise —
+that phase 7's SSE machine is the consumer that reads lines from a server-controlled stream — is false.
+Seven findings are proposed for the registers, none carrying a number. Two corpus notes are drafted, for
+`docs/knowledge/notes/sse-streaming.md` and `resource-management.md`, written by the plan's final task at
+execution time and not filed yet. It also builds spec-forced boundary 5's `SSE-37` require audit as a
+mechanism rather than describing it.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b plan filed,
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`. **Fourteen numbered tasks** over
+`SSE::LineReader`, `::Reader`, `::Event`, `::Stream` and `::TypedStream`, satisfying `SSE-1`–`SSE-40`,
+carrying `SSE-41` ⏳ under `DEF-8`, resolving `OI-5` with the corrected requirement ID and a documented
+line cap, and building the `SSE-37` require-and-constant audit that boundary 5 extends over core's
+pagination layer.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7c design filed, at
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`. Thirty-six `PAGE` IDs, stated
+wholly inside one chapter and satisfied wholly inside one sub-phase: the page value and its response
+ownership, the strategy contract and three built-in strategies, the byte-for-byte query splice, the two
+consumption views over **one** lazy drive routine, and the async engine driven through phase 2's
+`Future#on_settle`. `dexpace-core` only — `7c` writes nothing into either other gem. Six deviations,
+`P7-1`–`P7-6`, **knowingly sharing numbers with `7a`'s and `7b`'s**: the collision is stated rather than
+discovered, and is resolved at consolidation into design §10, which is `6b`'s precedent and the failure
+`6a` and `6c` walked into. `P7-1` is the one a reader should follow: `PAGE-15`'s re-throw-wrapped clause
+is conditional on a terminal that cannot declare the underlying error type, measured four ways on
+3.4.10 to be unreachable in a language with no checked exceptions — §11.15's "clauses with no Ruby
+manifestation" family, which §12's `PAGE` row records for `PAGE-35` and not for this one, so the row is
+owed an addition. One corpus note is drafted for `docs/knowledge/notes/pagination.md`, written by the
+plan's final task at execution time.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7c plan filed,
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`, closing phase 7. **Eighteen numbered
+tasks** over a frozen `Page::Paginator` producing per-iteration `Walk` objects that own every live
+response — all 36 `PAGE` IDs, 35 implemented outright and `PAGE-35` vacuous by construction on design
+§12's own authority. No deferral, no ⏳ row and no unsatisfied MUST is created.
+
+**2026-09-12** — **Phase 8's seven planning documents filed**, under `docs/work/mvp/phase8/`; the files
+carry a `2026-09-11` prefix, which is the day they were written, and they were filed and reconciled on
+the 12th. The segmentation design is
+`docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`, with a design and a plan in each of
+`phase8a/` (synchronous transport and the conformance gem), `phase8b/` (async-runtime adapter) and
+`phase8c/` (asynchronous transport). **Three sub-phases, not the roadmap's two**; every boundary a
+convenience; the segmentation bullet and cross-cutting constraint 8 both corrected in place above with
+their reasons. 52 IDs, none moving in or out, split 23 / 19 / 10. Phase 8 is the phase that ships the
+most gems in the roadmap, and the first whose sub-phases ship none of them `dexpace-core` — which is why
+it has five phase-level tasks, the first being `Dexpace::TransportError < ::IOError` in core, landed by
+`8a`'s Task 2 and cited by `8c`'s Task 4. **Four register rows picked up** (`DEF-22`, `DEF-25`, `DEF-31`,
+`DEF-41`), **one partly** (`DEF-42`, whose transport half is declined because no route exists by which an
+adapter in another gem reaches a per-operation `HTTPTracer` through an `NFR-4`-locked three-argument
+seam), **two marked UNSCHEDULED** (`DEF-3`'s `BODY-12` clause 2, and `DEF-29` — condition met, the
+literal move declined on a development-dependency-cycle argument), **one corrected in place** (`DEF-41`
+named `TRANSPORT-8` where the subject is `TRANSPORT-12`, with `TRANSPORT-13` the logging twin; phase 5b's
+forward table carried the same wrong ID and is corrected with it), and **none filed** — `next id` stays
+`DEF-43`. **Fifteen open items filed, `OI-34`–`OI-48`**, the largest block any phase has produced, of
+which four record that a frozen design chapter is wrong about a library: `Net::HTTP` has a built-in retry
+that is on by default and swallows a cancellation (`OI-34`, measured end to end); §3.2's block-scoped
+`read_body` construction yields a fully buffered body and a dead socket (`OI-35`); `Async::Task#stop` is
+deprecated in favour of `#cancel` (`OI-40`); and `TRANSPORT-8` is *satisfiable* on the async adapter
+where §12 counts it vacuous (`OI-41`) — the inverse direction, and equally a defect. `docs/deviations.md`
+gains one attribution note against §10.5, and `docs/first-release.md` closes the standing phase-8
+error-wrapping blocker in design, gains the supported-Ruby and native-extension lines
+`dexpace-transport-async_http`'s 3.3 floor forces, and gains the blocker that a green conformance run's
+omissions must be written down before the gem is published. **No new unsatisfied MUST**: `ASYNC-3` and
+`PIPE-33`'s interrupt clause are §10.5's and `DEF-18` carries both unchanged, while `ASYNC-4` is on no
+register row because §10.5 holds it vacuous. Four corpus notes were filed on 2026-09-12 — three under
+`docs/knowledge/notes/transport-adapter.md`, a new file, and one appended to `observability.md`.
+`CLAUDE.md`'s phase-directory count goes from eight to nine with this filing; the "Zero gems exist under
+`gems/`" sentence is unaffected and stays true until phase 0's scaffold lands as code.

@@ -378,9 +378,9 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are eight phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are nine phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/` and `phase7/`. The first three carry that phase's
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/` and `phase8/`. The first three carry that phase's
   design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
@@ -406,5 +406,15 @@ probe compares each against the live tree, and a count written anywhere else in 
   `dexpace-serde-json`, inside `7a`. Its three sub-phases are independent — `SSE-37` makes `7b`'s
   serde-independence a mechanised MUST, and §12's chapter intro states the same property for
   pagination — so their order is convenience.
+  `phase8/` carries its segmentation design,
+  `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`, and three sub-phase
+  directories — `phase8/phase8a/` (synchronous transport and the conformance gem),
+  `phase8/phase8b/` (async-runtime adapter) and `phase8/phase8c/` (asynchronous transport);
+  each holds a design and a plan. Phase 8 is 52 IDs (`TRANSPORT-1`–`30`, `ASYNC-1`–`22`) and is
+  the phase that ships the most gems in the roadmap — `dexpace-transport-net_http`,
+  `dexpace-async-thread`, `dexpace-transport-async_http` and `dexpace-conformance`, whose
+  gemspec, version and first release phase 8 owns. Its three sub-phases are independent, so
+  their order is convenience; one task is phase-level because it lands in `dexpace-core`, which
+  none of the three ships.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
