@@ -1452,4 +1452,412 @@ something not yet built. Filed as a candidate rather than assumed settled by shi
 
 **Resolution:** *(open)*
 
-next id: OI-34
+### OI-34 — `Net::HTTP` has a built-in automatic retry that is on by default, and design §3.2, §11.18 and §12 all record that it has none
+
+- **Opened:** 2026-09-11, phase 8 segmentation design
+- **Status:** open
+- **Cites:** TRANSPORT-2, TRANSPORT-17, TRANSPORT-18, TRANSPORT-3, RETRY-13, PIPE-2, XCUT-4
+
+Design §3.2 says "The reference transport disables nothing for **TRANSPORT-1**/**TRANSPORT-2** because
+`Net::HTTP` follows no redirects and retries nothing on its own — those two requirements are vacuous for
+this adapter". §11.18 says "`Net::HTTP` has no resend hook". §12's `TRANSPORT` row lists `TRANSPORT-1`,
+`TRANSPORT-2`, `TRANSPORT-8` and `TRANSPORT-18` as "adapter-scoped and vacuous for `Net::HTTP`", and the
+MUST-level summary counts `TRANSPORT-2` and `TRANSPORT-18` among the eight MUSTs that hold vacuously.
+The redirect half is right; the retry half is false. Verified on `net-http` 0.6.0 under Ruby 3.4.10:
+`Net::HTTP#max_retries` **defaults to 1**, and `#transport_request` retries when
+`count < max_retries && IDEMPOTENT_METHODS_.include?(req.method)` on `Net::ReadTimeout`, `IOError`,
+`EOFError`, `Errno::ECONNRESET`, `Errno::ECONNABORTED`, `Errno::EPIPE`, `Errno::ETIMEDOUT`,
+`OpenSSL::SSL::SSLError` and `Timeout::Error`, where `IDEMPOTENT_METHODS_` is
+`["GET", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE"]`. The retry re-runs `req.exec`, so it re-writes
+the request body; PUT and DELETE are both in the set. Three consequences, none of them cosmetic: a
+pipeline that believes it is the single retry authority (`TRANSPORT-2`, `PIPE-2`) is not; a single-use
+body could be written twice (`TRANSPORT-17`); and a cancellation delivered by closing the socket under
+a blocked read surfaces as `IOError`, which is **on the rescue list**, so the library would swallow and
+retry a caller's cancellation (`TRANSPORT-3`). **Amended 2026-09-12, from phase 8a's design (verified
+fact 3), which measured the third consequence end to end rather than reading it out of a rescue list:**
+against a server whose first connection hangs, with a second thread calling `conn.finish` 250 ms in, the
+call **returned `200`** at the default `max_retries` and raised `IOError: stream closed in another
+thread` at `0` — so the swallow is observed, not inferred. Two clauses of the same method bound the
+hazard without removing it: `rescue Net::OpenTimeout; raise` means a connect timeout is never retried,
+and `count = max_retries` inside the `reading_body` block means the window closes once the response head
+is read; neither helps the connect-and-head phase, which is where a cancel lands. All three are fixed by one line, `http.max_retries = 0`,
+which phase 8a will write — but the three requirements' dispositions in §12 are wrong until it does, and
+§12 is frozen. Nothing is broken today because nothing is implemented. What would resolve it: phase 8a
+implements the disable and its checklist states the corrected reason; §12's `TRANSPORT` row and the
+MUST-level count are corrected the next time §12 is deliberately amended by a human, and
+`docs/deviations.md` carries the interim note.
+
+**Resolution:** *(open)*
+
+### OI-35 — design §3.2 prescribes a block-scoped `read_body` construction for `dexpace-transport-net_http` that cannot satisfy the two requirements it says it satisfies "literally"
+
+- **Opened:** 2026-09-11, phase 8 segmentation design
+- **Status:** open
+- **Cites:** SEAM-11, TRANSPORT-25, TRANSPORT-19, IO-41, BODY-15, HTTP-43
+
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md:167-171` reads: "Streaming is preserved end
+to end: `dexpace-transport-net_http` issues the request inside `Net::HTTP#request(req) { |res| ... }`
+and exposes the response body as a `BufferedSource` over the block-scoped
+`Net::HTTPResponse#read_body` stream, so **SEAM-11**'s no-pre-buffering clause and **TRANSPORT-25**'s
+'lazily-read stream, not pre-buffered ... closing the SDK response cascades to close the native body and
+release the connection' are satisfied **literally**." Measured against a `TCPServer` that writes five
+body bytes, sleeps 400 ms and writes five more, on `net-http` 0.6.0 under Ruby 3.4.10: `#request`
+without a block returned after **401 ms** with `res.body == "aaaaabbbbb"`; the block form with a block
+that does not read returned with the body already buffered, because `Net::HTTPResponse#reading_body`
+ends with `self.body` and nils `@socket` in its `ensure`; and `res.read_body` after the block raised
+`IOError: Net::HTTPOK#read_body called twice`. So the prescribed construction yields a **fully buffered
+body and a dead socket** — `SEAM-11`'s "MUST NOT pre-buffer the body (caller owns read/close)" and
+`TRANSPORT-25`'s lazily-read stream both violated by the design's own recipe. The construction that does
+work keeps the block open across the return of `#call` (a `Fiber` or a producer thread), which §3.2
+does not describe and which brings its own abandonment problem — an abandoned `Fiber` never runs its
+`ensure`, so the connection leaks. This is `OI-34`'s species in the same paragraph of the same frozen
+section: a design sentence that is false about `Net::HTTP`. This row records that the chapter it is
+departing from is wrong rather than merely silent. Nothing is broken today because nothing is
+implemented.
+
+**Amended 2026-09-12: phase 8a's `R1` has decided the construction, and the reason is not the one this
+row leads with.** The fiber is disqualified by `FiberError: fiber called across threads` — `Fiber#resume`
+from a second thread raises, so a fiber pump created on a `dexpace-async-thread` worker inside
+`Transport.async_over` could not have its body read on the caller's thread, and `TRANSPORT-29`'s
+"confined to the returned response graph" would narrow to "confined to one thread". The abandoned
+`ensure` is real and is not what decides it. `8a` ships a per-response producer `Thread` over a
+`Thread::SizedQueue(1)` drained through a `#readpartial`-shaped reader, recorded as deviation `P8-1`.
+The row's diagnosis of the chapter is unchanged and still correct.
+
+**Resolution:** *(open — the construction is decided (`P8-1`); the row closes when the frozen §3.2
+sentence is corrected, which is a human's deliberate amendment)*
+
+### OI-36 — no route exists by which a transport adapter reaches an `HTTPTracer`, so `DEF-42`'s transport-milestone group has a vocabulary and no reachable emitter
+
+- **Opened:** 2026-09-11, phase 8 segmentation design
+- **Status:** open
+- **Cites:** OBS-28, OBS-29, DEF-42, OI-31, OI-32, SEAM-11, SEAM-16, PIPE-11, NFR-4
+
+Phase 5c shipped `Dexpace::Instrumentation::HTTPTracer` with five transport methods whose argument lists
+it fixed — `#request_url_resolved(context, url)`, `#connection_acquired(context, host, port)`,
+`#request_sent(context, byte_count)`, `#response_headers_received(context, status, headers)`,
+`#response_received(context, byte_count)` — and `DEF-42` records that "the transport-milestone group
+follows in phase 8 with the first adapter". `OBS-29` additionally requires "One tracer instance
+corresponds 1:1 to a single logical **operation** lifecycle (created by the factory per operation)". The
+transport seam is `#call(request, options, cancellation)`; `Request`'s members are
+`(:method, :url, :headers, :body)` and `RequestOptions`'s are `(:timeout, :max_retries, :tags)`
+(phase 5b's `P5-33` states both), the adapter is in a different gem, `PIPE-11` forbids ambient carriage,
+and `NFR-4` locks the seam's three-argument shape. So an adapter can reach a tracer only through its own
+constructor — which gives one tracer for the adapter's whole lifetime, not one per operation — or
+through a widening of `RequestOptions`, which is a core type and a phase-1 surface. This is `OI-31`'s
+shape one layer further out: `OI-31` records that a pipeline **step** cannot reach a context bundle;
+this records that a **transport in another gem** cannot reach a per-operation tracer at all. Phase 8a
+decides and the decision may be "not wired, and `DEF-42` stays open on this half too", which is what
+`OI-32` already records for the operation-lifecycle triple.
+
+**Resolution:** *(open)*
+
+### OI-37 — a cancelled `Async` task raises an `Exception` that is not a `StandardError`, so `Dexpace.close_quietly` and every `rescue` written the obvious way are blind to it
+
+- **Opened:** 2026-09-11, phase 8 segmentation design
+- **Status:** open
+- **Cites:** SEAM-30, ASYNC-5, ASYNC-6, TRANSPORT-7, TRANSPORT-9, TRANSPORT-22, CFG-21, XCUT-13
+
+Design §3.3's check-after-resume rule says a producer that discovers cancellation while holding a
+response "MUST close any response it holds and settle through the failure channel", and §3.7 makes
+`Dexpace.close_quietly` the single sanctioned exit for such a close — it "rescues `StandardError` from
+`#close`". Verified on `async` 2.45.1 under Ruby 3.4.10: `Async::Stop` **is** `Async::Cancel` —
+`lib/async/stop.rb` is `module Async; Stop = Cancel; end` — and `lib/async/cancel.rb:8` declares
+`class Cancel < Exception`, so `Async::Stop.equal?(Async::Cancel)` is `true` and
+`Async::Cancel.ancestors.take(3)` is `[Async::Cancel, Exception, Object]` — **not a `StandardError`**.
+`Async::Task#cancel` raises it inside the task and `#stop` is the backward-compatible alias, so a
+`rescue => e` or a `rescue StandardError` in an adapter's send path does not
+run, while `task.with_timeout`'s `Async::TimeoutError` **is** a `StandardError` and does. An orphan-close
+written as a `rescue` therefore runs on a timeout and not on a cancellation, which is the exact inverse
+of what `SEAM-30` and `ASYNC-5` are for, and it is silent. The mechanism is phase 2's and phase 8
+neither introduces nor widens the gap; the repair is local — the close belongs in an `ensure`, not a
+`rescue` — and `close_quietly`'s own rescue of `StandardError` from `#close` is unaffected and correct.
+Because the two names are one class, `rescue Async::Cancel` and `rescue Async::Stop` catch the same
+thing; an adapter that writes both has written one. Recorded rather than fixed here because
+`close_quietly`'s contract is phase 2's and a second exit would
+give the SDK two answers to one question. It is `OI-18`'s species: a core mechanism that is correct about
+what it was designed for and silent about a case a later gem made reachable.
+
+**Resolution:** *(open)*
+### OI-38 — `dexpace-transport-async_http` cannot declare the repository-wide Ruby 3.2 floor, and a phase-0 gate asserts that it must
+
+- **Opened:** 2026-09-11, phase 8c design
+- **Status:** open
+- **Cites:** NFR-2, NFR-10, NFR-14, DEF-11, P0-9, P8-36
+
+Phase 0 fixed `VERSIONS` with a single `ruby floor` line of `3.2` and a `ruby matrix` of
+`3.2 3.3 3.4 4.0`, and `rake gates:versions` asserts "that every gemspec's `required_ruby_version` equals
+`>= ` plus the `ruby floor` line"
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md:291-303`). Verified on
+2026-09-11 against the installed stack: **`async-http` 0.104.0 declares `required_ruby_version >= 3.3`**,
+and so do `async` 2.45.1, `async-pool` 0.12.0, `console` 1.37.0, `io-endpoint` 0.18.0, `io-event` 1.22.0,
+`io-stream` 0.14.0, `protocol-http` 0.71.0, `protocol-http1` 0.41.0, `protocol-http2` 0.28.0 and
+`protocol-url` 0.19.0. From rubygems.org's version index: `async-http 0.94.2` is the last release
+allowing `>= 3.2` and `0.95.0` raised it; for `async` the boundary is `2.37.0` / `2.38.0`, both released
+2026-03-08. So the two mechanised constraints contradict each other: the gate requires `>= 3.2` and the
+only dependency that satisfies `>= 3.2` is eleven minor releases behind the one the phase-8c design
+verified every one of its facts against. Phase 8c takes the narrowing as deviation `P8-36` and
+`dexpace-core`'s floor does not move. What this row records is the **machinery that has to change and
+that no sub-phase owns**: (a) `VERSIONS` gains a per-gem floor key
+(`ruby floor dexpace-transport-async_http  3.3`) beside the global one; (b) `gates:versions` reads a
+per-gem floor when one exists and the global floor otherwise — a change to a phase-0 gate; (c) the root
+`Gemfile`'s `gems/*` glob skips a gem this interpreter's version cannot satisfy, without which
+`bundle install` on the 3.2 row fails for the whole workspace; (d) the 3.2 row excludes this one gem
+from `test:gems` and `gates:clean_bundle` — the two tasks that install or load it; `gates:gemspec_audit`
+and `gates:require_allowlist` only read text and need no exclusion. The exclusion is per-gem and not
+per-gate, and it lives in the Ruby-side tasks rather than in the workflow YAML, so
+`ci_workflow_test.rb`'s "every listed gate appears in some job" still holds and `ci.yml` is unedited. It also earns a line in
+`docs/first-release.md`: the gem a consumer on Ruby 3.2 cannot install, and the composition that still
+works for them. Nothing is broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-39 — `TRANSPORT-14`'s malformed-inbound-header-**name** clause is unreachable on `dexpace-transport-async_http`, and §12 records `TRANSPORT-14` as satisfied without qualification
+
+- **Opened:** 2026-09-11, phase 8c design
+- **Status:** open
+- **Cites:** TRANSPORT-14, XCUT-18, HTTP-17, NFR-8, P8-38
+
+`TRANSPORT-14` (MUST): "Inbound response headers MUST be copied leniently enough that a single malformed
+header does not fail the whole response: a control byte in a value, **or a control/non-ASCII byte in a
+name**, MUST drop only that header (logged at verbose) while the body and remaining headers are still
+delivered." Verified on 2026-09-11 against `protocol-http1` 0.41.0 under Ruby 3.4.10, driving a raw
+`TCPServer` that emits `X-B\xE9d: v`: the client raises
+`Protocol::HTTP1::BadHeader: Could not parse header: "X-B\xE9d: v"` out of the **read**, so no response
+object exists and the adapter has nothing to drop from. The other two clauses hold: an obs-text byte in a
+value came back as `["X-Obs", "caf\xE9"]` (both `ASCII-8BIT`) and a control byte in a value came back
+intact for the adapter to drop. The charter's fact 6 measured `Net::HTTP` doing the opposite — it
+*preserves* a non-ASCII name as a key — so the requirement is satisfiable on one MVP adapter and not on
+the other, which is the per-transport scoping §17's own preamble anticipates and which neither §12 nor
+§9.3 records for this ID (§9.3 scopes only `TRANSPORT-8` and `TRANSPORT-18` that way). Phase 8c records
+it as deviation `P8-38` and the conformance run carries a **named waiver listing `TRANSPORT-14`**, per
+§9.3's mechanism, so the gap is reported rather than restated. The only route to satisfying it would be
+to parse the response head off the socket before `protocol-http1` does, i.e. to reimplement the HTTP/1.1
+response parser inside an adapter whose whole design is to be thin over one library. What would resolve
+it: §12's `TRANSPORT` row gains `TRANSPORT-14` to its adapter-scoped list the next time §12 is
+deliberately amended by a human, and `docs/deviations.md` carries the interim note. Nothing is broken
+today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-40 — design §3.3 and the corpus name `Async::Task#stop`, which `async` 2.45.1 deprecates in favour of `#cancel`
+
+- **Opened:** 2026-09-11, phase 8c design
+- **Status:** open
+- **Cites:** ASYNC-6, SEAM-24, DEF-1, DEF-11, TRANSPORT-7
+
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md:252-254` reads: "`dexpace-async-async` maps
+`Async::Task#stop`/`#with_timeout` onto the pivot's cancellation in both directions for callers whose own
+code is already reactor-based (**ASYNC-6**)", and the corpus carries it verbatim as
+`concurrency-and-async/f75816b6`. The phase-8 segmentation design cites `Async::Task#stop` as "the
+primitive" in its fact 8 and in `R13`. Verified on `async` 2.45.1 under Ruby 3.4.10:
+`lib/async/node.rb` carries `# Backward compatibility alias for {#cancel}. # @deprecated Use {#cancel}
+instead.` immediately above `def stop(...) = cancel(...)`, and `Async::Task.instance_method(:stop).owner`
+is `Async::Node`. The current primitive is **`Async::Task#cancel(later = false, cause: $!)`**, and its
+`cause:` keyword is materially better for this port than `#stop` was: a `Dexpace::Cancellation#reason`
+passed as `cause:` is readable back off the raised `Async::Cancel` as `#cause`, which is the out-of-band
+discrimination `XCUT-2` and `TRANSPORT-3` require and which `#stop` gives no channel for. This is the
+same species as the charter's `OI-34` and `OI-35` — a frozen design chapter that is wrong about a
+library — and it is smaller than either: the *mapping* §3.3 describes is right, only the method name has
+moved. Phase 8c calls `#cancel` everywhere. What would resolve it: `dexpace-async-async` (`DEF-11`,
+post-v1) is written against `#cancel`; §3.3's sentence is corrected the next time §3 is deliberately
+amended by a human; the corpus entry re-keys on the next harvest, at which point any note citing
+`concurrency-and-async/f75816b6` needs revisiting. Nothing is broken today because nothing is
+implemented.
+
+**Resolution:** *(open)*
+
+### OI-41 — `TRANSPORT-8` is satisfiable on `dexpace-transport-async_http`, and §12 counts it among the eight MUSTs that hold vacuously
+
+- **Opened:** 2026-09-11, phase 8c design
+- **Status:** open
+- **Cites:** TRANSPORT-8, TRANSPORT-3, TRANSPORT-4, XCUT-2, ASYNC-6, NFR-8
+
+`docs/sdk-design-ruby/12-appendix-requirement-coverage-index.md:41` lists "TRANSPORT-1, TRANSPORT-2,
+TRANSPORT-8 and TRANSPORT-18 … adapter-scoped and vacuous for `Net::HTTP`", and the MUST-level summary
+at `:49-55` counts `TRANSPORT-8` among "eight [that] hold vacuously". §9.3 is more careful —
+"**TRANSPORT-8** and **TRANSPORT-18** vacuous for `Net::HTTP` and **mandatory for any adapter whose
+client has those paths**" — and the corpus carries that as `testing/9a56af9d`. Verified on 2026-09-11
+against `async` 2.45.1 and `async-http` 0.104.0 under Ruby 3.4.10: cancelling a **parent** `Async::Task`
+delivers `Async::Cancel` into an in-flight child exchange while the SDK future is still live — measured
+event sequence `["outer-saw:Async::Cancel", "inner:Async::Cancel", "inner-ensure"]` — which is exactly
+`TRANSPORT-8`'s antecedent, "a cancellation that originates inside it (e.g. an internal cancel-all)". It
+is not a contrived case: it is the ordinary shape of a consumer whose supervisor cancels its children on
+shutdown. The requirement's second clause is free here, because `async` puts the two exceptions in
+different halves of the tree: `Async::Cancel < Exception` and `Async::TimeoutError < StandardError`, so
+the terminal-versus-retryable discrimination is by class and never by message (`XCUT-2`). Two candidates
+were tested and **rejected** as the antecedent: a graceful HTTP/2 GOAWAY mid-stream did not abort the
+open stream (the client read it to completion), and `Protocol::HTTP::RefusedError` is a retryable
+transport failure rather than a cancellation. So the port gains a **satisfied** MUST where §12 records a
+vacuous one — the inverse direction from `OI-34`, and equally a defect in a frozen chapter. What would
+resolve it: phase 8c implements and asserts the discrimination and its checklist row states it;
+§12's `TRANSPORT` row and the MUST-level count are corrected the next time §12 is deliberately amended
+by a human, and `docs/deviations.md` carries the interim note. Nothing is broken today because nothing is
+implemented.
+
+**Resolution:** *(open)*
+### OI-42 — `net-http`'s connect phase uses `Timeout.timeout`, the primitive design §8.3 bans, and the cop that enforces the ban cannot see it
+
+- **Opened:** 2026-09-11, phase 8a design
+- **Status:** open
+- **Cites:** ASYNC-3, PIPE-33, XCUT-13, TRANSPORT-4, NFR-2, DEF-18
+
+**`net-http`'s connect phase uses `Timeout.timeout`, the primitive design §8.3 bans, and the cop that
+enforces the ban cannot see it.** `/usr/lib/ruby/3.4.0/net/http.rb:1657` is
+`s = Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(conn_addr, conn_port, @local_host, @local_port) }`.
+§8.3's prohibition is stated as binding "every gem in this repository" and phase 0 mechanises it as
+`Dexpace/NoThreadInterrupt` over this repository's own `lib/`, so a library dependency using it is
+outside both the words and the scan. The hazard §8.3 names — an asynchronous interrupt landing "inside an
+`ensure` block that is releasing a pooled connection" — is **not** reachable through this particular use:
+the interrupt can only land during `TCPSocket.open`, before any SDK object holds a socket, and the
+library converts it into a typed `Net::OpenTimeout` rather than letting a bare `Timeout::Error` escape.
+So the port's guarantee is narrower than §8.3's sentence and is still true of everything it claims. Worth
+a row because the sentence is absolute, because a reader auditing the ban will grep `lib/` and find
+nothing, and because the same question will be asked of `async-http`'s dependency closure in `8c`. What
+would resolve it: §8.3 gaining one clause scoping the prohibition to code this repository writes, the
+next time §8 is deliberately amended by a human. Nothing is broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-43 — design §9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that distinction
+
+- **Opened:** 2026-09-11, phase 8a design
+- **Status:** open
+- **Cites:** NFR-2, NFR-17, SEAM-1, DEF-22
+
+**Design §9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that
+distinction.** §9.3's argument for choosing Minitest over RSpec is that "**it ships with the interpreter
+as a default gem**, so the same argument §2.4 makes about `base64` and `logger` applies to the test
+framework". Verified on 3.4.10: `Gem::Specification.find_by_name("minitest").default_gem?` is `false`,
+its gem directory is not the interpreter's, and `Gem::BUNDLED_GEMS::SINCE` does not name it either
+(the table lists only gems that *became* bundled at a known version). Minitest is **bundled** — available
+with the interpreter, and requiring an explicit `Gemfile`/gemspec entry under Bundler, which is the very
+property §2.4 spends a page warning about. The **conclusion** survives unchanged and is the reason this
+is a row rather than a correction to a decision: an adapter author can still run the suite with nothing
+extra installed, and `dexpace-conformance` still declares nothing, because `8a`'s two drivers reference
+`::Minitest` and `::RSpec` at call time and `require` neither. What it changes is one sentence in a frozen
+chapter and one line in the root `Gemfile`, which must list `minitest` explicitly. Nothing is broken
+today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-44 — the require-allowlist's denylist has no per-gem scope, so a denial written for core's reason reaches a gem the reason does not describe
+
+- **Opened:** 2026-09-11, phase 8a design
+- **Status:** open
+- **Cites:** SEAM-1, SEAM-2, NFR-1, NFR-2, DEF-22
+
+**The require-allowlist's denylist has no per-gem scope, so a denial written for core's reason reaches a
+gem the reason does not describe.** Phase 0's denylist denies `socket` with the reason "`SEAM-1`/`SEAM-2`:
+core embeds no concrete transport", and phase 0's adapter extension permits only "allowlisted, or under
+`dexpace/`, or the single third-party gem that adapter's gemspec declares" — so `dexpace-conformance`,
+which declares no third-party gem, cannot `require "socket"` even though it embeds no transport and
+`socket` is non-gemified stdlib that can never become a bundled gem. The immediate case is `8a`'s
+(`P8-14` amends the gate with a named per-gem exception), and the shape is general: every denylist entry
+carries a *reason*, the reasons are gem-scoped, and the mechanism is not. The same question will arise
+for `dexpace-transport-async_http` and `openssl`, and for any future adapter that legitimately needs a
+denied name. What would resolve it: the denylist growing a scope column, so an entry reads "denied to
+core and to transport adapters" rather than "denied". Nothing is broken today because nothing is
+implemented.
+
+**Resolution:** *(open)*
+
+### OI-45 — `dexpace-transport-net_http` opens a TCP (and over HTTPS a TLS) connection per request, and the corpus rule that forbids that has no note
+
+- **Opened:** 2026-09-11, phase 8a design
+- **Status:** open
+- **Cites:** TRANSPORT-5, TRANSPORT-29, SEAM-12, NFR-2, XCUT-11
+
+**`dexpace-transport-net_http` opens a TCP — and, over HTTPS, a TLS — connection per request, and the
+corpus rule that forbids that has no note.** `resource-management/4aca52f9` says "Never open one
+connection per request; size connection or HTTP pools with a bounded, named constant instead", and design
+§3.2 with `transport-adapter/52b448e8` requires the opposite for measured reasons this document records
+(verified fact 9: a shared `Net::HTTP` under eight threads produced 128 errors and **26 responses matched
+to the wrong request**). The design is right and the cost is real: every request pays a handshake, which
+on an HTTPS endpoint is one round trip plus a TLS negotiation. A keep-alive pool is not reachable inside
+`NFR-2`'s budget — `connection_pool` would be a second third-party declaration and `gates:gemspec_audit`
+rejects it — and a hand-rolled pool in the adapter would have to answer every bounded-pool and
+deterministic-teardown rule the corpus routes to `dexpace-async-thread`, in a gem that is not that one.
+What would resolve it: either a note recording the resolution this document argues, or a later phase
+taking a hand-rolled bounded pool with a checkout timeout as a deliberate, separately-designed piece of
+work. Recorded now because the first user to benchmark the SDK against `faraday` will find this and
+should find it already written down. Nothing is broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+### OI-46 — a pooled worker inherits the pool creator's fiber storage, so the repository's context-restore mechanism leaks assembly-time context into a caller's task
+
+- **Opened:** 2026-09-11, phase 8b design
+- **Status:** open
+- **Cites:** ASYNC-9, ASYNC-10, ASYNC-12, OBS-23, OBS-24, XCUT-11
+
+**A pooled worker inherits the pool creator's fiber storage, so the repository's context-restore mechanism
+leaks assembly-time context into a caller's task — and nothing in `docs/knowledge/` or design §8.1 says
+so.** Design §8.1 fixes the adapter's shape as "saves the worker's prior storage, installs the captured
+snapshot for the work's duration and restores it in an `ensure`", and phase 5b's `Diagnostics.with`
+implements exactly that with a **merge** on install (`snapshot.each { |k, v| Fiber[k] = v }`), which is
+correct for 5b's own consumer and for `OBS-24`. Measured on Ruby 3.4.10: a pool built while
+`Fiber[:tenant] = "assembly"` was set, driven by a caller whose captured context is
+`{"trace.id" => "CALLER-A"}`, runs the task with `{"trace.id" => "CALLER-A", :tenant => "assembly"}`
+visible — because `::Thread.new` inherited `:tenant` at pool construction and the snapshot has no key to
+overwrite it with. That is `ASYNC-10`'s "a stale snapshot from when it was assembled", and it is invisible
+in every test that builds the pool in the same context it submits from. **Phase 8b fixes it for its own
+gem** with a one-time clear of inherited storage at worker start (`P8-20`), and the *finding* is that the
+hazard is a property of **any** long-lived carrier this repository creates with `::Thread.new` — a future
+`dexpace-instrumentation-otel` background exporter, a `dexpace-async-concurrent_ruby` pool, or a caller's
+own worker wrapped in `Diagnostics.with` — and neither the design sentence nor the harvested rule warns
+about it. What would resolve it: either a sentence in §8.1 (a frozen chapter, so not now) or the knowledge
+note `8b` files below, which is the route taken. Nothing is broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-47 — `Dexpace::Bridge::AsyncOver`'s posted block re-checks cancellation on return and not before dispatch, so a task cancelled while queued still performs its network round-trip
+
+- **Opened:** 2026-09-11, phase 8b design
+- **Status:** open
+- **Cites:** SEAM-18, SEAM-30, ASYNC-3, ASYNC-5, PIPE-33, XCUT-3
+
+**`Dexpace::Bridge::AsyncOver`'s posted block re-checks cancellation on return and not before dispatch, so
+a task cancelled while queued still performs its network round-trip.** Phase 2's design describes the block
+as "perform[ing] the blocking send, re-check[ing] cancellation on return". The worker's
+`::Thread::Queue#pop` is one of the four suspension points `concurrency-and-async/611b9392` enumerates, so
+the block begins executing immediately after a resume — the earliest check-after-resume point a queued task
+has — and a single `cancellation.cancelled?` test there would turn a wasted round-trip into no round-trip.
+**Nothing is broken**: `ASYNC-3`'s third clause requires only that a queued task not be *interrupted*,
+which holds because nothing is ever interrupted; `SEAM-30`/`ASYNC-5` close the orphan through
+`Completer#fulfil`'s losing-race branch; and no response reaches a cancelled caller. What is lost is one
+network call, one connection from the pool, and — on a non-idempotent method — one **server-side side
+effect a caller believed they had cancelled**, which is the half that makes this worth a row rather than a
+micro-optimisation. **It is filed rather than fixed because it is `dexpace-core`'s code**: `AsyncOver` is
+phase 2's, committed and reviewed, and `dexpace-async-thread` cannot see the token — the pool posts an
+opaque block by design (`concurrency-and-async/08a0e08d`), which is also what lets the same object serve
+`Dexpace::Page::_Executor`. The repair is one `if` at the top of the posted block and belongs to whoever
+next amends phase 2. `OI-18` is the same species from the same object: a core mechanism correct about what
+it was designed for and silent about a case a later gem made reachable. Nothing is broken today because
+nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-48 — `Thread#report_on_exception` writes to `$stderr` directly, so a dying thread is invisible to the warnings-fatal gate that exists for exactly this
+
+- **Opened:** 2026-09-11, phase 8b design
+- **Status:** open
+- **Cites:** NFR-7, NFR-17, XCUT-11, ASYNC-15
+
+**`Thread#report_on_exception` writes to `$stderr` directly, so a dying thread is invisible to the one gate
+that exists for exactly this.** Phase 0's gate set runs the real suite under `ruby -w` with warnings
+failing the build, and its shared test case **overrides `Warning.warn` to raise** — which is what catches
+`IO::Buffer`'s experimental warning (7a's `P7-5`) and `Fiber#storage=`'s (`OI-13`). Measured on 3.4.10: a
+thread that dies with an exception prints `#<Thread:…> terminated with exception (report_on_exception is
+true)` to `$stderr` and the `Warning.warn` override captures **nothing**. So a suite that leaks a dying
+thread — a test double's worker, a helper's background thread, a future adapter's exporter — produces
+stderr noise no gate reads and no assertion fails. **Phase 8b's own workers cannot die** (`P8-22`) and set
+`report_on_exception = false` inside the thread body anyway, so this gem is not the subject; the finding is
+that **the repository's warnings-fatal gate does not cover thread death**, and phase 8 is the first phase
+to create threads at all. What would resolve it: a shared test-case addition asserting `::Thread.list.size`
+is unchanged at `teardown`, which is a phase-0 artifact and a one-line change — cheaper than the class of
+bug it catches, and `8b`'s own suite already asserts it per-test. Nothing is broken today because nothing
+is implemented.
+
+**Resolution:** *(open)*
+
+next id: OI-49

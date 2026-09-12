@@ -192,6 +192,8 @@ still the cheaper option.
 | Pipeline composition and execution context | `--topic pipeline,execution-context,cancellation-and-timeouts --section rules --brief` and `--prefix CTX,RECOV,PIPE --section rules --brief` | `--prefix-info PIPE`, `--gaps CTX,RECOV,PIPE` | live |
 | Observability, configuration and redaction | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix CFG,OBS --section rules --brief` | `--prefix-info CFG`, `--prefix-info OBS`, `--gaps CFG,OBS` | live |
 | Resilience: retry, redirect and authentication | `--topic retry-and-resilience,redirect-handling,authentication,cancellation-and-timeouts --section rules --brief` and `--prefix RETRY,REDIR,AUTH --section rules --brief` | `--prefix-info RETRY`, `--gaps RETRY,REDIR,AUTH,RECOV` | live |
+| Serialization, SSE and pagination | `--topic serde,sse-streaming,pagination --section rules --brief` and `--prefix SERDE,SSE,PAGE --section rules --brief` | `--prefix-info SERDE`, `--gaps SERDE,SSE,PAGE` | live |
+| Transport and async-runtime adapters | `--topic transport-adapter,cancellation-and-timeouts,concurrency-and-async --section rules --brief` and `--prefix TRANSPORT,ASYNC --section rules --brief` | `--prefix-info TRANSPORT`, `--gaps TRANSPORT,ASYNC` | live |
 | Styleguide-vs-design conflicts | `--section conflicts --brief` | resolve via a note under notes/ | live |
 
 A regex with an alternation cannot live in a Markdown cell without an escape that would be copied

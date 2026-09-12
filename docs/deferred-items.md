@@ -63,6 +63,21 @@ against the design pass itself rather than an implementation phase.
   the first phase that has both**, which is why it is the target rather than phase 4. Phase 2 does
   fix the contract SEAM-24's cancellation half will map in both directions:
   `Dexpace::Cancellation` in one and `Dexpace::Async::Completer#on_cancel` in the other.
+  **Amended 2026-09-12 (phase 8 segmentation design, confirmed by `8b`'s and `8c`'s): most of `SEAM-24`'s
+  SHOULD is met after phase 8, and what stays deferred is narrower than this row reads.** `SEAM-24`'s
+  **first** sentence — "propagate the ambient logging/diagnostic context across the thread handoff" — is
+  `ASYNC-8`'s, and `dexpace-async-thread` implements it through `Fiber[]`, within fiber storage;
+  `dexpace-transport-async_http` gets the same propagation by construction, since a child `Async::Task`
+  inherits `Fiber[]`, and it satisfies `ASYNC-6` for the `Async::Task` **it creates itself**. What stays
+  deferred is both §12's "`SEAM-24` … **beyond fiber storage**, ships with `dexpace-async-async`" and the
+  requirement's **second** sentence proper — "**Each adapter's cancellation bridge** SHOULD map
+  cancellation in both directions per that ecosystem's idiom" — which is a *caller-facing* bridge over the
+  host's own primitive, assigned by design §3.3 to `dexpace-async-async` (`DEF-11`, post-v1). **No
+  phase-8 gem bridges a caller-held primitive**: the thread pool hands out no `::Thread`, `#post` returns
+  `nil`, and the only handle a caller holds is the pivot; the async transport bridges no caller-held task.
+  So the row stays **deferred** and is **not** UNSCHEDULED — the condition it names is post-v1 and
+  unmeetable here — and this sentence exists so a phase-9 audit does not re-derive it from three
+  sub-phase designs.
 
 ### DEF-2 — HTTP-22, HTTP-48, HTTP-49, HTTP-50: name interning and ETag/Range/conditional-request helpers
 
@@ -116,8 +131,22 @@ against the design pass itself rather than an implementation phase.
   Recorded so a later reader does not mistake an unmeetable condition for a forgotten one. Both
   sharpenings were stated by the phase-3 segmentation design's deferral sweep and are performed here
   by phase 3b, which owns both IDs.
-- **Cites:** BODY-36, BODY-12, BODY-11, BODY-13, TRANSPORT-28
-- **Status:** deferred (BODY-12 clause 1 discharged 2026-09-08, phase 3b)
+- **BODY-12 clause 2: condition met, action declined, 2026-09-12 (phase 8 segmentation design and
+  `8a`'s design).** The clause targets phase 8 explicitly, and phase 8 has now planned the adapter it
+  names. Measured on `net-http` 0.6.0 under Ruby 3.4.10: `Net::HTTP#send_request_with_body_stream` streams
+  a body through `::IO.copy_stream` to a `Net::BufferedIO`, whose `is_a?(::IO)` is **false**, so the
+  kernel path is not reachable without bypassing the library's own write path — which would mean writing
+  the request framing, the chunked encoder and the `100-continue` handshake by hand, inside an adapter
+  whose whole design is to be thin over one library. `8c` reports from the other side that
+  `Protocol::HTTP::Body::File` makes the *reachable* half of `TRANSPORT-28` more reachable on
+  `dexpace-transport-async_http` — a report to `8a`'s `R5`, not a route to a kernel transfer. Per the
+  roadmap's retirement rule the clause is **UNSCHEDULED with the phase named**, not silently carried.
+  **`BODY-36`'s half is untouched** — its condition is core's dependency budget changing, which phase 8
+  does not do — and neither is `BODY-12` clause 1, discharged by phase 3b.
+- **Cites:** BODY-36, BODY-12, BODY-11, BODY-13, TRANSPORT-28, DEF-10
+- **Status:** deferred (BODY-12 clause 1 discharged 2026-09-08, phase 3b; **BODY-12 clause 2 UNSCHEDULED
+  2026-09-12, phase 8a**, which performs the mark when it executes unless it finds a route this planning
+  pass did not; BODY-36 deferred on an unmeetable condition)
 
 ### DEF-4 — PIPE-36: pillar-step stage locking
 
@@ -182,6 +211,14 @@ against the design pass itself rather than an implementation phase.
   do not need either to satisfy the transport contract.
 - **Pick-up condition:** post-MVP; revisit when a transport adapter beyond the two MVP transports
   ships.
+- **Read and left alone, 2026-09-12 (phase 8 segmentation design and `8a`'s design), and the distinction
+  from `DEF-3` is the point.** Phase 8 ships exactly the two MVP transports, so the condition — an adapter
+  **beyond** them — is **not met**, and this row is therefore **not** UNSCHEDULED, where `DEF-3`'s
+  `BODY-12` clause 2 is: that clause named phase 8 itself. `TRANSPORT-30` is carried ⏳ whole inside
+  `8a`'s 23 checklist rows citing this row, and `TRANSPORT-28` is **narrowed from ⏳-whole to partially
+  satisfied** — `8a`'s `R5` finds the requirement's reachable half satisfiable on `Net::HTTP` and only its
+  zero-copy clause ⏳ — the same two-rows-one-obligation treatment phase 2 gave `SEAM-29`. No status
+  change and no `Cites` change; a ⏳ checklist row against an open deferral is not a pick-up.
 - **Cites:** TRANSPORT-28, TRANSPORT-30
 - **Status:** deferred
 
@@ -266,6 +303,18 @@ against the design pass itself rather than an implementation phase.
   check-after-resume rule and `Completer#on_cancel` mitigate but do not close the gap: a transport
   blocked inside an uninterruptible C-extension read cannot be aborted early.
 - **Pick-up condition:** if an interruptible transport path is ever adopted.
+- **Read and left alone, 2026-09-12 (phase 8 segmentation design and `8b`'s design). No `Cites` edit and
+  no `Status` edit is made, deliberately.** §8.3 forbids an interruptible transport path and phase 8 does
+  not adopt one, so the condition is **not met** and the row is **not** UNSCHEDULED. What phase 8 adds is
+  the disposition a reader of the roadmap will otherwise expect to find here: `8b` carries `ASYNC-3` ⏳
+  **citing this row** and `PIPE-33`'s cross-reference row citing it too, while **`ASYNC-4` is N/A, citing
+  design §10.5 and no register row at all** — §10.5, §12 and the checklist legend each distinguish an
+  *unsatisfied* MUST from a *vacuous* one, and this row's `Cites:` line has always been `ASYNC-3, PIPE-33`.
+  `ASYNC-4` is deliberately absent from it and should stay absent; the roadmap's cross-cutting constraint
+  8 said "phase 8 marks all three ⏳ citing it" and is corrected in place there. Counter-intuitively,
+  `dexpace-transport-async_http` **can** abort an in-flight operation (a parent task's cancellation
+  reaches an in-flight exchange and runs its `ensure`), and that does **not** close `ASYNC-3`, whose
+  antecedent is a blocking task on a **worker thread** and whose row belongs to the gem that has one.
 - **Cites:** ASYNC-3, PIPE-33
 - **Status:** deferred
 
@@ -341,8 +390,18 @@ execution step 7.
   contract it serves exists.
 - **Pick-up condition:** phase 8, which owns this gem's gemspec, its version and its first
   release; phase 9 adds the remaining suites.
-- **Cites:** none
-- **Status:** deferred
+- **Pick-up recorded in planning, 2026-09-12 (phase 8 segmentation design and `8a`'s design): the
+  condition names this phase in as many words, and `8a` is the sub-phase that meets it.** `8a` writes
+  `Dexpace::Conformance::Failure`, the callable assertion protocol with its five result statuses and its
+  ID-keyed waivers, the §9.3 `TCPServer` fixture (`WireServer`), the transport suite, and both thin
+  drivers — Minitest and RSpec — referenced at call time so neither framework becomes a runtime
+  constraint on a consumer. The assertion objects and the fixture live in **`lib/`**, not `test/`, which
+  is what leaves `DEF-23`'s condition unmet (see that row). The suite contract is one twelve-clause list
+  owned by `8a`'s design; `8c` drives the same suite over an asynchronous adapter. The gem's version bump
+  and first release are the phase's, not the sub-phase's, and land with `docs/first-release.md`'s table.
+- **Cites:** NFR-2, NFR-4, SEAM-12, SEAM-14, SEAM-15, TRANSPORT-1–TRANSPORT-30, OBS-21, OBS-25, PAGE-36
+- **Status:** deferred — the disposition above is a planning decision; `8a`'s plan moves this line to
+  `picked-up (<date>, phase 8a)` when it executes, as every sub-phase plan performs its own register edits
 
 ### DEF-23 — A Steep target over a test tree
 
@@ -355,6 +414,16 @@ execution step 7.
   them would buy a checked `assert_equal` call.
 - **Pick-up condition:** when a gem's test support becomes production-quality code worth
   checking — phase 8's conformance helpers at the earliest.
+- **Checked and still not met, 2026-09-12 (phase 8 segmentation design and `8a`'s design).** The
+  condition was checked rather than assumed, because the row's own text invites phase 8 to meet it.
+  `8a` places `dexpace-conformance`'s assertion objects and the `TCPServer` fixture in **`lib/`** — §9.3's
+  whole argument is that a third-party adapter author *runs* them, which means they ship in the gem — and
+  phase 0 already gave that `lib/` its own Steep target, so they are checked as production code already.
+  Nothing `8a` writes under `test/` is production-quality code worth a seventh target. The condition is a
+  Steep target over a **`test/`** tree, and it is still unmet; the row is **not** UNSCHEDULED, because
+  phase 8 does not meet the condition and decline it. If `8a` instead places the fixture under `test/`
+  when it executes, it picks the row up and says so. `DEF-29`'s "the moment they move is also the moment
+  `DEF-23`'s condition is worth re-reading" is the re-reading, performed here.
 - **Cites:** NFR-3
 - **Status:** deferred
 
@@ -392,8 +461,19 @@ execution step 7.
   a transport, and phase 1 ships none.
 - **Pick-up condition:** phase 8 (Transports and Async Runtime), in each adapter's dispatch path;
   phase 9's conformance suite is where the assertion that it happened belongs.
-- **Cites:** HTTP-2, HTTP-17, HTTP-18, XCUT-18, SEAM-29
-- **Status:** deferred
+- **Pick-up recorded in planning, 2026-09-12 (phase 8 segmentation design, `8a`'s and `8c`'s): both
+  halves have a call site, and on one of them this is not a mitigation but the only defence.** Each
+  adapter calls `Dexpace::HeaderSyntax.validate_name!` and `.validate_outbound_value!` over every outbound
+  header immediately before the native request is built, and each sub-phase carries its own checklist row
+  and its own forged-request test, which proves the **call site** rather than re-asserting the module.
+  What phase 8 adds to this row is measured: `protocol-http2` 0.28.0 performs **no outbound header
+  validation at all** — a space in a name and a CRLF in a value both reached the peer — so on
+  `dexpace-transport-async_http`'s HTTP/2 path this re-validation is the sole barrier between a forged
+  `Dexpace::Request` and an injected header, a stronger statement than design §10.10's
+  "a correctness-of-shape gap, not a request-splitting gap".
+- **Cites:** HTTP-2, HTTP-17, HTTP-18, XCUT-18, SEAM-29, TRANSPORT-12
+- **Status:** deferred — the disposition above is a planning decision; the line moves to `picked-up` at
+  phase 8's phase-level pull request, once **both** adapters' call sites exist
 
 ### DEF-26 — The body member's type and HTTP-46's by-value body comparison
 
@@ -481,8 +561,27 @@ execution step 7.
   alongside `DEF-22`'s framework-agnostic assertion objects — and the moment they move is also the
   moment `DEF-23`'s "a gem's test support becomes production-quality code worth checking" condition
   is worth re-reading.
-- **Cites:** SEAM-11, SEAM-16, NFR-4, NFR-11
-- **Status:** deferred
+- **Condition met, action declined, 2026-09-12 (phase 8 segmentation design and `8a`'s design).** The
+  condition — the first consumer outside `dexpace-core` — is met: phase 8 ships three gems with suites
+  outside core. The row's *action*, and its whole content, is the literal move named in its title, and it
+  is declined on an argument the implementation confirms from the inside: moving
+  `gems/dexpace-core/test/support/`'s three fakes into `dexpace-conformance` would make `dexpace-core`'s
+  own suite depend on a gem that depends on `dexpace-core` — a development-dependency cycle between the
+  workspace's two most load-bearing gems — for no gain core's suite can see. **The row's *purpose* is met
+  by a different route, which is stated here rather than used to close the row**: `dexpace-conformance`
+  publishes its **own** doubles (`RecordingSpan`, `Allocations`, `WireServer`, and the non-conforming
+  transport its own suite drives), which is what a third-party adapter author actually needs, and core
+  keeps the three it already has. **`8b` corrects one premise of the argument and strengthens it**: the
+  charter said `8b` drives phase 2's `FakeTransport` from a suite outside core, and it does not — phase
+  0's `test_helper.rb` puts only that gem's own `lib` on the load path, and a `require_relative` into
+  another gem's `test/support/` is the cross-gem reach styleguide 12.6 forbids — so `8b` writes its own
+  ten-line doubles, as 3a, 4c, 5b and 7a each did. The first consumer outside core found a local double
+  cheaper than a shared fake, which is evidence that the three fakes are not in fact shared.
+- **Cites:** SEAM-11, SEAM-16, NFR-4, NFR-11, DEF-22, DEF-23
+- **Status:** **UNSCHEDULED** (2026-09-12, phase 8a) — per the roadmap's retirement rule, a row whose
+  pick-up condition a phase met and declined to act on is UNSCHEDULED with the phase named, not
+  `picked-up` and not silently carried. `8a`'s plan performs the mark when it executes, and reverses it
+  only if it finds a route past the dependency cycle, in which case it says what it did about the cycle
 
 ### DEF-30 — Presence-gated auto-activation for instrumentation
 
@@ -523,8 +622,19 @@ execution step 7.
   where the event can be emitted. The first thing in this repository that actually **owns** an
   executor is phase 8's `dexpace-async-thread`, so phase 8 is where the emission gets a real
   subject and where `dexpace-conformance` asserts "close twice → executor shut once, one event".
-- **Cites:** SEAM-25, ASYNC-15, ASYNC-16, XCUT-13, OBS-3
-- **Status:** deferred
+- **Pick-up recorded in planning, 2026-09-12 (phase 8 segmentation design and `8b`'s design): the
+  condition's second half names this gem, and `8b` supplies the subject the event was missing.**
+  `Dexpace::Async::Thread::Pool#release` emits `Events::INSTRUMENTATION_SHUTDOWN` — phase 5b's event name
+  and field shape, unchanged — at `Severity::INFO`, inside `Instrumentation.contain`, **exactly once**,
+  asserted under sixteen-way concurrent close. The two adapter-private field keys
+  (`"dexpace.executor.worker_count"`, `"dexpace.executor.drained"`) are `private_constant`s in the pool
+  and are deliberately **not** added to core's `Keys`, because the portable assertion needs the event name
+  only. The *harness* half of the condition — the assertion living in `dexpace-conformance` — is `8a`'s,
+  and `8b` hands it the shape rather than writing it. Phase 5b specified a dated `Status` line for this
+  row without moving it; that edit lands when 5b executes and is not performed here.
+- **Cites:** SEAM-25, ASYNC-15, ASYNC-16, XCUT-13, OBS-3, DEF-22
+- **Status:** deferred — the disposition above is a planning decision; `8b`'s plan moves this line to
+  `picked-up (<date>, phase 8b)` when it executes, and this is the row's **closing** pick-up
 
 ### DEF-32 — the handler failures `Hooks.notify` drops after the first
 
@@ -877,15 +987,43 @@ execution step 7.
   once-per-key latch supplies the throttle, with `OBS-40`'s once-per-logger collision diagnostic as
   its caller and its test. Phase 8 writes a small `Data` over both.
 - **Pick-up condition:** **phase 8**, at the first adapter that drops a caller-set header rather than
-  raising on it — which is `TRANSPORT-8`'s subject and is not `dexpace-transport-net_http`. The
+  raising on it — which is **`TRANSPORT-12`**'s subject, with **`TRANSPORT-13`** the transport-side twin
+  of `OBS-19`'s three-mode policy over that drop — and is not `dexpace-transport-net_http`. The
   policy lands at that call site, with a test that drops the same header name twice and asserts one
   WARN then one verbose line. If no v1 adapter drops, the row names the **event** rather than a
   phase, in the shape `DEF-33` and `DEF-3`'s `BODY-36` half were given.
+- **Requirement ID corrected in place, 2026-09-12 (phase 8 segmentation design, confirmed from the
+  adapter's side by `8c`'s).** The condition read "which is **`TRANSPORT-8`**'s subject". `TRANSPORT-8`'s
+  subject is a cancellation originating inside the native client. The antecedent of the row's "which" is
+  *the adapter that drops*, and dropping is `TRANSPORT-12`'s subject; `TRANSPORT-13` is the logging policy
+  over that drop — "A transport SHOULD expose a configurable policy for how such header drops are logged
+  (every drop loudly; first per name loudly then quiet, default; all quiet)" — which is `OBS-19` from the
+  transport side, three modes for three modes. **The route the row describes is right and the requirement
+  it named was wrong.** The same wrong ID was repeated in phase 5b's forward table
+  (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`) and is corrected in
+  the same change, because a corrected register row pointing at an uncorrected phase document is how a
+  correction gets lost.
+- **Condition met, and pick-up recorded in planning, 2026-09-12 (`8c`'s design).** `protocol-http1` 0.41.0
+  rejects a header name `HTTP-17` accepts — `Protocol::HTTP1::Connection#write_headers` checks the RFC 7230
+  token set and raises `Protocol::HTTP1::BadHeader`, and it does so **after** the request line is already
+  on the socket, so the drop must be a pre-dispatch predicate rather than a rescue. So `TRANSPORT-12`
+  obliges `dexpace-transport-async_http` to drop that header only, and `TRANSPORT-13` obliges it to log
+  the drop under a three-mode policy whose two ingredients — `Severity`'s two levels and the once-per-key
+  latch — phase 5b already shipped. `8c` ships `AsyncHTTP::DropPolicy`, bounded at 64 distinct folded
+  names per adapter instance (the requirement's own "MUST be bounded" clause, answered with a number).
+  **One sentence the row needs, because a reader of the closed row would otherwise over-generalise:** the
+  condition is met by this adapter's **HTTP/1.1** path specifically — `protocol-http2` 0.28.0 transmits
+  the same name unvalidated — and the adapter drops on **both** protocols anyway (`P8-40`), so "the first
+  adapter that drops" is true of the gem rather than of every exchange it performs. A `TRANSPORT-11`
+  **framing**-header drop is a different rule and never goes through this policy: it is always logged at
+  verbose on both adapters, because three modes over a set the caller controls would let an attacker
+  suppress a `WARNING` by exhausting the per-name bound.
 - **Consequence for the checklists:** phase 5b carries `OBS-19` as ⏳ citing this row; phase 8 carries
   its own row. Deviation `P5-32` records that design §12 words the same disposition as "vacuous", and
   `OI-27` records that the phase-5 charter's 5b scope table words it as shipping.
-- **Cites:** OBS-19, TRANSPORT-8, HTTP-17, HTTP-18, XCUT-19, NFR-4, DEF-25, OI-8, OI-27
-- **Status:** deferred
+- **Cites:** OBS-19, TRANSPORT-12, TRANSPORT-13, HTTP-17, HTTP-18, XCUT-19, NFR-4, DEF-25, OI-8, OI-27
+- **Status:** deferred — the disposition above is a planning decision; `8c`'s plan moves this line to
+  `picked-up (<date>, phase 8c)` when it executes, and this is the row's **closing** pick-up
 
 ### DEF-42 — OBS-29's HTTP-tracer lifecycle wiring: the vocabulary ships with no emitter
 
@@ -928,7 +1066,24 @@ execution step 7.
   retries-exhausted) and leaves the operation-lifecycle triple unwired, per its `R15`. Filed as `OI-32`.
   **This row is picked up but not closed by phase 6**: the transport-milestone group still waits for phase
   8's first adapter, and the triple now waits on whoever ships the `PRE_REDIRECT`-adjacent step.
-- **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29, OI-32, PIPE-2, PIPE-37
+- **Partly picked up, and the transport half is declined with a reason, 2026-09-12 (phase 8 segmentation
+  design, `8a`'s and `8c`'s).** This row's remaining sentence — "the transport-milestone group follows in
+  phase 8 with the first adapter" — names a phase that has now planned, and **no route exists**. Phase 5c
+  fixed the five transport methods' argument lists, each taking a `context`; the transport seam is
+  `#call(request, options, cancellation)` and `NFR-4` locks that three-argument shape; `Request`'s members
+  are `(:method, :url, :headers, :body)` and `RequestOptions`'s are `(:timeout, :max_retries, :tags)`;
+  `PIPE-11` forbids ambient carriage; and the adapter is in a different gem. So an adapter can reach a
+  tracer only through its **own constructor**, which gives one tracer for the adapter's lifetime rather
+  than `OBS-29`'s "1:1 to a single logical operation lifecycle", or through a widening of
+  `RequestOptions`, which is a core type, a phase-1 surface and a real `NFR-4` widening no sub-phase
+  should take alone. **Both adapters therefore wire no emitter and say so**: `8a` declines under its `R6`,
+  and `8c` declines for the same reason rather than inventing a second route. Filed as `OI-36`. **The row
+  does not close and does not become UNSCHEDULED**: the condition is not met-and-declined, it is
+  unreachable as stated, and a route could exist after a deliberate `RequestOptions` widening. Phase 8
+  supplies what it can — `8a`'s `dexpace-conformance` is where the assertion would live — and the row now
+  waits on the same kind of surface decision the operation-lifecycle triple waits on, which is what
+  `OI-32` already records for that half.
+- **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29, OI-32, OI-36, PIPE-2, PIPE-37
 - **Status:** deferred
 
 next id: DEF-43

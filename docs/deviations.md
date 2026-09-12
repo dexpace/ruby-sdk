@@ -40,7 +40,20 @@ row's number is a citation, the same as an item ID in the other two registers.
 
 ## Deviations found outside a phase
 
-*(empty)*
+**2026-09-12 — an attribution note against §10.5, i.e. against row 5 of the audit above. Proposed by
+phase 8b's design; it is not a `P8-<n>` deviation and carries no `OI-<n>`.** §10.5's mitigation sentence
+reads: "the check-after-resume rule (§3.3) aborts the worker at its next resume point, and
+`Completer#on_cancel` lets **an adapter** shorten that by closing the socket under the read." Phase 8 is
+the first phase with adapters, and it has three, of which **only one can do what that sentence describes**.
+`dexpace-async-thread` owns no socket and cannot register such a hook — its pool posts an *opaque* block
+and does not know what is inside it, which is also what lets the same object serve
+`Dexpace::Page::_Executor` — so on the thread path the mitigation reduces to check-after-resume alone, and
+the "shorten" half belongs entirely to the transport that owns the socket
+(`dexpace-transport-net_http`, phase 8a). **The sentence is not wrong; it is unattributed**, and the cost
+of leaving it so is concrete: a phase-9 audit reading `DEF-18` will look for the hook in the gem whose
+name appears two sentences earlier and will not find it. The addition owed is one clause naming the
+**transport** rather than "an adapter". Recorded here as the as-built audit of item 5 until §10 is
+deliberately amended by a human. Touches `ASYNC-3`, `ASYNC-6`, `PIPE-33`, `TRANSPORT-3`, `DEF-18`.
 
 A deviation discovered by a review or an audit, with no phase in flight to record it against and
 no standing permission to edit §10 directly, lands here first: dated, with the IDs it touches and
