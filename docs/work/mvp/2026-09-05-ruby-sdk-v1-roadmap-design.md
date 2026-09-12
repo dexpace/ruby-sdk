@@ -94,7 +94,7 @@ will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from
 | 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15; segmentation design: [`phase6/2026-09-09-phase6-segmentation-design.md`](./phase6/2026-09-09-phase6-segmentation-design.md); 6a design: [`phase6/phase6a/2026-09-09-phase6a-retry-design.md`](./phase6/phase6a/2026-09-09-phase6a-retry-design.md); 6b design: [`phase6/phase6b/2026-09-09-phase6b-redirect-design.md`](./phase6/phase6b/2026-09-09-phase6b-redirect-design.md); 6c design: [`phase6/phase6c/2026-09-09-phase6c-authentication-design.md`](./phase6/phase6c/2026-09-09-phase6c-authentication-design.md) |
 | 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14; segmentation design: [`phase7/2026-09-10-phase7-segmentation-design.md`](./phase7/2026-09-10-phase7-segmentation-design.md); 7a design: [`phase7/phase7a/2026-09-10-phase7a-serialization-design.md`](./phase7/phase7a/2026-09-10-phase7a-serialization-design.md); 7b design: [`phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`](./phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md); 7c design: [`phase7/phase7c/2026-09-10-phase7c-pagination-design.md`](./phase7/phase7c/2026-09-10-phase7c-pagination-design.md) |
 | 8 | Transports and Async Runtime | `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-async-thread`, and `dexpace-conformance` — phase 8 owns that gem: its gemspec, its version and its first release, shipping the transport conformance suite | §17 — `TRANSPORT-1`–`TRANSPORT-30` (30); §18 — `ASYNC-1`–`ASYNC-22` (22) | §3.2, §3.3, §3.7, §9.3, §10.5; segmentation design: [`phase8/2026-09-11-phase8-segmentation-design.md`](./phase8/2026-09-11-phase8-segmentation-design.md); 8a design: [`phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`](./phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md); 8b design: [`phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md`](./phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md); 8c design: [`phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md`](./phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md) |
-| 9 | Cross-Cutting Invariants and Conformance | `dexpace-conformance` — adds the remaining suites to phase 8's gem, owning neither its gemspec nor its release; every gem audited | §19 — `XCUT-1`–`XCUT-24` (24); §20 — `NFR-1`–`NFR-17` (17); appendix B | §9, §9.3, §10.19 |
+| 9 | Cross-Cutting Invariants and Conformance | `dexpace-conformance` — adds the remaining suites to phase 8's gem, owning neither its gemspec nor its release; every gem audited | §19 — `XCUT-1`–`XCUT-24` (24); §20 — `NFR-1`–`NFR-17` (17); appendix B | §9, §9.3, §10.19; phase design: [`phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`](./phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md) |
 | 10 | Deviation Reconciliation and Release Readiness | every gem (audit-led; ships code where the audit finds a defect) | appendix C — every ID named by design §10's 19 entries | §10, §11, §12 |
 
 **Ordering rationale:** Toolchain first, so every subsequent phase is written under the gates from its first line
@@ -1427,3 +1427,121 @@ register row because §10.5 holds it vacuous. Four corpus notes were filed on 20
 `docs/knowledge/notes/transport-adapter.md`, a new file, and one appended to `observability.md`.
 `CLAUDE.md`'s phase-directory count goes from eight to nine with this filing; the "Zero gems exist under
 `gems/`" sentence is unaffected and stays true until phase 0's scaffold lands as code.
+
+**2026-09-12** — **Phase 9's two planning documents filed**, under `docs/work/mvp/phase9/`:
+`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md` and
+`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`. Nothing is
+implemented; the checklist is written at execution time, per execution step 6. **No segmentation
+design, and the decision is argued rather than assumed**: this document's own rule reaches build
+phases 1 through 8 and says "phases 9 and 10 are audit-led and segment only if their own design
+finds it necessary", and phase 9's design finds it does not — 41 IDs against phase 1's 42
+unsegmented checklist rows, one gem rather than phase 8's four, and a shared contract (phase 8a's
+assertion protocol) that is already written in another phase, so a sub-phase for it would restate
+an inherited contract rather than fix one. Scope is the phase-9 row's 41 IDs, one checklist row
+each, with **no earlier phase's row moving**: `SEAM`, `SERDE`, `OBS`, `PAGE`, `TRANSPORT`, `ASYNC`
+and `PIPE` IDs are cited as evidence and as suite content, never carried as rows. `--gaps XCUT,NFR`
+reports 41 of 41 substantive, so the phase budgets **no ID-side specification reading** — and budgets
+the whole of appendix B instead, which is not ID-indexed and is the source of the roll-up hazard
+`CLAUDE.md` names; all 61 items across `B.1`–`B.9` were read directly, counted 10/6/7/8/6/5/6/6/7.
+
+**The appendix-B scoping decision, stated here because it is the one a reader will check.** `B.8`
+(6 items) and `B.9` (7) are phase 9's own and it writes `InvariantSuite` and `PackagingSuite` for
+them. `B.3`'s seam half is a **lift** of the file 7a named in its checklist for exactly this,
+`gems/dexpace-serde-json/test/support/serde_seam_assertions.rb`; `B.4`'s two items §9.3 names by
+hand become assertions over 8a's `RecordingSpan` and `Allocations`; `B.7` gains `ExecutorSuite`,
+which is `DEF-31`'s unwritten harness half; `B.6` is 8a's, already written, and phase 9 only
+aggregates and audits its waivers. `B.1`, `B.2` and `B.5` — 22 items — are dispositioned **by
+reference** to the owning phase's suite and recorded as deviation `P9-1`, on §9.3's own criterion
+that the gem exists for portability across implementations of one seam and those three subsystems
+have one implementation each. The artefact that makes "by reference" honest is a committed 61-row
+coverage map, `gems/dexpace-conformance/APPENDIX_B.md`, whose limit is stated in `P9-7`: a
+by-reference row proves an ID is claimed and a file exists, not that the behaviour is asserted.
+
+**The phase-9/phase-10 boundary, fixed in as many words:** phase 9 measures and reports, phase 10
+repairs. An audit that fails reports `:failed`, marks the row, files an `OI-<n>`, adds a
+`docs/first-release.md` blocker if the ID is a MUST, and hands the repair to phase 10 — whose row
+above carries the permission to ship code twice over. The one exception is a defect inside
+`dexpace-conformance` itself that stops the suite running, because otherwise the phase has no
+instrument. Recorded as `P9-6`, and expressed mechanically as a file list: phase 9 touches nothing
+under `gems/dexpace-core/` or any adapter.
+
+**Nine deviations `P9-1`–`P9-9`**, and **four gates added to §9's table as addenda A4–A7** —
+`gates:cause_walk`, `gates:bounded_map`, `gates:seam_names` and the `PENDING`-empty assertion on
+7b's `gates:serde_boundary` — all four built on `RubyVM::AbstractSyntaxTree` and all four blocking,
+because a non-blocking addition while dispositioning `NFR-17` would be self-falsifying. **Two
+register rows picked up** (`DEF-22`'s second half and `DEF-25`'s portable-assertion clause, both
+conditions naming phase 9 in as many words), **none marked UNSCHEDULED** — `DEF-23` is the row that
+invites it and its condition is still unmet, because phase 9's suites go in `lib/`, which phase 0
+already gave a Steep target — and **four filed, `DEF-43`–`DEF-46`**. **Three open items,
+`OI-49`–`OI-51`**, of which the first is a measured interpreter fact with committed consequences:
+**Minitest is 6.0.0 on Ruby 4.0.6 and ships no `minitest/mock`**, so `Object#stub` and
+`Minitest::Mock` do not exist on the top matrix row, two of 8a's plan fences use `.stub`, and two
+corpus rules name absent APIs. `docs/deviations.md` gains one completeness note against §12's
+`PAGE` row (`PAGE-15`'s wrapping clause, 7c's `P7-1`, which the row does not record).
+`docs/first-release.md` gains no new blocker: its two standing conformance lines are the two this
+phase discharges. Three corpus notes were filed before the plan was written — `testing.md` and
+`tooling-and-quality-gates.md` under `## Superseded`, and `cross-cutting-invariants.md`, a new
+file, under `## Reference`. Every Ruby fact in both documents was verified on 3.2.11, 3.4.10 and
+4.0.6, and one was found false as first written: a `:CALL`-only AST scan misses every
+safe-navigated send, because `a&.cause` parses as `:QCALL` — a gate that would have reported clean
+while `XCUT-9`'s invariant was broken. `CLAUDE.md`'s phase-directory count goes from nine to ten
+with this filing; the "Zero gems exist under `gems/`" sentence is unaffected.
+
+**2026-09-12** — **Phase 9's two documents revised after two independent reviews, in one fix round.**
+The segmentation decision, `R1`, `R4`, `R5`, `R7` and deviations `P9-1`, `P9-2`, `P9-8` were confirmed
+and stand. What did not: a 66-mutation battery over the plan found **only 8 of 33 mutations caught at
+the requirement level**, with five of five fully-written assertions and all three AST gates reporting
+green over the very defects they name, and one — `XCUT-9`'s — **hanging** rather than failing. Since
+phase 10 acts on phase 9's verdicts, a green-over-live-defect assertion is worse than no assertion,
+so the round rewrote them against measured behaviour. Recorded here because the failure had one
+dominant cause, and it is the one this repository's standards already name: **five doubles and probe
+targets were built from a predecessor's prose rather than from its filed code fences** —
+`Headers.build(live)` positionally where phase 1 filed `build(values:, casing:, direction:)`;
+`HeaderSyntax.validate_outbound_value!(value)` where `name:` is required; **`Dexpace::SerdeError`,
+which exists nowhere**, where phase 2 filed `Dexpace::Serde::Error` with `SerializationError` and
+`DeserializationError` under it; `Dexpace::Redactor` where 5b filed
+`Dexpace::Instrumentation::Redactor`; and `Auth::Digest.cnonce` where 6c filed
+`Auth::DigestHandler` with an injected `cnonce_source:`. The third is the instructive one: the
+invented constant is **why that task's reported green run was green**, and against the real hierarchy
+two of its four tests fail on all three interpreters.
+
+**Corrections that changed a requirement's disposition rather than its prose.** `XCUT-9`'s cycle is
+now **three nodes** and the walk is bounded by step count through `Enumerator#next` — a two-node cycle
+cannot tell an identity-tracking walk from a depth-capped one, and `.to_a` over a non-terminating walk
+hangs. `XCUT-21` asserts the **source** structurally (6c's `cnonce_source:`, `#hex(16)`) instead of
+inferring entropy from a rendered string's length, which passed a `rand`-derived cnonce and failed a
+conforming 128-bit `urlsafe_base64` one. `NFR-15` **compares the runtime `VERSION` to the gemspec**,
+where a not-a-placeholder check passes at `0.0.0` — the version every gem here carries. `XCUT-14`'s
+drain-loop clause **moved to an AST gate**, because a check-then-evict map measured indistinguishable
+from a drain loop in 0 of 30 runs at 16 threads and 0 of 20 at 64 threads under the GVL. `XCUT-11`
+takes its exemption list **from the driver, not the audited object**, which had condemned a conforming
+latch and passed the identical bug. `XCUT-13` and `XCUT-11` each gained a **second assertion** for
+their second clause — `P9-8` is reworded from "one assertion per ID" to "one `Result` per assertion,
+assertions keyed by ID", which is what unblocked them — and `ExecutorSuite` gained `ASYNC-16` and
+`ASYNC-17`, with `SEAM-18` and `ASYNC-15`'s clause (c) scoped out with reasons. `XCUT-17`, `XCUT-18`,
+`XCUT-19` and `XCUT-23` are now written in full; the honest residue is **11 `XCUT` plus 5 `NFR`
+specified by shape**, not the 14 plus 5 first stated. **`R3`'s absent-artifact case is now
+`:vacuous` with a mandatory reason rather than `:failed`**, because before any code exists "not built"
+and "built wrong" are different findings — with an un-waived MUST-level vacuity made a phase-9 report
+blocker so nothing passes by not being built.
+
+**One measured interpreter divergence was missed entirely and is now `OI-52`: a Symbol literal is a
+`:LIT` AST node on Ruby 3.2.11 and a `:SYM` node on 3.4.10 and 4.0.6** — the reverse of the usual
+direction. Every other AST fact is identical across the three; this one made the reflective-send gate
+catch 6 of 7 shapes on the floor and 2 of 7 on both newer rows, which is a gate strictest exactly
+where it runs least. `OI-53` records the two appendix-B map checks that are not achievable (a 276-ID
+coverage check against 22 hand-written rows, and a ten-line-header check against `B.5` items naming
+twenty `CFG` IDs) and the three that replace them. **`DEF-31`'s reassignment is now stated as a
+correction to a committed register row** rather than made silently: the row assigns the harness half
+to `8a`, 8a wrote no executor suite, and phase 9 writes it. Four other corrections of record: the
+hand-forward table was rebuilt from the prescribed grep and is **33 rows in thirteen documents**, not
+eleven — the two phase-6 files had gone missing, which is exactly the six rows the first table
+dropped; the deferral sweep now names all 42 rows exactly once, where it had enumerated 36 and
+double-counted one; the note count is **43 at `HEAD`**, where the first draft "corrected" the
+charter's correct 43 to `CLAUDE.md`'s harvested-topic count of 40; and `R6`'s file list gains
+`.github/workflows/ci.yml`, without which phase 0's blocking `ci_workflow_test.rb` reddens, and each
+adapter gem's `test/` tree, following 8a's own driver precedent. **All seventeen `git commit` steps
+were deleted** — `CLAUDE.md` forbids them and all twenty-one preceding plans have none. Measured
+after the round, on 3.2.11, 3.4.10 and 4.0.6 under `ruby -w`: **55 runs, 94 assertions, 0 failures on
+each**, across seven prototype suites; the three AST gates catch 6 of 6, 4 of 4 and 4 of 4 decidable
+shapes, with every undecidable shape written into the gate's own stated gap.

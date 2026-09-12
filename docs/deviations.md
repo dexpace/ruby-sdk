@@ -55,6 +55,27 @@ name appears two sentences earlier and will not find it. The addition owed is on
 **transport** rather than "an adapter". Recorded here as the as-built audit of item 5 until §10 is
 deliberately amended by a human. Touches `ASYNC-3`, `ASYNC-6`, `PIPE-33`, `TRANSPORT-3`, `DEF-18`.
 
+**2026-09-12 — a completeness note against design §12's `PAGE` row. Proposed by phase 9's design; it is
+not a `P9-<n>` deviation and carries no `OI-<n>`.** §12's three kinds of entry are *not satisfied*,
+*vacuous* and *deferred*, and its `PAGE` row records exactly one: "PAGE-35 (SHOULD) is conditional on
+offering a mutable paging-options object; the port offers an immutable value instead, so the clause is
+vacuous rather than declined." **There is a second vacuity in the same prefix and the row does not carry
+it.** Phase 7c's design found `PAGE-15`'s wrapping clause vacuous by a false antecedent and recorded it as
+its own ledger row, `P7-1` — "the ID is implemented; the clause is vacuous by a false antecedent, and it
+gets a ledger row rather than a fabricated wrapper type" — and handed the discrepancy forward to phase 9 in
+as many words ("one vacuity to audit rather than tick — `PAGE-35`, design §12's — and one this sub-phase
+adds, `PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does **not** currently record").
+
+Why it lands here rather than in `open-items.md`: the finding is not that something is unmet but that a
+**deviation has no home in the frozen ledger**, which is what this section exists for. The cost of leaving
+it is specific and is §12's own stated purpose — "it is `dexpace-conformance` per item, not this table,
+that establishes it" cuts the other way for a *vacuity*, because a vacuity is precisely the thing a suite
+records and a table has to agree with. A reader counting §12's vacuous entries against a conformance
+report's vacuous section will find them off by one in the `PAGE` prefix. The addition owed is one clause in
+the `PAGE` row naming `PAGE-15`'s wrapping clause and citing `P7-1`. Recorded here as the as-built audit of
+the `PAGE` coverage claim until §12 is deliberately amended by a human. Touches `PAGE-15`, `PAGE-35`,
+`P7-1`.
+
 A deviation discovered by a review or an audit, with no phase in flight to record it against and
 no standing permission to edit §10 directly, lands here first: dated, with the IDs it touches and
 what was found. It is folded into `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`

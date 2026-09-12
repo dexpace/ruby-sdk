@@ -378,9 +378,9 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are nine phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are ten phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/` and `phase8/`. The first three carry that phase's
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/` and `phase9/`. The first three carry that phase's
   design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
@@ -416,5 +416,18 @@ probe compares each against the live tree, and a count written anywhere else in 
   gemspec, version and first release phase 8 owns. Its three sub-phases are independent, so
   their order is convenience; one task is phase-level because it lands in `dexpace-core`, which
   none of the three ships.
+  `phase9/` carries **no segmentation design and no sub-phase** — it holds its design and its
+  plan directly, `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`
+  and `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`. The
+  roadmap's segmentation rule reaches build phases 1 through 8 and leaves phases 9 and 10 to
+  segment "only if their own design finds it necessary"; phase 9's design finds it does not, at
+  41 IDs (`XCUT-1`–`24`, `NFR-1`–`17`) against phase 1's 42 unsegmented rows, and one gem rather
+  than phase 8's four. It is the phase that dispositions **all seventeen `NFR`s**, which phase 0
+  stood up as machinery and closed none of, and it adds the remaining suites to
+  `dexpace-conformance` while owning neither that gem's gemspec nor its release — those are phase
+  8's. Appendix B's 61 items are scoped explicitly rather than absorbed: `B.8` and `B.9` are
+  phase 9's own suites, `B.3`, `B.4`, `B.6` and `B.7` are lifted, extended or driven, and `B.1`,
+  `B.2` and `B.5` are dispositioned by reference to the owning phase's suite with a committed
+  61-row coverage map as the artifact. Phase 9 reports and phase 10 repairs.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

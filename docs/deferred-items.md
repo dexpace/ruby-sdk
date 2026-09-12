@@ -399,9 +399,22 @@ execution step 7.
   is what leaves `DEF-23`'s condition unmet (see that row). The suite contract is one twelve-clause list
   owned by `8a`'s design; `8c` drives the same suite over an asynchronous adapter. The gem's version bump
   and first release are the phase's, not the sub-phase's, and land with `docs/first-release.md`'s table.
+- **The second half of the condition recorded in planning, 2026-09-12 (phase 9's design).** The condition
+  reads "phase 8 … **phase 9 adds the remaining suites**", and phase 9 is the phase that adds them:
+  `InvariantSuite` (appendix `B.8`, 24 assertions, one per `XCUT` requirement), `PackagingSuite`
+  (appendix `B.9`), `CodecSuite` (the lift of `7a`'s named target,
+  `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb`), `ExecutorSuite` (this register's own
+  `DEF-31` harness half), `Runner`, `SharedInstance` and `Aggregate`, plus `Report#to_h` — the structured
+  renderer `8a` deferred *for* this phase, on the grounds that it was "`NFR-4`-locked surface with no
+  caller until phase 9 aggregates three suites". **Phase 9 extends the protocol and changes none of it**:
+  `Assertion` keeps `Data.define(:ids, :name, :body)` with `#body` typed `^(untyped) -> void` precisely so
+  a suite for a seam that is not a transport supplies its own subject, the five statuses are unchanged, and
+  `TransportSuite` is not refactored onto the shared `Runner` — phase 8 owns that file. Phase 9 owns
+  neither the gemspec nor the version nor the release, which stay in `docs/first-release.md` as phase 8's.
 - **Cites:** NFR-2, NFR-4, SEAM-12, SEAM-14, SEAM-15, TRANSPORT-1–TRANSPORT-30, OBS-21, OBS-25, PAGE-36
-- **Status:** deferred — the disposition above is a planning decision; `8a`'s plan moves this line to
-  `picked-up (<date>, phase 8a)` when it executes, as every sub-phase plan performs its own register edits
+- **Status:** deferred — both dispositions above are planning decisions; `8a`'s plan moves this line to
+  `picked-up (<date>, phase 8a)` when it executes, and phase 9's plan records the second half against the
+  same row, as every plan performs its own register edits
 
 ### DEF-23 — A Steep target over a test tree
 
@@ -471,9 +484,19 @@ execution step 7.
   `dexpace-transport-async_http`'s HTTP/2 path this re-validation is the sole barrier between a forged
   `Dexpace::Request` and an injected header, a stronger statement than design §10.10's
   "a correctness-of-shape gap, not a request-splitting gap".
+- **The second clause recorded in planning, 2026-09-12 (phase 9's design).** The condition's own second
+  half reads "**phase 9's conformance suite is where the assertion that it happened belongs**", and phase 9
+  writes it: `Dexpace::Conformance::InvariantSuite`'s `XCUT-18` assertion drives a **forged**
+  `Dexpace::Request` — one that never met a builder, which `send(:new, …)` reaches by a documented Ruby
+  feature — through a transport factory and asserts the dispatch is refused. Phase 8's two per-adapter
+  tests prove the **call site**; this proves the **property**, portably, for any adapter a third party
+  writes. The division matters because `protocol-http2`'s measured absence of outbound validation makes
+  this the sole barrier on one shipped path, and a property asserted only in the first-party adapters'
+  suites is a property a third-party adapter can omit silently.
 - **Cites:** HTTP-2, HTTP-17, HTTP-18, XCUT-18, SEAM-29, TRANSPORT-12
-- **Status:** deferred — the disposition above is a planning decision; the line moves to `picked-up` at
-  phase 8's phase-level pull request, once **both** adapters' call sites exist
+- **Status:** deferred — both dispositions above are planning decisions; the line moves to `picked-up` at
+  phase 8's phase-level pull request, once **both** adapters' call sites exist, and phase 9's plan records
+  the portable-assertion clause against the same row
 
 ### DEF-26 — The body member's type and HTTP-46's by-value body comparison
 
@@ -632,8 +655,23 @@ execution step 7.
   only. The *harness* half of the condition — the assertion living in `dexpace-conformance` — is `8a`'s,
   and `8b` hands it the shape rather than writing it. Phase 5b specified a dated `Status` line for this
   row without moving it; that edit lands when 5b executes and is not performed here.
-- **Cites:** SEAM-25, ASYNC-15, ASYNC-16, XCUT-13, OBS-3, DEF-22
-- **Status:** deferred — the disposition above is a planning decision; `8b`'s plan moves this line to
+- **The harness half is reassigned to phase 9, and this is a CORRECTION to the row above rather than
+  a restatement of it, 2026-09-12 (phase 9's design).** The paragraph above says "The *harness* half
+  of the condition — the assertion living in `dexpace-conformance` — is **`8a`'s**, and `8b` hands it
+  the shape rather than writing it." 8a wrote the protocol, the §9.3 `WireServer` fixture and the
+  transport suite, and wrote **no executor suite**; 8b supplied the shape as promised. So the harness
+  half is unwritten after phase 8, and **phase 9 writes it** as
+  `Dexpace::Conformance::ExecutorSuite` — six assertions over an executor factory, covering
+  `SEAM-12`, `SEAM-25` and `ASYNC-15`–`ASYNC-17`, with the `SEAM-25` one asserting exactly the shape
+  this row names: close twice, executor shut once, **one** event, matched on the event **name** only
+  because `8b`'s two field keys are `private_constant`s in the pool. Two clauses are scoped out with
+  reasons rather than dropped: `SEAM-18` is the seam's shape rather than an implementation property
+  and 8b asserts it, and `ASYNC-15`'s clause (c) needs a pending interrupt, which §8.3 bans every
+  primitive for. The row is wrong about *which phase delivers the harness*, and saying so out loud is
+  the point — a claim that corrects a committed document while presenting itself as a restatement is
+  the failure mode phase 4b shipped.
+- **Cites:** SEAM-25, SEAM-12, SEAM-18, ASYNC-15, ASYNC-16, ASYNC-17, XCUT-13, XCUT-22, OBS-3, DEF-22
+- **Status:** deferred — the dispositions above are planning decisions; `8b`'s plan moves this line to
   `picked-up (<date>, phase 8b)` when it executes, and this is the row's **closing** pick-up
 
 ### DEF-32 — the handler failures `Hooks.notify` drops after the first
@@ -1086,4 +1124,116 @@ execution step 7.
 - **Cites:** OBS-28, OBS-29, DEF-39, PIPE-24, PIPE-39, OI-29, OI-32, OI-36, PIPE-2, PIPE-37
 - **Status:** deferred
 
-next id: DEF-43
+## Filed by phase 9 — Cross-Cutting Invariants and Conformance
+
+### DEF-43 — a regeneration guard over the require-allowlist itself: `NFR-9`'s content that the §10.19 retarget does not cover
+
+- **Deferred by:** phase 9, 2026-09-12
+- **What is deferred:** an automated check that §9.2's require-allowlist is still *complete for the
+  interpreters in the matrix* — the piece of `NFR-9` that survives the retarget. Design §10.19 retargets
+  `NFR-8`/`NFR-9` at the require-allowlist audit and the clean-bundle isolation run, and both of those
+  check that **today's** allowlist holds. Neither checks that the allowlist is still the right list.
+- **Why:** `NFR-9`'s content is a guard over the shipped **keep-configuration**, not over the program:
+  "drop a shipped keep-rule or rename a runtime-wired type → the guard fails the ordinary build." The Ruby
+  analogue of dropping a keep-rule is an interpreter where a name the allowlist permits has become a
+  bundled gem, and that is not hypothetical — `package-and-dependency-layout/70fbcaee` records the
+  allowlist's basis moving once already, from the six names the corpus held to the 23 a real 4.0.6
+  interpreter reports, with `tsort` leaving the default set at 4.1 and `Gem::BUNDLED_GEMS::SINCE`
+  undefined on the 3.2 floor. Phase 0 handled that by filtering against the whole `SINCE` table rather
+  than the supported range, which is the right shape and is still a snapshot.
+- **Pick-up condition:** names the **event** rather than a phase, in the shape `DEF-33` and `DEF-3`'s
+  `BODY-36` half were given: **a new Ruby minor version entering the CI matrix**. No phase in v1 adds one
+  — the matrix is fixed at 3.2 / 3.3 / 3.4 / 4.0 — so recording the event is what stops a later reader
+  mistaking an unmet condition for a forgotten one. The work when it fires is one gate, not new code:
+  re-derive the name list on the new interpreter and diff it against the committed allowlist.
+- **Cites:** NFR-8, NFR-9, NFR-1, NFR-10, SEAM-1, DEF-33
+- **Status:** deferred
+
+### DEF-44 — `PackagingSuite`'s `NFR-12` and `NFR-16` assertions against a published artifact
+
+- **Deferred by:** phase 9, 2026-09-12 (narrowed 2026-09-13)
+- **What is deferred:** the two appendix-`B.9` assertions whose subject is a **released** gem rather than a
+  built one — `NFR-12`'s byte-identical rebuild across a release boundary and `NFR-16`'s signature.
+  **Phase 9 ships neither**: no task in its plan writes an `NFR-12` or `NFR-16` assertion, so both are
+  written at the pick-up. `NFR-15` is **not** in this row: phase 9's Task 9 asserts it against a locally
+  built `.gem`, comparing the loaded `VERSION` to the resolved gemspec. (As first filed, this row named all
+  three and said phase 9 shipped them as `Vacuous` placeholders; no task does, so the row is corrected
+  rather than left to mislead whoever picks it up.)
+- **Why:** `NFR-16`'s signing is "enforced on the release/CI path" and there is no release path
+  (`docs/first-release.md`'s "Release path: not yet defined"); `NFR-12`'s cross-toolchain half is
+  explicitly out of scope by phase 0's `P0-7`, which reads `NFR-12` as byte-identity for one gem built
+  twice on one interpreter; and `NFR-15` is assertable against a locally built `.gem` today, which phase 9
+  does.
+- **Pick-up condition:** the first `v*` tag and the first `gem push`, alongside `DEF-20`, whose own
+  condition is "the RubyGems-ownership and trusted-publishing blockers in `docs/first-release.md` close".
+  Release-gated; no phase owns it. `DEF-19` is the third row in the same family.
+- **Cites:** NFR-12, NFR-15, NFR-16, NFR-4, DEF-20, DEF-22
+- **Status:** deferred
+
+### DEF-45 — lifting appendix `B.1`, `B.2` and `B.5`'s assertions into `dexpace-conformance`
+
+- **Deferred by:** phase 9, 2026-09-12
+- **What is deferred:** moving the pagination (`B.1`, 10 items), SSE (`B.2`, 6 items) and configuration
+  (`B.5`, 6 items) checklist items out of their owning phases' suites and into portable assertions. Phase 9
+  dispositions all 22 **by reference** — a row in `gems/dexpace-conformance/APPENDIX_B.md` naming the
+  owning phase's test file — and records the decision as deviation `P9-1`.
+- **Why:** §9.3's argument for shipping `dexpace-conformance` as a gem is portability across
+  *implementations of one seam*: "the *same* assertions could not run unchanged against
+  `dexpace-transport-async_http` or a future `httpx` adapter — which is the whole point." Pagination, SSE
+  and the configuration chain each have exactly one implementation, and `PAGE-8` makes the pagination
+  engine stateless and shareable rather than pluggable. A lifted assertion over a single subject is not
+  more true for having moved gems; it is a test with one subject living in a package whose purpose is many,
+  and it costs a second file to keep in step. What phase 9 keeps from the lift is the part that carries
+  information — the 61-row map, which says for every item where its evidence is.
+- **Pick-up condition:** names the **event**: a **second implementation** of the pagination engine, the SSE
+  reader or the configuration chain exists. None is planned in v1 and none is on the post-v1 gem list —
+  `DEF-11`–`DEF-17` are transports, async runtimes, a codec and an instrumentation adapter, not a second
+  paginator — so this is a genuinely open-ended condition rather than a near-term one, and it is recorded
+  so a later reader does not read `P9-1` as an oversight.
+- **Cites:** PAGE-8, SSE-37, CFG-1, NFR-2, DEF-22, DEF-16
+- **Status:** deferred
+
+### DEF-46 — `XCUT-12`'s single-flight assertion under a fiber scheduler rather than threads
+
+- **Deferred by:** phase 9, 2026-09-12
+- **What is deferred:** the fiber-scheduler form of `XCUT-12`'s conformance clause — "race N threads on an
+  expiring token; assert exactly one fetch, cached reads take no lock, and requests through a different
+  credential cache are not serialized". Phase 9 ships the **thread** form in `InvariantSuite`.
+- **Why:** `Thread::Mutex` ownership in Ruby is **per-fiber, not per-thread, and non-reentrant**
+  (`CLAUDE.md`'s constraints that will bite, design §3.1/§3.7/§7.2), so a lock held across a suspension
+  point deadlocks two fibers of one thread and a thread-only race cannot see it. `8b`'s design handed
+  forward exactly this shape for `XCUT-11` — "the **two-fibers-on-one-thread** test, which is the only
+  shape that proves a per-fiber mutex is not held across a suspension point" — and phase 9 adopts it there.
+  For `XCUT-12` it needs a *credential* path running under a reactor, which means
+  `dexpace-transport-async_http` driving `6c`'s bearer or digest cache: a composition no first-party suite
+  assembles today, because `dexpace-conformance` declares `dexpace-core` and nothing else and so cannot
+  open a reactor itself. The suite contract's clause 9 `around:` wrapper is the route — an async driver
+  passes `->(&blk) { Sync { blk.call } }` — and supplying such a driver for a credential assertion is a
+  piece of work, not a line.
+- **Pick-up condition:** **phase 10**, if its audit of `XCUT-12` finds the thread-only form insufficient —
+  which is a judgement phase 10 is entitled to make and phase 9 is not, since phase 9 reports and phase 10
+  repairs (`P9-6`). Failing that, the condition is `DEF-11`'s reactor-native async adapter, which is the
+  first artifact that would make a second fiber-scheduler subject available.
+- **Cites:** XCUT-12, XCUT-11, AUTH-35, AUTH-36, ASYNC-9, DEF-11, DEF-22
+- **Status:** deferred
+
+### DEF-47 — the MUST-level vacuity report blocker exists only in prose
+
+- **Deferred by:** phase 9, 2026-09-13 (plan re-verification fix round)
+- **What is deferred:** the mechanism behind phase 9's rule that an un-waived `:vacuous` result on a
+  MUST-level requirement ID is a **phase-9 report blocker** and earns a `docs/first-release.md` line
+  (design `R3`; plan Task 15, step 4). As filed the rule is prose and nothing enforces it: `Report#passed?`
+  is true when results are vacuous (8a's own report test asserts exactly that), and nothing in
+  `dexpace-conformance` knows whether an ID is MUST or SHOULD, so no run can list MUST-level vacuities
+  separately.
+- **Why:** building it needs a requirement-level map derived from appendix C
+  (`docs/product-spec/appendix-c-consolidated-normative-requirement-index.md`) plus an aggregate section
+  over it — new machinery the fix round was not scoped to add. **This is a manager decision and must not
+  be lost**: `R3`'s absent-artifact `:vacuous` rule is safe only because this blocker exists, and without
+  it an unbuilt MUST reads as a green run.
+- **Pick-up condition:** phase 9 execution, **before Task 15's disposition run** — that run's verdicts are
+  not trustworthy without it.
+- **Cites:** NFR-17, DEF-22, DEF-18
+- **Status:** deferred
+
+next id: DEF-48

@@ -1860,4 +1860,230 @@ is implemented.
 
 **Resolution:** *(open)*
 
-next id: OI-49
+### OI-49 — Minitest is 6.0.0 on Ruby 4.0.6 and ships no `minitest/mock`, so `Object#stub` and `Minitest::Mock` do not exist on the top row of the CI matrix
+
+- **Opened:** 2026-09-12, phase 9 design
+- **Status:** open
+- **Cites:** NFR-6, NFR-7, NFR-10, NFR-17, OI-43, DEF-22
+
+**Minitest is a different major version on the top of the supported range, and the version there has
+removed `minitest/mock`.** Measured on all three installed interpreters: `minitest 5.25.1` on **3.2.11**,
+`5.25.4` on **3.4.10** and **`6.0.0` on 4.0.6**, with
+`Gem::Specification.find_by_name("minitest").default_gem?` `false` on every one — which confirms `OI-43`
+across the whole range where that item measured 3.4.10 alone. The new half: on 5.25.x the gem ships
+`minitest/mock.rb`; **on 6.0.0 it does not.** `require "minitest/mock"` raises `LoadError` on 4.0.6, and the
+gem's own `lib/` listing has neither `minitest/mock.rb` nor `minitest/unit.rb`, while `assertions.rb`,
+`test.rb`, `autorun.rb`, `spec.rb` and `benchmark.rb` all remain. Every assertion name this repository uses
+survives — 22 were checked, from `assert_equal` to `assert_in_delta`, and all 22 are still defined on
+`Minitest::Assertions` in 6.0.0. What disappears is `Minitest::Mock` and `Object#stub`.
+
+Two consequences are concrete rather than theoretical. **Phase 8a's plan uses `Object#stub` twice** —
+`Dexpace::Conformance::TransportSuite.stub(:assertions, assertions)` in its driver test and again in its
+`test/` fence — and both would raise `NoMethodError` on the 4.0 row. And **two corpus rules name APIs that
+are absent there**: `testing/e27df4c7` ("Reserve true test doubles (stubs, `Minitest::Mock`) for genuine
+externals…") and `testing/70473c9d` ("use a scoped `Time.stub :now, fixed_time do … end`").
+
+Why it matters, stated without overreach. A suite that cannot load makes the 4.0 row **red**, not
+advisory — `NFR-17`'s text is about gates being blocking rather than report-only, and a red row is the
+gate working as designed. The requirement this actually bears on is `docs/first-release.md`'s standing
+blocker, "**the `dexpace-conformance` suite passing across the full supported Ruby range, 3.2 through
+4.0**", which is false on the 4.0 row as phase 8a's fences are written. The CI matrix runs the real
+suite on each Ruby precisely because `TargetRubyVersion` catches syntax and not library availability
+(§9.2), and this is an instance of the trap that argument exists for. What would resolve it: a decision
+nobody has made — the root `Gemfile` must list `minitest` explicitly (which `OI-43` already
+established) and **which constraint** is the open question.
+Pinning `~> 5.25` keeps `stub` available everywhere and means the 4.0 row does not exercise the Minitest its
+interpreter ships; leaving it unconstrained makes the 4.0 row a different framework major from the other
+three and breaks the two fences above. Either way the decision belongs to whoever owns the root `Gemfile`,
+which is phase 0's artifact, and the repair is phase 10's per phase 9's `P9-6`. Nothing is broken today
+because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-50 — `NFR-13`'s SPDX gate is a RuboCop cop, so it cannot reach `sig/**/*.rbs`, which ships inside every gem
+
+- **Opened:** 2026-09-12, phase 9 design
+- **Status:** open
+- **Cites:** NFR-13, NFR-3, NFR-17
+
+**The licence-header gate covers Ruby source and the repository ships signatures that are not Ruby
+source.** `NFR-13` (SHOULD) is "Every source file SHOULD carry the project's license/SPDX header block",
+and its conformance clause is "scan **all source files** for the required header". Phase 0 mechanises it as
+`Dexpace/SpdxHeader`, a **custom RuboCop cop** — a strengthening over the reference's review convention,
+recorded as `P0-1`. A RuboCop cop inspects Ruby; `.rbs` is not Ruby and no cop parses it.
+
+`CLAUDE.md` states that `sig/` "mirrors `lib/` one file per file and **ships inside each gem**, so a
+consumer's `steep check` sees it", so the signatures are shipped source. Phase 0's own `.rbs` fences carry
+no header — checked: every `` ```rbs `` fence in
+`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md` opens with `module Dexpace`. RBS
+supports `#` comments, so the header is expressible; what is missing is a check, and by phase 8 the gem
+count means roughly as many `.rbs` files ship as `.rb` files.
+
+What would resolve it: either a small Rake gate over `sig/**/*.rbs` beside the cop — the same three-line
+assertion, over a different glob — or a deliberate, stated decision that `NFR-13` covers `lib/` only, put
+somewhere a reader will find it rather than left as the silent consequence of the mechanism phase 0 chose.
+Phase 9 records the gap in `NFR-13`'s disposition row rather than closing it, per its `P9-6`. Nothing is
+broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-51 — appendix B's items and the conformance suite's assertions are different units, and design §9.3's waiver sentence assumes they are the same
+
+- **Opened:** 2026-09-12, phase 9 design
+- **Status:** open
+- **Cites:** NFR-17, ASYNC-3, ASYNC-4, DEF-18, DEF-22
+
+**§9.3 fixes the requirement ID as the WAIVER's unit and leaves the REPORT's unit unstated, and an
+appendix-B item cannot be it.** §9.3 reads: "A failing **item** that the port has decided not to satisfy
+is reported as a failure by the suite and suppressed in the port's own build through a named waiver
+listing **the requirement ID**." The waiver half is settled and this item does not dispute it; what is
+unstated is the unit the report prints a status *for*, which the surrounding sentence implies is the item.
+It cannot be: phase 8a's protocol makes `Assertion` carry a **list** of requirement IDs and `Result` carry
+**one** status, and an appendix-B item is one `- [ ]` bullet naming up to a dozen IDs.
+
+`B.7`'s second item is the decisive case, and §9.3 itself creates it: the bullet reads "Two-mode
+cancellation with queued/finished tasks never interrupted (`ASYNC-3`); ordered interrupt delivery prevents
+pooled-thread poisoning under stress (`ASYNC-4`)", and §9.3 then requires `ASYNC-4` to be **vacuous by
+construction** and `ASYNC-3`'s item to be **recorded as failing rather than vacuous**. One `Result` cannot
+be both, so no single result can represent that item.
+
+Phase 9 resolves it for this port and records the resolution as `P9-8`: **the suite's unit is one assertion
+per requirement ID; an appendix-B item is a many-to-one view over them, and its status in the coverage map
+is the worst among its assertions with every contributing status listed.** What is not resolved is the
+sentence in a frozen chapter, which still reads as though the item were the unit — so a porter reading §9.3
+alone will build the wrong granularity, and the 61-row map phase 9 commits is the only place the real
+mapping is written down. What would resolve it: one clause in §9.3 naming the requirement ID as the unit of
+both the waiver and the report, folded in the next time §9 or §10 is deliberately amended by a human.
+
+**Resolution:** *(open)*
+
+### OI-52 — a Symbol literal is a `:LIT` AST node on Ruby 3.2 and a `:SYM` node on 3.4 and 4.0, so a source scan naming one is blind on the other rows
+
+- **Opened:** 2026-09-12, phase 9 plan review
+- **Status:** open
+- **Cites:** XCUT-9, XCUT-14, SEAM-2, NFR-17, NFR-10
+
+**`RubyVM::AbstractSyntaxTree` renders a Symbol literal under two different node types across the
+supported range, and the divergence runs the unusual way round.** Measured on 2026-09-12, parsing
+`e.send(:cause)` on all three installed interpreters: the argument node is **`:LIT` on 3.2.11** and
+**`:SYM` on 3.4.10 and 4.0.6**. Every other AST fact phase 9 depends on is identical across the three —
+`:CALL`, `:QCALL`, `:VCALL` for sends, `:IASGN`, `:HASH`, `:CONST`, `:COLON2`, `:COLON3`, `:WHILE`,
+`:STR` — so this is the single node type that moves, and it moves at the boundary a repository whose
+development happens on the newest Ruby is least likely to notice.
+
+Why it matters beyond phase 9. The concrete instance is phase 9's `gates:cause_walk`, which reads that
+node to catch `send(:cause)`, `__send__(:cause)`, `public_send(:cause)` and `method(:cause)` — reflective
+sends that bypass a call-syntax scan entirely. Written against `:LIT` alone it caught **6 of 7** realistic
+shapes on 3.2.11 and **2 of 7** on 3.4.10 and 4.0.6; written against `:SYM` alone it would invert that.
+Either way the gate is **strictest on one matrix row and blind on the others**, and `gates:*` tasks run in
+phase 0's interpreter-independent `gates` job — one interpreter, the newest — which is exactly the row a
+`:LIT`-only scan would not protect. The general shape: **any future source scan in this repository that
+reads a Symbol literal has the same trap**, and nothing records it. Phase 9's `AstScan::SYMBOL_TYPES`
+names both and its own suite asserts the per-interpreter outcome, so this row is not a defect in what
+phase 9 ships; it is the fact that made the first draft wrong, written down so the next scan does not
+rediscover it. What would resolve it: a line in the design's toolchain chapter, or a note, naming the two
+node types — the note is filed under `docs/knowledge/notes/cross-cutting-invariants.md`. Nothing is broken
+today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-53 — the appendix-B coverage map's checks establish that a by-reference row is well-formed, not that the behaviour it points at is tested
+
+- **Opened:** 2026-09-12, phase 9 plan review
+- **Status:** open
+- **Cites:** NFR-17, DEF-22, DEF-45
+
+**Two of the four checks first proposed over `gems/dexpace-conformance/APPENDIX_B.md` are not
+achievable, and dropping them leaves a real gap that is better written down than quietly absent.** The
+map is 61 rows, one per appendix-B item, and design `P9-7` already states the limit it cannot close: a
+`by reference` row proves an ID is claimed and a file exists, never that the referenced test asserts the
+described behaviour. Two further checks were proposed to narrow that and neither survives contact with
+the specification's own text. **A distinct-ID coverage check** — every requirement ID named anywhere in
+appendix B appearing in some row — is roughly 276 IDs against 22 hand-written by-reference rows, which
+is not arithmetic that closes. And **a ten-line-header check** on each referenced file cannot pass:
+`B.5`'s configuration items name around twenty `CFG` IDs each, and `CLAUDE.md`'s convention that "a test
+file's header comment names the IDs it exercises" was never written for a twenty-ID item.
+
+What survives is three checks that are decidable and do catch a real class of drift: the map has exactly
+61 rows; the per-section counts match the counts parsed from the specification (10/6/7/8/6/5/6/6/7); and
+every row names at least one requirement ID from the nineteen known prefixes and an evidence path that
+exists on disk. The ID scanner is restricted to those nineteen prefixes because a bare `[A-Z]+-\d+`
+matches `ISO-8601`, which appears in `B.3`'s real text.
+
+What is therefore **not** established, and is this row's whole content: that the union of the map's rows
+covers every requirement ID appendix B names, and that a referenced test's header declares the IDs its
+row claims. A reader of a green run is entitled to know that. What would resolve it: either the
+by-reference rows shrink — `DEF-45`'s condition, a second implementation, is what would make lifting them
+worthwhile — or a per-section ID reconciliation is done by hand once and then checked, which is a piece
+of work rather than a line. Nothing is broken today because nothing is implemented.
+
+**Resolution:** *(open)*
+
+### OI-54 — `XCUT-9`'s cycle assertion has two measured blind spots a black-box test cannot close
+
+- **Opened:** 2026-09-13, phase 9 plan re-verification
+- **Status:** open
+- **Cites:** XCUT-9, NFR-17, DEF-22
+
+Two shapes of `Dexpace.each_cause` defeat the plan's Task 6 assertion. **A collect-then-yield walk hangs
+the suite**: an implementation that gathers the whole chain into an array before yielding never returns
+its first element on a cyclic chain, so the step-bounded `Enumerator#next` drive never gets a step to
+count — measured, the review's `smut.rb collect` run was still running when a 20-second `timeout` killed it
+on 3.4.10. Bounding it would need an interrupt, which §8.3 bans outright, and `Thread#join(limit)` would
+return while leaving an unkillable thread spinning for the rest of the process. **A depth cap exactly
+equal to the cycle length passes**: a walk that stops after three steps reports `:passed` against the
+three-node cycle on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, because a black-box test over one finite input cannot
+tell a counter from a visited set. `gates:cause_walk` keeps the walk in one file, which bounds where either
+defect could live and proves neither absent. **Target:** phase 9 execution — decide how the suite reports a
+walk it cannot bound, whether driving several cycle lengths is worth its narrowing of the cap case, and
+record the residue on the `XCUT-9` checklist row.
+
+**Resolution:** *(open)*
+
+### OI-55 — phase 9's own suites break two rules the phase ships: public `module_function` factories with no `sig/` mirror, and a second public class in `codec_case.rb`
+
+- **Opened:** 2026-09-13, phase 9 plan re-verification
+- **Status:** open
+- **Cites:** NFR-3, NFR-4, DEF-22
+
+`module_function` makes every assertion factory a **public** singleton method, and none has a `sig/`
+mirror. Measured by walking each module's `singleton_methods(false)` over the plan's fences on 3.2.11 and
+4.0.6: `InvariantSuite` exposes **15** factories besides `.assertions` and `.run` (14 before the
+2026-09-13 fix added `bounded_map_drains`; its new XCUT-21 helpers are `private_class_method` and do not
+appear), `ExecutorSuite` **6**, `PackagingSuite` **4**, `CodecSuite` **2**. That is public by Ruby's
+visibility and unsigned, which `CLAUDE.md`'s public-surface rule and the `NFR-3` assertion phase 9 itself
+ships both refuse; `Runner` already hides its helpers with `private_class_method` and the suites do not.
+Separately, `codec_case.rb` defines `Dexpace::Conformance::CodecCase::CountingSink`, a second public class in
+one file, outside `module-organization/1828a984`'s private-struct exception. **Target:** phase 9 execution;
+`rbs validate`/`steep check` and the runtime surface snapshot catch both mechanically once the gem exists.
+
+**Resolution:** *(open)*
+
+### OI-56 — the four invariant gates' remaining statically decidable misses, measured
+
+- **Opened:** 2026-09-13, phase 9 plan re-verification
+- **Status:** open
+- **Cites:** XCUT-9, XCUT-14, SEAM-2, NFR-17
+
+Each gate states an undecidable gap; these are the shapes it could decide and does not. Measured with the
+review's mutation battery against the plan's `tools/ast_scan.rb` and `tools/invariant_gates.rb` **after** the
+2026-09-13 corrections (argument-carrying sends skipped, `:FCALL` and `:BLOCK_PASS` added to `cause_walk`;
+adapter leaf namespaces in `seam_names`), **identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6**:
+
+| Gate | Caught / clean as required | Decidable misses |
+|---|---|---|
+| `cause_walk` | 10 of 12 decidable shapes — the 7 claimed plus `cause()`, receiverless `send(:cause)`, `errors.map(&:cause)`; clean on both argument-carrying builder shapes (5b's `Event#cause(e)`) | `e.send("cause")` (String argument); `Exception.instance_method(:cause).bind_call(e)` |
+| `bounded_map` | 5 of 9 decidable shapes — the 4 claimed plus `@h \|\|= {}` | `@h = Hash.new { \|h, k\| h[k] = [] }` (block form); `@@h = {}`; `NONCES = {}`; `instance_variable_set(:@h, {})` |
+| `drain_loop` | 1 of 3 non-conforming shapes caught; 3 of 4 conforming shapes clean (`while`, `until`, 4a's filed `BoundedMap`) | **False positive:** a `loop do … break … end` drain. **Misses:** a file whose `set` checks-then-evicts while `put` loops — 4a's two-path shape; a check-then-evict beside an unrelated looped `delete` |
+| `seam_names` | 5 of 7 decidable shapes — the 4 claimed plus `Dexpace::Serde::JSON::Codec`; clean on core's own `Instrumentation::Severity`, `Async::Future`, `Serde::DeserializationError` | `Object.const_get(:"Dexpace::Serde::JSON")` (dynamic Symbol); `Serde.const_get(:JSON)` (chained) |
+
+Over every parseable filed `lib/` fence of phases 1–8 (199 of 202; 165 in core), `cause_walk` and
+`seam_names` report **zero** offences; `bounded_map` with no allowlist reports 6 in 5 files, which is what its
+allowlist-with-reasons exists for and was not adjudicated here. `drain_loop`'s behavioural twin, Task 7's
+`bounded_map_drains`, decides the same clause deterministically (8 against 13), so its misses are a second
+line's, not the clause's. **Target:** phase 9 execution — widen each gate for its misses or record them as
+accepted in the gate's stated gap, and state the result on the `XCUT-9`, `XCUT-14` and `SEAM-2` rows.
+
+**Resolution:** *(open)*
+
+next id: OI-57
