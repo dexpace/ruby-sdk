@@ -1,0 +1,2499 @@
+# Ruby SDK — v1 Roadmap
+
+**Status:** Draft, approved for planning (signed off 2026-09-05).
+
+**Purpose:** An index of phases, not an implementation plan. Each row names a phase, the gem(s) it delivers,
+the spec chapter and requirement IDs it satisfies, and the design chapter it maps to — and nothing else. Every
+phase gets its own brainstorm → design → plan cycle when its turn comes, and the three documents that cycle
+produces are where implementation detail lives. **This document never absorbs implementation detail as phases
+complete.** It changes in exactly three ways: a phase's `sdk-design refs` cell gains a link to that phase's own
+design document once one exists, **appended to the design citation and never replacing it**; a wrong cell is
+corrected in place, with the correction stated; and a dated entry is appended to `## Phase Status Notes`. Nothing
+else is edited, and no section here is ever allowed to become a register — there is one, `docs/deviations.md`,
+and `docs/first-release.md` carries what the release must know (two more, for deferrals and for findings, were
+retired on 2026-09-13 once every row had an owner; the second of them, the find-list, is where phase 10's
+inbound list below got the fourteen audit-and-repair items it now states in full), and an aggregate findings
+or deferral section inside this document is drift the `housekeeping` probe reports.
+
+**Governing documents.** Five, binding from phase 0 onward, for every phase without exception:
+
+- `docs/product-spec/` — **normative.** 645 numbered requirements across 19 prefixes, in appendix-C order:
+  `SEAM`, `HTTP`, `IO`, `BODY`, `CTX`, `PIPE`, `RECOV`, `RETRY`, `REDIR`, `AUTH`, `PAGE`, `SSE`, `SERDE`, `OBS`,
+  `CFG`, `TRANSPORT`, `ASYNC`, `XCUT`, `NFR`. `docs/product-spec.md` is its table of contents;
+  `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` is the canonical ID index and the
+  fastest way to locate one.
+- `docs/sdk-design-ruby/` — how each spec area maps to idiomatic Ruby. Non-normative but binding by convention.
+  §10 is the **normative deviation ledger** (19 entries), §11 the reference-ambiguity appendix (21 items), §12
+  the requirement-coverage index that maps every prefix to the design sections addressing it.
+- The Ruby styleguide, the sibling repository's `styleguide/ruby/` — 15 chapters, harvested into
+  `docs/knowledge/harvested/` and queried through `scripts/knowledge.rb`. Binding except where a note under
+  `docs/knowledge/notes/` records otherwise.
+- `CLAUDE.md` — the working contract: the hard rule on what core may `require`, the domain-model construction
+  pattern, the constraints that will bite, the requirement-ID conventions and the phase workflow.
+- `docs/README.md` — the ownership table, what is frozen to maintenance tooling, and the `docs/work/` naming
+  rules every phase document follows.
+
+---
+
+## Cross-Cutting Constraints (apply to every phase, not their own phase)
+
+Each is stated normatively elsewhere; this gives what it is, where that statement lives, and who stands it up.
+
+**1. Quality gates, from phase 0 onward.** The set, and the 3.2 / 3.3 / 3.4 / 4.0 real-suite CI matrix, are design
+§9's gate table (`docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`). Phase 0 stands every gate up; every
+later phase is written under them from its first line.
+
+**2. Zero-dependency core and the bundled-gem rule.** `CLAUDE.md`'s hard rule and design §2.4, mechanised by §9.2's
+gemspec audit, require-allowlist audit and clean-bundle isolation run — all three stood up by phase 0.
+
+**3. Requirement-ID traceability, one checklist row per ID in scope** (`CLAUDE.md`'s conventions). **This roadmap
+defines the legend**, used verbatim by every phase: ✅ implemented and tested · 🚫 not built (permanent
+simplification, named reason) · ⏳ deferred (naming the plan task — phase, task number and path — that will do
+it, or the `docs/first-release.md` entry that owns it) · N/A not applicable in this port.
+
+**4. Phases 1 through 7 test against an in-memory fake transport** implementing only the `SEAM-11`/`SEAM-16` seams;
+phase 8 brings the first real socket, where conformance uses a local `TCPServer` fixture, not a stub (design §9.3).
+
+**5. The six styleguide-versus-design conflicts are resolved; the notes are canonical, not this list.** Each is
+`docs/knowledge/notes/<topic>.md`, `<topic>` being the key's prefix, and all six print `[overridden by notes/…]`:
+- `data-modeling/35fde90f` — `Data.define` is the base value type; `T::Struct` would need a gem.
+- `module-organization/bf6411ad` — explicit `require`s from `lib/dexpace.rb`; no Zeitwerk.
+- `package-and-dependency-layout/41b154a3` — `required_ruby_version >= 3.2`; matrix 3.2 / 3.3 / 3.4 / 4.0.
+- `package-and-dependency-layout/8c0687bf` — one repository, one gemspec per published gem under `gems/`.
+- `tooling-and-quality-gates/86d763f1` — `rubocop` + `-minitest` + `-performance`; no `rubocop-airbnb`, no hook.
+- `type-system/93dc79aa` — RBS under `sig/`, gated by `rbs validate` and `steep check`; no Sorbet.
+
+**6. The ban list, repository-wide, every gem.** `CLAUDE.md`'s "Constraints that will bite", argued in design §8.3,
+§3.5 and §4. Phase 0 mechanises what a cop can catch; the `Timeout.timeout`/`Thread#raise`/`Thread#kill` cop is a
+**roadmap decision** design §9's table does not yet carry, so phase 0 records it there as an addendum in its design doc.
+
+**7. Register discipline** (corrected in place 2026-09-13, twice: as first written this named four registers and
+a deferral sweep, and it then named a find-list retired later the same day). `docs/README.md` owns the register
+boundary: one appendable register — `docs/deviations.md`, the audit of design §10 — plus `docs/first-release.md`
+for what the release must know. **A finding is not registered either**: it is routed to its owner when it is
+found — a numbered task in the plan of the phase whose scope it falls in, a bullet on phase 10's inbound list
+below when it is audit or repair work against an already-planned phase, a `docs/first-release.md` entry when it
+belongs to the release, or simply the fix. Work a phase postpones is not registered either: it is either scheduled as a numbered task in the plan of the
+phase that will do it, cited by path and task number, or, when no v1 phase will do it, recorded in
+`docs/first-release.md` under the fitting section — what v1 ships without, the release path, or a post-release
+trigger. A deviation goes to the phase's own `## Deviation Ledger`, then design §10, then the audit in
+`docs/deviations.md`, whose 19 rows read `design only — not yet built` until the phase that builds the gem flips one.
+
+**8. Three MUSTs are known-unsatisfied; do not re-open the trade.** `ASYNC-3` and `PIPE-33`'s interrupt clause are
+unsatisfied and `ASYNC-4` vacuous (design §10.5, stated for the release under `docs/first-release.md` § What v1
+ships without › Unsatisfied MUSTs): phase 8 marks `ASYNC-3` and `PIPE-33`'s
+interrupt clause ⏳ citing it and `ASYNC-4` **N/A**, per §10.5's own distinction between an unsatisfied MUST and a
+vacuous one (**corrected in place 2026-09-11** by the phase-8 segmentation design; the earlier sentence summarised
+all three as ⏳, and that release entry names only the first two — `ASYNC-4` belongs on no unsatisfied-MUST list
+and should not be); phase 10 audits the ledger. The fenced-example executor for `.claude/skills/housekeeping/` is
+release-gated — `docs/first-release.md` § Release path › After the first publish, closable by no phase.
+
+**9. Pointers, not copies.** The domain-model construction pattern (`CLAUDE.md`, design §4) and the constraints that
+will bite (`CLAUDE.md`, design §3.1, §3.7, §7.1, §8.2, §8.3) are cited from a phase document, never copied into one.
+
+---
+
+## Phase List
+
+| Phase | Name | Gem(s) | Product-spec refs | sdk-design refs |
+|---|---|---|---|---|
+| 0 | Scaffold and Quality Gates | workspace root, plus all six MVP gems at `0.0.0` with empty `lib`/`sig`/`test`: `dexpace-core`, `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`, `dexpace-conformance` | §20 — `NFR-1`–`NFR-17`, every gate stood up as machinery and none closed here; phase 9 dispositions them. `NFR-5`'s SimpleCov `minimum_coverage 80` is wired here and inert until phase 1 lands code | §2.3, §2.4, §9 |
+| 1 | Core HTTP Domain Model | `dexpace-core` | §4 — `HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` (39 IDs); `SEAM-29`'s construction contract honoured ahead of phase 2 | §4; §3.5's strict component encoder and `URI::RFC3986_PARSER` pin for `HTTP-29`/`HTTP-32` (the rest of §3.5 is `SEAM-26`/`SEAM-27`, phase 2's); phase design: [`phase1/2026-09-05-phase1-core-http-domain-model-design.md`](./phase1/2026-09-05-phase1-core-http-domain-model-design.md) |
+| 2 | Seam Foundations | `dexpace-core` | §3 — `SEAM-1`–`SEAM-30` (30 IDs) | §2.4, §3.1–§3.7, §10.3, §10.8, §10.9; phase design: [`phase2/2026-09-06-phase2-seam-foundations-design.md`](./phase2/2026-09-06-phase2-seam-foundations-design.md) |
+| 3 | I/O and Body Lifecycle | `dexpace-core` | §5 — `IO-1`–`IO-42` (42); ch.06 — `BODY-1`–`BODY-37` (37), plus `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` jointly numbered into that chapter | §3.1, §10.1, §10.2, §10.12; segmentation design: [`phase3/2026-09-08-phase3-segmentation-design.md`](./phase3/2026-09-08-phase3-segmentation-design.md); 3a design: [`phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`](./phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md); 3b design: [`phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`](./phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md) |
+| 4 | Execution Context and Pipelines | `dexpace-core` | §7 — `CTX-1`–`CTX-20` (20); §8.2 — `RECOV-1`–`RECOV-34` (34); §8.1 — `PIPE-1`–`PIPE-40` (40) | §5.1–§5.4, §8.1; segmentation design: [`phase4/2026-09-08-phase4-segmentation-design.md`](./phase4/2026-09-08-phase4-segmentation-design.md); 4a design: [`phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`](./phase4/phase4a/2026-09-08-phase4a-execution-context-design.md); 4b design: [`phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`](./phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md); 4c design: [`phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`](./phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md) |
+| 5 | Configuration and Observability | `dexpace-core` | §16 — `CFG-1`–`CFG-38` (38); §15 — `OBS-1`–`OBS-40` (40) | §8.1–§8.3, §10.16, §10.17; segmentation design: [`phase5/2026-09-09-phase5-segmentation-design.md`](./phase5/2026-09-09-phase5-segmentation-design.md); 5a design: [`phase5/phase5a/2026-09-09-phase5a-configuration-design.md`](./phase5/phase5a/2026-09-09-phase5a-configuration-design.md); 5b design: [`phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`](./phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md); 5c design: [`phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md`](./phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md) |
+| 6 | Retry, Redirect and Authentication | `dexpace-core` | §9 — `RETRY-1`–`RETRY-45` (45); §10 — `REDIR-1`–`REDIR-28` (28); §11 — `AUTH-1`–`AUTH-38` (38) | §6.1–§6.3, §8.3, §10.15; segmentation design: [`phase6/2026-09-09-phase6-segmentation-design.md`](./phase6/2026-09-09-phase6-segmentation-design.md); 6a design: [`phase6/phase6a/2026-09-09-phase6a-retry-design.md`](./phase6/phase6a/2026-09-09-phase6a-retry-design.md); 6b design: [`phase6/phase6b/2026-09-09-phase6b-redirect-design.md`](./phase6/phase6b/2026-09-09-phase6b-redirect-design.md); 6c design: [`phase6/phase6c/2026-09-09-phase6c-authentication-design.md`](./phase6/phase6c/2026-09-09-phase6c-authentication-design.md) |
+| 7 | Serde, SSE and Pagination | `dexpace-core`, `dexpace-serde-json` | §14 — `SERDE-1`–`SERDE-30` (30); §13 — `SSE-1`–`SSE-41` (41); §12 — `PAGE-1`–`PAGE-36` (36) | §3.4, §7.1–§7.3, §10.13, §10.14; segmentation design: [`phase7/2026-09-10-phase7-segmentation-design.md`](./phase7/2026-09-10-phase7-segmentation-design.md); 7a design: [`phase7/phase7a/2026-09-10-phase7a-serialization-design.md`](./phase7/phase7a/2026-09-10-phase7a-serialization-design.md); 7b design: [`phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`](./phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md); 7c design: [`phase7/phase7c/2026-09-10-phase7c-pagination-design.md`](./phase7/phase7c/2026-09-10-phase7c-pagination-design.md) |
+| 8 | Transports and Async Runtime | `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-async-thread`, and `dexpace-conformance` — phase 8 owns that gem: its gemspec, its version and its first release, shipping the transport conformance suite | §17 — `TRANSPORT-1`–`TRANSPORT-30` (30); §18 — `ASYNC-1`–`ASYNC-22` (22) | §3.2, §3.3, §3.7, §9.3, §10.5; segmentation design: [`phase8/2026-09-11-phase8-segmentation-design.md`](./phase8/2026-09-11-phase8-segmentation-design.md); 8a design: [`phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`](./phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md); 8b design: [`phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md`](./phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md); 8c design: [`phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md`](./phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md) |
+| 9 | Cross-Cutting Invariants and Conformance | `dexpace-conformance` — adds the remaining suites to phase 8's gem, owning neither its gemspec nor its release; every gem audited | §19 — `XCUT-1`–`XCUT-24` (24); §20 — `NFR-1`–`NFR-17` (17); appendix B | §9, §9.3, §10.19; phase design: [`phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`](./phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md) |
+| 10 | Deviation Reconciliation and Release Readiness | every gem (audit-led; ships code where the audit finds a defect) | appendix C — every ID named by design §10's 19 entries | §10, §11, §12 |
+
+**Ordering rationale:** Toolchain first, so every subsequent phase is written under the gates from its first line
+— and phase 0 creates all six gem skeletons with real gemspecs rather than a workspace alone, because the gemspec
+audit, the require-allowlist audit and the clean-bundle isolation run are only proven when they run against the
+artifact they are supposed to check. From there, dependency order. The HTTP domain model (1) is the base every
+other prefix builds on and depends on nothing. The seams (2) are the interface layer `TRANSPORT`, `ASYNC` and
+`SERDE` later implement, and they too have no prerequisite among the 19 prefixes. I/O and bodies (3) sit on the
+domain model. Context, recovery chain and pipeline (4) sit on those and are what every pillar step attaches to.
+
+**Configuration and observability come next (5), before the resilience layer, and this amends the order suggested
+in issue #2** — which had resilience at 5, serde at 6 and configuration/observability at 7. Three reasons, all
+observed rather than theorised. The Node build found configuration and observability to be prerequisites of
+retry and had to execute its own retry phase out of numeric order to get them; that is the one edge its stated
+bottom-up ordering inverted, and it is cheaper to fix here than to rediscover. `RETRY`'s policy defaults — budgets,
+caps, the clock and the interruptible delay primitive of `CFG-15`–`CFG-21` — come from Configuration, and its
+per-attempt events come from instrumentation. And the `CTX-14`/`CTX-15` ↔ `OBS-25`/`OBS-26` shared sentinel shape,
+fixed by phase 4, is then implemented in the phase immediately after the one that fixed it rather than three
+phases later.
+
+Retry, redirect and auth (6) are pillar steps and cannot precede their substrate. Serde, SSE and pagination (7)
+are outer layers that consume everything underneath while depending on no concrete codec or transport — and, per
+`SSE-37` and §12's chapter intro, on nothing in phase 6 either, so **6 before 7 is a convenience order, not a
+dependency**. Transports and async adapters (8) come late because a transport cannot be conformance-tested until
+it knows what authority it is deferring to: `TRANSPORT-1` and `TRANSPORT-2` require it to disable the native
+client's own redirect and retry, which presupposes `PIPE`, `REDIR` and `RETRY` as the single authority. Conformance
+(9) and deviation reconciliation (10) close the roadmap by construction — they audit what phases 0–8 built rather
+than building anything new, and phase 10's method, re-deriving every ledger claim from as-built source, is why it
+may ship code even though its scope is an audit.
+
+Five cross-phase obligations are stated here because no single phase owns them:
+
+1. **`CTX-14`/`CTX-15` and `OBS-25`/`OBS-26` are one shape.** The instrumentation bundle's trace id, span id,
+   trace flags and trace state are the same W3C-shaped sentinels the tracing chapter defines. **Phase 4 fixes
+   the shape and ships the bundle in core; phase 5 implements the sentinels and populates rather than replaces
+   it.** Phase 4 cannot defer the decision to phase 5, and phase 5 cannot redefine it.
+2. **`REDIR-11`/`REDIR-24` and `AUTH`'s stamping step are coupled.** The redirect loop is outer, auth stamping is
+   inner and per hop, `REDIR-7` strips `Authorization` before every re-issue because re-attaching is auth's job,
+   and the cross-origin re-issue carries an out-of-band signal auth must honour — in this port on the per-hop
+   cursor rather than the request (§10.15). Both sides land in phase 6, under one contract.
+3. **`RETRY` needs `RECOV` and `PIPE`, and then Configuration.** Its two stacks depend on two different substrates
+   from phase 4, both of which must exist before either stack is built, and its pacing depends on phase 5's clock
+   and interruptible-delay primitives (`CFG-15`–`CFG-21`) and its events on phase 5's instrumentation.
+4. **`TRANSPORT` needs `SEAM`, `PIPE`, `REDIR` and `RETRY` fixed first** — phases 2, 4 and 6. Not as call targets,
+   but as the authority contracts a transport defers to and disables its native equivalents for.
+5. **`ASYNC` adapters implement the `SEAM`-owned pivot.** The canonical dependency-free future is core's, decided
+   in phase 2 (§10.3); phase 8's adapters bridge to it and never replace it, which is also what keeps `NFR-11`'s
+   RBS surface scan satisfiable.
+
+A stated bottom-up order is not self-enforcing, and moving configuration forward pre-empts one known inversion
+rather than all of them. If a later phase discovers another dependency edge that inverts this order, record it in
+a dated status note here **and** in each affected phase's own Prerequisite section, and execute in the real order
+rather than the numeric one.
+
+The eleven rows account for all 645 canonical IDs: 631 in the per-prefix sums above, plus the twelve
+body-lifecycle `HTTP` IDs jointly numbered into spec ch.06 that phase 3 carries, and `HTTP-1`/`HTTP-2`, the ch.02
+framing pair phase 1 satisfies by construction.
+
+**Gap IDs each phase must read from the spec chapter itself.** 22 of the 645 have no substantive corpus entry,
+and a `--req` query on one returns nothing useful — budget the reading time in the phase's design document and
+say so there. **The three pointers below were corrected in place on 2026-09-13**; as first written each named
+the prefix's owning spec chapter, and for most of these IDs the chapter does not carry them at all —
+`docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` is their only normative statement,
+so a phase following the pointer literally either reads the wrong requirements or concludes the specification
+is missing them — and for `SEAM-22` and `SEAM-28` the IDs carrying the pointer are precisely the two the
+corpus cannot answer, so the phase reading them has no second source. The pointers now name the source that actually carries each ID. Phase 2: `SEAM-22`, `SEAM-28`,
+read out of **appendix C** (`SEAM-22` is replaced by the witness protocol of §10.14, `SEAM-28` is a deferred
+MAY). `docs/product-spec/03-pluggable-seams-and-extension-model.md` carries 22 of the 30 `SEAM` IDs and
+`docs/product-spec/02-architectural-principles.md` three more; the remaining five — `SEAM-15`, `SEAM-20`,
+`SEAM-22`, `SEAM-23` and `SEAM-28` — are appendix-C rows and nothing else, verified 2026-09-06 and re-verified
+2026-09-07 with `grep -o 'SEAM-[0-9]*' docs/product-spec/*.md | grep -v appendix-c | sort -uV`, which lists
+exactly 25. The other three escape this paragraph only because the *design* rescued them: `SEAM-15`, `SEAM-20`
+and `SEAM-23` have substantive design-role corpus entries from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.4 and §3.7, so a phase querying the corpus gets
+a good answer and never learns the design entry is the only prose between it and appendix C. Phase 2 read all
+five out of appendix C directly. Phase 3: `IO-32`–`IO-35`, read out of
+`docs/product-spec/05-i-o-contracts.md` — the byte-stream provider apparatus §10.1 retires, which is a decided
+non-implementation and not unmapped spec — and **`IO-6` out of appendix C**, which is the sharper case, because
+`IO-6` is neither retired nor a non-implementation but a **live MUST**: "the returned wrapper MUST take
+ownership of that stream: closing the wrapper closes the underlying stream". §5.1 runs `IO-1`–`IO-5` and
+`IO-18`; only the bridge half of `IO-6`'s obligation survives there, under `IO-16`, a SHOULD. Both places that
+state `IO-6`'s content attribute it to **`SEAM-3`**, which design §10 item 1 retires and phase 2 shipped as 🚫
+— §3.1's "Two ownership rules, deliberately different" paragraph and the corpus entry
+`message-bodies/8a1e7a7b` — so a phase auditing `SEAM-3`'s retirement and finding no surviving citation could
+reasonably conclude the ownership rule retires with the seam. It does not: `IO-6` is its surviving normative
+home, design §10 item 12 depends on it, and `BODY-8` is the other half of that one decision. 3a read `IO-6`
+out of appendix C. Phase 4: `RECOV-17`–`RECOV-31`, read out of **appendix C** — 15 IDs, the largest cluster in
+the corpus and the one place a phase must plan for reading the specification directly rather than querying it.
+`docs/product-spec/08-execution-pipelines.md` §8.2 states `RECOV-1` through `RECOV-16` and stops: verified
+2026-09-08 by repository-wide grep, **`RECOV-17` through `RECOV-34` appear nowhere in `docs/product-spec/`
+outside appendix C** — eighteen IDs, not fifteen, because `RECOV-32`, `RECOV-33` and `RECOV-34` escape the
+count above only through design-role corpus entries (`pipeline/785eab36`, `pipeline/2e998896`,
+`pipeline/7f286969`, `retry-and-resilience/58d2faad`, `retry-and-resilience/c9228a67`). "The corpus cannot
+answer" and "the specification cannot answer" are independent facts here, and this paragraph measures only the
+first. Phase 4's segmentation design read all eighteen out of appendix C and dispositioned each; fifteen travel
+to phase 6a with the recovery-stack work, so the reading budget largely transfers with it. Every other prefix
+has full corpus coverage. **At three occurrences across three prefixes this is a property of appendix C's
+relationship to the prose chapters** — appendix C is the superset, and a chapter is not obliged to state every
+row its prefix owns — rather than three separate omissions; `ruby scripts/knowledge.rb --gaps` derives its own
+trailing pointer from appendix C's subsystem cell, is not wrong about the *subsystem*, and inherits the same
+unfollowability, which is why the fix belongs to the derivation rather than to three roadmap sentences.
+
+**Post-v1.** Seven gems are deliberately out of scope for v1 and are release-notes entries, not phases (listed in
+`docs/first-release.md` § What v1 ships without › Post-v1 gems since 2026-09-13; design §2.2 is the authority):
+`dexpace-async-async`, `dexpace-async-concurrent_ruby`, `dexpace-transport-httpx`, `dexpace-transport-excon`,
+`dexpace-transport-typhoeus`, `dexpace-serde-oj` and `dexpace-instrumentation-otel`. The line is not usefulness but what would be unproven
+without it: a seam ships in the MVP with at least one adapter exercising the property the seam exists for, and a
+second adapter over an already-proven property waits (§2.2). Three postponed requirements ride on those gems and
+so cannot close inside v1 either — `SEAM-24`'s cancellation-bridge half on `dexpace-async-async`,
+`OBS-32`/`OBS-37` on `dexpace-instrumentation-otel` together with the async adapters, and `TRANSPORT-28`'s
+zero-copy clause with `TRANSPORT-30`, which are per-adapter and wait for a transport beyond the two the MVP ships;
+all three are entries under `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements
+declined for v1.
+
+**Segmentation rule.** A **build phase** — phases 1 through 8 — whose ID count clearly exceeds earlier phases', or
+that spans more than one ID-bearing spec chapter, or that ships more than one gem, gets a **segmentation design at
+the `phaseN/` level before any sub-phase design**: `docs/work/mvp/phaseN/<date>-phaseN-segmentation-design.md`. It
+decides how many ways the cut goes and in what order, and says for each sub-phase whether that order is a
+dependency or a convenience, because a sub-phase plan that silently reimposes a linear chain the split existed to
+avoid is a real and observed failure. Phase 0 carries no requirement scope, so the rule does not reach it; phases
+9 and 10 are audit-led and segment only if their own design finds it necessary. Sub-phase letters below are
+**expected until the segmentation design decides**; the boundaries named as spec-forced are not open to it.
+
+- **Phase 3 (79 prefix IDs plus 12 jointly numbered), expected 3a I/O contracts and 3b body lifecycle.** The cut
+  follows the spec's own ch.05/ch.06 line. `IO-40` forbids the streaming contracts from owning any timeout or
+  deadline — enforcement belongs to the transport — which keeps I/O free of transport concerns; `BODY-17`'s
+  tee-on-write builds on the tee sink of `IO-25`–`IO-29` and on `IO-17`'s pump, so 3a leads 3b as a dependency,
+  not a convenience. (**Corrected in place 2026-09-08** by the phase-3 segmentation design, which confirmed the
+  dependency and eight more edges like it: this bullet formerly read "`IO-28`'s pump". `IO-28` is the tee's
+  no-direct-backing-buffer prohibition, restated at the body layer by `BODY-37`; the pump is `IO-17`.)
+- **Phase 4 (94 IDs), expected 4a execution context, 4b recovery-chain primitives, 4c stage-based pipeline.**
+  4a leads both, and the order is a **convenience**. §8's two layers must not be collapsed into one — the design
+  quotes the prohibition — so 4b and 4c stay separate segments even though `RECOV-32`/`RECOV-33` put
+  header-stamping steps inside the recovery chain rather than in a pillar. (**Corrected in place 2026-09-08** by
+  the phase-4 segmentation design, which adopted the three-way cut and the letters but found the stated reason
+  false on both halves: this bullet formerly read "`PIPE`'s steps thread state through `CTX`'s promotion chain and
+  `RECOV-10`/`RECOV-11` re-assert cancellation on the current context, so 4a leads both." `PIPE`'s steps thread
+  state through their own **per-call cursor** (`PIPE-11` says so outright; `PIPE-13`, `PIPE-16`, `PIPE-17`,
+  design §5.1's cursor-scoped state), and `CTX-<n>` is cited in no specification chapter outside ch.07 and in no
+  design section outside §5.4, §8.1, §11.11 and §12 bar a single `CTX-9` **comparison** in §5.2 that reads
+  nothing from it; `RECOV-10` carries no cancellation or context clause at all, and `RECOV-11`'s "current
+  context" is rendered by design §5.2 as **the ambient cancellation token**, `Dexpace::Cancellation`, which phase
+  2 already built. Nothing in `RECOV` or `PIPE` consumes `CTX`, so the three sub-phases are independent and each
+  sub-phase design must say so in its own Prerequisite section.)
+- **Phase 5 (78 IDs), expected 5a configuration, 5b instrumentation and observability.** The cut follows the
+  §15/§16 line and the order is a real, if soft, dependency: `OBS-35`'s log-level resolution wants `CFG`'s layered
+  lookup, which design §10.16 records alongside the configuration chain, so 5a leads deliberately. 5b is where
+  `CTX-14`/`CTX-15`'s instrumentation bundle gets its `OBS-25`/`OBS-26` sentinels populated.
+- **Phase 6 (111 prefix IDs of its own, the largest, plus the fifteen `RECOV` IDs phase 4 handed it), expected 6a retry, 6b redirect,
+  6c authentication.** (**Corrected in place 2026-09-08** by the phase-4 segmentation design: this bullet
+  formerly opened "Phase 6 (111 IDs, the largest)". The **count is unchanged and the phase-6 row above is
+  unchanged** — no requirement ID moved, and `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28` and `AUTH-1`–`AUTH-38`
+  still sum to 111 — but the **scope** the number stood for is now stale. Phase 4's segmentation design moves the *work* of fifteen
+  `RECOV` IDs into this phase: `RECOV-17`–`RECOV-30` and `RECOV-34`, the recovery-stack retry engine, whose
+  checklist rows stay in phase 4 as ⏳ and whose implementation lands here. **Phase 6's segmentation design must
+  budget for 111 + 15 and not for 111**, and it decides whether each of the fifteen is a separate checklist row
+  or a cross-reference to its `RETRY` twin — the phase-4 segmentation design carries the twin-by-twin table in
+  full, and the work landed in 6a's Tasks 3, 4, 5, 7 and 11
+  (`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`), so the mapping does not have to be re-derived.
+  The cluster phase 4 identified is *sixteen* IDs; the sixteenth, `RECOV-31`, is **not** among the fifteen and
+  is **not** phase-6 work — it and its `RETRY-38` twin are declined for v1 (`docs/first-release.md` § What v1
+  ships without › SHOULD- and MAY-level requirements declined for v1, the `RECOV-31`/`RETRY-38` entry) — so it
+  may carry a row here but never a budget line. Phase 6 is by this margin the
+  largest phase in the roadmap, and it was already the largest before the fifteen arrived.) Two spec-forced facts
+  constrain the cut, and the hand-off of the fifteen is a direct consequence of the first. `RETRY` is two cooperating stacks over
+  two different substrates — the recovery-chain half
+  (§9.4 cites `RECOV-16`) and the stage-based pillar step (§8.3 cites `RETRY-27`/`RETRY-28`) — and they must not
+  carry independent backoff formulas or duplicated constants, so the shared calculator lands before either stack
+  and `RETRY` cannot be split along its two stacks. That is precisely why phase 4 cannot build the recovery
+  half: a calculator built two phases early is the duplication `RETRY-13` forbids, so the recovery-stack engine
+  waits for the phase that owns the shared calculator. `REDIR-24` fixes the redirect loop outer and auth stamping
+  inner, per hop, and `REDIR-11`'s cross-origin suppression signal is consumed by `AUTH`'s stamping step, so
+  neither pillar half finishes without the other's contract fixed. (**Corrected in place 2026-09-09** by the
+  phase-6 segmentation design: this sentence formerly ended "phase 6's segmentation design settles whether that
+  is one segment or two with a shared contract landed first." **That decision was already made, by phase 4c on
+  2026-09-08**, and phase 6 inherits it rather than taking it.
+  `docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md` fixes the stage order —
+  `PRE_REDIRECT` 100 → `REDIRECT` 200 → … → `AUTH` 800, `PIPE-2` — ships `Cursor#fork(state:)`,
+  `Cursor#state(stage)` and the restriction that only the forking step's own stage may write state, and writes
+  its `R11` negative assertions against `Stages::REDIRECT` by name. The redirect step forks per hop with
+  `state: {cross_origin: …}`; the auth step reads `cursor.state(Stages::REDIRECT)`; **phase 6 adds no marker to
+  the request and strips nothing**, which is design §10.15's claim. So the cut is **three independent
+  segments** — 6a retry, 6b redirect, 6c authentication — with no shared-contract sub-phase, and the only thing
+  needing both halves is an end-to-end credential-leak test, a convergence point rather than a build-order
+  dependency. The `REDIR-24` and `REDIR-11` facts stated above are unchanged and still constrain the
+  implementation.)
+- **Phase 7 (107 IDs), expected 7a serde, 7b SSE, 7c pagination.** The cut is spec-forced and so is the
+  independence: `SSE-37` is a MUST that core parsing and streaming hold no serialization dependency, and §12's
+  chapter intro requires the pagination engine to be transport-agnostic and serde-agnostic, with `PAGE-8`
+  keeping the engine stateless and shareable. No sub-phase may depend on another, order is convenience only, and
+  each sub-phase's plan must say so in its own Prerequisite section rather than inheriting a chain by habit.
+  This is also the phase that ships the workspace's second real gem, `dexpace-serde-json`.
+- **Phase 8 (52 nominal IDs, effectively more), expected 8a transports, 8b async runtime.** Raw count
+  alone would not force a split; shipping four gems does, and so does the per-gem conformance work the
+  count does not see. The cut is the §17/§18 line, which is also the
+  `SEAM-11`-versus-`SEAM-16`/`SEAM-17` line — a synchronous transport and an async-runtime bridge over
+  the core pivot are genuinely different concerns. (**Corrected in place 2026-09-11** by the phase-8
+  segmentation design, which took a **three-way** cut — `8a` synchronous transport and the conformance
+  gem, `8b` async-runtime adapter, `8c` asynchronous transport — and found the stated reason false on
+  the §17 side. **The count is unchanged and the phase-8 row above is unchanged**: `TRANSPORT-1`–`30`
+  and `ASYNC-1`–`22` still sum to 52 and no ID moves. What is wrong is the claim that the chapter line
+  *is* the seam line. Five of §17's thirty requirements — `TRANSPORT-7`, `TRANSPORT-8`,
+  `TRANSPORT-9`, `TRANSPORT-21` and `TRANSPORT-23` — have an **async-only antecedent** and are
+  `SEAM-16`'s, so a synchronous-transport segment cannot exercise them, and §17's own preamble names
+  "§7 / **SEAM-11, SEAM-16**" together in its first sentence. In the other direction the pairing is too
+  tidy rather than wrong: fifteen of §18's twenty-two impose an **executor, worker, pooled-thread or
+  bridge** obligation — `SEAM-18` and `SEAM-25` — while §18's own preamble names **`SEAM-17`** as its
+  interchange point, so the chapter line is not the seam line in either direction.
+  `dexpace-transport-async_http` sits on neither side of the chapter line:
+  it is a transport by chapter — §2.1 calls it "The reference *asynchronous* transport" — and is
+  **not** an async-runtime adapter by §18's own definition, because
+  it bridges nothing: it implements the SPI natively over a reactor. So it gets its own segment. The
+  three sub-phases are **independent** and every boundary is a **convenience**; `dexpace-async-thread`
+  declares `dexpace-core` and nothing else, `dexpace-transport-async_http` declares `async-http` and
+  needs no thread pool, and the two shared artifacts — §9.3's `TCPServer` fixture and the conformance
+  assertion protocol phase 0 postponed to this phase — are **assigned to `8a`**, with each design stating whether it wrote or consumed
+  them if the sub-phases run out of order. One task is
+  phase-level because it lands in a gem none of the three ships: `Dexpace::TransportError < ::IOError`
+  in `dexpace-core`, which closes `docs/first-release.md`'s standing phase-8 blocker. Cross-cutting
+  constraint 4's "phase 8 brings the first real socket" is confirmed and is worth narrowing: `8a` and
+  `8c` bring it and `8b` brings none.)
+
+---
+
+## How Phases Get Executed
+
+Each phase, when its turn comes, runs the same cycle.
+
+**1. Read what is already known, before writing anything.** Invoke the `knowledge-lookup` skill at the start of
+the phase and again at the start of every numbered task. The phase-start pair is not optional:
+`ruby scripts/knowledge.rb --origin note --brief` and `--section conflicts --brief`, because a plan that assumes
+an open conflict is settled is exactly what those two queries exist to catch. Then `--prefix-info <PREFIX>` and
+`--gaps <PREFIXES>` for the phase's own prefixes, and `--phase <N>` on each predecessor to see what IDs its
+documents already cite. A `--req` hit tagged `[appendix-B roll-up]` is not an answer; follow the skill's
+three-step roll-up path. Then read what earlier phases scheduled against this phase (**corrected in place
+2026-09-13**; as first written this step was a sweep of a deferral register — none of its 19 seeded rows named a
+target phase, so a phase read the whole file and dispositioned every row — and that register was retired the same
+day, once every row named an owner): grep the plans for this phase's name to find the tasks earlier phases
+scheduled here, and read the three `docs/first-release.md` sections — what v1 ships without, the release path and
+the post-release triggers — so nothing scheduled here is re-derived or dropped.
+
+**2. Brainstorm on a branch off `mvp`.** `mvp` is the starting point for every phase. The `brainstorming` skill
+writes the design document; if the segmentation rule applies, the segmentation design comes first and the
+sub-phase designs follow it.
+
+**3. Plan.** The `writing-plans` skill writes the plain plan: numbered tasks, each citing the requirement IDs it
+satisfies and the design sections it implements.
+
+**4. File the documents.** Both skills hard-code `docs/superpowers/{specs,plans}/`, which is an inbox this
+repository cannot reconfigure. Run `ruby .claude/skills/housekeeping/probe.rb`, fix what it reports, then
+`ruby .claude/skills/housekeeping/apply.rb --delivery mvp --phase <N[x]> --write`, which is a `git mv` so
+`git log --follow` resolves across the move. Re-run `--only links,citations` and repair anything the move staled,
+in the same change. **Cite the `docs/work/` path, never the staging path.** Naming, exactly:
+`docs/work/mvp/phaseN[/phaseNx]/<date>-phaseN[x]-<slug>-design.md`, the plan
+`<date>-phaseN[x]-<slug>.md`, the checklist `<date>-phaseN[x]-<slug>-checklist.md`, and a segmentation design at
+`docs/work/mvp/phaseN/<date>-phaseN-segmentation-design.md`. A phase directory is `phaseN` with no hyphen; a
+sub-phase nests one deeper as `phaseN/phaseNx`.
+
+**5. Implement against the plan's numbered tasks, TDD.** Write the failing test, confirm it fails, implement,
+confirm it passes. Read design, plan and checklist before touching code. The implementation branch is
+`<issue>-phase-<N[letter]>-<slug>` off `mvp`, and a phase returns to `mvp` as **one phase-level pull request**,
+not one per sub-phase.
+
+**6. Write the checklist at execution time,** not at planning time — it records what was actually built. One row
+per requirement ID in scope, with the legend fixed in cross-cutting constraint 3.
+
+**7. Close the phase.** Record what it postponed (**corrected in place 2026-09-13**; as first written this step
+appended deferrals to a register, since retired): work this phase postpones is either scheduled as a numbered task
+in the plan of the phase that will do it, cited by path and task number, or, when no v1 phase will do it, recorded
+in `docs/first-release.md` under the fitting section — and a task an earlier phase scheduled here that this phase
+declines is recorded in its own design's postponed-work section with the reason, and in `docs/first-release.md`
+if the decision means v1 ships without it. Then its findings to their owners — the plan task, phase 10's inbound
+list or `docs/first-release.md`, per constraint 7 (**corrected in place 2026-09-13**; as first written this step
+sent them to a find-list register, since retired) — its deviations to its own `## Deviation Ledger` for consolidation into design §10 and audit in
+`docs/deviations.md`, and a dated status note to `## Phase Status Notes` below. Run the probe once more before
+handover.
+
+**Three rules this port adopts from the Node build's retrospectives, because each cost that build real rework:**
+
+- **A checklist must check the plan against the styleguide as well as against the requirement IDs.** Requirement
+  IDs are the only thing a spec-keyed checklist can see, and most styleguide rules carry no ID — twelve such
+  drifts survived four signed-off phases there. The mechanism here is the audit-group table in the
+  `knowledge-lookup` skill: each phase names the groups it ran and records the result. The groups are *public
+  API surface*; *gem layout, zero-dependency core*; *RBS / Steep typing*; *RuboCop and formatting*; *Minitest
+  conventions*; *encoding and binary strings*; *Fiber scheduler, thread safety*; and *styleguide-vs-design
+  conflicts*. A group not in that table is added to it before the audit runs, because an audit whose group is
+  not written down cannot be repeated. Precedence when a corpus rule and a plan disagree: a rule carrying a
+  requirement ID beats a general styleguide default; otherwise the narrower repository-specific rule wins; and
+  if both readings are satisfiable at once, satisfy both.
+- **A resolution recorded only in a roadmap status note is not recorded.** Back-port it to the corpus as a note
+  under `docs/knowledge/notes/<topic>.md` — role `review`, a manual `sha:` marker, and the backticked
+  `<topic>/<8 hex>` key of the harvested rule it overrides — or to the register that owns it. A resolution that
+  lives only here will be re-litigated by whoever reads the corpus next. `docs/knowledge/harvested/` is never
+  hand-edited, and `ruby scripts/verify_knowledge_structure.rb` is the gate that keeps the two trees apart.
+- **Every postponed item names its owner, never a bare id.** As first written this rule gave the deferral
+  register a retirement path — a row whose pick-up condition a phase met without acting on it was marked
+  UNSCHEDULED with that phase named, never silently carried as though still scheduled — because twenty items in
+  the Node build named a phase that had already closed, and nothing noticed until someone re-audited every row
+  against the shipped tree. What actually happened here: the register was reconciled against phases 0 through 9
+  and retired on 2026-09-13, once every row had an owner — a numbered plan task or a `docs/first-release.md`
+  entry. The durable lesson is the one the retirement enforced: a postponed item names the plan task (phase, task
+  number, path) or the release entry that owns it, never a bare identifier, so auditing postponed work against
+  the as-built tree means reading the plans and the release file — a closing step of every phase, not an annual
+  event.
+
+---
+
+## Phase Status Notes
+
+Append-only. One dated entry per event; never rewrite an earlier one. One correction in place, made once: on
+2026-09-13 every citation of the deferral register in the notes below was rewritten in place to name the item's
+owner — the plan task or the `docs/first-release.md` entry — because the register was retired that day.
+
+**2026-09-05** — Roadmap drafted and signed off for planning the same day. Nothing is implemented: `gems/` does not exist, no phase
+directory exists under `docs/work/mvp/`, and every gem is at `0.0.0` in `docs/first-release.md`. The six
+styleguide-versus-design conflicts are resolved as notes under `docs/knowledge/notes/`; nineteen items stand
+postponed by the MVP scope design rather than by a phase, none yet naming the phase or release entry that would
+own it; no finding has been made yet; and all 19 rows of `docs/deviations.md` read `design only — not yet built`. The
+phase order here **amends the order suggested in issue #2**: configuration and observability move from 7 to 5,
+resilience from 5 to 6, and serde/SSE/pagination from 6 to 7 — the rationale is under the phase table and is not
+repeated here. Two documentation consequences, both outside this document's own scope to fix. Filing this roadmap
+falsified `CLAUDE.md`'s former sentence "`mvp/` is the only delivery and it is empty"; no mechanical check catches
+that, since the probe's `claims` check reads numerals and the phase-directory count is still zero, so it is
+corrected by hand in the change that files this document. And phase 0 owns rewriting `CLAUDE.md`'s "After scaffold
+— planned, none of these exist yet" command block from what it actually built, along with the gem-count and
+phase-directory-count sentences the `claims` check does read.
+
+**2026-09-05** — Phase 0 design and plan filed, on the same day as the roadmap.
+`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md` and
+`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md`. Nothing is implemented;
+the checklist is written at execution time, per execution step 6. Scope is `NFR-1`–`NFR-17` as
+machinery plus `SEAM-1` and `SEAM-2`; no ID is dispositioned here and phase 9 owns the answers.
+Phase 0 read the nineteen items the MVP scope design had postponed and picked up none — the
+fenced-example executor for `.claude/skills/housekeeping/` comes closest and its condition,
+published gems to point at, is not met — the phase creates six gem directories, but nothing is
+published and every gem stays at `0.0.0` (it now sits under `docs/first-release.md` § Release path ›
+After the first publish). Four items were postponed: the release path (signed publication, `NFR-16`
+and `NFR-12`'s release half — `docs/first-release.md` § Release path), the runtime version-skew
+assertion (phase 2, which built it as `Dexpace::Registry#register(key, factory, core:)`, P2-7), the
+conformance assertion objects (phase 8a, Tasks 4–8 and 20, with phase 9, Tasks 2–12a adding the
+remaining suites) and a Steep target over a test tree (condition-gated; `docs/first-release.md`
+§ Post-release triggers). Five knowledge notes were filed before the plan was
+written, because a resolution recorded only in a design document is re-litigated by whoever reads
+the corpus next: no committed `Gemfile.lock` and no `bundle install --frozen`; the file header is
+frozen-string-literal then SPDX with no Sorbet sigil to place second; `# typed: strict` applies
+nowhere, test files included; the production assertion primitive is the domain model's own
+validation helper and lands in phase 1; and — under `## Superseded` — the Ruby 4.0 bundled-gem
+list, re-verified against a real 4.0.6 interpreter, which is 23 entries rather than the six the
+corpus recorded from 3.4.10, with `tsort` leaving the default set at 4.1 and
+`Gem::BUNDLED_GEMS::SINCE` undefined on the 3.2 floor. Ruby 4.0 has shipped since the roadmap was
+written, so the 4.0 matrix column is an ordinary required row and the development pin is 4.0.6.
+
+**2026-09-05** — Phase 1 design and plan filed, the same day as the roadmap and phase 0.
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md` and
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model.md`. Nothing is implemented; the
+checklist is written at execution time, per execution step 6. Scope is the phase-1 row's 39 IDs
+plus `HTTP-1`/`HTTP-2` and `SEAM-29` as three further checklist rows — 42 in all: appendix C rows
+37 and 38 assign the framing pair to the **Core HTTP domain model** subsystem, phase 2's row is
+`SEAM-1`–`SEAM-30` alone, and this document's own accounting already reads "the ch.02 framing pair
+phase 1 satisfies by construction", so the pair is carried here rather than treated as seam work;
+`SEAM-29` is a row because this phase honours **both** its MUSTs, the uniform `<name> is required`
+message and the shared generic builder contract that lets a helper accept any builder (spec ch.03
+§3.8). `--gaps HTTP` reports 53 of 53 substantive, so the phase budgets no reading beyond its own
+chapter. No segmentation design: one chapter, one gem, 39 IDs. Phase 1 read all twenty-three
+postponed items and picked up none. It gave **the `HTTP-22`/`HTTP-48`–`HTTP-50` helpers a target
+phase they never had — phase 6**, where `REDIR`/`AUTH` were expected to give the conditional-request
+helpers their first caller (the target did not fire, and the decision now stands as the
+`HTTP-22`/`48`/`49`/`50` line under `docs/first-release.md` § Blockers before first publish);
+declining would have been wrong, because that is for a condition a phase met and declined and this
+item's condition (convenience helpers prioritised over minimal public surface) never fired. The four
+unmet SHOULDs and the MAY are also listed in `docs/first-release.md`. Three items were postponed:
+the error root's suppressed trail (phase 4 — built by 4b, Task 1), wire-boundary re-validation
+inside every transport (phase 8 — 8a Task 16 and 8c Task 9, with phase 9 Task 7's portable
+assertion) and the `body` member's type and `HTTP-46`'s by-value half (phase 3 — built by 3b,
+P3-15). Two decisions bind
+every later phase and are recorded as deviations P1-1 and P1-2 with a Design §4 and a Design §5
+addendum: public wire-model constants are **flat** (`Dexpace::Request`, defined under
+`lib/dexpace/http/`), and `Dexpace::Error` is a **module** included by every core error class,
+because `XCUT-4` puts transport errors in Ruby's `IOError` family and single inheritance makes a
+class root and that requirement mutually exclusive. Two facts verified against real interpreters
+during planning changed the design rather than being noted after the fact: `Data#with` **does not
+call an `initialize` override on Ruby 3.2.11** (it does on 3.4.10 and 4.0.6), so the design's
+derivation path would skip every `HTTP-4`/`SEAM-29` check on the declared floor — closed by a
+shared `#with` in `Dexpace::Model`; and `String#strip` strips trailing NUL and raises on invalid
+UTF-8, so `HTTP-17`'s trim is SP and HTAB only and every validator reads bytes. An independent
+review of both documents added a third rule that binds every later phase: **no `.build` is a bare
+`new` wrapper** — validation lives in each `Data` type's `initialize`, because `.build` is public,
+`#with` routes every derivation through it and `send(:new, …)` reaches the constructor regardless,
+so a rule enforced only in a `Builder` is a rule three callers walk around. Four knowledge
+notes were filed before the plan was written: `module-organization` (the flat-constant departure),
+`error-handling` (the module root and the absent `Assert` facade), `type-system` (no `T::Enum`;
+closed sets are frozen `Data` types over a frozen table) and `data-modeling` (`## Superseded`: the
+`Data#with` behaviour, verified per interpreter).
+
+**2026-09-07** — Phase 2 design and plan filed. The design landed a day earlier and was committed
+on its own, at `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md`; the plan is
+`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md`. Nothing is implemented; the checklist
+is written at execution time, per execution step 6. Scope is the phase-2 row's thirty IDs,
+`SEAM-1`–`SEAM-30`, one checklist row each — with **`SEAM-29`'s row a cross-reference to phase 1**,
+which honoured both of its MUSTs ahead of this phase, because dropping the row would leave an ID
+inside this phase's stated range with no row in the phase that owns the range. No segmentation
+design: one chapter, one gem, thirty IDs, fewer than phase 1's forty-two rows. Phase 2 read all
+twenty-six postponed items and **picked up the runtime half of the version-skew guard**, which
+phase 0 had postponed to phase 2 explicitly: it is now a required `core:` keyword on
+`Dexpace::Registry#register`. It gave **`SEAM-28` a target it never had — phase 5**, where an
+operation identifier first has both the context chain it attaches to (phase 4's) and a consumer for
+it (it landed as 5c, Task 4 over 4a's `RequestContext#operation_name`); declining would have been
+wrong, because that item's condition — "picked up opportunistically" — is not a condition any phase
+could meet. Five items were postponed: the two disposal routes for `close_quietly`'s rescued error
+(phases 4 and 5 — 4b Task 2 and 5b Task 14), the pivot's `deadline:` keyword and the clock behind
+it (phase 5 — 5a Task 8), moving the three in-memory fakes into `dexpace-conformance` (phase 8 —
+declined there by 8a on the development-dependency cycle it would create), presence-gated
+auto-activation, instrumentation only (post-v1 — `docs/first-release.md` § What v1 ships without)
+and `SEAM-25`'s lifecycle event on the first close of an owned executor (phase 5 — emitted by 8b
+Tasks 6 and 10, harnessed by phase 9 Task 11). **The first of the three unfollowable gap pointers was found**: five `SEAM` IDs —
+`SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28` — appear nowhere in the specification's
+prose and exist only as appendix-C rows, so this document's own gap paragraph and
+`scripts/knowledge.rb --gaps SEAM`, which both sent a reader to
+`docs/product-spec/03-pluggable-seams-and-extension-model.md` for `SEAM-22` and `SEAM-28`, named a
+chapter that does not carry them. The pointer is derived mechanically from appendix C's subsystem
+cell and is not wrong about the subsystem; the instruction built on it was unfollowable. Phase 2
+read all five out of appendix C directly, and the gap paragraph above now names appendix C as their
+source (corrected 2026-09-13). Four knowledge notes were filed before the plan was
+written: `module-organization` (require-time seam self-registration is the one load-time side
+effect this repository permits, against the styleguide's "no global registry mutation at file
+scope"), `data-modeling` (a seam is a duck type plus a `.conforms?` predicate plus an RBS interface,
+never a Sorbet abstract module), `concurrency-and-async` — a new file — (core's shared mutable state
+is a frozen `Data` snapshot swapped under a `Thread::Mutex`, because `concurrent-ruby` is a gem),
+and `url-and-query-encoding` — a new file, under `## Superseded` — (`SEAM-27`'s base composition is
+not RFC 3986 reference resolution, and `URI.join` is banned by a phase-0 cop). Three facts verified
+against real interpreters during planning changed the design rather than being noted after it.
+`URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` is `https://host/pets` on 3.2.11 and
+4.0.6 alike, dropping both the base path segment and the base query that `SEAM-27`'s own
+conformance example requires to survive — so the composition is hand-built and design §3.5's
+sentence is superseded for this seam while staying correct for `REDIR-13` in phase 6. A bare
+`Thread` inside `module Dexpace::Async` resolves to Ruby's `Thread` until `dexpace-async-thread` is
+required and to `Dexpace::Async::Thread` afterwards, and core's own suite never requires that gem —
+a bug that cannot fail in the tree that contains it, so the phase adds a **sixth custom cop**
+alongside a behavioural test that defines the adapter's constant and re-runs the pivot. And `Gem` is
+undefined under `ruby --disable-gems`, so the version-skew guard's comparison is hand-rolled and `Gem::Requirement`
+appears only in the test that cross-checks it. Thirteen decisions are recorded as deviations P2-1
+through P2-13, with a Design §3 addendum (two entries) and a Design §9 addendum (one), for
+consolidation into design §10 and audit in `docs/deviations.md`. An independent review of both
+documents reproduced four behavioural defects in the plan's own fences on all three interpreters —
+a composed cancellation token reporting a reason different from the one it had just handed its
+handler; a per-token rather than per-registration `#on_cancel` guard, which left a second waiter on
+one token blocked forever and was a flat `SEAM-18` violation; a registry that called a factory and
+the conformance predicate while holding a non-reentrant mutex; and a cop that flagged its own
+accepted case — and every one is fixed in the filed plan. A second review found four more, all reproduced: a
+resolution claim released only on the `StandardError` path, so a `LoadError` from a factory wedged
+the registry into a silent spin; `#swap` restoring a captured snapshot that still carried a
+completed resolution's closed gate, the same wedge through the seam every adapter suite uses; a
+method-level `else` in the sync-to-async bridge that let a raise escape the posted block and leave
+the future permanently unsettled; and three lock tests that passed under the very shape their
+comments said they rejected. All four are fixed, and each guard was run red against the pre-fix
+code first. The plan's **44 `ruby` fences are extracted, written to the 41 files they name and
+run**: 169 runs, 537 assertions, 0 failures on 3.2.11 and 3.4.10 and 545 on 4.0.6, warning-free
+under `ruby -w` and identical across six seeds. The RuboCop cop is the one fence that cannot run
+against this project's toolchain — no RuboCop is installed until phase 0 — and was executed during
+review on RuboCop 1.90.0 through phase 0's verbatim harness: 17 runs, 61 assertions, 0 failures.
+
+**2026-09-08** — Phase 3 segmentation design filed, at
+`docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`. It is the first segmentation
+design the rule above has produced; no sub-phase design or plan exists yet, and nothing is
+implemented. **The cut is two ways, on the spec's own ch.05/ch.06 line, and 3a leads 3b as a
+dependency** — the expectation in the segmentation bullet, adopted on evidence rather than
+inherited: eight named edges run 3a→3b (`BODY-17`–`BODY-21`/`BODY-37` on the `IO-25`–`IO-29` tee,
+`BODY-3` on the `IO-7`–`IO-10` buffer, `BODY-10` on `IO-12`/`IO-17`, `BODY-22`–`BODY-29` on
+`IO-19`/`IO-20`/`IO-41`/`IO-42`, `BODY-32`/`BODY-33` on `IO-9`'s ceiling, `HTTP-41`/`BODY-14` on
+`BufferedSource`, `HTTP-42` on `IO-13`, `BODY-8` on `IO-6`) and none runs back. The one edge that
+would have — `BufferedSource.over(body)` is a 3a artifact taking a body — is removed by fixing the
+canonical body *representation* (§10.2's `#each`-yielding-BINARY duck type) in 3a while the body
+*production contract* (`HTTP-36`/`BODY-1`) stays 3b's; no ID moves. Three ways was considered twice
+and rejected twice: a request-side/response-side pair, the only candidate offering real
+independence, is crossed by four MUSTs (`HTTP-52`/`BODY-30` re-serving an error body as a
+*replayable* body, `BODY-34`'s one shared preview size across both sides, `BODY-32`, and the shared
+short-write/zero-read helper); a model-then-capture pair is coherent but strictly linear and buys no
+merge, since a phase returns to `mvp` as one pull request. 3b at 49 IDs is the largest sub-phase the
+expectations contain, and the mitigation is a stated constraint on 3b's plan — model before wrappers
+— rather than a third document. Scope reconciles exactly: 42 + 49 = 91, the roadmap's 79 prefix IDs
+plus 12 jointly numbered, verified mechanically against appendix C (`IO` 42 contiguous rows, `BODY`
+37, `HTTP` 53, 645 total, no duplicate), with the `HTTP` family partitioning with no residue across
+phases 1 and 3. **The roadmap's arithmetic is correct**; two spec-reading traps are recorded instead
+— ch.06 §6.3's `HTTP-16-body` label is not a requirement ID (canonical `HTTP-16` is phase 1's header
+insertion-order SHOULD), and `BODY-6`/`BODY-7` are two checklist rows although ch.06 states their
+content inside `BODY-3`'s bullet. The gap-ID claim was checked and is half right: `IO-32`–`IO-35`
+are the retired provider apparatus exactly as this document says, but **`IO-6` is a live MUST** —
+ownership-on-wrap — that appears in no spec chapter and no design chapter, whose content §3.1 and the
+corpus both attribute to the retired `SEAM-3`, and whose bridge half survives in ch.05 only under
+`IO-16`, a SHOULD. The gap paragraph above now names appendix C as `IO-6`'s source (corrected
+2026-09-13); 3a reads it from there. The body member's typing phase 1
+postponed is **picked up by 3b** (it needs a body type to narrow `sig/` to, which 3a's duck type is
+not), and the `NFR-4` narrowing is free because the lock diffs against a release tag that does not
+exist. `BODY-12`/`BODY-36` stay postponed and gain what they lacked: `BODY-12`'s transport-dispatch
+clause targets **phase 8** alongside `TRANSPORT-28`'s zero-copy clause (phase 8a later declined it,
+its design's R5; `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry), its
+body-side clause is 3b's to decide, and `BODY-36` gets an explicit pick-up condition — core's
+dependency budget changing — in place of "no named trigger", because Ruby has no stdlib `mmap` and
+both routes to one are barred by `SEAM-1`. No new deferral was filed: a segmentation design decides a
+cut, not the interfaces whose absence a deferral records. Four facts verified on 3.2.11, 3.4.10 and
+4.0.6 shaped the document rather than being noted after it. `IO#read(n, buf)` and
+`StringIO#read(n, buf)` **overwrite** the destination buffer where `IO-1` requires a tail-append, so
+3a's read primitive cannot delegate to Ruby's read-into form. `StringIO#read(n, buf)`'s encoding
+behaviour **changed at exactly Ruby 3.4** — BINARY-forced on 3.2.11, destination-tag-preserving from
+3.4 — the same floor-straddling shape as `URI::DEFAULT_PARSER`. Defining `Dexpace::IO` shadows
+`::IO` for every file inside `module Dexpace`, and the dangerous case is silent: `x.is_a?(IO)` and
+`IO === x` return **false** for a real `::IO` with no error, while phase 2's
+`Dexpace/QualifiedCoreConstant` covers neither that constant nor any path phase 3 writes. And §7.1's
+`Enumerator`-`ensure` asymmetry, verified there on 3.4.10 alone, holds on the floor and the ceiling
+too, so the rule that resource acquisition and release never live inside an `Enumerator` block binds
+phase 3 before it binds phase 7. **One knowledge note was filed** before the document was finished,
+`docs/knowledge/notes/pagination.md` — a new file superseding `pagination/d626cf17` and widening
+`pagination/731d9f17` with that last fact; the other three Ruby facts override no harvested rule and
+so earned none. Ten risks are named for the sub-phase designs and none is decided
+here; the Deviation Ledger is empty, since every mechanism substitution phase 3 relies on is already
+catalogued in design §10 items 1, 2, 10, 11, 12 and 18.
+
+**2026-09-08** — Phase 3a design filed, at
+`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`, the first
+sub-phase design the segmentation rule has produced. Nothing is implemented; the plan and
+the checklist are still to be written. Scope is the segmentation design's 42 `IO` IDs
+unchanged — 34 implemented, eight 🚫 citing design §10.1 — plus the three things the
+charter assigns 3a without a new ID: §10.2's canonical body **representation**,
+`BufferedSource.over` with its no-ownership exception, and `MAX_MATERIALIZED_BYTES`.
+**Three verified facts reshaped the design rather than being noted after it, and the first
+is the largest.** `IO.copy_stream` — which is literally what
+`Net::HTTP#send_request_with_body_stream` calls — drives a duck-typed source through
+`readpartial(len, buf)`, or `read(len, buf)` when there is no `#readpartial`, with **one
+buffer object reused across every call** and expected overwritten, on 3.2.11, 3.4.10 and
+4.0.6 alike. `IO-1` requires the opposite, so `IO-1`'s primitive and `IO-16`'s host-native
+bridge **cannot be the same Ruby method**: the primitive is `#read_into(dest, count:)` and
+`#read`/`#readpartial`/`#getbyte`/`#each` keep Ruby's semantics, which is what makes design
+§3.1's "`IO-16` is satisfied by construction" true rather than merely asserted (R2, R4).
+Second, `IO.copy_stream` terminates cleanly on an `EOFError` **subclass** raised by a
+duck-typed `#readpartial`, so `Dexpace::EndOfStreamError < ::EOFError` is load-bearing:
+outside that family every streaming upload phase 8 performs would fail. Third,
+`force_encoding` on a **frozen** `String` raises `FrozenError` even when the target encoding
+is already the string's own, and a Rack-style body under `# frozen_string_literal: true`
+yields frozen chunks — so the ingress retag is `String#b` and never `force_encoding`, and
+every encoding test uses non-ASCII bytes because a BINARY string appended with an ASCII-only
+UTF-8 one stays BINARY and passes under the bug. All four risks the segmentation design
+assigned 3a are resolved: **R1** extends `Dexpace/QualifiedCoreConstant` with the constant
+`IO` and a third watched namespace, the one-segment `Dexpace`, making the rule repository-wide
+over every gem's `lib/` — `File`, `StringIO` and `Tempfile` are deliberately not added, under
+a standing rule that a constant joins the list in the same change that creates its shadow —
+and the mitigation that actually matters is that core never writes `is_a?(IO)` at all;
+**R2** fixes `#read_into`'s four return values, its eager `IO-3` rejection and the fill hook
+that normalises `readpartial`'s `EOFError` and `read`'s `nil` to `-1` at most once per stream;
+**R3** states `IO-6`'s ownership rule once, citing `IO-6` and design §10.12 rather than the
+retired `SEAM-3`, and names `.over`'s exception and the absence of any borrowing variant in
+the same place; **R4** finds §3.1's "satisfied by construction" claim false as written and
+true after the rename, and pins it with an end-to-end `IO.copy_stream` test rather than an
+inference. R5–R10 are untouched and remain 3b's. The object model is
+`Dexpace::IO::{Buffer, BufferedSource, BufferedSink, TeeSink, TypedReads, TypedWrites}` plus
+`MAX_MATERIALIZED_BYTES`, two flat error classes `Dexpace::StreamError < ::IOError` and
+`Dexpace::EndOfStreamError < ::EOFError`, and three RBS interfaces; `#peek` and `#slice`
+return a `BufferedSource` rather than a new public type. **One change reaches back into a
+phase-2 constant**: `Dexpace::Closeable#closed?` is changed to read the latch under the close
+mutex, because `IO-38` is the first requirement that reads the flag from a second thread and
+§3.1 declines to rely on the GVL "so the guarantee survives JRuby and TruffleRuby" — measured
+at about 40 ns per call, paid once per public call and never per byte. Twelve deviations are
+recorded as P3-1 through P3-12 with a Design §3 addendum carrying two entries. One item was
+postponed — exercising `IO-38` on a Ruby without a GVL, now under `docs/first-release.md`
+§ Post-release triggers, whose condition is an event rather than a phase because the matrix is CRuby-only and the GVL would hide a missing
+lock on every row. **A finding now carried as a `docs/first-release.md` blocker — documenting the
+`include Dexpace` constant shadow in `docs/sdk-documentation/` before publish**: phase 1's "verified
+inert outside core" holds only for a *top-level* `include Dexpace`; a consumer's own
+`class C; include Dexpace` puts `Dexpace` ahead of `Object` in the ancestry, so `x.is_a?(IO)`
+is silently `false` there — a finding about every flat `Dexpace::` constant sharing a name
+with a core class, not only about `Dexpace::IO`. Three knowledge notes were filed before the
+document was finished — `io-and-byte-streams` (two `## Superseded` entries: the read split and
+the frozen-chunk retag), `message-bodies` (`## Conflicts`: `IO-6` and not `SEAM-3` is the
+ownership rule's home, the corpus half of the `IO-6` gap-pointer correction) and `resource-management` (`## Conflicts`:
+the styleguide's per-call I/O timeout rules do not reach this layer, because `IO-40` forbids
+it). A sixth audit group, **resource lifecycle and stream ownership**, was added to the
+`knowledge-lookup` skill's table before it was run, per the first retrospective rule.
+
+**2026-09-08** — Phase 3a plan filed, the same day as the phase-3 segmentation design and the 3a
+design. `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts.md`. **Fifteen numbered TDD
+tasks**, in build order: the cop extension; `Closeable#closed?` under the close mutex; the two error
+classes; `Dexpace::IO` with the ceiling and the three RBS interfaces; `TypedReads` in five steps —
+the `#read_into` primitive with the chunk store, the typed reads with the `IO-9` ceiling, the line
+machine, the host-native bridge, the views; `BufferedSource`; `TypedWrites`; `Buffer`;
+`BufferedSink`; `TeeSink`; and one deliberate closing task for the entry point, the two regenerated
+artifacts and the checklist. Nothing is implemented; the checklist is written at execution time, per
+execution step 6. Every `ruby` fence was extracted and run: **43 fences, on 3.2.11, 3.4.10 and 4.0.6,
+203 runs / 819 assertions / 0 failures** (823 assertions on 4.0.6 for phase 2's Minitest-6 reason),
+warning-free under `ruby -w` with `RUBYOPT=-W:deprecated`, identical across five seeds; the nine
+`rbs` fences pass `rbs validate`; the cop's cases run **18 runs / 52 assertions / 0 failures** on
+RuboCop 1.90.0, and the cop finds **0 offenses** over the eighteen files of the finished `lib/` tree.
+The plan's own fences were then re-extracted from the filed document and the whole tree rebuilt from
+them, which is how the five-fragment assembly of `typed_reads.rb` is known to reconstruct rather than
+assumed to. **Task 2's guard was run red** against phase 2's unsynchronised `#closed?` on all three
+interpreters — `ThreadError expected but nothing was raised` — because a one-line behaviour change
+with no signature change is invisible to `gates:sig_diff`, so that assertion is the only thing
+standing between P3-6 and a silent revert. The design's three open questions are answered in the
+plan: the chunk store `shift`s a fully consumed chunk and never `byteslice`s a partially consumed
+head one, so the fill path copies a chunk at most once and not at all when the upstream already
+yields frozen BINARY chunks; `#each` yields whatever the upstream returned, because `.over` must
+preserve the wrapped body's chunking for `BODY-17`; and the one allocating `IO-9` test runs on every
+matrix row, measured at 0.0002–0.0006 s and under 20 MB peak RSS because the guard reads `#bytesize`
+without touching the lazily mapped pages. **One deviation was added, `P3-13`** — `#read` and
+`#readpartial` leave `outbuf` tagged `Encoding::BINARY`, because `::IO#read` preserves the
+destination's tag while `StringIO#read` changed at exactly Ruby 3.4, so Ruby's own readers disagree
+across this port's floor and only BINARY gives one answer on every row. **Nothing was postponed**,
+and nothing earlier phases had postponed was picked up. **A cross-phase measurement was opened, now
+3b's plan Task 13**: a
+source retains every view derived from it until it closes and the deregistration is an `Array#delete`
+— bounded everywhere 3a can see, and first non-obvious in phase 3b's per-attempt response-logging
+drain. Planning also found the one way to ship the cop broken: `module Dexpace; module IO` is itself
+a bare `IO` const inside `module Dexpace`, so without a definition-site guard the cop rejects
+`lib/dexpace/io.rb`, the very file that creates the hazard — two accepted rows now pin it.
+
+**2026-09-08** — Phase 3b design filed, at
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`, the second and last
+sub-phase design under the phase-3 segmentation. Scope is the charter's **49 IDs**: `BODY-1`–`BODY-11`,
+`BODY-13`–`BODY-35`, `BODY-37`, `HTTP-36`–`HTTP-45`, `HTTP-51` and `HTTP-52`. It ships **twelve public
+constants** — `Dexpace::Body`, a module that is simultaneously the production contract every body
+includes, the one home `HTTP-38`'s factories need, and the type `sig/` narrows to; the seven request-body
+variants `BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody` and
+`MultipartBody`; `ResponseBody`; the two logging wrappers; and `TypedResponse` — plus three additions to
+phase-1 types and the `+`-for-space form encoder phase 1 explicitly handed to phase 3. Constants are
+**flat under `lib/dexpace/http/body/`** per P1-1: a `Dexpace::Body::` namespace was rejected rather than
+merely not chosen, because its natural member names are `File`, `Buffer` and `Response`, three constants
+the body code uses constantly, and the `include Dexpace` shadow finding (now a `docs/first-release.md` blocker) and P3-7 show that
+shadowing is silent for `is_a?`.
+
+The charter's six risks are all resolved. **R5**: three caps, not one — the 64 MiB ceiling stays a
+constant with no keyword (a second ceiling is what boundary 8 pins), `BODY-30`'s 1 MiB is fixed by the
+requirement, and only the logging preview size is a parameter, with its source postponed to phase 5
+(the ceiling: 5a Task 13; the preview size and `BODY` gate: 5b Tasks 14–15).
+**R6**: the twelve names, one ledger row. **R7**: `TypedResponse`'s handler is `#call(response)`, wide
+enough that phase 7's status-aware handler drops *into* it rather than replacing it, and narrow enough
+that a lambda is a test double. **R8**: the line against phase 4 is the argument type — `Body.buffer_bounded(body,
+cap:)` and the one constant are phase 3b's, `Status#error?` is already phase 1's, and the step that reads
+a *response* is phase 4's; `buffer_bounded` is deliberately status-blind so the body layer cannot get
+`BODY-31` wrong. **R9**: `BODY-9`'s mark/reset is seekability, and it is implemented, not vacuous.
+**R10**: `IO-42` governs surfaces — the captured buffer is exempt and survives the wrapper's close
+(`BODY-28`), the over-cap tail is not and raises after it (`BODY-24`), and the wrapper's close does not
+close the buffer.
+
+**Three verified Ruby facts changed the document.** `String#encode` applied to the BINARY bytes the I/O
+layer delivers replaces every byte at or above `0x80`, so design §3.1's decode recipe destroys every
+non-ASCII payload; and the same call, having no target argument, follows the process-global
+`Encoding.default_internal`. The boundary is retag-then-transcode with both encodings named — §3.1's decode
+sentence is on phase 10's inbound list below, plus a corpus note. `respond_to?(:rewind)` is `true` for a pipe, a socket, a `StringIO` and a `File`
+alike, so `BODY-9`'s antecedent is `pos` + `seek(pos)`, which raises `Errno::ESPIPE` on a pipe with
+nothing consumed and is a genuine no-op on a seekable stream — and replay rewinds to the construction
+position, not to byte 0. And §7.1's `Enumerator` rule reaches an **ordinary `#each` method**: driven
+through `to_enum(:each)` and abandoned, its `ensure` does not run either, and `block_given?` is `true`
+under that drive so no in-method guard helps — which is why `FileBody`'s residue is documented rather
+than closed, on §10.10's precedent. Both findings earned corpus notes, superseding
+`io-and-byte-streams/fbcb4d19` and `pagination/f57c50f6`; `harvested/` is untouched.
+
+**Deviations `P3-14` through `P3-21`.** One item postponed: phase 5's configuration source for the
+body-logging caps and the enablement predicate (5a Task 13; 5b Tasks 14–15). **The body typing phase 1
+postponed is picked up** — `sig/` narrows `Request#body` and `Response#body` to `Dexpace::Body?` and
+`HTTP-46` gets a cross-reference row, the treatment phase 2 gave `SEAM-29`. **The `BODY-12`/`BODY-36`
+postponement is sharpened**, performing the two sharpenings the segmentation design stated and did not
+perform: `BODY-12`'s first clause is discharged here through `::IO.copy_stream`, its second targets
+phase 8 alongside `TRANSPORT-28`'s zero-copy clause, and `BODY-36` gets the explicit pick-up condition
+it lacked. One cross-phase observation against 3a, routed to **3a's own plan, Task 14 — the
+`#clear_tap` keep-or-drop decision** — rather than worked around: `TeeSink#clear_tap` was shipped for `BODY-18`, and 3b satisfies `BODY-18` by building a
+fresh tee per write — which is strictly stronger, because `TeeSink` binds its primary at construction so
+one tee cannot span two attempts — leaving the method public, `NFR-4`-locked and uncalled by core. 3a
+stays as committed; the item names the window in which 3a's plan may drop the method without a break,
+which is before either plan executes and before the first release tag.
+
+**2026-09-08** — Phase 3b plan filed,
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`. Fourteen numbered tasks in build
+order: the contract and `BytesBody`, then `BufferBody`, the form encoder, `StreamBody`,
+`ChunkedBody`/`FormBody`, `FileBody`, `MultipartBody`, `ResponseBody` with the decode boundary,
+`Body.buffer_bounded`, the two logging wrappers, `TypedResponse`, the view-retention measurement, and the
+wiring that regenerates the surface snapshot and the RBS baseline once. Every `ruby` and `rbs` fence
+was extracted, written to the file it names and run on **3.2.11, 3.4.10 and 4.0.6** over phase 3a's
+own committed `lib/` fences: **266 runs, 767 assertions, 0 failures** (899 assertions on 4.0.6, for
+phase 2's stated Minitest-6 counting reason), stable across five seeds, stderr empty on every row,
+warning-free under `ruby -w` with `RUBYOPT=-W:deprecated`, and `rbs -I sig validate` exiting 0 on all
+three. A tree rebuilt **from the filed document's own fences** reproduces every `lib/`, `sig/` and
+`test/` file byte for byte and the same counts. A **fifty-mutation battery**, one edit per
+requirement mechanism, was run and all fifty were caught; three were missed on the first pass and
+each fixed a real weakness — a race-safe-rewind test that raced instead of overlapping, an `IO-42`
+test that could not see the buffer being closed, and an `HTTP-45` test whose fibers never contended
+for the lock.
+
+The plan answers the design's five open questions: `MultipartBody#content_length` is lazy and
+memoised (so the class is deliberately not frozen), `Body.string` encodes eagerly at construction,
+the copy chunk size is whatever the source's own read returned with `FileBody` delegating to
+`::IO.copy_stream`, task order is stated, and the view-retention measurement is Task 13, whose deliverable is
+the number. That number: one view per `BODY-23` read, holding zero bytes, at 9 allocated objects (10 on
+4.0.6), with quadratic deregistration that costs 0.005 s at 1 000 live views and 0.46–0.52 s at
+10 000 — so the bound stops being obvious above roughly a thousand simultaneously-live unclosed
+views, which nothing in `BODY-22`–`BODY-29` produces. The number stands recorded in that task, with phase 3a's
+view registry unchanged, which is what the finding asked for.
+
+**Two findings the design could not have had, both from running the code.** `Encoding.default_internal =`
+emits a warning under `ruby -w`, so `DexpaceTestCase`'s `Warning.warn` override turns the design's own
+mandated hostile-global decode test into a failure — both the set and the restore. The plan ships the
+narrowest fix, `$VERBOSE = nil` around exactly those two assignments, plus a test asserting `-w` is
+still live inside the block so the suppression cannot silently widen. And a second cross-phase
+observation against 3a, routed to **3a's own plan, Task 10 — the `fill(count)` refill fix**: `BufferedSource.wrapping(io)` returns **one byte** per
+`#read_into` and yields one-byte chunks from `#each` — 200 000 chunks for 200 000 bytes, ~0.21 s where
+the in-memory paths are unmeasurable — because `#read_into` fills through a hard-coded
+`ensure_buffered(1)` rather than the count the caller asked for. It is a throughput defect and not a
+correctness one, so no gate catches it and 3a's suite stays green; the fix is one line in an
+unexecuted plan, the window is the same one Task 14's `#clear_tap` decision names, and phase 3b is deliberately built so it costs nothing —
+**no 3b test asserts a chunk granularity in either direction**. One deviation row added, **`P3-22`**,
+for the per-variant accessors P3-14's constant list does not enumerate. Nothing new postponed: the
+body-logging caps' configuration source stands as the design postponed it to phase 5, and the plan's
+Task 14 records the `BODY-12` sharpening and the body-typing pick-up.
+
+**2026-09-08** — Phase 4 segmentation design filed, at
+`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, the second the segmentation rule has
+produced. No sub-phase design or plan exists yet and nothing is implemented. **The cut is three ways,
+on the specification's own §7 / §8.2 / §8.1 line — the letters the bullet above expects — and every
+boundary is a CONVENIENCE, not a dependency.** The expectation is adopted; its stated reason is not,
+and the bullet is corrected in place above. `CTX-<n>` is cited in no specification chapter outside
+ch.07 and in no design section outside §5.4, §8.1, §11.11 and §12 — the one exception being a
+`CTX-9` **comparison** in §5.2 that reads nothing from `CTX` and is what mis-files two
+`error-handling` corpus entries under that ID. What `PIPE`'s steps thread state
+through is their own per-call cursor (`PIPE-11`/`PIPE-13`/`PIPE-16`/`PIPE-17`, design §5.1's
+cursor-scoped state), and `RECOV-10` has no cancellation or context clause while `RECOV-11`'s "current
+context" is design §5.2's **ambient cancellation token**, phase 2's `Dexpace::Cancellation`. So nothing in
+`RECOV` or `PIPE` consumes `CTX`, and each sub-phase design must state its independence in its own
+Prerequisite section rather than inherit a chain by habit — the treatment this document already
+prescribes for phase 7. The recommended order `4a → 4b → 4c` has three convenience reasons: `4a` is
+smallest and carries the phase's one irreversible external handshake (cross-phase obligation 1's
+`CTX-14`/`CTX-15` bundle shape); `4b` lands the error primitives the suppressed trail, `close_quietly`'s
+first disposal route and `Hooks.notify`'s dropped failures all wait on, and the last changes behaviour
+phase 2 shipped; `4c` is largest and benefits
+from having real steps to install. Two other cuts were rejected: two ways (both pipeline layers in
+one segment) on §8.3's prohibition and on 74 IDs being larger than any sub-phase the expectations
+contain, and four ways (splitting `4c` into a sync runtime and an async mirror) on `PIPE-28`, which
+requires one `Stages` module both runtimes flatten through — a boundary there would put at risk the
+exact property `PIPE-28` exists to guarantee, and would be strictly linear besides.
+
+**The scope finding is the document's largest, and it moves work rather than IDs.** Phase 4's
+arithmetic reconciles exactly — verified mechanically against appendix C: `CTX` 20 contiguous rows,
+`RECOV` 34, `PIPE` 40, 645 total, no duplicate, 20 + 34 + 40 = 94, level split 82 MUST / 10 SHOULD /
+2 MAY — but **sixteen `RECOV` IDs are the recovery-stack retry engine and not recovery-chain
+machinery**. `RECOV-17`–`RECOV-31` and `RECOV-34` each have a `RETRY` twin whose Ruby mapping is
+written in design §6.1 (a phase-6 chapter), design §12's own `RECOV` row places `RECOV-34` there, and
+`docs/sdk-design-ruby/` cites `RECOV-17` through `RECOV-30` nowhere at all. Two of them make the
+disposition **forced rather than preferred**: `RECOV-27`'s cancellable, non-pinning inter-attempt
+wait is §8.3's `Clock#sleep(duration, cancellation:)` behind `CFG-15`'s injectable time seam, which
+is phase 5's and which phase 2 deliberately kept off the pivot (the `deadline:` keyword, 5a Task 8) — a phase-4 hand-roll is
+technically reachable (`Thread::Queue#pop(timeout:)` is on the 3.2 floor) but would fix `CFG-15`'s
+shape a phase early, which is exactly what phase 2 declined to do, and the shortcut a plain
+`Kernel#sleep` would be is ruled out by `RECOV-27`'s own "not a plain sleep" and by `RETRY-26`'s
+"non-conforming" — and `RETRY-13` forbids the two stacks
+carrying independent backoff formulas, which is exactly what building the recovery half two phases
+early would produce. Handed to **phase 6** — **fifteen** of them, landing in 6a's Tasks 3, 4, 5, 7 and
+11 (`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`); the sixteenth, `RECOV-31`, was already declined for v1 and stays post-MVP
+(`docs/first-release.md` § What v1 ships without). Nothing in this document's cells changes:
+phase 4 still owns all 94 checklist rows and builds 76 outright, carrying 18 as ⏳ under the legend
+cross-cutting constraint 3 already defines — one of the eighteen, `PIPE-33`, met in part rather than
+not at all. Cross-phase obligation 3 reads as confirmation once its words are taken at face
+value — the *substrates* are phase 4's, the *stacks* are phase 6's. **The consequence lands on phase
+6, and it is stated in three places so its segmentation design does not have to count.** Phase 6 was
+already the largest at 111 prefix IDs (`RETRY` 45, `REDIR` 28, `AUTH` 38); the hand-off adds the *work*
+of fifteen more on top of that 111, so **phase 6's segmentation design budgets for 111 + 15, not
+111** — `RECOV-31`, the cluster's sixteenth, is declined for v1 and is not phase-6 work. No
+requirement ID moves — the fifteen keep their phase-4 rows as ⏳ and phase 6 carries its own rows or
+cross-references, the two-rows-one-obligation treatment phase 2 gave `SEAM-29`. The
+phase-6 segmentation bullet above is corrected in place accordingly; the **phase-6 row itself is
+unchanged and correct**, because its three prefix ranges still sum to 111. The segmentation design
+carries the twin-by-twin `RECOV`→`RETRY` mapping in full so phase 6 re-derives nothing.
+
+**The gap-ID claim was checked and is right about the IDs and wrong about where to read them.**
+`--gaps CTX,RECOV,PIPE` reports 20/20 `CTX` and 40/40 `PIPE` substantive with **zero roll-up-only
+entries in any of the three prefixes** — so the appendix-B roll-up hazard does not fire for phase 4
+at all — and exactly the fifteen uncited `RECOV-17`–`RECOV-31` this document's paragraph above names (a
+different fifteen from the ones handed to phase 6: that set drops `RECOV-31` and adds `RECOV-34`).
+But §8.2 states `RECOV-1` through `RECOV-16` and stops: verified by repository-wide grep,
+**`RECOV-17` through `RECOV-34` appear nowhere in `docs/product-spec/` outside appendix C** —
+eighteen IDs, not fifteen, and three of them (`RECOV-32`, `RECOV-33`, `RECOV-34`) escape `--gaps`
+only because the *design* names them. **The third and largest instance of the same unfollowable gap
+pointer** — the five `SEAM` IDs and `IO-6` are the other two, and all three are corrected in this
+document's gap paragraph above; at three occurrences across three prefixes it is a property of
+appendix C's relationship to the prose chapters rather than three omissions. The budget is also not
+what the paragraph implies: fourteen of the fifteen uncited IDs move to phase 6 with the hand-off and
+the fifteenth, `RECOV-31`, is declined for v1, so the *reading for implementation* leaves
+phase 4 either way and what phase 4 owes is one disposition pass over eighteen appendix-C rows,
+which this document performed.
+
+**`PIPE-33` is phase 4's, and §10.5's trade is not re-opened.** Four of its five normative clauses
+are met and phase 2 built most of the machinery: no default executor exists to fall into (core ships
+the executor as a `#post`-shaped duck type), a built pipeline *is* a transport (`PIPE-26`) so
+`Transport.async_over` runs it as one opaque unit, options are threaded, and cancel-without-interrupt
+completes as cancelled. The interrupt clause is not met, for §8.3's reason, and `4c`'s row is ⏳
+citing §10.5 (and `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) with the four met clauses named. Phase 8's disposition of the same ID is a
+re-assertion at the point the antecedent becomes real — `dexpace-async-thread` is what creates a
+worker to fail to interrupt — not a second decision, the same two-rows-one-obligation treatment phase
+2 gave `SEAM-29`. Phase 2's design also records a **binding obligation** honoured here: phase 4 wraps
+a `Dexpace::Pipeline` with phase 2's two `SEAM-18` bridges and builds no second pair.
+
+**Three facts verified on 3.2.11, 3.4.10 and 4.0.6 shaped the document, and two changed a decision.**
+A `#full_message` override — which design §5.2 specifies for the suppressed trail — is **invisible to
+Ruby's default uncaught-exception printer** on all three; `#detailed_message` reaches it, exists on
+the 3.2 floor, and is what Ruby's own `#full_message` calls, so overriding `detailed_message` alone
+satisfies **both** paths while `full_message` alone reaches only an explicit `#full_message` call and
+misses the report a reader of a crashed process actually sees. That is the suppressed trail's content — phase 4b, Task 1. And the
+`#cause` cycle `XCUT-9` guards against is **not reachable the way design §5.2 says it is**:
+`raise y, cause: x` on an already-linked pair raises `ArgumentError: circular causes`,
+`raise s, cause: s` leaves the cause `nil`, and `Exception#exception` returns a new object with a nil
+cause — the cycle is reachable only through a caller-defined `#cause` override, which is exactly the
+shape core cannot control, so the guard stays necessary and only the test that proves it changes. A
+phase-4 implementer testing the stated route would get an `ArgumentError` and could reasonably drop
+the guard. Third, `Fiber[:key]`'s inheritance holds across the whole supported range and is
+**copy-on-write**, and it is the carrier for `OBS`/`ASYNC` diagnostic context and **not** for `CTX`,
+whose store `CTX-7`/`CTX-11`/`CTX-19` require to be bounded and strongly reachable. Also recorded
+without changing a decision: `ObjectSpace::WeakKeyMap` is undefined on 3.2.11 (`CTX-19`'s lint);
+`NoMatchingPatternError` is inside `StandardError` while `LoadError` and `NotImplementedError` are
+outside it, which sets `RECOV-2`'s conversion boundary; and a value-equality delete over the context
+store evicts a structurally identical live sibling, reproducing `CTX-9`'s trap in one line.
+
+**Three knowledge notes were filed before the document was finished** — two under
+`docs/knowledge/notes/error-handling.md` (`## Superseded`: `error-handling/34f54b5e`'s
+`#full_message` mechanism, and `error-handling/11c6f36c`'s cause-cycle route) and one new file,
+`docs/knowledge/notes/observability.md` (`## Superseded`: widening `observability/e0f1e864` across
+the range and drawing the fiber-storage-versus-`CTX` line). All three print
+`[overridden by notes/…]`; `harvested/` is untouched. A **new audit group** was added to the
+`knowledge-lookup` skill's table before it was run, per the first retrospective rule: **Pipeline
+composition and execution context**. Fourteen risks are named for the sub-phase designs and none is
+decided here; the Deviation Ledger is empty, since every mechanism substitution phase 4 relies on is
+already catalogued in design §10 items 5, 6, 15, 17 and 18. One further citation slip was found and
+**fixed in the same change**: `CLAUDE.md`'s constraints list cited design "§8.2" for `Fiber[:key]`
+versus `Thread.current[:key]` and the passage is in §8.1, so the section number is corrected and
+nothing else in that sentence is touched. A wrong section pointer in the working contract sends every
+later phase to the wrong page, which is the same class of unfollowable pointer the gap paragraph's `IO-6`
+and `RECOV-17`–`RECOV-34` corrections record.
+
+**The document's adversarial review, same day, confirmed the three central claims and corrected the
+counts they were stated with.** The `RECOV`→`RETRY` twin mapping was re-derived ID by ID against
+appendix C and holds; the `CTX`-independence result holds, with the one exception now stated (a
+`CTX-9` comparison in design §5.2 that reads nothing from `CTX`); the eighteen appendix-C-only `RECOV` rows and their
+unfollowable pointer were re-verified by grep. Corrected: the hand-off to phase 6 is **fifteen** IDs and not
+sixteen, so phase 6 budgets **111 + 15**; `PIPE-33` has **five** normative clauses of which four are
+met, not four of which three are; phase 4 carries **18** ⏳ rows, not 17; and
+`Dexpace/NoThreadInterrupt` is a **phase-0** cop, not phase 2's. The same off-by-one was corrected
+everywhere the hand-off's cost was stated, so every place a phase-6 planner can enter from now says
+111 + 15 and name `RECOV-31` as the excluded sixteenth. One
+new corpus note under `docs/knowledge/notes/observability.md`, the one that sends a writer to per-key
+writes: **`Fiber#storage=` — the write side of the carrier design §8.1 fixes for
+`ASYNC-9`/`ASYNC-11` — warns on every call on all three interpreters at the default warning level,
+against a gate set that fails on warnings, and `= nil` reads back `{}` on 3.2.11 and `nil` on the
+other two.** Nothing in `CTX`, `RECOV` or `PIPE` touches fiber storage, so it is phases 5 and 8 that
+will meet it.
+
+**2026-09-08** — **Phase 4a's design filed**, `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`,
+the first sub-phase document under phase 4 and the third sub-phase design overall, after `3a`'s and
+`3b`'s. Twenty `CTX` IDs, all implemented, none deferred and none carried as ⏳ — the only sub-phase so far whose whole scope ships. It
+resolves the charter's `R1`–`R4` and leaves `R5`–`R14` to `4b` and `4c` untouched. **The phase's one
+irreversible external handshake is now signed**: cross-phase obligation 1's instrumentation bundle is
+`Dexpace::Instrumentation::Bundle`, a frozen `Data` with **eight** members exposing `CTX-14`'s ninth —
+validity — as a derived `#valid?`, because `OBS-26` makes an all-zero identifier invalid by MUST and a
+stored flag would let a bundle contradict its own identifiers. Beside it ship `Bundle::NONE`,
+`TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, and the two frozen no-op singletons `NO_SPAN` and
+`NO_TRACER_FACTORY`, the latter carrying the one method `CTX-20`'s embedded MUST forces. The no-op span and
+tracer protocols are postponed to 5c, Tasks 3, 4 and 5
+(`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`), with 4a's design recording the
+five-clause contract phase 5 implements against and the six things it may not redo. The configuration source
+for the store's cap is postponed to 5a, Task 13, `MAX_TRACKED_CONTEXTS = 1024` — `AUTH-19`'s number, because §5.4
+requires one shared bounded-map implementation and two default bounds would make that claim two-valued.
+
+Four decisions were forced by facts run on 3.2.11, 3.4.10 and 4.0.6 rather than by taste, and two of them
+became corpus notes under the new `docs/knowledge/notes/execution-context.md`. **A frozen `Data` cannot carry
+a close latch** — the ivar write raises `FrozenError` — so a context is not a `Dexpace::Closeable`, and it
+needs no latch, because `CTX-9`'s identity-conditional eviction is already idempotent. **The cap-draining
+loop is degenerate under one mutex** — and the proof is structural rather than measured: insert and drain
+share one `synchronize`, so exactly one key arrives per critical section and the loop body can run at most
+once. `CTX-12`'s stated convergence rationale is vacuous here. The note records the argument *and* the
+count that fails to support it — 8000 inserts at cap 64 giving 7936 iterations is `inserts − final size`,
+reproduced identically by a split-lock drain and by a bare `if` — because the inverse inference would
+remove the lock, and a reader who trusted the count would have nothing to stop them.
+**A `private_constant` on `Dexpace` is bare-name reachable from every full-nesting descendant and from
+nothing else, per file and not per gem**, which is what makes `Dexpace::BoundedMap` shareable with phase 6's
+`AUTH-19` and phase 9's `XCUT-14` without a public constant, conditional on
+`module-organization/64e84d64`'s full nesting form — and which is why `NO_SPAN` and `NO_TRACER_FACTORY` are
+public for the reference *form* a conformance assertion writes, never because they cross a gem boundary.
+And **`ObjectSpace::WeakKeyMap.new` parses on 3.2.11 where the constant is undefined**, which is why
+`CTX-19`'s prohibition becomes a seventh custom cop, `Dexpace/NoWeakReferences`, whose test table is a table
+of source strings and needs no version guard; its behavioural counterpart discriminates a strong `Hash`
+(1000 of 1000 registered contexts after three `GC.start`s) from an `ObjectSpace::WeakMap` (0 of 1000) and
+deliberately not from an `ObjectSpace::WeakKeyMap`, which holds values strongly and so keeps every entry
+alive — that spelling is the cop's to catch, and the two halves are scoped accordingly.
+
+Eleven deviations are filed, `P4-1` through `P4-11`, opening phase 4's ledger. The one a later phase is most
+likely to trip on is `P4-1`: the three context flavours are **flat** — `Dexpace::DispatchContext`,
+`RequestContext`, `ExchangeContext` — and §5.4's "three distinct `Data` classes sharing a module" is read as
+a module they *include*, because `Dexpace::Context::Request` would shadow phase 1's `Dexpace::Request` for
+every file inside that namespace and `Dexpace/QualifiedCoreConstant` cannot express the fix. Two new tooling
+findings. **A `scripts/knowledge.rb` fix, separating `[cited by …]` from `[overridden by …]`**, from the
+design's review: the corpus CLI has one relation and derives it from any backtick, so `[overridden by notes/…]` now prints against `api-design/b0e18938` and
+`module-organization/64e84d64` — two rules phase 4a's note *rests on* — and against three
+`concurrency-and-async` rules a committed note says in words that it does not weaken; 77 of 2 166 harvested
+entries carry the marker. And **a correction to the phase-4 charter's own exclusions row**: "the monotonic counter" names `CTX-4`'s
+call-sequence counter and `CFG-16`'s elapsed-time counter, and the phase-4 segmentation design's own
+exclusions table assigned the phrase to phase 5 — true of `CFG-16` and misleading about `CTX-4`, which is
+phase 4a's to build. The row now reads "elapsed-time counter (`CFG-16`)", corrected 2026-09-13; 4a filed it
+rather than fixing it at the time, because the charter was committed. **4a confirms the charter's independence result from the inside**: `--phase 2` and
+`--phase 3` cite 70 and 152 distinct requirement IDs between them and **not one `CTX` ID**, and `4b` and
+`4c` are obliged to consume nothing 4a ships.
+
+**2026-09-08** — Phase 4b design filed, the third phase-4 document.
+`docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`, with its plan and
+checklist still to be written. Scope is the charter's: `RECOV-1`–`RECOV-16` plus `RECOV-32`/`RECOV-33`
+built, fifteen ⏳ rows pointing at 6a and one (`RECOV-31`) at `docs/first-release.md`. **No backoff calculator, no
+pacing-header parser and no wait of any kind**, cancellable or otherwise — `RETRY-13` forbids the
+first and `CFG-15` owns the third, and the ⏳ rows are rows rather than work.
+
+Five decisions were forced by facts run on 3.2.11, 3.4.10 and 4.0.6 rather than argued. **The
+suppressed trail cannot live on `Dexpace::Error`**, because every primary `RECOV-12`, `close_quietly` and
+`Hooks.notify` hand it is a *caller's* exception and a method defined only on the SDK's root raises
+`NoMethodError` on the first one — so the trail is `Dexpace::Suppressible`, a separate module the root
+includes and `Dexpace.attach_suppressed` `extend`s onto anything else. It has to be separate because
+`rescue M` matches a module reached through a singleton class (verified), so extending a third-party
+`IOError` with the rescue root would make `rescue Dexpace::Error` catch errors the SDK never raised.
+A `#detailed_message` override reaches the default uncaught-exception printer through `extend` exactly
+as through inclusion, and `super` preserves `did_you_mean`. **`RECOV-10`'s "rethrow UNCHANGED" is
+broken by the obvious Ruby spelling**: `raise error` assigns `$!` as that error's `#cause`, and `$!` is
+thread-scoped, so it is non-`nil` inside a method called from a *caller's* `rescue` — ordinary consumer
+code, needing no `rescue` anywhere in core. Every unwrap is `raise error, cause: nil`, which suppresses
+the assignment and does not clear a legitimate pre-existing cause. **`XCUT-9`'s visited set is
+`{}.compare_by_identity` and not a `Set`**: `Exception#==` is structural by Ruby's own definition, so an
+`Array`-tracked walk truncates a two-node chain to one entry, and a `Set` is right only until a
+caller-supplied error class overrides `hash`/`eql?` — measured, `Set[a].include?(b)` is `true` there.
+Core's errors are not `Data`, so the reason the corpus gave for that rule was false about this codebase
+while the rule itself was load-bearing. The **fixture** that shows the truncation is part of the
+finding: the pair must be two *never-raised* errors chained through a `#cause` override, because a
+`raise`-built pair is not `==` on 3.2.11 — 3.2's backtrace carries a `rescue in <method>` frame the
+parent's lacks — so a test built the obvious way passes on the matrix's floor against the very bug it
+exists to catch. **`RECOV-11` has nothing to do**: phase 2's cancellation is
+idempotent and latched with no clearable flag, so converting a `CancelledError` to a `Failure` cannot
+swallow the signal, and the requirement's own words are "a port preserves whatever its cancellation
+primitive is" — asserted on the token in a test rather than implemented as a wrapper. And **the
+exhaustiveness `else` arm joins `RECOV-2`'s fatal-family passthrough** rather than becoming a `Failure`,
+because `NoMatchingPatternError` is inside `StandardError` and converting a core defect into an outcome
+a recovery step may swallow is the demotion `error-handling/3bfdf6f0` forbids.
+
+Fourteen deviations are filed, `P4-12` through `P4-25`. The one a later phase is most likely to trip on
+is `P4-20`: `Dexpace::ProtocolError` is **one class carrying `#status`** with no per-status subclass
+tree, because `XCUT-4` names exactly two top-level branches and `XCUT-7` decides retry eligibility from
+a configured status set and never from a class — a generated SDK that wants its own typed errors passes
+`factory:` to the error-mapping step instead. One item postponed, to 6a Task 6 (`ProtocolError#retryable?`):
+that class ships without
+`XCUT-5`'s baked retryability flag, because the flag's "SINGLE shared status classifier" is `RETRY-1`'s
+and phase 6's, and adding a method later widens. No new findings. Three corpus notes were filed
+before the design was finished — two under `docs/knowledge/notes/error-handling.md` and a new
+`docs/knowledge/notes/pipeline.md`.
+
+**The suppressed trail and `Hooks.notify`'s dropped failures — postponed to this phase by phase 1 and
+phase 2 — are discharged by this design, and `close_quietly`'s first disposal route is supplied** (4b's
+Tasks 1 and 2). The `Hooks.notify` finding is worth recording here because it is a negative: **none of phase 2's three `Hooks.notify` tests changes its assertions.**
+Each raises from exactly one handler, so the suppressed trail is empty and the behaviour is identical
+before and after; what attaching the dropped failures actually costs is a **fourth** test at the
+`Cancellation::Source#cancel` site with two raising handlers — the only case that distinguishes the two
+behaviours — five prose statements in committed phase-2 documents that become false (three about the
+dropped failures, two naming `Dexpace::Error#suppressed` as the carrier, which P4-12 disproves for
+this call site), and one line of code the row does not mention: `Hooks.notify`'s trailing
+`raise failure` becomes `raise failure, cause: nil`, because it re-raises an error it has been
+carrying rather than one it just rescued, which is the scope the `pipeline` note claims. Its effect
+is narrow and is stated narrowly — `cause: nil` suppresses an assignment the re-raise would make and
+cannot undo one a hook's own `raise` already made — and the same measurement fixes the `RECOV-10`
+test's fixture: the `Failure` must carry a **constructed** error, never a raised one, or
+`assert_nil error.cause` fails against the correct implementation. **4b confirms
+the charter's independence result from its own side**: it consumes nothing 4a ships, and the single
+thing crossing the 4b/4c line is a contract rather than an ordering — the three shipped steps are one
+`#apply(value)` transform each with a `#phase` of `:request` or `:response`, plus one default
+`#call(value)` that forwards to `#apply` so a transform is a recovery-chain step with no adapter at
+all, and 4c writes **one** generic adapter that reads `#phase` rather than a second implementation of
+any transform. The charter's statement of the third shape is corrected in passing: the error-mapping
+step is `response -> response` and raises, not `response -> outcome` — `RECOV-4`'s "(response→response)"
+and `RECOV-15`'s "the status→typed-exception mapping **response step**" both say so, and it is what
+lets a two-phase contract span every shape and keeps `Outcome` out of the `PIPE` layer entirely.
+
+**2026-09-08** — Phase 4c design filed, the fourth and last phase-4 document.
+`docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`, with its plan and checklist
+still to be written. Scope is the charter's 40 `PIPE` IDs with **one row moved**: `PIPE-39` goes from ✅
+to ⏳ against a new postponement — `Pipeline.standard`, built by phase 6 as 6b Task 13a — because R14's
+resolution ships one of that requirement's two named constructors and defers the other. Thirty-seven
+ship, three carry ⏳ — `PIPE-33` (§10.5, four of five clauses met), `PIPE-36` (declined for v1,
+`docs/first-release.md` § What v1 ships without) and `PIPE-39` (6b Task 13a).
+
+**Three decisions shape everything else in the document.** **4c ships no bridge**: a built pipeline is a
+transport (`PIPE-26`), so `PIPE-33` and `PIPE-34` are phase 2's `Transport.async_over` and
+`AsyncTransport.sync_over` composed with a pipeline, and the phase adds no wrapper, no wait and no
+signature — which is the strongest available form of the charter's "no deadline-less unconditional
+block" constraint and adds no second postponement beside the `deadline:` keyword's (P4-35). **Cursor-scoped state is keyed by
+`(stage, key)` rather than by key alone**, and its only write is an argument to `#fork`: under a flat
+namespace a `RETRY` pillar step sits between REDIRECT and AUTH, may fork, and could write the very key
+AUTH reads — so §6.2's own sentence, "no step downstream of AUTH can [set the marker] either", and
+§10.15's "structurally impossible rather than defended against" would be true of non-pillar steps only.
+Namespacing by the writing step's stage, chosen by the runtime from the frozen entry table, makes both
+literally true, and the five tests R11 demands assert the **negative** (P4-28, P4-29). And **the
+standard-resilience preset ships as a mechanism with no step set**: `PIPE-24`'s all-or-nothing
+installation is a general `Builder#install_preset`, real and tested against probe steps today, while the
+redirect/retry/instrumentation set it would install defers to phase 6 (P4-34; 6b Task 13a).
+
+**One fact was floor-only and changed a decision.** The cursor's single-use latch is an unsynchronised
+instance variable, because a cursor is created per step invocation and never published. Measured: eight
+threads through that latch let more than one caller past on **29 of 2000 runs on 3.2.11 and 0 of 2000 on
+3.4.10 and 4.0.6**. So `PIPE-15`'s "reusing the handle MUST be treated as a defect" is honoured and the
+detection is sequential-only — stated in the YARD as P4-33 — and **4c ships no test asserting the race**,
+because at 29 in 2000 — 1.5 % — the single-shot form of that test is a flake on the floor as well, and only its
+2000-run aggregate form is green there and red on the other three columns. Two other
+facts license the object model: `Data` responds to `<=>` through `Kernel#<=>`, so `sort_by(&:stage)`
+raises `ArgumentError` at the first two-stage pipeline and nothing sorts a stage at run time; and every
+lambda's class is `Proc`, which is what 4c's plan Task 7 — the anchor name for lambda steps — rests on.
+
+Fourteen deviations are filed, `P4-26` through `P4-39`. One item postponed — `Pipeline.standard` with
+`redirect: :unsupported`, to phase 6 (6b Task 13a). Two findings,
+both conjunction failures rather than the three unresolvable pointers this document's gap paragraph records.
+**4c's own plan, Task 7 — an anchor name for lambda steps**: `PIPE-18`–`PIPE-21`'s surgical edits are keyed
+by step type and every lambda step shares one type, so a pipeline holding two lambdas cannot address either
+surgically. **Phase 2's plan, Task 11 — an `async_over` return-type check**, filed by the
+design's review — the two transport seams share one `#parameters` predicate, so
+`Transport.async_over(async_pipeline, executor:)` is accepted and silently yields a future of a future
+with the inner response never closed, while `AsyncTransport.sync_over(sync_pipeline)` raises at the
+first send; every object involved is phase 2's, and phase 4c neither introduces nor widens it, but
+`Pipeline` and `AsyncPipeline` are what make it cheap to hit. One corpus note, under
+`docs/knowledge/notes/pipeline.md`; `harvested/` untouched.
+
+**2026-09-08** — Phase 4a plan filed,
+`docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context.md`. **Nine numbered TDD tasks**,
+in build order: `Dexpace::ContextConflictError`; `Dexpace::Context` and the `FakeContext` test
+double; `Dexpace::BoundedMap` (private) and `Dexpace::ContextStore`; `Dexpace::Instrumentation::TraceIdFlavour`;
+the two no-op singletons, `NO_SPAN` and `NO_TRACER`/`NO_TRACER_FACTORY`; `Dexpace::Instrumentation::Bundle`;
+`Dexpace::CallKey` (private) and the promotion chain — `DispatchContext`, `RequestContext`,
+`ExchangeContext` — with `CTX-9`'s trap added to the store's suite once a real `Data` context
+exists to build it from; the seventh cop, `Dexpace/NoWeakReferences`; and one closing task for the
+entry point, the two regenerated artifacts and the checklist. Nothing is implemented; the checklist
+is written at execution time, per execution step 6. All twenty `CTX` IDs are covered.
+
+The design's four open questions are all resolved, one against a fetched artefact rather than by
+inference: **`#tracer`'s arity** does not match the design's own speculative recommendation —
+`opentelemetry-api` 1.11.0's actual `TracerProvider#tracer`, read from the gem fetched from
+rubygems.org during planning, is `(deprecated_name = nil, deprecated_version = nil, name: nil,
+version: nil, attributes: nil)`, and the plan ships that shape rather than the two-positional-
+argument guess, per the design's own "the gem's wins" rule. **`BoundedMap` needs no RBS**, confirmed
+by running `rbs -I sig validate` against the whole sig tree this phase adds plus phase 1/2
+stand-ins, clean. **The `CTX-19` reachability test runs on every matrix row**, at a measured cost of
+noise (0.03 s of a 0.035 s suite). **`FakeContext` is required explicitly**, from the two suites
+that use it, never from `test_helper.rb`.
+
+Every `ruby` fence was extracted to a scratch tree outside the repository and run: **67 runs / 327
+assertions / 0 failures** on 3.2.11 and 3.4.10, **345 assertions on 4.0.6** (Ruby 4.0.6's bundled
+Minitest 6.0.0 counts some composite assertions more granularly than 5.25.x, the same shape phase
+3a recorded), identical across five seeds, warning-free under `ruby -w` with
+`RUBYOPT=-W:deprecated`; the seventh cop's own suite — 17 runs / 50 assertions / 0 failures — ran
+against RuboCop 1.90.0 on the one interpreter with the gem installed, which is sufficient because
+`CopCase` pins the parse target rather than following the host interpreter. Two facts were
+re-verified directly rather than only cited from the design: a method on a frozen `Data` subclass
+writing an ivar raises `FrozenError` on all three, and `ObjectSpace::WeakKeyMap` is undefined on
+3.2.11 and defined on 3.4.10/4.0.6.
+
+**One finding surfaced while deriving Task 9's own expected runtime-surface-snapshot content, and
+it is routed to phase 0's plan, Task 14 — the `Data`-reader snapshot decision — rather than silently
+corrected.** Loading this phase's classes and calling
+phase 0's own walker method (`mod.public_instance_methods(false)`) directly shows that a
+`Data`-generated reader — `DispatchContext#bundle`, `Bundle#trace_id`, and every one like them, in
+every gem, since phase 1 — never appears in a regenerated runtime surface snapshot: the reader is
+defined on the anonymous class `Data.define` returns, which is the named subclass's `superclass`,
+and `public_instance_methods(false)` does not look there. This holds on all three interpreters and
+contradicts `P4-11`'s and `CLAUDE.md`'s own stated reason for pairing the runtime snapshot with the
+RBS diff ("each catches what the other cannot see") — the runtime half catches nothing for a
+`Data`-generated reader specifically, and always has not, since phase 1's first regeneration. Not
+fixed here: `tools/surface.rb` is phase 0's and every gem is affected identically. A second pair of findings
+was filed by the plan's review, and each now has its own owner. The design's second discriminating drain
+measurement — "the maximum size ever observed" — is not reachable through `ContextStore`'s public surface
+(`#size` takes the same mutex as the insert, so a split-lock `BoundedMap` sampled by four
+concurrent readers across 64 000 inserts never reports above the cap), so `CTX-7`'s and `CTX-8`'s drain
+proof rides on the non-CRuby row under `docs/first-release.md` § Post-release triggers, beside `IO-38`'s.
+And `Metrics/ParameterLists:
+4` is unsatisfiable for a keywords-everywhere API, which seven methods in this phase demonstrate —
+the measured count phase 0's plan Task 3 now carries into its reviewed `.rubocop.yml` baseline.
+No deviation was filed and nothing postponed; nothing earlier phases had postponed was picked up here.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 4b plan filed,
+`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives.md`. **Fifteen numbered TDD tasks**
+in strict dependency order: `Suppressible` and the error root; the phase-2 error-trail integration that
+attaches `Hooks.notify`'s dropped failures and supplies `close_quietly`'s first disposal route; the cycle-safe `Dexpace.each_cause`
+with its cyclic fixtures; `OutcomeError`; `ProtocolError`; `Outcome` with `Success` and `Failure`;
+`Recovery` and `buffer_error_body`; the `Transform` contract; the idempotency-key, client-identity and
+error-mapping steps; `RequestChain`; `Ownership` (private) and `ResponseChain`; the `Orchestrator`; and
+one closing task for the wiring, the two regenerated artifacts, the checklist and the status note that
+says phase 1's and phase 2's postponed work has landed. All 34 `RECOV` IDs are accounted for — 18
+implemented, 15 ⏳ handed to 6a, one (`RECOV-31`) declined for v1 — and
+every ledger row `P4-12`–`P4-25` lands in a named task. The design's five open questions are resolved
+in the front matter and carried through the tasks: `Ownership` gets its own file, so "the asymmetry
+lives in one place" is verifiable by opening one; `ErrorMappingStep`'s default `factory:` is a frozen
+private lambda rather than a `Method` allocated per `.build`; `Dexpace.each_cause` **stops** at a
+raising `#cause` rather than propagating, because a classification walk must never be the thing that
+crashes an application inspecting an ill-behaved third-party exception, with a fourth fixture class
+asserting it; the fourth `Hooks.notify` test goes at **one** site, `Cancellation::Source#cancel`,
+since all three sites delegate to the same private helper; and `ProtocolError`'s message carries **no
+body preview**, because redaction is phase 5's and an exception message is the likeliest thing to be
+logged. No new deviation, no new deferral and no new finding.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 4c plan filed,
+`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline.md`, closing phase 4. **Eleven numbered
+tasks**: `PipelineError`; `Stage` and `Stages`; the pipeline test doubles; the `Step` protocol and its
+conformance predicate; the `Entry` model; `Cursor` with `SyncDriver` and `AsyncDriver`; `Builder`; the
+sync runtime; `TransformStep` as the one generic 4b adapter; the async runtime and `map_response`; and
+one closing wiring task. All 40 `PIPE` IDs are accounted for in a per-ID table naming the owning task
+and its evidence, with `PIPE-33`, `PIPE-36` and `PIPE-39` ⏳ against §10.5, the v1 declines in
+`docs/first-release.md`, and 6b Task 13a respectively.
+Both of the design's open questions are resolved, and the first found a gap in the design's own count:
+the nine `PipelineError` message forms `P4-37` enumerates are **eleven**, because `R10`'s precedence
+table rejects two further install-time cases (a step declaring `#stage` installed with a different
+`stage:`, and a step declaring neither) that no `PIPE` ID forces and that therefore cite `R10` rather
+than a requirement — the shape claim is unaffected, only the count read low, so no new deviation was
+filed. Every message form is asserted **at the site that raises it**, never against a hand-constructed
+error. `Stages::ALL` and `::PILLARS` are merely frozen and not `Ractor.make_shareable`d, because a
+response holds a body holding an `IO` and 4c makes no shareability claim for anything in the pipeline.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5 segmentation design filed, at
+`docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, the third the segmentation rule has
+produced. **The cut is three ways, not the roadmap's two** — `5a` configuration and the clock (38 IDs),
+`5b` the logging facade and redaction (27 as the charter counted them), `5c` tracing and metrics (13) —
+**and every boundary is a CONVENIENCE**, which corrects the roadmap's phase-5 bullet twice over: its
+`OBS-35` dependency argument rests on a SHOULD, and the `CFG`↔`OBS` edges run both ways, since
+`CFG-24`/`CFG-25` require a **warning log** on invalid proxy configuration and `CFG-21`'s best-effort
+close is `close_quietly`'s second disposal route, both of which need §8.1's facade. The second boundary falls
+inside chapter 15 at the §15.4/§15.5 line; the sentinels `OBS-25`–`OBS-27` are populated in `5c`, not
+`5b`, against the bullet's expectation. The phase-5 row's ranges and its total of 78 are confirmed
+unchanged. `CFG-20` is argued at length **not** to be a fourth unsatisfied MUST: its cancel-with-interrupt
+clause is `ASYNC-3`'s mechanism under a second ID, and §10.5's ledger is not widened. Of the work earlier
+phases had postponed, phase 5 takes four items (the `deadline:` keyword, the context-store cap, the
+body-logging caps' source and `SEAM-28`'s consumer), closes a fifth open since phase 2 (`close_quietly`'s
+second route), half-supplies two (the lifecycle event's shape and the dropped-failure diagnostic) and
+postpones **none** of its own — a segmentation design decides a cut, not the interfaces whose absence a
+postponement records, and phase 5's one candidate of the phase-4 hand-off's shape (`CFG-35`'s classifier)
+is answered "phase 5 builds it".
+The Deviation Ledger is empty. A tenth audit group, *Observability, configuration and redaction*, was
+added to the `knowledge-lookup` skill's table before the group was run.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5a design filed, at
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md`. Thirty-eight `CFG` IDs, one
+chapter, one gem: 34 implemented, `CFG-19` satisfied **by construction** (this port's pivot delivers the
+caller's own exception, so there is no wrapper to unwrap and no `unwrap` method ships — `P5-11`, the shape of 3a's
+unused-public-API finding, Task 14's `#clear_tap` decision), and `CFG-20`, `CFG-34` and `CFG-35` partially satisfied with the unmet clause named in
+each row. Six decisions were forced by facts run on real interpreters rather than argued. `CFG-18`'s
+non-blocking delay **raises `Dexpace::SeamError`** when no `Fiber.scheduler` is registered rather than
+degrading to a thread-backed delay, because there is no non-blocking path without one and a degraded
+delay would satisfy three MUST clauses while violating the SHOULD's headline (`P5-9`). `CFG-30`/`CFG-31`
+are parsed by an owned anchored grammar, because `Time.httpdate` accepts RFC 850, asctime and a leading
+space — two date formats with no `'Xxx, '` prefix, which is the exact prefix `CFG-31`'s strictness clause
+is about (`P5-12`). `Dexpace::Proxy` overrides **both** `#to_s` and `#inspect`, because `#inspect` is what
+`p`, a log interpolation and an assertion failure message print, and overriding only `#to_s` satisfies
+`CFG-22`'s letter while leaking the password through the likeliest path (`P5-7`). `UUID`'s generator is
+memoised in `Thread.current[:…]` — the carrier `CLAUDE.md`'s constraint list names as the *wrong* one —
+because here non-inheritance is the property wanted, and the deviation is recorded precisely because the
+`CLAUDE.md` sentence reads as a blanket rule (`P5-13`). Fifteen deviations, `P5-1`–`P5-15`, opening
+phase 5's ledger. One item postponed, `CFG-35`'s throwable half, to phase 6 (6a Task 3,
+`Policy.throwable_retryable?`, with `XCUT-6`'s
+capability and `Dexpace::TransportError`). One tooling finding, now the `knowledge-lookup` skill's own repair —
+diff a `--prefix` rules query against the canonical range: the skill's audit-group row
+returns 36 of 38 `CFG` IDs while `--prefix-info` reports 38 of 38, because two are filed under
+`Reference` rather than `Rules`. It is the family of the probe's unresolved backticked paths and
+ID-to-chapter claims and the corpus CLI's conflation of `[cited by …]` with `[overridden by …]`: a
+mechanism reporting clean over a set it never looked at.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5a plan filed,
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration.md`. **Seventeen numbered TDD tasks**
+shipping the four-tier configuration chain with its atomic process-wide publication slot, the injectable
+`Clock` seam and its cancellable queue-backed sleep, `Dexpace::Async.delay`, RFC 1123 formatting and the
+owned anchored parser, non-cryptographic UUIDs, deep value equality, the `XCUT-5` retryability status
+classifier, the static build/runtime descriptor, and the proxy model with its non-throwing,
+credential-masking resolver — all 38 `CFG` IDs, plus `XCUT-5`, picking up the `deadline:` keyword (Task 8),
+the context-store cap (Task 13) and the body-logging ceiling (Task 13) that phases 2, 4a and 3b postponed
+here. The design's open questions are resolved in the front matter and carried through the tasks;
+the citation `CFG-20`'s checklist row carries — `docs/first-release.md`'s unsatisfied-MUSTs entry, which
+now names `CFG-20`'s cancel-with-interrupt clause as the same unmet clause under a second ID — and the
+`knowledge-lookup` audit-group gap are what it cites rather than re-derives. Nothing is implemented; the checklist is written at execution time.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5b design filed, at
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`, **written
+concurrently with `5c`'s and reconciled with it the same day** — every place the two segments meet was
+drafted as an assumption marked *pending reconciliation* and each marker is resolved in place, with the
+section saying which side won. **The reconciliation found something neither document had noticed:
+`OBS-24` had a scope-table row in neither**, the one-row-per-ID failure the convention exists to prevent.
+It is 5b's, making this segment **28** IDs and `5c` **12** against a charter whose arithmetic and whose
+prose disagree — filed against the phase-5 charter rather than fixed by editing it at the time, on phase 4c's
+precedent; the charter's `5b` and `5c` ID-set sentences were corrected on 2026-09-13 to put `OBS-24` in
+`5b`. The segment ships the structured-logging facade the whole SDK writes through, the redaction
+policy, the payload preview renderer and the instrumentation step at `Stages::LOGGING`. `R10` is the
+decision a later phase trips on: `OBS-19`'s three-mode header-drop policy **does not ship**, because the
+requirement's subject is a transport that drops and core has none — postponed to phase 8c (Tasks 7, 9 and
+15, `DropPolicy`) with both halves it is built from (`Severity`'s two levels, the once-per-key latch) shipping and exercised.
+Deviations `P5-16`–`P5-38` in the reserved block. Three findings, each with an owner now: **§8.1's unsourced
+`Event#tag`**, on phase 10's inbound list below (§8.1 names `Event#tag(key, value)` and no chapter-15
+requirement does, so a fourth field channel would have no precedence rule); **the bare-`Logger` cop
+watch**, 5b's own plan Task 10 (`Instrumentation::Logger` shadows the stdlib `Logger` and the cop cannot
+carry the name, because the sink duck type is deliberately that surface); and **the charter's `OBS-19`
+cell**, corrected on 2026-09-13 to point at `R10` (the 5b scope table stated an outcome its own `R10`
+leaves open).
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5b plan filed,
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction.md`. **Seventeen numbered tasks**
+shipping the four-tier severity enum, the frozen `Keys`/`Events` vocabularies, the duck-typed sink with
+its frozen `NULL_SINK`, the total rendering subsystem with 8 KiB byte-sliced truncation, the
+`Fiber[]`-based diagnostic-context bridge with its per-key union restore, the redaction engine and the
+`Stages::LOGGING` step with tracer and meter slots `5c` populates — 28 IDs, 26 implemented and two ⏳
+(`OBS-19` to 8c's `DropPolicy`, `OBS-37` declined for v1 in `docs/first-release.md`) — discharging
+`XCUT-19`, `XCUT-20` and `XCUT-11`, closing `close_quietly`'s second disposal route (Task 14), taking the
+optional diagnostic half of `Hooks.notify`'s dropped failures, supplying the shutdown event's shape for
+`SEAM-25` and picking up the body-logging preview size and `BODY` gate (Tasks 14–15). Its fences were re-executed against `5c`'s changed
+fences after the reconciliation rather than left at the pre-reconciliation figures.
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5c design filed, at
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md`, the other half of the
+concurrent pair, reconciled with `5b`'s the same day. Twelve IDs, eleven implemented and `OBS-32` ⏳
+declined for v1 (`docs/first-release.md` § What v1 ships without, the `OBS-32`/`OBS-37` entry): the span
+and scope protocols behind phase 4a's three published
+singletons, the current-span carrier, log correlation pushing and restoring `trace.id`/`span.id`,
+W3C and Datadog trace-id generation with zero-draw coercion, `Bundle#sampled?`, `HTTPTracer`'s
+HTTP-shaped vocabulary with its ordering contract, and the metrics SPI with an allocation-free no-op
+meter. The deviation ledger starts at **`P5-40`** and is deliberately non-contiguous with `5a`'s;
+`P5-39` is a deliberate unused number, not a lost row. One item postponed — `OBS-29`'s tracer wiring: its
+vocabulary ships with **no emitter**: the per-attempt group has none until phase 6's retry step and the
+transport milestones none until phase 8, and wiring only the operation-lifecycle triple was considered
+and rejected because `OBS-29`'s exhausted→failed pairing is not honourable by a step that cannot see
+attempts (the per-attempt group landed in 6a Task 9; the operation-lifecycle triple and the transport
+milestones are both on phase 10's inbound list below, as one `OBS-29` surface decision). Two findings: **phase 0's plan Task 4 gains a keyword-splat cop** (a `**` keyword splat allocates a `Hash` per call even when
+nothing is passed — independently reproduced at reconciliation, ~1 per call — which makes `OBS-25`'s and
+`OBS-1`'s allocation MUSTs unsatisfiable for any method written with one, and nothing mechanised
+distinguishes it from the named keyword the styleguide's rule is about) and **the HTTP-tracer
+factory-versus-bundle decision on phase 10's inbound list below** ("per-operation
+tracer factory" names two different objects, and phase 4a bound the bundle's member to the one that is
+per-library; the filed row rests on the internal contradiction between `OBS-25` and `OBS-29` rather than
+on a claim about a gem neither phase could install).
+
+**2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5c plan filed,
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`, closing phase 5. **Twelve
+numbered tasks** over the tracing and metrics SPI, bounded by `OBS-20`, `OBS-30`, `CTX-20`, `XCUT-11`
+and `XCUT-20`, consuming `SEAM-28`'s stable operation identifier and closing the no-op span and tracer
+protocols 4a postponed here and `SEAM-28`'s consumer phase 2 postponed here (Tasks 3–5 and 4). It carries the reconciliation's `OBS-24` finding in its own goal statement rather than
+leaving it to the design alone, and cites the phase-5 charter's arithmetic, since corrected to put `OBS-24` in `5b`.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6 segmentation design filed, at
+`docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md` (the file carries a `2026-09-09` prefix;
+it was added to the repository on the 10th). **The cut is three ways — `6a` retry, `6b` redirect, `6c`
+authentication — and every boundary is a CONVENIENCE.** The roadmap's phase-6 bullet left one question
+open, whether the `REDIR-24`/`REDIR-11`/`AUTH-29` coupling makes redirect and auth one segment or two;
+the answer is two, and the reason is that **phase 4c already fixed the contract on 2026-09-08** —
+`Cursor#fork(state:)` and `Cursor#state(stage)`, with only the forking step's own stage able to write —
+so there is nothing left for a shared-contract sub-phase to land. The budget is **111 own IDs plus the
+fifteen `RECOV` rows phase 4 handed it**, which land in `6a` with their own checklist rows while their
+phase-4 rows stay ⏳. Of the work earlier phases had postponed, phase 6 takes six items, closes three
+outright, leaves three postponed with a correction owed to one, and postpones **none** of its own.
+the `Cursor` context-bundle widening is assigned to `6a` (its Task 8), and `CFG-35`'s throwable half is picked up and closed there
+(Task 3). The Deviation Ledger is empty.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6a design filed, at
+`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-design.md`. **Sixty requirement IDs — forty-five
+`RETRY` plus the fifteen `RECOV` phase 4 handed it — the largest sub-phase in the roadmap.** It builds **one**
+shared policy core (the classification consult, the re-sendability gate, the backoff calculator, the
+pacing-header parser and the tuning constants) and the **two** stacks that consume it: the recovery-chain
+retry installed beneath phase 4b's `Orchestrator` with a total-timeout budget, and the pillar step at
+`Stages::RETRY` with a sync and an async driver. One calculator, because `RETRY-13` forbids two. Seven
+deviations, `P6-1`–`P6-7`, of which **`P6-4`** is the one a later phase acts on: phase 8's first
+transport adapter must wrap every stdlib I/O and timeout error it lets escape in something answering
+`#retryable?`, because `RETRY-2`'s classification is a capability-only query and a bare `SocketError` or
+`Errno::ETIMEDOUT` classifies as **not** retryable — filed as a `docs/first-release.md` blocker and
+closed in design by phase 8. Nothing new postponed: `6a` closes the fifteen handed-off `RECOV` IDs,
+`ProtocolError#retryable?` and `CFG-35`'s throwable half, and picks up half of `OBS-29`'s wiring (the
+per-attempt group, Task 9), declining the operation-lifecycle triple under its `R15` because the site that works is
+`Stages::PRE_REDIRECT` and that is a **new step**, not a slot — the finding now on phase 10's inbound
+list as `OBS-29`'s operation-lifecycle triple.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6a plan filed,
+`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`. **Fourteen numbered tasks** over one frozen
+`Resilience::Policy` module and the two stacks it feeds — `RecoveryRetry` beneath phase 4b's
+`Orchestrator`, and `RetryStep`/`AsyncRetryStep` at `Stages::RETRY` — satisfying all 45 `RETRY` IDs and
+all fifteen handed-off `RECOV` IDs (Tasks 3, 4, 5, 7 and 11), picking up and closing
+`ProtocolError#retryable?` (Task 6), `CFG-35`'s throwable half (Task 3) and `OBS-29`'s per-attempt group
+(Task 9), and
+**executing the `Cursor` context-bundle widening** (Task 8): a read-only per-call accessor on `Cursor`
+plus one optional seeding keyword on the call path, both `NFR-4` widenings, which is the resolution the
+finding records as decided in planning and closing at execution.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6b design filed, at
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-design.md`, the shortest sub-phase design so
+far. Twenty-eight `REDIR` IDs, one chapter, no second gem: one iterative follower at `Stages::REDIRECT`,
+forking a fresh `Cursor` for **every** hop including the first, resolving `Location` through
+`URI::RFC3986_PARSER`, and enforcing every credential-hygiene rule against the **seed** origin rather
+than the previous hop. The correctness stake is named rather than assumed: `REDIR-7`'s unconditional
+`Authorization` strip and `REDIR-11`'s cross-origin signal are what stop a bearer token surviving a
+cross-origin redirect, and `REDIR-8`'s seed-origin comparison is what both rest on. One deviation
+candidate — `REDIR-17`'s max-hops cap enforced as a hard ceiling checked **before** a configured
+predicate is consulted, rather than folded into the decision `REDIR-20` lets a predicate override —
+deliberately **left unnumbered**, because three sub-phases were writing ledgers concurrently and a number
+assigned in isolation could collide. Its proposed corpus note became `docs/knowledge/notes/redirect-handling.md`,
+filed by phase 6's follow-through under `redirect-handling` rather than the `url-and-query-encoding`
+topic `6b` proposed: measured, assigning `userinfo = nil` and rendering gives the credential back
+unchanged while `userinfo = ""` clears both — a silent failure, so the assertion is on the rendered URL
+and never on `#userinfo` being `nil`.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6b plan filed,
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`. **Fifteen numbered tasks** over one
+iterative pillar step that never calls its own `#call`: per hop it classifies the status, fast-paths a
+non-redirect with no allocation (`REDIR-21`), otherwise allocates a `ConditionSnapshot` and consults
+either a configured predicate or the built-in decision. All 28 `REDIR` IDs, with `REDIR-27` ⏳ under the
+v1 decline in `docs/first-release.md` § What v1 ships without and no code written for it, plus `6b`'s share of the shared
+`Resilience::Resend` replayability predicate that `REDIR-6`, `RETRY-5` and `AUTH-31` all consult.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6c design filed, at
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-design.md`. Thirty-eight `AUTH` IDs,
+**all implemented, no ⏳ row and no deferral** — the only sub-phase of phase 6 with none, `AUTH-29`'s
+stripping clause satisfied by construction because nothing is ever added to strip. It ships the
+descriptor and tier resolver, the four credential types with variant-specific equality and redaction, the
+RFC 7235 challenge parser, the Basic and Digest handlers with a bounded per-nonce counter store, the
+composing challenge handler, static key stamping, and the AUTH pillar step with its HTTPS guard,
+cross-origin suppression, 401 re-challenge replay and bearer cache, on both runtimes. Five deviations,
+`P6-1`–`P6-5`, numbered in isolation and knowingly colliding with `6a`'s — resolved at consolidation into
+design §10, which is the failure `6b` avoided by not numbering at all. One finding, now a
+`docs/first-release.md` blocker decision — **the `AuthDescriptor` carrier**:
+`AUTH-4`–`AUTH-7`'s tier resolution presupposes an `AuthDescriptor` producer that no phase names — no
+field on `Request`, on `RequestOptions` or on any `Operation` construct, and no `AUTH` requirement asking
+for one — so the resolver ships correct and, absent later Operation-level wiring, exercised only by its
+own unit tests. The same family as the probe's blind spots, the phase-5 charter's `OBS-19` cell and its
+arithmetic, and `6a`'s `Cursor` widening: a sentence that reads correctly and resolves to something that
+is not there.
+
+**2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6c plan filed,
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication.md`, closing phase 6. **Sixteen
+numbered tasks, plus the sub-numbered `11a`** that carries `AUTH-36`'s step-level half, opening with a
+task that re-verifies on the 3.2 floor and the 4.0 column every fact the
+design flags before anything depends on it. The zero-dependency rule is carried explicitly through a
+chapter that invites breaking it: Basic is `["u:p"].pack("m0")` and never `Base64`, Digest is
+`Digest::MD5`/`Digest::SHA256` and never `OpenSSL::Digest`, the cnonce is `SecureRandom.hex(16)` and
+never `Random` — every one already on phase 0's allowlist, so the plan adds no require-allowlist diff.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7 segmentation design filed, at
+`docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md` (the file carries a `2026-09-10` prefix;
+it was added on the 11th). **107 IDs, no ID moving in or out, cut three ways — `7a` serialization (30),
+`7b` SSE (41), `7c` pagination (36) — and the independence is spec-forced rather than merely chosen**:
+`SSE-37` is a MUST that core parsing and streaming hold no serialization dependency, and §12's chapter
+intro requires the pagination engine to be transport- and serde-agnostic. Phase 7 is also the phase that
+ships the workspace's **second real gem**, `dexpace-serde-json`, inside `7a`. Of the work earlier phases had
+postponed, phase 7 touches four items: `SSE-41`'s reactive-adapter latitude is carried as a ⏳ row
+**inside** `7b`'s 41 rather than picked up; the floated phase-7 target for the `HTTP-22`/`HTTP-48`–`50`
+helpers is **declined**, with a re-target at an *event* proposed in its place (now the standing line under
+`docs/first-release.md` § Blockers before first publish); and two items are left whose conditions the
+phase's work bears on. It postpones **none** and its Deviation Ledger is empty. Spec-forced boundary 5 is the `SSE-37` require-and-constant audit, extended
+over core's pagination layer, and it is assigned to whichever of `7b` and `7c` lands first.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7a design filed, at
+`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md`. Thirty `SERDE` IDs, all
+implemented, **no deferral**, across **two gems**: `dexpace-core`'s witness protocol — the
+class-object-and-combinator shape design §10.14 substituted for the reference's reflective type token —
+with its four combinators and decode context, the `Tristate` three-state PATCH type, the native-form
+encode walk that makes `SERDE-15`/`SERDE-19`/`SERDE-20` structural rather than a per-model discipline,
+the `SERDE-2` body factory, the two response handlers supplied into phase 3b's `TypedResponse`; and
+`dexpace-serde-json`'s codec, which fills that gem's `lib/` and is the one place the `json >= 2.19.9`
+floor is declared. Nine deviations, `7a P7-1`–`7a P7-9` (the sub-phase letter is load-bearing; see the
+`7c` entry below on the knowingly shared numbering). Four findings, each now with an owner, the first
+being that phase 2 declared `interface _Codec` and never wrote its body, so `SERDE-2`'s default
+Content-Type crosses a type boundary nothing declares — settled here by typing the interface
+`(Dexpace::MediaType | String)` and coercing at `Body.serialized`. One corpus note is drafted for
+`docs/knowledge/notes/serde.md`, a `## Reference` entry beside `serde/b5e5efc8`: a decoded JSON `String`
+can be UTF-8-tagged and **invalid**, and neither layer that produces it raises. The note is written by
+the plan's final task at execution time and is not filed yet.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7a plan filed,
+`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization.md`. **Nineteen numbered tasks** across
+the two gems, ending with the codec that declares the `json` floor. All thirty `SERDE` IDs, nine
+touched by a deviation row and nine carrying a stated clause; no deferral is filed. (Counts corrected
+in place 2026-09-13 in the final review of `7a`: the entry read "three carrying a deviation row and
+six a stated clause", against a design section headed "Nine rows carry a clause the checklist must
+state rather than tick". The task count went from eighteen to nineteen in the same review, when the
+`SEAM-26`/`SEAM-27` composition slice was added as Task 18 — `Dexpace::Operation` shipped in phase 2
+and was composed with the pipeline and the codec by no phase.)
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b design filed, at
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`. Forty-one `SSE` IDs,
+forty implemented and `SSE-41` carried as a ⏳ row as a v1 decline (`docs/first-release.md` § What v1
+ships without, the `SSE-41` entry) — **the
+second-largest sub-phase in the roadmap**, after `6a`'s sixty and phase 3b's forty-nine. It ships the
+WHATWG line and field state machine, the immutable five-field event value, the resource-owning
+single-pass streaming facade with its four termination paths, and the typed adapter with its three
+caller-supplied mapper outcomes. It owns the resolution of **the SSE line-cap closure evidence, now its own plan's Task 12**, and
+proposes three corrections to that finding, the third of which changes what its resolution says: the requirement obliging the line cap is
+`SSE-19`, a MAY, not `SSE-11`, a MUST about the `retry` field's magnitude, and the row's premise —
+that phase 7's SSE machine is the consumer that reads lines from a server-controlled stream — is false.
+Seven findings, none carrying a number, each now with an owner. Two corpus notes are drafted, for
+`docs/knowledge/notes/sse-streaming.md` and `resource-management.md`, written by the plan's final task at
+execution time and not filed yet. It also builds spec-forced boundary 5's `SSE-37` require audit as a
+mechanism rather than describing it.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b plan filed,
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`. **Thirteen numbered tasks** over
+`SSE::LineReader`, `::Reader`, `::Event`, `::Stream` and `::TypedStream`, satisfying `SSE-1`–`SSE-40`,
+carrying `SSE-41` ⏳ as a v1 decline, resolving the line-cap closure evidence in Task 12 with the
+corrected requirement ID and a documented line cap, and building the `SSE-37` require-and-constant audit that boundary 5 extends over core's
+pagination layer.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7c design filed, at
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`. Thirty-six `PAGE` IDs, stated
+wholly inside one chapter and satisfied wholly inside one sub-phase: the page value and its response
+ownership, the strategy contract and three built-in strategies, the byte-for-byte query splice, the two
+consumption views over **one** lazy drive routine, and the async engine driven through phase 2's
+`Future#on_settle`. `dexpace-core` only — `7c` writes nothing into either other gem. Six deviations,
+`P7-1`–`P7-6`, **knowingly sharing numbers with `7a`'s and `7b`'s**: the collision is stated rather than
+discovered, and is resolved at consolidation into design §10, which is `6b`'s precedent and the failure
+`6a` and `6c` walked into. `P7-1` is the one a reader should follow: `PAGE-15`'s re-throw-wrapped clause
+is conditional on a terminal that cannot declare the underlying error type, measured four ways on
+3.4.10 to be unreachable in a language with no checked exceptions — §11.15's "clauses with no Ruby
+manifestation" family, which §12's `PAGE` row records for `PAGE-35` and not for this one, so the row is
+owed an addition. One corpus note is drafted for `docs/knowledge/notes/pagination.md`, written by the
+plan's final task at execution time.
+
+**2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7c plan filed,
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`, closing phase 7. **Seventeen numbered
+tasks** over a frozen `Page::Paginator` producing per-iteration `Walk` objects that own every live
+response — all 36 `PAGE` IDs, 35 implemented outright and `PAGE-35` vacuous by construction on design
+§12's own authority. No deferral, no ⏳ row and no unsatisfied MUST is created.
+
+**2026-09-12** — **Phase 8's seven planning documents filed**, under `docs/work/mvp/phase8/`; the files
+carry a `2026-09-11` prefix, which is the day they were written, and they were filed and reconciled on
+the 12th. The segmentation design is
+`docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`, with a design and a plan in each of
+`phase8a/` (synchronous transport and the conformance gem), `phase8b/` (async-runtime adapter) and
+`phase8c/` (asynchronous transport). **Three sub-phases, not the roadmap's two**; every boundary a
+convenience; the segmentation bullet and cross-cutting constraint 8 both corrected in place above with
+their reasons. 52 IDs, none moving in or out, split 23 / 19 / 10. Phase 8 is the phase that ships the
+most gems in the roadmap, and the first whose sub-phases ship none of them `dexpace-core` — which is why
+it has five phase-level tasks, the first being `Dexpace::TransportError < ::IOError` in core, landed by
+`8a`'s Task 2 and cited by `8c`'s Task 4. **Four postponed items picked up** (the conformance assertion
+protocol, wire-boundary re-validation, `SEAM-25`'s lifecycle event, the `OBS-19` drop policy), **one
+partly** (`OBS-29`'s wiring, whose transport half is declined because no route exists by which an adapter
+in another gem reaches a per-operation `HTTPTracer` through an `NFR-4`-locked three-argument seam), **two
+declined with the condition met** (`BODY-12` clause 2, and the move of core's fakes into
+`dexpace-conformance` — the literal move declined on a development-dependency-cycle argument), **one
+corrected in place** (the drop-policy item named `TRANSPORT-8` where the subject is `TRANSPORT-12`, with
+`TRANSPORT-13` the logging twin; phase 5b's forward table carried the same wrong ID and is corrected with
+it), and **none postponed**. **Fifteen findings filed**, the largest block any phase has produced, of
+which four record that a frozen design chapter is wrong about a library: `Net::HTTP` has a built-in retry
+that is on by default and swallows a cancellation (measured end to end — §12's `Net::HTTP` retry rows, on
+phase 10's inbound list below); §3.2's block-scoped
+`read_body` construction yields a fully buffered body and a dead socket (§3.2's `read_body` sentence, the
+same list); `Async::Task#stop` is
+deprecated in favour of `#cancel` (a `docs/knowledge/notes/concurrency-and-async.md` entry); and
+`TRANSPORT-8` is *satisfiable* on the async adapter
+where §12 counts it vacuous (§12's `TRANSPORT-8` vacuity claim, the same list) — the inverse direction,
+and equally a defect. `docs/deviations.md`
+gains one attribution note against §10.5, and `docs/first-release.md` closes the standing phase-8
+error-wrapping blocker in design, gains the supported-Ruby and native-extension lines
+`dexpace-transport-async_http`'s 3.3 floor forces, and gains the blocker that a green conformance run's
+omissions must be written down before the gem is published. **No new unsatisfied MUST**: `ASYNC-3` and
+`PIPE-33`'s interrupt clause are §10.5's and `docs/first-release.md` § What v1 ships without › Unsatisfied
+MUSTs carries both unchanged, while `ASYNC-4` is on no such list because §10.5 holds it vacuous. Four corpus notes were filed on 2026-09-12 — three under
+`docs/knowledge/notes/transport-adapter.md`, a new file, and one appended to `observability.md`.
+`CLAUDE.md`'s phase-directory count goes from eight to nine with this filing; the "Zero gems exist under
+`gems/`" sentence is unaffected and stays true until phase 0's scaffold lands as code.
+
+**2026-09-12** — **Phase 9's two planning documents filed**, under `docs/work/mvp/phase9/`:
+`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md` and
+`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`. Nothing is
+implemented; the checklist is written at execution time, per execution step 6. **No segmentation
+design, and the decision is argued rather than assumed**: this document's own rule reaches build
+phases 1 through 8 and says "phases 9 and 10 are audit-led and segment only if their own design
+finds it necessary", and phase 9's design finds it does not — 41 IDs against phase 1's 42
+unsegmented checklist rows, one gem rather than phase 8's four, and a shared contract (phase 8a's
+assertion protocol) that is already written in another phase, so a sub-phase for it would restate
+an inherited contract rather than fix one. Scope is the phase-9 row's 41 IDs, one checklist row
+each, with **no earlier phase's row moving**: `SEAM`, `SERDE`, `OBS`, `PAGE`, `TRANSPORT`, `ASYNC`
+and `PIPE` IDs are cited as evidence and as suite content, never carried as rows. `--gaps XCUT,NFR`
+reports 41 of 41 substantive, so the phase budgets **no ID-side specification reading** — and budgets
+the whole of appendix B instead, which is not ID-indexed and is the source of the roll-up hazard
+`CLAUDE.md` names; all 61 items across `B.1`–`B.9` were read directly, counted 10/6/7/8/6/5/6/6/7.
+
+**The appendix-B scoping decision, stated here because it is the one a reader will check.** `B.8`
+(6 items) and `B.9` (7) are phase 9's own and it writes `InvariantSuite` and `PackagingSuite` for
+them. `B.3`'s seam half is a **lift** of the file 7a named in its checklist for exactly this,
+`gems/dexpace-serde-json/test/support/serde_seam_assertions.rb`; `B.4`'s two items §9.3 names by
+hand become assertions over 8a's `RecordingSpan` and `Allocations`; `B.7` gains `ExecutorSuite`,
+which is the unwritten harness half of `SEAM-25`'s lifecycle event; `B.6` is 8a's, already written, and phase 9 only
+aggregates and audits its waivers. `B.1`, `B.2` and `B.5` — 22 items — are dispositioned **by
+reference** to the owning phase's suite and recorded as deviation `P9-1`, on §9.3's own criterion
+that the gem exists for portability across implementations of one seam and those three subsystems
+have one implementation each. The artefact that makes "by reference" honest is a committed 61-row
+coverage map, `gems/dexpace-conformance/APPENDIX_B.md`, whose limit is stated in `P9-7`: a
+by-reference row proves an ID is claimed and a file exists, not that the behaviour is asserted.
+
+**The phase-9/phase-10 boundary, fixed in as many words:** phase 9 measures and reports, phase 10
+repairs. An audit that fails reports `:failed`, marks the row, adds a
+`docs/first-release.md` blocker if the ID is a MUST, and hands the repair to phase 10 — whose row
+above carries the permission to ship code twice over. The one exception is a defect inside
+`dexpace-conformance` itself that stops the suite running, because otherwise the phase has no
+instrument. Recorded as `P9-6`, and expressed mechanically as a file list: phase 9 touches nothing
+under `gems/dexpace-core/` or any adapter.
+
+**Nine deviations `P9-1`–`P9-9`**, and **four gates added to §9's table as addenda A4–A7** —
+`gates:cause_walk`, `gates:bounded_map`, `gates:seam_names` and the `PENDING`-empty assertion on
+7b's `gates:serde_boundary` — all four built on `RubyVM::AbstractSyntaxTree` and all four blocking,
+because a non-blocking addition while dispositioning `NFR-17` would be self-falsifying. **Two
+postponed items picked up** (the conformance protocol's second half — the remaining suites — and
+wire-boundary re-validation's portable-assertion clause, both conditions naming phase 9 in as many
+words), **none declined with the condition met** — the Steep target over a `test/` tree is the item
+that invites it and its condition is still unmet, because phase 9's suites go in `lib/`, which phase 0
+already gave a Steep target — and **four postponed**: the require-allowlist regeneration guard and
+lifting appendix `B.1`/`B.2`/`B.5` (both `docs/first-release.md` § Post-release triggers),
+`PackagingSuite`'s `NFR-12`/`NFR-16` against a published artifact (§ Release path), and `XCUT-12` under
+a fiber scheduler (phase 10's inbound list below). **Three findings**, of which the first is a measured interpreter fact with committed consequences:
+**Minitest is 6.0.0 on Ruby 4.0.6 and ships no `minitest/mock`**, so `Object#stub` and
+`Minitest::Mock` do not exist on the top matrix row, two of 8a's plan fences use `.stub`, and two
+corpus rules name absent APIs — settled by pinning `minitest` to `~> 5.25` in the root `Gemfile`
+(phase 0's plan, Task 2), with lifting the pin a `docs/first-release.md` post-release trigger. The other
+two are on phase 10's inbound list below: `NFR-13`'s SPDX gate is a RuboCop cop and cannot reach
+`sig/**/*.rbs`, and §9.3's waiver sentence assumes an appendix-B item is the report's unit. `docs/deviations.md` gains one completeness note against §12's
+`PAGE` row (`PAGE-15`'s wrapping clause, 7c's `P7-1`, which the row does not record).
+`docs/first-release.md` gains no new blocker: its two standing conformance lines are the two this
+phase discharges. Three corpus notes were filed before the plan was written — `testing.md` and
+`tooling-and-quality-gates.md` under `## Superseded`, and `cross-cutting-invariants.md`, a new
+file, under `## Reference`. Every Ruby fact in both documents was verified on 3.2.11, 3.4.10 and
+4.0.6, and one was found false as first written: a `:CALL`-only AST scan misses every
+safe-navigated send, because `a&.cause` parses as `:QCALL` — a gate that would have reported clean
+while `XCUT-9`'s invariant was broken. `CLAUDE.md`'s phase-directory count goes from nine to ten
+with this filing; the "Zero gems exist under `gems/`" sentence is unaffected.
+
+**2026-09-12** — **Phase 9's two documents revised after two independent reviews, in one fix round.**
+The segmentation decision, `R1`, `R4`, `R5`, `R7` and deviations `P9-1`, `P9-2`, `P9-8` were confirmed
+and stand. What did not: a 66-mutation battery over the plan found **only 8 of 33 mutations caught at
+the requirement level**, with five of five fully-written assertions and all three AST gates reporting
+green over the very defects they name, and one — `XCUT-9`'s — **hanging** rather than failing. Since
+phase 10 acts on phase 9's verdicts, a green-over-live-defect assertion is worse than no assertion,
+so the round rewrote them against measured behaviour. Recorded here because the failure had one
+dominant cause, and it is the one this repository's standards already name: **five doubles and probe
+targets were built from a predecessor's prose rather than from its filed code fences** —
+`Headers.build(live)` positionally where phase 1 filed `build(values:, casing:, direction:)`;
+`HeaderSyntax.validate_outbound_value!(value)` where `name:` is required; **`Dexpace::SerdeError`,
+which exists nowhere**, where phase 2 filed `Dexpace::Serde::Error` with `SerializationError` and
+`DeserializationError` under it; `Dexpace::Redactor` where 5b filed
+`Dexpace::Instrumentation::Redactor`; and `Auth::Digest.cnonce` where 6c filed
+`Auth::DigestHandler` with an injected `cnonce_source:`. The third is the instructive one: the
+invented constant is **why that task's reported green run was green**, and against the real hierarchy
+two of its four tests fail on all three interpreters.
+
+**Corrections that changed a requirement's disposition rather than its prose.** `XCUT-9`'s cycle is
+now **three nodes** and the walk is bounded by step count through `Enumerator#next` — a two-node cycle
+cannot tell an identity-tracking walk from a depth-capped one, and `.to_a` over a non-terminating walk
+hangs. `XCUT-21` asserts the **source** structurally (6c's `cnonce_source:`, `#hex(16)`) instead of
+inferring entropy from a rendered string's length, which passed a `rand`-derived cnonce and failed a
+conforming 128-bit `urlsafe_base64` one. `NFR-15` **compares the runtime `VERSION` to the gemspec**,
+where a not-a-placeholder check passes at `0.0.0` — the version every gem here carries. `XCUT-14`'s
+drain-loop clause **moved to an AST gate**, because a check-then-evict map measured indistinguishable
+from a drain loop in 0 of 30 runs at 16 threads and 0 of 20 at 64 threads under the GVL. `XCUT-11`
+takes its exemption list **from the driver, not the audited object**, which had condemned a conforming
+latch and passed the identical bug. `XCUT-13` and `XCUT-11` each gained a **second assertion** for
+their second clause — `P9-8` is reworded from "one assertion per ID" to "one `Result` per assertion,
+assertions keyed by ID", which is what unblocked them — and `ExecutorSuite` gained `ASYNC-16` and
+`ASYNC-17`, with `SEAM-18` and `ASYNC-15`'s clause (c) scoped out with reasons. `XCUT-17`, `XCUT-18`,
+`XCUT-19` and `XCUT-23` are now written in full; the honest residue is **11 `XCUT` plus 5 `NFR`
+specified by shape**, not the 14 plus 5 first stated. **`R3`'s absent-artifact case is now
+`:vacuous` with a mandatory reason rather than `:failed`**, because before any code exists "not built"
+and "built wrong" are different findings — with an un-waived MUST-level vacuity made a phase-9 report
+blocker so nothing passes by not being built.
+
+**One measured interpreter divergence was missed entirely and is now an entry in
+`docs/knowledge/notes/cross-cutting-invariants.md`: a Symbol literal is a
+`:LIT` AST node on Ruby 3.2.11 and a `:SYM` node on 3.4.10 and 4.0.6** — the reverse of the usual
+direction. Every other AST fact is identical across the three; this one made the reflective-send gate
+catch 6 of 7 shapes on the floor and 2 of 7 on both newer rows, which is a gate strictest exactly
+where it runs least. Phase 9's plan, Task 14, states in the map's own preamble the two appendix-B map checks that are not
+achievable (a 276-ID coverage check against 22 hand-written rows, and a ten-line-header check against
+`B.5` items naming twenty `CFG` IDs) and the three that replace them. **The reassignment of `SEAM-25`'s lifecycle-event
+harness is now stated as a correction to a committed record** rather than made silently: phase 2's
+postponement assigned the harness half to `8a`, 8a wrote no executor suite, and phase 9 writes it
+(Task 11, `ExecutorSuite`). Four other corrections of record: the
+hand-forward table was rebuilt from the prescribed grep and is **33 rows in thirteen documents**, not
+eleven — the two phase-6 files had gone missing, which is exactly the six rows the first table
+dropped; the reading of postponed work now names all 42 items exactly once, where it had enumerated 36
+and double-counted one; the note count is **43 at `HEAD`**, where the first draft "corrected" the
+charter's correct 43 to `CLAUDE.md`'s harvested-topic count of 40; and `R6`'s file list gains
+`.github/workflows/ci.yml`, without which phase 0's blocking `ci_workflow_test.rb` reddens, and each
+adapter gem's `test/` tree, following 8a's own driver precedent. **All seventeen `git commit` steps
+were deleted** — `CLAUDE.md` forbids them and all twenty-one preceding plans have none. Measured
+after the round, on 3.2.11, 3.4.10 and 4.0.6 under `ruby -w`: **55 runs, 94 assertions, 0 failures on
+each**, across seven prototype suites; the three AST gates catch 6 of 6, 4 of 4 and 4 of 4 decidable
+shapes, with every undecidable shape written into the gate's own stated gap.
+
+**2026-09-13** — **The deferral register reconciled against the ten phases planned so far, 0 through 9, and then
+retired.** Every one of its 47 items was given a terminal disposition from a fixed vocabulary (picked-up,
+scheduled against a numbered plan task, declined with the condition met, release-gated, post-v1, event-gated,
+handed to phase 10), and once every item named an owner outside the register — a plan task cited by path and task
+number, or a `docs/first-release.md` entry — the file itself was dropped, every citation of it across the
+repository rewritten in place to name the owner, and cross-cutting constraints 3 and 7, execution steps 1 and 7
+and the third retrospective rule corrected above. Counted by each item's primary disposition, the 47 fell as:
+**2 already picked-up** (the runtime version-skew guard, phase 2; the body member's typing, phase 3b);
+**18 scheduled** against a numbered plan task — the conformance assertion protocol (8a Tasks 4–8 and 20; phase 9
+Tasks 2–12a), the suppressed trail (4b Task 1), wire-boundary re-validation (8a Task 16, 8c Task 9, phase 9 Task
+7), `close_quietly`'s two disposal routes (4b Task 2, 5b Task 14), the pivot's `deadline:` keyword (5a Task 8),
+`SEAM-25`'s lifecycle event (8b Tasks 6 and 10; phase 9 Task 11), `Hooks.notify`'s dropped failures (4b Task 2),
+the body-logging caps (5a Task 13, 5b Tasks 14–15), the fifteen `RECOV` IDs (6a Tasks 3, 4, 5, 7 and 11), the
+context-store cap (5a Task 13), the no-op span and tracer protocols (5c Tasks 3–5), `ProtocolError#retryable?`
+(6a Task 6), `Pipeline.standard` (6b Task 13a), `CFG-35`'s throwable half (6a Task 3), the `OBS-19` drop policy
+(8c Tasks 7, 9 and 15), the MUST-level vacuity blocker (phase 9 Task 12a), plus `SEAM-28`'s consumer (5c Task 4)
+and `OBS-29`'s per-attempt group (6a Task 9) by their scheduled halves; **1 declined with the condition met**
+(moving core's fakes into `dexpace-conformance`, 2026-09-12, phase 8a); **4 release-gated** (the
+`HTTP-22`/`48`/`49`/`50` helpers, the housekeeping fence executor, signed publication with `NFR-16` and
+`NFR-12`'s release half, `PackagingSuite` against a published artifact); **16 post-v1** (`PIPE-36`, `RECOV-31`,
+`RETRY-29`/`38`/`43`, `REDIR-27`, `SSE-41`, `OBS-32`/`OBS-37`, `TRANSPORT-28`'s zero-copy clause with
+`TRANSPORT-30`, the seven gems of design §2.2, the unsatisfied MUSTs `ASYNC-3` and `PIPE-33`'s interrupt clause,
+and presence-gated auto-activation); **4 event-gated** (a Steep target over a `test/` tree, `IO-38` on a Ruby
+without a GVL, the require-allowlist regeneration guard, lifting appendix `B.1`/`B.2`/`B.5`); **1 handed to
+phase 10** (`XCUT-12` under a fiber scheduler); and **1 split three ways** (`BODY-12` clause 1 picked-up by 3b,
+clause 2 declined by 8a, `BODY-36` post-v1). Where each class went: scheduled items live in the plan task named
+and land when that task executes, the phase's status note saying so; release-gated items went to
+`docs/first-release.md` § Release path (signed publication, `PackagingSuite`) and its `### After the first
+publish` (the fence executor), with the `HTTP-22`/`48`/`49`/`50` decision annotating the standing blocker line,
+whose reopening event is the first consumer that constructs a conditional request; post-v1 items went to
+`docs/first-release.md` § What v1 ships without, whose three subsections the release notes must state in full
+(the unsatisfied MUSTs, with `ASYNC-4` kept off the list; the SHOULD/MAY declines, including the restriction that
+no transport or codec adapter may ever use presence-gated activation; the seven gems of design §2.2); event-gated
+items went to `docs/first-release.md` § Post-release triggers, each as trigger → the one job. Execution step 1's
+sweep sentence, step 7, constraints 3 and 7, the third retrospective rule and the Post-v1 paragraph above are
+corrected in place, dated; cross-cutting constraint 8 stands as written with its two citations repointed.
+
+**Plan edits made today so the scheduled items point at real tasks.** Phase 6:
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md` gains Task 13a (phase-level, `Pipeline.standard`
+and `redirect: :unsupported`, inserted because no phase-6 plan carried it; moves verbatim to 6a if 6a lands
+second), mirrored in `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`'s Task 13, whose Task 3 header
+now names `CFG-35` (its throwable half); the 6a design's `OBS-29` entry is corrected. Phase 7:
+`docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`'s sweep verb, and
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`'s Task 17 gains the pointer to the
+`HTTP-22`/`48`/`49`/`50` decision. Phase 5:
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md` and
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md` acknowledge the mechanisms the
+original postponements described differently (the `deadline:` keyword's timed gate pop inside
+`Completer#await`; the body-logging caps' caller-owned chain read with `preview_bytes:` still required);
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`'s Task 12 gains date placeholders
+and the `SEAM-28` wording. Phases 8 and 9, written by a third writer under the supervisor's decisions and
+verified by the supervisor before handover:
+`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md` Task 25's closing
+step; `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport.md` Task 19 Step 5a's closing
+edits and the correction at its line 4002, which had said that no postponed item applied to any of the ten and
+is corrected, dated, to name the drop policy (its closing pick-up) and wire-boundary re-validation (the second
+adapter's call site); `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`
+Task 7's portable forged-`Request` assertion (wire-boundary re-validation's portable clause), Task 11's
+genuinely failing `ASYNC-3` assertion waived by ID, Task 12a inserted (the MUST-level vacuity blocker:
+`Levels::OF` from appendix C, `Report#blocking_vacuities`, `accepted_vacuous:` with mandatory citations), Task
+14's `P9-1` citation (lifting `B.1`/`B.2`/`B.5`) and Task 17 Step 3 rewritten as the closing step that records
+the conformance protocol, wire-boundary re-validation, the lifecycle-event harness and the vacuity blocker as
+landed.
+
+**2026-09-13** — **The open-items register reconciled against the same ten phases, 0 through 9, and then
+retired**, the second register to go the same day and for the same reason. Every one of its 59 items was given
+an owner outside the register — a numbered task in the plan of the phase whose scope it falls in, a bullet on
+phase 10's inbound list below, an entry in `docs/first-release.md`, a note under `docs/knowledge/notes/`, or a
+fix made on the spot in the writable material it was about — and once every item named one, the file itself was
+dropped and every `OI-<n>` citation across the repository was rewritten in place to name the owner. **There is
+no `OI-<n>` namespace any more**, and the rule that replaces it is the one `CLAUDE.md` now states: a finding is
+routed to its owner when it is found, not registered. Counted by each item's primary disposition, the 59 fell
+as: **23 routed to a numbered plan task** — phase 0 takes seven (the reviewed `.rubocop.yml` baseline and its
+measured `Metrics/ParameterLists` cost, the keyword-splat cop, the `minitest` Gemfile line and its `~> 5.25`
+pin, the per-gem require-allowlist denylist scope, the thread-count teardown assertion, the `Data`-reader
+surface-snapshot decision), phase 9 five, phase 3's two sub-phases three, and phases 1, 2, 4c, 5b, 6a, 7b and
+8c the remaining eight; **14 to phase 10's inbound list** below, each restated there in full with its measured facts, because
+eight of the fourteen are sentences in a chapter only a human may amend and seven of those also gain an interim
+note under `docs/deviations.md` § Deviations found outside a phase; **4 to `docs/first-release.md`** — two
+blockers before first publish (documenting the `include Dexpace` constant shadow in `docs/sdk-documentation/`,
+and the `AuthDescriptor` carrier decision), `CFG-20`'s cancel-with-interrupt clause folded into the
+`ASYNC-3`/`PIPE-33` unsatisfied-MUSTs entry as the same unmet clause under a second ID, and the `CTX-7`/`CTX-8`
+drain proof folded into the non-CRuby `IO-38` post-release trigger; **17 fixed outright** in
+`scripts/knowledge.rb`, `.claude/skills/housekeeping/probe.rb`, the `knowledge-lookup` skill, six corpus notes
+under `docs/knowledge/notes/`, two committed phase charters and this document's own gap paragraph — one of the
+seventeen needing no edit at all, because the two plan tasks it was about already cross-cite each other; and **1
+already resolved** (phase 3b's `Body#source` and its no-op `#close`, 2026-09-08). Two items earn a second home
+beside their primary one: the `minitest` pin gains a `docs/first-release.md` post-release trigger for lifting
+it once no fence requires `minitest/mock`, and phase 10's uncapped `Clients#@by_origin` gains a
+`docs/first-release.md` blocker, because `gates:bounded_map` stays red until it is fixed and `XCUT-14` is a
+MUST. And three items leave a frozen-chapter half their primary owner could not take — the chapters
+attributing `IO-6`'s ownership rule to the retired `SEAM-3`, the probe's unbuilt "this ID is stated in
+chapter X" claim check, and §9.3's calling Minitest a default gem when it is a bundled one — so all three are
+bullets on phase 10's inbound list beside the fourteen. The one
+repair this document owes is the gap paragraph above, corrected in place and dated: it is three of the
+seventeen, the three unfollowable gap pointers.
+
+**Phase 10's inbound list, stated here because phase 10 has no design yet and this is the entry it will
+read first.** **Restated as a list on 2026-09-13**, when the open-items register was retired: fourteen of that
+register's items were audit-or-repair work against a phase that is already planned, which is this list, and
+three more contribute a half each that no writable material could take. Every one is written out below **in full**,
+with its measured facts, because the register body that carried them no longer exists. Each entry names what is
+wrong, what the correct statement is, and where the code half already lives. **Entries added after that
+restatement carry their own date**, so the list grows as later review passes route audit-or-repair work here
+and the fourteen-plus-three provenance above stays readable as provenance rather than as a running count.
+
+**2026-09-13 — phase 10 now has a design and a plan, and every bullet below is dispositioned in them.** The
+sentence that opened this list — "stated here because phase 10 has no design yet and this is the entry it will
+read first" — has been answered:
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md)
+carries a table mapping **all thirty-two bullets** — the twenty-four below plus the eight this planning pass
+added — to a numbered task, an amendment, or the evidence that no repair is needed, and the plan is
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md).
+The per-bullet owners are **not** restated here, and the reason is this list's own job rather than a numbered
+constraint: cross-cutting constraint 7 makes this list a place a finding is *routed to*, and the design's
+disposition table is where each one's owner lives, so a copy beside the bullets is the second thing that would
+have to be kept true. (An earlier draft of this paragraph cited cross-cutting constraint 9 for that, which is
+wrong: constraint 9 is about not copying the domain-model construction pattern and the constraints that will
+bite into a phase document. Corrected 2026-09-13.) The
+counts, so this paragraph is checkable against the table: **12 bullets become repairs** shipping code or a
+check, across **eight** tasks — 6 and 10 share Task 4, 29 and 30 share Task 3, and Task 3 also takes 5 —
+**13 become one of thirteen written frozen-chapter amendments**, **2 are decided with no surface
+change** (`OBS-29`'s wiring and `CTX-16`'s carrier, both closed by canonical text nobody had re-read), **3 are
+audit-only**, and **2 were fixed on the spot in this pass** because they were in writable material — phase 5a's
+substituted proxy IDs and phase 8a's half-stale `TRANSPORT-30` forward row. Bullets whose repair is expected to
+be **moot** — the uncapped `Clients#@by_origin`, which `8c`'s plan Task 8 now bounds at planning time — stay
+below unchanged, because a green `gates:bounded_map` run is what closes them and a sentence in a plan is not
+evidence the work was done.
+
+**From the reconciliation.**
+
+- **The audit of the §10.5 ledger** — cross-cutting constraint 8: `ASYNC-3` and `PIPE-33`'s interrupt clause
+  unsatisfied, `ASYNC-4` vacuous, and the trade not re-opened (`docs/first-release.md` § What v1 ships without
+  › Unsatisfied MUSTs, which since 2026-09-13 also names `CFG-20`'s cancel-with-interrupt clause as the same
+  unmet clause under a second ID).
+- **`OBS-29`'s surface decision, which is three findings and one decision.** Its two residual halves — the
+  operation-lifecycle triple and the transport-milestone group — are **one surface decision**: a
+  `PRE_REDIRECT`-adjacent step and/or a deliberate `RequestOptions` widening. *(a) The triple cannot be emitted
+  from `Stages::LOGGING`, which is where the phase-5 deferral's stated route puts it.* Verified 2026-09-09:
+  `5b`'s `Dexpace::Instrumentation::Step` declares `#stage` returning `Dexpace::Pipeline::Stages::LOGGING` and
+  is installed with no `stage:` argument, and phase 4c rejects with `Dexpace::PipelineError` any install
+  supplying a different `stage:` for a step that declares one — **so the step cannot be moved**. `LOGGING` is
+  order 1100 while `REDIRECT`, `RETRY` and `AUTH` are 200, 500 and 800, so once phase 6's pillars exist a step
+  there runs once per redirect hop, per retry attempt and per auth replay, contradicting `OBS-29`'s "One
+  tracer instance corresponds 1:1 to a single logical operation lifecycle". The site that satisfies the clause
+  is `Stages::PRE_REDIRECT`, order 100, which phase 4c states is "outside every pillar's fork, so a step there
+  is invoked once" and which `PIPE-37` already reserves for terminal-response-only steps — and that is a **new
+  step**, not a slot. Phase 6a declined it under its `R15`: no phase-6 ID justifies the `NFR-4` surface, and
+  `OBS-28`'s "Every event method SHOULD default to a no-op" is what makes wiring the per-attempt group alone
+  safe. *(b) No route exists by which a transport adapter reaches an `HTTPTracer` at all.* Phase 5c shipped
+  `Dexpace::Instrumentation::HTTPTracer` with five transport methods whose argument lists it fixed —
+  `#request_url_resolved(context, url)`, `#connection_acquired(context, host, port)`,
+  `#request_sent(context, byte_count)`, `#response_headers_received(context, status, headers)`,
+  `#response_received(context, byte_count)`. The transport seam is `#call(request, options, cancellation)`;
+  `Request`'s members are `(:method, :url, :headers, :body)` and `RequestOptions`'s are
+  `(:timeout, :max_retries, :tags)` (phase 5b's `P5-33`); the adapter is in a different gem; `PIPE-11` forbids
+  ambient carriage; and `NFR-4` locks the seam's three-argument shape. So an adapter reaches a tracer only
+  through its own constructor — one tracer for the adapter's whole lifetime, not one per operation — or
+  through a widening of `RequestOptions`, a core type and a phase-1 surface. 8a decided not to wire it.
+  *(c) "Per-operation tracer factory" names two different objects, and the bundle's member is bound to the one
+  that is per-library.* `CTX-14` (MUST) requires the correlation bundle to expose "a per-operation tracer
+  factory" and `OBS-29` (MUST) says of the *HTTP-tracer* vocabulary that one tracer is "created by the factory
+  per operation" — one object created once per operation. That reading is not available, and the proof needs
+  nothing outside this repository's normative text: `OBS-25` (MUST) requires "a no-op HTTP-tracer /
+  tracer-factory" and that "Selecting a no-op path MUST NOT allocate per call", so the no-op factory MUST
+  return the same object every time, which is the opposite of one instance per operation. Phase 4a's `P4-8`
+  then bound `Bundle#tracer_factory` to `opentelemetry-api`'s `TracerProvider` shape —
+  `#tracer(name = nil, version = nil)`, positional — which is keyed by instrumentation-library name and
+  version rather than by operation. (Its stated motive, that `OpenTelemetry.tracer_provider` can be passed
+  straight into `Bundle.build(tracer_factory:)`, is an **unverified** claim about a gem neither phase 4a nor
+  phase 5c could install — re-checked absent 2026-09-09 — and the argument above does not depend on it.) So
+  the bundle's factory produces **span** tracers (`OBS-21`–`OBS-25`) and is legitimately shared or cached,
+  while `OBS-29`'s produces **HTTP-tracers** (`OBS-28`'s eleven-method vocabulary) and is legitimately
+  per-operation; appendix C, design §8.1, phase 5c's Tasks 3–5 and phase 4a's `R3` all read them as one
+  object. Phase 5c's `P5-43` reconciles the no-op case only — `OBS-29`'s 1:1 clause binds stateful tracers, so
+  a shared stateless `NO_TRACER` satisfies both MUSTs — and says nothing about a recording one. **What is
+  owed:** the surface decision, and with it the cross-reference that makes the two factories two.
+  Touches `CTX-14`, `CTX-20`, `OBS-25`, `OBS-28`, `OBS-29`, `PIPE-2`, `PIPE-11`, `PIPE-37`, `SEAM-11`,
+  `SEAM-16`, `NFR-4`.
+- **The probe's "this ID is stated in chapter X" claim check, which is not built.** Measured 2026-09-13,
+  during the register retirement: the `links` check now catches a backticked normative chapter path that does
+  not resolve (`Links#span_findings`, built the same day), but the second half — a document asserting that a
+  requirement ID is *stated in* a named chapter when the chapter does not carry it — has no check, and that is
+  exactly what the three gap pointers corrected above were. The measurement says why it is not a one-line rule:
+  **43 lines under `docs/` name both a spec chapter and a canonical ID, 21 would fire under a naive same-line
+  rule, and most of those are not claims at all** — a chapter and an unrelated ID that merely share a line, and
+  appendix C, which carries every ID and so can never be wrong about one. **The job:** a claim grammar ("read
+  out of X", "stated in X", an `X §N` adjacency), a vocabulary for ranges and placeholders, and an appendix-C
+  special case, tuned against those roughly forty live candidates before it is allowed to gate anything.
+- **The judgement whether the thread-only `XCUT-12` form phase 9 ships in Tasks 7–8 suffices**, with
+  `dexpace-async-async`'s reactor adapter as the fallback trigger and `docs/first-release.md` § Post-release
+  triggers as the fallback home.
+
+**From phase 9's own hand-offs.**
+
+- **The repairs of every audit phase 9 reports `:failed`**, each earning, for a MUST, a `docs/first-release.md`
+  blocker (`P9-6`).
+- **`dexpace-transport-async_http`'s `Clients#@by_origin` is an uncapped per-origin client cache, which
+  `XCUT-14` (MUST) forbids.** `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb`
+  (8c plan:1683-1756, the ivar at 1715) is a plain `Hash` behind a `Thread::Mutex`, keyed by
+  `Endpoints.origin_for(url)`, with a hard cap on neither its size nor its lifetime: `#fetch` inserts with
+  `||=` (8c plan:1725-1732) and **nothing evicts** — `#close` (8c plan:1740-1744) reads `@by_origin.values`,
+  closes each client's pool and leaves the map itself populated. `XCUT-14` covers "Every process/instance-lived
+  map whose key space is influenced by callers or remote servers", and both influences are present: a caller's
+  URLs choose origins, and a server's redirect `Location` chooses new ones. The map is instance-lived and an
+  `Adapter` lives as long as the client (`Adapter#close` is `@clients&.close`, 8c plan:2825), so there is no
+  other cleanup mechanism. It is the **one true positive** of the six `gates:bounded_map` reports over every
+  filed Ruby fence of phases 0–8 naming a `lib/` path — 222 fences at 184 distinct `gems/*/lib/**/*.rb` paths,
+  measured identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6; the other five, in four files, are adjudicated
+  false positives, each carrying its reason in `InvariantGates::BOUNDED_MAP_ALLOWED` (phase 9 plan:4016-4029
+  for the adjudication, 4504-4519 for the allowlist). The same sub-phase bounded its other caller-keyed map at
+  64 distinct names for `TRANSPORT-13` — `DropPolicy::MAX_TRACKED_NAMES` (8c plan:1525, enforced at :1583,
+  its test at 8c plan:1453-1462; all three citations corrected 2026-09-13, the originals having pointed at a
+  Files block and a comment line) — so this is an omission rather than a decision. **The fix:**
+  `Dexpace::BoundedMap` or an equivalent cap with drain-to-cap eviction, including a `#close` on each evicted
+  client, since the values own pools. It is phase 10's because `8c` owns the file and has already run by the
+  time phase 9's audit does, and because design `R6` ("a bug found in `Dexpace::BoundedMap` is filed here and
+  fixed by phase 10", design:661) applies to another gem's map. `gates:bounded_map` stays red until it lands,
+  and `XCUT-14` being a MUST is why `docs/first-release.md` carries a blocker line for it. **Amended
+  2026-09-13 by the final pre-build review of phase 8c: `8c`'s plan Task 8 now bounds the map at planning
+  time** — `Clients::MAX_ORIGINS` with a loop drain back to the cap after each insert and
+  `Dexpace.close_quietly` on each evicted client's pool, plus two tests — so this entry is expected to be
+  moot when `8c` lands and phase 10 to find nothing to repair. It stays on this list until a green
+  `gates:bounded_map` run says so. What made the difference is only that `8c` had **not** in fact already
+  run when phase 9's audit read its plan, which is the premise the phase-10 routing rested on. Touches `XCUT-14`,
+  `TRANSPORT-13`, `NFR-17`.
+- **~~8a's `Adapter#dispatch` leaves its rescue variable unused~~ — first half CLOSED 2026-09-13 — and every
+  repository tool that parses a filed source carries the same exposure.** As filed, this bullet reported that
+  `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
+  files `rescue ::StandardError => e` inside `Adapter#dispatch`, whose body calls
+  `Dexpace.close_quietly(pump)` and re-`raise`s and never reads `e`; parsing that fence with
+  `RubyVM::AbstractSyntaxTree.parse_file` under `-w` emits `assigned but unused variable - e`, re-measured
+  2026-09-13 identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, which is a lint finding rather than a
+  correctness one — the rescue re-raises, so dropping `=> e` changes nothing at runtime. **That half is
+  already repaired.** Commit **152ec6a**, the pre-build review of every MVP phase plan, dropped the binding:
+  8a's `Adapter#dispatch` now reads `rescue ::StandardError` at that plan's **:5177** (the method at :5168),
+  and the plan records the correction itself at :6337-6339 — "the binding is gone", with two further shapes
+  corrected for the same reason. Line 4858 today is `body = res.body_string`, so **the citation above no
+  longer resolves and is kept only as the provenance of the measurement.** Phase 10 ships no repair for it;
+  the interpreter measurement survives as the fixture that proves `AstScan.parse`'s `$VERBOSE` window still
+  works (phase 10's plan, Task 6 Step 5). **The generalisation is what outlives the
+  one line, and it is the whole of what phase 10 now owns here:** any future repository tool that parses a filed source under the warnings-fatal test case has the
+  same exposure, and nothing mechanises the rule that keeps it closed — "nothing else in this file may call
+  `parse_file` directly" is a comment in `tools/ast_scan.rb` (phase 9 plan:4248-4249), not an assertion, and
+  no gate asserts that `AstScan.parse` is the only caller of `parse_file` in the repository. Phase 9's own
+  exposure is closed (`AstScan.parse` opens a `$VERBOSE = nil` window restored in `ensure`, phase 9
+  plan:4285-4292, with Task 13's test at 4219-4227). **What would close the general case:** a check asserting
+  sole use of `AstScan.parse`, or a shared parse helper the gates cannot bypass. Touches `NFR-6`, `NFR-17`.
+- **`NFR-13`'s SPDX gate is a RuboCop cop, so it cannot reach `sig/**/*.rbs`, which ships inside every gem.**
+  `NFR-13` (SHOULD) is "Every source file SHOULD carry the project's license/SPDX header block" and its
+  conformance clause is "scan **all source files** for the required header"; phase 0 mechanises it as
+  `Dexpace/SpdxHeader`, a **custom RuboCop cop** — a strengthening over the reference's review convention,
+  recorded as `P0-1`. A cop inspects Ruby, and `.rbs` is not Ruby: no cop parses it. `sig/` mirrors `lib/` one
+  file per file and ships inside each gem so a consumer's `steep check` sees it, so the signatures are shipped
+  source, and by phase 8 roughly as many `.rbs` files ship as `.rb` files. Phase 0's own `.rbs` fences carry no
+  header — checked: every `` ```rbs `` fence in
+  `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md` opens with `module Dexpace`. RBS
+  supports `#` comments, so the header is expressible; what is missing is a check. **The repair:** either a
+  small Rake gate over `sig/**/*.rbs` beside the cop — the same three-line assertion over a different glob — or
+  a deliberate, stated decision that `NFR-13` covers `lib/` only, put somewhere a reader will find it rather
+  than left as the silent consequence of the mechanism phase 0 chose. Phase 9 records the gap in `NFR-13`'s
+  disposition row rather than closing it, per its `P9-6`. Touches `NFR-13`, `NFR-3`, `NFR-17`.
+- **The `PAGE-15`/`P7-1` and §10.5 attribution notes in `docs/deviations.md`**, to fold into design §10 —
+  joined on 2026-09-13 by the seven interim notes the frozen-chapter corrections below carry.
+- **Any `gates:bounded_map` that runs red.**
+
+**Frozen-chapter corrections.** Each is a sentence in a chapter this repository may not edit; in every case
+the phase that found it shipped the code half already, and what is owed is the corrected sentence the next
+time that chapter is deliberately amended by a human. All but two — §8.3's scope clause and §9.3's
+default-gem sentence — also carry an interim note under `docs/deviations.md` § Deviations found outside a phase, so each finding has a home until
+then; the two against §12's `TRANSPORT` row share one note.
+
+- **§3.1's decode recipe destroys every non-ASCII byte, and its target-less `#encode` follows a process
+  global.** `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 fixes one decode boundary and
+  names the mechanism: `Response#body_string`, "which applies the media type's charset via
+  `String#encode(invalid: :replace, undef: :replace)` and falls back to UTF-8 when absent or unknown". The
+  **rule** is right and phase 3b implements it unchanged; the **mechanism** is wrong in two independent ways,
+  each verified 2026-09-08 on 3.2.11, 3.4.10 and 4.0.6. *It mangles the payload*: the same paragraph requires
+  every response body to be retagged `Encoding::BINARY` on ingress, and from BINARY every byte at or above
+  `0x80` is an undefined character in the source encoding, which `undef: :replace` replaces —
+  `"café".b.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace)` returns `"caf"` followed by two
+  U+FFFD, one per byte of the two-byte `é`, and is not `==` to the correct answer on any of the three. *And
+  its result depends on a process global the host controls*: the cited call passes no target encoding, so it
+  converts to `Encoding.default_internal`; with `Encoding.default_internal = ::Encoding::ISO_8859_1` — a
+  single line any host may have run — the same call on the same string returns an ISO-8859-1 result with the
+  accented character destroyed, while the explicit-target form is unaffected, verified both ways on all three.
+  That is the passes-where-you-look shape §3.5 pins `URI::RFC3986_PARSER` against. Nothing mechanical catches
+  it: the result is a well-formed `String`, `rbs`/`steep` see a `String` either way, and an **ASCII-only test
+  fixture passes under the bug**. **The correct statement:** retag to the declared charset first — phase 3a's
+  `Dexpace::IO::TypedReads#read_string(encoding)` — then transcode with **both** encodings named,
+  `#encode(enc, invalid: :replace, undef: :replace)`. **Code half:** phase 3b's `Response#body_string` does
+  exactly that, resolving the charset from `Dexpace::MediaType#charset` (phase 1 returns `nil` for an absent
+  **or** unknown-to-this-Ruby charset, so `HTTP-42`'s fallback needs no second validation and `Encoding.find`
+  cannot raise), and `docs/knowledge/notes/io-and-byte-streams.md` overrides `io-and-byte-streams/fbcb4d19` so
+  the next reader does not repeat the recipe. Not a deviation from the reference contract — `HTTP-42` is
+  satisfied exactly. Interim note in `docs/deviations.md`. Touches `HTTP-42`, `HTTP-24`, `IO-13`, `BODY-16`.
+- **§4's builder list drops the multipart body, which `HTTP-3` names.**
+  `docs/sdk-design-ruby/04-domain-model-construction.md` §4 quotes `HTTP-3`'s own split and then restates the
+  builder side as "`Request`, `Response`, `Headers`, `Query`, `RequestOptions` and `Configuration` get real
+  mutable `Builder` classes". `HTTP-3`'s canonical text (appendix C) lists **seven** subjects — "Request,
+  Response, Headers, QueryParams, RequestOptions, RequestConditions, **and the multipart body**" — each of
+  which "MUST expose a newBuilder()-style derivation returning a builder pre-populated with the instance's
+  current fields … the pre-filled builder MUST NOT alias the original's internal collections". §4 adds
+  `Configuration`, which is fine, and silently drops the multipart body, which is not. **The cost of leaving
+  it:** the omission already cost the clause an owner once. Phase 1 owns `HTTP-3` and builds no multipart
+  body, so its checklist could only tick the six models §4 names; phase 3b ships
+  `Dexpace::MultipartBody` and, reading §4 rather than appendix C, filed it with a plain `.new` and no
+  derivation — a MUST with a named subject satisfied by nobody, found by review on 2026-09-13. Phase 3b now
+  ships `MultipartBody#new_builder` and `MultipartBody::Builder` with the non-aliasing clause asserted
+  (its plan, Task 7), and carries `HTTP-3` as a cross-reference row while phase 1 keeps the ID. **The
+  addition owed:** the multipart body named in §4's builder sentence. Not a deviation — the port satisfies
+  `HTTP-3` in full once 3b lands; only the design's restatement of the requirement is short. Touches
+  `HTTP-3`, `HTTP-51`, `BODY-2`.
+- **§3.1's ownership sentence and §10.12 attribute `IO-6`'s rule to the retired `SEAM-3`.**
+  `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1's "Two ownership rules, deliberately
+  different" paragraph reads "At the I/O layer, wrapping takes ownership: closing a `BufferedSource` built over
+  a caller's `IO` closes that `IO` (**SEAM-3**)", and design §10 item 12 leans on the same rule. But `SEAM-3`
+  is the ID design §10 item 1 **retires**, and phase 2 shipped it as 🚫. The live ID is **`IO-6`** (MUST):
+  "When a provider wraps a caller-supplied underlying stream … the returned wrapper MUST take ownership of that
+  stream: closing the wrapper closes the underlying stream" — and appendix C is its **only** normative
+  statement, because `docs/product-spec/05-i-o-contracts.md` §5.1 runs `IO-1`–`IO-5` and `IO-18` and only the
+  bridge half survives there, under `IO-16`, a SHOULD. **The cost of leaving it:** a phase auditing `SEAM-3`'s
+  retirement finds no surviving citation and could reasonably conclude the ownership rule retires with the
+  seam, which would leave every `BufferedSource` built over a caller's stream leaking that stream on close — a
+  violation no gate catches, because the requirement it breaks is cited nowhere a reader looks. **The correct
+  statement:** §3.1's ownership sentence and §10.12 cite `IO-6` rather than, or alongside, `SEAM-3`. **Code
+  half:** 3a reads `IO-6` out of appendix C and implements ownership-on-wrap, and the gap paragraph above now
+  names appendix C as its source. The corpus repeats the attribution at `message-bodies/8a1e7a7b`, where a note
+  under `docs/knowledge/notes/message-bodies.md` marks it. Touches `IO-6`, `IO-16`, `SEAM-3`, `BODY-8`.
+- **§8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does.**
+  `docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 fixes the event object's surface in a
+  code block — `#field(key, value)`, `#tag(key, value)`, `#event(name)`, `#cause(error)`, `#emit`. Four are
+  traceable to a requirement (`OBS-3`, `OBS-4`, `OBS-39`, `OBS-8`); **`#tag` is not.** No `OBS` requirement
+  names a tag other than `OBS-4`'s reserved `event` tag, which the same block gives to `#event(name)`; §8.1's
+  prose mentions `#tag` nowhere after the code block; and `OBS-5`'s precedence rule enumerates exactly three
+  contributing sources — per-event field, global context, folded diagnostic context — so a fourth channel
+  would have no precedence over any of them and no rule about collisions. The near miss is `OBS-8`'s
+  "Field/tag/cause accumulation is not required to be thread-safe", but the tag it names is `OBS-4`'s single
+  reserved categorisation tag, and nothing in the chapter gives a tag a **key**, which is what the
+  two-argument signature is for. **Why it matters:** `NFR-4` locks a public signature at the first release
+  tag, and §8.1 is the document a phase-5 implementer copies the surface from, so shipping `#tag` would give
+  the SDK a public, YARD-documented, RBS-signed method with no requirement, no default, no precedence rule and
+  no caller. **The correct statement:** either §8.1 names the requirement `#tag` serves and its precedence
+  relative to `OBS-5`'s three sources, or the line goes. **Code half:** phase 5b ships `#field`, `#event`,
+  `#cause` and `#emit` and not `#tag`, recorded as deviation `P5-18` — and not shipping it costs nothing
+  before the first release, because adding a method widens. Interim note in `docs/deviations.md`. Touches
+  `OBS-4`, `OBS-5`, `OBS-8`, `NFR-4`.
+- **§3.2's block-scoped `read_body` construction cannot satisfy the two requirements it says it satisfies
+  "literally".** `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md:167-171` reads: "Streaming is
+  preserved end to end: `dexpace-transport-net_http` issues the request inside
+  `Net::HTTP#request(req) { |res| ... }` and exposes the response body as a `BufferedSource` over the
+  block-scoped `Net::HTTPResponse#read_body` stream, so **SEAM-11**'s no-pre-buffering clause and
+  **TRANSPORT-25**'s 'lazily-read stream, not pre-buffered … closing the SDK response cascades to close the
+  native body and release the connection' are satisfied **literally**." Measured against a `TCPServer` that
+  writes five body bytes, sleeps 400 ms and writes five more, on `net-http` 0.6.0 under Ruby 3.4.10:
+  `#request` without a block returned after **401 ms** with `res.body == "aaaaabbbbb"`; the block form with a
+  block that does not read returned with the body **already buffered**, because `Net::HTTPResponse#reading_body`
+  ends with `self.body` and nils `@socket` in its `ensure`; and `res.read_body` after the block raised
+  `IOError: Net::HTTPOK#read_body called twice`. So the prescribed construction yields a fully buffered body
+  and a dead socket — `SEAM-11`'s "MUST NOT pre-buffer the body (caller owns read/close)" and `TRANSPORT-25`'s
+  lazily-read stream both violated by the design's own recipe. **The correct statement:** §3.2 names a
+  construction that works. **Code half:** 8a's `R1` ships a per-response producer `Thread` over a
+  `Thread::SizedQueue(1)` drained through a `#readpartial`-shaped reader, deviation `P8-1`. The fiber
+  alternative is disqualified by `FiberError: fiber called across threads` — `Fiber#resume` from a second
+  thread raises, so a pump created on a `dexpace-async-thread` worker inside `Transport.async_over` could not
+  have its body read on the caller's thread, and `TRANSPORT-29`'s "confined to the returned response graph"
+  would narrow to "confined to one thread"; the abandoned-`Fiber` `ensure` is real and is *not* what decides
+  it. Interim note in `docs/deviations.md`. Touches `SEAM-11`, `TRANSPORT-25`, `TRANSPORT-19`, `TRANSPORT-29`,
+  `IO-41`, `BODY-15`, `HTTP-43`.
+- **`Net::HTTP` has a built-in automatic retry that is on by default, and §3.2, §11.18 and §12 all record that
+  it has none.** §3.2 says "The reference transport disables nothing for **TRANSPORT-1**/**TRANSPORT-2**
+  because `Net::HTTP` follows no redirects and retries nothing on its own — those two requirements are vacuous
+  for this adapter"; §11.18 says "`Net::HTTP` has no resend hook"; §12's `TRANSPORT` row lists `TRANSPORT-1`,
+  `TRANSPORT-2`, `TRANSPORT-8` and `TRANSPORT-18` as "adapter-scoped and vacuous for `Net::HTTP`", and the
+  MUST-level summary counts `TRANSPORT-2` and `TRANSPORT-18` among the eight MUSTs that hold vacuously. The
+  redirect half is right; **the retry half is false.** Verified on `net-http` 0.6.0 under Ruby 3.4.10:
+  `Net::HTTP#max_retries` **defaults to 1**, and `#transport_request` retries when
+  `count < max_retries && IDEMPOTENT_METHODS_.include?(req.method)` on `Net::ReadTimeout`, `IOError`,
+  `EOFError`, `Errno::ECONNRESET`, `Errno::ECONNABORTED`, `Errno::EPIPE`, `Errno::ETIMEDOUT`,
+  `OpenSSL::SSL::SSLError` and `Timeout::Error`, where `IDEMPOTENT_METHODS_` is
+  `["GET", "HEAD", "PUT", "DELETE", "OPTIONS", "TRACE"]`. The retry re-runs `req.exec`, so it re-writes the
+  request body, and PUT and DELETE are both in the set. Three consequences, none cosmetic: a pipeline that
+  believes it is the single retry authority (`TRANSPORT-2`, `PIPE-2`) is not; a single-use body could be
+  written twice (`TRANSPORT-17`); and a cancellation delivered by closing the socket under a blocked read
+  surfaces as `IOError`, which is **on the rescue list**, so the library would swallow and retry a caller's
+  cancellation (`TRANSPORT-3`). Phase 8a's design measured the third end to end rather than reading it out of
+  a rescue list: against a server whose first connection hangs, with a second thread calling `conn.finish`
+  250 ms in, the call **returned `200`** at the default `max_retries` and raised
+  `IOError: stream closed in another thread` at `0` — so the swallow is observed, not inferred. Two clauses
+  bound the hazard without removing it — `rescue Net::OpenTimeout; raise` means a connect timeout is never
+  retried, and `count = max_retries` inside the `reading_body` block closes the window once the response head
+  is read — and neither helps the connect-and-head phase, which is where a cancel lands. **The correct
+  statement:** §12's `TRANSPORT` row and its MUST-level count stop recording `TRANSPORT-2` as vacuous for this
+  adapter, and §3.2's and §11.18's sentences follow. **Code half:** one line, `http.max_retries = 0`, which
+  phase 8a writes, its checklist stating the corrected reason. Interim note in `docs/deviations.md`. Touches
+  `TRANSPORT-2`, `TRANSPORT-3`, `TRANSPORT-17`, `TRANSPORT-18`, `RETRY-13`, `PIPE-2`, `XCUT-4`.
+- **`TRANSPORT-14`'s malformed-inbound-header-*name* clause is unreachable on
+  `dexpace-transport-async_http`, and §12 records `TRANSPORT-14` as satisfied without qualification.**
+  `TRANSPORT-14` (MUST): "Inbound response headers MUST be copied leniently enough that a single malformed
+  header does not fail the whole response: a control byte in a value, **or a control/non-ASCII byte in a
+  name**, MUST drop only that header (logged at verbose) while the body and remaining headers are still
+  delivered." Verified 2026-09-11 against `protocol-http1` 0.41.0 under Ruby 3.4.10, driving a raw `TCPServer`
+  that emits `X-B\xE9d: v`: the client raises
+  `Protocol::HTTP1::BadHeader: Could not parse header: "X-B\xE9d: v"` out of the **read**, so no response
+  object exists and the adapter has nothing to drop from. The other two clauses hold — an obs-text byte in a
+  value came back as `["X-Obs", "caf\xE9"]` (both `ASCII-8BIT`), and a control byte in a value came back
+  intact for the adapter to drop. The phase-8 charter's fact 6 measured `Net::HTTP` doing the opposite, it
+  *preserves* a non-ASCII name as a key, so the requirement is satisfiable on one MVP adapter and not the
+  other — the per-transport scoping §17's own preamble anticipates and which neither §12 nor §9.3 records for
+  this ID (§9.3 scopes only `TRANSPORT-8` and `TRANSPORT-18` that way). The only route to satisfying it would
+  be to parse the response head off the socket before `protocol-http1` does, i.e. to reimplement the HTTP/1.1
+  response parser inside an adapter whose whole design is to be thin over one library. **The correct
+  statement:** §12's `TRANSPORT` row gains `TRANSPORT-14` to its adapter-scoped list. **Code half:** phase 8c
+  records deviation `P8-38` and the conformance run carries a **named waiver listing `TRANSPORT-14`** per
+  §9.3's mechanism, so the gap is reported rather than restated. Interim note in `docs/deviations.md`. Touches
+  `TRANSPORT-14`, `XCUT-18`, `HTTP-17`, `NFR-8`.
+- **`TRANSPORT-8` is satisfiable on `dexpace-transport-async_http`, and §12 counts it among the eight MUSTs
+  that hold vacuously — the inverse direction, and equally a defect.**
+  `docs/sdk-design-ruby/12-appendix-requirement-coverage-index.md:41` lists "TRANSPORT-1, TRANSPORT-2,
+  TRANSPORT-8 and TRANSPORT-18 … adapter-scoped and vacuous for `Net::HTTP`", and the MUST-level summary at
+  `:49-55` counts `TRANSPORT-8` among "eight [that] hold vacuously". §9.3 is more careful —
+  "**TRANSPORT-8** and **TRANSPORT-18** vacuous for `Net::HTTP` and **mandatory for any adapter whose client
+  has those paths**" — and the corpus carries that as `testing/9a56af9d`. Verified 2026-09-11 against `async`
+  2.45.1 and `async-http` 0.104.0 under Ruby 3.4.10: cancelling a **parent** `Async::Task` delivers
+  `Async::Cancel` into an in-flight child exchange while the SDK future is still live — measured event
+  sequence `["outer-saw:Async::Cancel", "inner:Async::Cancel", "inner-ensure"]` — which is exactly
+  `TRANSPORT-8`'s antecedent, "a cancellation that originates inside it (e.g. an internal cancel-all)", and is
+  the ordinary shape of a consumer whose supervisor cancels its children on shutdown. The requirement's second
+  clause is free here, because `async` puts the two exceptions in different halves of the tree —
+  `Async::Cancel < Exception` and `Async::TimeoutError < StandardError` — so the terminal-versus-retryable
+  discrimination is by class and never by message (`XCUT-2`). Two candidates were tested and **rejected** as
+  the antecedent: a graceful HTTP/2 GOAWAY mid-stream did not abort the open stream (the client read it to
+  completion), and `Protocol::HTTP::RefusedError` is a retryable transport failure rather than a cancellation.
+  **The correct statement:** §12's `TRANSPORT` row and its MUST-level count record `TRANSPORT-8` as satisfied
+  on the async adapter. **Code half:** phase 8c implements and asserts the discrimination, its checklist row
+  stating it. Interim note in `docs/deviations.md`. Touches `TRANSPORT-8`, `TRANSPORT-3`, `TRANSPORT-4`,
+  `XCUT-2`, `ASYNC-6`, `NFR-8`.
+- **§8.3's prohibition is absolute and `net-http`'s connect phase uses `Timeout.timeout`, which the cop that
+  enforces the ban cannot see.** `/usr/lib/ruby/3.4.0/net/http.rb:1657` is
+  `s = Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(conn_addr, conn_port, @local_host, @local_port) }`.
+  §8.3 states the ban as binding "every gem in this repository" and phase 0 mechanises it as
+  `Dexpace/NoThreadInterrupt` over this repository's own `lib/`, so a library **dependency** using the
+  primitive is outside both the words and the scan. The hazard §8.3 names — an asynchronous interrupt landing
+  "inside an `ensure` block that is releasing a pooled connection" — is **not** reachable through this
+  particular use: the interrupt can only land during `TCPSocket.open`, before any SDK object holds a socket,
+  and the library converts it into a typed `Net::OpenTimeout` rather than letting a bare `Timeout::Error`
+  escape. So the port's guarantee is narrower than §8.3's sentence and is still true of everything it claims.
+  It is worth the row because the sentence is absolute, because a reader auditing the ban will grep `lib/` and
+  find nothing, and because the same question is owed of `async-http`'s dependency closure. **The correct
+  statement:** §8.3 gains one clause scoping the prohibition to code this repository writes. **Code half:**
+  none is owed — the cop and the ban stand as written. Touches `ASYNC-3`, `PIPE-33`, `XCUT-13`,
+  `TRANSPORT-4`, `NFR-2`.
+- **Phase 5a's exclusions table hands proxy use to phase 8 under two requirement IDs that are about
+  something else, and it is the second document to make that substitution** *(added 2026-09-13, phase 8a
+  review)*. The row reads "`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real
+  adapter | 8. 5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver**; nothing in core opens a socket"
+  (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`). Neither ID is about
+  either subject: `TRANSPORT-3` is "on the synchronous send path a genuine caller-initiated cancellation
+  MUST surface as a terminal, non-retryable interrupt-shaped IOException", and `TRANSPORT-8` is a
+  cancellation "that originates inside" the native client. The IDs the row means are **`TRANSPORT-30`**
+  (the proxy requirement, whose own text opens "When the SDK's proxy configuration carries a feature the
+  native client cannot honor") and **`TRANSPORT-13`** (the header-drop logging policy, which is phase 8c's).
+  This is the **same substitution** the phase-8 segmentation design already corrected in phase 5b's
+  `OBS-19` condition — "phase 8, at the first adapter that drops a caller-set header rather than raising on
+  it — which is `TRANSPORT-8`'s subject" — so two phase-5 documents made one error the same way, which is a
+  pattern rather than a slip. **The correct statement:** the phase-5a row names `TRANSPORT-30` and
+  `TRANSPORT-13`, corrected in place with the correction stated, in the shape phase 5b's was. **Code half:
+  already owned** — phase 8a's `R17` and its plan Task 19b implement proxy use, wire
+  `Dexpace::Proxy.resolve` into the per-call client and disposition `TRANSPORT-30`, so nothing waits on
+  this row; what is wrong is only the pointer a later audit would follow. Touches `TRANSPORT-3`,
+  `TRANSPORT-8`, `TRANSPORT-13`, `TRANSPORT-30`, `CFG-22`–`CFG-28`, `OBS-19`.
+- **§9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that
+  distinction.** §9.3's argument for choosing Minitest over RSpec is that "**it ships with the interpreter as
+  a default gem**, so the same argument §2.4 makes about `base64` and `logger` applies to the test
+  framework". Verified on 3.4.10: `Gem::Specification.find_by_name("minitest").default_gem?` is **`false`**,
+  its gem directory is not the interpreter's, and `Gem::BUNDLED_GEMS::SINCE` does not name it either, because
+  that table lists only gems that *became* bundled at a known version and Minitest was never a default gem.
+  Minitest is **bundled** — available with the interpreter, and requiring an explicit `Gemfile`/gemspec entry
+  under Bundler, which is the very property §2.4 spends a page warning about. **The conclusion survives
+  unchanged**, which is why this is a correction and not a re-decision: an adapter author can still run the
+  suite with nothing extra installed, and `dexpace-conformance` still declares nothing, because 8a's two
+  drivers reference `::Minitest` and `::RSpec` at call time and `require` neither. **The correct statement:**
+  §9.3 calls Minitest a bundled gem and draws the same conclusion from it. **Code half:** phase 0's plan
+  Task 2 carries the root `Gemfile`'s explicit `minitest` line — and, since 2026-09-13, its `~> 5.25` pin,
+  which the Minitest-6 measurement forced. Touches `NFR-2`, `NFR-17`, `SEAM-1`.
+- **§9.3 fixes the requirement ID as the *waiver's* unit and leaves the *report's* unit unstated, and an
+  appendix-B item cannot be it.** §9.3 reads: "A failing **item** that the port has decided not to satisfy is
+  reported as a failure by the suite and suppressed in the port's own build through a named waiver listing
+  **the requirement ID**." The waiver half is settled; what is unstated is the unit the report prints a status
+  *for*, which the surrounding sentence implies is the item. It cannot be: phase 8a's protocol makes
+  `Assertion` carry a **list** of requirement IDs and `Result` carry **one** status, and an appendix-B item is
+  one `- [ ]` bullet naming up to a dozen IDs. `B.7`'s second item is the decisive case, and §9.3 itself
+  creates it: the bullet reads "Two-mode cancellation with queued/finished tasks never interrupted
+  (`ASYNC-3`); ordered interrupt delivery prevents pooled-thread poisoning under stress (`ASYNC-4`)", and §9.3
+  then requires `ASYNC-4` to be **vacuous by construction** and `ASYNC-3`'s item to be **recorded as failing
+  rather than vacuous** — one `Result` cannot be both, so no single result can represent that item. **The
+  correct statement:** one clause in §9.3 naming the requirement ID as the unit of both the waiver and the
+  report. **Code half:** phase 9 resolves it for this port as `P9-8` — the suite's unit is one assertion per
+  requirement ID; an appendix-B item is a many-to-one view over them, and its status in the coverage map is
+  the worst among its assertions with every contributing status listed — and the 61-row map phase 9 commits is
+  the only place the real mapping is written down, which is why a porter reading §9.3 alone still builds the
+  wrong granularity. Interim note in `docs/deviations.md`. Touches `NFR-17`, `ASYNC-3`, `ASYNC-4`.
+- **Nothing in the MVP constructs or promotes an execution context, so `CTX-16`'s operation name never
+  reaches the tracing seam it is defined to label.** Phase 4a ships the whole promotion chain — 20 `CTX` IDs,
+  three flavours, the bounded store — and `CTX-16` makes the operation name "a schema-defined operation id
+  such as 'GetUser'" that is "exposed to the tracing seam to label the operation", which is exactly what an
+  OpenAPI generator fills from `operationId`. **No phase in the roadmap builds a call path that creates or
+  promotes a context.** Verified 2026-09-13 by repository-wide grep over `docs/work/mvp/`: outside phase 4a's
+  own documents, `DispatchContext`, `promote_to_request` and `promote_to_exchange` appear in **no** phase
+  plan at all. Phase 4a's charter states the same property from the other side and treats it as a feature —
+  "`CTX` is consumed by nothing in `RECOV` or `PIPE`" — and `4c` says "4c does not consume 4a at all". The
+  consumers that do exist cannot reach one: phase 5b's `Dexpace::Instrumentation::Step` resolves its tracer
+  factory and its operation name through `bundle_for(request)` and `operation_name_for(request)`, both of
+  which probe `request.respond_to?(:context)` while `Dexpace::Request`'s members are
+  `(:method, :url, :headers, :body)`, so both always take their fallback, and `PIPE-11` forbids the ambient
+  route. Phase 6a's Task 8 closes **half** of it — `Cursor#bundle` seeded by a `bundle:` keyword on
+  `Pipeline#call`/`AsyncPipeline#call` — and a `Bundle` carries no operation name, so `SEAM-28`'s identifier
+  half stays unreachable after it lands; phase 7a separately rules the context out of the serde seam, for
+  its own good reasons. The result is conforming — ch.07 never asks the pipeline to own the chain and ch.08
+  names no `CTX` ID — and it is a purpose-fit gap rather than a spec gap: a generated client gets a
+  correlation model it must drive by hand, and `ContextStore`'s cap, `CTX-19`'s reachability and `CTX-9`'s
+  eviction are exercised only by tests. **The correct statement:** phase 4a's forward-obligations row now
+  says phase 5c, Task 4 consumes `RequestContext#operation_name` **as a signature** and that no wired path
+  delivers it; what is still unowned is the decision itself — whether v1 carries the operation name on the
+  call path (a `Cursor#operation_name` beside phase 6a's `Cursor#bundle`, or an `operation_name:` keyword on
+  `Pipeline#call` threaded into `Instrumentation::Step`), or whether driving the chain is documented as the
+  SDK author's job in `docs/sdk-documentation/`. **Code half:** none written; phase 6a, Task 8 is the file
+  and the widening shape either answer extends (`api-design/1d9e6e0b`, so `NFR-4` permits it). Touches
+  `CTX-14`, `CTX-16`, `SEAM-28`, `OBS-34`, `PIPE-11`, `NFR-4`.
+- **`PAGE-14` and `SSE-26`/`SSE-40` guard the identical single-use latch with two different error families,
+  and the divergence has to be settled before `NFR-4` locks either.** Phase 7's own segmentation design pairs
+  them — "**`PAGE-14` and `SSE-26`'s single-use guards are two flags on two objects**"
+  (`docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md:891`) — and the two
+  sub-phase designs then answer the same question differently: `7c` raises `Dexpace::InvalidArgumentError` on
+  a second `Pages#each` (`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`, *`Dexpace::Page::Pages`*),
+  while `7b` ships a purpose-built `Dexpace::SSE::StreamStateError` for the second view
+  (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`, its module layout).
+  `Dexpace::InvalidArgumentError < ::ArgumentError`
+  (`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md:313`), so the pagination spelling
+  puts a **state** violation — no argument is involved, the object was simply used twice — into the argument
+  family, where a caller rescuing `ArgumentError` around a page loop now catches it and a caller rescuing the
+  SSE shape cannot use the same clause for both. Neither requirement names a type: `PAGE-14` says only
+  "re-iteration MUST fail rather than silently restart" and `SSE-26` says "a second attempt MUST fail loudly
+  (e.g. an **illegal-state error**)", whose own example is a state error. **The correct statement:** one
+  error family for the single-use latch across both subsystems — the `SSE-26`-shaped state error, with
+  `PAGE-14` raising it too, or one shared core type both namespaces use. **Code half:** one `raise` line in
+  each sub-phase's view task — `7c`'s is Task 12 — plus its `sig/`, and it is cheap only before the `NFR-4`
+  diff records two families. Touches `PAGE-14`, `SSE-26`, `SSE-40`, `NFR-4`, `SEAM-29`.
+
+**From phase 10's own planning read** *(all eight added 2026-09-13)*. Phase 10's design ran the sweep this
+list was built from rather than trusting the list, `grep -rn -i -e 'phase 10' -e 'phase-10' docs/work/`, and
+read phase 9's plan against phase 9's design. Four subjects are handed forward by phases 0–8 and four by phase
+9, and none of the eight was on this list. Each is written out in full below and dispositioned in phase 10's
+design.
+
+- **Appendix C's `SSE-19` row drops the port sanction the chapter carries, and `docs/product-spec/` is
+  frozen.** Handed forward by 7b. `docs/product-spec/13-server-sent-events-and-streaming.md:33` ends
+  `SSE-19` with "a port MAY add a configurable cap and reject/truncate oversized lines, **documenting the
+  divergence**"; appendix C's row for the same ID ends at "a growable byte accumulator expands by doubling"
+  and carries no sanction. `CLAUDE.md` calls appendix C "the fastest way to locate a requirement ID", so a
+  checklist author working from the index alone reads 7b's cap as unsanctioned. The asymmetry runs both ways
+  in the same pair: appendix C says "no maximum line **or event** size" where the chapter says only
+  "lines/values", and `P7-21` turns on the appendix-C half — so **the two rows together are the only complete
+  statement of `SSE-19` and nothing says so.** This is the first correction on this list against the
+  **normative** specification rather than the design, so it is also a recommendation to the specification
+  author in §11's own idiom. **Code half: already shipped** — 7b's configurable cap, `P7-21`. Interim note in
+  `docs/deviations.md`. Touches `SSE-19`, `SSE-11`, `SSE-12`.
+- **Phase 2's three other declared-and-unwritten `sig/` files, which no gate can see.** Handed forward by 7a,
+  which settled one clause of one of them. `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:4899-4900`
+  (Step 6, "Write the four `sig/` mirrors", header at :4897)
+  says `sig/dexpace/serde.rbs` "carries `interface _Codec` with the six methods and the module's class
+  methods" and gives no types, and that step declares **four** files in all — `serde.rbs` plus three error
+  files — so the residue beside `serde.rbs` is **three**, not four; corrected 2026-09-13, as is the line
+  citation, which pointed at that plan's SPDX header; 7a's plan Task 12 declares `#media_type` as `(Dexpace::MediaType | String)`
+  and hands forward the question of whether the other four declared files are empty too. A shipped `.rbs`
+  that declares nothing passes `rbs validate`, passes `steep check` and tells a consumer's typechecker
+  nothing, which is the failure mode `NFR-3` exists to prevent and which nothing reports. **Code half:
+  partial** — `#media_type`'s only. Touches `SERDE-2`, `NFR-3`, `NFR-13`.
+- **`Dexpace::Protocol.parse` has no alias for `"http/1.0"`, so a real `HTTP/1.0` response makes
+  `ResponseMapper` raise.** Handed forward by 8a, measured at its plan `:233` and restated at `:4323`. Only
+  `http/1.1`, `http/2` and `http/2.0` fold into a recognised wire form, so `native.http_version` produces
+  `"1.0"` and the mapper raises. No `TRANSPORT` ID requires 1.0 support and every `WireServer` script in 8a's
+  plan answers `HTTP/1.1`, so the suite never exercises it — and any real server can reach it. 8a routed it
+  here rather than fixing it because widening `Protocol::WIRE_FORMS` is a **phase-1 surface decision no
+  sub-phase should take alone**; the widening is additive, so `NFR-4` permits it. **Code half: none** — 8a
+  records one sentence in `ResponseMapper`'s YARD. Touches `HTTP-24`, `HTTP-43`, `NFR-4`.
+- **8a's forward-obligations row for the two declined `TRANSPORT` SHOULDs is half stale.** Handed forward by
+  8a at its design `:2219`, the only literal `| **Phase 10**, …` row in any phase document, naming
+  `TRANSPORT-28`'s third clause **and `TRANSPORT-30`**. `TRANSPORT-30` is no longer declined: 8a's own `R17`
+  and plan Task 19b implement proxy use, and `docs/first-release.md` narrowed it out of the ships-without
+  entry on 2026-09-13. A forward row handing a later phase a decision already taken spends the audit budget
+  on rediscovery. **Fixed in this pass**, dated, in 8a's design. Touches `TRANSPORT-28`, `TRANSPORT-30`.
+- **`APPENDIX_B.md`'s check 2 is weaker than the prose that specifies it.** Found by reading phase 9's plan
+  against phase 9's design. The design settles on **per-row ID-set equality** against the set parsed from each
+  appendix-B item's own text — "decidable, strictly stronger, and it makes the distinct-ID coverage check hold
+  **by construction**" (its design:1243-1245) — and the filed test (**phase 9 plan:5627-5631**, in the class
+  at :5611-5644) asserts only that every row names at least one ID from the nineteen prefixes. `AppendixB`
+  is not featureless here: it exposes `ids_in(text)` (:5668) and `spec_items(path)` (:5732-5741) and
+  computes each item's IDs inside `generate` at :5722; what it lacks is an accessor **in the form the
+  equality check needs**, per section and index, plus the assertion — and because `generate` carries
+  hand-written rows over verbatim (:5726), the drift the check would catch is confined to those. Both the
+  line citation and the size of the claim corrected 2026-09-13. So the 61-row map documents a check it does not perform, in the artifact that is "the only place
+  the real mapping is written down". **Code half: none** — the accessor does not exist. Touches `NFR-17`.
+- **`TransportSuite` is not on `Runner`, leaving two status-deciding paths in one gem.** Phase 9's `P9-10`
+  records it and its reason: phase 8 owns that file, so phase 9 deliberately did not refactor it, and "a
+  future change to the five statuses must be made twice." Phase 10 is the first phase that owns every gem, so
+  the reason has expired. **Code half: none.** Touches `NFR-17`, `NFR-4`.
+- **A design document that promised a shape the code did not take is phase 10's doc repair.** Phase 9's `R3`
+  (its design:536-542) fixes the rule for the requirement half — assert against what arrived, record both
+  shapes — and routes the document half here: "a document the next reader will trust wrongly". It is a
+  **method rather than a subject**, which is why it is written out: phase 10's audit tasks each route their
+  own instances, and a bullet that named none would read as though none existed. Touches every `XCUT`/`NFR`
+  subject phase 9 probed.
+- **The `minitest` pin's ownership.** Phase 9's own open question 1: the pin is phase 0's artifact and `R6`
+  makes a repair to phase 0's tree phase 10's, so "the decision may not be phase 9's at all". Phase 10
+  re-measured and the answer is that **the pin is right and its owner does not change** — what is owed is the
+  corrected measurement, because two of the three per-interpreter versions phase 9 recorded are stale and the
+  3.4 row is now affected in a different way from the 4.0 row. Carried to
+  `docs/first-release.md` § Post-release triggers, the Minitest 6 entry, dated. Touches `NFR-6`, `NFR-17`,
+  `NFR-10`, `NFR-2`.
+
+**2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
+plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
+the phase table changes and no requirement ID moves; what changes is the order the phases are *run* in,
+which this document's own ordering rationale already leaves open in both places the amendment touches.
+
+**`7a` runs before phase 6.** The rationale under the phase table states it outright — "per `SSE-37` and
+§12's chapter intro, on nothing in phase 6 either, so **6 before 7 is a convenience order, not a
+dependency**" — so this spends no dependency argument. What it buys: after phases 0–5 plus `7a`, the whole
+synchronous slice a generator drives exists except the socket — `Dexpace::Operation#build_request`,
+`Pipeline.direct`, `Body.serialized`, `StatusAwareHandler` over `TypedResponse` — and can be exercised
+against cross-cutting constraint 4's in-memory fake transport, rather than first meeting each other after
+phase 6, the largest phase in the roadmap at 111 + 15 IDs. The rest of phase 7 still follows phase 6;
+only `7a` moves.
+
+**Within phase 7 the order is `7a` → `7c` → `7b`.** The segmentation bullet above already fixes the
+independence — "No sub-phase may depend on another, order is convenience only" — so this is a choice among
+equals and not a new constraint. `7c`'s pagination is on the path a generated client takes for an ordinary
+list endpoint; `7b`'s SSE is reached only by an API that streams, and at 41 IDs it is the second-largest
+sub-phase in the roadmap. Running it last is what makes the convenience order pay.
+
+**The end-to-end generator slice is split in two, and both halves are numbered plan tasks rather than
+anything registered here.** The review's finding was that `Dexpace::Operation` — `SEAM-26`/`SEAM-27`, the
+seam whose stated purpose is that operation arguments "flow through typed projections rather than being
+spliced into a URL by string surgery" — is built by phase 2 and named by no later phase's documents at all,
+so the composition a generator actually writes is never executed anywhere in the plan. **`7a` gains the
+fake-transport half**: descriptor → `#build_request` → `Pipeline.direct` over the in-memory transport →
+`StatusAwareHandler`, asserting the 200 decode, the 4xx typed error over `RECOV-15`'s buffered body, the
+single-segment path parameter, and a `Tristate::ABSENT` field omitted on PATCH. **`8a` gains the socket
+half**, the same slice over `Pipeline.standard` and the §9.3 `TCPServer` fixture with an AUTH step
+pre-seeded through the documented `builder:` keyword. Each is written by the unit that owns it; neither is
+a new requirement and neither changes a checklist row.
+
+Two release entries were filed by the same review and are `docs/first-release.md`'s, not this document's:
+a blocker requiring one worked end-to-end example in `docs/sdk-documentation/` — the artifact the
+`AuthDescriptor` carrier line and the `HTTP-22`/`48`/`49`/`50` line both already name as their reopening
+trigger, and which no phase produces — and a new *Behavioural asymmetries a consumer must know* subsection
+under what v1 ships without, opened by `PIPE-32`/`REDIR-25`: `AsyncPipeline.standard` follows no redirects
+while `Pipeline.standard` does, which is the requirement and is invisible to a consumer who reads neither
+constant's YARD.
+
+**2026-09-13** — **Phase 10's two planning documents filed**, under `docs/work/mvp/phase10/`:
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md)
+and its plan,
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md).
+**Every phase in the roadmap is now planned and none is built.** Nothing is implemented; the checklist is
+written at execution time, per execution step 6.
+
+**No segmentation design and no sub-phase, and the decision is argued against the number that looks like it
+cuts the other way.** This document's rule reaches build phases 1 through 8 and leaves phases 9 and 10 to
+segment "only if their own design finds it necessary". Phase 10's scope is **124 own rows** — the largest in
+the roadmap, ahead of phase 6's 111-plus-15 — and the design's answer is that the ID is the wrong unit:
+**fifty-one of the 124 are one entry's ID family**, because §10.1 retires the byte-stream provider seam and in
+doing so names `SEAM-3`–`SEAM-10`, all forty-two `IO` IDs and `XCUT-23`, its own argument being that
+`IO-1`–`IO-29` and `IO-37`–`IO-42` are implemented in full while only the pluggability apparatus is removed.
+The unit of work is the **ledger entry**: 19 entries plus a closing note plus 32 inbound bullets is **52
+units**, the same order as phase 1's 42 unsegmented rows and phase 9's 41. Of the rule's three triggers only
+one fires, and maximally rather than usefully — phase 10 spans all nineteen ID-bearing chapters, because
+design §10 does — while it ships **no new gem**: its repairs land in `dexpace-core`,
+`dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-conformance` and the repository's own
+tooling, all of which exist by the time it runs. Every candidate cut splits a ledger entry: prefix lines split
+§10.1's `SEAM` half from its `IO` half, core-versus-adapters splits §10.4's cancellation claim across three
+gems and §10.12's one ownership rule across three layers, and audit-versus-repair would recreate *inside*
+phase 10 the boundary phase 9's `R6` drew between the two phases — which phase 10 exists to cross. Task
+ordering carries what a cut would have: the plan builds and reads the instrument in Tasks 1–3, ships the
+repairs in 4–10, re-derives the ledger in 11–15 and closes the registers and the phase in 16–19.
+
+**Scope is 124 own rows plus 64 cross-reference rows — 188 checklist rows in all.** The 124 are every
+requirement ID named by design §10's nineteen entries, extracted mechanically with every range expanded and
+every member checked against appendix C (all 124 resolve), plus `RETRY-28` from §10's closing note, which is a
+claim of the same kind and is audited with them: **108 MUST, 15 SHOULD, 1 MAY**. The 64 are every ID an inbound
+bullet's *Touches* line or a newly-found hand-forward names, or one of phase 10's own repairs touches, that is
+not among the 124 — 44 MUST, 16 SHOULD, 4 MAY — and they follow the two-rows-one-obligation discipline phase 2 gave `SEAM-29`: the owning phase keeps
+the ID and **no earlier phase's row moves.** The spec-reading budget is **six appendix-C rows and no chapter
+reading at all**: `--gaps` over all nineteen prefixes reports 21 uncited IDs, of which `SEAM-22` and
+`IO-32`–`IO-35` are own rows and `SEAM-28` a cross-reference row, and for every one the CLI says appendix C is
+its only normative statement. Appendix B is **out of scope** — phase 9 owns the 61-row map — so phase 10 is
+not exposed to the roll-up hazard at all.
+
+**The method, and the one decision it forced.** The roadmap states phase 10's method in half a sentence,
+"re-deriving every ledger claim from as-built source, never from another document", and the design makes it
+failable: an audit step names the artifact by path and constant, the promising phase document says where to
+look and **is never evidence**, and a claim whose artifact cannot be named is *unverifiable* rather than
+*confirmed*. That method immediately paid for itself. **`OBS-29`'s canonical text ends "This is a documented
+emission contract; pipeline/transport wiring to emit it is a follow-up, so it is not yet runtime-enforced"** —
+a clause design §8.1's restatement drops and no harvested corpus entry carries — so the "open surface
+decision" that five documents across four phases carried, and that this list's second bullet frames as owed,
+was **already closed by the requirement itself**. Nothing was built wrongly; every phase declined the wiring.
+But the decision travelled as open through five documents and one register retirement, which is the shape of
+error the re-derivation exists to catch, and it is why phase 10 files exactly one knowledge note and files it
+there. `CTX-16` went the same way: all three of its modal clauses are met by phase 4a without a call path, and
+"exposed to the tracing seam" is descriptive rather than modal, so the undriven correlation chain is a
+purpose-fit gap and not a requirement gap. Both are now `docs/first-release.md` § What v1 ships without ›
+*Behavioural asymmetries a consumer must know* entries rather than surface widenings, on the `Event#tag`
+precedent — `NFR-4` locks a public keyword at the first tag and nothing in v1 would drive either one.
+
+**Eleven deviations `P10-1`–`P10-11`, and four checks added to §9's table as addenda `A8`–`A11`** —
+`gates:spdx_rbs` (the SPDX header on every shipped `sig/**/*.rbs`, which a RuboCop cop cannot reach because
+`.rbs` is not Ruby, plus the assertion that no shipped signature declares nothing), `gates:sole_parse`
+(asserting `AstScan.parse` is the only caller of `parse_file` in the repository, which was a comment and not an
+assertion), the probe's **ninth** check, clause-scoped chapter attribution, and `gates:ledger_audit`, which
+keeps `docs/deviations.md`'s nineteen rows tied to §10 by per-row ID-set equality and fails a verdict row that
+cites no resolvable as-built evidence — `P10-2` made mechanical, and what stops a register audited once from
+drifting after phase 10 closes. All four blocking. The addendum letters continue phase 9's `A4`–`A7`; the
+thirteen frozen-chapter corrections are a **separate** series, `C1`–`C13`, because a first draft labelled both
+`A` and they collided at `A8`. That set is thirteen and not eleven because two corrections already sitting in
+`docs/deviations.md` — the §10.5 "an adapter" attribution and §12's `PAGE` row — had been left out of the
+numbering and therefore out of the release blocker's enumeration; they are `C12` and `C13`, and `docs/deviations.md`
+now carries the whole `C1`–`C13` mapping beside the notes so the two documents cannot drift. Phase 10
+adds **no `dexpace-conformance` suite, assertion or gate**: a phase that reads an instrument and extends it
+cannot say which of the two its verdict came from. Its two changes inside that gem are the residues phase 8's
+ownership caused — `APPENDIX_B.md`'s check 2, which documents a per-row ID-equality check the filed test does
+not perform, and `TransportSuite` left off `Runner` (`P9-10`) — and phase 10 is the first phase that owns
+every gem.
+
+**Repairs: twelve bullets, eight tasks.** The uncapped `Clients#@by_origin` (verify `8c`'s cap, repair if
+`gates:bounded_map` is red, and **never** an allowlist entry); `NFR-13`'s SPDX header over every shipped
+signature; 8a's unused rescue binding and the general `parse_file` exposure; the chapter-attribution check;
+**`Dexpace::SingleUseError`** in core, with `SSE::StreamStateError` re-parented beneath it, because
+`7c`'s `InvalidArgumentError < ::ArgumentError` puts `PAGE-14`'s state violation in the argument family where
+`rescue ArgumentError` swallows it — measured on all four interpreters; **`XCUT-12`'s fiber-scheduler
+single-flight assertion**, which phase 10 judges necessary and ships as a driver in
+`dexpace-transport-async_http`'s `test/` tree, closing a post-release trigger rather than arming it; and
+`Protocol::WIRE_FORMS` gaining `"http/1.0"`, a phase-1 surface decision 8a declined to take alone.
+
+**Two things were fixed on the spot rather than filed**, because CLAUDE.md's rule is that a finding in
+material you may write is not a finding: phase 5a's exclusions row, which named `TRANSPORT-3`/`TRANSPORT-8`
+for proxy use and header-drop reporting where the IDs meant are `TRANSPORT-30` and `TRANSPORT-13` — the same
+substitution phase 5b made and the phase-8 segmentation design corrected, so a pattern rather than a slip —
+and 8a's forward row for the two declined `TRANSPORT` SHOULDs, half stale since its own `R17` implemented
+`TRANSPORT-30`. **And three chapter attributions across two lines, which are the check's own justification**: phase 8a's and
+8c's governing-documents lists name `docs/product-spec/03-pluggable-seams-and-extension-model.md` for
+`SEAM-13`, `SEAM-15` and `SEAM-22`, and that chapter carries none of the three — `SEAM-13`'s only prose home
+is `02-architectural-principles.md`, and `SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28` appear in no
+prose chapter at all, which phase 2 established on 2026-09-06 and phase 10 re-verified today. Corrected in
+place, dated, with the pre-correction text preserved as the check's regression fixtures — a gate whose only
+evidence is a live defect loses its evidence the moment the defect is fixed.
+
+**Three items postponed, every one to `docs/first-release.md` because phase 10 has no later phase**: applying
+the thirteen amendments (§3, §4, §8, §9, §10, §11, §12 and appendix C's `SSE-19` row are frozen and reserved to
+a human, so what phase 10 can do is make the amendment a **transcription** — sentence, replacement,
+measurement, verified code half — and file the blocker, whose alternative form is the release notes naming
+which design sentences a reader should not trust); the chapter-attribution check's continued-clause blind
+spot, whose trigger is a **second** instance because one is an anecdote; and an `NFR-4` **diff** as opposed to
+a baseline, since `NFR-4`'s subject is a diff against a release tag and there is none — phase 10 establishes
+both baselines and leaves the disposition ⏳, because establishing a baseline is not satisfying a requirement
+about comparing against one. **Two items were picked up**: `XCUT-12` under a fiber scheduler, the one item
+the deferral register handed phase 10 and phase 9's own postponement, and phase 9's three
+`R6`/`P9-7`/`P9-10` hand-offs.
+
+**Seven findings, all measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6.** Three contradicted the record — the
+third being this design's own first draft, which reported 8a's unused rescue binding as a live defect after
+commit 152ec6a had already removed it; that is the error class the re-derivation method exists to catch,
+committed by the document that states the method, and it is recorded here rather than quietly fixed. **Minitest
+resolution has moved again since phase 9 measured it on 2026-09-12** — 5.25.1 / 5.20.0 / **6.0.6** / 6.0.0,
+with `default_gem?` `false` on all four — and not because an interpreter changed: 6.0.6 sits in the *user* gem
+directory on the 3.4 row beside the 5.25.4 that interpreter ships, a bare `require "minitest"` resolves the
+newest, and requiring `minitest/mock` then `minitest/autorun` there loads **both copies and emits 13
+`already initialized constant` warnings**, which `NFR-6`'s gate turns into a failure. So phase 0's `~> 5.25`
+pin is load-bearing for a second reason — the 3.4 row's determinism, by newest-wins resolution outside
+Bundler — and the trigger's measurement is corrected. And **`net-http`'s connect-phase `Timeout.timeout` is on
+every supported Ruby at a different line each time** (`:1601`, `:1601`, `:1657`, `:1791`), so the finding
+strengthens while its single absolute-path citation resolves on one row of four. The half nothing had measured
+is now measured: the resolved **`async-http` closure contains no `Timeout.timeout` call at all**, seven
+`Fiber#raise` sites — one of them `async/task.rb:365`, which is how `Async::Task#cancel` delivers the
+`Async::Cancel` phase 8c's `TRANSPORT-8` result rests on — one `Thread#raise` and one `Thread#kill`. The
+`Thread#kill` is in `io-event`'s `Selector.process_wait`, on a helper thread the adapter never reaches. The
+`Thread#raise` is reported rather than left out, because §8.3 names that primitive and a reader auditing the
+ban will grep for it: it is `Thread.current.raise(error)` in the pure-Ruby fallback selector, a raise on the
+**calling** thread and therefore an ordinary synchronous `raise` rather than the asynchronous cross-thread
+interrupt §8.3 prohibits. `Fiber#raise` is not on §8.3's list and
+the omission is principled: a fiber raise resumes at a **scheduler checkpoint**, which is the property §8.3's
+own rationale distinguishes and §3.3 already relies on. Both facts widen §8.3's amendment from one clause to
+that clause plus what the closures do. `docs/deviations.md` gains **two** interim notes — §8.3's scope clause
+and appendix C's `SSE-19` row, the first entry there against the normative specification — has its
+`C1`–`C13` mapping written beside the notes, and has the *IDs touched* column of rows 1, 3, 10 and 12 widened
+to their §10 entry's full named set, with the column's convention stated where the column lives: every ID the
+entry names, not only the IDs the deviation narrows. Those four rows were short by 34, 2, 3 and 1 IDs, which
+is what `gates:ledger_audit`'s equality assertion reports against the register as it stood.
+`docs/first-release.md` gains one blocker, two *Behavioural asymmetries* entries and one post-release trigger,
+has one trigger annotated as closing when Task 9 lands, and has the Minitest trigger's measurement corrected.
+**One corpus note**, filed before the plan: `docs/knowledge/notes/observability.md`, `OBS-29`'s follow-up
+clause, taking the corpus to **52 entries across 21 files**. `CLAUDE.md`'s phase-directory count goes from ten
+to eleven with this filing, and its phase-6 sentence loses "the largest phase in the roadmap" for "the
+largest **build** phase", which phase 10's 124 own rows make true. Its "Eight checks" sentences stay at
+eight until the ninth is built — phase 10's plan, Task 7 — because a count that anticipates a check is
+the kind of claim this phase exists to catch. The "Zero gems exist under `gems/`" sentence is unaffected.
