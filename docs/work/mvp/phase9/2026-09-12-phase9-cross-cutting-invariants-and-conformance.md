@@ -60,6 +60,7 @@ Copied verbatim from the design and from `CLAUDE.md`. Every task's requirements 
 **Files:**
 - Create: `test/support/warning_capture.rb`
 - Create: `test/gates/phase9_ruby_facts_test.rb`
+- Create: `test/fixtures/gates/warns_unused.rb` — Task 13 reuses it and writes no eighth fixture
 
 **Interfaces:**
 - Consumes: phase 0's `DexpaceTestCase`, whose `FatalWarnings` module is **prepended to
@@ -124,6 +125,35 @@ module WarningCapture
 end
 ```
 
+**And the fixture the two warning facts need.** The claim an earlier draft made — that parsing emits
+no warning — is true of the **parser** and false of the **file**: a scanned file's own `-w`
+diagnostics are emitted at parse time and routed through `Warning.warn` exactly as at require time.
+Testing that against `__FILE__`, which carries no diagnostic, proves nothing, so the fact needs a
+file that does. The shape is 8a's, filed and unchanged — `rescue ::StandardError => e` inside
+`Adapter#dispatch`, where `e` is never read
+(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`)
+— and it emits `assigned but unused variable - e` on 3.2.11, 3.3.12, 3.4.10 and 4.0.6.
+
+```ruby
+# test/fixtures/gates/warns_unused.rb
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+# Parsed, never required: this file's own -w diagnostic IS the input. `e` is bound and unused --
+# the shape 8a filed at 8a plan:4858, `rescue ::StandardError => e` inside Adapter#dispatch, which
+# emits "assigned but unused variable - e" on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. Nothing here names
+# #cause or assigns a Hash ivar, so every gate in Task 13 must report it CLEAN; what it proves is
+# that the scan does not RAISE under the warnings-fatal test case.
+module WarnsUnused
+  def self.call(pump)
+    pump.head
+  rescue ::StandardError => e
+    pump.close
+    raise
+  end
+end
+```
+
 - [ ] **Step 2: Write the failing test**
 
 ```ruby
@@ -140,6 +170,8 @@ require_relative "../support/warning_capture"
 
 class Phase9RubyFactsTest < GateCase
   include WarningCapture
+
+  WARNS_UNUSED = File.expand_path("../fixtures/gates/warns_unused.rb", __dir__)
 
   test "a send is one of three AST node types and a :CALL-only scan misses safe navigation" do
     types = []
@@ -163,10 +195,25 @@ class Phase9RubyFactsTest < GateCase
                  "was written on and blind on the others")
   end
 
-  test "parsing a file emits no warning, so the warnings-fatal gate does not fire on the scanner" do
-    seen = capture_warnings { ::RubyVM::AbstractSyntaxTree.parse_file(__FILE__) }
+  # The PARSER is silent for well-formed input; the SCANNED FILE's own -w diagnostics are not, and
+  # they arrive through Warning.warn exactly as at require time. An earlier draft of this test
+  # parsed __FILE__, which carries no diagnostic, and concluded that parsing never warns.
+  test "a scanned file's own -w diagnostics reach Warning.warn, which is what the scanner must silence" do
+    seen = capture_warnings { ::RubyVM::AbstractSyntaxTree.parse_file(WARNS_UNUSED) }
+
+    assert_equal(1, seen.size)
+    assert_includes(seen.first.first, "assigned but unused variable - e")
+    assert_nil(seen.first.last, "no category, so Warning[:deprecated] = false cannot reach it")
+  end
+
+  # $VERBOSE = false silences only the -w class: a duplicated hash key warns whatever $VERBOSE is
+  # and would still raise under FatalWarnings, so the window AstScan.parse opens is nil, not false.
+  test "$VERBOSE = nil silences the parse warning, and the window closes behind it" do
+    armed = $VERBOSE
+    seen = capture_warnings { quietly { ::RubyVM::AbstractSyntaxTree.parse_file(WARNS_UNUSED) } }
 
     assert_empty(seen)
+    assert_equal(armed, $VERBOSE, "the gate stays armed outside the window")
   end
 
   test "outside a capture block a warning still raises, so the gate is not weakened" do
@@ -202,6 +249,15 @@ class Phase9RubyFactsTest < GateCase
 
   private
 
+  # AstScan.parse's window (Task 13), spelled here so the fact is measured where it is recorded.
+  def quietly
+    previous = $VERBOSE
+    $VERBOSE = nil
+    yield
+  ensure
+    $VERBOSE = previous
+  end
+
   def walk(node, &block)
     return unless node.is_a?(::RubyVM::AbstractSyntaxTree::Node)
 
@@ -217,7 +273,8 @@ end
 for v in 3.2.11 3.3.12 3.4.10 4.0.6; do mise exec ruby@$v -- ruby -w test/gates/phase9_ruby_facts_test.rb; done
 ```
 
-Expected: PASS on all four. **Two tests assert a different outcome per interpreter by design** —
+Expected: **8 runs, 16 assertions, 0 failures** on each — measured 2026-09-13 on 3.2.11, 3.3.12,
+3.4.10 and 4.0.6. **Two tests assert a different outcome per interpreter by design** —
 `mock_available` is true wherever Minitest is 5.x and false on 4.0.6 (Minitest 6.0.0), which is
 `OI-49`; and the Symbol node type is `:LIT` on 3.2.11 and 3.3.12 and `:SYM` on 3.4.10 and 4.0.6,
 which is `OI-52`.
@@ -234,7 +291,8 @@ quietly rewrite a later task around it.
 for that specific action in that message."
 
 ```bash
-git add -- test/support/warning_capture.rb test/gates/phase9_ruby_facts_test.rb
+git add -- test/support/warning_capture.rb test/gates/phase9_ruby_facts_test.rb \
+        test/fixtures/gates/warns_unused.rb
 ```
 
 ## Task 2: `Runner` — the one place the five statuses are decided
@@ -1938,6 +1996,15 @@ is not held across a suspension point" — `Thread::Mutex` ownership being per-f
 a counting test asserting **one** assertion per ID, which structurally forbade the second and is
 why the design named a shape the plan then could not build.
 
+**The second clause has to CATCH the deadlock, not merely outlive it.** A per-fiber mutex held
+across `Fiber.yield` does not hang — the second fiber's `resume` raises
+`ThreadError: deadlock; lock already owned by another fiber belonging to the same thread`, verified
+with that exact message on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. A `ThreadError` escaping the body
+reaches `Runner`'s bare `rescue ::StandardError` and is reported `:error`, which is the status for
+"this assertion is broken", not for "the subject is non-conformant". So the resume loop converts it
+into a `Failure` carrying the message, and the suite's own non-conforming double proves the status
+is `:failed`. Measured before and after: `[:passed, :error]` then `[:passed, :failed]`, on all four.
+
 **`XCUT-23` is written in full**, because §9.3 restates this exact `B.8` item — the seam-resolution
 item "names require-time registration as the discovery substrate" — and because the requirement is
 three ordered rules whose ordering is the content.
@@ -1972,6 +2039,27 @@ class DexpaceConformanceInvariantConcurrencyTest < DexpaceConformanceTestCase
   class CrossTalkingStep
     def initialize = (@attempt = 0)
     def call(request) = [request, @attempt += 1]
+  end
+
+  # Clause 2's non-conforming double: it holds its per-fiber mutex across a suspension point, which
+  # is exactly what the clause forbids. Thread::Mutex ownership is per-FIBER, so the SECOND fiber's
+  # lock attempt RAISES ThreadError rather than blocking. Clause 1 drives the same object from a
+  # thread's ROOT fiber, where Fiber.yield raises FiberError ("attempt to yield on a not resumed
+  # fiber", identical on all four interpreters) -- the rescue is what lets one double answer both
+  # clauses, and it is the double's, never the assertion's.
+  class SuspendingLockStep
+    def initialize = (@lock = Thread::Mutex.new)
+
+    def call(request)
+      @lock.synchronize do
+        begin
+          Fiber.yield
+        rescue FiberError
+          nil
+        end
+        [request, 1]
+      end
+    end
   end
 
   def statuses(report)
@@ -2010,6 +2098,19 @@ class DexpaceConformanceInvariantConcurrencyTest < DexpaceConformanceTestCase
     report = S.run(core: Module.new, seam: ->(**_kw) { CrossTalkingStep.new }, mutable: [])
 
     assert_includes(statuses(report)["XCUT-11"], :failed)
+  end
+
+  # Clause 2's own non-conforming case, and the reason it is asserted as the exact PAIR rather than
+  # with assert_includes: the misbehaviour surfaces as a raised ThreadError, and an assertion that
+  # let it escape would report :error -- indistinguishable from a broken harness, which
+  # assert_includes(:failed) would not catch either. Sorted, because the two clauses' order inside
+  # `assertions` is not something this test should pin. Measured on 3.2.11, 3.3.12, 3.4.10 and
+  # 4.0.6: [:passed, :error] before the assertion's rescue, [:passed, :failed] after.
+  test "a step holding its lock across a suspension point fails XCUT-11's second clause" do
+    report = S.run(core: Module.new, seam: ->(**_kw) { SuspendingLockStep.new }, mutable: %i[@lock])
+
+    assert_equal(%i[failed passed], statuses(report)["XCUT-11"].sort,
+                 "a deadlock must be reported :failed; :error reads as a broken harness")
   end
 end
 ```
@@ -2060,7 +2161,30 @@ end
                               seen << step.call("fiber-#{i}-again")
                             end
                           end
-                          4.times { fibers.each { |f| f.resume if f.alive? } }
+                          4.times do
+                            fibers.each do |f|
+                              next unless f.alive?
+
+                              begin
+                                f.resume
+                              rescue ::ThreadError => e
+                                # Ruby's own report of the misbehaviour this clause hunts. Mutex
+                                # ownership is per-FIBER, so a lock held across Fiber.yield makes
+                                # the SECOND fiber's resume raise "deadlock; lock already owned by
+                                # another fiber belonging to the same thread" -- verified on
+                                # 3.2.11, 3.3.12, 3.4.10 and 4.0.6, identical message on all four.
+                                # Without this rescue it propagates past Check and Runner's bare
+                                # `rescue ::StandardError` reports :error, which reads as a broken
+                                # harness rather than as the non-conformance it is (measured).
+                                raise Failure.new(
+                                  "two fibers on one thread deadlocked; a lock is held across a " \
+                                  "suspension point: #{e.message}",
+                                  expected: 4, actual: "#{e.class}: #{e.message}",
+                                  requirement_ids: ["XCUT-11"]
+                                )
+                              end
+                            end
+                          end
 
                           Check.that(seen.size == 4,
                                      "two fibers on one thread did not both complete; a lock is " \
@@ -2144,7 +2268,7 @@ for v in 3.2.11 3.3.12 3.4.10 4.0.6; do
 done
 ```
 
-Expected: 5 runs, PASS, with the first test proving all 24 `XCUT` IDs are covered by 27 assertions.
+Expected: 6 runs, PASS, with the first test proving all 24 `XCUT` IDs are covered by 27 assertions.
 
 - [ ] **Step 5: Record the residue honestly in the phase's checklist**
 
@@ -2948,8 +3072,8 @@ git rm -- gems/dexpace-serde-json/test/support/serde_seam_assertions.rb
 **Interfaces:**
 - Consumes: `Assertion`, `Check`, `Failure`, `Vacuous`, `Runner`
 - Produces: `ExecutorCase.new(build:, borrow: nil, functional: nil, recorder: nil)` with
-  `THREADS = 16`, `#executor(**settings)`, `#borrowed?`, `#borrowed(pool)`, `#functional?`,
-  `#functional`, `#events?`, `#events`;
+  `THREADS = 16`, `ExecutorCase::EventRecorder`, `#executor(**settings)`, `#borrowed?`,
+  `#borrowed(pool)`, `#functional?`, `#functional`, `#events?`, `#shutdowns`;
   `ExecutorSuite.run(build:, borrow: nil, functional: nil, events: nil, waive: [], around: nil) -> Report`
 
 **`DEF-31`'s harness half is reassigned to phase 9, and this is a CORRECTION to a committed register
@@ -2970,8 +3094,11 @@ touched (`cross-cutting-invariants/8fa2c08d`) and there is nothing observable to
 `SEAM-18` is the executor *seam's* shape rather than an implementation property, which 8b's own
 suite asserts. Both are recorded in `APPENDIX_B.md` as scoped out, with those reasons.
 
-**This task's code was executed during planning** on 3.2.11, 3.4.10 and 4.0.6: **8 runs, 9
-assertions, 0 failures** on each.
+**This task's code was executed during planning** on 3.2.11, 3.3.12, 3.4.10 and 4.0.6: **9 runs, 10
+assertions, 0 failures** on each. The suite was also driven end to end against a stand-in
+transcribed from 8b's filed `Pool` (8b plan:1278-1428 and 1714-1750) on the same four: green, with
+`XCUT-22` and `ASYNC-17` `:vacuous`; and red — `XCUT-13` and `SEAM-25` `:failed`, `expected 1, got
+2` — against the same class with `#close` unlatched so `#release` double-fires.
 
 **One thing the planning run got wrong first, and the fence below fixes.** The event recorder was a
 single array passed to `.run` and shared across the whole report, so by the time the `SEAM-25`
@@ -2980,9 +3107,41 @@ event — and the **conforming** double failed. `events:` is therefore a **facto
 recorder**, one per case, and `Runner` already builds a fresh case per assertion. This is
 `testing/4ef070df` applied to a fixture the suite constructs rather than one a test writes.
 
+**The shutdown is observed through the logger sink, because that is the only place a filed executor
+exposes it — and an earlier draft of this task got that wrong.** That draft had every lifecycle
+assertion read `pool.shutdown_count` and count `{ name: ... }` hashes. **No executor in this
+repository has a `#shutdown_count`, and none emits a `{ name: }` hash.** 8b's `Pool` reports its
+shutdown exactly once, from `#release`, through the injected logger —
+`@logger.event(Severity::INFO).event(Events::INSTRUMENTATION_SHUTDOWN).field(WORKER_COUNT_FIELD,
+@size).field(DRAINED_FIELD, drained).emit` (8b plan:1725-1732) — and 5b's `Event#emit` ends in
+`@sink.public_send(@severity.sink_method) { rendered_record }` with `record[Keys::EVENT] =
+@event_tag` (5b plan:2134-2175). 8b's own test counts it exactly that way: build the pool with
+`logger: Dexpace::Instrumentation::Logger.build(sink: sink)` and select the sink entries whose
+`payload[Keys::EVENT] == Events::INSTRUMENTATION_SHUTDOWN` (8b plan:1644-1651, and again at
+2563-2570). So **the recorder `events:` returns is a sink**: `ExecutorCase::EventRecorder`
+implements core's `_Sink` duck type (5b plan:886-896; `NULL_SINK` at 5b plan:861-872) and the
+adapter's `build:` lambda is what wires it into its own logger. `dexpace-conformance` declares
+`dexpace-core` and nothing else, so `Keys::EVENT` and `Events::INSTRUMENTATION_SHUTDOWN` are names
+it may use and `Dexpace::Async::Thread` is not — which is exactly why the event name, and not a
+counter method, is the portable observation.
+
 **Only the event NAME is readable.** 8b's two field keys (`"dexpace.executor.worker_count"`,
-`"dexpace.executor.drained"`) are `private_constant`s in the pool and were deliberately not added
-to core's `Keys`, "because the portable assertion needs the event name only".
+`"dexpace.executor.drained"`) are `private_constant`s in the pool (8b plan:1295-1300) and were
+deliberately not added to core's `Keys`, "because the portable assertion needs the event name only".
+`ExecutorCase#shutdowns` reads `Keys::EVENT` and nothing else.
+
+**What the recorder-free path can and cannot prove, stated rather than implied.** `XCUT-13`,
+`XCUT-22` and `ASYNC-17` each split into a half that needs no recorder and a half that does, and the
+second half is **skipped, never failed**, when the adapter supplied no `events:` factory — so an
+adapter without one still gets a real result rather than a vacuity. The half that is lost is worth
+naming: without a recorder, an **unlatched** executor passes `XCUT-13`, because `Closeable#close`
+returns `nil` on the losing call either way (phase 2 plan:558-568) and "the shutdown work ran twice"
+is visible only in the event. Measured: with a recorder the unlatched double is `:failed` on
+`XCUT-13` and `SEAM-25`; without one it is `:passed` on `XCUT-13` and `:vacuous` on `SEAM-25`.
+
+**`ExecutorCase::EventRecorder` is a second public class in `executor_case.rb`** — the same shape
+`OI-55` already records for `CodecCase::CountingSink`, and it lands the same way for the same
+reason: the sink has one constructor, one reader and no meaning outside the case that hands it out.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2997,16 +3156,22 @@ require_relative "../../test_helper"
 class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
   S = Dexpace::Conformance::ExecutorSuite
 
-  # A conforming double: an inline executor whose close is latched, which drains before returning,
-  # refuses work after close, and records exactly one event.
-  class FakePool
-    attr_reader :shutdown_count
+  # The one payload every double below emits, shaped exactly as Event#emit shapes it: a Hash whose
+  # Keys::EVENT entry carries the event name (5b plan:2156-2168). 8b's two field keys are the pool's
+  # private constants and no portable assertion reads them, so nothing else is here.
+  SHUTDOWN = { Dexpace::Instrumentation::Keys::EVENT =>
+                 Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN }.freeze
 
+  # A conforming double: an inline executor whose close is latched, which drains before returning,
+  # refuses work after close, and reports its shutdown the ONLY way a filed executor does -- one
+  # Events::INSTRUMENTATION_SHUTDOWN payload into the sink the suite supplied (8b plan:1725-1732).
+  # It deliberately defines no #shutdown_count: 8b's Pool has none, and a double that invents one is
+  # what made an earlier draft of this suite red against the real adapter.
+  class FakePool
     def initialize(events: nil, owned: true)
       @events = events
       @owned = owned
       @closed = false
-      @shutdown_count = 0
       @lock = Thread::Mutex.new
     end
 
@@ -3018,22 +3183,31 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
 
     def close
       @lock.synchronize do
-        return if @closed
+        return nil if @closed
 
         @closed = true
       end
-      return unless @owned
+      return nil unless @owned
 
-      @shutdown_count += 1
-      @events << { name: "dexpace.instrumentation.shutdown" } unless @events.nil?
+      emit_shutdown
+      nil
+    end
+
+    private
+
+    def emit_shutdown
+      @events&.info { SHUTDOWN }
+      nil
     end
   end
 
+  # XCUT-13's non-conforming twin: no latch, so every close runs the shutdown again and the second
+  # one emits a second event.
   class UnlatchedPool < FakePool
     def close
       @closed = true
-      @shutdown_count += 1
-      @events << { name: "dexpace.instrumentation.shutdown" } unless @events.nil?
+      emit_shutdown
+      nil
     end
   end
 
@@ -3041,19 +3215,24 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
     def post(&block) = block.call   # accepts work after close: ASYNC-16's second half
   end
 
-  # ASYNC-17's subject: an implementation that owns nothing.
+  # ASYNC-17's subject: an implementation that owns nothing, so its close shuts nothing down and
+  # emits nothing.
   class FunctionalExecutor
-    def shutdown_count = 0
     def post(&block) = block.call
     def close = nil
   end
 
+  # ASYNC-17's non-conforming twin: a "functional" implementation whose close shuts something down,
+  # which it reports the same way every other subject here does.
   class WorkingCloseExecutor
-    attr_reader :shutdown_count
+    def initialize(events) = (@events = events)
 
-    def initialize = (@shutdown_count = 0)
     def post(&block) = block.call
-    def close = @shutdown_count += 1
+
+    def close
+      @events&.info { SHUTDOWN }
+      nil
+    end
   end
 
   class BorrowHolder
@@ -3071,8 +3250,8 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
   def conforming(**over)
     defaults = { build: ->(events: nil, **_kw) { FakePool.new(events: events) },
                  borrow: ->(pool) { BorrowHolder.new(pool) },
-                 functional: -> { FunctionalExecutor.new },
-                 events: -> { [] } }
+                 functional: ->(**_kw) { FunctionalExecutor.new },
+                 events: -> { Dexpace::Conformance::ExecutorCase::EventRecorder.new } }
     S.run(**defaults.merge(over))
   end
 
@@ -3082,6 +3261,24 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
     assert_equal({ "SEAM-12" => :passed, "XCUT-13" => :passed, "XCUT-22" => :passed,
                    "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :passed },
                  statuses(report))
+  end
+
+  # The recorder is wired the way 8b wires its own: Logger.build(sink:) (8b plan:1645-1646), and
+  # what reaches it is whatever Event#emit hands a sink. This is the one test that proves the suite
+  # reads a REAL emission rather than a shape the doubles agreed on among themselves.
+  test "the recorder is a sink: it counts what Event#emit hands a sink, and nothing else" do
+    recorder = Dexpace::Conformance::ExecutorCase::EventRecorder.new
+    logger = Dexpace::Instrumentation::Logger.build(sink: recorder)
+    logger.event(Dexpace::Instrumentation::Severity::INFO)
+          .event(Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN)
+          .field("dexpace.executor.worker_count", 2).emit
+    logger.event(Dexpace::Instrumentation::Severity::INFO)
+          .event(Dexpace::Instrumentation::Events::INSTRUMENTATION_LOG).emit
+    subject = Dexpace::Conformance::ExecutorCase.new(build: ->(**_kw) { FakePool.new },
+                                                    recorder: recorder)
+
+    assert_equal(2, recorder.entries.size)
+    assert_equal(1, subject.shutdowns)
   end
 
   test "an unlatched close fails XCUT-13" do
@@ -3103,7 +3300,7 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
   end
 
   test "a functional implementation whose close does work fails ASYNC-17" do
-    report = conforming(functional: -> { WorkingCloseExecutor.new })
+    report = conforming(functional: ->(events: nil, **_kw) { WorkingCloseExecutor.new(events) })
 
     assert_equal(:failed, statuses(report)["ASYNC-17"])
   end
@@ -3114,11 +3311,15 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
     assert_equal(:vacuous, statuses(report)["ASYNC-17"])
   end
 
-  test "an adapter with no borrowing entry point is vacuous, never failed" do
+  # The recorder-free path, stated as a whole report rather than two spot checks: XCUT-13 and
+  # ASYNC-17 keep running on the half that needs no recorder, and only SEAM-25 -- whose whole
+  # subject IS the event -- goes vacuous with XCUT-22.
+  test "an adapter with no borrowing entry point and no recorder is vacuous, never failed" do
     report = conforming(borrow: nil, events: nil)
 
-    assert_equal(:vacuous, statuses(report)["XCUT-22"])
-    assert_equal(:vacuous, statuses(report)["SEAM-25"])
+    assert_equal({ "SEAM-12" => :passed, "XCUT-13" => :passed, "XCUT-22" => :vacuous,
+                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :vacuous },
+                 statuses(report))
   end
 
   test "a second close emitting a second event fails SEAM-25" do
@@ -3137,6 +3338,7 @@ end
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+require "dexpace/instrumentation/keys"
 require_relative "vacuous"
 
 module Dexpace
@@ -3151,6 +3353,49 @@ module Dexpace
     # CONFORMING double fail.
     class ExecutorCase
       THREADS = 16
+
+      # The recorder is a SINK, because a sink is where a shutdown is observable. No filed executor
+      # in this repository exposes a shutdown counter: 8b's Pool reports its shutdown exactly once,
+      # from #release, through the injected logger --
+      # `@logger.event(Severity::INFO).event(Events::INSTRUMENTATION_SHUTDOWN).field(...).emit`
+      # (8b plan:1725-1732) -- and Event#emit ends in
+      # `@sink.public_send(@severity.sink_method) { rendered_record }` with
+      # `record[Keys::EVENT] = @event_tag` (5b plan:2156-2175). So the portable observation is the
+      # payload this sink receives, and the adapter's `build:` lambda is what wires it in: 8b's own
+      # test does exactly that, `Logger.build(sink: sink)` (8b plan:1645-1651).
+      #
+      # Shaped on core's _Sink duck type (5b plan:886-896; NULL_SINK at 5b plan:861-872) and on 8b's
+      # test-support RecordingSink (8b plan:686-715), whose mutex-guarded array this copies. Every
+      # predicate answers true, so an INFO-severity shutdown is never filtered by Logger#enabled?
+      # before it reaches here.
+      class EventRecorder
+        def initialize
+          @payloads = []
+          @mutex = ::Thread::Mutex.new
+        end
+
+        # The payloads this sink received, oldest first, as a dup -- a caller iterating cannot race
+        # a close still running on another thread.
+        def entries = @mutex.synchronize { @payloads.dup }
+
+        def debug(msg = nil, &block) = record(msg, &block)
+        def info(msg = nil, &block) = record(msg, &block)
+        def warn(msg = nil, &block) = record(msg, &block)
+        def error(msg = nil, &block) = record(msg, &block)
+
+        def debug? = true
+        def info? = true
+        def warn? = true
+        def error? = true
+
+        private
+
+        def record(msg)
+          payload = block_given? ? yield : msg
+          @mutex.synchronize { @payloads << payload }
+          nil
+        end
+      end
 
       def initialize(build:, borrow: nil, functional: nil, recorder: nil)
         @build = build
@@ -3176,28 +3421,37 @@ module Dexpace
       end
 
       # ASYNC-17's subject is a RESOURCE-FREE implementation, supplied separately: asserting the
-      # no-op default against a pool that owns a thread would assert the opposite requirement.
+      # no-op default against a pool that owns a thread would assert the opposite requirement. It
+      # takes the recorder the same way `build:` does, so "its close shut nothing down" is a count
+      # of events rather than an inference.
       def functional?
         !@functional.nil?
       end
 
       def functional
         raise Vacuous, "no resource-free implementation supplied" if @functional.nil?
+        return @functional.call if @recorder.nil?
 
-        @functional.call
+        @functional.call(events: @recorder)
       end
 
       def events?
         !@recorder.nil?
       end
 
-      # DEF-31's "close twice -> executor shut once, one event" needs this and nothing else. Only
-      # the event NAME is readable: 8b's two field keys are adapter-private constants and a portable
-      # assertion must not reach for them.
-      def events
+      # DEF-31's "close twice -> executor shut once, one event" needs this and nothing else: how
+      # many Events::INSTRUMENTATION_SHUTDOWN payloads the recorder saw. Only the event NAME is
+      # read -- 8b's two field keys ("dexpace.executor.worker_count", "dexpace.executor.drained")
+      # are private_constants in the pool (8b plan:1295-1300) and deliberately absent from core's
+      # Keys, "because the portable assertion needs the event name only".
+      def shutdowns
         raise Vacuous, "no event recorder supplied to ExecutorSuite.run" if @recorder.nil?
 
-        @recorder.to_a
+        @recorder.entries.count do |payload|
+          payload.is_a?(::Hash) &&
+            payload[Dexpace::Instrumentation::Keys::EVENT] ==
+              Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN
+        end
       end
     end
   end
@@ -3221,6 +3475,11 @@ module Dexpace
   module Conformance
     # Appendix B.7's lifecycle half, and DEF-31's harness half -- which the register assigns to 8a
     # and which 8a did not write; phase 9 writes it and says so.
+    #
+    # Every lifecycle observation in this file goes through ExecutorCase#shutdowns, the count of
+    # Events::INSTRUMENTATION_SHUTDOWN payloads the recorder saw. That is the ONLY channel a filed
+    # executor exposes a shutdown on (8b plan:1725-1732); an assertion reading a `#shutdown_count`
+    # would be reading a method no adapter in this repository defines.
     module ExecutorSuite
       module_function
 
@@ -3264,21 +3523,38 @@ module Dexpace
       # interrupt-safety, is scoped out -- section 8.3 bans every primitive that could arrange a
       # pending interrupt, so the clause holds by the flag never being touched
       # (cross-cutting-invariants/8fa2c08d) and there is nothing observable to assert.
+      #
+      # Two halves, because only one needs a recorder. Closeable#close returns nil on the winning
+      # AND the losing call (phase 2 plan:558-568), which is assertable against any adapter; that
+      # the shutdown WORK ran once is visible only in the lifecycle event, so the count runs when
+      # the adapter supplied a recorder and is skipped -- not failed -- when it did not.
       def close_is_latched
         Assertion.build(ids: %w[XCUT-13 ASYNC-15], name: "an owned executor's close is idempotent",
                         body: lambda do |subject|
                           pool = subject.executor
                           pool.close
-                          pool.close
+                          second = begin
+                            pool.close
+                          rescue ::StandardError => e
+                            e
+                          end
+                          Check.that(second.nil?,
+                                     "a second close raised or returned a value instead of latching",
+                                     expected: nil, actual: second, ids: %w[XCUT-13 ASYNC-15])
 
-                          Check.that(pool.shutdown_count == 1,
+                          return unless subject.events?
+
+                          shutdowns = subject.shutdowns
+                          Check.that(shutdowns == 1,
                                      "close shut the executor more than once",
-                                     expected: 1, actual: pool.shutdown_count,
-                                     ids: %w[XCUT-13 ASYNC-15])
+                                     expected: 1, actual: shutdowns, ids: %w[XCUT-13 ASYNC-15])
                         end)
       end
 
-      # XCUT-22 / ASYNC-15 clause (b): the SDK closes only what it created.
+      # XCUT-22 / ASYNC-15 clause (b): the SDK closes only what it created. 8b discharges this at the
+      # bridge, whose `owned: false` keeps Closeable#close from ever reaching #release (phase 2
+      # plan:564-566), so the borrowed executor must still be USABLE afterwards -- observable with
+      # no recorder at all -- and must have emitted no shutdown event.
       def borrowed_executor_survives
         Assertion.build(ids: %w[XCUT-22 ASYNC-15],
                         name: "a caller-supplied executor survives its holder's close",
@@ -3289,10 +3565,27 @@ module Dexpace
                           holder = subject.borrowed(underlying)
                           holder.close
 
-                          Check.that(underlying.shutdown_count.zero?,
+                          alive = ::Thread::Queue.new
+                          still_open = begin
+                            underlying.post { alive << :ok }
+                            true
+                          rescue ::StandardError
+                            false
+                          end
+                          Check.that(still_open,
                                      "the SDK shut down an executor it borrowed",
-                                     expected: 0, actual: underlying.shutdown_count,
+                                     expected: "still accepting work", actual: "refused work",
                                      ids: %w[XCUT-22 ASYNC-15])
+
+                          if subject.events?
+                            shutdowns = subject.shutdowns
+                            Check.that(shutdowns.zero?,
+                                       "the SDK emitted a shutdown event for an executor it borrowed",
+                                       expected: 0, actual: shutdowns, ids: %w[XCUT-22 ASYNC-15])
+                          end
+
+                          underlying.close
+                          nil
                         end)
       end
 
@@ -3326,7 +3619,10 @@ module Dexpace
       end
 
       # ASYNC-17 (SHOULD): "the async transport SPI SHOULD provide a NO-OP DEFAULT close so
-      # lightweight/functional implementations need not implement lifecycle management."
+      # lightweight/functional implementations need not implement lifecycle management." A no-op
+      # close shuts nothing down, so it emits no lifecycle event -- the same recorder, read for zero
+      # rather than for one. "behavior of executeAsync after close is undefined" is why the second
+      # half is an event count and not a post-after-close probe.
       def default_close_is_a_no_op
         Assertion.build(ids: ["ASYNC-17"], name: "a resource-free implementation inherits a no-op close",
                         body: lambda do |subject|
@@ -3338,14 +3634,19 @@ module Dexpace
                                      expected: "#close", actual: "absent", ids: ["ASYNC-17"])
                           functional.close
                           functional.close
-                          Check.that(functional.shutdown_count.zero?,
-                                     "a resource-free implementation's close did work",
-                                     expected: 0, actual: functional.shutdown_count,
-                                     ids: ["ASYNC-17"])
+
+                          return unless subject.events?
+
+                          shutdowns = subject.shutdowns
+                          Check.that(shutdowns.zero?,
+                                     "a resource-free implementation's close shut something down",
+                                     expected: 0, actual: shutdowns, ids: ["ASYNC-17"])
                         end)
       end
 
-      # SEAM-25, via DEF-31: one lifecycle event on the FIRST close of an owned executor.
+      # SEAM-25, via DEF-31: one lifecycle event on the FIRST close of an owned executor, and none on
+      # the second. The event name is core's (Events::INSTRUMENTATION_SHUTDOWN, 5b plan:741); the
+      # two field keys around it are the adapter's private constants and are never read.
       def one_shutdown_event
         Assertion.build(ids: ["SEAM-25"],
                         name: "closing an owned executor emits exactly one shutdown event",
@@ -3355,7 +3656,7 @@ module Dexpace
                           pool = subject.executor
                           pool.close
                           pool.close
-                          shutdowns = subject.events.count { |e| e[:name].to_s.include?("shutdown") }
+                          shutdowns = subject.shutdowns
 
                           Check.that(shutdowns == 1,
                                      "an owned executor's close did not emit exactly one event",
@@ -3386,17 +3687,32 @@ require_relative "../../../test_helper"
 # builds a TransportCase per assertion (8a plan:2302-2306) and rejects functional:/events:, and
 # widening it would change an interface phase 8 owns (R6).
 #
-# Built from 8b's filed fence: Pool's constructor is private and .build takes size:, logger: and
-# friends (8b plan:1315-1317). 8b files no borrowing entry point in this gem -- the holder of a
+# Built from 8b's filed fence. Pool's constructor is private and .build takes size:, queue_limit:,
+# shutdown_timeout:, name:, logger: and clock: -- there is NO events: keyword and NO #shutdown_count
+# (8b plan:1317-1336, 1349-1364). The shutdown is observable in exactly one place: #release emits
+# Events::INSTRUMENTATION_SHUTDOWN at Severity::INFO through the injected logger (8b plan:1725-1732).
+# So this lambda TRANSLATES the suite's `events:` recorder into `logger:`, which is what 8b's own
+# test does -- `Logger.build(sink: sink)`, then count the entries whose payload names the event
+# (8b plan:1644-1651). The recorder IS the sink: ExecutorCase::EventRecorder implements core's _Sink
+# duck type (5b plan:886-896), so nothing in this file adapts between two shapes.
+#
+# borrow: and functional: stay nil. 8b files no borrowing entry point in THIS gem -- the holder of a
 # caller-supplied executor is Transport.async_over (8b plan:2872) -- and no resource-free
-# implementation, so borrow: and functional: are nil and XCUT-22 and ASYNC-17 report :vacuous with
-# their reasons. events: is nil too: 8b emits its shutdown event through a 5b logger sink
-# (8b plan:1645-1651), not into an array.
+# implementation, so XCUT-22 and ASYNC-17 report :vacuous with their reasons.
 class DexpaceAsyncThreadConformanceTest < Minitest::Test
   def test_executor_suite
     report = Dexpace::Conformance::ExecutorSuite.run(
-      build: ->(**settings) { Dexpace::Async::Thread::Pool.build(size: 2, **settings) },
-      borrow: nil, functional: nil, events: nil, waive: []
+      build: lambda do |events: nil, **settings|
+        logger = if events.nil?
+                   Dexpace::Instrumentation::Logger::NULL
+                 else
+                   Dexpace::Instrumentation::Logger.build(sink: events)
+                 end
+        Dexpace::Async::Thread::Pool.build(size: 2, logger: logger, **settings)
+      end,
+      borrow: nil, functional: nil,
+      events: -> { Dexpace::Conformance::ExecutorCase::EventRecorder.new },
+      waive: []
     )
 
     assert(report.passed?, report.to_s)
@@ -3410,10 +3726,21 @@ one inside the adapter**, which `R6` forbids.
 
 - [ ] **Step 6: Run on the four installed interpreters**
 
-Expected: 8 runs in the gem's own suite on each of 3.2.11, 3.3.12, 3.4.10 and 4.0.6, plus **one**
-test in the adapter driver. **That driver is not expected green against 8b's real `Pool`**: the
-suite's `close_is_latched` and `borrowed_executor_survives` read `#shutdown_count`, which 8b's
-filed `Pool` does not define — record the `:error` as a finding, do not add the method (`R6`).
+Expected: 9 runs in the gem's own suite on each of 3.2.11, 3.3.12, 3.4.10 and 4.0.6, plus **one**
+test in the adapter driver, and **the driver is expected GREEN against 8b's real `Pool`** — four
+results, `SEAM-12`, `XCUT-13`, `ASYNC-16` and `SEAM-25` passing, with `XCUT-22` and `ASYNC-17`
+`:vacuous` for the reasons the driver's own comment gives. Measured during planning against a
+stand-in transcribed from 8b's filed fence, on all four.
+
+**If it is not green, read the report before touching either gem.** A `:failed` here is a finding
+about `dexpace-async-thread` and belongs in the phase-9 report; an `:error` is almost always this
+suite reaching for something 8b does not expose, which is a defect in *this* file — that is exactly
+how an earlier draft came to read a `#shutdown_count` no filed executor has. `R6` forbids widening
+8b's surface to suit the suite, and its **one named exception** — "a defect inside
+`dexpace-conformance` itself that prevents the suite from running is phase 9's to fix, because
+otherwise the phase has no instrument and the audit does not happen" — is what covers a repair here.
+`R6` never licenses filing a suite defect as a finding against conforming code; that is a false
+finding phase 10 would act on.
 
 - [ ] **Step 7: Stage the change**
 
@@ -3455,7 +3782,7 @@ into one `suite:` key holding the assertion name.
 
 `docs/first-release.md` carries a standing blocker filed by 8a: "**Before release, `docs/sdk-documentation/` must state what a green `dexpace-conformance` run does and does not prove, and the run's own report preamble must name the same omissions.**" `PREAMBLE` is that, made mechanical — printed on every run rather than written once in a document nobody re-reads.
 
-**This task's code was executed during planning** on 3.2.11, 3.4.10 and 4.0.6: 4 runs, 11 assertions, 0 failures on each.
+**This task's code was executed during planning** and re-measured 2026-09-13 on 3.2.11, 3.3.12, 3.4.10 and 4.0.6: **6 runs, 15 assertions, 0 failures** on each — one run per `test` block in Step 1's fence.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3597,8 +3924,8 @@ end
 require_relative "conformance/aggregate"
 ```
 
-Expected: 5 runs, PASS. (Measured during planning: **5 runs, 15 assertions, 0 failures** on 3.2.11,
-3.4.10 and 4.0.6.)
+Expected: 6 runs, PASS. (Measured **6 runs, 15 assertions, 0 failures** on 3.2.11, 3.3.12, 3.4.10
+and 4.0.6 — six `test` blocks above, and `assert_includes`/`refute_includes` count two each.)
 
 - [ ] **Step 5: Stage the change**
 
@@ -3621,24 +3948,31 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance/aggregate.rb
   so a phase that adds four gates and leaves the workflow alone reddens a phase-0 gate.
 - Create: `test/fixtures/gates/walks_cause.rb`, `reflective_cause.rb`, `delegates_cause.rb`,
   `hash_shapes.rb`, `drain_loop_map.rb`, `check_then_evict_map.rb`, `seam_shapes.rb`
+- **Consumes, does not create**: `test/fixtures/gates/warns_unused.rb`, written by Task 1
 - Test: `test/gates/invariant_gates_test.rb`
 
 **Interfaces:**
 - Consumes: nothing in `dexpace-conformance`; these are repository gates, not portable assertions
   (design `R4`, addenda A4–A7)
 - Produces: `AstScan::SEND_TYPES`, `::SYMBOL_TYPES`, `::REFLECTIVE_SENDS`,
+  **`AstScan.parse(path)`** — the one parse entry point, see correction 6 —
   `AstScan.receiver_calls(path, names)`, `.hash_ivar_assignments(path)`, `.constant_paths(path)`,
   `.string_literals(path)`, `.eviction_is_looped?(path, names)`;
+  `InvariantGates::CAUSE_WALK_ALLOWED`, `::BOUNDED_MAP_ALLOWED`, `::ADAPTER_NAMESPACES`;
   `InvariantGates.cause_walk(files, allowed:)`, `.bounded_map(files, allowed:)`,
   `.drain_loop(path, evictions:)`, `.seam_names(files, namespaces:)`; rake tasks
   `gates:cause_walk`, `gates:bounded_map`, `gates:drain_loop`, `gates:seam_names`, and the `PENDING`-empty assertion
   added to 7b's existing `gates:serde_boundary`
 
-**This task's code was executed during planning** on 3.2.11, 3.4.10 and 4.0.6: **9 runs, 21
-assertions, 0 failures** on each, against seven mutation fixtures.
+**This task's code was executed during planning** on 3.2.11, 3.3.12, 3.4.10 and 4.0.6: **11 runs, 42
+assertions, 0 failures** on each, against seven mutation fixtures plus Task 1's `warns_unused.rb`.
+(Re-measured 2026-09-13 straight out of this document with nothing adapted. The same fences without
+correction 6's test and fixture measured **10 runs, 39 assertions** on all four, and before this
+task's tenth test was added, **9 runs, 25 assertions**.)
 
-**Five measured corrections, each one a gate that was wrong about a real file** — the first three
-clean over a live defect, the last two red over conforming code.
+**Six measured corrections, each one a gate that was wrong about a real file** — the first three
+reported clean over a live defect, the next two red over conforming code, and the sixth raised over
+a file it merely reads.
 
 1. **A send is three node types, not one.** `a.cause` is `:CALL`, `a&.cause` is `:QCALL`, bare
    `cause` is `:VCALL`. A `:CALL`-only scan found 2 of 3 sends in one fixture and missed every
@@ -3664,6 +3998,47 @@ clean over a live defect, the last two red over conforming code.
    builder (5b plan:2128-2131) — is some other `#cause`, and reporting it made the gate red over
    conforming code. `cause()` is `:FCALL` and `errors.map(&:cause)` is a `:BLOCK_PASS`, and both walk
    the chain. Node shapes measured identical on 3.2.11, 3.3.12, 3.4.10 and 4.0.6 apart from `:LIT`/`:SYM`.
+6. **A scanned file's own `-w` diagnostics fire phase 0's warnings-fatal gate, and this plan said
+   they did not.** `parse_file` emits no warning *of its own* for well-formed input — which is what
+   was measured, against a file carrying no diagnostic — but the **scanned file's** diagnostics are
+   emitted at parse time and routed through `Warning.warn` exactly as at require time, and
+   `test/gates/invariant_gates_test.rb` requires `dexpace_test_case`, whose `FatalWarnings` raises
+   on the first one. 8a's filed `adapter.rb` is a live instance: `rescue ::StandardError => e`
+   inside `Adapter#dispatch` never reads `e` (8a plan:4858) and emits `assigned but unused
+   variable - e` on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. Measured with `warns_unused.rb` added and the
+   scanner unchanged: `RuntimeError: warning treated as an error (NFR-6)` raised out of
+   `AstScan.receiver_calls` on all four. The fix is `AstScan.parse`, and **which** suppression was
+   measured rather than assumed: `Warning[:deprecated] = false` does not reach it (the warning
+   carries no category), `$VERBOSE = false` silences the `-w` class but leaves the always-on parse
+   warnings firing (`key :a is duplicated` still raised on all four), and only `$VERBOSE = nil`
+   silences both — restored in `ensure`, so outside the window `NFR-6`'s gate is armed as before.
+
+**`gates:bounded_map`'s six hits over the filed fences are adjudicated, and five of the six are
+false positives with their reason filed in `BOUNDED_MAP_ALLOWED`.** Measured 2026-09-13 by running
+the two fences above, unmodified, over every Ruby fence in phases 0–8 that names a `lib/` path —
+222 fences at 184 distinct `gems/*/lib/**/*.rb` paths, 2 of which do not parse and neither of which
+contains a `Hash` ivar. Six offences in five files, identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6:
+
+| Filed fence | ivar | Adjudication |
+|---|---|---|
+| `lib/dexpace/bounded_map.rb` (4a plan:824-894) | `@h` | `Dexpace::BoundedMap` itself. The design row already said "outside `BoundedMap`'s own file"; the filed gate had **no default allowlist at all**, unlike `cause_walk`'s, so it reported its own subject |
+| `gems/dexpace-core/lib/dexpace/configuration.rb` (5a plan:2645-2825) | `@overrides` | `Configuration::Builder` accumulator; keys are the embedder's `CFG` keys, and `#build` hands it to a frozen `Data` |
+| same file | `@properties` | same |
+| `gems/dexpace-core/lib/dexpace/instrumentation/event.rb` (5b plan:2050-2181) | `@fields` | one log event's field bag, dropped at `#emit`. The closest call of the five: `http.response.header.*` keys **are** server-influenced, so it fails the key-space clause and passes only on lifetime |
+| `lib/dexpace/conformance/recording_span.rb` (8a plan:2102-2157) | `@attributes` | a per-span test double, inert after `#end` |
+| `lib/dexpace/transport/async_http/clients.rb` (8c plan:1683-1756) | `@by_origin` | **TRUE POSITIVE.** An instance-lived per-origin client cache, keyed by `Endpoints.origin_for(url)`, uncapped, and nothing evicts — `#close` (8c plan:1740-1744) reads `@by_origin.values`, closes each client's pool and never clears the map. `OI-57`; Task 16 files it, **phase 10 repairs it** — `R6`'s "a bug found in `Dexpace::BoundedMap` is filed here and fixed by phase 10" applies verbatim to another gem's map |
+
+**The obvious generalising narrowing was written and measured and is rejected.** Filtering the
+report to ivars the file also reads *by key* — `@h[k]`, `@h.fetch(k)`, `@h.key?(k)`, `@h[k] ||= v`,
+each a `:CALL`/`:QCALL` on an `:IVAR` or an `:OP_ASGN1`, and all distinct from the `:ATTRASGN` of
+`@h[k] = v`, with node shapes identical on 3.2.11, 3.4.10 and 4.0.6 — takes 6 offences to 3. It
+drops `configuration.rb` and `recording_span.rb` and it does **not** drop `event.rb`, because
+`@fields.key?(Keys::EVENT)` is a keyed read with a constant key. So it buys two allowlist entries
+and costs a new statically decidable blind spot — a cache written in one file and looked up in
+another through an `attr_reader` — in a gate whose whole value is being a floor. Two proxies deep
+(keyed read ⇒ cache ⇒ long-lived) is worse than one honest allowlist line per file, and this phase
+has already had `seam_names` wrong twice and `drain_loop` carrying a false positive from exactly
+this kind of cleverness. **The rule is unchanged; only the allowlist and its default are new.**
 
 **`XCUT-14`'s drain-loop clause gains a second line rather than moving.** Task 7's
 `bounded_map_drains` asserts it behaviourally and deterministically — a store pre-filled to cap + 5,
@@ -3752,7 +4127,9 @@ end
 Five of its six `cause` sends must be reported; the sixth is 5b's argument-carrying builder shape.
 `delegates_cause.rb` calls `Dexpace.each_cause` and names `.cause` only in prose;
 `drain_loop_map.rb` evicts with `@h.shift while @h.size > @cap`; `check_then_evict_map.rb` with
-`@h.shift if @h.size >= @cap`.
+`@h.shift if @h.size >= @cap`. The eighth fixture this task's test reads, `warns_unused.rb`, is
+**Task 1's** and is not rewritten here — it names no `#cause` send and assigns no `Hash` ivar, so
+every gate must report it clean, and what it proves is that the scan does not raise.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -3809,6 +4186,16 @@ class InvariantGatesTest < GateCase
     assert_empty(InvariantGates.bounded_map([fixture("hash_shapes.rb")], allowed: allowed))
   end
 
+  # The allowlist IS the adjudication, so a stale entry silently re-opens a hole. XCUT-14.
+  test "every bounded_map allowlist entry names a live file and carries its reason" do
+    refute_empty(InvariantGates::BOUNDED_MAP_ALLOWED)
+
+    InvariantGates::BOUNDED_MAP_ALLOWED.each do |path, reason|
+      assert_path_exists(path, "allowlisted path no longer exists; the entry is stale")
+      refute_empty(reason.to_s.strip, "#{path} is allowlisted with no reason")
+    end
+  end
+
   test "drain_loop accepts a looped eviction and rejects a check-then-evict" do
     assert_empty(InvariantGates.drain_loop(fixture("drain_loop_map.rb")))
     assert_equal(1, InvariantGates.drain_loop(fixture("check_then_evict_map.rb")).size)
@@ -3828,6 +4215,16 @@ class InvariantGatesTest < GateCase
     refute_includes(offences, "Async::Future")
     refute_includes(offences, "Instrumentation::Severity")
   end
+
+  # A scanned file's own -w diagnostics reach Warning.warn like any other parse, and THIS suite
+  # loads FatalWarnings (the require at the top), so a bare parse_file reddens the gate over a file
+  # it merely reads -- 8a's filed adapter.rb is a live instance (8a plan:4858). The first assertion
+  # proves the fixture is not inert; the second proves AstScan.parse's $VERBOSE window holds.
+  test "a file whose own -w diagnostics would fire the warnings gate is scanned without firing it" do
+    assert_raises(::RuntimeError) { ::RubyVM::AbstractSyntaxTree.parse_file(fixture("warns_unused.rb")) }
+
+    assert_empty(InvariantGates.cause_walk([fixture("warns_unused.rb")]))
+  end
 end
 ```
 
@@ -3846,10 +4243,11 @@ Expected: FAIL — `cannot load such file -- tools/invariant_gates`.
 #
 # RubyVM::AbstractSyntaxTree rather than a regex, because `grep '\.cause'` matches a comment, a
 # string, an `# XCUT-9` citation in a test header and the requirement ID itself. Verified on
-# 3.2.11, 3.4.10 and 4.0.6: present on all three, and parsing emits NO WARNING under -w -- which is
-# load-bearing, because phase 0's shared test case prepends FatalWarnings to Warning's singleton
-# class, so a scanner that warned would fail the suite that runs it. `prism` is absent on the 3.2
-# floor (LoadError), so the AST route needs no conditional require where Prism would.
+# 3.2.11, 3.3.12, 3.4.10 and 4.0.6: present on all four. The PARSER emits no warning of its own for
+# well-formed input -- but the SCANNED FILE's -w diagnostics are a different thing and do reach
+# Warning.warn, which is load-bearing here; every parse below therefore goes through #parse, and
+# nothing else in this file may call parse_file directly. `prism` is absent on the 3.2 floor
+# (LoadError), so the AST route needs no conditional require where Prism would.
 module AstScan
   # Node types a send can take. :CALL is `a.cause`, :QCALL is `a&.cause`, :VCALL is a bare `cause`
   # and :FCALL is `cause()` or a receiverless `send(:cause)`. Measured identical on 3.2.11, 3.3.12,
@@ -3869,13 +4267,36 @@ module AstScan
 
   module_function
 
+  # parse_file with the scanned file's own -w diagnostics suppressed, which is the whole reason
+  # this method exists rather than five direct parse_file calls.
+  #
+  # A file's -w diagnostics are emitted AT PARSE TIME and routed through Warning.warn exactly as
+  # they are at require time. Phase 0's shared test case prepends FatalWarnings to Warning's
+  # singleton class, and test/gates/invariant_gates_test.rb requires it, so a bare parse_file
+  # raises on the first such file -- which is not hypothetical: 8a's filed adapter.rb leaves `e`
+  # unused in its `rescue ::StandardError => e` inside #dispatch (8a plan:4858) and emits
+  # "assigned but unused variable - e" on 3.2.11, 3.3.12, 3.4.10 and 4.0.6.
+  #
+  # Which mechanism, measured on all four: `Warning[:deprecated] = false` does NOT reach it (the
+  # warning carries no category); `$VERBOSE = false` silences the -w class but not the always-on
+  # parse warnings, and `key :a is duplicated` still raised under it; `$VERBOSE = nil` silences
+  # both. It is process-global, so the window is this one call and `ensure` closes it -- outside
+  # it, NFR-6's gate is armed exactly as before.
+  def parse(path)
+    previous = $VERBOSE
+    $VERBOSE = nil
+    ::RubyVM::AbstractSyntaxTree.parse_file(path)
+  ensure
+    $VERBOSE = previous
+  end
+
   # Every send whose method name is in `names`, whatever the call syntax, plus every reflective
   # send naming one of them as a Symbol literal.
   #
   # @return [Array[Array(String, Integer, Symbol)]] path, line, method name
   def receiver_calls(path, names)
     hits = []
-    walk(::RubyVM::AbstractSyntaxTree.parse_file(path)) do |node|
+    walk(parse(path)) do |node|
       if node.type == :BLOCK_PASS # `errors.map(&:cause)`: BLOCK_PASS(nil, SYM/LIT)
         passed = symbol_value(node.children[1])
         hits << [path, node.first_lineno, passed] if names.include?(passed)
@@ -3935,7 +4356,7 @@ module AstScan
   # @return [Array[Array(String, Integer, Symbol)]] path, line, ivar name
   def hash_ivar_assignments(path)
     hits = []
-    walk(::RubyVM::AbstractSyntaxTree.parse_file(path)) do |node|
+    walk(parse(path)) do |node|
       next unless node.type == :IASGN
       next unless hash_valued?(node.children[1])
 
@@ -3962,7 +4383,7 @@ module AstScan
   # second line beside InvariantSuite's deterministic behavioural assertion of the same clause.
   def eviction_is_looped?(path, names)
     looped = false
-    walk_with_loop_depth(::RubyVM::AbstractSyntaxTree.parse_file(path), 0) do |node, depth|
+    walk_with_loop_depth(parse(path), 0) do |node, depth|
       next unless SEND_TYPES.include?(node.type)
 
       called = node.type == :VCALL ? node.children[0] : node.children[1]
@@ -3984,7 +4405,7 @@ module AstScan
   # @return [Array[Array(String, Integer, String)]] path, line, constant path
   def constant_paths(path)
     hits = []
-    walk(::RubyVM::AbstractSyntaxTree.parse_file(path)) do |node|
+    walk(parse(path)) do |node|
       next unless %i[CONST COLON2 COLON3].include?(node.type)
 
       rendered = render_const(node)
@@ -3999,7 +4420,7 @@ module AstScan
   # @return [Array[Array(String, Integer, String)]] path, line, literal
   def string_literals(path)
     hits = []
-    walk(::RubyVM::AbstractSyntaxTree.parse_file(path)) do |node|
+    walk(parse(path)) do |node|
       next unless node.type == :STR
 
       hits << [path, node.first_lineno, node.children.first]
@@ -4065,12 +4486,59 @@ module InvariantGates
   ADAPTER_NAMESPACES = [%w[Serde JSON], %w[Transport NetHTTP], %w[Transport AsyncHTTP],
                         %w[Async Thread]].freeze
 
+  # XCUT-14: Dexpace::BoundedMap is the one bounded-keyed-map implementation (4a's hand-forward),
+  # so its own file is the first exclusion and every other entry is an ADJUDICATED false positive.
+  # A path => reason Hash, exactly as phase 0's require allowlist is, because an allowlist whose
+  # entries carry no argument is a list of things somebody once silenced.
+  #
+  # Adjudicated 2026-09-13 against each predecessor's FILED FENCE, never its prose. With an empty
+  # allowlist the gate reports **6 Hash ivars in 5 filed files**, identically on 3.2.11, 3.3.12,
+  # 3.4.10 and 4.0.6. Four files are here; the fifth is NOT, and is this phase's finding -- see the
+  # stated gap below. XCUT-14 scopes itself to a "process/instance-lived map whose key space is
+  # influenced by callers or remote servers (context registries, per-nonce counters, and any
+  # similar cache)" and adds that "the cap is a memory backstop and MUST NOT be relied on as the
+  # primary cleanup mechanism". What every entry here has in common is that clause: the map's
+  # primary cleanup mechanism is its owner being dropped after ONE operation, so a cap would never
+  # be the backstop. That property is a lifetime, and a lifetime is not decidable from one file --
+  # which is why the allowlist is the mechanism and not a cleverer scan.
+  BOUNDED_MAP_ALLOWED = {
+    "gems/dexpace-core/lib/dexpace/bounded_map.rb" =>
+      "@h IS Dexpace::BoundedMap's own store -- the single implementation this gate exists to " \
+      "keep single (4a plan:824-894, the ivar at 845)",
+    "gems/dexpace-core/lib/dexpace/configuration.rb" =>
+      "@overrides and @properties are Configuration::Builder accumulators discarded at #build, " \
+      "and the built Configuration is a frozen Data; the keys are the embedder's own CFG keys, " \
+      "not caller or server input (5a plan:2645-2825, the ivars at 2668 and 2672)",
+    "gems/dexpace-core/lib/dexpace/instrumentation/event.rb" =>
+      "@fields is ONE log event's field bag, allocated per call and dropped at #emit; its " \
+      "lifetime is a single operation, so a cap could never be the memory backstop XCUT-14 " \
+      "describes (5b plan:2050-2181, the ivar at 2090)",
+    "gems/dexpace-conformance/lib/dexpace/conformance/recording_span.rb" =>
+      "@attributes is one RecordingSpan double's record, inert after #end and dropped with the " \
+      "span (8a plan:2102-2157, the ivar at 2115)"
+  }.freeze
+
   # **Stated gap, because a gate whose blind spots are unwritten is a gate nobody can audit.**
   # Undecidable statically and therefore NOT reported by any scan below: `send(name)` where `name`
   # is a variable; `@h = build_map` and any Hash arriving through a parameter or a constant `dup`;
   # and a constant reached through `const_get(dynamic)`. Each gate is a floor on its invariant
   # rather than proof of it, and the addendum for each states its measured catch rate. The
   # statically DECIDABLE shapes each gate still misses, measured, are OI-56's table.
+  #
+  # **bounded_map's sixth hit is NOT allowlisted and is the audit's one finding (Task 16, OI-57).**
+  # gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb:32's @by_origin is
+  # an instance-lived per-origin Async::HTTP::Client cache with no cap and no eviction: the key is
+  # Endpoints.origin_for(url), so a caller's URLs and a server's redirect Location headers both add
+  # keys, and nothing removes one -- #close (8c plan:1740-1744) clears no key. That is XCUT-14's
+  # "any similar cache" exactly, and the same sub-phase bounded its OTHER caller-keyed map at 64
+  # for TRANSPORT-13 (8c plan:1385, 1438-1445), so the omission is a miss and not a decision.
+  #
+  # **One further measured blind spot, from the same adjudication: a Hash held inside a value
+  # object rather than directly on an ivar.** 8c's DropPolicy keeps its bounded per-name set as
+  # `@snapshot = Snapshot.new(seen: {}.freeze)` (8c plan:1715-1745); the Hash literal is an
+  # argument, not the assigned value, so hash_ivar_assignments does not see it. That file is
+  # conforming, so it costs nothing here -- but an UNBOUNDED map written the same way would be
+  # invisible, and that is a gap in the floor rather than in this file.
   module_function
 
   def cause_walk(files, allowed: CAUSE_WALK_ALLOWED)
@@ -4084,7 +4552,7 @@ module InvariantGates
   # A Hash assigned to an instance variable is the shape a caller- or server-keyed map takes. The
   # allowlist is a Hash of path => reason, so every permitted one carries the argument for why it is
   # not caller-keyed -- exactly as phase 0's require allowlist does.
-  def bounded_map(files, allowed:)
+  def bounded_map(files, allowed: BOUNDED_MAP_ALLOWED)
     offences(files, allowed.keys) do |path|
       AstScan.hash_ivar_assignments(path).map do |(_, line, ivar)|
         "#{path}:#{line}: #{ivar} is a Hash on an instance; only Dexpace::BoundedMap may hold a " \
@@ -4148,9 +4616,15 @@ for v in 3.2.11 3.3.12 3.4.10 4.0.6; do mise exec ruby@$v -- ruby -w test/gates/
 bundle exec rake
 ```
 
-Expected: **9 runs, 25 assertions, 0 failures** on each — measured 2026-09-13 on 3.2.11, 3.3.12,
-3.4.10 and 4.0.6 — and
-the four gates green over the real tree, or reporting offences Task 16 files.
+Expected: **11 runs, 42 assertions, 0 failures** on each — measured 2026-09-13 on 3.2.11, 3.3.12,
+3.4.10 and 4.0.6, the fences run straight out of this document with nothing adapted — and
+`gates:cause_walk`, `gates:drain_loop` and `gates:seam_names` green over the real tree, with
+`gates:bounded_map` reporting **exactly one** offence, `async_http/clients.rb`'s `@by_origin`, which
+Task 16 files as `OI-57`. Anything else from `bounded_map` is either a new file the adjudication
+never saw — adjudicate it and add an entry with its reason — or the sixth hit having been repaired,
+in which case the gate set is green and `OI-57` closes. **A fifth allowlist entry is a decision, not
+a chore**: design open question 2 says that past a dozen entries the gate is telling us the
+invariant is not held.
 
 - [ ] **Step 8: Stage the change**
 
@@ -4498,11 +4972,11 @@ git add -- docs/work/mvp/phase9/ \
 
 **Files:**
 - Modify: the phase-9 checklist — the `XCUT` half
-- Modify: `docs/open-items.md`, `docs/deviations.md` as findings require
+- Modify: `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` as findings require
 
 **Interfaces:**
 - Consumes: `InvariantSuite` (27 assertions), `TransportSuite` (8a, two drivers), `CodecSuite`, `ExecutorSuite`, the four repository gates
-- Produces: twenty-four dispositioned rows and one aggregate report
+- Produces: twenty-four dispositioned rows, one aggregate report, and the four gates' offence lists
 
 - [ ] **Step 1: Run every existence probe and record the result**
 
@@ -4528,26 +5002,49 @@ ruby -e 'require "dexpace/conformance/aggregate"
   puts Dexpace::Conformance::Aggregate.render(Dexpace::Conformance::Aggregate.run(reports))'
 ```
 
-- [ ] **Step 3: Record the two dispositions a reader checks first**
+- [ ] **Step 3: Run the four repository gates and file what they report**
+
+```bash
+bundle exec rake gates:cause_walk gates:bounded_map gates:drain_loop gates:seam_names
+```
+
+`cause_walk`, `drain_loop` and `seam_names` were clean over every filed `lib/` fence of phases 0–8
+and are expected clean here. **`gates:bounded_map` is expected to report exactly one offence** —
+`gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb:32`'s `@by_origin`,
+adjudicated in Task 13 as the one true positive of the six. It is `XCUT-14`'s `:failed`, not the
+gate's: an uncapped instance-lived cache keyed by an origin caller URLs and server redirect
+`Location`s both choose, never evicted — `#close` (8c plan:1740-1744) clears no key. Record it as
+`OI-57`, mark `XCUT-14`'s row ⏳ with the reason, and — because `XCUT-14` is a **MUST** — add the
+`docs/first-release.md` blocker line design `R6` requires, then hand the repair to **phase 10**.
+**Do not add a cap here.** `R6`'s exception covers a defect inside `dexpace-conformance` and nothing
+else, and this is `dexpace-transport-async_http`'s; `8c` is the sub-phase whose fence introduced it
+and has already run by the time this task does.
+
+An offence from any *other* file is a new adjudication, not a new allowlist line written to get
+green: decide it against that file's filed fence exactly as Task 13 decided the six, and write the
+reason if it is a false positive.
+
+- [ ] **Step 4: Record the two dispositions a reader checks first**
 
 Per design `R5`: **`ASYNC-3`** is asserted so it genuinely fails, waived by requirement ID in the first-party build, and printed as `waived (would fail): ASYNC-3` — never `passed`, never `vacuous`. **`ASYNC-4`** is `:vacuous` and is added to **no register row**; `DEF-18`'s `Cites:` line is `ASYNC-3, PIPE-33` and stays so. Neither ID gets a phase-9 checklist row — both are phase 8's.
 
-- [ ] **Step 4: Record the vacuities and deferrals other phases handed forward**
+- [ ] **Step 5: Record the vacuities and deferrals other phases handed forward**
 
 Four, from 4c and 7c, recorded in the aggregate report's preamble and **not** as phase-9 checklist rows: `PIPE-33` (`DEF-18`), `PIPE-36` (`DEF-4`), `PIPE-39` (`DEF-39`), `PIPE-32`'s vacuity until `DEF-39` lands, `PAGE-35`'s vacuity, and **`PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does not record** — that last one goes to `docs/deviations.md`'s "Deviations found outside a phase" holding area for phase 10 to fold in.
 
-- [ ] **Step 5: Write one checklist row per `XCUT` ID, with the audit subject named**
+- [ ] **Step 6: Write one checklist row per `XCUT` ID, with the audit subject named**
 
 24 rows, each naming the artifact audited, the assertion that audited it, and the mark.
 
-- [ ] **Step 6: Stage the change**
+- [ ] **Step 7: Stage the change**
 
 **No commit.** `CLAUDE.md`: "Agents do not commit, push, or touch the remote unless the user asks for that specific action in that message." Every one of the twenty-one preceding plans in this repository has zero commit steps; the reviewer commits.
 
 ```bash
 git add -- docs/work/mvp/phase9/ \
         docs/open-items.md \
-        docs/deviations.md
+        docs/deviations.md \
+        docs/first-release.md
 ```
 
 ---
@@ -4585,6 +5082,16 @@ Expected: green, **with the 3.2 row excluding `dexpace-transport-async_http`** (
 `async-http` 0.104.0 declares `>= 3.3`) and with whatever `OI-49`'s `minitest` pin decision produced
 on the 4.0 row. Both exclusions are recorded, not silent. The same four rows run locally: 3.2.11,
 3.3.12, 3.4.10 and 4.0.6.
+
+**One expected exception, and it is the whole point of the gate.** Unless `Clients#@by_origin` has
+acquired a cap since `8c` filed it, `gates:bounded_map` is red, `bundle exec rake` is red, and
+**that is the correct end state for phase 9** — `R6` makes the repair phase 10's, and `NFR-17`'s
+content is that no gate is advisory. **The fix is not an allowlist entry.** Adding one would leave a
+gate reporting clean over a live `XCUT-14` violation, which is the failure mode phase 0's
+failing-fixture discipline and `notes/cross-cutting-invariants.md` both exist to prevent. Record the
+red run, its one offence, `OI-57` and the `docs/first-release.md` blocker, and say in the phase's
+closing note that the gate set is green **except** that row. If the map has been bounded in the
+meantime, the run is green and `OI-57` closes naming the change that bounded it.
 
 - [ ] **Step 3: Append the register rows**
 
@@ -4633,7 +5140,7 @@ git add -- <the files this task created or modified>
 **Spec coverage.** `R1` → Tasks 5–14, with `APPENDIX_B.md` (Task 14) carrying a row for each of the
 61 items. `R2` → Task 9 builds the portable half and Task 15 records the gate half, with `NFR-10`,
 `NFR-13` and `NFR-14` in **both**. `R3` → Task 5's `probe!` and Tasks 15–16's vacuity handling.
-`R4` → Task 13. `R5` → Task 16, step 3. `R6` → the Global Constraints file-list line, Task 15's
+`R4` → Task 13. `R5` → Task 16, step 4. `R6` → the Global Constraints file-list line, Task 15's
 step 4 and Task 11's `functional: nil` fallback. `R7` → Task 14. `R8` → Task 4 and Task 8's pair of
 `XCUT-11` assertions. The 41 IDs: `XCUT-1`–`24` are covered by **27 assertions** across Tasks 5–8
 (`XCUT-11`, `XCUT-13` and `XCUT-14` carry two each), asserted by Task 8's own counting test and dispositioned in
@@ -4648,7 +5155,7 @@ Task 6; `XCUT-12` → Task 8; `XCUT-15` → Task 5; `XCUT-13`/`XCUT-22` → Task
 `SERDE-3` → Task 10; `SEAM-12`, `SEAM-18` → Task 11; `OBS-21`/`OBS-25` → Task 14's map (8a already
 shipped `RecordingSpan` and `Allocations`; phase 9 adds no assertion and records them by reference);
 `NFR-11` → Task 9; `DEF-22` → Tasks 2–12; `DEF-31` → Task 11; the conformance-pass rows (4c's and
-7c's) → Task 16, step 4. **The build/run split is Tasks 1–14 and 15–17**, not the design's 1–9 /
+7c's) → Task 16, step 5. **The build/run split is Tasks 1–14 and 15–17**, not the design's 1–9 /
 10–17, which is corrected in the design.
 
 **Placeholder scan.** No "TBD", no "add appropriate error handling", no "similar to Task N". Six

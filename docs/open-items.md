@@ -2086,4 +2086,92 @@ accepted in the gate's stated gap, and state the result on the `XCUT-9`, `XCUT-1
 
 **Resolution:** *(open)*
 
-next id: OI-57
+### OI-57 — `Clients#@by_origin` is an uncapped per-origin client cache, which `XCUT-14` forbids
+
+- **Opened:** 2026-09-13, phase 9 planning (`gates:bounded_map` adjudication)
+- **Status:** open
+- **Cites:** XCUT-14, TRANSPORT-13, NFR-17
+
+`gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb`'s `@by_origin` (8c
+plan:1683-1756, the ivar at 1715) is a plain `Hash` behind a `Thread::Mutex`, keyed by
+`Endpoints.origin_for(url)`, with a hard cap on neither its size nor its lifetime: `#fetch` inserts
+with `||=` (8c plan:1725-1732) and **nothing evicts** — `#close` (8c plan:1740-1744) reads
+`@by_origin.values`, closes each client's pool and leaves the map itself populated. `XCUT-14` is a
+MUST over "Every process/instance-lived map whose key space is influenced by callers or remote
+servers (context registries, per-nonce counters, and any similar cache)", and both influences are
+present: a caller's URLs choose origins, and a server's redirect `Location` chooses new ones. The map
+is instance-lived and an `Adapter` lives as long as the client (`Adapter#close` is `@clients&.close`,
+8c plan:2825), so there is no other cleanup mechanism.
+
+It is the one true positive of the six `gates:bounded_map` reports over every filed Ruby fence of
+phases 0–8 that names a `lib/` path — 222 fences at 184 distinct `gems/*/lib/**/*.rb` paths,
+measured identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. The other five hits, in four files, are
+adjudicated false positives, each file carrying its reason in `InvariantGates::BOUNDED_MAP_ALLOWED`
+(phase 9 plan:4016-4029 for the adjudication, plan:4504-4519 for the allowlist). The same sub-phase
+bounded its other caller-keyed map at 64 distinct names for `TRANSPORT-13` —
+`DropPolicy::MAX_TRACKED_NAMES` (8c plan:1452-1456, enforced at 1514, its test at 8c plan:1385-1392)
+— so this is an omission rather than a decision. The fix is `Dexpace::BoundedMap` or an equivalent
+cap with drain-to-cap eviction; a `#close` on each evicted client is part of it, since the values own
+pools. **Target:** phase 10 — design `R6` ("a bug found in `Dexpace::BoundedMap` is filed here and
+fixed by phase 10", design:661) applies to another gem's map; `8c` owns the file and has already run
+by the time phase 9's audit does. `gates:bounded_map` stays red until it is fixed, and because
+`XCUT-14` is a MUST the phase-9 run also earns a `docs/first-release.md` blocker line.
+
+**Resolution:** *(open)*
+
+### OI-58 — 8a's `Adapter#dispatch` leaves its rescue variable unused, and every repository tool that parses a filed source carries the same exposure
+
+- **Opened:** 2026-09-13, phase 9 planning (parse-window follow-through)
+- **Status:** open
+- **Cites:** NFR-6, NFR-17
+
+`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858` files
+`rescue ::StandardError => e` inside `Adapter#dispatch` (the fence at 8a plan:4743-4881, the method at
+4849); the body calls `Dexpace.close_quietly(pump)` and re-`raise`s, and never reads `e`. Parsing that
+fence with `RubyVM::AbstractSyntaxTree.parse_file` under `-w` emits `assigned but unused variable -
+e`, re-measured 2026-09-13 identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. It is a lint finding, not
+a correctness one — the rescue re-raises, so dropping `=> e` changes nothing at runtime — and
+RuboCop's `Lint/UselessAssignment` flags it the moment the file exists. **Target:** phase 10; phase 9
+does not edit a committed fence to suit its own scanner (phase 9 design:250-252).
+
+Phase 9's own exposure to this instance is closed. `AstScan.parse` is the scanner's sole parse entry
+point and opens a `$VERBOSE = nil` window restored in `ensure`, so a scanned file's own `-w`
+diagnostics cannot fire phase 0's warnings-fatal test case (phase 9 plan:4285-4292; design Fact 1b at
+design:237-252; Task 1's fixture `test/fixtures/gates/warns_unused.rb` and Task 13's test at phase 9
+plan:4219-4227, which asserts a bare `parse_file` raises and the gate over the same fixture does not).
+
+The generalisation is what outlives this one line, and it is recorded here rather than as its own
+item because it has the same cause and the same repair. **Any future repository tool that parses a
+filed source under the warnings-fatal test case has the same exposure**, and nothing mechanises the
+rule that keeps it closed: "nothing else in this file may call `parse_file` directly" is a comment in
+`tools/ast_scan.rb` (phase 9 plan:4248-4249), not an assertion, and no gate asserts that
+`AstScan.parse` is the only caller of `parse_file` in the repository. `NFR-6` makes warnings fatal,
+and 8a's fence is the proof that the warning's source is filed code a tool merely reads rather than
+code the tool owns — so the next scanner written straight from `RubyVM::AbstractSyntaxTree.parse_file`
+starts red for a reason its author will not expect. What would close it: a check asserting sole use of
+`AstScan.parse`, or a shared parse helper the gates cannot bypass.
+
+**Resolution:** *(open)*
+
+### OI-59 — `ExecutorCase::EventRecorder` is a second instance of `OI-55`'s second-public-class-in-one-file shape
+
+- **Opened:** 2026-09-13, phase 9 planning (item-1 fix follow-through)
+- **Status:** open
+- **Cites:** NFR-3, NFR-4, DEF-22
+
+`OI-55` records `Dexpace::Conformance::CodecCase::CountingSink` as a second public class in
+`codec_case.rb`, outside `module-organization/1828a984`'s private-struct exception. The 2026-09-13 fix
+to Task 11 — which rebuilt `ExecutorSuite`'s lifecycle observation onto 8b's filed logger sink instead
+of a `#shutdown_count` no filed executor has — introduced a second instance of the same shape:
+`Dexpace::Conformance::ExecutorCase::EventRecorder`, defined at phase 9 plan:3371 inside
+`gems/dexpace-conformance/lib/dexpace/conformance/executor_case.rb` (created by Task 11, phase 9
+plan:3064). The plan states it and why it lands the same way — one constructor, one reader and no
+meaning outside the case that hands it out (phase 9 plan:3142-3144). Filed as its own item rather than
+added to `OI-55`'s body because this register's rule forbids that: "A new item takes the next id below
+and appends; nothing here is edited except to fill in `Status` and `Resolution` on an existing item."
+**Target:** phase 9 execution, the same as `OI-55` — `rbs validate`/`steep check` and the runtime
+surface snapshot catch it mechanically once the gem exists.
+
+**Resolution:** *(open)*
+
+next id: OI-60
