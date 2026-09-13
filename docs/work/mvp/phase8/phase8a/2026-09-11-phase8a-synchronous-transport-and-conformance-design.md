@@ -64,11 +64,20 @@ charter had to reason around:
   a necessity — every one of the 30 appears in its own prose chapter — and the chapter's
   `*Conformance:*` clauses, which appendix C does not carry, are load-bearing in seven places named
   below.
-- `docs/product-spec/03-pluggable-seams-and-extension-model.md` for `SEAM-11`–`SEAM-15`, `SEAM-22`,
-  `SEAM-29`; `docs/product-spec/05-i-o-contracts.md` for `IO-40`;
+- `docs/product-spec/03-pluggable-seams-and-extension-model.md` for `SEAM-11`, `SEAM-12`, `SEAM-14`
+  and `SEAM-29`; `docs/product-spec/02-architectural-principles.md` for `SEAM-13`; and **appendix C
+  alone** for `SEAM-15` and `SEAM-22`. **Corrected in place 2026-09-13 by phase 10's planning:** this
+  list named `03-pluggable-seams-and-extension-model.md` for `SEAM-11`–`SEAM-15` and `SEAM-22`, and
+  that chapter carries none of `SEAM-13`, `SEAM-15`, `SEAM-22`. `SEAM-13`'s only prose home is
+  `02-architectural-principles.md`, and `SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28`
+  appear in no prose chapter at all — appendix C is their only normative statement, established by
+  phase 2 on 2026-09-06, re-verified 2026-09-07 and again 2026-09-13. This is the same bug class as
+  the three unfollowable gap pointers the register retirement corrected, and it is why phase 10 builds
+  the probe's chapter-attribution check.
+  `docs/product-spec/05-i-o-contracts.md` for `IO-40`;
   `docs/product-spec/19-cross-cutting-invariants-and-policies.md` for `XCUT-4`, `XCUT-13`, `XCUT-18`,
   `XCUT-22`; `docs/product-spec/20-non-functional-requirements-and-quality-bar.md` for `NFR-1`, `NFR-2`,
-  `NFR-11`, `NFR-13`.
+  `NFR-11`, `NFR-13`. Those four attributions were re-verified 2026-09-13 and all hold.
 - `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 (`:52-150`, the encoding boundary and
   the body variants), **§3.2 in full (`:155-188`)** — read critically, because the charter's two findings
   on §12's `Net::HTTP` retry rows and §3.2's `read_body` sentence, both on phase 10's inbound list, each
@@ -2216,7 +2225,7 @@ and a sleep-based test is order-dependent on machine load.
 | **Phase 9**, on `SEAM-12`, `SEAM-14`, `SEAM-15` | The three lifecycle assertions §9.3 names, already written and already driven by an adapter — so the phase-2 rows that are ⏳ "because this phase ships none" have an implementation to point at |
 | **Phase 9**, on `OBS-21` and `OBS-25` | `RecordingSpan` and `Allocations`, with `5b`'s `R8` rule encoded in `.delta`'s signature |
 | **Phase 9**, on `XCUT-11` | `Adapter` as a frozen, effectively-immutable shared instance whose only mutable state is `Closeable`'s latch, and the measurement (verified fact 9) that shows what the alternative costs |
-| **Phase 10**, on the two `TRANSPORT` SHOULDs declined for v1 | `TRANSPORT-28`'s third clause and `TRANSPORT-30`, both ⏳ with their reasons measured rather than assumed, stated in `docs/first-release.md` § What v1 ships without |
+| **Phase 10**, on the one `TRANSPORT` SHOULD declined for v1 | `TRANSPORT-28`'s third clause, ⏳ with its reason measured rather than assumed, stated in `docs/first-release.md` § What v1 ships without, whose trigger is "a transport adapter beyond the two the MVP ships". **Corrected in place 2026-09-13 by phase 10's planning:** this row named `TRANSPORT-30` beside it, and `TRANSPORT-30` is no longer declined — this sub-phase's own `R17` and plan Task 19b implement proxy use, and `docs/first-release.md` narrowed it out of that entry the same day. A forward row that hands a later phase a decision already taken is worse than no row, because the later phase spends the audit budget rediscovering it |
 | **A downstream adapter author** | `Dexpace::Conformance::TransportSuite` as the thing to run, and `R16`'s **suite contract** — twelve clauses, merged 2026-09-12 from `8a`'s five and `8c`'s nine — as the contract to meet. That is the whole reason the gem is published from day one (§9.3) |
 
 ---

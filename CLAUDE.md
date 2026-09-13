@@ -392,9 +392,9 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
 - Zero gems exist under `gems/` — the directory itself does not exist yet.
-- There are ten phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
+- There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/` and `phase9/`. The first three carry that phase's
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. The first three carry that phase's
   design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
@@ -407,7 +407,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   and a plan. `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
-  (authentication); each holds a design and a plan. Phase 6 is the largest phase in the roadmap:
+  (authentication); each holds a design and a plan. Phase 6 is the largest **build** phase in the
+  roadmap — only the audit-led phase 10, at 124, carries more requirement IDs:
   111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus the fifteen `RECOV` IDs phase 4 handed it
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
   their phase-4 rows stay ⏳. Its three sub-phases are independent — phase 4c already fixed the
@@ -443,5 +444,27 @@ probe compares each against the live tree, and a count written anywhere else in 
   phase 9's own suites, `B.3`, `B.4`, `B.6` and `B.7` are lifted, extended or driven, and `B.1`,
   `B.2` and `B.5` are dispositioned by reference to the owning phase's suite with a committed
   61-row coverage map as the artifact. Phase 9 reports and phase 10 repairs.
+  `phase10/` likewise carries **no segmentation design and no sub-phase** — its design and plan sit
+  directly at `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`
+  and `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`.
+  Its scope is the largest in the roadmap by ID count and its design argues that the ID is the wrong
+  unit: **124 own rows** — every ID design §10's nineteen entries name, plus `RETRY-28` from its
+  closing note, 108 MUST / 15 SHOULD / 1 MAY — of which **fifty-one come from §10.1 alone**, whose
+  retirement of the byte-stream provider seam names `SEAM-3`–`SEAM-10`, all forty-two `IO` IDs and
+  `XCUT-23` in one argument. Counted by ledger entry the phase is 19 entries plus a closing note plus
+  32 inbound bullets — **52 units**, the same order as phase 1's 42 unsegmented rows — and it ships
+  **no new gem**, so only one of the segmentation rule's three triggers fires. It carries **64
+  cross-reference rows** beside the 124, one per ID an inbound bullet touches or a phase-10 repair reaches
+  whose row belongs to an earlier phase, for 188 in all. It is the phase that flips all nineteen rows of `docs/deviations.md`
+  from `design only — not yet built`, by the method the roadmap fixes for it — **re-deriving every
+  claim from as-built source, never from another document** — and the phase that writes the thirteen
+  frozen-chapter amendments `C1`–`C13` out, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
+  frozen and only a human may apply them. It ships repair code in `dexpace-core`,
+  `dexpace-transport-async_http` and `dexpace-conformance`, reaches
+  `dexpace-transport-net_http` only through the `sig/` header its `NFR-13` repair adds to every gem,
+  plans three further blocking gates (`gates:ledger_audit`, `gates:spdx_rbs`,
+  `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
+  and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
+  at `0.0.0`.
   Every checklist is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

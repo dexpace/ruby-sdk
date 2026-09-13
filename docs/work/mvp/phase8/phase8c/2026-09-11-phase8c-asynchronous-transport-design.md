@@ -66,8 +66,16 @@ three invert something the charter had to reason around:
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md:559-610` for the canonical
   text and modal level of all ten IDs plus the 22 assertable rows 8c re-asserts. The chapters' `*Conformance:*`
   clauses, which appendix C drops, are load-bearing in six places named below.
-- `docs/product-spec/03-pluggable-seams-and-extension-model.md` — `SEAM-11`, `SEAM-13`, `SEAM-14`,
-  `SEAM-15`, `SEAM-16`, `SEAM-17`, `SEAM-24`, `SEAM-25`, `SEAM-30`.
+- `docs/product-spec/03-pluggable-seams-and-extension-model.md` — `SEAM-11`, `SEAM-14`, `SEAM-16`,
+  `SEAM-17`, `SEAM-24`, `SEAM-25`, `SEAM-30`; `docs/product-spec/02-architectural-principles.md` —
+  `SEAM-13`; and **appendix C alone** — `SEAM-15`. **Corrected in place 2026-09-13 by phase 10's
+  planning:** this list named `03-pluggable-seams-and-extension-model.md` for all nine, and that
+  chapter carries neither `SEAM-13` (whose only prose home is `02-architectural-principles.md`) nor
+  `SEAM-15` (which, with `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28`, appears in no prose chapter —
+  appendix C is their only normative statement, established by phase 2 on 2026-09-06 and re-verified
+  2026-09-13). The other seven attributions hold. Phase 8a's governing-documents list carried the same
+  error, which makes it a pattern rather than a slip and is why phase 10 builds the probe's
+  chapter-attribution check.
 - `docs/product-spec/05-i-o-contracts.md` — `IO-40` (`:50`), which keeps every deadline in this gem and
   out of `Dexpace::IO::BufferedSource`.
 - `docs/product-spec/13-server-sent-events-and-streaming.md` — `SSE-39`'s pull-based delivery, the

@@ -1796,6 +1796,29 @@ wrong, what the correct statement is, and where the code half already lives. **E
 restatement carry their own date**, so the list grows as later review passes route audit-or-repair work here
 and the fourteen-plus-three provenance above stays readable as provenance rather than as a running count.
 
+**2026-09-13 — phase 10 now has a design and a plan, and every bullet below is dispositioned in them.** The
+sentence that opened this list — "stated here because phase 10 has no design yet and this is the entry it will
+read first" — has been answered:
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md)
+carries a table mapping **all thirty-two bullets** — the twenty-four below plus the eight this planning pass
+added — to a numbered task, an amendment, or the evidence that no repair is needed, and the plan is
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md).
+The per-bullet owners are **not** restated here, and the reason is this list's own job rather than a numbered
+constraint: cross-cutting constraint 7 makes this list a place a finding is *routed to*, and the design's
+disposition table is where each one's owner lives, so a copy beside the bullets is the second thing that would
+have to be kept true. (An earlier draft of this paragraph cited cross-cutting constraint 9 for that, which is
+wrong: constraint 9 is about not copying the domain-model construction pattern and the constraints that will
+bite into a phase document. Corrected 2026-09-13.) The
+counts, so this paragraph is checkable against the table: **12 bullets become repairs** shipping code or a
+check, across **eight** tasks — 6 and 10 share Task 4, 29 and 30 share Task 3, and Task 3 also takes 5 —
+**13 become one of thirteen written frozen-chapter amendments**, **2 are decided with no surface
+change** (`OBS-29`'s wiring and `CTX-16`'s carrier, both closed by canonical text nobody had re-read), **3 are
+audit-only**, and **2 were fixed on the spot in this pass** because they were in writable material — phase 5a's
+substituted proxy IDs and phase 8a's half-stale `TRANSPORT-30` forward row. Bullets whose repair is expected to
+be **moot** — the uncapped `Clients#@by_origin`, which `8c`'s plan Task 8 now bounds at planning time — stay
+below unchanged, because a green `gates:bounded_map` run is what closes them and a sentence in a plan is not
+evidence the work was done.
+
 **From the reconciliation.**
 
 - **The audit of the §10.5 ledger** — cross-cutting constraint 8: `ASYNC-3` and `PIPE-33`'s interrupt clause
@@ -1878,8 +1901,9 @@ and the fourteen-plus-three provenance above stays readable as provenance rather
   measured identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6; the other five, in four files, are adjudicated
   false positives, each carrying its reason in `InvariantGates::BOUNDED_MAP_ALLOWED` (phase 9 plan:4016-4029
   for the adjudication, 4504-4519 for the allowlist). The same sub-phase bounded its other caller-keyed map at
-  64 distinct names for `TRANSPORT-13` — `DropPolicy::MAX_TRACKED_NAMES` (8c plan:1452-1456, enforced at 1514,
-  its test at 8c plan:1385-1392) — so this is an omission rather than a decision. **The fix:**
+  64 distinct names for `TRANSPORT-13` — `DropPolicy::MAX_TRACKED_NAMES` (8c plan:1525, enforced at :1583,
+  its test at 8c plan:1453-1462; all three citations corrected 2026-09-13, the originals having pointed at a
+  Files block and a comment line) — so this is an omission rather than a decision. **The fix:**
   `Dexpace::BoundedMap` or an equivalent cap with drain-to-cap eviction, including a `#close` on each evicted
   client, since the values own pools. It is phase 10's because `8c` owns the file and has already run by the
   time phase 9's audit does, and because design `R6` ("a bug found in `Dexpace::BoundedMap` is filed here and
@@ -1892,16 +1916,22 @@ and the fourteen-plus-three provenance above stays readable as provenance rather
   `gates:bounded_map` run says so. What made the difference is only that `8c` had **not** in fact already
   run when phase 9's audit read its plan, which is the premise the phase-10 routing rested on. Touches `XCUT-14`,
   `TRANSPORT-13`, `NFR-17`.
-- **8a's `Adapter#dispatch` leaves its rescue variable unused, and every repository tool that parses a filed
-  source carries the same exposure.** `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
-  files `rescue ::StandardError => e` inside `Adapter#dispatch` (the fence at 8a plan:4743-4881, the method at
-  4849); the body calls `Dexpace.close_quietly(pump)` and re-`raise`s, and never reads `e`. Parsing that fence
-  with `RubyVM::AbstractSyntaxTree.parse_file` under `-w` emits `assigned but unused variable - e`,
-  re-measured 2026-09-13 identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. It is a lint finding, not a
-  correctness one — the rescue re-raises, so dropping `=> e` changes nothing at runtime — and RuboCop's
-  `Lint/UselessAssignment` flags it the moment the file exists; it is phase 10's because phase 9 does not edit
-  a committed fence to suit its own scanner (phase 9 design:250-252). **The generalisation is what outlives the
-  one line:** any future repository tool that parses a filed source under the warnings-fatal test case has the
+- **~~8a's `Adapter#dispatch` leaves its rescue variable unused~~ — first half CLOSED 2026-09-13 — and every
+  repository tool that parses a filed source carries the same exposure.** As filed, this bullet reported that
+  `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
+  files `rescue ::StandardError => e` inside `Adapter#dispatch`, whose body calls
+  `Dexpace.close_quietly(pump)` and re-`raise`s and never reads `e`; parsing that fence with
+  `RubyVM::AbstractSyntaxTree.parse_file` under `-w` emits `assigned but unused variable - e`, re-measured
+  2026-09-13 identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, which is a lint finding rather than a
+  correctness one — the rescue re-raises, so dropping `=> e` changes nothing at runtime. **That half is
+  already repaired.** Commit **152ec6a**, the pre-build review of every MVP phase plan, dropped the binding:
+  8a's `Adapter#dispatch` now reads `rescue ::StandardError` at that plan's **:5177** (the method at :5168),
+  and the plan records the correction itself at :6337-6339 — "the binding is gone", with two further shapes
+  corrected for the same reason. Line 4858 today is `body = res.body_string`, so **the citation above no
+  longer resolves and is kept only as the provenance of the measurement.** Phase 10 ships no repair for it;
+  the interpreter measurement survives as the fixture that proves `AstScan.parse`'s `$VERBOSE` window still
+  works (phase 10's plan, Task 6 Step 5). **The generalisation is what outlives the
+  one line, and it is the whole of what phase 10 now owns here:** any future repository tool that parses a filed source under the warnings-fatal test case has the
   same exposure, and nothing mechanises the rule that keeps it closed — "nothing else in this file may call
   `parse_file` directly" is a comment in `tools/ast_scan.rb` (phase 9 plan:4248-4249), not an assertion, and
   no gate asserts that `AstScan.parse` is the only caller of `parse_file` in the repository. Phase 9's own
@@ -2209,6 +2239,78 @@ then; the two against §12's `TRANSPORT` row share one note.
   each sub-phase's view task — `7c`'s is Task 12 — plus its `sig/`, and it is cheap only before the `NFR-4`
   diff records two families. Touches `PAGE-14`, `SSE-26`, `SSE-40`, `NFR-4`, `SEAM-29`.
 
+**From phase 10's own planning read** *(all eight added 2026-09-13)*. Phase 10's design ran the sweep this
+list was built from rather than trusting the list, `grep -rn -i -e 'phase 10' -e 'phase-10' docs/work/`, and
+read phase 9's plan against phase 9's design. Four subjects are handed forward by phases 0–8 and four by phase
+9, and none of the eight was on this list. Each is written out in full below and dispositioned in phase 10's
+design.
+
+- **Appendix C's `SSE-19` row drops the port sanction the chapter carries, and `docs/product-spec/` is
+  frozen.** Handed forward by 7b. `docs/product-spec/13-server-sent-events-and-streaming.md:33` ends
+  `SSE-19` with "a port MAY add a configurable cap and reject/truncate oversized lines, **documenting the
+  divergence**"; appendix C's row for the same ID ends at "a growable byte accumulator expands by doubling"
+  and carries no sanction. `CLAUDE.md` calls appendix C "the fastest way to locate a requirement ID", so a
+  checklist author working from the index alone reads 7b's cap as unsanctioned. The asymmetry runs both ways
+  in the same pair: appendix C says "no maximum line **or event** size" where the chapter says only
+  "lines/values", and `P7-21` turns on the appendix-C half — so **the two rows together are the only complete
+  statement of `SSE-19` and nothing says so.** This is the first correction on this list against the
+  **normative** specification rather than the design, so it is also a recommendation to the specification
+  author in §11's own idiom. **Code half: already shipped** — 7b's configurable cap, `P7-21`. Interim note in
+  `docs/deviations.md`. Touches `SSE-19`, `SSE-11`, `SSE-12`.
+- **Phase 2's three other declared-and-unwritten `sig/` files, which no gate can see.** Handed forward by 7a,
+  which settled one clause of one of them. `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:4899-4900`
+  (Step 6, "Write the four `sig/` mirrors", header at :4897)
+  says `sig/dexpace/serde.rbs` "carries `interface _Codec` with the six methods and the module's class
+  methods" and gives no types, and that step declares **four** files in all — `serde.rbs` plus three error
+  files — so the residue beside `serde.rbs` is **three**, not four; corrected 2026-09-13, as is the line
+  citation, which pointed at that plan's SPDX header; 7a's plan Task 12 declares `#media_type` as `(Dexpace::MediaType | String)`
+  and hands forward the question of whether the other four declared files are empty too. A shipped `.rbs`
+  that declares nothing passes `rbs validate`, passes `steep check` and tells a consumer's typechecker
+  nothing, which is the failure mode `NFR-3` exists to prevent and which nothing reports. **Code half:
+  partial** — `#media_type`'s only. Touches `SERDE-2`, `NFR-3`, `NFR-13`.
+- **`Dexpace::Protocol.parse` has no alias for `"http/1.0"`, so a real `HTTP/1.0` response makes
+  `ResponseMapper` raise.** Handed forward by 8a, measured at its plan `:233` and restated at `:4323`. Only
+  `http/1.1`, `http/2` and `http/2.0` fold into a recognised wire form, so `native.http_version` produces
+  `"1.0"` and the mapper raises. No `TRANSPORT` ID requires 1.0 support and every `WireServer` script in 8a's
+  plan answers `HTTP/1.1`, so the suite never exercises it — and any real server can reach it. 8a routed it
+  here rather than fixing it because widening `Protocol::WIRE_FORMS` is a **phase-1 surface decision no
+  sub-phase should take alone**; the widening is additive, so `NFR-4` permits it. **Code half: none** — 8a
+  records one sentence in `ResponseMapper`'s YARD. Touches `HTTP-24`, `HTTP-43`, `NFR-4`.
+- **8a's forward-obligations row for the two declined `TRANSPORT` SHOULDs is half stale.** Handed forward by
+  8a at its design `:2219`, the only literal `| **Phase 10**, …` row in any phase document, naming
+  `TRANSPORT-28`'s third clause **and `TRANSPORT-30`**. `TRANSPORT-30` is no longer declined: 8a's own `R17`
+  and plan Task 19b implement proxy use, and `docs/first-release.md` narrowed it out of the ships-without
+  entry on 2026-09-13. A forward row handing a later phase a decision already taken spends the audit budget
+  on rediscovery. **Fixed in this pass**, dated, in 8a's design. Touches `TRANSPORT-28`, `TRANSPORT-30`.
+- **`APPENDIX_B.md`'s check 2 is weaker than the prose that specifies it.** Found by reading phase 9's plan
+  against phase 9's design. The design settles on **per-row ID-set equality** against the set parsed from each
+  appendix-B item's own text — "decidable, strictly stronger, and it makes the distinct-ID coverage check hold
+  **by construction**" (its design:1243-1245) — and the filed test (**phase 9 plan:5627-5631**, in the class
+  at :5611-5644) asserts only that every row names at least one ID from the nineteen prefixes. `AppendixB`
+  is not featureless here: it exposes `ids_in(text)` (:5668) and `spec_items(path)` (:5732-5741) and
+  computes each item's IDs inside `generate` at :5722; what it lacks is an accessor **in the form the
+  equality check needs**, per section and index, plus the assertion — and because `generate` carries
+  hand-written rows over verbatim (:5726), the drift the check would catch is confined to those. Both the
+  line citation and the size of the claim corrected 2026-09-13. So the 61-row map documents a check it does not perform, in the artifact that is "the only place
+  the real mapping is written down". **Code half: none** — the accessor does not exist. Touches `NFR-17`.
+- **`TransportSuite` is not on `Runner`, leaving two status-deciding paths in one gem.** Phase 9's `P9-10`
+  records it and its reason: phase 8 owns that file, so phase 9 deliberately did not refactor it, and "a
+  future change to the five statuses must be made twice." Phase 10 is the first phase that owns every gem, so
+  the reason has expired. **Code half: none.** Touches `NFR-17`, `NFR-4`.
+- **A design document that promised a shape the code did not take is phase 10's doc repair.** Phase 9's `R3`
+  (its design:536-542) fixes the rule for the requirement half — assert against what arrived, record both
+  shapes — and routes the document half here: "a document the next reader will trust wrongly". It is a
+  **method rather than a subject**, which is why it is written out: phase 10's audit tasks each route their
+  own instances, and a bullet that named none would read as though none existed. Touches every `XCUT`/`NFR`
+  subject phase 9 probed.
+- **The `minitest` pin's ownership.** Phase 9's own open question 1: the pin is phase 0's artifact and `R6`
+  makes a repair to phase 0's tree phase 10's, so "the decision may not be phase 9's at all". Phase 10
+  re-measured and the answer is that **the pin is right and its owner does not change** — what is owed is the
+  corrected measurement, because two of the three per-interpreter versions phase 9 recorded are stale and the
+  3.4 row is now affected in a different way from the 4.0 row. Carried to
+  `docs/first-release.md` § Post-release triggers, the Minitest 6 entry, dated. Touches `NFR-6`, `NFR-17`,
+  `NFR-10`, `NFR-2`.
+
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
 the phase table changes and no requirement ID moves; what changes is the order the phases are *run* in,
@@ -2248,3 +2350,150 @@ trigger, and which no phase produces — and a new *Behavioural asymmetries a co
 under what v1 ships without, opened by `PIPE-32`/`REDIR-25`: `AsyncPipeline.standard` follows no redirects
 while `Pipeline.standard` does, which is the requirement and is invisible to a consumer who reads neither
 constant's YARD.
+
+**2026-09-13** — **Phase 10's two planning documents filed**, under `docs/work/mvp/phase10/`:
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md)
+and its plan,
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md).
+**Every phase in the roadmap is now planned and none is built.** Nothing is implemented; the checklist is
+written at execution time, per execution step 6.
+
+**No segmentation design and no sub-phase, and the decision is argued against the number that looks like it
+cuts the other way.** This document's rule reaches build phases 1 through 8 and leaves phases 9 and 10 to
+segment "only if their own design finds it necessary". Phase 10's scope is **124 own rows** — the largest in
+the roadmap, ahead of phase 6's 111-plus-15 — and the design's answer is that the ID is the wrong unit:
+**fifty-one of the 124 are one entry's ID family**, because §10.1 retires the byte-stream provider seam and in
+doing so names `SEAM-3`–`SEAM-10`, all forty-two `IO` IDs and `XCUT-23`, its own argument being that
+`IO-1`–`IO-29` and `IO-37`–`IO-42` are implemented in full while only the pluggability apparatus is removed.
+The unit of work is the **ledger entry**: 19 entries plus a closing note plus 32 inbound bullets is **52
+units**, the same order as phase 1's 42 unsegmented rows and phase 9's 41. Of the rule's three triggers only
+one fires, and maximally rather than usefully — phase 10 spans all nineteen ID-bearing chapters, because
+design §10 does — while it ships **no new gem**: its repairs land in `dexpace-core`,
+`dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-conformance` and the repository's own
+tooling, all of which exist by the time it runs. Every candidate cut splits a ledger entry: prefix lines split
+§10.1's `SEAM` half from its `IO` half, core-versus-adapters splits §10.4's cancellation claim across three
+gems and §10.12's one ownership rule across three layers, and audit-versus-repair would recreate *inside*
+phase 10 the boundary phase 9's `R6` drew between the two phases — which phase 10 exists to cross. Task
+ordering carries what a cut would have: the plan builds and reads the instrument in Tasks 1–3, ships the
+repairs in 4–10, re-derives the ledger in 11–15 and closes the registers and the phase in 16–19.
+
+**Scope is 124 own rows plus 64 cross-reference rows — 188 checklist rows in all.** The 124 are every
+requirement ID named by design §10's nineteen entries, extracted mechanically with every range expanded and
+every member checked against appendix C (all 124 resolve), plus `RETRY-28` from §10's closing note, which is a
+claim of the same kind and is audited with them: **108 MUST, 15 SHOULD, 1 MAY**. The 64 are every ID an inbound
+bullet's *Touches* line or a newly-found hand-forward names, or one of phase 10's own repairs touches, that is
+not among the 124 — 44 MUST, 16 SHOULD, 4 MAY — and they follow the two-rows-one-obligation discipline phase 2 gave `SEAM-29`: the owning phase keeps
+the ID and **no earlier phase's row moves.** The spec-reading budget is **six appendix-C rows and no chapter
+reading at all**: `--gaps` over all nineteen prefixes reports 21 uncited IDs, of which `SEAM-22` and
+`IO-32`–`IO-35` are own rows and `SEAM-28` a cross-reference row, and for every one the CLI says appendix C is
+its only normative statement. Appendix B is **out of scope** — phase 9 owns the 61-row map — so phase 10 is
+not exposed to the roll-up hazard at all.
+
+**The method, and the one decision it forced.** The roadmap states phase 10's method in half a sentence,
+"re-deriving every ledger claim from as-built source, never from another document", and the design makes it
+failable: an audit step names the artifact by path and constant, the promising phase document says where to
+look and **is never evidence**, and a claim whose artifact cannot be named is *unverifiable* rather than
+*confirmed*. That method immediately paid for itself. **`OBS-29`'s canonical text ends "This is a documented
+emission contract; pipeline/transport wiring to emit it is a follow-up, so it is not yet runtime-enforced"** —
+a clause design §8.1's restatement drops and no harvested corpus entry carries — so the "open surface
+decision" that five documents across four phases carried, and that this list's second bullet frames as owed,
+was **already closed by the requirement itself**. Nothing was built wrongly; every phase declined the wiring.
+But the decision travelled as open through five documents and one register retirement, which is the shape of
+error the re-derivation exists to catch, and it is why phase 10 files exactly one knowledge note and files it
+there. `CTX-16` went the same way: all three of its modal clauses are met by phase 4a without a call path, and
+"exposed to the tracing seam" is descriptive rather than modal, so the undriven correlation chain is a
+purpose-fit gap and not a requirement gap. Both are now `docs/first-release.md` § What v1 ships without ›
+*Behavioural asymmetries a consumer must know* entries rather than surface widenings, on the `Event#tag`
+precedent — `NFR-4` locks a public keyword at the first tag and nothing in v1 would drive either one.
+
+**Eleven deviations `P10-1`–`P10-11`, and four checks added to §9's table as addenda `A8`–`A11`** —
+`gates:spdx_rbs` (the SPDX header on every shipped `sig/**/*.rbs`, which a RuboCop cop cannot reach because
+`.rbs` is not Ruby, plus the assertion that no shipped signature declares nothing), `gates:sole_parse`
+(asserting `AstScan.parse` is the only caller of `parse_file` in the repository, which was a comment and not an
+assertion), the probe's **ninth** check, clause-scoped chapter attribution, and `gates:ledger_audit`, which
+keeps `docs/deviations.md`'s nineteen rows tied to §10 by per-row ID-set equality and fails a verdict row that
+cites no resolvable as-built evidence — `P10-2` made mechanical, and what stops a register audited once from
+drifting after phase 10 closes. All four blocking. The addendum letters continue phase 9's `A4`–`A7`; the
+thirteen frozen-chapter corrections are a **separate** series, `C1`–`C13`, because a first draft labelled both
+`A` and they collided at `A8`. That set is thirteen and not eleven because two corrections already sitting in
+`docs/deviations.md` — the §10.5 "an adapter" attribution and §12's `PAGE` row — had been left out of the
+numbering and therefore out of the release blocker's enumeration; they are `C12` and `C13`, and `docs/deviations.md`
+now carries the whole `C1`–`C13` mapping beside the notes so the two documents cannot drift. Phase 10
+adds **no `dexpace-conformance` suite, assertion or gate**: a phase that reads an instrument and extends it
+cannot say which of the two its verdict came from. Its two changes inside that gem are the residues phase 8's
+ownership caused — `APPENDIX_B.md`'s check 2, which documents a per-row ID-equality check the filed test does
+not perform, and `TransportSuite` left off `Runner` (`P9-10`) — and phase 10 is the first phase that owns
+every gem.
+
+**Repairs: twelve bullets, eight tasks.** The uncapped `Clients#@by_origin` (verify `8c`'s cap, repair if
+`gates:bounded_map` is red, and **never** an allowlist entry); `NFR-13`'s SPDX header over every shipped
+signature; 8a's unused rescue binding and the general `parse_file` exposure; the chapter-attribution check;
+**`Dexpace::SingleUseError`** in core, with `SSE::StreamStateError` re-parented beneath it, because
+`7c`'s `InvalidArgumentError < ::ArgumentError` puts `PAGE-14`'s state violation in the argument family where
+`rescue ArgumentError` swallows it — measured on all four interpreters; **`XCUT-12`'s fiber-scheduler
+single-flight assertion**, which phase 10 judges necessary and ships as a driver in
+`dexpace-transport-async_http`'s `test/` tree, closing a post-release trigger rather than arming it; and
+`Protocol::WIRE_FORMS` gaining `"http/1.0"`, a phase-1 surface decision 8a declined to take alone.
+
+**Two things were fixed on the spot rather than filed**, because CLAUDE.md's rule is that a finding in
+material you may write is not a finding: phase 5a's exclusions row, which named `TRANSPORT-3`/`TRANSPORT-8`
+for proxy use and header-drop reporting where the IDs meant are `TRANSPORT-30` and `TRANSPORT-13` — the same
+substitution phase 5b made and the phase-8 segmentation design corrected, so a pattern rather than a slip —
+and 8a's forward row for the two declined `TRANSPORT` SHOULDs, half stale since its own `R17` implemented
+`TRANSPORT-30`. **And three chapter attributions across two lines, which are the check's own justification**: phase 8a's and
+8c's governing-documents lists name `docs/product-spec/03-pluggable-seams-and-extension-model.md` for
+`SEAM-13`, `SEAM-15` and `SEAM-22`, and that chapter carries none of the three — `SEAM-13`'s only prose home
+is `02-architectural-principles.md`, and `SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and `SEAM-28` appear in no
+prose chapter at all, which phase 2 established on 2026-09-06 and phase 10 re-verified today. Corrected in
+place, dated, with the pre-correction text preserved as the check's regression fixtures — a gate whose only
+evidence is a live defect loses its evidence the moment the defect is fixed.
+
+**Three items postponed, every one to `docs/first-release.md` because phase 10 has no later phase**: applying
+the thirteen amendments (§3, §4, §8, §9, §10, §11, §12 and appendix C's `SSE-19` row are frozen and reserved to
+a human, so what phase 10 can do is make the amendment a **transcription** — sentence, replacement,
+measurement, verified code half — and file the blocker, whose alternative form is the release notes naming
+which design sentences a reader should not trust); the chapter-attribution check's continued-clause blind
+spot, whose trigger is a **second** instance because one is an anecdote; and an `NFR-4` **diff** as opposed to
+a baseline, since `NFR-4`'s subject is a diff against a release tag and there is none — phase 10 establishes
+both baselines and leaves the disposition ⏳, because establishing a baseline is not satisfying a requirement
+about comparing against one. **Two items were picked up**: `XCUT-12` under a fiber scheduler, the one item
+the deferral register handed phase 10 and phase 9's own postponement, and phase 9's three
+`R6`/`P9-7`/`P9-10` hand-offs.
+
+**Seven findings, all measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6.** Three contradicted the record — the
+third being this design's own first draft, which reported 8a's unused rescue binding as a live defect after
+commit 152ec6a had already removed it; that is the error class the re-derivation method exists to catch,
+committed by the document that states the method, and it is recorded here rather than quietly fixed. **Minitest
+resolution has moved again since phase 9 measured it on 2026-09-12** — 5.25.1 / 5.20.0 / **6.0.6** / 6.0.0,
+with `default_gem?` `false` on all four — and not because an interpreter changed: 6.0.6 sits in the *user* gem
+directory on the 3.4 row beside the 5.25.4 that interpreter ships, a bare `require "minitest"` resolves the
+newest, and requiring `minitest/mock` then `minitest/autorun` there loads **both copies and emits 13
+`already initialized constant` warnings**, which `NFR-6`'s gate turns into a failure. So phase 0's `~> 5.25`
+pin is load-bearing for a second reason — the 3.4 row's determinism, by newest-wins resolution outside
+Bundler — and the trigger's measurement is corrected. And **`net-http`'s connect-phase `Timeout.timeout` is on
+every supported Ruby at a different line each time** (`:1601`, `:1601`, `:1657`, `:1791`), so the finding
+strengthens while its single absolute-path citation resolves on one row of four. The half nothing had measured
+is now measured: the resolved **`async-http` closure contains no `Timeout.timeout` call at all**, seven
+`Fiber#raise` sites — one of them `async/task.rb:365`, which is how `Async::Task#cancel` delivers the
+`Async::Cancel` phase 8c's `TRANSPORT-8` result rests on — one `Thread#raise` and one `Thread#kill`. The
+`Thread#kill` is in `io-event`'s `Selector.process_wait`, on a helper thread the adapter never reaches. The
+`Thread#raise` is reported rather than left out, because §8.3 names that primitive and a reader auditing the
+ban will grep for it: it is `Thread.current.raise(error)` in the pure-Ruby fallback selector, a raise on the
+**calling** thread and therefore an ordinary synchronous `raise` rather than the asynchronous cross-thread
+interrupt §8.3 prohibits. `Fiber#raise` is not on §8.3's list and
+the omission is principled: a fiber raise resumes at a **scheduler checkpoint**, which is the property §8.3's
+own rationale distinguishes and §3.3 already relies on. Both facts widen §8.3's amendment from one clause to
+that clause plus what the closures do. `docs/deviations.md` gains **two** interim notes — §8.3's scope clause
+and appendix C's `SSE-19` row, the first entry there against the normative specification — has its
+`C1`–`C13` mapping written beside the notes, and has the *IDs touched* column of rows 1, 3, 10 and 12 widened
+to their §10 entry's full named set, with the column's convention stated where the column lives: every ID the
+entry names, not only the IDs the deviation narrows. Those four rows were short by 34, 2, 3 and 1 IDs, which
+is what `gates:ledger_audit`'s equality assertion reports against the register as it stood.
+`docs/first-release.md` gains one blocker, two *Behavioural asymmetries* entries and one post-release trigger,
+has one trigger annotated as closing when Task 9 lands, and has the Minitest trigger's measurement corrected.
+**One corpus note**, filed before the plan: `docs/knowledge/notes/observability.md`, `OBS-29`'s follow-up
+clause, taking the corpus to **52 entries across 21 files**. `CLAUDE.md`'s phase-directory count goes from ten
+to eleven with this filing, and its phase-6 sentence loses "the largest phase in the roadmap" for "the
+largest **build** phase", which phase 10's 124 own rows make true. Its "Eight checks" sentences stay at
+eight until the ninth is built — phase 10's plan, Task 7 — because a count that anticipates a check is
+the kind of claim this phase exists to catch. The "Zero gems exist under `gems/`" sentence is unaffected.

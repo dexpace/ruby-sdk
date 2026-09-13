@@ -15,18 +15,18 @@ checked against source, the same way `docs/deviations.md` is used in the sibling
 
 | # | Title | IDs touched | Status |
 |---|---|---|---|
-| 1 | The byte-stream provider seam is retired; its behavioural contract is not | SEAM-3–SEAM-10, IO-30–IO-36, IO-39, XCUT-23 | design only — not yet built |
+| 1 | The byte-stream provider seam is retired; its behavioural contract is not | SEAM-3–SEAM-10, IO-1–IO-42, XCUT-23 | design only — not yet built |
 | 2 | The canonical body is a duck type, not a nominal interface | SEAM-3, BODY-1, BODY-35 | design only — not yet built |
-| 3 | The async pivot is a core-owned future rather than an ecosystem primitive | SEAM-16, SEAM-17, ASYNC-1, ASYNC-2 | design only — not yet built |
+| 3 | The async pivot is a core-owned future rather than an ecosystem primitive | SEAM-1, SEAM-16, SEAM-17, ASYNC-1, ASYNC-2, NFR-11 | design only — not yet built |
 | 4 | Cancellation is cooperative; the orphaned-response close moves to the producer | SEAM-13, SEAM-30, XCUT-1–XCUT-3, CFG-17, CFG-20, CFG-21, RETRY-23, TRANSPORT-3, ASYNC-5 | design only — not yet built |
 | 5 | Two MUSTs are not satisfied, and a third holds vacuously | ASYNC-3, ASYNC-4, PIPE-33 | design only — not yet built |
 | 6 | Suppressed exceptions are a core-owned trail, not a host facility | RECOV-12, PAGE-13, PAGE-15, SSE-29, SSE-30, SSE-36, RETRY-34, XCUT-9 | design only — not yet built |
 | 7 | "Standard library" is narrowed to what is stable across the supported Ruby range | SEAM-1, NFR-1, AUTH-14, OBS-2 | design only — not yet built |
 | 8 | Discovery's substrate is require-time self-registration, not classpath scanning | SEAM-5–SEAM-9, XCUT-23 | design only — not yet built |
 | 9 | SEAM-10's multi-loader de-duplication is vacuous and is replaced by a version-skew guard | SEAM-10 | design only — not yet built |
-| 10 | Runtime encapsulation of models is partially unachievable | HTTP-2/SEAM-29, HTTP-4, HTTP-7, IO-28/BODY-37 | design only — not yet built |
+| 10 | Runtime encapsulation of models is partially unachievable | HTTP-2/SEAM-29, HTTP-4, HTTP-7, HTTP-17, HTTP-18, IO-28/BODY-37, XCUT-18 | design only — not yet built |
 | 11 | Read-only collection exposure is computed once, not wrapped per access | HTTP-5, XCUT-15 | design only — not yet built |
-| 12 | One stream-ownership rule for bodies, resolving a reference inconsistency | BODY-8, SEAM-3, SEAM-21 | design only — not yet built |
+| 12 | One stream-ownership rule for bodies, resolving a reference inconsistency | BODY-8, SEAM-3, SEAM-20, SEAM-21 | design only — not yet built |
 | 13 | The serde seam ships four encode profiles, two of which are one Ruby type | SEAM-20 | design only — not yet built |
 | 14 | The serde witness is a class-object-and-combinator protocol, not a reflective type token | SEAM-22, SEAM-23, SERDE-5–SERDE-8, SERDE-16, SERDE-17 | design only — not yet built |
 | 15 | The cross-origin redirect marker lives on the per-hop cursor, not on the request | REDIR-11, AUTH-29, PIPE-16 | design only — not yet built |
@@ -38,6 +38,18 @@ checked against source, the same way `docs/deviations.md` is used in the sibling
 Numbering follows §10's own list order and is not renumbered as entries are confirmed built; a
 row's number is a citation, the same as an item ID in `docs/first-release.md`, the one other register
 left — the deferral register and the find-list were both retired on 2026-09-13.
+
+**What the *IDs touched* column lists, stated here because a reader has to know before they can use
+it: every requirement ID the §10 entry names — not only the IDs the deviation narrows.** §10.1 is the
+case that makes the difference visible: its argument is that `IO-1`–`IO-29` and `IO-37`–`IO-42` are
+implemented in full while only the pluggability apparatus is removed, so all forty-two `IO` IDs are
+named by the sentence and all forty-two belong in the row. **Widened 2026-09-13 by phase 10's
+planning**: rows 1, 3, 10 and 12 listed only the narrowed subset, which made the column disagree with
+the chapter by 34, 2, 3 and 1 IDs respectively. `gates:ledger_audit` (phase 10's plan, Task 2) asserts
+this column **equals** the ID set extracted from its §10 entry's text, which is what makes phase 10's
+count of 124 reproducible from the tree rather than a number in a document — and equality is only a
+checkable rule once the column's meaning is written down, which is why it is written down here and
+not only in the gate.
 
 ## Deviations found outside a phase
 
@@ -94,7 +106,25 @@ against — by phase 10, whose inbound list in `docs/work/mvp/2026-09-05-ruby-sd
 every one of them in full, with the measurements. They land here rather than with a plan task or in
 `docs/first-release.md` for the reason this section exists: in each of them the requirement itself is
 satisfied and the code half is already decided, and what is owed is a correction to a frozen chapter, which
-has no other home.
+has no other home. **That count of eight-in-seven is the retirement's own batch and does not cover the two
+notes phase 10's design added later the same day** — §8.3's scope clause, widened by the first measurement
+of `async-http`'s dependency closure, and appendix C's `SSE-19` row, the first entry here against the
+normative specification. Both are below, dated.
+
+**What this section adds up to, because the arithmetic was wrong once and is worth stating: thirteen
+amendments in eleven notes.** Phase 10's design numbers them `C1`–`C13` and its plan, Task 17 writes each
+one's replacement text; the mapping is fixed here so neither document can drift from the other. Seven of
+the eleven notes below the retirement paragraph carry `C1`, `C3`, `C4`, `C5`, `C6`, `C7` and `C10`; the two
+dated 2026-09-13 carry `C8` and `C11`; and **the two notes above this paragraph, dated 2026-09-12, are
+`C12` and `C13`** — the §10.5 "an adapter" attribution and §12's `PAGE` row. `C2` (§4's builder list
+dropping the multipart body `HTTP-3` names) and `C9` (§9.3 calling a bundled Minitest a default gem) have
+no note here yet and are Task 17's two remaining writes; they live meanwhile as bullets 12 and 21 of phase
+10's inbound list. **Eleven notes carrying eleven of the thirteen** — the two missing are `C2` and `C9`,
+and that is the whole of the gap; `C7`'s single note covers the two *directions* of §12's `TRANSPORT` row,
+which is why the retirement paragraph above counts eight corrections in seven notes. The set's closing
+condition is the
+`docs/first-release.md` blocker phase 10 files, and that blocker's enumeration names all thirteen — an
+amendment recorded here with no line in that blocker is exactly the outcome this section exists to prevent.
 
 **2026-09-08 — against design §3.1's decode recipe. Established by phase 3b's design.** The frozen sentence
 fixes one decode boundary as `Response#body_string`, "which applies the media type's charset via
@@ -179,6 +209,83 @@ Phase 9 resolves it for this port as `P9-8` — one assertion per requirement ID
 many-to-one view whose status is the worst among its assertions — and commits the 61-row map that is the only
 place the real mapping is written down. The clause owed names the requirement ID as the unit of both the
 waiver and the report. Touches `NFR-17`, `ASYNC-3`, `ASYNC-4`.
+
+**2026-09-13 — against design §8.3's prohibition, which is stated as absolute. Established by phase 10's
+design.** The frozen sentence binds the ban on `Timeout.timeout`, `Thread#raise` and `Thread#kill` to
+"every gem in this repository", and phase 0 mechanises it as `Dexpace/NoThreadInterrupt` over this
+repository's own `lib/` — so a library **dependency** using the primitive is outside both the words and
+the scan. What is actually true has two halves, both measured rather than reasoned. On the synchronous
+side, `net/http`'s connect phase is
+`Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(…) }` on **every** supported Ruby —
+`net/http.rb:1601` on 3.2.11 and 3.3.12, `:1657` on 3.4.10, `:1791` on 4.0.6 — so the earlier record's
+single absolute path and 3.4-specific line resolve on one row of four, and the correction must cite the
+call rather than a line. The hazard §8.3 names is still unreachable through it: the interrupt can only
+land during `TCPSocket.open`, before any SDK object holds a socket, and the library converts it into a
+typed `Net::OpenTimeout`. On the asynchronous side — **the half nothing had measured**, and which the
+earlier record asks for in as many words — the resolved `async-http` closure is 17 gems (`async` 2.45.1,
+`async-http` 0.104.0, `io-event` 1.22.0, `protocol-http1` 0.41.0 and the rest), and a source scan of
+every `lib/` in it finds **no `Timeout.timeout` call at all** (the one occurrence, `async/scheduler.rb:681`,
+is a doc comment), **seven `Fiber#raise` sites** — `async/task.rb:365`, `async/scheduler.rb:324`, `:354`,
+`:378`, `:407`, `:666`, and `io-event/selector/select.rb:114` — **one `Thread#raise`**,
+`io-event/selector/select.rb:398`, and **one `Thread#kill`**,
+`io-event/selector.rb:59`, in the `ensure` of `Selector.process_wait`, killing a helper thread whose
+whole body is `Process::Status.wait`. **The `Thread#raise` is reported here rather than left out
+because §8.3 names that primitive and a reader auditing the ban will grep for it**; it is benign, and
+for a reason that is about the receiver rather than about reachability: the call is
+`Thread.current.raise(error)`, a raise on the **calling** thread, which is an ordinary synchronous
+`raise` and not the asynchronous cross-thread interrupt §8.3 prohibits — nothing lands on another
+thread's arbitrary bytecode. Its comment says what it is for ("For all other errors (e.g. thread
+interrupts), re-queue on the scheduler thread"), and it sits in `Selector::Select`, the pure-Ruby
+fallback selector rather than the `URing`/`EPoll` selectors `io-event` prefers on Linux. `Fiber#raise`
+is not on §8.3's list and the omission is
+principled: a fiber raise resumes the fiber at a **scheduler checkpoint**, which is the property §8.3's
+own rationale distinguishes from an interrupt landing on arbitrary bytecode and which §3.3 already
+relies on for the async path — `async/task.rb:365` is precisely how `Async::Task#cancel` delivers the
+`Async::Cancel` that phase 8c's `TRANSPORT-8` result rests on. The `Thread#kill` is unreachable from
+`dexpace-transport-async_http`, which waits on no child process, and the thread holds no SDK resource.
+So the clause owed is larger than "scope the prohibition to code this repository writes": it is that
+clause **plus** the statement of what the two closures do, which is what a reader auditing the ban will
+look for and what no document holds. **Code half: none owed** — the cop and the ban stand as written.
+Touches `ASYNC-3`, `PIPE-33`, `XCUT-13`, `TRANSPORT-4`, `NFR-2`.
+
+**2026-09-13 — against `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md`'s
+`SSE-19` row, which is the first entry here against the *normative* specification. Established by phase
+10's design; handed forward by phase 7b.** `docs/product-spec/13-server-sent-events-and-streaming.md:33`
+ends `SSE-19` with a port sanction — "a port MAY add a configurable cap and reject/truncate oversized
+lines, **documenting the divergence**" — and appendix C's row for the same ID ends at "a growable byte
+accumulator expands by doubling" and carries no sanction. `CLAUDE.md` calls appendix C "the fastest way
+to locate a requirement ID", and a checklist author working from the index alone would read 7b's
+configurable cap as unsanctioned. The asymmetry runs both ways in the same pair: appendix C says "no
+maximum line **or event** size" where the chapter says only "lines/values", and `P7-21` turns on the
+appendix-C half — so **the two rows together are the only complete statement of `SSE-19`, and nothing
+says so.** Why it lands here rather than with a plan task: the requirement is satisfied — 7b ships the
+cap and documents it — and what is owed is a correction to a frozen chapter, which has no other home.
+Because the chapter is normative rather than a design document, the correction is also a recommendation
+to the specification author, in the idiom §11 already uses for the four it makes. **Code half: already
+shipped** — 7b's configurable line cap, ledger row `P7-21`.
+
+**There is a second instance, in the other direction, and it did measurable damage — so what is owed is one
+correction about the pattern rather than two errata about two rows.** Appendix C's `OBS-29` row ends
+"(created by the factory per operation). **This is a documented emission contract; pipeline/transport wiring
+to emit it is a follow-up, so it is not yet runtime-enforced.**";
+`docs/product-spec/15-instrumentation-and-observability.md:54` carries **neither** the parenthetical nor the
+clause, and carries a `*Conformance:*` clause appendix C drops. Design §8.1 restates the chapter, the
+corpus's harvested rule for `OBS-29` is derived from the chapter and is exact about its source, and **five
+documents across four phases** — phases 5b, 5c, 6a, 8a and this repository's phase-10 inbound list — reasoned
+from the short form and carried an "open surface decision" (a new pipeline step at `Stages::PRE_REDIRECT`,
+and/or a widening of `RequestOptions`) that the requirement had already closed. Nothing was built wrongly:
+every one of those phases declined the wiring, 6a under its `R15` and 8a as `P8-7`. What it cost is that the
+decision travelled as open through five documents and one register retirement, and that a phase holding a
+repair budget could have spent it widening a public surface `NFR-4` would then lock with no caller — the
+`Event#tag` mistake (`P5-18`) in a second place. **Code half: already shipped** — 5c's eleven-method
+vocabulary, shared no-op and ordering test, and 6a's per-attempt group through `http_tracer_factory:` called
+with `cursor` (`P6-7`); the operation-lifecycle triple and the transport-milestone group having no wired
+emitter in v1 is conforming by the clause above, and is recorded in `docs/first-release.md` § What v1 ships
+without › Behavioural asymmetries a consumer must know. The corpus half is
+`docs/knowledge/notes/observability.md`, which **Corrects** the harvested rule — and does not report a
+harvesting error, because a harvested entry cannot carry what its source does not say.
+
+Touches `SSE-19`, `SSE-11`, `SSE-12`, `OBS-29`, `OBS-28`, `OBS-25`, `CTX-14`, `CTX-20`, `NFR-4`.
 
 A deviation discovered by a review or an audit, with no phase in flight to record it against and
 no standing permission to edit §10 directly, lands here first: dated, with the IDs it touches and

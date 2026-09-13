@@ -135,8 +135,42 @@ stated in the release notes rather than discovered at `bundle install`.
       against that tree: the conformance-run caveat, the `include Dexpace` constant shadow, and
       `Dexpace::IO::MAX_MATERIALIZED_BYTES`. Cites `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`,
       `PIPE-39`
+- [ ] **The thirteen recorded corrections to `docs/sdk-design-ruby/` §3, §4, §8, §9, §10, §11, §12 and to
+      appendix C's `SSE-19` row applied — or the release notes stating which design sentences a reader
+      should not trust.** Filed 2026-09-13 by phase 10's design. Every one is a place where the **rule**
+      is right, the **mechanism sentence** is wrong about Ruby or about a library, and the phase that
+      found it shipped the working code already. Numbered `C1`–`C13` by that design and enumerated here
+      so no amendment recorded in `docs/deviations.md` ends the phase without a line in this blocker:
+      §3.1's decode recipe (`C1`), §4's builder list dropping the
+      multipart body `HTTP-3` names (`C2`), §3.1's and §10.12's attribution of `IO-6`'s ownership rule to the
+      retired `SEAM-3` (`C3`), §8.1's `Event#tag` (`C4`), §3.2's block-scoped `read_body` (`C5`), `Net::HTTP`'s
+      default-on retry against §3.2/§11.18/§12 (`C6`), §12's `TRANSPORT` row in both directions
+      (`TRANSPORT-14` unreachable on `async-http`, `TRANSPORT-8` satisfiable there — `C7`), §8.3's absolute
+      prohibition (`C8`), §9.3's "default gem" for a bundled Minitest (`C9`), §9.3's unstated report unit
+      (`C10`), **§10.5's mitigation sentence attributing the socket-closing hook to "an adapter" where only
+      the transport can perform it** (`C12`), **§12's `PAGE` row recording one vacuity fewer than
+      `dexpace-conformance` will, `PAGE-15`'s wrapping clause and `7c P7-1`** (`C13`), and — the one
+      against the **normative** specification — the two measured places where appendix C and a chapter
+      diverge and neither says so: appendix C's `SSE-19` row drops the port sanction
+      `docs/product-spec/13-…md:33` grants, and `docs/product-spec/15-…md:54`'s `OBS-29` sentence drops the
+      "wiring … is a follow-up, so it is not yet runtime-enforced" clause appendix C's row carries (`C11`). The
+      second cost five documents across four phases an open surface decision the requirement had already
+      closed, which is why it is a pattern and not an erratum. **Why it is a blocker and not a report line:** these are the documents a
+      consumer and a future porter read, thirteen of their sentences are false about the shipped code, and
+      five of the trees they live in are frozen to every maintenance tool and reserved to a human acting
+      deliberately — so no phase can close this, and leaving it unmentioned is the one outcome
+      `docs/deviations.md`'s holding area exists to prevent. **The alternative form is real**: a release
+      may ship with the sentences unamended if the notes say which they are; it may not ship with them
+      unamended and unmentioned. The set, with each frozen sentence quoted, its replacement written out,
+      its measurement and its verified code half, is `docs/deviations.md` § Deviations found outside a
+      phase, completed by phase 10's plan, Task 17
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
-      accidental breaking change
+      accidental breaking change. **Phase 10 is the phase that can**: its plan, Task 5 is the last change
+      to `sig/` in every gem, so Task 18 establishes the baseline over a tree nothing else will move —
+      **both** baselines, the `sig/**/*.rbs` tree and the runtime surface snapshot, because `rbs`
+      describes what someone wrote and not what `Data.define` generates. Establishing a baseline is not
+      satisfying `NFR-4`, whose subject is a **diff** against the previous release tag; that stays ⏳
+      until a `v*` tag exists
 - [ ] `SECURITY.md` contact confirmed reachable and monitored
 - [ ] RubyGems ownership settled for every gem name above, and trusted publishing configured
       (OIDC-based, no long-lived API key committed anywhere)
@@ -379,6 +413,51 @@ MUST state every item here**, for the same reason the section above is stated.
   to know types neither constant. So the release notes state it, and `docs/sdk-documentation/` states it
   beside the worked example the blocker above owes.
 
+- **The HTTP-tracer vocabulary has no wired emitter for two of its three groups — `OBS-28`, `OBS-29`
+  (MUST), `CTX-14`, `CTX-20`.** Added 2026-09-13 by phase 10's design, which closed this as a decision
+  rather than carrying it as an open surface question. **This is conforming, and `OBS-29`'s own text is
+  why:** its canonical row in appendix C ends "This is a documented emission contract;
+  pipeline/transport wiring to emit it is a follow-up, so it is not yet runtime-enforced." Phase 5c
+  ships the eleven-method vocabulary, the shared no-op and the ordering test; phase 6a emits the
+  **per-attempt** group through `http_tracer_factory:` called with `cursor`. The
+  **operation-lifecycle triple** and the **transport-milestone group** are emitted by nothing in v1,
+  because the first would need a new step at `Stages::PRE_REDIRECT` — `Stages::LOGGING` is order 1100
+  and would fire once per redirect hop, per retry attempt and per auth replay, contradicting the 1:1
+  clause — and the second would need a widening of `RequestOptions`, a core type whose members are
+  `(:timeout, :max_retries, :tags)`, since the transport seam is `#call(request, options, cancellation)`
+  and `PIPE-11` forbids ambient carriage. Both were declined on the `Event#tag` precedent: `NFR-4` locks
+  a public surface at the first tag, `OBS-28`'s "Every event method SHOULD default to a no-op" makes an
+  unwired group conforming, and adding a keyword later widens while removing one breaks. **What a
+  consumer needs to know**: an SDK author who installs an `HTTPTracer` sees the per-attempt events and
+  not the operation-lifecycle or transport ones, and the contract those follow is documented rather than
+  emitted. **The second thing the release notes must state** is that "per-operation tracer factory"
+  names two objects and not one: `CTX-14`'s, on the correlation bundle, produces **span** tracers
+  (`OBS-21`–`OBS-25`) and is legitimately shared — `OBS-25` requires a no-op factory that "MUST NOT
+  allocate per call", so it returns the same object every time — while `OBS-29`'s produces
+  **HTTP-tracers** and is legitimately per operation. Appendix C, design §8.1, phase 5c's Tasks 3–5 and
+  phase 4a's `R3` all read them as one object; phase 10's plan, Task 16 states the distinction in both
+  YARD blocks and in `docs/knowledge/notes/observability.md`.
+
+- **The correlation chain is driven by the SDK author, not by the pipeline — `CTX-16` (SHOULD),
+  `CTX-14`, `SEAM-28` (MAY).** Added 2026-09-13 by phase 10's design. **No phase in the roadmap builds
+  a call path that creates or promotes an execution context**: verified by repository-wide grep over
+  `docs/work/mvp/`, `DispatchContext`, `promote_to_request` and `promote_to_exchange` appear in no phase
+  plan outside phase 4a's own documents; phase 5b's `Instrumentation::Step` probes
+  `request.respond_to?(:context)` and `Dexpace::Request`'s members are `(:method, :url, :headers, :body)`,
+  so it always takes its fallback; and phase 6a's Task 8 seeds a `Cursor#bundle`, which carries no
+  operation name. **This too is conforming**, and by `CTX-16`'s own modal clauses: the context carries
+  the name, the name is carried forward unchanged across every promotion, and it influences neither the
+  request nor the dispatch decision nor the store key. "It is exposed to the tracing seam to label the
+  operation" is descriptive, not modal, and §11.11's rule for a SHOULD with embedded MUSTs applies —
+  the port ships the feature, so it implements every embedded MUST. `SEAM-28`, the ID that would oblige
+  a carrier, is a **MAY** and is deferred in §12. An `operation_name:` keyword on `Pipeline#call` was
+  considered and declined on the same `NFR-4` grounds as the tracer wiring above; `api-design/1d9e6e0b`
+  is what makes adding it later cheap. **What a consumer needs to know**: a generated client gets a
+  correlation model it must construct and promote itself, and the worked end-to-end example the blocker
+  above owes is where that is shown — phase 10's plan, Task 18 adds the correlation chain to that line's
+  enumeration. **The recorded consequence**: `ContextStore`'s cap, `CTX-19`'s reachability and `CTX-9`'s
+  eviction are exercised only by phase 4a's own tests in v1.
+
 ### Post-v1 gems
 
 Design §2.2 is the authority, and the roadmap's "Post-v1" paragraph already states the rule: these seven
@@ -503,6 +582,22 @@ the trigger, then the one job to do when it fires.
   trap §9.2's "run the real suite on each Ruby" argument exists for, since `TargetRubyVersion` catches syntax
   and not library availability. The job when this fires: drop the pin, and re-check that no fence requires
   `minitest/mock`.
+  **Measurement corrected 2026-09-13 by phase 10's design, and the pin's reason widens with it.** Re-run on
+  all four installed interpreters: `Gem::Specification.find_by_name("minitest").version` is **5.25.1** on
+  3.2.11, **5.20.0** on 3.3.12, **6.0.6** on 3.4.10 and **6.0.0** on 4.0.6, with `default_gem?` `false` on
+  every one — so the bundled-gem half of the record holds, and two of the three versions above it are now
+  stale. What changed is not an interpreter: **6.0.6 is installed in the user gem directory on the 3.4 row**,
+  beside the 5.25.4 that interpreter ships, and a bare `require "minitest"` resolves the newest rather than
+  the shipped one. So the 3.4 row is affected too, and differently from the 4.0 row: `require "minitest/mock"`
+  followed by `require "minitest/autorun"` there loads **both copies** and emits **13 `already initialized
+  constant` warnings**, which `NFR-6`'s `Warning.warn`-raising gate turns into a failure — not a `LoadError`
+  but a red row all the same. `require "minitest/mock"` still raises `LoadError` on 4.0.6 and `Object#stub`
+  is still absent there. **The pin is therefore load-bearing for a second reason**: it is not only what keeps
+  `Object#stub` available at the top of the range, it is what makes the 3.4 row deterministic at all, and the
+  mechanism is newest-wins resolution outside Bundler rather than anything about the interpreter — which is
+  also the sharpest available argument for `bundle exec`. The pin's owner does not change: phase 0's plan,
+  Task 2. Phase 10's plan, Task 1 re-measures both facts at implementation time, because a fact that moved
+  once in a day will move again, and its Task 18 carries the numbers here if they have.
 - **Lifting appendix `B.1`, `B.2` and `B.5` — a second implementation of the pagination engine, the SSE
   reader or the configuration chain exists** → lift their assertions into `dexpace-conformance`. Until
   then a lifted assertion over a single subject is a test with one subject living in a package whose
@@ -528,3 +623,38 @@ the trigger, then the one job to do when it fires.
   note): judge whether the thread-only form phase 9 ships (Tasks 7–8) suffices, a judgement phase 9 may
   not make (`P9-6`). This trigger is what fires if phase 10 leaves that judgement open, because the
   reactor adapter is the first artifact that makes a second fiber-scheduler subject available.
+  **Annotated 2026-09-13 by phase 10's design, which does not leave it open: the thread-only form is
+  judged insufficient and phase 10's plan, Task 9 ships the fiber form**, as a driver in
+  `gems/dexpace-transport-async_http/test/` running `InvariantSuite`'s `XCUT-12` assertions through the
+  suite contract's clause 9 `around:` wrapper (`->(&blk) { Sync { blk.call } }`) against `6c`'s bearer
+  cache. The reason is one of `CLAUDE.md`'s constraints that will bite: `Thread::Mutex` ownership is
+  per-fiber and non-reentrant, a single-flight guard is a lock held across a fetch, a fetch under a
+  reactor is a suspension point, and a thread-only race cannot observe the deadlock that combination
+  creates. Phase 9's blocker was composition and not difficulty — `dexpace-conformance` declares
+  `dexpace-core` and nothing else, so it cannot open a reactor — and neither that nor `R6`'s file list
+  binds a phase that owns every gem; the driver costs no dependency, because that gem already declares
+  `async-http` and 8a's own precedent is a driver file inside the adapter gem. **This entry closes when
+  Task 9 lands**, and phase 10's Task 18 removes it then rather than leaving a trigger armed against an
+  event that no longer means anything. It stays here until the fiber run is recorded, because a decision
+  in a plan is not evidence the work was done. Runs on **3.3.12, 3.4.10 and 4.0.6 only**: `async`,
+  `async-http`, `io-event` and `protocol-http1` all declare `required_ruby_version >= 3.3`, re-verified
+  2026-09-13, which is `P8-36` from the other side.
+
+- **A second continued-clause true positive for the probe's chapter-attribution check — one appears that
+  the check cannot see** → write the sentence-spanning form. Recorded 2026-09-13 by phase 10's design.
+  The check is clause-scoped: it splits a line at `;`, pairs each requirement ID with the nearest
+  preceding `docs/product-spec/` reference, expands a range whether or not its endpoints are backticked,
+  and skips a clause whose two-line window carries a negation. Measured over every `*.md` under `docs/`:
+  **38 lines name both a chapter and a canonical ID; a naive same-line rule fires on 14 lines / 23
+  (chapter, ID) pairs with 4 true positives; the clause-scoped form fires 3 times with 3 true positives
+  and 0 false positives.** Those four numbers are **convention-dependent** — they are what the check's
+  own chapter-reference and ID patterns see — and they were taken before phase 10's two documents joined
+  the population; a wider regex counting any `docs/product-spec/` path beside any canonical ID reads 47
+  lines today, 36 of them outside phase 10's own two files. What must not move is the **0 false
+  positives**, which is why the ratio and not the population is what this trigger is written against.
+  Its one **unclosed** blind spot is a clause whose chapter reference sits on
+  the preceding line — `phase8c-…-design.md:70`'s `SEAM-15` is the live instance, found by hand and not
+  by the check — and closing it needs a sentence-spanning parser over Markdown, which 3 fires at 0 false
+  positives does not justify. The gap is printed in the check's own output, so a reader is never told it
+  saw something it did not. **What fires this**: a second such instance. One is an anecdote; two are a
+  population. Touches the requirement-ID conventions, `NFR-17`.

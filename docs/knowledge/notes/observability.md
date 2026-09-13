@@ -10,6 +10,53 @@ stable key.
 - **Fiber storage's copy-on-write protects the *slot*, not a mutable object held in it, and the two write APIs disagree about key types.** Narrows `observability/e0f1e864` a second time, and with it this file's first `## Superseded` entry, which added to that harvested rule the property that "**inheritance is copy-on-write** — a write inside a child fiber does *not* escape to the parent". That is true of a **rebinding** and false of a **mutation**, and the difference decides a design. Verified 2026-09-09 on `ruby 3.4.10 (2026-06-30 revision 2b0b7728dc) +PRISM [x86_64-linux]`, the only interpreter installed on this machine, so this entry is **single-interpreter and must be re-run on 3.2.11 and 4.0.6** before anything rests on it — unlike the entry above it, which was run across all three. With `Fiber[:mutable] = []` set in the parent, a `<<` inside `Thread.new { }`, inside `Fiber.new { }` and inside an `Enumerator`'s internal fiber all landed in the parent's Array — contents `[:thread, :fiber, :enumerator]`, and `object_id` identical across the thread boundary — while `Fiber[:immutable] = :parent` rebound to `:child` in the same three children left the parent's slot at `:parent`. So a **span stack, a counter, or any mutable collection in a `Fiber[]` slot is one shared object across every thread and child fiber descended from the fiber that created it**, which is `XCUT-11`'s "any shared mutable state MUST be synchronized" with no synchronisation and is invisible in a single-threaded test; only an immutable value in the slot gets the isolation the copy-on-write phrase suggests. The second half is about the write side the entry above points at this file's `Fiber#storage=` reference entry for: **`Fiber.current.storage = {"trace.id" => "x"}` raises `TypeError: wrong argument type String (expected Symbol)`, while `Fiber["trace.id"] = "x"` succeeds and stores under `:"trace.id"`** — the per-key setter coerces a `String` key to a `Symbol`, the whole-map setter refuses one, and `Fiber.current.storage` hands every key back as a `Symbol` whichever setter wrote it. The consequence for `OBS-10`, `OBS-23`, `OBS-24` and `ASYNC-8`–`ASYNC-12`: the diagnostic-context key space is `Symbol`-shaped at the carrier's own API; a published key constant declared as a frozen `String` is not directly usable with `Fiber#storage=`, which is the whole-map call `ASYNC-9`'s pooled-worker restore may have no way to avoid; and a fold converting a storage key to an `OBS-39` field key must use `Symbol#name`, which returns the same frozen `String` on every call, never `Symbol#to_s`, which allocates a fresh unfrozen one per call (measured 1 against 1001 per 1000 calls). `:"trace.id".name` is **not** `equal?` to a `"trace.id"` frozen literal, so the two spellings are two objects and one constant has to be the single source. Recorded per `docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md` (verified fact 2, the slot-versus-object split) and `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md` (verified facts 1 and 10, the key-type split); filed once by the pass that reconciled those two designs, because each declined to write it rather than clobber the other's edit.
   <sub>review · `docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md` · high · sha:manual-phase5-fiber-slot-and-key-type</sub>
 
+- **`OBS-29`'s emission wiring is a documented follow-up and not a runtime obligation, and the clause
+  that says so lives in appendix C's row and in no chapter — so the harvested rule, and every document
+  derived from chapter 15, states the requirement short.** Corrects `observability/2da9e2f3`, which ends
+  at "with one tracer instance corresponding 1:1 to a single logical operation" and is exact about its
+  source: `docs/product-spec/15-instrumentation-and-observability.md:54` ends there too. **Appendix C's
+  `OBS-29` row does not.** It continues "(created by the factory per operation). **This is a documented
+  emission contract; pipeline/transport wiring to emit it is a follow-up, so it is not yet
+  runtime-enforced.**" Re-read verbatim 2026-09-13 from
+  `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md`. The divergence runs both
+  ways in the same pair — the chapter carries a `*Conformance:*` clause ("drive a succeeding and a
+  failing (retry-exhausted) operation through a conformant emitter and assert the ordering and the
+  exhausted→failed pairing") that appendix C drops — so **the two rows together are the only complete
+  statement of `OBS-29`, and neither says so.** That is the same shape as appendix C's `SSE-19` row
+  dropping the port sanction `docs/product-spec/13-server-sent-events-and-streaming.md:33` grants, and
+  two instances make it a pattern rather than an anecdote; both are recorded in `docs/deviations.md`
+  § Deviations found outside a phase for a human to amend, since `docs/product-spec/` is frozen.
+  **What the clause decides, and what it cost that it was missed.** `OBS-29` conditions its own
+  enforcement: the SDK owes a *documented* ordering contract, and wiring an emitter is explicitly a
+  follow-up. Phase 5c ships the eleven-method vocabulary, the shared no-op and an ordering test, and
+  phase 6a emits the per-attempt group through `http_tracer_factory:` called with `cursor` — so the MUST
+  is met, and the operation-lifecycle triple and transport-milestone group having no wired emitter in v1
+  is conforming rather than a gap. Five documents across four phases (5b, 5c, 6a, 8a and the roadmap's
+  phase-10 inbound list) reasoned from `docs/sdk-design-ruby/08-instrumentation-and-configuration.md`
+  §8.1's restatement of the chapter, which cannot carry a clause the chapter does not have, and carried
+  an "open surface decision" — a new step at `Stages::PRE_REDIRECT`, and/or a widening of
+  `RequestOptions` — that the requirement had already closed. Nothing was built wrongly: every one of
+  those phases declined the wiring, 6a under its `R15` and 8a as `P8-7`. What it cost is that the
+  decision travelled as open through five documents and one register retirement, and that a phase with a
+  repair budget could have spent it widening a public surface `NFR-4` would then lock with no caller —
+  which is the `Event#tag` mistake (`P5-18`) in a second place. **The second thing this entry fixes,
+  because the same paragraph is where it hides.** "Per-operation tracer factory" names **two** objects
+  and the two are not interchangeable. `CTX-14` (MUST) puts a factory on the correlation bundle;
+  `OBS-25` (MUST) requires "a no-op HTTP-tracer / tracer-factory" and that "Selecting a no-op path MUST
+  NOT allocate per call", so a no-op factory returns the **same object every time** — the opposite of one
+  instance per operation — and phase 4a's `P4-8` bound `Bundle#tracer_factory` to `opentelemetry-api`'s
+  `TracerProvider` shape, `#tracer(name = nil, version = nil)`, keyed by instrumentation-library name and
+  version. So the bundle's factory produces **span** tracers (`OBS-21`–`OBS-25`) and is legitimately
+  shared or cached, while `OBS-29`'s produces **HTTP-tracers** (`OBS-28`'s eleven-method vocabulary) and
+  is legitimately per operation. Appendix C, design §8.1, phase 5c's Tasks 3–5 and phase 4a's `R3` all
+  read them as one object; phase 5c's `P5-43` reconciles the no-op case only and says nothing about a
+  recording one. `observability/4044a5c7` is unaffected and adopted verbatim — the duck-typed listener it
+  describes is the same vocabulary. This file's two other `## Superseded` entries
+  (`sha:manual-phase4-fiber-storage-range` and `sha:manual-phase5-fiber-slot-and-key-type`) are about the
+  diagnostic-context carrier and are untouched by this one; they are named by marker rather than by key
+  because a backticked key must resolve to a harvested entry, and a note's own key is not one.
+  <sub>review · `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md` · high · sha:manual-phase10-obs29-follow-up-clause</sub>
+
 ## Reference
 - **A pooled worker inherits the *pool creator's* fiber storage and sees nothing set afterwards, so a
   merge-shaped context install leaks assembly-time context into a caller's task.** Beside
