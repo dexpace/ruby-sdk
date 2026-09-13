@@ -64,11 +64,16 @@ entry are *not satisfied*, *vacuous* and *deferred*, and its `PAGE` row records 
 (SHOULD) is conditional on offering a mutable paging-options object; the port offers an immutable value
 instead, so the clause is vacuous rather than declined." **There is a second vacuity in the same prefix and
 the row does not carry it.** Phase 7c's design found `PAGE-15`'s wrapping clause vacuous by a false
-antecedent and recorded it as its own ledger row, `P7-1` — "the ID is implemented; the clause is vacuous by
+antecedent and recorded it as its own ledger row, `7c P7-1` — "the ID is implemented; the clause is vacuous by
 a false antecedent, and it gets a ledger row rather than a fabricated wrapper type" — and handed the
 discrepancy forward to phase 9 in as many words ("one vacuity to audit rather than tick — `PAGE-35`, design
 §12's — and one this sub-phase adds, `PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does
-**not** currently record").
+**not** currently record"). **The sub-phase letter is load-bearing in every citation here:** phase 7's
+three sub-phases knowingly number their ledgers from `P7-1` each — the roadmap records the collision as
+deliberate and resolves it at consolidation into design §10
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md:1507`) — so an unqualified `P7-1` resolves to
+two different deviations, `7c`'s vacuity here and `7a`'s unsatisfied `SERDE-27` clause under
+`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs.
 
 Why it lands here rather than with a phase's plan task or in `docs/first-release.md`: the finding is not
 that something is unmet but that a **deviation has no home in the frozen ledger**, which is what this
@@ -77,8 +82,8 @@ section exists for. The cost of leaving it is specific and is §12's own stated 
 because a vacuity is precisely the thing a suite records and a table has to agree with. A reader counting
 §12's vacuous entries against a conformance report's vacuous section will find them off by one in the `PAGE`
 prefix. The addition owed is one clause in the `PAGE` row naming `PAGE-15`'s wrapping clause and citing
-`P7-1`. Recorded here as the as-built audit of the `PAGE` coverage claim until §12 is deliberately amended
-by a human. Touches `PAGE-15`, `PAGE-35`, `P7-1`.
+`7c P7-1`. Recorded here as the as-built audit of the `PAGE` coverage claim until §12 is deliberately amended
+by a human. Touches `PAGE-15`, `PAGE-35`, `7c P7-1`.
 
 **Eight corrections added 2026-09-13, in seven notes, when the find-list register was retired** — the two
 against §12's `TRANSPORT` row share one note. Each records that a

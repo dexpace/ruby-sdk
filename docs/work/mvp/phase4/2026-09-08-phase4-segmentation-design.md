@@ -1002,7 +1002,11 @@ exactly what testing the route §5.2 names would suggest.
 
 **R8 — `4b` and `4c` jointly: how the three shipped steps are single-sourced across two invocation shapes.**
 §5.1 asserts "the step protocol both layers share", but a pipeline step is `#call(request, cursor)`, a
-recovery request step is `request -> request`, and the error-mapping step is `response -> outcome`. No single
+recovery request step is `request -> request`, and the error-mapping step is `response -> response`
+— corrected in place from this document's original `response -> outcome`, which `RECOV-4`'s own
+parenthesis ("response steps (response→response)") and `RECOV-15`'s "the status→typed-exception
+mapping **response step**" both contradict: the step *raises* and returns nothing, and no `Outcome`
+appears in its signature. Both sub-phase designs record the same correction (`4b`'s R8, `4c`'s). No single
 arity spans all three. `4b` decides the pure-transform core and its home; `4c` decides how a pure transform
 is installed into a non-pillar stage. **Neither may ship a second implementation of a transform**, and
 whichever design lands second cites the first rather than restating it. This is the one contract that crosses

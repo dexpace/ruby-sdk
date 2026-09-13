@@ -172,7 +172,18 @@ The design closes with six open questions for the plan. Five are resolved below 
 
 ## Task order and dependency chain
 
-Sixteen tasks, in exact buildable dependency order:
+Sixteen tasks, in exact buildable dependency order.
+
+**The chain crosses into `5c` once, and the two plans interleave rather than following the
+charter's recommended `5a → 5b → 5c`.** Tasks 1–14 need nothing from `5c` and are what the design's
+independence claim is about. **Task 15 does**: `step.rb` `require_relative`s
+`instrumentation/meter.rb` and `instrumentation/tracing.rb` and defaults `meter:` to `NO_METER`,
+all three `5c`'s (its Tasks 5, 6 and 7), and `step_test.rb` reuses `5c`'s three recording doubles
+(`P5-48`). `5c` in turn needs 5b's `diagnostics.rb` — Task 6 here — for `OBS-23` (`5c`'s Tasks 5, 6
+and 11). So the executable order is **5b Tasks 1–14 → `5c` Tasks 1–7 → 5b Tasks 15–16**, and a
+worker running this plan straight through under the recommended order hits a `LoadError` on
+`meter.rb` at Task 15 rather than the `LoadError` on `step.rb` that Step 2 predicts. There is no
+cycle to break: the two halves that depend on each other are in different tasks.
 
 1. **Matrix fact verification and test support doubles** (`logging_matrix_facts_test.rb`, `RecordingSink`, `DiagnosticContext`) — installs `ruby@3.2.11` and `ruby@4.0.6`, verifies the five floor-straddling facts on all three, and produces the test doubles required by later tasks.
 2. `Dexpace::Instrumentation::Severity` (`OBS-2`, `P5-16`, `P5-17`) — four-level frozen `Data` closed set with `.of` factory; standalone.
@@ -188,7 +199,7 @@ Sixteen tasks, in exact buildable dependency order:
 12. `Dexpace::Instrumentation::Preview` (`OBS-38`, `P5-16`, `P5-17`, `P5-31`) — charset-aware text and binary-safe payload preview renderer; standalone.
 13. `Dexpace::Instrumentation::HTTPLogging` (`OBS-34`, `OBS-35`, `P5-16`, `P5-17`, `P5-36`) — logging level closed set, tolerant parser, and layered resolver; standalone.
 14. Downstream wirings of postponed work (`close_quietly`'s second route, `Hooks.notify`'s diagnostic, the body-logging caps' source, `P5-8`) — wirings in `closeable.rb`, `hooks.rb`, `proxy/resolution.rb`, and `configuration/keys.rb`; needs Tasks 3, 10, 11.
-15. `Dexpace::Instrumentation::Emitter`, `Step`, and `AsyncStep` (`OBS-34`, `OBS-36`, `OBS-39`, `OBS-20`, the body-logging caps, `P5-16`, `P5-17`, `P5-33`, `P5-34`) — private emitter and pipeline steps at `Stages::LOGGING`; needs Tasks 3, 10, 11, 12, 13, 14.
+15. `Dexpace::Instrumentation::Emitter`, `Step`, and `AsyncStep` (`OBS-34`, `OBS-36`, `OBS-39`, `OBS-20`, the body-logging caps, `P5-16`, `P5-17`, `P5-33`, `P5-34`) — private emitter and pipeline steps at `Stages::LOGGING`; needs Tasks 3, 10, 11, 12, 13, 14 **and `5c`'s Tasks 5, 6 and 7**.
 16. Final wiring, surface snapshot, RBS baseline, checklist, and status note — `lib/dexpace.rb` require order, surface regeneration, RBS validation, checklist update, and the phase status note's record of the postponed work that landed.
 
 ---
@@ -1248,6 +1259,29 @@ class DiagnosticsTest < DexpaceTestCase
       refute(folded.key?("a"))
     end
   end
+
+  # The 5b/5c crossing the two designs did not name. 5c's scope.rb declares
+  # CURRENT_SPAN_KEY = :"dexpace.current_span" with "It is NOT a diagnostic-context key and
+  # must never be folded", and OBS-10's unfiltered mode folds the WHOLE map -- so without the
+  # RESERVED_PREFIX skip a live Span object reaches OBS-6's totality path on every event.
+  # Reproduced on 3.4.10 before the skip: the fold returned
+  # ["dexpace.current_span", "trace.id"]. The key is written literally rather than through
+  # 5c's constant because CURRENT_SPAN_KEY is a private_constant and a qualified reference to
+  # one raises (execution-context/b58728da); the literal is what the skip actually has to match.
+  test "OBS-10: unfiltered mode skips core's reserved dexpace. fiber slots" do
+    Dexpace::DiagnosticContext.preserve do
+      ::Fiber[:"dexpace.current_span"] = ::Object.new
+      ::Fiber[Diag::TRACE_ID] = "t1"
+      ::Fiber[:tenant] = "acme"
+
+      folded = Diag.folded(nil)
+      assert_equal({ "trace.id" => "t1", "tenant" => "acme" }, folded)
+      refute(folded.key?("dexpace.current_span"))
+      # And neither key 5b itself declares is caught by the skip.
+      refute(Diag::TRACE_ID.name.start_with?(Diag::RESERVED_PREFIX))
+      refute(Diag::SPAN_ID.name.start_with?(Diag::RESERVED_PREFIX))
+    end
+  end
 end
 ```
 
@@ -1270,6 +1304,13 @@ module Dexpace
       TRACE_ID     = :"trace.id"
       SPAN_ID      = :"span.id"
       DEFAULT_KEYS = [TRACE_ID, SPAN_ID].freeze
+
+      # Fiber-storage keys beginning with this prefix are RESERVED for core's own slots and are
+      # never folded into a log event, in either mode. 5c's private :"dexpace.current_span"
+      # holds a live Span; it is a carrier for the tracing half, not a diagnostic-context key,
+      # and OBS-10's default allow-list is exactly {trace.id, span.id}. Public, because an
+      # application putting its own key under "dexpace." has to be able to read why it vanished.
+      RESERVED_PREFIX = "dexpace."
 
       def self.capture
         (::Fiber.current.storage || {}).freeze
@@ -1299,6 +1340,14 @@ module Dexpace
             next if v.nil?
 
             key_str = k.is_a?(::Symbol) ? k.name : k.to_s
+            # OBS-10's unfiltered mode folds "every present diagnostic-context key", and core's
+            # own fiber slots are not diagnostic-context keys. RESERVED_PREFIX is the boundary:
+            # 5c's :"dexpace.current_span" holds a live Span, and folding it would put that
+            # object through OBS-6's totality path on every event. No key 5b declares starts
+            # with it -- TRACE_ID is :"trace.id" and SPAN_ID is :"span.id" -- so the skip
+            # cannot drop a legitimate key.
+            next if key_str.start_with?(RESERVED_PREFIX)
+
             folded_map[key_str] = v
           end
         end
@@ -1325,6 +1374,7 @@ module Dexpace
       TRACE_ID: Symbol
       SPAN_ID: Symbol
       DEFAULT_KEYS: Array[Symbol]
+      RESERVED_PREFIX: String
 
       def self.capture: () -> Hash[Symbol, untyped]
       def self.with: [T] (_DiagnosticSnapshot snapshot) { () -> T } -> T
@@ -1337,7 +1387,7 @@ end
 - [ ] **Step 5: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/diagnostics_test.rb`
-Expected: 6 runs, 0 failures, 0 errors, 0 skips.
+Expected: 7 runs, 0 failures, 0 errors, 0 skips.
 
 ---
 ## Task 7: `Dexpace::Instrumentation::RedactionPolicy`
@@ -1740,10 +1790,14 @@ module Dexpace
       # loses one requirement whichever way it is conflated. The totality backstop here is
       # the marker, applied to whatever prefix of the raw value survives.
       def header_value(name, value)
-        return value if value.nil?
+        # This entry point returns a String ALWAYS -- the one place api-design/6ea28c9c's
+        # "never nil for absent" is overruled by requirement, since OBS-16's output is a header
+        # value and a nil is not one. Event#field never routes a nil here (OBS-3's "null" is
+        # Render's), so the guard is for a direct caller.
+        return "" if value.nil?
 
         folded_name = name.to_s.scrub("").downcase
-        return value unless @policy.url_header_names.include?(folded_name)
+        return value.to_s unless @policy.url_header_names.include?(folded_name)
 
         redact_header_url(value.to_s)
       rescue ::StandardError
@@ -2105,6 +2159,11 @@ module Dexpace
         redacted_val =
           if str_key == Keys::URL_FULL
             @redactor.url(value)
+          elsif value.nil?
+            # OBS-3: a null value is not dropped and is rendered as the literal "null" by
+            # Render. Routing it through #header_value instead would substitute that method's
+            # empty-String contract and lose the null-versus-absent distinction OBS-3 fixes.
+            value
           elsif str_key.start_with?(Keys::HTTP_REQUEST_HEADER_PREFIX)
             hname = str_key.delete_prefix(Keys::HTTP_REQUEST_HEADER_PREFIX)
             @redactor.header_value(hname, value)
@@ -3009,7 +3068,11 @@ class DownstreamWiringsTest < DexpaceTestCase
     h2 = ->(_) { raise ::ArgumentError, "second hook error" }
 
     ex = assert_raises(::IOError) do
-      Dexpace::Hooks.notify([h1, h2], :arg, logger: logger)
+      # Hooks is a private_constant (P2-15), so a QUALIFIED Dexpace::Hooks raises
+      # NameError: private constant Dexpace::Hooks referenced. const_get reaches it, which is
+      # Task 5's pattern for Render; phase 4b drove the same method indirectly through
+      # Cancellation::Source#cancel for this reason.
+      Dexpace.const_get(:Hooks).notify([h1, h2], :arg, logger: logger)
     end
 
     assert_equal("first hook error", ex.message)
@@ -3427,9 +3490,36 @@ class StepTest < DexpaceTestCase
     # OBS-18's NEGATIVE, which is the assertion that matters. Asserting only that an
     # Authorization key is absent passes under an implementation that logs the value under a
     # different key, so the assertion is that the credential appears NOWHERE in the payload.
-    refute(req_entry.payload.key?("#{Keys::HTTP_REQUEST_HEADER_PREFIX}authorization"))
+    # P5-35: omit_disallowed_headers defaults to FALSE, so the header is present under its own
+    # key carrying the fixed marker -- present-and-redacted and absent are different facts.
+    assert_equal(Dexpace::Instrumentation::Redactor::REDACTED_HEADER,
+                 req_entry.payload["#{Keys::HTTP_REQUEST_HEADER_PREFIX}authorization"])
     refute_includes(req_entry.payload.inspect, "Bearer")
     refute_includes(req_entry.payload.inspect, "sk-live-abc123")
+  end
+
+  # OBS-18's boolean is what SELECTS between the two, and both modes are asserted: a policy
+  # whose true branch has no test is a policy nothing exercises, which is the shape this plan
+  # refuses everywhere else.
+  test "OBS-18: omit_disallowed_headers true omits the header entirely instead of marking it" do
+    sink = RecordingSink.new
+    logger = Logger.build(sink: sink)
+    policy = Dexpace::Instrumentation::RedactionPolicy::DEFAULT.with(omit_disallowed_headers: true)
+
+    step = Step.build(
+      logger: logger,
+      redactor: Redactor.build(policy: policy),
+      level: HTTPLogging::HEADERS
+    )
+
+    req = build_request(headers: { "Content-Type" => "application/json",
+                                   "Authorization" => "Bearer sk-live-abc123" })
+    step.call(req, FakeCursor.new(build_response(req)))
+
+    payload = sink.entries[0].payload
+    refute(payload.key?("#{Keys::HTTP_REQUEST_HEADER_PREFIX}authorization"))
+    assert_equal("application/json", payload["#{Keys::HTTP_REQUEST_HEADER_PREFIX}content-type"])
+    refute_includes(payload.inspect, "sk-live-abc123")
 
     # Response event
     res_entry = sink.entries[1]
@@ -3476,6 +3566,65 @@ class StepTest < DexpaceTestCase
     assert_raises(::StandardError) do
       step_with_bad_meter.call(req, FakeCursor.new(build_response(req)))
     end
+  end
+
+  # OBS-34's conformance clause has TWO halves and this is the second -- "at body level assert
+  # body preview fields present" -- together with the whole of OBS-36's: "send a body larger
+  # than the cap; assert the caller receives every byte, the preview length is capped, and the
+  # size field reflects the preview". Both were unasserted in the draft, which is why neither
+  # the empty request preview nor the declared-length size field showed up as a failure.
+  test "OBS-34, OBS-36: at level BODY the previews are present, capped, and sized from the capture" do
+    sink = RecordingSink.new
+    logger = Logger.build(sink: sink)
+    cap = 16
+
+    request_payload  = "R" * 100
+    response_payload = "S" * 100
+
+    step = Step.build(
+      logger: logger,
+      redactor: Redactor::DEFAULT,
+      level: HTTPLogging::BODY,
+      preview_bytes: cap
+    )
+
+    json = Dexpace::MediaType.parse("application/json")
+    req = build_request(method: "POST",
+                        body: Dexpace::Body.string(request_payload, media_type: json))
+    res = build_response(req, body: Dexpace::Body.string(response_payload, media_type: json))
+
+    # FakeCursor is not enough here: a request preview only exists once something WRITES the
+    # body, which is what a transport does and what RequestLoggingBody taps. This cursor is the
+    # smallest stand-in for that -- it drains the wrapped body into a Buffer sink the way the
+    # terminal transport would (3a's Buffer carries the whole TypedWrites surface; confirm the
+    # sink shape at Task 1 alongside the other cross-phase signatures).
+    writing_cursor = ::Class.new do
+      def initialize(response) = (@response = response)
+
+      def call(request)
+        request.body&.write_to(Dexpace::IO::Buffer.new)
+        @response
+      end
+    end.new(res)
+
+    returned = step.call(req, writing_cursor)
+
+    # OBS-36: the caller still receives EVERY byte of the response, over-cap regime and all.
+    assert_equal(response_payload, returned.body_string)
+
+    # The REQUEST preview rides on the response event, not the request event, because
+    # RequestLoggingBody mirrors on write and the write happens inside cursor.call. Asserting
+    # it on the request event is what passed vacuously against an always-empty "".
+    req_entry = sink.entries[0].payload
+    refute(req_entry.key?(Keys::HTTP_REQUEST_BODY_PREVIEW))
+
+    res_entry = sink.entries[1].payload
+    assert_equal("R" * cap, res_entry[Keys::HTTP_REQUEST_BODY_PREVIEW])
+    assert_equal(cap, res_entry[Keys::HTTP_REQUEST_BODY_SIZE])
+    assert_equal("S" * cap, res_entry[Keys::HTTP_RESPONSE_BODY_PREVIEW])
+    assert_equal(cap, res_entry[Keys::HTTP_RESPONSE_BODY_SIZE])
+    # And the size field is the PREVIEW's, never the declared 100-byte content length.
+    refute_equal(request_payload.bytesize, res_entry[Keys::HTTP_REQUEST_BODY_SIZE])
   end
 
   test "body-logging caps: preview_bytes must be positive integer when level is BODY" do
@@ -3604,6 +3753,9 @@ require_relative "severity"
 require_relative "keys"
 require_relative "http_logging"
 require_relative "preview"
+# OBS-18's marker: emit_headers names Redactor::REDACTED_HEADER for the non-allow-listed,
+# non-omitted case, so the constant's file is required rather than assumed to be loaded.
+require_relative "redactor"
 
 module Dexpace
   module Instrumentation
@@ -3623,20 +3775,23 @@ module Dexpace
 
         emit_headers(ev, redactor, request.headers, Keys::HTTP_REQUEST_HEADER_PREFIX)
 
-        body = request.body
-        ev.field(Keys::HTTP_REQUEST_BODY_SIZE, body.content_length) if body&.content_length
+        # BODY-35 fixes the UNKNOWN sentinel at -1, which is truthy -- so `if content_length`
+        # never filters it and a chunked body would log a size of -1. The declared length is
+        # emitted only when it is known, and only at HEADERS: at BODY the size field describes
+        # the captured preview (OBS-36), and the preview is not captured yet here.
+        declared = request.body&.content_length
+        ev.field(Keys::HTTP_REQUEST_BODY_SIZE, declared) if declared && declared >= 0
 
-        if level.at_least?(HTTPLogging::BODY) && body.respond_to?(:snapshot)
-          # BODY-20: #snapshot is the bytes mirrored so far. #preview_bytes on the response
-          # wrapper is the CAP, not the payload -- rendering it would log an Integer.
-          ev.field(Keys::HTTP_REQUEST_BODY_PREVIEW,
-                   Preview.render(body.snapshot, media_type: media_type_of(body)))
-        end
-
+        # NO request body preview here. RequestLoggingBody mirrors on WRITE -- #snapshot reads
+        # @tee&.tap_snapshot and the tee is built inside #write_to -- and the write happens
+        # inside cursor.call, AFTER this event. Emitting it here yields "" on every request.
+        # The preview and its size ride on the response and failure events instead, which is
+        # also where BODY-20 wants them ("the bytes mirrored up to the failure point, to aid
+        # diagnosis of a failed request").
         ev.emit
       end
 
-      def emit_response(logger, redactor, _request, response, duration_ms, level, _preview_bytes)
+      def emit_response(logger, redactor, request, response, duration_ms, level, _preview_bytes)
         ev = logger.event(Severity::INFO).event(Events::HTTP_RESPONSE)
         # Response#status is a Dexpace::Status value object; #code is the Integer.
         ev.field(Keys::HTTP_RESPONSE_STATUS_CODE, response.status.code)
@@ -3645,30 +3800,62 @@ module Dexpace
         emit_headers(ev, redactor, response.headers, Keys::HTTP_RESPONSE_HEADER_PREFIX)
 
         body = response.body
-        ev.field(Keys::HTTP_RESPONSE_BODY_SIZE, body.content_length) if body&.content_length
+        declared = body&.content_length
+        at_body = level.at_least?(HTTPLogging::BODY)
+        ev.field(Keys::HTTP_RESPONSE_BODY_SIZE, declared) if declared && declared >= 0 && !at_body
 
-        if level.at_least?(HTTPLogging::BODY) && body.respond_to?(:snapshot)
-          ev.field(Keys::HTTP_RESPONSE_BODY_PREVIEW,
-                   Preview.render(body.snapshot, media_type: media_type_of(body)))
+        if at_body
+          # OBS-36: "Logged body-size/preview fields therefore describe the captured preview,
+          # not necessarily the full body", and its conformance clause asserts the size field
+          # reflects the preview. So at BODY the size is the snapshot's bytesize and NOT the
+          # declared content length. #snapshot triggers ResponseLoggingBody's lazy drain, whose
+          # over-cap regime replays the prefix and continues from the live tail, so the caller
+          # still receives every byte.
+          emit_preview(ev, Keys::HTTP_RESPONSE_BODY_PREVIEW, Keys::HTTP_RESPONSE_BODY_SIZE, body)
+          # The REQUEST preview, emitted here because the request body is only mirrored once
+          # cursor.call has written it. See emit_request.
+          emit_preview(ev, Keys::HTTP_REQUEST_BODY_PREVIEW, Keys::HTTP_REQUEST_BODY_SIZE,
+                       request.body)
         end
 
         ev.emit
       end
 
-      def emit_failure(logger, _redactor, _request, error, duration_ms)
+      def emit_failure(logger, _redactor, request, error, duration_ms, level)
         ev = logger.event(Severity::ERROR).event(Events::HTTP_RESPONSE)
         err_type = error.class.name || "Error"
         ev.field(Keys::ERROR_TYPE, err_type)
         ev.cause(error)
         ev.field(Keys::HTTP_RESPONSE_DURATION_MS, duration_ms) if duration_ms
-        # OBS-39, and phase 4b's ProtocolError decision CONFIRMED and extended: no body and
-        # no body preview is attached to a failure event at any level below BODY. A message
-        # is what lands in a log by default, and an error body is the payload most likely to
-        # carry a token.
+        # OBS-39, and phase 4b's ProtocolError decision CONFIRMED and extended: no RESPONSE
+        # body and no response preview is attached to a failure event at any level, and none
+        # at all below BODY. A message is what lands in a log by default, and an error body is
+        # the payload most likely to carry a token. At BODY the REQUEST preview is attached,
+        # which is BODY-20's own case: "the bytes mirrored up to the failure point, to aid
+        # diagnosis of a failed request".
+        if level.at_least?(HTTPLogging::BODY)
+          emit_preview(ev, Keys::HTTP_REQUEST_BODY_PREVIEW, Keys::HTTP_REQUEST_BODY_SIZE,
+                       request.body)
+        end
+
         ev.emit
       end
 
       private
+
+      # OBS-36, OBS-38: one preview and one preview-derived size, from whatever the wrapper
+      # mirrored. Skips a body that is not a logging wrapper (nothing was captured) and an
+      # empty capture. The size is the SNAPSHOT's bytesize, never the declared content length:
+      # "Logged body-size/preview fields therefore describe the captured preview".
+      def emit_preview(event, preview_key, size_key, body)
+        return unless body.respond_to?(:snapshot)
+
+        captured = body.snapshot
+        return if captured.nil?
+
+        event.field(size_key, captured.bytesize)
+        event.field(preview_key, Preview.render(captured, media_type: media_type_of(body)))
+      end
 
       # OBS-18 gates NAMES first: a header whose name is not allow-listed never reaches a
       # value redactor, because its value is not logged. OBS-17 then decides whether the
@@ -3687,9 +3874,21 @@ module Dexpace
       def emit_headers(event, redactor, headers, prefix)
         return if headers.nil?
 
+        omit = redactor.policy.omit_disallowed_headers
+
         headers.each_entry do |(name, value)|
           folded = name.downcase
-          next unless redactor.header_name?(folded)
+          unless redactor.header_name?(folded)
+            # OBS-18: "depending on a boolean policy it is either emitted with a fixed
+            # redaction marker ('REDACTED') or omitted entirely". The policy is what selects,
+            # and P5-35 defaults it to false -- the marker -- because a header that was present
+            # and redacted and a header that was absent are different facts to a reader.
+            # Skipping unconditionally would leave omit_disallowed_headers and REDACTED_HEADER
+            # NFR-4-locked with no caller, which is the TeeSink#clear_tap shape this plan
+            # refuses everywhere else.
+            event.field("#{prefix}#{folded}", Redactor::REDACTED_HEADER) unless omit
+            next
+          end
 
           event.field("#{prefix}#{folded}", value)
         end
@@ -3810,7 +4009,7 @@ module Dexpace
         duration_ms = (@clock.monotonic - started) * 1000.0
         if logged
           Instrumentation.contain(@logger, event: Events::INSTRUMENTATION_LOG) do
-            @emitter.emit_failure(@logger, @redactor, request, e, duration_ms)
+            @emitter.emit_failure(@logger, @redactor, request, e, duration_ms, @level)
           end
         end
         raise
@@ -3931,6 +4130,7 @@ module Dexpace
         end
 
         future = cursor.call(request)
+        registered = false
 
         future.on_settle do |settlement|
           duration_ms = (@clock.monotonic - started) * 1000.0
@@ -3947,7 +4147,7 @@ module Dexpace
               error = settlement.error || settlement
               if logged
                 Instrumentation.contain(@logger, event: Events::INSTRUMENTATION_LOG) do
-                  @emitter.emit_failure(@logger, @redactor, request, error, duration_ms)
+                  @emitter.emit_failure(@logger, @redactor, request, error, duration_ms, @level)
                 end
               end
             end
@@ -3960,7 +4160,24 @@ module Dexpace
           end
         end
 
+        registered = true
         future
+      rescue ::Exception => e # rubocop:disable Lint/RescueException
+        # Step#call has a rescue and an ensure; this override had neither, so anything raised
+        # by the synchronous HEAD of the async path left the span unfinished, the instruments
+        # unrecorded and -- the one that actually corrupts later output -- Tracing.correlate's
+        # trace.id and span.id still set in Fiber[], where every subsequent event on this fiber
+        # would fold the dead request's ids. The path is real: PIPE-30 normalises a step's
+        # synchronous StandardError into a failed future, but 4c is explicit that "a ScriptError
+        # propagates synchronously", and a ScriptError is not a StandardError. Exception, not
+        # StandardError, for that reason, and the raise is unconditional -- nothing is swallowed.
+        unless registered
+          scope&.close
+          span&.finish
+          @counter.add(1)
+          @histogram.record((@clock.monotonic - started) * 1000.0)
+        end
+        raise
       end
     end
   end
@@ -4024,7 +4241,7 @@ end
 Run:
 `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/step_test.rb`
 `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/async_step_test.rb`
-Expected: 4 runs and 2 runs, 0 failures, 0 errors, 0 skips.
+Expected: 6 runs and 2 runs, 0 failures, 0 errors, 0 skips.
 
 ---
 ## Task 16: Final Wiring, Surface Manifest, RBS Baseline, Checklist, and Status Note
@@ -4170,8 +4387,9 @@ already-planned phase, `docs/first-release.md` when it belongs to the release, o
      this plan depends on**: `OBS-24` is 5b's, it has a row in the requirement map below, and Task 6
      implements it. **The unreachable bundle is the one Task 15 is written around**: it is what open
      question 7 resolves to, and `Step#bundle_for`'s comment cites phase 6a's Task 8.
-3. `P5-39` stays an **unused gap**. It was reserved by the design and never needed; nothing is
-   renumbered to close it, and no task may claim it.
+3. `P5-39` is **claimed, and is no longer a gap**. The design reserved it and never needed it; the
+   `Diagnostics::RESERVED_PREFIX` skip found at the 5b/5c review takes it, which is what the number
+   was reserved for. The ledger block `P5-16`–`P5-39` is now contiguous and fully used.
 
 - [ ] **Step 5: Write the sub-phase checklist**
 
@@ -4318,12 +4536,13 @@ Twenty-eight requirement IDs: **26 ✅ Implemented, 2 ⏳ Deferred (`OBS-19`, `O
 | `OBS-19`'s header-drop policy | Task 16 | Postponed by the 5b design; owner phase 8c, Tasks 7, 9 and 15 (`DropPolicy`) |
 | `OBS-37`'s async preview skip | — | Untouched; post-v1 with the async adapters (`docs/first-release.md` § What v1 ships without) |
 | The five findings the two reconciliation passes made — §8.1's unsourced `Event#tag`, the bare-`Logger` cop watch, the charter's `OBS-19` cell, the charter's `OBS-24` arithmetic, and the step's unreachable context bundle | Tasks 15, 16 | **All five already have owners** — phase 10's inbound list, this plan's Task 10, the charter's two corrections (made 2026-09-13), and phase 6a's Task 8; Task 16 verifies them and re-states none. The `OBS-24` arithmetic is one this plan rests on: the charter assigned `OBS-24` to 5b in prose and to `5c` in arithmetic and has since been corrected to 5b — which is why `OBS-24` has a row above and Task 6 implements it. The unreachable bundle is the other: the step's slot precedence names a context bundle no pipeline step can reach, so its first clause degrades to the keyword and to `Bundle::NONE`, which is `OBS-34`'s own default configuration and leaves its conformance clause unaffected |
-| `P5-39` | — | A deliberate, **unused** gap in the ledger. No task claims it and nothing is renumbered to close it |
+| `P5-39` | Task 6 | The reserved-prefix skip, claiming the number the design had left as a gap. `5c`'s private `:"dexpace.current_span"` slot is not a diagnostic-context key and "must never be folded", and `OBS-10`'s unfiltered mode folds the whole map — so without the skip a live `Span` reaches `OBS-6`'s totality path on every event |
 | Moving core's test fakes into `dexpace-conformance` | Tasks 1, 15 | Untouched (phase 8a later declined it). 5b adds exactly **two** doubles, `RecordingSink` and `DiagnosticContext`; the recording tracer, span and meter are `5c`'s and are consumed, not duplicated (`P5-48`) |
 
 ### Deviation Ledger Mapping
 
-Twenty-three deviations: `P5-16` through `P5-38` (`P5-39` is a deliberate gap).
+Twenty-four deviations: `P5-16` through `P5-39`, contiguous. `P5-39` was a reserved gap until the
+5b/5c review found the `Diagnostics` crossing it records.
 
 | # | Deviation | Requirement / Document | Task |
 |---|---|---|---|
@@ -4350,3 +4569,4 @@ Twenty-three deviations: `P5-16` through `P5-38` (`P5-39` is a deliberate gap).
 | `P5-36` | `HTTPLogging.resolve` requires `key:` keyword with no default | `OBS-35`, `CFG-14` | Task 13 |
 | `P5-37` | `Instrumentation.contain` is a module function | `OBS-20`, `XCUT-20` | Task 11 |
 | `P5-38` | `Logger` keeps §8.1 name despite shadowing stdlib | §8.1, `SEAM-1` | Task 10 |
+| `P5-39` | `Diagnostics::RESERVED_PREFIX` — `OBS-10`'s unfiltered mode skips fiber keys named `dexpace.*` | `OBS-10`, `OBS-6`, `OBS-1`; `5c`'s `CURRENT_SPAN_KEY` | Task 6 |

@@ -232,7 +232,7 @@ trim_trailing_whitespace = false
 
 - [ ] **Step 7: Verify the pin takes effect**
 
-Run: `cd /home/mohammad/Projects/dexpace/ruby-sdk && ruby -v`
+Run: `cd /home/mohammad/Projects/ruby-sdk && ruby -v`
 Expected: `ruby 4.0.6 ...`, overriding the user's global mise pin. If it still reports 3.4.10,
 `mise install` did not register — re-run `mise install` in the repository directory.
 
@@ -1516,6 +1516,7 @@ and which phase 7 will otherwise walk into:
 require_relative "json/version"
 
 module Dexpace
+  # Wire codecs: the serde seam's shipped implementations.
   module Serde
     # The reference wire codec, over Ruby's `json` default gem.
     #
@@ -1529,10 +1530,18 @@ module Dexpace
 end
 ```
 
+**Every intermediate namespace module carries a YARD block of its own**, as `Serde` does above —
+`Dexpace::Transport` in both transport entry files and `Dexpace::Async` in
+`dexpace-async-thread`'s. This is not decoration: YARD counts an intermediate namespace as a
+public object, and Task 16's gate fails the build at anything below `100.00% documented`. Measured
+on YARD 0.9.45 against this exact fence with the block omitted: `Modules: 3 (1 undocumented)`,
+`75.00% documented`, `Undocumented Objects: Dexpace::Serde`. One comment line restores
+`Modules: 3 (0 undocumented)`, `100.00% documented`.
+
 `gems/dexpace-async-thread/lib/dexpace/async/thread.rb` carries the same caution for `::Thread`.
 The remaining three entry files follow the plain shape of `dexpace.rb`, each with its own
 `require_relative "<name>/version"` and its namespace nested in full `module`/`class` form
-(`Style/ClassAndModuleChildren: nested`).
+(`Style/ClassAndModuleChildren: nested`), and each documenting every namespace it opens.
 
 - [ ] **Step 6: Write the `sig/` mirrors**
 
@@ -2507,6 +2516,17 @@ Two plain `Open3.capture3` calls, no shell. `bash -lc` would source the develope
 and re-resolve `ruby` from `PATH`, which on a matrix row is exactly the wrong interpreter — the
 whole point of this gate is that it runs on the Ruby under test.
 
+**The scratch `Gemfile` holds the gem under test and, for an adapter, `dexpace-core` by `path:` —
+nothing else, ever.** Design §9.2's wording ("a scratch `Gemfile` containing only `gem
+"dexpace-core", path: ...`") describes the core case exactly; for an adapter the same shape needs
+one more line, because the adapter's gemspec declares `dexpace-core` (Task 5, Step 4), Bundler
+resolves a path gem's own dependencies, and nothing is published — so a one-line Gemfile fails
+resolution before the smoke script runs, with "every version of \<adapter\> depends on dexpace-core
+~> 0.0 and dexpace-core ~> 0.0 could not be found in locally installed gems". Verified on 4.0.6.
+The assertion is unchanged and is not weakened: what the gate proves is that Bundler refuses every
+name the bundle does not declare, and an adapter bundle carrying core by `path:` still dies on
+`require "logger"` with `cannot load such file -- logger (LoadError)` — measured, not argued.
+
 ```ruby
   CLEAN_BUNDLE_ENTRIES = {
     "dexpace-core" => ["dexpace", "Dexpace"],
@@ -2537,7 +2557,15 @@ whole point of this gate is that it runs on the Ruby under test.
 
     targets.each do |name, (entry, constant)|
       path = override || File.join(root, "gems", name)
-      clean_bundle_check(name, path, entry, constant)
+      # An adapter's gemspec declares `dexpace-core` (Task 5, Step 4), and nothing is published,
+      # so a scratch Gemfile naming the adapter alone cannot resolve: Bundler resolves a path
+      # gem's own dependencies and would look for dexpace-core 0.0.0 on rubygems.org. Verified:
+      # "every version of <adapter> depends on dexpace-core ~> 0.0 and dexpace-core ~> 0.0 could
+      # not be found in locally installed gems". So core goes in by `path:` too, from beside the
+      # gem under test -- which is also the right source under DEXPACE_CLEAN_BUNDLE_GEM, whose
+      # fixture is already a complete miniature workspace.
+      core_path = name == "dexpace-core" ? nil : File.join(File.dirname(path), "dexpace-core")
+      clean_bundle_check(name, path, entry, constant, core_path: core_path)
     end
 
     puts "gates:clean_bundle: #{targets.size} gem(s) load in isolation on Ruby #{RUBY_VERSION}."
@@ -2549,12 +2577,20 @@ and the helper it calls, in the same file:
 ```ruby
   # Two subprocesses, no shell: `bundle install`, then `bundle exec ruby -e <smoke>`. Bundler
   # refuses to activate a gem outside the bundle, and that refusal is the whole gate.
-  def clean_bundle_check(name, path, entry, constant)
+  #
+  # `core_path` is the ONLY entry permitted beside the gem under test, and only for an adapter,
+  # whose gemspec declares dexpace-core. It does not weaken the gate: a declared dependency
+  # resolved from the workspace is still a declared dependency, and Bundler goes on refusing
+  # every undeclared name -- verified on 4.0.6, where an adapter bundle carrying core by path
+  # still dies with `cannot load such file -- logger (LoadError)`.
+  def clean_bundle_check(name, path, entry, constant, core_path: nil)
     Dir.mktmpdir("dexpace-clean-bundle") do |dir|
+      core_line = core_path.nil? ? "" : "gem \"dexpace-core\", path: #{core_path.inspect}\n"
       File.write(File.join(dir, "Gemfile"), <<~GEMFILE)
         # frozen_string_literal: true
         source "https://rubygems.org"
         gem #{name.inspect}, path: #{path.inspect}
+        #{core_line}
       GEMFILE
       smoke = "require #{entry.inspect}; " \
               "abort(\"no VERSION\") unless " \
@@ -2863,7 +2899,7 @@ end
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec rbs collection install && ruby -Itest test/gates/typing_test.rb`
-Expected: PASS, 5 runs. Do **not** commit `rbs_collection.lock.yaml` — it is gitignored, and
+Expected: PASS, 6 runs. Do **not** commit `rbs_collection.lock.yaml` — it is gitignored, and
 every CI row runs `rbs collection install` for itself, which is the same argument the lockfile
 note makes about `Gemfile.lock`.
 
@@ -3487,7 +3523,8 @@ close the blocker.
 **Files:**
 - Create: `.yardopts`
 - Modify: `tasks/quality.rake`
-- Test: `test/gates/yard_test.rb`, `test/fixtures/gates/yard/undocumented.rb`
+- Test: `test/gates/yard_test.rb`, `test/fixtures/gates/yard/undocumented.rb`,
+  `test/fixtures/gates/yard/header_only.rb`
 
 **Interfaces:**
 - Consumes: the twelve library files from Task 5.
@@ -3517,6 +3554,21 @@ class YardTest < GateCase
     refute_includes(out, "100.00% documented")
     assert_includes(out, "Undocumented Objects")
   end
+
+  # The SPDX header this repository mandates on line 2 is absorbed by YARD as a docstring for
+  # whatever declaration follows it, so the FIRST declaration in every file is counted as
+  # documented whether or not anyone documented it. Measured on 0.9.45: with only
+  # `# frozen_string_literal: true` -- a magic comment YARD skips -- the module reports
+  # `0.00% documented`; adding `# SPDX-License-Identifier: MIT` reports it documented. Under
+  # Style/ClassAndModuleChildren: nested that first declaration is always the outer `module
+  # Dexpace`, never the type the file is about, so the gate is narrowed rather than defeated.
+  # Pin it here so phase 1 meets a recorded behaviour instead of a surprise.
+  test "the SPDX header documents only the outermost declaration, never a nested one" do
+    out = `bundle exec yard stats --list-undoc test/fixtures/gates/yard/header_only.rb 2>&1`
+
+    refute_includes(out, "100.00% documented")
+    assert_includes(out, "HeaderOnlyFixture::Nested")
+  end
 end
 ```
 
@@ -3529,6 +3581,19 @@ end
 module UndocumentedFixture
   def self.no_yard_block
     :nothing
+  end
+end
+```
+
+`test/fixtures/gates/yard/header_only.rb` — the header and nothing else, so the outer module is
+absorbed and the nested one is not:
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+module HeaderOnlyFixture
+  module Nested
   end
 end
 ```
@@ -3566,7 +3631,7 @@ end
 - [ ] **Step 5: Run the test to confirm it passes**
 
 Run: `ruby -Itest test/gates/yard_test.rb`
-Expected: PASS, 2 runs. If `yard stats` reports below 100%, add the missing YARD block — a block
+Expected: PASS, 3 runs. If `yard stats` reports below 100%, add the missing YARD block — a block
 explains *why*, and never restates a signature (styleguide 14.2).
 
 ---
@@ -4218,8 +4283,12 @@ In `CLAUDE.md`'s "**The counts the `claims` check reads out of this file.**" lis
 
 - `Zero gems exist under `gems/` — the directory itself does not exist yet.` becomes a sentence
   stating **six** gems, naming what each contains.
-- The phase-directory sentence states **two** phase directories once phase 1 lands; at the end of
-  phase 0 it states **one**, and names `docs/work/mvp/phase0/`.
+- **Leave the phase-directory sentence alone.** Every phase directory the roadmap names already
+  exists as planning documents, so landing phase 0's code changes no count there; the sentence is
+  true before this task and true after it. Change only the gem-count sentence above. (As first
+  written this step said to set the count to "one", which was right on 2026-09-05 when `phase0/`
+  was the only directory and is wrong now — following it would turn the `claims` check red, which
+  Step 9 would then tell you to fix by reverting this edit.)
 - The harvested-topic sentence is unchanged: 40.
 
 Add a gem-count sentence to `README.md` and `docs/README.md` too — the `claims` check has a row
@@ -4249,7 +4318,8 @@ up here as an orphaned key.
 
 Do not commit. Report to the manager: the seventeen gates and their wall-clock time, the six gems
 at `0.0.0`, the deliberately failing fixture list with the gate each one turns red, the Rubies
-each gate was verified on, the `DEF-` rows appended, and the `CLAUDE.md` diff.
+each gate was verified on, anything the implementation postponed with the owner it was routed to
+per Step 5, and the `CLAUDE.md` diff.
 
 ---
 

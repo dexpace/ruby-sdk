@@ -46,7 +46,7 @@ RuboCop, SimpleCov, YARD. `dexpace-core` gains no new third-party dependency; th
 `NFR-2` budget is spent on `async-http ~> 0.104`.
 
 **Spec:** `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md`
-(2278 lines, read in full), under the charter
+(2446 lines, read in full), under the charter
 `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`.
 `docs/product-spec/17-transport-adapter-conformance-contract.md` and
 `docs/product-spec/18-asynchronous-runtime-adapter-contract.md` are the two normative chapters;
@@ -325,13 +325,15 @@ literally.
 Nineteen tasks. Two hard ordering rules:
 
 **External:** the gemspec's `async-http` dependency line (Task 2) lands before the first
-`require "async/http"` anywhere in this gem's `lib/` (Task 6 is the first), because phase 0's
+`require "async/http"` anywhere in this gem's `lib/` — Task 2 Step 4 writes that line into the
+entry file itself, and Task 5's `Endpoints` is the first task whose code names an `Async::HTTP::`
+constant — because phase 0's
 require-allowlist audit permits a third-party `require` only for the exact dependency name (or
 its `-`-to-`/` form) the gemspec already declares (verified directly against
 `RequireAllowlist.third_party_for`, which reads `spec.runtime_dependencies`).
 
 **Internal:** `Dexpace::TransportError` (Task 4) lands before `Errors.wrap` (Task 6), which lands
-before `Adapter` (Task 9), which lands before every test task that drives it (Tasks 10–16).
+before `Adapter` (Task 11), which lands before every test task that drives it (Tasks 12–16).
 
 **Fifteen of the nineteen tasks open with a failing test; four deliberately do not, and the
 absence is a decision rather than an oversight.** Task 1 gathers evidence and writes two fixture
@@ -520,9 +522,59 @@ fixture in this plan therefore retires its thread by closing what that thread is
 `Thread::Queue` or the `TCPServer` itself — and then `#join`s with a bounded timeout. That is also
 the better fixture: a killed thread never runs the `ensure` that closes its socket.
 
-- [ ] **Step 4: Run nothing yet — there is no code under test.** Confirm only that both files
+`gems/dexpace-transport-async_http/test/support/recording_sink.rb` — this gem's **own** recording
+sink. *(Added 2026-09-13 by the final pre-build review.)* Tasks 7, 9 and 15 each assert what a drop
+logged, and the earlier draft reached for `Dexpace::RecordingSink`, which phase 5b files at
+`gems/dexpace-core/test/support/recording_sink.rb` — **another gem's test tree**. Phase 0's
+`test:gems` load path is `Dir.glob("gems/*/lib") + %w[test]`, so core's `test/support/` is not on
+it, and the only way to reach it is the five-level cross-gem `require_relative` this plan's own
+Task 19 condemns (styleguide 12.6; it would not exist in the packaged gem). One double per idea,
+per gem:
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      module Test
+        # Dexpace::Instrumentation::_Sink, recording rather than writing. 5b's own
+        # Dexpace::RecordingSink is the shape; it lives in dexpace-core's test tree and this gem
+        # cannot require across that boundary, so this is the same idea in this gem's namespace
+        # (the three doubles here all sit under Dexpace::Transport::AsyncHTTP::Test).
+        class RecordingSink
+          Entry = ::Struct.new(:severity, :event, :fields, keyword_init: true)
+
+          attr_reader :entries
+
+          def initialize(enabled: nil)
+            @entries = []
+            @enabled = enabled # nil means "every severity is enabled"
+          end
+
+          def enabled?(severity) = @enabled.nil? || @enabled.include?(severity)
+
+          def emit(severity:, event:, fields:)
+            @entries << Entry.new(severity: severity, event: event, fields: fields)
+            nil
+          end
+
+          def severities_for(event) = @entries.select { |e| e.event == event }.map(&:severity)
+        end
+      end
+    end
+  end
+end
+```
+
+The exact `#enabled?`/`#emit` spelling is 5b's `_Sink` interface and is confirmed against
+`gems/dexpace-core/sig/dexpace/instrumentation.rbs` at implementation time, not pinned here.
+
+- [ ] **Step 4: Run nothing yet — there is no code under test.** Confirm only that all three files
   load: `ruby -Igems/dexpace-transport-async_http/test -e 'require "support/recording_body";
-  require "support/holding_server"'` under the scratchpad `GEM_HOME`, expecting no output.
+  require "support/holding_server"; require "support/recording_sink"'` under the scratchpad
+  `GEM_HOME`, expecting no output.
 
 ---
 
@@ -1344,7 +1396,7 @@ ninth open question above.
 # SPDX-License-Identifier: MIT
 
 require_relative "../../../test_helper"
-require_relative "../../../support/recording_sink" # dexpace-core's own, per phase 5b's plan
+require_relative "../../../support/recording_sink" # this gem's own (Task 1); never core's
 
 # TRANSPORT-13 (SHOULD): a configurable policy for how header drops are logged, with the
 # per-name dedup mode case-insensitive and bounded. §17's own conformance clause: "under
@@ -1354,7 +1406,7 @@ class DexpaceTransportAsyncHTTPDropPolicyTest < DexpaceTestCase
   Severity = Dexpace::Instrumentation::Severity
 
   def logger_and_sink
-    sink = Dexpace::RecordingSink.new
+    sink = Dexpace::Transport::AsyncHTTP::Test::RecordingSink.new
     [Dexpace::Instrumentation::Logger.build(sink: sink), sink]
   end
 
@@ -1577,15 +1629,16 @@ for the new constant, and `bundle exec rake rbs:validate steep` across both gems
 ## Task 8: `Clients` — the per-origin map, `Configuration` reads, `#close` over `pool.close`
 
 **Requirement IDs:** none new (`TRANSPORT-1`, `TRANSPORT-2`, `TRANSPORT-16`, `TRANSPORT-29`
-consumed by construction; `P8-37`).
+consumed by construction; **`XCUT-14` satisfied here**, phase 9's row; `P8-37`).
 **Design:** "`Dexpace::Transport::AsyncHTTP::Clients`"; step 10's construction-argument table;
 open question 3; deviation `P8-37`.
 
 **Files:**
 - Create: `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb`,
   the `sig/` mirror
-- Modify: `gems/dexpace-core/lib/dexpace/configuration/keys.rb`, its `sig/` mirror (two new
-  keys — a widening, per verified fact 7 above)
+- Modify: `gems/dexpace-core/lib/dexpace/configuration/keys.rb`, its `sig/` mirror (**one** new
+  key, `TRANSPORT_CONNECTION_LIMIT` — a widening, per verified fact 7 above; the timeout key is
+  `8a`'s `REQUEST_TIMEOUT` and is read, not re-spelled)
 - Test: `gems/dexpace-transport-async_http/test/dexpace/transport/async_http/clients_test.rb`
 
 - [ ] **Step 1: Write the failing tests**
@@ -1663,6 +1716,34 @@ class DexpaceTransportAsyncHTTPClientsTest < DexpaceTestCase
     clients.close
     clients.close # must not raise a second time
   end
+
+  # XCUT-14 (MUST): "Every process/instance-lived map whose key space is influenced by callers or
+  # remote servers ... MUST be bounded by a hard cap and MUST drain back under the cap after each
+  # insert using a loop (not a single pre-insert check-then-evict), so a concurrent insert burst
+  # converges to the bound instead of overshooting permanently." Both influences are present here:
+  # a caller's URLs choose origins and a server's redirect Location chooses new ones. Same shape
+  # as DropPolicy's MAX_TRACKED_NAMES bound (Task 7), one layer down.
+  test "XCUT-14: the per-origin map is bounded and drains back to the cap after each insert" do
+    clients = Clients.build
+
+    (Clients::MAX_ORIGINS + 5).times { |i| clients.fetch(url("https://h#{i}.test/")) }
+
+    assert_equal(Clients::MAX_ORIGINS, clients.size)
+  end
+
+  # XCUT-14's values own pools, so eviction that does not close is a connection leak wearing a
+  # cap. Arbitrary-victim eviction is acceptable (the requirement says so); silent retention is
+  # not.
+  test "XCUT-14: an evicted client's pool is closed, never merely dropped" do
+    clients = Clients.build
+    first = clients.fetch(url("https://h0.test/"))
+    closed = false
+    first.pool.define_singleton_method(:close) { closed = true }
+
+    (Clients::MAX_ORIGINS + 1).times { |i| clients.fetch(url("https://evict#{i}.test/")) }
+
+    assert(closed, "the evicted client's pool must be closed")
+  end
 end
 ```
 
@@ -1711,6 +1792,14 @@ module Dexpace
       class Clients
         DEFAULT_CONNECTION_LIMIT = 8
 
+        # XCUT-14's hard cap. The map's key space is chosen by caller URLs and by a server's
+        # redirect Location, and it is instance-lived -- an Adapter lives as long as the client --
+        # so nothing else would ever reclaim it. 32 is chosen the way DEFAULT_CONNECTION_LIMIT is:
+        # a memory backstop, not a tuning knob, and deliberately well above any plausible origin
+        # count for one SDK client. XCUT-14's own words: "the cap is a memory backstop and MUST
+        # NOT be relied on as the primary cleanup mechanism" -- #close is that mechanism.
+        MAX_ORIGINS = 32
+
         private_class_method :new
 
         def self.build(configuration: nil, connection_limit: nil, ssl_context: nil)
@@ -1739,14 +1828,31 @@ module Dexpace
         # point under a fiber scheduler, which concurrency-and-async/ee54cb68 and /f261a143 forbid
         # a lock being held across. A lost race discards an unused client, which costs nothing:
         # Client.new opens no socket (verified fact 9).
+        #
+        # XCUT-14: the insert drains back to MAX_ORIGINS in a LOOP, not a single pre-insert
+        # check-then-evict, so a concurrent insert burst converges to the bound instead of
+        # overshooting permanently. Eviction happens under the same lock as the insert (it is a
+        # Hash#shift and nothing else); the evicted clients' pools are closed OUTSIDE it, because
+        # the values own pools and Async::Pool::Controller#close is not something a mutex may be
+        # held across.
         def fetch(url)
           origin = Endpoints.origin_for(url)
           existing = @mutex.synchronize { @by_origin[origin] }
           return existing if existing
 
           candidate = build_client(url)
-          @mutex.synchronize { @by_origin[origin] ||= candidate }
+          client = nil
+          evicted = []
+          @mutex.synchronize do
+            client = (@by_origin[origin] ||= candidate)
+            evicted << @by_origin.shift.last while @by_origin.size > MAX_ORIGINS
+          end
+          evicted.each { |old| Dexpace.close_quietly(old.pool) }
+          client
         end
+
+        # XCUT-14's bound, asserted rather than assumed (Task 8's own test reads it).
+        def size = @mutex.synchronize { @by_origin.size }
 
         # P8-37: Async::HTTP::Client#close is `@pool.wait_until_free { … }` then `@pool.close`
         # -- an unbounded await XCUT-13/TRANSPORT-16 forbid in as many words, and it writes a
@@ -1777,6 +1883,18 @@ raises nothing under ordinary conditions, so `close_quietly` here is belt-and-br
 load-bearing; it is used anyway so every close in this gem goes through the one sanctioned exit,
 consistently.
 
+**The `XCUT-14` bound and its residual, stated rather than discovered.** *(Added 2026-09-13 by the
+final pre-build review, which found this map uncapped where `XCUT-14` is a MUST and where this
+sub-phase had already bounded its other caller-keyed map — `DropPolicy::MAX_TRACKED_NAMES` at 64,
+Task 7 — so the omission was an omission and not a decision.)* An evicted client may still be
+serving an in-flight exchange; closing its pool retires that connection and the exchange surfaces a
+wrapped, **retryable** `Dexpace::TransportError`. That is the identical residual `P8-37` already
+records for `#close` — "a connection in flight at close is retired rather than waited on … which is
+what a caller who closed a transport mid-flight asked for" — and at `MAX_ORIGINS = 32` it takes 32
+distinct live origins on one adapter to reach it. The alternative readings were both worse:
+evicting without closing leaks a pool per evicted origin, and refusing to insert past the cap makes
+the 33rd origin unreachable rather than merely un-cached.
+
 - [ ] **Step 5: Write `sig/dexpace/transport/async_http/clients.rbs`**
 
 ```rbs
@@ -1785,11 +1903,13 @@ module Dexpace
     module AsyncHTTP
       class Clients
         DEFAULT_CONNECTION_LIMIT: Integer
+        MAX_ORIGINS: Integer
 
         def self.build: (
           ?configuration: untyped?, ?connection_limit: Integer?, ?ssl_context: untyped?
         ) -> Clients
         def fetch: (URI::Generic url) -> untyped
+        def size: () -> Integer
         def close: () -> nil
       end
     end
@@ -1800,9 +1920,10 @@ end
 - [ ] **Step 6: Run the suite**
 
 Run: `bundle exec ruby -w gems/dexpace-transport-async_http/test/dexpace/transport/async_http/clients_test.rb`
-Expected: PASS, 6 runs. Then
-`bundle exec ruby -w gems/dexpace-core/test/dexpace/configuration/keys_test.rb` for the two new
-keys.
+Expected: PASS, 8 runs. Then
+`bundle exec ruby -w gems/dexpace-core/test/dexpace/configuration/keys_test.rb` for the one new
+key. Then `bundle exec rake gates:bounded_map`, which phase 9 ships and which this task's
+`MAX_ORIGINS` drain is what keeps green for this file.
 
 ---
 ## Task 9: `RequestMapper` and `RequestBody` — the wire-boundary re-validation, `TRANSPORT-10`/`11`/`12`/`13`/`26`
@@ -1826,6 +1947,7 @@ deviation `P8-40`.
 # SPDX-License-Identifier: MIT
 
 require_relative "../../../test_helper"
+require_relative "../../../support/recording_sink"
 
 # Wire-boundary re-validation (phase 1 postponed it to the adapters): HeaderSyntax re-run
 # immediately before dispatch, on every name and outbound value.
@@ -1849,7 +1971,7 @@ class DexpaceTransportAsyncHTTPRequestMapperTest < DexpaceTestCase
   end
 
   def logger_and_sink
-    sink = Dexpace::RecordingSink.new
+    sink = Dexpace::Transport::AsyncHTTP::Test::RecordingSink.new
     [Dexpace::Instrumentation::Logger.build(sink: sink), sink]
   end
 
@@ -2106,7 +2228,10 @@ module Dexpace
 
           fields = []
           seen_content_type = false
-          request.headers.each do |name, value|
+          # #each_entry, never #each: Dexpace::Headers is a Data.define with `include Model` and
+          # no Enumerable, so its iteration API is #each_entry (phase 1 plan:1026, :1324-1330) and
+          # a bare #each raises NoMethodError.
+          request.headers.each_entry do |name, value|
             folded = name.to_s.downcase
             seen_content_type ||= folded == "content-type"
             if FRAMING_HEADERS.include?(folded)
@@ -2136,7 +2261,7 @@ module Dexpace
         private
 
         def validate!(headers)
-          headers.each do |name, value|
+          headers.each_entry do |name, value| # #each_entry, never #each -- see #call above
             Dexpace::HeaderSyntax.validate_name!(name)
             Dexpace::HeaderSyntax.validate_outbound_value!(value, name: name)
           end
@@ -2583,10 +2708,14 @@ require_relative "../../../test_helper"
 class DexpaceTransportAsyncHTTPAdapterSyncTest < DexpaceTestCase
   Adapter = Dexpace::Transport::AsyncHTTP::Adapter
 
+  # Request::Builder#headers= stores a Dexpace::Headers and coerces nothing (phase 1 plan:3145),
+  # and Request#initialize raises InvalidArgumentError on anything else (phase 1 plan:3117-3119,
+  # asserted there against a literal `{}`), so a plain Hash -- including an empty one -- must be
+  # accumulated through #header(name, value) rather than assigned. Same shape as Task 9's helper.
   def request(headers: {}, url: "https://example.test/")
     builder = Dexpace::Request.builder
     builder.url = url
-    builder.headers = headers
+    headers.each { |name, value| builder.header(name, value) }
     builder.build
   end
 
@@ -2610,9 +2739,13 @@ class DexpaceTransportAsyncHTTPAdapterSyncTest < DexpaceTestCase
   test "TRANSPORT-21: calling outside a reactor settles a SeamError through the future, " \
        "never a synchronous raise (P8-39)" do
     adapter = Adapter.new
-    future = nil
 
-    assert_nothing_raised { future = adapter.call(request, nil, Dexpace::Cancellation.none) }
+    # The positive outcome, never assert_nothing_raised: it does not exist in Minitest 6 and
+    # testing/ forbids it outright ("assert the positive outcome directly"). What TRANSPORT-21
+    # actually asserts is that the future comes back already settled and carries the failure.
+    future = adapter.call(request, nil, Dexpace::Cancellation.none)
+
+    assert_predicate(future, :settled?)
     error = assert_raises(Dexpace::SeamError) { future.value }
     assert_match(/Async reactor/, error.message)
   end
@@ -2748,7 +2881,13 @@ module Dexpace
                                                                     logger: @logger)
             client = client_for(request.url)
           rescue StandardError => e
-            completer.fail(e)
+            # Errors.wrap, never a bare #fail: steps 4-10 reach OpenSSL::SSL::SSLContext#set_params
+            # and Async::HTTP::Endpoint.new, which raise OpenSSL::X509::StoreError, Errno::* and
+            # ArgumentError -- none a Dexpace:: error, none an ::IOError, and P6-4's inherited
+            # obligation is "wrap, and default to retryable" at EVERY site an adapter lets one
+            # escape. Errors.wrap passes a Dexpace:: error (HeaderSyntax's InvalidArgumentError,
+            # StreamError) through unwrapped, so step 4's raise still reaches the future unchanged.
+            completer.fail(Errors.wrap(e))
             return completer.future
           end
 
@@ -3206,9 +3345,11 @@ under `R16`).
 **Every call in this task's code was run against the exact scratchpad `GEM_HOME` while writing
 this plan** (`/tmp/h2check.rb`, `/tmp/tlscheck.rb`), not left as a sketch to be re-derived —
 `Async::HTTP::Server.new(app, endpoint).run` takes the same `Endpoint` object a client also
-connects with (`Async::HTTP::Endpoint.parse(url, protocol:)` for plaintext prior-knowledge h2,
-two separately-optioned `Endpoint.parse` calls, one per side, for TLS, because the server needs
-`cert:`/`key:` and the client needs `cert_store:`); both printed `"HTTP/2"` for
+connects with (`Async::HTTP::Endpoint.new(uri, protocol:)` for plaintext prior-knowledge h2, two
+separately-optioned `Endpoint.new` calls over one `URI::RFC3986_PARSER`-parsed URI, one per side,
+for TLS, because the server needs `cert:`/`key:` and the client needs `cert_store:` — **`.new`,
+never `.parse`, corrected 2026-09-13**, because `.parse` routes through `URI::DEFAULT_PARSER` and
+is the one call this plan's Global Constraints forbid anywhere in this gem); both printed `"HTTP/2"` for
 `response.version`. `Async::HTTP::Endpoint#bind` exists but returns a plain `Array` of bound
 sockets `Server.new` does not accept (it reads `endpoint.protocol`/`.scheme` on its second
 argument) — confirmed by running it and reading the `NoMethodError` — so this fixture passes the
@@ -3331,17 +3472,22 @@ module Dexpace
             port = free_port
             app = build_app(handler)
 
+            # Endpoint.NEW over a URI::RFC3986_PARSER-parsed URI, never Endpoint.PARSE: `.parse`
+            # routes through URI.parse and therefore URI::DEFAULT_PARSER, which is exactly the
+            # 3.4.0 straddle design step 9 / boundary 19 pins against, and it is the one call this
+            # plan's own Global Constraints forbid ANYWHERE in this gem -- Task 19's driver sketch
+            # was corrected for the same call on 2026-09-12 and this fixture was missed. Fixed
+            # 2026-09-13 by the final pre-build review. Verified fact 13: Endpoint.new accepts an
+            # RFC3986-parsed URI directly and only requires #absolute?.
             if tls
               generate_certificate!
-              server_endpoint = ::Async::HTTP::Endpoint.parse(
-                "https://127.0.0.1:#{port}", ssl_context: server_ssl_context,
-              )
-              @client_endpoint = ::Async::HTTP::Endpoint.parse(
-                "https://127.0.0.1:#{port}", ssl_context: client_ssl_context,
-              )
+              uri = ::URI::RFC3986_PARSER.parse("https://127.0.0.1:#{port}")
+              server_endpoint = ::Async::HTTP::Endpoint.new(uri, ssl_context: server_ssl_context)
+              @client_endpoint = ::Async::HTTP::Endpoint.new(uri, ssl_context: client_ssl_context)
             else
               options = http2 ? { protocol: ::Async::HTTP::Protocol::HTTP2 } : {}
-              server_endpoint = ::Async::HTTP::Endpoint.parse("http://127.0.0.1:#{port}", **options)
+              uri = ::URI::RFC3986_PARSER.parse("http://127.0.0.1:#{port}")
+              server_endpoint = ::Async::HTTP::Endpoint.new(uri, **options)
               @client_endpoint = server_endpoint
             end
 
@@ -3471,15 +3617,18 @@ half proves this gem's own drop is doing anything at all on that protocol.
 
 require_relative "../../../test_helper"
 require_relative "../../../support/http2_server"
+require_relative "../../../support/recording_sink"
 
 class DexpaceTransportAsyncHTTPWireGrammarTest < DexpaceTestCase
   Adapter = Dexpace::Transport::AsyncHTTP::Adapter
   HTTP2Server = Dexpace::Transport::AsyncHTTP::Test::HTTP2Server
 
+  # #header(name, value), never `builder.headers = <Hash>`: #headers= stores a Dexpace::Headers
+  # and coerces nothing (phase 1 plan:3145, :3117-3119). Same shape as Tasks 9 and 11.
   def request(url, headers:)
     builder = Dexpace::Request.builder
     builder.url = url
-    builder.headers = headers
+    headers.each { |name, value| builder.header(name, value) }
     builder.build
   end
 
@@ -3513,7 +3662,7 @@ class DexpaceTransportAsyncHTTPWireGrammarTest < DexpaceTestCase
   end
 
   test "TRANSPORT-13: a real dispatch through a DropPolicy warns once per distinct bad name" do
-    sink = Dexpace::RecordingSink.new
+    sink = Dexpace::Transport::AsyncHTTP::Test::RecordingSink.new
     logger = Dexpace::Instrumentation::Logger.build(sink: sink)
 
     Sync do
@@ -3641,7 +3790,7 @@ class DexpaceTransportAsyncHTTPDispatchConformanceTest < DexpaceTestCase
       futures = 16.times.map do |i|
         req = Dexpace::Request.builder.tap do |b|
           b.url = server.client_endpoint.url.to_s
-          b.headers = { "X-Nonce" => i.to_s }
+          b.header("X-Nonce", i.to_s) # never `b.headers = <Hash>` -- #headers= coerces nothing
         end.build
         adapter.call(req, nil, Dexpace::Cancellation.none)
       end
@@ -3821,9 +3970,14 @@ every matrix row; the per-Ruby skip lives entirely inside those Ruby-side tasks 
 `ci_workflow_test.rb`'s "every listed gate appears in some job" assertion is unaffected — no gate
 disappears from any job, one gem is skipped inside several gates on one row.
 
-- [ ] **Step 4: Draft the two `docs/first-release.md` lines**
+- [ ] **Step 4: Verify the two `docs/first-release.md` lines, which already exist**
 
-Handed to a human in Task 19, not filed by this task:
+**Corrected 2026-09-13 by the final pre-build review**: this step read "draft … handed to a human
+in Task 19". Both lines were filed on 2026-09-13 when the deferral register was retired and now sit
+under *Gems, once they exist* — the supported-Ruby paragraph and the native-extension paragraph,
+each already naming `P8-36` and this plan's Task 3. So this step **checks them against what Task 3
+actually built and amends only if they diverge**; it drafts nothing and hands over nothing. The text
+they must still say:
 
 > - `dexpace-transport-async_http` requires Ruby **>= 3.3**, narrower than every other gem in
 >   the workspace (`P8-36`; this plan's Task 3 makes the gates accept it). A consumer on Ruby 3.2
@@ -3836,10 +3990,13 @@ Handed to a human in Task 19, not filed by this task:
 >   install this gem; the same two gems above still work for that consumer.
 
 ---
-## Task 19: The second-driver conformance convergence, the knowledge note, final wiring
+## Task 19: The second-driver conformance convergence, the seven portable assertions, the README, the knowledge note, final wiring
 
 **Requirement IDs:** none new (the second-driver run re-asserts `8a`'s 23 `TRANSPORT` rows, per
-the charter's one-row-per-ID convention — no second row for any of them here).
+the charter's one-row-per-ID convention — no second row for any of them here; Step 1a carries
+**this sub-phase's own seven** — `TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23` — into
+`dexpace-conformance` as portable assertions, which is a second *home* for rows this plan already
+owns and not a second row; Step 1b writes the `ASYNC-7` README section, whose ID is `8b`'s).
 **Design:** `R16` → *What 8c needs the suite to assume — cited, not restated*, which points at the
 one twelve-clause **suite contract** in
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`
@@ -3925,10 +4082,89 @@ found the head delivered in full before `Net::HTTPResponse#content_length` raise
 clause (`8a`'s `R4`, resolved as satisfied whole). **`8a`'s driver waives nothing**, and the sentence
 that must not survive anywhere is "one waiver covering both drivers".
 
+- [ ] **Step 1a: Write this sub-phase's seven assertions INTO `TransportSuite`, not only into this
+      gem's own `test/` tree** *(added 2026-09-13 by the final pre-build review)*
+
+**Why this step exists.** `8a` writes the 23 assertions for its own rows and states explicitly that
+`TRANSPORT-7`, `8`, `9`, `12`, `13`, `21` and `23` "are absent, which is the charter's `8c`
+assignment" (`8a` plan `:5594-5596`); `8a`'s design records the counterpart obligation — "`8c` adds
+a **driver and seven assertions**, and forks nothing (`R16`)" (`8a` design `:2010`); and phase 9
+then assumes the suite is finished — "**Already written; phase 9 drives and aggregates** …
+Phase 9 adds no assertion and forks nothing" (phase 9 design `:420`). Design §9.3 `:102-103`
+requires "**B.6** is exercised **per adapter**", and appendix B `:59-61` lists all seven among
+B.6's items. Without this step those seven §17 requirements exist only in *this gem's private test
+tree*, and a third-party async adapter running the published `dexpace-conformance` gets no
+assertion for any of them — which is the one outcome §9.3 says the gem is published to prevent.
+Tasks 12, 13, 15 and 16 stay exactly as they are: they are this adapter's own regression suite and
+they keep the fixtures (`HoldingServer`, `SilentServer`, `HTTP2Server`, `RecordingBody`) a portable
+assertion must not depend on.
+
+**The shape.** Seven `Dexpace::Conformance::Assertion`s added to `Dexpace::Conformance::TransportSuite`,
+each written against the twelve-clause suite contract's own primitives and **nothing else** —
+`build:`/`borrow:` (clause 4), `settle:` (clause 8), `around:` (clause 9), `wire:` (clause 11) and
+`Dexpace::Cancellation` — so no `async`, `Async::Task` or `Protocol::HTTP` constant enters
+`dexpace-conformance`'s `lib/` or `sig/` and its gemspec stays `dexpace-core` and nothing else
+(boundary 7, `R16`). Each carries its IDs as data and resolves **`:vacuous` with a stated reason**
+on a transport with no async antecedent, which is what lets `8a`'s driver run the same seven
+unchanged:
+
+| Assertion | What it asserts through the contract's primitives | `:vacuous` reason on a sync-only transport |
+|---|---|---|
+| `TRANSPORT-7` | cancel the token mid-body through `settle:`; the settlement is a `Dexpace::CancelledError` and the fixture observed the connection released | "no future to cancel; the send primitive is blocking" |
+| `TRANSPORT-8` | a cancellation the SDK did not initiate settles terminal/non-retryable, and a deadline on the same path settles **retryable** | "the native client has no internal-cancel path" (§9.3's own scoping) |
+| `TRANSPORT-9` | settle the future, then let the fixture deliver the response; the adapted response was closed exactly once | "no adaptation race without a future" |
+| `TRANSPORT-12` | a model-valid non-token name plus a normal header: `settle:` returns normally, the bad name is absent from the wire (`wire:`), the normal one present, the body dispatched | "the native client rejects no model-valid name" |
+| `TRANSPORT-13` | under once-per-name, the same name warns once then goes quiet and a different name warns once; the per-name latch is bounded | vacuous wherever `TRANSPORT-12` is |
+| `TRANSPORT-21` | a pre-dispatch failure comes back through the send primitive's own failure channel, never as a synchronous throw past it | "the sync send has no pre-dispatch channel to distinguish" |
+| `TRANSPORT-23` | across success and failure, no settlement carries a success with no response | "the sync send returns a Response or raises" |
+
+Names are compared **folded** (clause 6) and no assertion reads `content-length` off a response
+(clause 7), both of which this adapter breaks across the HTTP/1.1–HTTP/2 boundary within one run.
+
+**If `8c` runs first**, these seven are written alongside the harness `R16` assigns to `8a`, to the
+same twelve-clause contract, and `8a` records that it consumed rather than wrote them.
+
 **Clause 11's second fixture is a separate `conformance(…)` call**, not a second file: the same suite,
 the same factory, the same `settle:` and `around:`, and `wire:` pointing at Task 14's in-process HTTP/2
 server instead of `WireServer`. That fixture stays in this gem's `test/support/` — `dexpace-conformance`
 declares `dexpace-core` and nothing else, and an HTTP/2 server needs `async-http`.
+
+- [ ] **Step 1b: Write the gem's `README.md`** *(added 2026-09-13 by the final pre-build review,
+      which found no task owned it while the design names it a deliverable five times)*
+
+**Files:** Create `gems/dexpace-transport-async_http/README.md`.
+
+`ASYNC-7` makes a per-adapter README section a **deliverable rather than a courtesy** — `8b` owns
+the ID and writes its own half (its Task 13, `gems/dexpace-async-thread/README.md`), `8a` writes
+its own, and this gem's half is the reactor-backed side of §3.3's fixed contrast. The charter
+assigns it (*`8c` additionally owns … the `ASYNC-7` README section for a reactor-backed adapter*),
+and `P8-39`'s ledger row already says "*Documented* in the gem's README beside the `ASYNC-7`
+section, and in the `sync_over` caveat" — a documentation obligation with no task to write it is a
+deviation recorded against nothing. Five sections, each already decided elsewhere in this plan and
+none of them re-opened here:
+
+1. **`ASYNC-7`** — §3.3's sentence, verbatim: "the thread adapter lets an in-flight blocking read
+   finish, the reactor-backed ones abort at the next scheduler checkpoint." Beside it, why that is
+   *better* here rather than merely different: `Async::Task#cancel` runs `ensure` blocks at a
+   scheduler checkpoint, which is the precise property §8.3 says `Thread#raise` lacks — and the
+   measured behaviour Task 16's `ASYNC-7` test asserts, so the prose and the assertion cannot drift.
+2. **The reactor requirement (`P8-39`)** — `#call` outside `Async`/`Sync` returns an
+   **already-failed** future carrying `Dexpace::SeamError`, never a synchronous raise
+   (`TRANSPORT-21`), with `REACTOR_MESSAGE`'s own fix in it. This gem creates no reactor and says why.
+3. **The `sync_over` caveat** — `Dexpace::AsyncTransport.sync_over` reaches `TRANSPORT-12`'s sync
+   half through this one implementation, and **still requires a reactor**: the exchange it awaits
+   cannot run without one, so a caller with no reactor gets the same step-3 `SeamError` through the
+   bridge.
+4. **`content-length: 0` on a body-less GET** — `async-http` writes it and suppressing it would mean
+   reaching under the body layer. `TRANSPORT-26` does not forbid it and `HTTP-7` is about the model,
+   not the wire; recorded rather than fixed (dispatch step 8).
+5. **`Transport.async_over` accepts an async transport silently** — phase 2's open finding, whose
+   repair is in `dexpace-core` (phase 2 plan, Task 11's return-type check). This gem is the first
+   object that can be fed to it by mistake and does not fix it; the README says so rather than
+   leaving a caller to discover a future of a future.
+
+Plus the per-call timeout's unit, documented here exactly as it is in `Adapter`'s YARD: a bare
+number in `REQUEST_TIMEOUT` is **milliseconds** (`CFG-7`), so thirty seconds is `30s` or `PT30S`.
 
 - [ ] **Step 2: Run the whole gate set on all three interpreters this gem supports**
 
@@ -3986,7 +4222,9 @@ dispositions in full:
   2026-09-13): the design's *Work phase 8c postponed* entry for the policy carries the
   HTTP/1.1-specific sentence verbatim, so nothing is handed over for it. Marking the work as landed is
   this plan's own and is Step 5a's, below.
-- Task 18's two `docs/first-release.md` lines.
+- ~~Task 18's two `docs/first-release.md` lines~~ — **already filed** (corrected 2026-09-13): both
+  sit under `docs/first-release.md` § *Gems, once they exist*, each naming `P8-36` and Task 3, so
+  Task 18 Step 4 verifies rather than drafts and nothing is handed over for them.
 - `docs/deviations.md`'s consolidation of **`P8-36`–`P8-40`** — all five, carried unchanged from
   the design, since this plan judged none of them differently. **No sixth row.** An earlier
   revision of this plan proposed a `P8-41` for the require-set correction (discrepancy 2 below);
@@ -4040,15 +4278,21 @@ ask for.
 Every one of the ten IDs, the task numbers that implement and test it, and each disposition's
 reason.
 
+Each of the seven `TRANSPORT` rows is additionally carried into `dexpace-conformance` as a
+**portable assertion** by Task 19 Step 1a *(added 2026-09-13)* — a second home for a row this plan
+already owns, never a second row, and the reason a third-party async adapter can be held to these
+seven at all. The `Tested in` column names this gem's own test first and the portable assertion
+second.
+
 | ID | Level | Disposition | Implemented in | Tested in |
 |---|---|---|---|---|
-| `TRANSPORT-7` | MUST | ✅ satisfied | Task 11 (steps 11–13) | Task 12 |
-| `TRANSPORT-8` | MUST | ✅ satisfied — §12 records it vacuous; `R14`, and the §12 correction is on phase 10's inbound list | Task 11 (steps 4/17's discrimination) | Task 13 |
-| `TRANSPORT-9` | MUST | ✅ satisfied — phase 2's `Completer#fulfil` does the work; this gem writes no second guard | Task 11 (the `ensure`) | Task 12 |
-| `TRANSPORT-12` | MUST | ✅ satisfied on both protocols by construction (`P8-40`) | Task 9 (steps 4–6) | Task 15 |
-| `TRANSPORT-13` | SHOULD | ✅ satisfied — bounded at 64, case-insensitive | Task 7 | Tasks 7, 15 |
-| `TRANSPORT-21` | MUST | ✅ satisfied | Task 11 (steps 1–3, 10) | Tasks 11, 16 |
-| `TRANSPORT-23` | MUST | ✅ satisfied — phase 2's `Settlement`, no second guard | Task 11 (step 18) | Task 16 |
+| `TRANSPORT-7` | MUST | ✅ satisfied | Task 11 (steps 11–13) | Task 12; Task 19 Step 1a |
+| `TRANSPORT-8` | MUST | ✅ satisfied — §12 records it vacuous; `R14`, and the §12 correction is on phase 10's inbound list | Task 11 (steps 4/17's discrimination) | Task 13; Task 19 Step 1a |
+| `TRANSPORT-9` | MUST | ✅ satisfied — phase 2's `Completer#fulfil` does the work; this gem writes no second guard | Task 11 (the `ensure`) | Task 12; Task 19 Step 1a |
+| `TRANSPORT-12` | MUST | ✅ satisfied on both protocols by construction (`P8-40`) | Task 9 (steps 4–6) | Task 15; Task 19 Step 1a |
+| `TRANSPORT-13` | SHOULD | ✅ satisfied — bounded at 64, case-insensitive | Task 7 | Tasks 7, 15; Task 19 Step 1a |
+| `TRANSPORT-21` | MUST | ✅ satisfied | Task 11 (steps 1–3, 10) | Tasks 11, 16; Task 19 Step 1a |
+| `TRANSPORT-23` | MUST | ✅ satisfied — phase 2's `Settlement`, no second guard | Task 11 (step 18) | Task 16; Task 19 Step 1a |
 | `ASYNC-6` | MUST | ✅ satisfied, both directions | Task 11 (step 13) | Tasks 12 (token→task and pivot→task), 13 (native→pivot: a parent task's cancellation, the hardest case) |
 | `ASYNC-21` | MUST | **N/A** — §11.21, adapter-scoped, no reactive adapter ships; property held anyway | Task 10 (`ResponseBody#each`) | Task 16 |
 | `ASYNC-22` | MUST | ✅ satisfied — no per-call state outside the exchange task and its `Completer` | Task 11 (construction) | Tasks 11, 16 |
@@ -4060,6 +4304,16 @@ and an earlier revision of this sentence denied it *(corrected in place 2026-09-
 closes (Task 7; Task 19 Step 5a performs the mark), and `TRANSPORT-12`'s dispatch-step re-validation
 is `8c`'s half of **the wire-boundary re-validation** phase 1 postponed to the adapters (Task 9;
 marked when the second adapter lands, Task 19 Step 5a).
+
+**One requirement outside this table is satisfied here and its row is elsewhere.** `XCUT-14`
+(MUST) — "every process/instance-lived map whose key space is influenced by callers or remote
+servers MUST be bounded by a hard cap and MUST drain back under the cap after each insert using a
+loop" — binds `Clients`' per-origin map and `DropPolicy`'s per-name latch. Both are bounded
+(`Clients::MAX_ORIGINS`, Task 8; `DropPolicy::MAX_TRACKED_NAMES`, Task 7) and both are asserted.
+The **row** is phase 9's, which dispositions the `XCUT` prefix; this table records only that the
+obligation was met here rather than left for an audit to find. *(Added 2026-09-13 by the final
+pre-build review, which found the `Clients` map uncapped where the same sub-phase had already
+bounded the other one.)*
 
 ---
 

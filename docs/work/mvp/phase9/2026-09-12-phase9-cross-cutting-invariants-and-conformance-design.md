@@ -236,8 +236,9 @@ re-verification review's wider mutation battery and identical on 3.2.11, 3.3.12,
 `cause_walk` 10 of 12 decidable shapes and clean on both argument-carrying builder shapes
 (`send(variable)` undecidable); `bounded_map` 5 of 9 decidable shapes (two more undecidable);
 `seam_names` 5 of 7 decidable shapes and clean on core's own `Async`, `Instrumentation` and `Serde`
-error constants; `drain_loop` 1 of 3 non-conforming shapes caught, 3 of 4 conforming shapes clean,
-with one false positive. Every miss is dispositioned by the plan's Task 13. Over every filed `lib/` fence of phases 0–8,
+error constants. (`drain_loop`, measured at 1 of 3 non-conforming shapes caught with one false
+positive, is out of v1 on that measurement — see the addendum.) Every miss is dispositioned by the
+plan's Task 13. Over every filed `lib/` fence of phases 0–8,
 `cause_walk` and `seam_names` report zero; `bounded_map` reports six, adjudicated under A5 below.
 
 **Fact 1b — the parser warns on nothing; the SCANNED FILE does, and it reaches `Warning.warn`.**
@@ -348,9 +349,9 @@ as an artifact**, which is the question this phase exists to answer and which `R
 | `NFR-8` | MUST | none — retargeted | **Vacuous by its own text** ("In ecosystems without such a build step this requirement does not apply"), §10.19, and §12 counts it among the eight vacuous MUSTs | N/A |
 | `NFR-9` | SHOULD | none — retargeted with `NFR-8` | Vacuous with its antecedent. The retarget is dispositioned under `NFR-1`, not counted twice here | N/A |
 | `NFR-10` | MUST | the 3.2/3.3/3.4/4.0 real-suite matrix; `gates:versions` | **Both kinds.** The matrix result (this build), plus a `PackagingSuite` assertion that each unit declares a floor and that a **higher** floor for an isolated capability is conforming, which `NFR-10` states outright. That is 8c plan, Task 3's per-gem Ruby floor gate edit: `dexpace-transport-async_http` at `>= 3.3` is conforming by the requirement and non-conforming by `gates:versions`, which asserts every gemspec equals the global floor | ⏳ pending that edit |
-| `NFR-11` | SHOULD | `gates:rbs_surface` | The gate plus `PackagingSuite`'s scan over each **shipped** `sig/` tree | ✅ |
+| `NFR-11` | SHOULD | `gates:rbs_surface` | **Both clauses, and the row names both.** Clause 1, no async-framework type in the core public surface: the gate plus `PackagingSuite`'s scan over each **shipped** `sig/` tree. Clause 2, "drive the same core call concurrently from multiple scheduler kinds and assert race-free results": `InvariantSuite`'s two `XCUT-11` assertions (plan Task 8) — sixteen threads on one shared instance, and the two-fibers-on-one-thread shape `8b` handed forward, which is the only one that sees a per-fiber mutex held across a suspension | ✅ |
 | `NFR-12` | SHOULD | `gates:reproducible` | The gate's result, scoped by `P0-7` to one gem built twice on one interpreter | ✅, narrowly |
-| `NFR-13` | SHOULD | `Dexpace/SpdxHeader`, a RuboCop cop | **Both kinds.** The cop's result, plus a `PackagingSuite` assertion recorded **`:vacuous` carrying its reason** — a RuboCop cop cannot reach `sig/**/*.rbs`, which ships inside every gem. A vacuity and never a positive assertion that the gap persists: an assertion asserting the header's *absence* would turn red the day phase 10 repairs it | ⏳, phase 10's inbound list |
+| `NFR-13` | SHOULD | `Dexpace/SpdxHeader`, a RuboCop cop | **Both kinds.** The cop's result, plus a `PackagingSuite` assertion that asserts the header is **present** on every shipped `sig/**/*.rbs` — the half a RuboCop cop cannot reach, since `.rbs` is not Ruby. It **fails** on the first-party tree today and goes green the day phase 10's repair lands; a body that vacuated unconditionally would check nothing for the porter `R2` puts this ID in the portable kind for. `NFR-13` is a SHOULD, so the failure records the gap and blocks no report | ⏳, phase 10's inbound list |
 | `NFR-14` | SHOULD | `gates:versions` over the root `VERSIONS` | **Both kinds.** The gate's result, plus a `PackagingSuite` assertion that each unit's version equals its `VERSIONS` entry | ✅ |
 | `NFR-15` | SHOULD | `Dexpace::VERSION` sourced from the gemspec | `PackagingSuite` reading the version at runtime from an installed gem and **comparing it to the resolved gemspec's version**, which is what the requirement names. A not-a-placeholder check alone passes at `0.0.0` — the version every gem here currently carries — and so would be green on a tree where `NFR-15` has never been satisfied | ✅ |
 | `NFR-16` | SHOULD | none — no release path exists | Release-gated; `docs/first-release.md` § Release path, the signed-publication entry | ⏳ |
@@ -385,6 +386,13 @@ roadmap's phase-9 row ("owning neither its gemspec nor its release") and `docs/f
 
 **Repairs are out of scope.** See `R6`.
 
+**And so is anything a generator consumes.** Phase 9 ships **no runtime code a generated SDK
+executes** — every line it writes lands in `dexpace-conformance`, in three repository gates or in
+`test/` — so **nothing in this phase gates pointing an OpenAPI generator at the SDK or running a
+generated client's smoke test**; that surface is complete when phase 8 lands. Phase 9 is a **release
+gate**: what it blocks is publishing, which is why its outputs are checklist rows, a report and
+`docs/first-release.md` lines rather than a gem a consumer adds.
+
 ---
 
 ## `R1` — what appendix B's 61 items owe this phase, section by section
@@ -414,7 +422,7 @@ Applying that criterion:
 |---|---|---|---|
 | **B.1** Pagination | 10 | 7c | **By reference.** `Dexpace::Page::Paginator` and `AsyncPaginator` are core's single implementation; `PAGE-8` makes the engine stateless and shareable and there is no second engine to be portable across. Coverage map rows cite 7c's suite. The `B.1`/`B.2`/`B.5` entry in `docs/first-release.md` § Post-release triggers records what would change that |
 | **B.2** SSE | 6 | 7b | **By reference**, same argument. One addition that is *not* by reference: `SSE-37`'s audit target is `gates:serde_boundary`'s `GUARDED` list plus "the repository-wide check that its `PENDING` list is empty", which 7b handed forward explicitly and which is a repository gate, not a suite assertion (`R4`) |
-| **B.3** Serialization | 7 | 7a | **Lift, and the target is named.** 7a wrote `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb` as "the named lift target for the conformance suite, written against the seam and never against `Dexpace::Serde::JSON` by name", and recorded the path in its checklist so "phase 9 inherits a target rather than a search". It becomes `Dexpace::Conformance::CodecSuite`, covering `SEAM-20`, `SERDE-3` and `SERDE-9` — the post-v1 `dexpace-serde-oj` is the second subject the lift is for. **`SEAM-21` is NOT lifted**: it is the explicit-runtime-type-token rule, a property of the witness protocol (§10.14), and it stays in 7a's suite, recorded `scoped out` with that reason. `SERDE-4`'s offset matrix and `SERDE-12`'s I/O-error pass-through stay `by reference`, because 7a wrote them against a shape `CodecCase` does not carry. The reified-helper item is `restated per §9.3`. The `Tristate` and coercion items (`SERDE-14`–`SERDE-26`) stay with 7a — core's protocol, not the seam's |
+| **B.3** Serialization | 7 | 7a | **Lift, and the target is named.** 7a wrote `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb` as "the named lift target for the conformance suite, written against the seam and never against `Dexpace::Serde::JSON` by name", and recorded the path in its checklist so "phase 9 inherits a target rather than a search". It becomes `Dexpace::Conformance::CodecSuite`, covering `SEAM-20`, `SERDE-3` and `SERDE-9` — the post-v1 `dexpace-serde-oj` is the second subject the lift is for. **Only those halves leave: the file is edited, never removed**, because `SEAM-21`, `SERDE-4`, `SERDE-12` and `SERDE-29` stay in it and `APPENDIX_B.md`'s `B.3` `by reference` rows name that path. **`SEAM-21` is NOT lifted**: it is the explicit-runtime-type-token rule, a property of the witness protocol (§10.14), and it stays in 7a's suite, recorded `scoped out` with that reason. `SERDE-4`'s offset matrix and `SERDE-12`'s I/O-error pass-through stay `by reference`, because 7a wrote them against a shape `CodecCase` does not carry. The reified-helper item is `restated per §9.3`. The `Tristate` and coercion items (`SERDE-14`–`SERDE-26`) stay with 7a — core's protocol, not the seam's |
 | **B.4** Instrumentation | 8 | 5b, 5c | **Partial lift, already begun.** 8a placed `RecordingSpan` (5c's `OBS-21` obligation) and `Allocations` (5b's `R8`/`OBS-25` obligation) in `dexpace-conformance` already. §9.3 restates the allocation-freeness items as allocation-count assertions and keeps `OBS-1`'s shared-inert-event **identity** assertion exactly as written; both become `InvariantSuite`/`CoreSuite` assertions because they are the two `B.4` items §9.3 names by hand. The redaction items are `XCUT-19`'s subjects and are in `B.8` anyway. The rest: by reference to 5b/5c |
 | **B.5** Configuration | 6 | 5a | **By reference.** The four-layer chain is one implementation; §9.3 restates one item (the `configure` tier as layer three) and that restatement is recorded in the coverage map, not re-litigated |
 | **B.6** Transport | 5 | 8a, 8c | **Already written; phase 9 drives and aggregates.** `TransportSuite` exists with two drivers. Phase 9 adds no assertion and forks nothing (8a's `R16` forbids it) — it aggregates the two reports and audits the waivers, of which 8c's `TRANSPORT-14` is the one named |
@@ -581,7 +589,6 @@ does:
 |---|---|---|---|
 | `gates:cause_walk` | every `.rb` under `gems/*/lib/`, failing on a `#cause` send outside `Dexpace.each_cause`'s own file — **`:CALL`, `:QCALL` and `:VCALL`, plus `send`/`__send__`/`public_send`/`method` naming `:cause` as a literal**, plus `:FCALL` and `&:cause`, skipping an argument-carrying send (5b's `Event#cause(e)`); 10 of 12 decidable shapes, misses dispositioned by the plan's Task 13; `send(variable)` undecidable | 4b: "`Dexpace.each_cause` as the single walk, and the repository-wide check that nothing else walks `#cause`" | `XCUT-9` |
 | `gates:bounded_map` | every `.rb` under `gems/*/lib/`, failing on a `Hash`-valued instance variable outside `BoundedMap`'s own file and a named allowlist — a literal, `Hash.new`, `::Hash.new` or a chained call on either; **4 of 6 shapes, and a Hash arriving from a method return or a parameter is an acknowledged blind spot**; 5 of 9 decidable shapes in the wider battery, misses dispositioned by the plan's Task 13. **Adjudicated 2026-09-13 against the filed fences: 6 hits in 5 files, 5 false positives allowlisted with their reason and 1 true positive, `Clients#@by_origin`'s missing cap, now on phase 10's inbound list** — the rule is unchanged, the allowlist is `InvariantGates::BOUNDED_MAP_ALLOWED` and has four entries, and a keyed-read narrowing was written, measured (6 → 3) and rejected for opening a cross-file blind spot | 4a: "the same map, as the single implementation the audit checks" | `XCUT-14` |
-| `gates:drain_loop` | `BoundedMap`'s own file, asserting the eviction send sits inside a `while`/`until` loop. **A second line on `XCUT-14`'s drain-loop clause, which `InvariantSuite` also asserts behaviourally**: pre-fill the map to cap + 5 and perform one `set`, and 4a's filed drain loop ends at the cap (8) while a check-then-evict ends at 13, deterministically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. An earlier draft called the behaviour undecidable; that premise was false | 4a, same row | `XCUT-14` |
 | `gates:serde_boundary` | 7b's existing gate — phase 9 adds the assertion that its `PENDING` list is **empty** | 7b: "the audit target … and the repository-wide check that its `PENDING` list is empty by the end of phase 7" | `SSE-37` (7b's row; evidence here) |
 | `gates:seam_names` | core's `lib/` tree for a concrete seam implementation, matched by the **adapter-owned leaf namespace** anywhere in the path — `Serde::JSON`, `Transport::NetHTTP`, `Transport::AsyncHTTP`, `Async::Thread` — over constant paths **and** string literals, so `Serde::JSON`, `::Dexpace::Serde::JSON` and `const_get("Dexpace::Transport::NetHTTP")` all match. A fixed list of four fully qualified names caught **0 of 4** realistic shapes, and a seam-namespace suffix rule flagged 31 conforming references in 15 of core's filed files; the leaf rule catches 5 of 7 decidable shapes (misses dispositioned by the plan's Task 13) with zero hits on core's filed fences, and **does** need its list, which a later adapter gem extends | 7a: "the negative test over core's tree as the audit's existing evidence, rather than a repository-wide grep reconstructed at audit time" | `SEAM-2` (phase 2's row; evidence here) |
 
@@ -766,7 +773,7 @@ prescribed grep does not return them.)
 
 | # | Handed forward by | On | Resolution |
 |---|---|---|---|
-| 1 | 4a | `XCUT-14` | `gates:bounded_map` and `gates:drain_loop` (`R4`) plus `InvariantSuite`'s two assertions — the cap clause and the deterministic drain-to-cap clause. Plan Tasks 7 and 13 |
+| 1 | 4a | `XCUT-14` | `gates:bounded_map` (`R4`) plus `InvariantSuite`'s two assertions — the cap clause and the deterministic drain-to-cap clause, which is the **only** line on that clause now `gates:drain_loop` is out of v1. Plan Tasks 7 and 13 |
 | 2 | 4a | `XCUT-11` | `ContextStore` is subject 1 of nine (`R8`). Tasks 4, 8 |
 | 3 | 4b | `XCUT-8` | `ProtocolError.for` / `.for_or_nil` — two forms, one assertion. Task 6 |
 | 4 | 4b | `XCUT-9` | `gates:cause_walk` plus the cycle-safety assertion, **three-node and step-bounded**. Tasks 6, 13 |
@@ -813,27 +820,39 @@ claim "no row is dropped and none is added" while having done both.
 
 ## Design §9 Addendum — gates this phase adds to §9's table
 
-Design §9's gate table is frozen and is not edited by this phase. The four gates below are additions
+Design §9's gate table is frozen and is not edited by this phase. The three gates below are additions
 the table does not carry, recorded here as the roadmap's cross-cutting constraint 6 directs, each with
 a Deviation Ledger row for consolidation into design §10.
 
 | Addendum | What §9's table says | What phase 9 builds |
 |---|---|---|
 | **A4 — `gates:cause_walk`** | Nothing. §5.2 puts the cycle-safe walk in core; no row mechanises "only one walk" | An AST scan of `gems/*/lib/**/*.rb` failing on a `#cause` send outside `Dexpace.each_cause`'s own file, with a named allowlist carrying the requirement that justifies each entry. Covers `:CALL`, `:QCALL`, `:VCALL`, `:FCALL`, `&:cause` and the four reflective sends, and skips an argument-carrying send, which `Exception#cause` never is; 10 of 12 decidable shapes, misses dispositioned by the plan's Task 13; **`send(variable)` is undecidable and is written into the gate's own stated gap** (`XCUT-9`) |
-| **A5 — `gates:bounded_map` and `gates:drain_loop`** | Nothing. §5.4 states "one implementation"; no row checks it | Two scans. The first fails on a `Hash`-valued instance variable outside `Dexpace::BoundedMap` and a named allowlist — **4 of 6 realistic shapes, with a method return and a parameter acknowledged as blind spots**, and 5 of 9 decidable shapes in the wider battery; a third blind spot was measured in the same adjudication, a Hash held inside a value object rather than on the ivar (8c's `DropPolicy`). Its allowlist is **four entries, each carrying its reason**, and the one hit that is *not* allowlisted is the phase's finding: `async_http/clients.rb`'s uncapped per-origin client cache, which phase 10's inbound list carries as `Clients#@by_origin`'s missing cap. The second asserts the eviction sits inside a loop — a shape check **beside** `InvariantSuite`'s deterministic behavioural assertion of the same drain-loop clause, not a replacement for it (`XCUT-14`). Its measured misses are dispositioned by the plan's Task 13 |
+| **A5 — `gates:bounded_map`** | Nothing. §5.4 states "one implementation"; no row checks it | One scan. It fails on a `Hash`-valued instance variable outside `Dexpace::BoundedMap` and a named allowlist — **4 of 6 realistic shapes, with a method return and a parameter acknowledged as blind spots**, and 5 of 9 decidable shapes in the wider battery; a third blind spot was measured in the same adjudication, a Hash held inside a value object rather than on the ivar (8c's `DropPolicy`). Its allowlist is **four entries, each carrying its reason**, and the one hit that is *not* allowlisted is the phase's finding: `async_http/clients.rb`'s uncapped per-origin client cache, which phase 10's inbound list carries as `Clients#@by_origin`'s missing cap. The drain-loop clause has **no scanner**: `InvariantSuite`'s deterministic behavioural assertion decides it (`XCUT-14`), and the shape check that would have sat beside it is out of v1 for the reason stated below the table |
 | **A6 — `gates:seam_names`** | §9.2's require-allowlist covers `require`; nothing covers a **constant reference** | An AST scan of `dexpace-core`'s `lib/` for a concrete seam implementation, matched by the **adapter-owned leaf namespace** over both constant paths and string literals — 5 of 7 decidable shapes and zero hits on core's filed fences, where a fixed name list caught 0 of 4 and a seam-namespace suffix flagged 31 conforming references; misses dispositioned by the plan's Task 13 (`SEAM-2`). 7a already wrote the negative test; this is its repository-wide form |
 | **A7 — `gates:serde_boundary`'s `PENDING` assertion** | Nothing; the gate is 7b's own addendum | The gate exists after phase 7; phase 9 adds the assertion that its `PENDING` list is empty, which is the clause 7b handed forward and could not assert while phase 7 was still running (`SSE-37`) |
 
-All five run in the `gates` CI job alongside phase 0's interpreter-independent gates — **four newly
+All four run in the `gates` CI job alongside phase 0's interpreter-independent gates — **three newly
 placed there**, and `gates:serde_boundary` already there because 7b wired it into the default task
 (7b plan:1758), which phase 0's `ci_workflow_test.rb` (phase 0 plan:3610) already requires to appear
-in a job — and all five are blocking — a non-blocking addition to a gate set while dispositioning `NFR-17` would be
-self-falsifying. **Adding them means editing `.github/workflows/ci.yml`**, because phase 0's
-`ci_workflow_test.rb` is itself a blocking gate asserting that every entry in `DEFAULT_GATES`
-appears in some CI job; a phase that adds gates and leaves the workflow alone reddens a phase-0
-gate. Each gate's **stated gap** is part of the addendum rather than a footnote: a gate whose blind
-spots are unwritten is a gate nobody can audit, and three of these five are floors on their
+in a job — and all four are blocking — a non-blocking addition to a gate set while dispositioning `NFR-17` would be
+self-falsifying. **Adding them means editing the root `Rakefile` and `.github/workflows/ci.yml`.**
+`DEFAULT_GATES` is defined in the `Rakefile`, which `load`s `tasks/*.rake` **before** defining the
+array and then freezes it (phase 0 plan, Task 1 Step 6), so a task defined only in
+`tasks/gates.rake` is off `task default:` and therefore advisory — the one thing `NFR-17` forbids;
+and phase 0's `ci_workflow_test.rb` is itself a blocking gate asserting that every entry in
+`DEFAULT_GATES` appears in some CI job, so a phase that adds gates and leaves the workflow alone
+reddens a phase-0 gate. The root `Rakefile` is therefore on this phase's file list, for that one
+reason. Each gate's **stated gap** is part of the addendum rather than a footnote: a gate whose blind
+spots are unwritten is a gate nobody can audit, and all three new ones are floors on their
 invariant rather than proof of it.
+
+**`gates:drain_loop` was the fourth addendum gate and is out of v1** *(decided 2026-09-13)*. `A5`'s
+second scan asserted `XCUT-14`'s drain clause as *shape*; `InvariantSuite`'s `bounded_map_drains`
+decides the same clause **behaviourally and deterministically** (a store pre-filled to cap + 5, then
+one `set`: a drain loop ends at 8, a check-then-evict at 13, identically on all four interpreters),
+while the gate measured **1 of 3 non-conforming shapes caught with one false positive**. A second
+line weaker than the first is a cost, not evidence. The trigger that would bring it back is in
+`docs/first-release.md` § Post-release triggers.
 
 **`A5`'s six hits over the filed fences are adjudicated, not left as a number.** Re-measured
 2026-09-13 over every Ruby fence in phases **0**–8 that names a `lib/` path — 222 fences at 184
@@ -880,26 +899,36 @@ gems/dexpace-conformance/
   lib/dexpace/conformance/shared_instance.rb  Dexpace::Conformance::SharedInstance R8's predicate
   lib/dexpace/conformance/aggregate.rb        Dexpace::Conformance::Aggregate      the one report
   lib/dexpace/conformance/report.rb           MODIFIED: #results, #to_h, .merge, the two sections
-  sig/…                                       TWELVE mirrors, one per new public constant
+  lib/dexpace/conformance/levels.rb           Dexpace::Conformance::Levels          Task 12a, generated
+  sig/…                                       THIRTEEN mirrors, one per new public constant
   test/…                                      the gem's own suite: one non-conforming double per suite
   APPENDIX_B.md                               the 61-row coverage map
 
 gems/dexpace-serde-json/
   test/dexpace/serde/json/conformance_test.rb   the CodecSuite driver: one test calling CodecSuite.run
-  test/support/serde_seam_assertions.rb         REMOVED: its content is the lift
+  test/support/serde_seam_assertions.rb         MODIFIED: only the lifted halves leave (SEAM-20/
+                                                SERDE-3, SERDE-9); SEAM-21, SERDE-4, SERDE-12 and
+                                                SERDE-29 stay, and APPENDIX_B.md's B.3 rows name it
+  test/dexpace/serde/json/seam_conformance_test.rb  MODIFIED: 7a's driver drops the two calls whose
+                                                methods left and keeps the other three
 
 gems/dexpace-async-thread/
   test/dexpace/async/thread/conformance_test.rb the ExecutorSuite driver, same shape
 
-tasks/gates.rake                              MODIFIED: cause_walk, bounded_map, drain_loop,
-                                              seam_names, serde_boundary's PENDING assertion
-.github/workflows/ci.yml                      MODIFIED: the four new gates placed in the `gates` job
+tasks/gates.rake                              MODIFIED: cause_walk, bounded_map, seam_names,
+                                              serde_boundary's PENDING assertion
+Rakefile                                      MODIFIED: the three names appended to DEFAULT_GATES,
+                                              which is defined here and not in tasks/gates.rake --
+                                              a gate outside it is off `task default:`, i.e.
+                                              advisory, which NFR-17 forbids
+.github/workflows/ci.yml                      MODIFIED: the three new gates placed in the `gates` job
 tools/ast_scan.rb                             the shared RubyVM::AbstractSyntaxTree walker
-tools/invariant_gates.rb                      the four offence lists, each with its stated gap
+tools/invariant_gates.rb                      the three offence lists, each with its stated gap
+tools/requirement_levels.rb                   Task 12a's generator: reads appendix C, writes levels.rb
 tools/appendix_b.rb                           the coverage map's generator and its two parsers
 test/support/warning_capture.rb                a recorder PREPENDED above phase 0's FatalWarnings
 test/gates/…                                  the gate tests
-test/fixtures/gates/…                         seven mutation fixtures, one deliberately failing
+test/fixtures/gates/…                         five mutation fixtures, one deliberately failing
                                               input per gate plus a positive control
 ```
 
@@ -911,7 +940,7 @@ the mechanical reminder.
 **Two entries in that list are widenings on the first draft, and each is load-bearing rather than
 convenient.** `.github/workflows/ci.yml` is there because phase 0's `ci_workflow_test.rb` is a
 **blocking** gate asserting that every entry in `DEFAULT_GATES` appears in some CI job — so a phase
-that adds four gates and leaves the workflow alone reddens a phase-0 gate, which is not a boundary
+that adds three gates and leaves the workflow alone reddens a phase-0 gate, which is not a boundary
 worth keeping. And **each adapter gem's `test/` tree** is there because a suite nobody drives proves
 nothing, and **8a set the precedent**: its driver is a file inside the adapter gem, at
 `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/conformance_test.rb`, holding one
@@ -993,9 +1022,9 @@ against it before it passes against a conforming one. One double per suite, writ
 | `Aggregate` | Two suites whose reports disagree on one ID's status | — |
 
 **For every gate phase 9 adds**, phase 0's discipline applies unchanged: a gate that has never been
-seen to fail is a configuration file. **Five gates, seven fixtures**, each under
+seen to fail is a configuration file. **Four gates, five fixtures**, each under
 `test/fixtures/gates/` — that is the one spelling for fixtures; `test/gates/` holds the gate *tests* —
-outside every gate's own scope. **An eighth fixture there belongs to the scanner rather than to a
+outside every gate's own scope. **A sixth fixture there belongs to the scanner rather than to a
 gate** and is the last row: it exists so that verified fact 1b is measured rather than asserted, and
 Task 1 writes it because Task 1 is where that fact is recorded.
 
@@ -1003,10 +1032,9 @@ Task 1 writes it because Task 1 is where that fact is recorded.
 |---|---|---|
 | `gates:cause_walk` | Seven shapes in two files: `.cause`, `&.cause`, `send(:cause)`, `__send__`, `public_send`, `method(:cause)` and `send(variable)` — **six must be caught and the seventh is the stated gap** | A file citing `XCUT-9` in a comment and in a string and calling `Dexpace.each_cause` — which a `grep` would flag and the AST does not |
 | `gates:bounded_map` | Six shapes in one file: `{}`, `Hash.new(0)`, `::Hash.new`, `{}.compare_by_identity` — **four must be caught** — plus `@e = build_map` and `@f = seed`, the two stated gaps | `@cap = 1024`, a non-Hash ivar, which must not be reported; and the same file under an allowlist entry carrying its reason. **Plus one integrity test over the adjudication itself**: every `BOUNDED_MAP_ALLOWED` key names a file that exists and every value is a non-empty reason, so a rename cannot silently re-open a hole |
-| `gates:drain_loop` | A map evicting with `@h.shift if @h.size >= @cap` | A map evicting with `@h.shift while @h.size > @cap` |
 | `gates:seam_names` | Four shapes in one file: `Dexpace::Serde::JSON`, `::Dexpace::Serde::JSON`, bare `Serde::JSON`, and `const_get("Dexpace::Transport::NetHTTP")` | `Dexpace::Registry` and `Dexpace::Serde::Error`, neither of which may be reported |
 | `gates:serde_boundary` | A `PENDING` list with one entry | An empty `PENDING` |
-| `AstScan.parse` (all four gates) | `warns_unused.rb` — one file whose own `-w` diagnostic (`assigned but unused variable - e`, 8a's filed shape at 8a plan:4858) raises under `FatalWarnings` when parsed. With a bare `parse_file`, the gate test **errors** on all four interpreters; that is the failing state the fixture exists to produce | The same file scanned through `AstScan.parse`, which must report it clean and must not raise — and every other fixture here, none of which warns |
+| `AstScan.parse` (all three gates) | `warns_unused.rb` — one file whose own `-w` diagnostic (`assigned but unused variable - e`, 8a's filed shape at 8a plan:4858) raises under `FatalWarnings` when parsed. With a bare `parse_file`, the gate test **errors** on all four interpreters; that is the failing state the fixture exists to produce | The same file scanned through `AstScan.parse`, which must report it clean and must not raise — and every other fixture here, none of which warns |
 
 **For the audit tasks**, there is no fixture and no TDD, and saying so is the point: an audit task's
 output is a checklist row and, where it fails, a finding routed to its owner. What the plan *can* assert about an audit
@@ -1163,8 +1191,10 @@ decision that `NFR-13` covers `lib/` only, stated where a reader will find it. N
 because nothing is implemented. Cites `NFR-13`, `NFR-3`, `NFR-17`.
 **Owner: phase 10's inbound list in the roadmap** — SPDX coverage for `sig/**/*.rbs`. Phase 9 reports
 and phase 10 repairs (`P9-6`): Task 15 dispositions `NFR-13` ⏳ with the gap named and
-`PackagingSuite` records it as `:vacuous` carrying its reason, never as a positive assertion that the
-gap persists — an assertion asserting the header's *absence* would turn red the day phase 10 fixes it.
+`PackagingSuite` asserts the header's **presence** over every shipped `sig/**/*.rbs`, so it reports
+`:failed` on the first-party tree today and passes the day phase 10 fixes it — which is the direction
+a gate should move under its own repair. An unconditional `:vacuous` was the first draft's shape and
+checked nothing for anyone, including the porter this assertion is portable for.
 `docs/knowledge/notes/tooling-and-quality-gates.md` carries the same finding against
 `tooling-and-quality-gates/3085561e`.
 
@@ -1205,17 +1235,20 @@ names both node types and is where the next source scan in this repository will 
 is no repair to schedule: what phase 9 ships already names both.
 
 **The appendix-B coverage map's checks establish that a by-reference row is well-formed,
-not that the behaviour it points at is tested.** Two checks proposed over `APPENDIX_B.md` are not
-achievable and are dropped rather than carried as aspiration. A **distinct-ID coverage check** —
-every requirement ID named anywhere in appendix B appearing in some row — is roughly 276 IDs against
-22 hand-written by-reference rows, which is not arithmetic that closes. And a **ten-line-header
-check** on each referenced file cannot pass: `B.5`'s configuration items name around twenty `CFG` IDs
-each, and `CLAUDE.md`'s "a test file's header comment names the IDs it exercises" was never written
-for a twenty-ID item. What survives is three decidable checks — 61 rows, the per-section counts
-matching the specification, and every row naming at least one requirement ID from the nineteen known
-prefixes plus an evidence path that exists — with the ID scanner restricted to those prefixes because
-a bare `[A-Z]+-\d+` matches `ISO-8601`, which appears in `B.3`'s real text. What is therefore not
-established is exactly this finding's content, and a reader of a green run is entitled to know it.
+not that the behaviour it points at is tested.** *(Corrected 2026-09-13: the first draft dropped two
+checks on numbers that are wrong.)* Measured against the real appendix B with the 19-prefix scanner:
+the 61 items name **276 distinct requirement IDs, no ID repeated across items, at most 12 in one
+item** (`B.2`'s item 11), 59 of 61 name ten or fewer, and **`B.5`'s six items name 5, 3, 8, 7, 7 and
+8** — not "around twenty each", which was the stated reason for dropping the header check. So the
+third check is not "every row names at least one ID": it is **per-row ID-set equality** against the
+set parsed from that item's own text, which the ID column already claims to be. That is decidable, it
+is strictly stronger, and it makes the distinct-ID coverage check hold **by construction**. Three
+decidable checks survive — 61 rows, the per-section counts matching the specification, and per-row ID
+equality plus an evidence path that exists — with the ID scanner restricted to the nineteen prefixes
+because a bare `[A-Z]+-\d+` matches `ISO-8601`, which appears in `B.3`'s real text. What stays
+unestablished is the ten-line-header check on the *referenced* file, whose header lives in a gem this
+phase does not own — so a by-reference row proves an ID is claimed and a file exists, never that the
+behaviour is tested (`P9-7`, unchanged), and a reader of a green run is entitled to know it.
 Cites `NFR-17`; the conformance assertion protocol and the `B.1`/`B.2`/`B.5` trigger in
 `docs/first-release.md` § Post-release triggers.
 **Owner: phase 9 plan, Task 14** — the `APPENDIX_B.md` map preamble states, in the map's own voice,

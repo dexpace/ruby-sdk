@@ -17,7 +17,9 @@ exposes `#close`; **no resource is ever acquired or released inside an `Enumerat
 method's locals**, which is design §7.1's hard rule and phase 3's already-paid-for obligation
 (`pagination/318ae05d`, `pagination/b2a85752`). Two thin views — `Items` (re-iterable, eager-closes each page
 before yielding, `PAGE-11`) and `Pages` (single-use, `PAGE-14`, auto-closing with the look-ahead, `PAGE-12`) —
-drive one internal routine. Strategies are frozen `Data` types taking a **caller-supplied `#call(response)`
+drive one internal routine, and the async engine exposes the same pair — `#walk` and `#walk_pages` — over one
+pump, because `PAGE-1` is not qualified by engine and `PAGE-27` names the page-level drain. Strategies are
+frozen `Data` types taking a **caller-supplied `#call(response)`
 extractor**, never a codec and never a witness, which is what makes core's pagination layer serde-agnostic and
 what spec-forced boundary 5's audit enforces. The async engine is a `while` pump over a re-arm flag driven by
 phase 2's `Dexpace::Async::Future#on_settle`, never recursive future composition (`PAGE-31`), with a
@@ -179,12 +181,14 @@ built first would grow the state the rule forbids it from holding.
 6. `Dexpace::Page::LinkHeader` (`PAGE-18`, `PAGE-20`) — standalone.
 7. `Dexpace::Page::CursorStrategy` (`PAGE-16`, `PAGE-5`) — needs Tasks 3, 4.
 8. `Dexpace::Page::PageNumberStrategy` (`PAGE-17`, `PAGE-5`) — needs Tasks 3, 4.
-9. `Dexpace::Page::LinkStrategy` (`PAGE-18`, `PAGE-19`, `PAGE-20`, `PAGE-5`) — needs Tasks 2, 4, 6.
+9. `Dexpace::Page.next_request_from` and `Dexpace::Page::LinkStrategy` (`PAGE-18`, `PAGE-19`, `PAGE-20`,
+   `PAGE-5`) — needs Tasks 2, 4, 5, 6.
 10. `Dexpace::Page::Walk` (`PAGE-5`, `PAGE-7`, `PAGE-9`, `PAGE-13`, `PAGE-15`, `PAGE-36`) — needs Tasks 4, 5.
 11. `Dexpace::Page::Items` (`PAGE-1`, `PAGE-8`, `PAGE-11`) — needs Task 10.
 12. `Dexpace::Page::Pages` (`PAGE-1`, `PAGE-12`, `PAGE-14`, `PAGE-15`) — needs Task 10.
 13. `Dexpace::Page::Paginator` (`PAGE-6`, `PAGE-8`, `PAGE-9`, `PAGE-10`, `PAGE-36`) — needs Tasks 10–12.
-14. `Dexpace::Page::AsyncPaginator` (`PAGE-25`–`PAGE-33`) — needs Tasks 5, 10, 13.
+14. `Dexpace::Page::AsyncPaginator` (`PAGE-25`–`PAGE-33`, plus `PAGE-1`'s and `PAGE-6`'s async halves) —
+    needs Tasks 5, 10, 13.
 15. `Dexpace::Page::Fetchers` (`PAGE-34`, `PAGE-35`) — needs Tasks 5, 10.
 16. **The lifetime inversion suite** (`PAGE-13`, `PAGE-15`, `PAGE-32`) — needs Tasks 11, 12, 14.
 17. Final wiring: the requires, the shadowing audit, the surface snapshot, the RBS baseline, the `Fiber[]`
@@ -255,10 +259,28 @@ SERDE_ISOLATION_SUBTREES = [
 BANNED_REQUIRES = %r{\brequire(?:_relative)?\s+["'][^"']*(?:dexpace/serde|\bjson\b)}
 BANNED_CONSTANTS = /(?<![:\w])(?:Dexpace::Serde|Serde|JSON)(?![\w])/
 
+# The gate scans CODE, not prose. Comments and =begin/=end blocks are stripped before matching,
+# because the boundary is about what the code DEPENDS on and the documentation this design requires
+# says the opposite thing in words: R7's own YARD sentence is "a caller who wants JSON writes the
+# codec into the closure". A gate that rejects that sentence gets an exception carved into it, which
+# is the failure boundary 5 exists to prevent.
+def serde_isolation_code(path)
+  source = ::File.read(path)
+  source = source.gsub(/^=begin$.*?^=end$/m, "")
+  source.lines.reject { |line| line.lstrip.start_with?("#") }
+        .map { |line| line.sub(/\s#(?![{$@]).*\z/, "\n") }.join
+end
+
 task "gates:serde_isolation" do
-  # ... for each subtree, for each file in lib+sig+extra: fail with label and cite on a hit ...
+  # ... for each subtree, for each file in lib+sig+extra: scan serde_isolation_code(file) and fail
+  # with the label and the cite on a hit ...
 end
 ```
+
+The strip is crude and its one blind spot is stated rather than discovered: a `#` inside a string literal
+truncates the rest of that line, so a banned constant written *after* such a string on one line would be
+missed. Step 4's fixture set covers it — one fixture is exactly that line — and the answer if it ever fires
+is to move the constant, not to widen the stripper into a Ruby parser.
 
 The `page` triple is `7c`'s. If `7b` runs second it appends its own with `label: "sse"` and
 `cite: "SSE-37"`, plus its two SSE-specific checks (no done-sentinel string, no error-envelope recognition),
@@ -270,8 +292,15 @@ no `Dexpace::Serde` appears in *these* signatures. They do not overlap.
 
 - [ ] **Step 4: Negative and positive fixtures for the gate**
 
-A scratch file under `test/fixtures/gates/` naming `Dexpace::Serde` that the gate must **reject**, and one
-naming nothing that it must **accept**. Phase 0's `two_third_party` negative-fixture precedent.
+Three scratch files under `test/fixtures/gates/`, following phase 0's `two_third_party` negative-fixture
+precedent:
+
+1. **reject** — a file naming `Dexpace::Serde` in code;
+2. **accept** — a file whose *only* mentions of `Serde` and `JSON` are in a leading comment block, a trailing
+   `# …` comment and a YARD `@example`, which is the shape `CursorStrategy`'s own documentation takes (`R7`);
+3. **known miss** — a file with `x = "a#b"; Dexpace::Serde` on one line. The gate does **not** reject it, and
+   the fixture is committed with the assertion written that way plus a comment naming the limit, so the
+   blind spot is recorded rather than assumed away.
 
 Run: `bundle exec rake gates:serde_isolation` — green on the real tree, and red when the negative fixture is
 temporarily placed inside the guarded glob.
@@ -280,7 +309,8 @@ temporarily placed inside the guarded glob.
 
 `CountingTransport` per resolved question 4. `ProbeExecutor` with three modes: `:inline` (runs the block
 immediately, recording the call), `:deferred` (queues blocks, `#drain` runs them, recording the thread), and
-`:rejecting` (raises `Dexpace::Test::ExecutorRejected` after N successful posts) — `PAGE-29` and `PAGE-30`.
+`:rejecting` (raises `ProbeExecutor::Rejected` after N successful posts — **one** name, the one Task 14's
+test rescues) — `PAGE-29` and `PAGE-30`.
 `ClosingProbe` — a `Dexpace::Response`-shaped double counting `#close` calls, optionally raising from
 `#close`, and counting body reads so `PAGE-5` and `PAGE-16` can assert zero and one respectively.
 
@@ -895,10 +925,14 @@ compiled once as `DIGITS = ::Regexp.new("\\A\\d+\\z", timeout: 1.0)` — **per-p
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/page/link_strategy.rb`, `sig/dexpace/page/link_strategy.rbs`
-- Test: `gems/dexpace-core/test/dexpace/page/link_strategy_test.rb`
+- Modify: `gems/dexpace-core/lib/dexpace/page.rb`, `sig/dexpace/page.rbs` (`.next_request_from`),
+  `gems/dexpace-core/sig/dexpace/page/strategy.rbs` (the `_Strategy` YARD pointing at it)
+- Test: `gems/dexpace-core/test/dexpace/page/link_strategy_test.rb`,
+  `gems/dexpace-core/test/dexpace/page_test.rb` (extended)
 
-**Needs:** Tasks 2, 4, 6.
-**Produces:** `LinkStrategy.build(extract_items:, header: "Link")`.
+**Needs:** Tasks 2, 4, 5, 6.
+**Produces:** `Dexpace::Page.next_request_from(template, response, target)`;
+`LinkStrategy.build(extract_items:, header: "Link")`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -948,6 +982,22 @@ class DexpacePageLinkStrategyTest < DexpaceTestCase
     assert_equal("https://x/2", Dexpace::URL.external_form(strategy.parse(response, fake_request).next_request.url))
   end
 
+  test "PAGE-19: next_request_from is the reusable branch, and a body-derived URL gets the same rules" do
+    # The shape no built-in covers: {"next": "/v1/items?page=2"} in the payload. A caller-written
+    # strategy MUST reach PAGE-19's two end-of-stream rules through this function rather than
+    # re-deriving them, which is why it is public (P7-2).
+    response = ClosingProbe.new(request: fake_request(url: "https://x/v1/items?page=1"))
+    template = fake_request(url: "https://x/v1/items?page=1")
+
+    assert_equal("https://x/v1/items?page=2",
+                 Dexpace::URL.external_form(
+                   Dexpace::Page.next_request_from(template, response, "?page=2").url,
+                 ))
+    assert_nil(Dexpace::Page.next_request_from(template, response, nil))
+    assert_nil(Dexpace::Page.next_request_from(template, response, "   "))
+    assert_nil(Dexpace::Page.next_request_from(template, response, "not a url"))
+  end
+
   test "PAGE-23: following a whole next URL swaps only the URL, preserving method/headers/body" do
     template = fake_request(method: "POST", headers: { "x-a" => ["1"] }, body: fake_body)
     strategy = Dexpace::Page::LinkStrategy.build(extract_items: ->(_r) { [1] })
@@ -966,13 +1016,26 @@ end
 
 - [ ] **Step 3: Write the strategy**
 
-`Data.define(:extract_items, :header)`. `#parse`: items from the extractor; `target =
-LinkHeader.next_target(response.headers[header])`; **terminal when `target` is `nil` or
-`target.strip.empty?`** (`P7-5`); otherwise `resolved = Dexpace::URL.resolve(response.request.url, target)`
-and terminal when that is `nil` (`PAGE-19`); otherwise `Info.build(items:, next_request: template.with(url:
-resolved), next_link: target)`. **`template.with(url:)` is what `PAGE-23`'s "swap only the request's URL,
-preserving the template's method, headers, and body" is** — `Dexpace::Model#with` routes through
-`Request.build`, so the other three members are carried unchanged.
+Two objects, because the branch is worth more than this one strategy.
+
+**`Dexpace::Page.next_request_from(template, response, target)`** — a public module function on the
+namespace class, carrying `PAGE-19`'s whole answer: `nil` when `target` is `nil`, blank or whitespace-only
+(`P7-5`); `nil` when `Dexpace::URL.resolve(response.request.url, target)` returns `nil` (`PAGE-19`'s
+"a target that cannot resolve into a valid URL MUST be treated as end-of-stream rather than aborting
+iteration with an error"); otherwise `template.with(url: resolved)`. **`template.with(url:)` is what
+`PAGE-23`'s "swap only the request's URL, preserving the template's method, headers, and body" is** —
+`Dexpace::Model#with` routes through `Request.build`, so the other three members are carried unchanged.
+
+It is public rather than private because a next-page URL in the response **body** is the one common
+generator shape none of the three built-ins covers, and a caller-written `#parse` that re-derives this
+branch by hand gets `PAGE-19`'s two end-of-stream rules wrong quietly. `_Strategy`'s RBS carries a YARD
+block naming it as the supported way to turn any URL a strategy found — header, body or elsewhere — into a
+next request, with a four-line worked example of a body-derived strategy. Recorded in `P7-2`.
+
+**`LinkStrategy`** is then `Data.define(:extract_items, :header)` and `#parse` is four lines: items from the
+extractor, `target = LinkHeader.next_target(response.headers[header])`, then
+`Dexpace::Page.next_request_from(template, response, target)`, and `Info.build(items:, next_request:,
+next_link: target)` — `Info.terminal(items:)` when the next request is `nil`.
 
 - [ ] **Step 4: `sig/` mirror, require, run to confirm it passes.**
 
@@ -1111,6 +1174,7 @@ module Dexpace
 
       # The ONE internal drive routine both views share (pagination/71aed9c1).
       def fetch_next_page
+        return nil if closed?                                   # a closed walk owns no slot to hold
         return nil if @exhausted || @next_request.nil?          # PAGE-7: idempotent, no exchange
         return latch_exhausted if @exchanges >= @paginator.cap   # PAGE-9: checked BEFORE the exchange
 
@@ -1123,15 +1187,41 @@ module Dexpace
                             next_link: info.next_link, continuation_token: info.continuation_token)
       end
 
+      # PAGE-12's advance. PAGE-15 governs it: when the consumer has returned from the previous
+      # yield nothing is in flight, so a close error here is SURFACED and never swallowed -- which
+      # is why this is R8's $!-branch and NOT Dexpace.close_quietly.
       def hold(page)
-        Dexpace.close_quietly(@current) unless @current.equal?(page)
+        release_current unless @current.equal?(page)
         @current = page
       end
 
-      def buffer(page) = (@buffered = page)
+      # PAGE-6/PAGE-12: the look-ahead is ONE slot the walk owns. Overwriting it would spend a
+      # second exchange on one yielded page and strand the displaced response, so a staged page is
+      # never displaced -- a probe that would have overwritten it reads it instead (Pages#more?).
+      def buffer(page)
+        raise ::Dexpace::InvalidArgumentError, "a page is already staged" unless @buffered.nil?
+
+        @buffered = page
+      end
+
       def take_buffered = (@buffered.tap { @buffered = nil })
 
       private
+
+      def release_current
+        previous = @current
+        @current = nil
+        return nil if previous.nil?
+
+        primary = $!                                       # read BEFORE anything here can raise
+        begin
+          previous.close
+        rescue ::StandardError => close_error
+          raise if primary.nil?                            # PAGE-15: surface it
+          Dexpace.attach_suppressed(primary, close_error)  # PAGE-13/PAGE-32: primary stays primary
+        end
+        nil
+      end
 
       def latch_exhausted
         @exhausted = true
@@ -1184,7 +1274,8 @@ prevent.
 **Design:** "`Dexpace::Page::Items`".
 
 **Files:**
-- Create: `gems/dexpace-core/lib/dexpace/page/items.rb`, `sig/dexpace/page/items.rbs`
+- Create: `gems/dexpace-core/lib/dexpace/page/items.rb`, `sig/dexpace/page/items.rbs`,
+  `gems/dexpace-core/lib/dexpace/page/closing.rb` (`private_constant`; no `sig/`, no manifest row)
 - Test: `gems/dexpace-core/test/dexpace/page/items_test.rb`
 
 **Needs:** Task 10.
@@ -1231,6 +1322,17 @@ class DexpacePageItemsTest < DexpaceTestCase
     assert_equal(4, transport.calls.size)   # two full fetch sequences
   end
 
+  test "Items#close releases nothing, because PAGE-11 left nothing open, and never raises" do
+    probe = ClosingProbe.new
+    items = paginator_over([[1, 2]], transport: CountingTransport.new([probe])).items
+    items.each { |_i| break }
+
+    items.close
+    items.close
+
+    assert_equal(1, probe.close_count)   # PAGE-11 closed it; #close neither repeats nor adds
+  end
+
   test "external iteration abandoned mid-#next strands nothing, because PAGE-11 already closed it" do
     probe = ClosingProbe.new
     enumerator = paginator_over([[1, 2]], transport: CountingTransport.new([probe])).items.to_enum(:each)
@@ -1266,7 +1368,8 @@ end
 ```
 
 `close_walk` is the shared private helper implementing `R8`'s shape and lives in a `private_constant` mixin
-(`Dexpace::Page::Closing`) that both views include, so the branch is written once:
+(`Dexpace::Page::Closing`, its own file `lib/dexpace/page/closing.rb` — no `sig/`, no manifest row, required
+between `page/walk` and `page/items` in Task 17) that both views include, so the branch is written once:
 
 ```ruby
 def close_walk(walk)
@@ -1280,9 +1383,16 @@ def close_walk(walk)
 end
 ```
 
-`Items#close` forwards to the walk it holds for the external-iteration case; its YARD names the residue and
-`#close` as the remedy. The `return to_enum(:each) unless block_given?` line is the one permitted use of
-`block_given?` and carries a comment saying so, because Task 17 greps for the identifier.
+**`Items#close` is a documented no-op, and that is a consequence rather than an omission.** `PAGE-8` makes
+the walk a `#each`-local so each iteration restarts with fresh state, so there is no walk for the view to
+hold — and there is nothing for it to close either, because `PAGE-11` closes each page *before* yielding any
+of its items, so at every point an external consumer can abandon the iteration the walk holds nothing open
+(design's "`Dexpace::Page::Items`"). The method exists so the two views share one lifetime vocabulary; its
+YARD says in its first sentence that it releases nothing and why, and names `Pages#close` as the one that
+does. **An implementation that satisfies the name by storing `@walk` on the view breaks `PAGE-8`** the moment
+two iterations overlap; that is the failure this paragraph exists to forbid. The
+`return to_enum(:each) unless block_given?` line is the one permitted use of `block_given?` and carries a
+comment saying so, because Task 17 greps for the identifier.
 
 - [ ] **Step 4: `sig/` mirror with `include ::Enumerable[untyped]`, require, run to confirm it passes.**
 
@@ -1290,7 +1400,8 @@ end
 
 ## Task 12: `Dexpace::Page::Pages`
 
-**Requirement IDs:** `PAGE-1`, `PAGE-12`, `PAGE-14`, `PAGE-15`.
+**Requirement IDs:** `PAGE-1`, `PAGE-12`, `PAGE-14`, `PAGE-15`; `PAGE-6`'s probe half (a repeated probe
+costs no second exchange).
 **Design:** "`Dexpace::Page::Pages`".
 
 **Files:**
@@ -1346,6 +1457,39 @@ class DexpacePagePagesTest < DexpaceTestCase
     assert_equal(1, probes.first.close_count)
   end
 
+  test "PAGE-6/PAGE-12: a second probe costs no exchange and strands no page" do
+    probes = Array.new(3) { ClosingProbe.new }
+    transport = CountingTransport.new(probes)
+    view = paginator_over([[1], [2], [3]], transport: transport).pages
+
+    assert(view.more?)
+    assert(view.more?)                      # reads the staged page; MUST NOT fetch a second one
+
+    assert_equal(1, transport.calls.size)
+    view.close
+    assert_equal([1, 0, 0], probes.map(&:close_count))   # nothing was displaced unclosed
+  end
+
+  test "PAGE-12: probing an exhausted-and-closed view fetches nothing and strands nothing" do
+    probes = Array.new(2) { ClosingProbe.new }
+    transport = CountingTransport.new(probes)
+    view = paginator_over([[1]], transport: transport).pages
+    view.each { |_p| }                      # drives to exhaustion; the ensure closes the walk
+
+    refute(view.more?)
+
+    assert_equal(1, transport.calls.size)
+    assert_equal([1, 0], probes.map(&:close_count))
+  end
+
+  test "PAGE-15: a close error while ADVANCING is surfaced, not swallowed" do
+    probes = [ClosingProbe.new(raise_on_close: IOError.new("advance")), ClosingProbe.new]
+
+    assert_raises(IOError) do
+      paginator_over([[1], [2]], transport: CountingTransport.new(probes)).each_page { |_p| }
+    end
+  end
+
   test "PAGE-14: the iterator may be obtained at most once; re-iteration fails" do
     view = paginator_over([[1]]).pages
     view.each { |_p| }
@@ -1379,9 +1523,13 @@ end
 `Pages.new(paginator)` allocates its **one** `Walk` immediately. `#each` latches `@viewed` and raises
 `Dexpace::InvalidArgumentError` on a second call (`PAGE-14`). The loop: take the buffered page if one is
 staged, else `fetch_next_page`; `walk.hold(page)` — which closes the previously held page (`PAGE-12`);
-`yield page`. The `ensure` is `close_walk(walk)` from Task 11's mixin. `#more?` fills the look-ahead slot via
-`walk.buffer(walk.fetch_next_page)` and returns whether one is staged; its YARD's **first sentence** states
-that it runs an HTTP exchange. `#close` forwards to the walk, which releases both slots.
+`yield page`. The `ensure` is `close_walk(walk)` from Task 11's mixin. `#more?` **returns `true` without
+fetching when a page is already staged** — `PAGE-6` is one exchange per page *yielded*, so a second probe
+must not cost one, and `Walk#buffer` raises rather than displace a staged page — and otherwise fills the slot
+via `walk.buffer(walk.fetch_next_page)`, returning whether one is staged; a closed or exhausted walk fetches
+nothing and returns `false` (`Walk#fetch_next_page`'s `closed?` guard, Task 10). Its YARD's **first
+sentence** states that the *first* such probe runs an HTTP exchange. `#close` forwards to the walk, which
+releases both slots.
 
 - [ ] **Step 4: `sig/` mirror, require, run to confirm it passes.**
 
@@ -1432,7 +1580,9 @@ class DexpacePagePaginatorTest < DexpaceTestCase
 
   test "PAGE-10: the default cap is effectively unbounded" do
     assert_equal(Float::INFINITY, paginator_over([[1]]).cap)
-    assert_equal(500, paginator_over([[1]] * 600, transport: repeating_transport(600)).items.count)
+    # 600 single-item pages, no cap set: every one is walked. The number is the fixture's own and
+    # the two must match, or the assertion is testing the fixture rather than the cap.
+    assert_equal(600, paginator_over([[1]] * 600, transport: repeating_transport(600)).items.count)
   end
 
   test "PAGE-8: the engine holds only immutable configuration and is safe to share" do
@@ -1468,7 +1618,8 @@ half: **direct production callers to set a finite cap.**
 ## Task 14: `Dexpace::Page::AsyncPaginator`
 
 **Requirement IDs:** `PAGE-25`, `PAGE-26`, `PAGE-27`, `PAGE-28`, `PAGE-29`, `PAGE-30`, `PAGE-31`, `PAGE-32`,
-`PAGE-33`; `PAGE-6`'s async half.
+`PAGE-33`; `PAGE-6`'s async half; **`PAGE-1`'s async half** — the page-level view over the non-blocking
+engine, which `PAGE-27`'s "drained to the consumer (item- or **page-level**)" requires to exist.
 **Design:** "`Dexpace::Page::AsyncPaginator`"; "`R9`"; "`R10`".
 
 **Files:**
@@ -1477,7 +1628,8 @@ half: **direct production callers to set a finite cap.**
 - Test: `gems/dexpace-core/test/dexpace/page/async_paginator_test.rb`
 
 **Needs:** Tasks 5, 10, 13; phase 2's `Async::Future`/`Completer`/`Settlement`; Task 1's `ProbeExecutor`.
-**Produces:** `AsyncPaginator.build`, `#walk(consumer, cancellation: nil) -> Dexpace::Async::Future`.
+**Produces:** `AsyncPaginator.build`, `#walk(consumer, cancellation: nil) -> Dexpace::Async::Future`,
+`#walk_pages(consumer, cancellation: nil) -> Dexpace::Async::Future`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1538,6 +1690,27 @@ class DexpacePageAsyncPaginatorTest < DexpaceTestCase
       assert_equal(20_000, count)
       refute_predicate(future, :cancelled?)
     end
+  end
+
+  test "PAGE-1 (async): #walk_pages delivers whole pages, with status, headers and request" do
+    # PAGE-1 is not qualified by engine, and PAGE-27 names the page-level drain in as many words
+    # ("after the page is drained to the consumer (item- or page-level)"). Same pump, same
+    # exactly-once close -- the only difference is what the consumer is handed.
+    seen = []
+    future = async_paginator_over([[1, 2], [3]]).walk_pages(->(p) { seen << [p.items, p.status.code] })
+    future.wait
+
+    assert_equal([[[1, 2], 200], [[3], 200]], seen)
+  end
+
+  test "PAGE-27 (async, page-level): the page is closed after the consumer returns, exactly once" do
+    probes = Array.new(2) { ClosingProbe.new }
+    observed = []
+    async_paginator_over([[1], [2]], transport: CountingTransport.new(probes))
+      .walk_pages(->(_p) { observed << probes.map(&:close_count) }).wait
+
+    assert_equal([[0, 0], [1, 0]], observed)   # live while the consumer holds it
+    assert_equal([1, 1], probes.map(&:close_count))
   end
 
   test "PAGE-25: cancelling the result future halts the walk and cancels the in-flight exchange" do
@@ -1616,7 +1789,17 @@ expiry — **not** `Timeout.timeout`, which `Dexpace/NoThreadInterrupt` bans in 
 - [ ] **Step 3: Write the class**
 
 `Data.define(:transport, :template, :strategy, :cap, :options, :executor)` with the same validation as Task
-13 plus `executor.nil? || executor.respond_to?(:post)`. `#walk(consumer, cancellation: nil)`:
+13 plus `executor.nil? || executor.respond_to?(:post)`.
+
+**Two walk methods over one pump.** `#walk(consumer, …)` and `#walk_pages(consumer, …)` both return a
+`Dexpace::Async::Future` and share every line below; the drain step is the only difference — `#walk` yields
+each item serially (`PAGE-29`), `#walk_pages` yields the whole `Dexpace::Page` once, **before** the close,
+so the consumer sees the live response (`PAGE-1`, `PAGE-27`'s page-level path). They are one private
+`#drive(consumer, cancellation, mode:)` with a two-branch drain, not two engines: `PAGE-26`'s
+mid-drain/at-boundary rule, `PAGE-27`'s exactly-once, `PAGE-30`'s staged-page close and `PAGE-32`'s
+`$!`-branching close are written once and inherited by both, which is the whole reason the second method is
+cheap. `PAGE-29`'s "MUST NOT be invoked concurrently" holds for both by the same at-most-one-in-flight
+argument. `#walk`, below, is described for the item mode:
 
 - allocate a `Completer`, a `Walk`-shaped state bundle and a `@rearm` flag guarded by a `::Thread::Mutex`
   **held across the flag flip only**;
@@ -1814,16 +1997,21 @@ class DexpacePageLifetimeTest < DexpaceTestCase
   end
 
   test "PAGE-15: both held pages fail to close -> first primary, second suppressed" do
+    # The ONLY reachable two-slot state: probe from INSIDE the loop, so page 2 is staged while
+    # page 1 is still held, then break. `each`'s own ensure closes the walk, which releases both --
+    # so the assertion is on that raise, not on a later #close. (A `view.each { break }` followed
+    # by `view.more?` cannot reach here: the ensure has already closed the walk and, with $! nil
+    # under `break`, re-raised page 1's close error out of `each`.)
     first = ClosingProbe.new(raise_on_close: IOError.new("first"))
     second = ClosingProbe.new(raise_on_close: IOError.new("second"))
     view = paginator_over([[1], [2]], transport: CountingTransport.new([first, second])).pages
-    view.each { |_p| break }
-    view.more?
 
-    error = assert_raises(IOError) { view.close }
+    error = assert_raises(IOError) { view.each { |_p| view.more?; break } }
 
     assert_equal("first", error.message)
     assert_equal(["second"], Dexpace.suppressed(error).map(&:message))
+    view.close                                  # idempotent; no second release is attempted
+    assert_equal([1, 1], [first, second].map(&:close_count))
   end
 
   test "the frozen-primary caveat is stated and observable, not worked around" do
@@ -1870,9 +2058,11 @@ audit in the task's notes.
 - [ ] **Step 1: Add the requires to `lib/dexpace.rb`**
 
 In dependency order: `page`, then `page/info`, `page/query_rewriter`, `page/link_header`,
-`page/cursor_strategy`, `page/page_number_strategy`, `page/link_strategy`, `page/walk`, `page/items`,
-`page/pages`, `page/paginator`, `page/async_paginator`, `page/fetchers`. Explicit requires, never an
-autoloader — every autoloader is a gem and `SEAM-1` bars core from depending on one.
+`page/cursor_strategy`, `page/page_number_strategy`, `page/link_strategy`, `page/walk`, `page/closing`,
+`page/items`, `page/pages`, `page/paginator`, `page/async_paginator`, `page/fetchers` — **fourteen**, the
+thirteen of the design's module layout plus `page/closing.rb`, the `private_constant` mixin holding Task
+11's `close_walk` that both views include. Explicit requires, never an autoloader — every autoloader is a
+gem and `SEAM-1` bars core from depending on one.
 
 - [ ] **Step 2: The constant-shadowing audit (`P7-2`)**
 

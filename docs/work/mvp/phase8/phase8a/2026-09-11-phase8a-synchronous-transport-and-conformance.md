@@ -10,10 +10,12 @@ harness — the assertion protocol phase 0 postponed to this phase) in full, plu
 addition to `dexpace-core`
 (`Dexpace::TransportError`, `Configuration::Keys::REQUEST_TIMEOUT`) this sub-phase needs to raise
 and configure against. Twenty-three requirement IDs, all `TRANSPORT`: `TRANSPORT-1`–`6`, `10`, `11`,
-`14`–`20`, `22`, `24`–`30`. Twenty implemented, `TRANSPORT-28` partially satisfied with its zero-copy
-clause ⏳ and `TRANSPORT-30` ⏳ whole — both declined for v1 and stated in `docs/first-release.md`
-§ What v1 ships without, the `TRANSPORT-28`/`TRANSPORT-30` entry — and `TRANSPORT-18` vacuous once
-`max_retries = 0`. Nothing is postponed by this plan; `BODY-12` clause 2 (a kernel zero-copy path
+`14`–`20`, `22`, `24`–`30`. Twenty-one implemented, `TRANSPORT-28` partially satisfied with its
+zero-copy clause ⏳ — declined for v1 and stated in `docs/first-release.md` § What v1 ships without —
+and `TRANSPORT-18` vacuous once `max_retries = 0`. **`TRANSPORT-30` is implemented rather than ⏳
+(corrected 2026-09-13, `R17`)**: phase 5a ships the proxy resolver and routes proxy use here, and
+`Net::HTTP.new`'s `p_addr` defaults to `:ENV`, so the "no proxy at all" premise the ⏳ rested on was
+false in both directions. Nothing is postponed by this plan; `BODY-12` clause 2 (a kernel zero-copy path
 through `Net::HTTP`) and the move of core's test fakes into `dexpace-conformance` are both declined,
 with the reasons in the design's *Work phase 8a postponed, and who owns it now*, and the conformance
 assertion protocol phase 0 postponed lands here in full.
@@ -295,7 +297,9 @@ while building Task 13 and resolves the same way — with a reason, not a guess.
 
 ## Task order and dependency chain
 
-Twenty-five tasks. Two hard rules, both external:
+Twenty-eight tasks — twenty-five, plus `19a`, `19b` and `19c` added 2026-09-13, lettered rather than
+renumbered because `Task 25 Step 3a` and this plan's other task numbers are cited from the charter,
+`8c`'s plan and phase 9's. Two hard rules, both external:
 
 **Hard rule 1:** the `net-http` gemspec dependency line and the require-allowlist's per-gem `socket`
 exception (Task 3) land **before** the first `require "net/http"` (Task 16) and the first
@@ -338,7 +342,15 @@ into it, and before any adapter test asserts a wrapped error's type.
 17. `Dexpace::Transport::NetHTTP::ResponseMapper` (`R4`) — needs Task 16 for shared constants.
 18. `Dexpace::Transport::NetHTTP::ResponsePump` (`R1`) — needs Tasks 15, 17.
 19. `Dexpace::Transport::NetHTTP` the module, `::Adapter#call`/`#close`, `.build`/`.using`/`.default`,
-    registration — needs Tasks 14–18.
+    registration — needs Tasks 14–18. The per-call client is constructed **from the request's URL**,
+    because `Net::HTTP` has no `#address=`/`#port=` writer; the borrowed client is used verbatim and
+    its calls are serialised (`P8-15`).
+19a. `Dexpace::Transport::NetHTTP::TLSSettings` — `.build`'s `tls:` keyword (`R18`) — needs Task 19.
+19b. `Dexpace::Transport::NetHTTP::ProxyRoute` — `TRANSPORT-30` and the first consumer of phase 5a's
+    `Dexpace::Proxy.resolve` (`R17`) — needs Task 19.
+19c. The generator slice: one end-to-end path through `Operation` → `Pipeline.standard` → this
+    adapter → `TypedResponse`, over the Task 5 fixture. Cross-references only; adds no `lib/` code
+    and no ID to this sub-phase's budget — needs Tasks 5 and 19, and phases 2, 3b, 4c, 6b, 6c, 7a.
 20. Wire the conformance suite into `dexpace-transport-net_http`'s own test task via
     `MinitestDriver`, with the borrowed-client driver and the `:vacuous` rows — needs Task 19 and
     Tasks 9–13.
@@ -1511,9 +1523,10 @@ group depends on.
 **Design:** "`R7`"; "`R16`"; open question 7.
 
 **Files:**
-- Create: `gems/dexpace-conformance/lib/dexpace/conformance/transport_case.rb`,
-  `.../transport_suite.rb`, both `sig/` mirrors (the `sig/` for `transport_case.rbs` also carries
-  the `_Transport` RBS interface)
+- Create: `gems/dexpace-conformance/lib/dexpace/conformance/borrowed_pair.rb`,
+  `.../transport_case.rb`, `.../transport_suite.rb`, all three `sig/` mirrors (the `sig/` for
+  `transport_case.rbs` carries the `_Wire` interface and references phase 2's
+  `Dexpace::_Transport`; it declares **no** `_Transport` of its own)
 - Modify: `gems/dexpace-conformance/lib/dexpace/conformance.rb`
 - Test: `gems/dexpace-conformance/test/dexpace/conformance/{transport_case,transport_suite}_test.rb`,
   `gems/dexpace-conformance/test/support/non_conforming_transport.rb`
@@ -1521,7 +1534,8 @@ group depends on.
 **Needs:** Tasks 4, 5.
 **Produces:** `TransportSuite.assertions` (empty for now; Tasks 9–13 populate it), `.run(build:,
 borrow: nil, waive: [], around: nil, settle: nil, wire: nil)`; `TransportCase#transport`,
-`#borrowed_transport`, `#wire`, `#request`, `#settle`.
+`#borrowed_transport`, `#wire`, `#request`, `#settle`; `Dexpace::Conformance::BorrowedPair` and the
+`private_constant SettleOnly` guard.
 
 **Three keywords added 2026-09-12, and they are the whole of what an *asynchronous* second driver needs
 from this task.** The design's `R16` → *The suite contract* merges `8a`'s original five assumptions with
@@ -1581,13 +1595,53 @@ class DexpaceConformanceTransportCaseTest < DexpaceConformanceTestCase
   test "#borrowed_transport raises Vacuous when the adapter supplies no borrowing entry point" do
     kase = build_case(borrow: nil)
 
-    assert_raises(Dexpace::Conformance::Vacuous) { kase.borrowed_transport(:client) }
+    assert_raises(Dexpace::Conformance::Vacuous) { kase.borrowed_transport }
   end
 
-  test "#borrowed_transport calls the borrow factory when one is supplied" do
-    kase = build_case(borrow: ->(client) { [:borrowed, client] })
+  # Suite contract 4a: the factory takes the fixture's PORT and returns a BorrowedPair, so no
+  # assertion ever names a native client class.
+  test "#borrowed_transport calls the borrow factory with the wire's port and returns a pair" do
+    seen = nil
+    kase = build_case(borrow: lambda do |port|
+      seen = port
+      Dexpace::Conformance::BorrowedPair.build(transport: :borrowed, probe: -> { true })
+    end)
+    kase.wire(script: Dexpace::Conformance::Scripts.fixed("x"))
 
-    assert_equal([:borrowed, :a_client], kase.borrowed_transport(:a_client))
+    pair = kase.borrowed_transport
+
+    assert_equal(kase.wire.port, seen)
+    assert(pair.still_usable?)
+    kase.teardown
+  end
+
+  # Suite contract 8's guard.
+  test "#transport returns a subject that refuses #call and delegates everything else" do
+    closed = false
+    subject = Object.new
+    subject.define_singleton_method(:close) { closed = true }
+    subject.define_singleton_method(:call) { |*| flunk("the guard must not delegate #call") }
+    kase = build_case(build: ->(**_) { subject })
+
+    guarded = kase.transport
+
+    error = assert_raises(ArgumentError) { guarded.call(:r, :o, :c) }
+    assert_match(/kase\.settle/, error.message)
+    guarded.close
+    assert(closed, "every other message delegates")
+  end
+
+  test "#settle unwraps the guard before handing the transport to the driver's primitive" do
+    seen = nil
+    subject = Object.new
+    subject.define_singleton_method(:call) { |*args| seen = args; :ok }
+    kase = Dexpace::Conformance::TransportCase.new(
+      build: ->(**_) { subject },
+      settle: Dexpace::Conformance::TransportCase::DEFAULT_SETTLE,
+    )
+
+    assert_equal(:ok, kase.settle(kase.transport, :req, :opts, :cancel))
+    assert_equal([:req, :opts, :cancel], seen)
   end
 
   test "#wire starts a WireServer lazily and memoizes it across calls in one case" do
@@ -1829,8 +1883,12 @@ module Dexpace
         @wire = nil
       end
 
+      # Suite contract 8's guard: what an assertion receives cannot be #call-ed. The default #settle
+      # IS transport.call, so an assertion that calls #call directly passes every run 8a performs and
+      # fails only when 8c's async driver replaces #settle -- a defect no test in this gem can see.
+      # SettleOnly makes it a red test here instead.
       def transport(**settings)
-        track(@build.call(**settings))
+        SettleOnly.new(track(@build.call(**settings)))
       end
 
       # Clause 8: the ONE send primitive. An assertion calls this and never transport.call, so the
@@ -1838,16 +1896,22 @@ module Dexpace
       # Clause 5: a cancellation surfaces from here as Dexpace::CancelledError on both paths.
       def settle(transport, request, options = Dexpace::RequestOptions::EMPTY,
                  cancellation = Dexpace::Cancellation.none)
-        @settle.call(transport, request, options, cancellation)
+        @settle.call(SettleOnly.unwrap(transport), request, options, cancellation)
       end
 
-      def borrowed_transport(client)
+      # Suite contract 4a: the driver's borrow factory takes the fixture's PORT and returns a
+      # BorrowedPair, because the caller's own client is an adapter-specific object (Net::HTTP here,
+      # an Async::HTTP::Client on 8c) and an assertion that constructs one has parameterised itself
+      # on which adapter it is looking at -- which is the one thing this gem must never contain.
+      def borrowed_transport
         unless @borrow
           raise Vacuous, "this adapter's suite call supplied no borrowing construction " \
                          "(TRANSPORT-15's borrowed half)"
         end
 
-        track(@borrow.call(client))
+        pair = @borrow.call(wire.port)
+        track(pair.transport)
+        BorrowedPair.build(transport: SettleOnly.new(pair.transport), probe: pair.probe)
       end
 
       # Clause 11: the fixture comes from a factory, so one run can drive more than one of them.
@@ -1874,7 +1938,66 @@ module Dexpace
         @transports << built
         built
       end
+
+      # Delegates everything but #call. Not a Data type: it wraps a foreign object and its identity
+      # is the subject's.
+      class SettleOnly
+        def self.unwrap(object) = object.is_a?(SettleOnly) ? object.__subject__ : object
+
+        def initialize(subject) = @subject = subject
+        def __subject__ = @subject
+
+        def call(*, **, &)
+          raise ::ArgumentError,
+                "a conformance assertion must send through kase.settle(transport, request, " \
+                "options, cancellation), never transport.call -- the async driver replaces #settle " \
+                "with `transport.call(...).value(cancellation:)` and a direct #call returns a " \
+                "Dexpace::Async::Future there (suite contract clause 8)"
+        end
+
+        def respond_to_missing?(name, include_private = false)
+          @subject.respond_to?(name, include_private) || super
+        end
+
+        def method_missing(name, *args, **kwargs, &block)
+          return super unless @subject.respond_to?(name)
+
+          @subject.public_send(name, *args, **kwargs, &block)
+        end
+      end
+      private_constant :SettleOnly
     end
+  end
+end
+```
+
+`gems/dexpace-conformance/lib/dexpace/conformance/borrowed_pair.rb`, the suite contract's clause 4a
+value:
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "dexpace/model"
+
+module Dexpace
+  module Conformance
+    # What a driver's `borrow:` factory returns: the transport wrapping the caller's own client, and
+    # a probe answering "is that client still usable?". The probe is the adapter's, because only the
+    # adapter knows what using its native client looks like -- which is what keeps TRANSPORT-15's
+    # borrowed half portable across adapters that share no client class.
+    BorrowedPair = ::Data.define(:transport, :probe) do
+      include ::Dexpace::Model
+
+      def self.build(transport:, probe:)
+        ::Dexpace::Model.required!(transport, "transport")
+        ::Dexpace::Model.required!(probe, "probe")
+        new(transport: transport, probe: probe)
+      end
+
+      def still_usable? = !!probe.call
+    end
+    private_class_method :new
   end
 end
 ```
@@ -1960,17 +2083,24 @@ per-instance state, and there is exactly one suite. Tasks 9–13 each replace th
 with a longer one (never `<<`, because appending to a frozen `Array` raises and because each task's
 diff should show exactly what it added).
 
-- [ ] **Step 5: Write both `sig/` mirrors, including the `_Transport` interface**
+- [ ] **Step 5: Write all three `sig/` mirrors, including the `_Wire` interface**
 
 `sig/dexpace/conformance/transport_case.rbs`:
+
+**No `interface _Transport` is declared here.** Phase 2 already declares `Dexpace::_Transport` in
+`dexpace-core`'s `sig/dexpace/transport.rbs`
+(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:3672-3675`), typed
+`(Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation?) -> Dexpace::Response`, and two
+interfaces of the same name in two gems' `sig/` trees is one name resolving to two shapes for every
+consumer that loads both — which is all of them, since this gem declares `dexpace-core`. This gem
+declares `_Wire` only, and references `Dexpace::_Transport` where it needs the seam's type.
+**`#transport` is typed `untyped`**: it returns the clause-8 guard rather than the transport, and
+clause 1 admits a transport whose `#call` returns a `Dexpace::Async::Future`, which core's interface
+correctly does not describe. `#settle` is where the `-> Dexpace::Response` return lives.
 
 ```rbs
 module Dexpace
   module Conformance
-    interface _Transport
-      def call: (Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response
-    end
-
     # Clause 11: a fixture is whatever answers this, so 8c's HTTP/2 server can stand in for
     # WireServer without dexpace-conformance naming a single async constant (NFR-11).
     interface _Wire
@@ -1982,16 +2112,23 @@ module Dexpace
       def close: () -> void
     end
 
+    class BorrowedPair
+      attr_reader transport: untyped
+      attr_reader probe: ^() -> untyped
+      def self.build: (transport: untyped, probe: ^() -> untyped) -> BorrowedPair
+      def still_usable?: () -> bool
+    end
+
     class TransportCase
-      DEFAULT_SETTLE: ^(_Transport, Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response
+      DEFAULT_SETTLE: ^(Dexpace::_Transport, Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response
       DEFAULT_WIRE: ^(untyped) -> _Wire
 
-      def initialize: (build: ^(**untyped) -> _Transport, ?borrow: (^(untyped) -> _Transport)?,
-                       ?settle: ^(_Transport, Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response,
+      def initialize: (build: ^(**untyped) -> Dexpace::_Transport, ?borrow: (^(Integer) -> BorrowedPair)?,
+                       ?settle: ^(Dexpace::_Transport, Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response,
                        ?wire: ^(untyped) -> _Wire) -> void
-      def transport: (**untyped) -> _Transport
-      def borrowed_transport: (untyped client) -> _Transport
-      def settle: (_Transport, Dexpace::Request, ?Dexpace::RequestOptions, ?Dexpace::Cancellation) -> Dexpace::Response
+      def transport: (**untyped) -> untyped
+      def borrowed_transport: () -> BorrowedPair
+      def settle: (untyped, Dexpace::Request, ?Dexpace::RequestOptions, ?Dexpace::Cancellation) -> Dexpace::Response
       def wire: (?script: ^(untyped, untyped) -> void) -> _Wire
       def request: (?path: String, ?method: String, ?headers: Dexpace::Headers,
                     ?body: Dexpace::Body?) -> Dexpace::Request
@@ -2008,8 +2145,9 @@ Add `require_relative "dexpace/conformance/transport_case"` then
 `wire_server` and `scripts`.
 
 Run both test files.
-Expected: PASS, **8 and 6** runs (six and four before the suite contract's `settle:`/`wire:`/`around:`
-keywords landed on 2026-09-12).
+Expected: PASS, **11 and 6** runs (six and four before the suite contract's `settle:`/`wire:`/`around:`
+keywords landed on 2026-09-12; eight and six before clause 4a's `BorrowedPair` and clause 8's guard
+landed on 2026-09-13).
 
 ---
 
@@ -2386,7 +2524,8 @@ end
 - [ ] **Step 5: `sig/` mirrors, the one require, run**
 
 `sig/dexpace/conformance/minitest_driver.rbs` types `conformance` with `build: ^(**untyped) ->
-_Transport` etc.; `rspec_driver.rbs` mirrors it as a singleton method. Add
+Dexpace::_Transport` (phase 2's, in core — this gem declares none of its own) and
+`?borrow: (^(Integer) -> BorrowedPair)?`; `rspec_driver.rbs` mirrors it as a singleton method. Add
 `require_relative "dexpace/conformance/minitest_driver"` to `lib/dexpace/conformance.rb`; do **not**
 add the RSpec line.
 
@@ -3130,17 +3269,20 @@ Run:
         Assertion.build(
           ids: ["TRANSPORT-15"],
           name: "a borrowed client survives the transport's close and stays usable",
+          # Suite contract 4a. Rewritten 2026-09-13: this body used to build a ::Net::HTTP itself,
+          # inside dexpace-conformance's OWN lib/ -- a gem that declares dexpace-core and nothing
+          # else -- which made it both an undeclared constant here and an unrunnable assertion on an
+          # adapter whose native client is an Async::HTTP::Client. The driver supplies both sides
+          # now: the transport, and the probe that knows what "still usable" means for its client.
           body: lambda do |kase|
             kase.wire(script: Scripts.fixed("ok"))
-            client = ::Net::HTTP.new("127.0.0.1", kase.wire.port)
-            client.max_retries = 0
-            borrowed = kase.borrowed_transport(client)
-            borrowed.call(kase.request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
-            borrowed.close
-            response = client.start { |c| c.request(::Net::HTTP::Get.new("/")) }
-            unless response.code == "200"
+            pair = kase.borrowed_transport
+            kase.settle(pair.transport, kase.request, Dexpace::RequestOptions::EMPTY,
+                        Dexpace::Cancellation.none)
+            pair.transport.close
+            unless pair.still_usable?
               raise Failure.new("the borrowed client stopped working after the transport closed",
-                                 expected: "200", actual: response.code, requirement_ids: ["TRANSPORT-15"])
+                                 expected: true, actual: false, requirement_ids: ["TRANSPORT-15"])
             end
           end,
         ),
@@ -4198,8 +4340,8 @@ now* (Task 25), not a code change.
 
 **Needs:** Task 14's `Deadline` (optional, may be `nil` for a borrowed client); Task 15's
 `Failures`; phase 2's `Closeable`; phase 3a's `Dexpace::EndOfStreamError`.
-**Produces:** `ResponsePump.new(http:, native:, deadline:).call`, `#readpartial`, `#close`,
-`#head_or_raise`.
+**Produces:** `ResponsePump.new(http:, native:, deadline:, cancellation:, owns_connection:, permit:)`,
+`#readpartial`, `#close`, `#head_or_raise`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4330,6 +4472,28 @@ class DexpaceTransportNetHttpResponsePumpTest < DexpaceTestCase
     wire.close
   end
 
+  # P8-15: the borrowing construction. The pump must neither start nor finish a client it does not
+  # own, so an ALREADY-STARTED client is reused and survives the response's close.
+  test "owns_connection: false neither starts nor finishes the caller's client" do
+    wire = fixed_length_wire("ok")
+    http = Net::HTTP.new("127.0.0.1", wire.port)
+    http.max_retries = 0
+    http.start
+    native = Net::HTTPGenericRequest.new("GET", false, true, "/", {})
+    permit = Thread::SizedQueue.new(1)
+
+    pump = ResponsePump.new(http: http, native: native, deadline: nil,
+                            cancellation: Dexpace::Cancellation.none,
+                            owns_connection: false, permit: permit)
+    pump.head_or_raise
+    pump.close
+
+    assert(http.started?, "the adapter must not finish a client it does not own (TRANSPORT-15)")
+    assert_equal(1, permit.size, "the permit must be returned when the response is closed (P8-15)")
+    http.finish
+    wire.close
+  end
+
   test "writing into an explicit outbuf retags it to BINARY via #replace" do
     wire = dribbling_wire("caf\xE9".b, "x", 0)
     http = Net::HTTP.new("127.0.0.1", wire.port)
@@ -4371,14 +4535,21 @@ module Dexpace
       class ResponsePump
         include ::Dexpace::Closeable
 
-        def initialize(http:, native:, deadline:, cancellation:)
+        def initialize(http:, native:, deadline:, cancellation:, owns_connection: true, permit: nil)
           @http = http
           @native = native
           @deadline = deadline
           @cancellation = cancellation
+          # P8-15: false on the borrowing construction, where the client is the caller's and this
+          # adapter may neither #start nor #finish it. Net::HTTP#request opens and closes its own
+          # session on an unstarted client and reuses an already-started one, which is both what
+          # "verbatim" means and what makes a caller's keep-alive session work.
+          @owns_connection = owns_connection
+          # P8-15: the one-permit queue Adapter#borrowed_call took, returned here because the
+          # exchange -- not the #call -- is what must not overlap. Nil on the managed construction.
+          @permit = permit
           @queue = ::Thread::SizedQueue.new(1)
           @residue = +"".b
-          @producer_error = nil
           initialize_closeable(owned: true)
           @thread = ::Thread.new { produce }
         end
@@ -4432,21 +4603,15 @@ module Dexpace
         # resource-management/346deaec: release in ensure, never in rescue. Runs on the
         # PRODUCER's own thread.
         def produce
-          @http.start do |connected|
-            connected.request(@native) do |res|
-              @queue.push([:head, res])
-              next unless res.class.body_permitted?
-
-              res.read_body do |chunk|
-                break unless still_wanted?
-
-                refresh_read_timeout
-                @queue.push([:chunk, chunk])
-              end
-            end
+          if @owns_connection
+            @http.start { |connected| exchange(connected) }
+          else
+            # P8-15: no #start and no #finish on a client this adapter does not own. Net::HTTP#request
+            # starts a session itself when the client is not started (and finishes it), and reuses one
+            # when it is -- so an already-started caller client keeps its connection.
+            exchange(@http)
           end
         rescue ::StandardError => e
-          @producer_error = e
           begin
             @queue.push([:error, e])
           rescue ::ClosedQueueError
@@ -4454,6 +4619,27 @@ module Dexpace
           end
         ensure
           @queue.close
+        end
+
+        def exchange(connected)
+          # R3/F6: the budget is re-read HERE, after connect, and again after the head -- not once at
+          # #call entry. open_timeout, write_timeout and read_timeout were all assigned the same
+          # `remaining` before the connection existed, so a call whose connect and write each consume
+          # the budget would otherwise be bounded by 3x it before the first refresh ever ran, which is
+          # the per-operation reading R3 rejects.
+          refresh_read_timeout
+          connected.request(@native) do |res|
+            @queue.push([:head, res])
+            refresh_read_timeout
+            next unless res.class.body_permitted?
+
+            res.read_body do |chunk|
+              break unless still_wanted?
+
+              refresh_read_timeout
+              @queue.push([:chunk, chunk])
+            end
+          end
         end
 
         # concurrency-and-async/611b9392: check-after-resume. The producer re-reads its own
@@ -4488,12 +4674,18 @@ module Dexpace
           rescue ::StandardError
             nil
           end
-          begin
-            @http.finish if @http.started?
-          rescue ::StandardError
-            nil
+          if @owns_connection
+            # P8-15: only on a connection this pump opened. On the borrowing construction the socket
+            # is the caller's, so the producer is left to the caller's own read_timeout -- the stated
+            # narrowing of TRANSPORT-19's prompt unblock on that construction.
+            begin
+              @http.finish if @http.started?
+            rescue ::StandardError
+              nil
+            end
           end
           @thread.join(JOIN_DEADLINE_SECONDS)
+          @permit&.push(:permit) # P8-15: the next borrowed call may start now
           nil
         end
       end
@@ -4516,7 +4708,7 @@ request.
 - [ ] **Step 4: `sig/` mirror, run**
 
 Run: `bundle exec ruby -w gems/dexpace-transport-net_http/test/dexpace/transport/net_http/response_pump_test.rb`
-Expected: PASS, 5 runs. **No test allocates the 4 MiB body more than once, and no test sleeps to
+Expected: PASS, 6 runs. **No test allocates the 4 MiB body more than once, and no test sleeps to
 synchronise** beyond the dribble script's own deliberate, bounded delay, which is the thing under
 test rather than a wait for something else.
 
@@ -4617,6 +4809,65 @@ class DexpaceTransportNetHttpAdapterTest < DexpaceTestCase
     wire.close
   end
 
+  test "P8-15: a borrowed adapter refuses a request naming a different origin" do
+    wire = server(&Dexpace::Conformance::Scripts.fixed("ok"))
+    client = Net::HTTP.new("127.0.0.1", wire.port)
+    client.max_retries = 0
+    adapter = NetHTTP.using(client)
+    elsewhere = Dexpace::Request.build(method: "GET", url: "http://127.0.0.1:1/",
+                                        headers: Dexpace::Headers::EMPTY, body: nil)
+
+    assert_raises(Dexpace::InvalidArgumentError) do
+      adapter.call(elsewhere, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
+    end
+    wire.close
+  end
+
+  test "P8-15: a borrowed adapter reuses a client the caller already started" do
+    wire = server(&Dexpace::Conformance::Scripts.fixed("ok"))
+    client = Net::HTTP.new("127.0.0.1", wire.port)
+    client.max_retries = 0
+    client.start
+    adapter = NetHTTP.using(client)
+
+    response = adapter.call(request_for(wire), Dexpace::RequestOptions::EMPTY,
+                             Dexpace::Cancellation.none)
+    response.close
+
+    assert_equal(200, response.status.code)
+    assert(client.started?, "the adapter must not finish a client it does not own (TRANSPORT-15)")
+    client.finish
+    wire.close
+  end
+
+  # TRANSPORT-29 on the OTHER construction. It is satisfied by serialisation rather than by per-call
+  # construction (P8-15), and a proof of one is not a proof of the other -- verified fact 9 measured
+  # 26 wrong-request responses from a shared client with no serialisation.
+  test "TRANSPORT-29: concurrent calls through a borrowed adapter each get their own response" do
+    wire = server { |conn, head| Dexpace::Conformance::Scripts.write_response(conn, body: head.first.split(" ")[1]) }
+    client = Net::HTTP.new("127.0.0.1", wire.port)
+    client.max_retries = 0
+    adapter = NetHTTP.using(client)
+    mismatches = Thread::Queue.new
+    threads = 4.times.map do |t|
+      Thread.new do
+        5.times do |i|
+          path = "/b#{t}-#{i}"
+          res = adapter.call(request_for(wire, path: path), Dexpace::RequestOptions::EMPTY,
+                              Dexpace::Cancellation.none)
+          body = res.body_string
+          mismatches.push([path, body]) unless body == path
+        end
+      end
+    end
+    threads.each(&:join)
+    found = []
+    found << mismatches.pop until mismatches.empty?
+
+    assert_empty(found)
+    wire.close
+  end
+
   test "TRANSPORT-29: many concurrent calls through one adapter each get their own response" do
     wire = server { |conn, head| Dexpace::Conformance::Scripts.write_response(conn, body: head.first.split(" ")[1]) }
     adapter = NetHTTP.build
@@ -4713,14 +4964,19 @@ module Dexpace
       # Dexpace::Transport.install/.swap when they want this adapter by name.
       REGISTRY_KEY = :net_http
 
+      # R18: the keys `.build`'s `tls:` accepts. Public because an unknown key raises and a caller
+      # needs to see the set; plain values only, so no OpenSSL constant reaches a public signature
+      # (NFR-11) -- see TLSSettings (Task 19a).
+      TLS_SETTINGS = %i[ca_file ca_path cert key verify_mode min_version].freeze
+
       module_function
 
       # The SDK-managed construction. TRANSPORT-29's "effectively immutable after construction"
       # frozen adapter, built per call by #call itself (never a shared @client) -- verified
       # fact 9: a shared Net::HTTP under eight threads produced 128 errors and 26 mismatched
       # responses; a per-call one produced zero of either.
-      def build(timeout: nil, logger: ::Dexpace::Instrumentation::Logger::NULL)
-        Adapter.owning(timeout: timeout, logger: logger)
+      def build(timeout: nil, logger: ::Dexpace::Instrumentation::Logger::NULL, tls: nil)
+        Adapter.owning(timeout: timeout, logger: logger, tls: TLSSettings.validate!(tls))
       end
 
       # The borrowing construction. P8-10: refuses at construction unless the caller's own
@@ -4779,8 +5035,8 @@ module Dexpace
         include ::Dexpace::Closeable
         private_class_method :new
 
-        def self.owning(timeout:, logger:)
-          new(client: nil, timeout: timeout, logger: logger, owned: true)
+        def self.owning(timeout:, logger:, tls: nil)
+          new(client: nil, timeout: timeout, logger: logger, tls: tls, owned: true)
         end
 
         def self.borrowing(client, logger:)
@@ -4790,41 +5046,49 @@ module Dexpace
                   "may not set it on a client it does not own (XCUT-22)"
           end
 
-          new(client: client, timeout: nil, logger: logger, owned: false)
+          new(client: client, timeout: nil, logger: logger, tls: nil, owned: false)
         end
 
-        def initialize(client:, timeout:, logger:, owned:)
+        def initialize(client:, timeout:, logger:, tls:, owned:)
           @client = client
           @timeout = timeout
           @logger = logger
+          @tls = tls
           @clock = ::Dexpace::Clock::SYSTEM
+          # P8-15: one permit, so concurrent calls through a BORROWED client are serialised for the
+          # whole life of each response. Not a Thread::Mutex: the permit is returned by the response
+          # pump's teardown, which may run on another thread, and Mutex#unlock from a non-owner
+          # raises ThreadError (measured on 3.4.10).
+          @permit = owned ? nil : ::Thread::SizedQueue.new(1).tap { |q| q.push(:permit) }
           initialize_closeable(owned: owned)
         end
 
-        # SEAM-11, SEAM-13, SEAM-15. TRANSPORT-3-6, 10, 11, 14, 17, 20, 22, 24-27, 29.
+        # SEAM-11, SEAM-13, SEAM-15. TRANSPORT-3-6, 10, 11, 14, 17, 20, 22, 24-27, 29, 30.
         def call(request, options, cancellation)
           raise ::Dexpace::ClosedError, "this transport is closed" if closed? && owned?
 
-          budget = resolve_timeout(options)
-          deadline_or_nil, http = if owned?
-                                     owned_client_for(budget)
-                                   else
-                                     borrowed_client_for(options)
-                                   end
-          if deadline_or_nil&.expired?
-            raise ::Dexpace::TransportError.new("the per-call budget expired before dispatch",
-                                                 phase: :connect)
-          end
+          if owned?
+            deadline = Deadline.build(clock: @clock, budget: resolve_timeout(options))
+            if deadline.expired?
+              raise ::Dexpace::TransportError.new("the per-call budget expired before dispatch",
+                                                   phase: :connect)
+            end
 
-          dispatch(request, http, deadline_or_nil, cancellation)
-        rescue ::StandardError => e
-          # NO `cause: nil` here. This rescue is the one place in the adapter where $! IS the error
-          # being wrapped, so Ruby's implicit #cause wiring attaches `e` for free -- which is what
-          # Dexpace::TransportError's own contract ("Ruby's implicit #cause carrying the stdlib
-          # error it wrapped") and Task 15's tests both require. `raise error, cause: nil` is for the
-          # OPPOSITE case, re-raising a failure carried across a thread boundary, and it is
-          # ResponsePump's spelling (Task 18, pipeline/7ce4431d) and not this one's.
-          raise Failures.wrap(e, phase: :connect, cancellation: cancellation)
+            dispatch(request, owned_client_for(request.url, deadline), deadline, cancellation,
+                     owns_connection: true)
+          else
+            borrowed_call(request, options, cancellation)
+          end
+        rescue ::StandardError
+          # NO `=> e` and NO `cause: nil`. The binding is unused, and `ruby -w` reports
+          # "assigned but unused variable - e" at PARSE time, which phase 0's shared test case turns
+          # into a raise -- a red build on the first run of this file, measured. `$!` is what
+          # Failures.wrap needs and Ruby's implicit #cause wiring attaches it for free, which is what
+          # Dexpace::TransportError's contract ("Ruby's implicit #cause carrying the stdlib error it
+          # wrapped") and Task 15's tests both require. `raise error, cause: nil` is for the OPPOSITE
+          # case, re-raising a failure carried across a thread boundary, and it is ResponsePump's
+          # spelling (Task 18, pipeline/7ce4431d) and not this one's.
+          raise Failures.wrap($!, phase: :connect, cancellation: cancellation)
         end
 
         private
@@ -4835,55 +5099,87 @@ module Dexpace
                                               default: DEFAULT_TIMEOUT_SECONDS)
         end
 
-        # TRANSPORT-5/6: a fresh Net::HTTP per call, its three timeout knobs assigned from THIS
-        # call's own deadline -- never a shared client, so "leaving the shared native client's
-        # configuration untouched" holds by construction rather than by discipline.
-        def owned_client_for(budget)
-          deadline = Deadline.build(clock: @clock, budget: budget)
-          http = ::Net::HTTP.new(nil, nil) # host/port assigned per request in #dispatch
+        # TRANSPORT-5/6: a fresh Net::HTTP per call, built FROM THIS REQUEST'S URL and with its
+        # three timeout knobs assigned from THIS call's own deadline -- never a shared client, so
+        # "leaving the shared native client's configuration untouched" holds by construction rather
+        # than by discipline.
+        #
+        # The endpoint is a CONSTRUCTOR ARGUMENT and never an assignment: Net::HTTP declares
+        # `attr_reader :address` and `attr_reader :port` (/usr/lib/ruby/3.4.0/net/http.rb:1264,
+        # :1267) and defines no writer for either, so `http.address = ...` raises NoMethodError.
+        # Measured on 3.4.10: `Net::HTTP.new("example.com", 80).respond_to?(:address=)` is false.
+        # `#use_ssl=` does exist and is assigned here, on a client this adapter owns and has not
+        # started.
+        def owned_client_for(url, deadline)
+          proxy = ProxyRoute.for(url) # R17, Task 19b -- four values, all nil when none applies
+          http = ::Net::HTTP.new(url.hostname, url.port,
+                                 proxy.address, proxy.port, proxy.username, proxy.password)
+          http.proxy_from_env = false # R17: Net::HTTP.new's p_addr default is :ENV
           http.max_retries = 0
+          http.use_ssl = (url.scheme == "https")
+          TLSSettings.apply(http, @tls) if http.use_ssl? # R18, Task 19a
           http.open_timeout = deadline.clamped
           http.write_timeout = deadline.clamped
           http.read_timeout = deadline.clamped
-          [deadline, http]
+          http
         end
 
-        # P8-6: a non-nil per-call override against a borrowed client raises (checked by the
-        # caller of THIS method having already resolved options.timeout above only for the
-        # DEFAULT tier's sake; the borrowed branch re-checks the OPTIONS value directly, because
-        # a configured or transport-level default must not be silently applied to someone else's
-        # client either).
-        def borrowed_client_for(options)
+        # P8-15: the borrowed client is used VERBATIM -- no knob, no endpoint, no use_ssl, no
+        # #start and no #finish -- so the endpoint is the CLIENT's and a request that names a
+        # different one is refused rather than sent somewhere the caller's Request does not name.
+        # P8-6: a non-nil per-call override is refused for the same reason, and the OPTIONS value is
+        # checked directly rather than the resolved one, because a configured or transport-level
+        # default must not be silently applied to someone else's client either.
+        #
+        # TRANSPORT-29 then has no per-call client to rest on, and verified fact 9 measured what a
+        # shared one does under concurrency (128 errors, 26 responses matched to the WRONG request),
+        # so the exchange is serialised: one permit, taken here and returned by the pump's own
+        # teardown. It is a Thread::SizedQueue and not a Thread::Mutex because the critical section
+        # ends on the PUMP's thread, and Mutex#unlock from a non-owner raises ThreadError (measured).
+        def borrowed_call(request, options, cancellation)
           unless options.timeout.nil?
             raise ::Dexpace::InvalidArgumentError,
                   "a per-call timeout override cannot apply to a borrowed Net::HTTP without " \
                   "mutating it (TRANSPORT-5 vs XCUT-22); use .build for a call that needs one"
           end
+          check_endpoint!(request.url)
 
-          [nil, @client]
+          @permit.pop # released by ResponsePump#release, on whichever thread closes the response
+          begin
+            dispatch(request, @client, nil, cancellation, owns_connection: false, permit: @permit)
+          rescue ::StandardError
+            @permit.push(:permit) # nothing reached the pump, so nothing else will return it
+            raise
+          end
         end
 
-        def dispatch(request, http, deadline, cancellation)
+        def check_endpoint!(url)
+          scheme = url.scheme == "https"
+          return if url.hostname == @client.address && url.port == @client.port &&
+                    scheme == @client.use_ssl?
+
+          raise ::Dexpace::InvalidArgumentError,
+                "a borrowed Net::HTTP is bound to #{@client.address}:#{@client.port} " \
+                "(use_ssl=#{@client.use_ssl?}) and this request names #{url.hostname}:#{url.port} " \
+                "(use_ssl=#{scheme}); the adapter may not re-point a client it does not own " \
+                "(TRANSPORT-15, XCUT-22) -- use .build, or a client bound to this origin"
+        end
+
+        def dispatch(request, http, deadline, cancellation, owns_connection:, permit: nil)
           native = RequestMapper.build(request, logger: @logger)
-          apply_endpoint(http, request.url)
           pump = ResponsePump.new(http: http, native: native, deadline: deadline,
-                                   cancellation: cancellation)
+                                   cancellation: cancellation, owns_connection: owns_connection,
+                                   permit: permit)
           subscription = cancellation.on_cancel { ::Dexpace.close_quietly(pump) }
           begin
             head = pump.head_or_raise
             ResponseMapper.build(request: request, native: head, pump: pump)
-          rescue ::StandardError => e
+          rescue ::StandardError
             ::Dexpace.close_quietly(pump)
             raise
           end
         ensure
           subscription&.detach
-        end
-
-        def apply_endpoint(http, url)
-          http.address = url.hostname
-          http.port = url.port
-          http.use_ssl = (url.scheme == "https")
         end
 
         def release
@@ -4897,22 +5193,584 @@ module Dexpace
 end
 ```
 
-`Deadline.build` and `owned_client_for`'s knob assignment happen **before** the endpoint
-(`address`/`port`) is set, which is fine — `Net::HTTP.new(nil, nil)` followed by `#address=`/`#port=`
-before `#start` is what `apply_endpoint` does inside `#dispatch`, called right after
-`RequestMapper.build`; the exact ordering inside `#dispatch` is: map the request, apply the
-endpoint, construct the pump (which starts the connection on the producer thread using the endpoint
-already assigned). TLS verification needs no code here at all — verified fact 16: an
+**The endpoint is a constructor argument, and that is not a style choice — corrected 2026-09-13.**
+An earlier revision of this task built `::Net::HTTP.new(nil, nil)` in `owned_client_for` and then
+assigned `http.address =`, `http.port =` and `http.use_ssl =` in an `apply_endpoint` helper inside
+`#dispatch`. **`Net::HTTP` defines no `#address=` and no `#port=`**: `net/http.rb:1264` and `:1267`
+are `attr_reader :address` and `attr_reader :port`, and measured on 3.4.10
+`Net::HTTP.new("example.com", 80).respond_to?(:address=)` is `false`. The old shape raised
+`NoMethodError` on the **first call of every construction**, and every test in Tasks 18, 19 and 20
+would have failed on it. `owned_client_for` now takes the URL and passes host and port to the
+constructor; `#use_ssl=` does exist and is assigned there, on a client this adapter owns and has not
+started. On the borrowing construction nothing is assigned at all (`P8-15`), so `#use_ssl=`'s own
+`IOError: use_ssl value changed, but session already started` — measured — is unreachable too.
+
+**TLS verification still needs no code for the default case** — verified fact 16: an
 `OpenSSL::SSL::SSLContext.new.set_params({})` yields `VERIFY_PEER` and `verify_hostname: true` by
-default, so `http.use_ssl = true` with nothing else assigned is already verifying.
+default, so `http.use_ssl = true` with nothing else assigned is already verifying. `R18`'s `tls:`
+keyword (Task 19a) assigns only what a caller explicitly passed, so the default path stays
+assignment-free.
 
 - [ ] **Step 5: `sig/` mirrors for both files, run**
 
 Run: `bundle exec ruby -w gems/dexpace-transport-net_http/test/dexpace/transport/net_http/adapter_test.rb`
-Expected: PASS, 9 runs.
+Expected: PASS, 12 runs.
 
 Run: `(cd gems/dexpace-transport-net_http && bundle exec rake test)`
 Expected: every test file from Tasks 14–19 passes together.
+
+---
+
+## Task 19a: `Dexpace::Transport::NetHTTP::TLSSettings` — the `tls:` keyword
+
+**Requirement IDs:** none new — `NFR-4` and `NFR-11` govern the surface; `TRANSPORT-20` is the only
+`TRANSPORT` row TLS touches, through `OpenSSL::SSL::SSLError`, and Task 15 already wraps it.
+**Design:** `R18`; `P8-11`/`P8-12`'s additions; verified fact 16.
+
+**Files:**
+- Create: `.../net_http/tls_settings.rb` (`private_constant`), no `sig/` mirror
+- Modify: `.../net_http.rb` (`TLS_SETTINGS`, `.build`'s keyword — Task 19 already carries both),
+  `sig/dexpace/transport/net_http.rbs`
+- Test: `.../test/dexpace/transport/net_http/tls_settings_test.rb`
+
+**Needs:** Task 19's `.build`. **Produces:** `TLSSettings.validate!(hash_or_nil)`,
+`TLSSettings.apply(http, settings)`.
+
+**Why this exists at all.** `.build` took `timeout:` and `logger:` and nothing else, so the only way
+to reach a private CA bundle, a client certificate or a pinned `min_version` was `.using(client)` —
+which `P8-15` now (correctly) makes a construction with no per-call timeout, a fixed origin and
+serialised calls. A generated service client talking to an endpoint behind a corporate CA would have
+had to give up three properties to set one file path. `R18` has the argument.
+
+- [ ] **Step 1: Write the failing test**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "net/http"
+require_relative "../../../test_helper"
+
+# R18. No TRANSPORT ID: this is public surface NFR-4 locks, not a requirement's clause.
+class DexpaceTransportNetHttpTLSSettingsTest < DexpaceTestCase
+  NetHTTP = Dexpace::Transport::NetHTTP
+
+  test "the default assigns nothing, so SSLContext#set_params supplies VERIFY_PEER" do
+    http = Net::HTTP.new("example.com", 443)
+    NetHTTP::TLSSettings.apply(http, NetHTTP::TLSSettings.validate!(nil))
+
+    assert_nil(http.verify_mode, "an unassigned verify_mode is what lets set_params default it")
+    assert_nil(http.ca_file)
+  end
+
+  test "each accepted key reaches the client" do
+    http = Net::HTTP.new("example.com", 443)
+    settings = NetHTTP::TLSSettings.validate!(ca_file: "/tmp/ca.pem", min_version: :TLS1_2)
+    NetHTTP::TLSSettings.apply(http, settings)
+
+    assert_equal("/tmp/ca.pem", http.ca_file)
+    assert_equal(:TLS1_2, http.min_version)
+  end
+
+  test "an unknown key raises and names itself and the accepted set" do
+    error = assert_raises(Dexpace::InvalidArgumentError) do
+      NetHTTP::TLSSettings.validate!(verify_hostname: false)
+    end
+
+    assert_match(/verify_hostname/, error.message)
+    assert_match(/ca_file/, error.message)
+  end
+
+  test "a non-Hash tls: raises rather than being coerced" do
+    assert_raises(Dexpace::InvalidArgumentError) { NetHTTP::TLSSettings.validate!("/tmp/ca.pem") }
+  end
+
+  # The plaintext-only fixture (P8-9) is why this is structural: the assertion is that a plain-http
+  # URL never reaches #apply at all, which Task 19's owned_client_for guards with `if http.use_ssl?`.
+  test "tls: is not applied to a plain-http request" do
+    adapter = NetHTTP.build(tls: { ca_file: "/nonexistent/ca.pem" })
+    wire = Dexpace::Conformance::WireServer.start(Dexpace::Conformance::Scripts.fixed("ok"))
+    request = Dexpace::Request.build(method: "GET", url: "http://127.0.0.1:#{wire.port}/",
+                                      headers: Dexpace::Headers::EMPTY, body: nil)
+
+    response = adapter.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
+    response.close
+
+    assert_equal(200, response.status.code) # a bogus ca_file would have failed the handshake
+    adapter.close
+    wire.close
+  end
+end
+```
+
+- [ ] **Step 2: Run to confirm failure.**
+
+- [ ] **Step 3: Write `lib/dexpace/transport/net_http/tls_settings.rb`**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "net/http"
+require_relative "../net_http"
+
+module Dexpace
+  module Transport
+    module NetHTTP
+      # R18. Plain values only -- a String path, an OpenSSL object the CALLER built, a Symbol
+      # version. Nothing here is named in a public signature: `.build`'s `tls:` is typed `untyped`
+      # in sig/ with a YARD block listing TLS_SETTINGS, because OpenSSL::X509::Certificate,
+      # OpenSSL::PKey::RSA and OpenSSL::SSL::VERIFY_PEER are all constants NFR-11's scan rejects.
+      module TLSSettings
+        module_function
+
+        # @param settings [Hash, nil] see NetHTTP::TLS_SETTINGS
+        # @return [Hash] frozen, possibly empty
+        def validate!(settings)
+          return {}.freeze if settings.nil?
+
+          unless settings.is_a?(::Hash)
+            raise ::Dexpace::InvalidArgumentError,
+                  "tls: takes a Hash of #{TLS_SETTINGS.join(", ")} or nil, not a " \
+                  "#{settings.class}"
+          end
+
+          unknown = settings.keys - TLS_SETTINGS
+          unless unknown.empty?
+            # A silently ignored verify_mode: is a security setting the caller believes they set.
+            raise ::Dexpace::InvalidArgumentError,
+                  "tls: does not accept #{unknown.join(", ")}; accepted keys are " \
+                  "#{TLS_SETTINGS.join(", ")}"
+          end
+
+          settings.dup.freeze
+        end
+
+        # Assigned only on an https request and only for keys the caller actually passed, so the
+        # default path assigns NOTHING and verified fact 16's VERIFY_PEER/verify_hostname defaults
+        # survive. The adapter never weakens a default on its own.
+        def apply(http, settings)
+          settings.each { |key, value| http.public_send(:"#{key}=", value) }
+          nil
+        end
+      end
+
+      private_constant :TLSSettings
+    end
+  end
+end
+```
+
+- [ ] **Step 4: YARD and the `sig/` line, run**
+
+`sig/dexpace/transport/net_http.rbs` types `.build`'s keyword as `?tls: untyped`, and `.build`'s YARD
+block lists the six keys, says the values are the caller's own (a path `String`, an
+`OpenSSL::X509::Certificate`, an `OpenSSL::PKey` object, an `Integer` verify mode, a `Symbol`
+version), and states that passing `verify_mode: OpenSSL::SSL::VERIFY_NONE` is the caller disabling
+verification deliberately — a thing a toolkit permits and never does on a caller's behalf.
+
+Run: `bundle exec ruby -w gems/dexpace-transport-net_http/test/dexpace/transport/net_http/tls_settings_test.rb`
+Expected: PASS, 5 runs.
+
+---
+
+## Task 19b: `Dexpace::Transport::NetHTTP::ProxyRoute` — `TRANSPORT-30`, and the resolver phase 5a left unread
+
+**Requirement IDs:** `TRANSPORT-30` (SHOULD, with two embedded MUSTs); consumes `CFG-22`–`CFG-28`.
+**Design:** `R17`; the scope table's `TRANSPORT-30` row; *Work phase 8a postponed* › "Proxy *use* on a
+real adapter".
+
+**Files:**
+- Create: `.../net_http/proxy_route.rb` (`private_constant`), no `sig/` mirror
+- Modify: `.../net_http/adapter.rb` (Task 19 already calls `ProxyRoute.for` and sets
+  `proxy_from_env = false`)
+- Test: `.../test/dexpace/transport/net_http/proxy_route_test.rb`
+
+**Needs:** Task 19; phase 5a's `Dexpace::Proxy`, `Proxy.resolve`, `Proxy#bypass?`, `Proxy::Type`;
+phase 5b's `Instrumentation::Logger`/`Severity`.
+**Produces:** `ProxyRoute.for(url, configuration:, logger:) -> ProxyRoute` with `#address`, `#port`,
+`#username`, `#password`.
+
+**Two things this task fixes, and the second is the one a reader will not expect.** Phase 5a ships
+`CFG-22`–`CFG-28`'s proxy model and resolver and routes "proxy *use* … on a real adapter" to phase 8
+(`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`); with no consumer,
+six MUST-level requirements ship unexercised. And `Net::HTTP.new`'s third positional is
+`p_addr = :ENV` — measured on 3.4.10, `Net::HTTP.new("example.com", 80)` with
+`http_proxy=http://user:pw@127.0.0.1:3128` set reports `#proxy?` `true`, `#proxy_address`
+`"127.0.0.1"` and `#proxy_user` `"user"` — so before this task the adapter was proxying from the
+environment, with a credential it had never resolved and a bypass list it had never consulted. That
+is exactly the "silently misbehaving" `TRANSPORT-30`'s SHOULD is written against.
+
+- [ ] **Step 1: Write the failing test**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "net/http"
+require_relative "../../../test_helper"
+
+# TRANSPORT-30, including both of its embedded MUSTs. Consumes CFG-22-CFG-28.
+class DexpaceTransportNetHttpProxyRouteTest < DexpaceTestCase
+  NetHTTP = Dexpace::Transport::NetHTTP
+
+  def url(host = "api.example.com") = Dexpace::URL.parse!("https://#{host}/v1/pets")
+
+  test "no configured proxy yields four nils, so Net::HTTP gets an explicit nil p_addr" do
+    route = NetHTTP::ProxyRoute.for(url, configuration: Dexpace::Configuration::EMPTY)
+
+    assert_nil(route.address)
+    assert_nil(route.port)
+    assert_nil(route.username)
+    assert_nil(route.password)
+  end
+
+  test "a resolved proxy's four values reach the route" do
+    configuration = configuration_with("HTTPS_PROXY" => "http://u:pw@proxy.example:3128")
+    route = NetHTTP::ProxyRoute.for(url, configuration: configuration)
+
+    assert_equal("proxy.example", route.address)
+    assert_equal(3128, route.port)
+    assert_equal("u", route.username)
+    assert_equal("pw", route.password)
+  end
+
+  # CFG-23: the bypass decision is the resolved Proxy's, asked per target host.
+  test "a host matching the non-proxy list is routed directly" do
+    configuration = configuration_with("HTTPS_PROXY" => "http://proxy.example:3128",
+                                        "NO_PROXY" => "*.example.com")
+    route = NetHTTP::ProxyRoute.for(url("api.example.com"), configuration: configuration)
+
+    assert_nil(route.address)
+  end
+
+  # TRANSPORT-30's SHOULD, in the one shape Net::HTTP makes reachable.
+  test "a proxy carrying a challenge handler warns once and still routes through Basic" do
+    sink = RecordingSink.new
+    logger = Dexpace::Instrumentation::Logger.build(sink: sink)
+    configuration = configuration_with("HTTPS_PROXY" => "http://u:pw@proxy.example:3128")
+    proxy = Dexpace::Proxy.resolve(configuration).with(challenge_handler: ->(_c) { nil })
+
+    route = NetHTTP::ProxyRoute.from(proxy, url, logger: logger)
+
+    assert_equal("proxy.example", route.address)
+    assert_equal("u", route.username)
+    assert_equal(1, sink.events.count { |e| e[:severity] == Dexpace::Instrumentation::Severity::WARNING })
+  end
+
+  # TRANSPORT-30's first embedded MUST: "Proxy credentials MUST NOT be logged."
+  test "no log event anywhere in a proxied exchange carries the credential" do
+    sink = RecordingSink.new
+    logger = Dexpace::Instrumentation::Logger.build(sink: sink)
+    configuration = configuration_with("HTTPS_PROXY" => "http://u:s3cret@proxy.example:3128")
+
+    NetHTTP::ProxyRoute.for(url, configuration: configuration, logger: logger)
+
+    refute_match(/s3cret/, sink.events.inspect)
+  end
+
+  # TRANSPORT-30's second embedded MUST: "MUST NOT be answered to an origin-server (401) challenge."
+  # Structural: this adapter stamps no header in response to any status, because it never reads one.
+  test "an origin 401 draws no Proxy-Authorization out of the adapter" do
+    wire = Dexpace::Conformance::WireServer.start(
+      Dexpace::Conformance::Scripts.vendor_status(401, "denied"),
+    )
+    adapter = NetHTTP.build
+    request = Dexpace::Request.build(method: "GET", url: "http://127.0.0.1:#{wire.port}/",
+                                      headers: Dexpace::Headers::EMPTY, body: nil)
+
+    response = adapter.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
+    response.close
+
+    assert_equal(401, response.status.code)
+    assert_equal(1, wire.requests.size, "no second, credential-carrying request")
+    refute_match(/proxy-authorization/i, wire.requests.first.join("\n"))
+    adapter.close
+    wire.close
+  end
+end
+```
+
+`RecordingSink` and `configuration_with` are the shared test support 5a and 5b already ship; this
+task uses whatever they are named there rather than adding a second pair. `Proxy#with` is
+`Dexpace::Model#with` (phase 1), which re-validates through `.build`.
+
+- [ ] **Step 2: Run to confirm failure.**
+
+- [ ] **Step 3: Write `lib/dexpace/transport/net_http/proxy_route.rb`**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require_relative "../net_http"
+
+module Dexpace
+  module Transport
+    module NetHTTP
+      # R17. Four values for Net::HTTP.new's p_addr/p_port/p_user/p_pass, all nil when no proxy
+      # applies -- and an EXPLICIT nil is the point: Net::HTTP.new's p_addr defaults to :ENV, which
+      # routes through http_proxy with a credential this SDK never resolved (measured).
+      ProxyRoute = ::Data.define(:address, :port, :username, :password) do
+        def self.none = new(address: nil, port: nil, username: nil, password: nil)
+
+        # @param url [URI::Generic] this call's target, for CFG-23's per-host bypass decision
+        def self.for(url, configuration: ::Dexpace.configuration,
+                     logger: ::Dexpace::Instrumentation::Logger::NULL)
+          proxy = ::Dexpace::Proxy.resolve(configuration)
+          return none if proxy.nil?
+
+          from(proxy, url, logger: logger)
+        end
+
+        def self.from(proxy, url, logger: ::Dexpace::Instrumentation::Logger::NULL)
+          return none if proxy.bypass?(url.hostname)
+
+          warn_unhonoured(proxy, logger)
+          new(address: proxy.host, port: proxy.port,
+              username: proxy.username, password: proxy.password)
+        end
+
+        # TRANSPORT-30's SHOULD: "a custom (non-Basic) proxy challenge handler SHOULD be surfaced
+        # with a WARN and proxy auth SHOULD fall back to Basic from username/password". Net::HTTP
+        # speaks Basic through p_user/p_pass and nothing else, and speaks no SOCKS at all, so those
+        # are the two unhonourable features and both take the same warning. The message names the
+        # feature and never a credential (the first embedded MUST).
+        def self.warn_unhonoured(proxy, logger)
+          reasons = []
+          reasons << "a custom proxy challenge handler" unless proxy.challenge_handler.nil?
+          reasons << "proxy type #{proxy.type}" unless proxy.type == ::Dexpace::Proxy::Type::HTTP
+          return if reasons.empty?
+
+          ::Dexpace::Instrumentation.contain(logger, event: PROXY_LIMITATION_EVENT) do
+            logger.event(::Dexpace::Instrumentation::Severity::WARNING)
+                  .event(PROXY_LIMITATION_EVENT)
+                  .field("unhonoured", reasons.join(", "))
+                  .field("remedy", "Basic proxy auth from username/password")
+                  .emit
+          end
+        end
+      end
+
+      private_constant :ProxyRoute
+    end
+  end
+end
+```
+
+`PROXY_LIMITATION_EVENT` is one frozen `String` beside the tuning constants in `net_http.rb`,
+`"http.transport.proxy_limitation"`, in the shape `Events`' own rows use. It is **not** added to
+`dexpace-core`'s `Events`: unlike `TRANSPORT_HEADER_DROPPED` (which one conformance assertion reads
+from two adapters) nothing cross-gem reads this one, and a core constant with a single in-gem reader
+is the `NFR-4`-locked-surface-with-no-caller shape this repository keeps declining.
+
+- [ ] **Step 4: Confirm `Proxy`'s reader names against phase 5a's shipped fence**
+
+`Dexpace::Proxy` is `Data.define(:type, :host, :port, :non_proxy_hosts, :username, :password,
+:challenge_handler, :bypass_all)` (5a's design, *`Dexpace::Proxy` — `CFG-22`, `CFG-23`, `CFG-27`*), so
+the readers above are `#host` and not `#address`. Read 5a's own fence before writing this file and
+correct any name that moved; the four `Net::HTTP` positionals are what this file owes, and which
+reader fills each is 5a's to say.
+
+- [ ] **Step 5: Run**
+
+Run: `bundle exec ruby -w gems/dexpace-transport-net_http/test/dexpace/transport/net_http/proxy_route_test.rb`
+Expected: PASS, 6 runs. Then re-run Task 19's suite: `owned_client_for` now passes four more
+positionals and sets `proxy_from_env = false`, and one of Task 19's own tests asserts that with
+`http_proxy` set in the environment the client still does not proxy — the assertion that catches a
+regression to `Net::HTTP.new(host, port)`.
+
+---
+
+## Task 19c: The generator slice — one end-to-end path through `Operation`, the pipeline and `TypedResponse`
+
+**Requirement IDs:** `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`, `PIPE-39`, `HTTP-52`, `BODY-30` —
+**all cross-references, none owned by `8a`**. This task adds no implementation and no new row to this
+sub-phase's 23-ID budget; it is the test that proves the composition those seven IDs describe actually
+runs over a real socket.
+**Design:** the charter's convergence points; `R7`'s fixture; *The interface surface later phases may
+cite*.
+
+**Files:**
+- Create: `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/generator_slice_test.rb`
+- Modifies nothing.
+
+**Needs:** Task 5's `WireServer`/`Scripts`, Task 19's adapter, and — from other phases, all of them
+`dexpace-core`'s except the codec — phase 2's `Dexpace::Operation`, phase 3b's
+`Dexpace::TypedResponse`, phase 4c's `Pipeline::Builder`, phase 6b's `Pipeline.standard`, phase 6c's
+`Dexpace::Auth::Step`, and phase 7a's `Dexpace::Serde::JSON::Codec` and
+`Dexpace::Serde::StatusAwareHandler`.
+
+**Why this task exists.** `Dexpace::Operation` is, in phase 2's own words, "the runtime primitive a
+generator would target", and no phase after 2 exercises it; `TypedResponse` is phase 3b's and is
+driven only by 7a's unit tests against a fake response. This sub-phase ships the **first real socket**
+in the repository, which makes it the first place the whole generated-client slice can run end to end:
+descriptor → request → pipeline → adapter → wire → typed result. The MVP's purpose is to be the
+runtime an OpenAPI-generated client targets, and until this test exists nothing has ever run that
+path. **A fake-transport twin of this test is being added to `7a`**, so the slice is covered both with
+and without a socket; this one is the socket half and neither replaces the other.
+
+**One load-path note, checked first.** This test names `Dexpace::Serde::JSON::Codec`, which lives in
+`dexpace-serde-json`. Phase 0's root `Gemfile` path-loads every gem under `gems/`, which is the same
+argument Task 18 makes for reaching `dexpace-conformance` from this gem's tests — it needs **no**
+gemspec change, so `gates:gemspec_audit`'s `NFR-2` budget (`dexpace-core` + `net-http`, exactly two)
+and `gates:clean_bundle`'s `lib/`-only isolation run are both untouched. Confirm that before writing
+the file; if the load path does not reach it, the codec half of this test moves to `7a`'s twin and
+this task keeps the four assertions that need no codec.
+
+- [ ] **Step 1: Write the failing test**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "net/http"
+require_relative "../../../test_helper"
+
+# SEAM-26 (the operation descriptor), SEAM-27 (the typed response), SERDE-28 (the status-aware
+# handler), RECOV-15 (the error carrying a buffered body), PIPE-39 (the standard pipeline),
+# HTTP-52/BODY-30 (Tristate omission; the snapshot error body). None is 8a's row: this is the
+# composition test, and it is the first time any of them meets a real socket.
+class DexpaceTransportNetHttpGeneratorSliceTest < DexpaceTestCase
+  S = Dexpace::Serde
+
+  # A witness is a named object answering .dexpace_load (Serde.witness!, 7a Task 1).
+  class Pet
+    def self.dexpace_load(parsed, _ctx) = new(parsed["name"])
+    def initialize(name) = @name = name
+    attr_reader :name
+  end
+
+  def operation
+    Dexpace::Operation.build(
+      method: "GET", template: "/pets/{id}",
+      projections: { id: [:path, "id"] },
+    )
+  end
+
+  def slice(script, adapter: Dexpace::Transport::NetHTTP.build)
+    wire = Dexpace::Conformance::WireServer.start(script)
+    yield wire, adapter
+  ensure
+    adapter.close
+    wire&.close
+  end
+
+  test "SEAM-26/SEAM-27/SERDE-28: a 200 decodes to the witness's type" do
+    slice(Dexpace::Conformance::Scripts.fixed('{"name":"Rex"}')) do |wire, adapter|
+      pipeline = Dexpace::Pipeline.standard(adapter)
+      request = operation.build_request(base_url: "http://127.0.0.1:#{wire.port}",
+                                         inputs: { id: "7" })
+      response = pipeline.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
+      handler = S::StatusAwareHandler.build(serde: S::JSON::Codec.default, witness: Pet)
+
+      pet = Dexpace::TypedResponse.new(response: response, handler: handler).value
+
+      assert_equal("Rex", pet.name)
+    end
+  end
+
+  # RECOV-15 and BODY-30: the mapped error carries the status, the headers and a BUFFERED body that
+  # is still readable after the live response is gone -- which is the clause a streaming transport
+  # is most likely to break, because its body is a socket.
+  test "RECOV-15/BODY-30: a 404 raises an error carrying status, headers and a re-readable body" do
+    slice(Dexpace::Conformance::Scripts.vendor_status(404, '{"error":"no such pet"}')) do |wire, adapter|
+      pipeline = Dexpace::Pipeline.standard(adapter)
+      request = operation.build_request(base_url: "http://127.0.0.1:#{wire.port}",
+                                         inputs: { id: "7" })
+      response = pipeline.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none)
+      handler = S::StatusAwareHandler.build(serde: S::JSON::Codec.default, witness: Pet)
+
+      error = assert_raises(Dexpace::ProtocolError) do
+        Dexpace::TypedResponse.new(response: response, handler: handler).value
+      end
+
+      assert_equal(404, error.status.code)
+      refute_nil(error.headers)
+      assert_match(/no such pet/, error.body.source.read_fully)
+      assert_match(/no such pet/, error.body.source.read_fully) # twice, after the socket is gone
+    end
+  end
+
+  # SEAM-26's path expansion: a projected path value containing "/" is ONE segment on the wire.
+  test "SEAM-26: a path parameter containing a slash reaches the server as one escaped segment" do
+    slice(Dexpace::Conformance::Scripts.fixed("{}")) do |wire, adapter|
+      request = operation.build_request(base_url: "http://127.0.0.1:#{wire.port}",
+                                         inputs: { id: "a/b" })
+      adapter.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none).close
+
+      line = wire.requests.first.first
+
+      assert_includes(line, "/pets/a%2Fb")
+      refute_includes(line, "/pets/a/b")
+    end
+  end
+
+  # HTTP-52: a Tristate::ABSENT field is omitted from the encoded body entirely -- not null.
+  test "HTTP-52: an ABSENT field is omitted from a PATCH body and NULL is not" do
+    patch = Dexpace::Operation.build(method: "PATCH", template: "/pets/{id}",
+                                      projections: { id: [:path, "id"], body: [:body, "body"] })
+    slice(Dexpace::Conformance::Scripts.fixed("{}")) do |wire, adapter|
+      payload = { "name" => S::Tristate::ABSENT, "tag" => S::Tristate::NULL }
+      encoded = S::JSON::Codec.default.dump_bytes(payload)
+      request = patch.build_request(base_url: "http://127.0.0.1:#{wire.port}",
+                                     inputs: { id: "7", body: Dexpace::BufferBody.new(
+                                       Dexpace::IO::Buffer.of_bytes(encoded),
+                                       media_type: Dexpace::MediaType.parse("application/json"),
+                                     ) })
+      adapter.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none).close
+
+      body = wire.requests.first.last
+
+      refute_includes(body, "name")
+      assert_includes(body, "tag")
+    end
+  end
+
+  # PIPE-39 with an AUTH step, seeded the documented way: Pipeline.standard's `builder:` keyword,
+  # which is the only sanctioned second installation path (6b Task 13a; PIPE-24's validate-then-commit).
+  test "PIPE-39: an AUTH step seeded through builder: stamps the wire request" do
+    slice(Dexpace::Conformance::Scripts.fixed("{}")) do |wire, adapter|
+      builder = Dexpace::Pipeline.builder(transport: adapter)
+      builder.append(auth_step, stage: Dexpace::Pipeline::Stages::AUTH)
+      pipeline = Dexpace::Pipeline.standard(adapter, builder: builder)
+      request = operation.build_request(base_url: "http://127.0.0.1:#{wire.port}",
+                                         inputs: { id: "7" })
+
+      pipeline.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none).close
+
+      assert_match(/authorization: Bearer t0ken/i, wire.requests.first.join("\n"))
+    end
+  end
+end
+```
+
+**`auth_step` is deliberately not spelled here.** Phase 6c's `Dexpace::Auth::Step` answers
+`#stage == Dexpace::Pipeline::Stages::AUTH` (its Task 11's own test asserts exactly that), and its
+construction is that task's to fix — its test fence uses a local `build_step` helper whose signature
+6c owns. **Read 6c's Task 11 fence when this task executes** and construct the shipped step the way
+it does; if 6c's step needs collaborators this test should not assemble, use the smallest object
+answering the step protocol with `#stage` of `Stages::AUTH` that stamps the header, and say so in a
+comment — the assertion is about the pipeline seeding the step and the request reaching the wire
+stamped, not about 6c's constructor.
+
+- [ ] **Step 2: Run to confirm failure**, then **Step 3: make it pass without touching `lib/`.**
+
+This task writes no production code. Every failure is either a real composition defect — in which case
+it is a finding routed to the phase that owns the object, not a fix made here — or a name this test
+got wrong, in which case the test is corrected against that phase's own fence. **Verify every constant
+and signature against the current fences before writing**, because several were edited on 2026-09-13:
+phase 2 (`Operation.build`, `#build_request(base_url:, inputs:)` returning a `Dexpace::Request`, and
+core's `interface _Transport`), phase 3b (`TypedResponse.new(response:, handler:)`), phase 4c
+(`Pipeline.builder`, `Builder#append(step, stage:)`), phase 6b (`Pipeline.standard(transport,
+redirect:, retry:, instrumentation:, builder:)`), phase 6c (`Auth::Step`) and phase 7a
+(`StatusAwareHandler.build(serde:, witness:, factory:)`, `JSON::Codec.default`, `Tristate::ABSENT`,
+`Serde.witness!`'s `.dexpace_load` requirement).
+
+- [ ] **Step 4: Run**
+
+Run: `bundle exec ruby -w gems/dexpace-transport-net_http/test/dexpace/transport/net_http/generator_slice_test.rb`
+Expected: PASS, 5 runs.
 
 ---
 
@@ -4948,9 +5806,21 @@ class DexpaceTransportNetHttpConformanceTest < Minitest::Test
   conformance(
     Dexpace::Conformance::TransportSuite,
     build: ->(**settings) { Dexpace::Transport::NetHTTP.build(**settings) },
-    borrow: lambda do |client|
+    # Suite contract 4a: the factory takes the fixture's PORT and returns a BorrowedPair, so no
+    # assertion inside dexpace-conformance ever names ::Net::HTTP. The probe is this adapter's
+    # answer to "is the caller's own client still usable?" -- a real round trip through the client
+    # itself, which is the only thing that proves the transport's close did not touch it.
+    borrow: lambda do |port|
+      client = ::Net::HTTP.new("127.0.0.1", port)
       client.max_retries = 0
-      Dexpace::Transport::NetHTTP.using(client)
+      Dexpace::Conformance::BorrowedPair.build(
+        transport: Dexpace::Transport::NetHTTP.using(client),
+        probe: lambda do
+          client.start { |c| c.request(::Net::HTTP::Get.new("/")) }.code == "200"
+        rescue ::StandardError
+          false
+        end,
+      )
     end,
     waive: [],
   )
@@ -4969,10 +5839,14 @@ here and unrunnable there, which is the failure mode the driver's own keywords c
 The `borrow:` lambda sets `max_retries = 0` on the caller's own client **before** handing it to
 `.using`, rather than `.using` doing it — `.using` asserts the invariant and refuses a client that
 does not already hold it (`P8-10`), and a driver that silently fixed the client up first would
-never exercise that refusal. `TRANSPORT-15`'s conformance clause (Task 13's own assertion) builds
-its own client directly and passes it through the SAME `borrow:` path this driver supplies, so the
-refusal path is exercised by that assertion and the happy path by every other borrowed-half
-assertion — one `borrow:` lambda, two behaviours reached through it.
+never exercise that refusal. The refusal itself is asserted in the adapter's own suite (Task 19),
+which is where a `::Net::HTTP` may be named; `TRANSPORT-15`'s conformance assertion drives the
+`BorrowedPair` this lambda returns and names no client class at all.
+
+**The client is bound to the fixture's port, and that is `P8-15` arriving in the driver.** A
+borrowing transport refuses a request whose URL names a different origin, and `TransportCase#request`
+builds every request against `#wire.port` — so the `borrow:` factory takes that port and builds a
+client for it. That is why clause 4a's factory takes a port rather than nothing.
 
 - [ ] **Step 2: Run it**
 
@@ -5361,22 +6235,39 @@ disposition the design's scope table assigns.
 | `TRANSPORT-27` | Implemented (SHOULD) — raw-header length parse, `MediaType.parse` rescue-to-nil (discrepancy 2) | 10, 17, 20 |
 | `TRANSPORT-28` | Partially satisfied (SHOULD) — replayability and byte-range clauses implemented and asserted; zero-copy clause ⏳, declined for v1 (`docs/first-release.md` § What v1 ships without), no runtime assertion (open question 7) | 11, 20 |
 | `TRANSPORT-29` | Implemented — concurrent-safety proof against a shared adapter, failing on a shared client (verified fact 9) | 13, 19, 20 |
-| `TRANSPORT-30` | ⏳ whole, declined for v1 (`docs/first-release.md` § What v1 ships without) — the embedded MUSTs hold vacuously because this adapter configures no proxy at all; not implemented or asserted by this plan | none (recorded here only) |
+| `TRANSPORT-30` | **Implemented (SHOULD)** — corrected 2026-09-13 (`R17`). `Dexpace::Proxy.resolve` wired into the per-call client, `proxy_from_env = false`, a `WARNING` for a challenge handler or a SOCKS type with Basic fallback, and both embedded MUSTs asserted (no credential in any log event; no `Proxy-Authorization` to an origin 401). It was ⏳ on the premise that the adapter configured no proxy — which was false twice over: 5a ships the resolver and hands proxy use here, and `Net::HTTP.new`'s `p_addr` defaults to `:ENV` | 19, 19b |
 
-Every ID appears. `TRANSPORT-30` carries no task because the design's own `R5` disposition
-leaves it whole and this plan implements no proxy handling; it is listed so the table is a complete
-accounting of the 23-ID budget rather than a list of what has code.
+Every ID appears, and every one of the 23 now carries at least one task: `TRANSPORT-30` gained
+Tasks 19 and 19b on 2026-09-13, where it previously read "none (recorded here only)".
 
 `PAGE-36`'s per-call-options conformance test (13, 20) and `OBS-21`/`OBS-25` (7) are phase-7c's and
 phase-5b/5c's obligations respectively, discharged by this plan without owning a new ID of their
 own, exactly as the design states.
 
+### Cross-reference rows — IDs this plan exercises and does not own
+
+One row each, for the checklist to carry as cross-references rather than as budget lines. None counts
+toward the 23.
+
+| ID | Owning phase | What this plan does with it | Task |
+|---|---|---|---|
+| `SEAM-26` | 2 (`Dexpace::Operation`) | First end-to-end drive of the descriptor a generator targets — request composition and the escaped-path-segment clause — over a real socket | 19c |
+| `SEAM-27` | 3b (`Dexpace::TypedResponse`) | Driven over a live streamed body rather than a fake response | 19c |
+| `SERDE-28` | 7a (`StatusAwareHandler`) | 2xx decodes, 4xx raises, against a real transport | 19c |
+| `RECOV-15` | 4b | The mapped error carries status, headers and a buffered body still readable after the socket is gone | 19c |
+| `PIPE-39` | 6b (`Pipeline.standard`) | An AUTH step seeded through the documented `builder:` keyword, stamping a wire request | 19c |
+| `HTTP-52`, `BODY-30` | 1 / 3b, with 7a's `Tristate` | An `ABSENT` field is omitted from a PATCH body and a `NULL` one is not; the error body is snapshotted | 19c |
+| `CFG-22`–`CFG-28` | 5a (`Dexpace::Proxy`) | The resolver's **first consumer** in the repository (`R17`) | 19b |
+| `HTTP-17`, `HTTP-18`, `XCUT-18` | 1 (`HeaderSyntax`) | The wire-boundary re-validation call site phase 1 postponed to the adapters | 16 |
+| `PAGE-36` | 7c | The per-call-options conformance test, in `dexpace-conformance` | 13, 20 |
+| `OBS-21`, `OBS-25` | 5c / 5b | `RecordingSpan` and `Allocations`, shipped in `dexpace-conformance` | 7 |
+
 ---
 
 ## Discrepancies found against the design
 
-Four findings from this planning pass, each verified by running Ruby or by reading the shipped
-plan the design cites, each with the decision this plan made and why. None reopens an `R1`–`R7`
+Four findings from this planning pass, plus five from the 2026-09-13 review pass below, each
+verified by running Ruby or by reading the shipped plan the design cites, each with the decision this plan made and why. None reopens an `R1`–`R7`
 decision; each is a fact the design states that this plan found to not hold, one level below where
 the design's own reasoning operates.
 
@@ -5431,6 +6322,24 @@ the design's own reasoning operates.
    the real end-to-end `TCPServer` round trip the design wanted proven lives in the adapter's own
    suite (Tasks 16–20), which is a different gate proving a different, and in this case the
    actually-necessary, property.
+
+**Five more, found by the 2026-09-13 review pass, all of them corrected in the design in the same
+change so the two documents agree.** Each was measured rather than reasoned: (1) **`Net::HTTP` has no
+`#address=` or `#port=`** (`net/http.rb:1264`/`:1267` are `attr_reader`s; `respond_to?(:address=)` is
+`false`), so Task 19's old `apply_endpoint` raised `NoMethodError` on every call of both
+constructions — the per-call client is now built from the request URL. (2) **The borrowed client was
+mutated** — `use_ssl=`, `address=`, `port=`, `#start`/`#finish` — which `TRANSPORT-15` forbids in as
+many words, and was unserialised, which verified fact 9 shows `TRANSPORT-29` cannot survive; `P8-15`
+is the new row. (3) **`Net::HTTP.new`'s `p_addr` defaults to `:ENV`**, so the adapter proxied from the
+environment while the design claimed it configured no proxy; Task 19b wires 5a's resolver and sets
+`proxy_from_env = false`. (4) **`.build` had no TLS surface at all**, which left `.using` — now a
+serialised, fixed-origin, no-per-call-timeout construction — as the only route to a CA bundle;
+Task 19a adds `tls:`. (5) **`rescue ::StandardError => e` in `Adapter#dispatch` never read `e`**, and
+`ruby -w` reports "assigned but unused variable - e" at parse time, which phase 0's shared test case
+turns into a raise; the binding is gone. Two more shapes were corrected for the same reason they were
+written: the `TRANSPORT-15` assertion built a `::Net::HTTP` inside `dexpace-conformance`'s own `lib/`
+(now a driver-supplied `BorrowedPair`), and every `transport.call` in Tasks 9–13 is now guarded by a
+`SettleOnly` wrapper rather than by an instruction to rewrite them.
 
 One further note, not rising to a discrepancy because the design never claims otherwise:
 `Dexpace::Protocol.parse` has no alias for `"http/1.0"` (Task 17's caution). This plan's `WireServer`
@@ -5609,8 +6518,13 @@ what `TRANSPORT-3`'s ask-the-token-first rule requires of both `Failures.wrap` c
   `Dexpace::BufferBody`, `Dexpace::IO::Buffer`, `FileBody.new(path, media_type:, offset:, count:)`
   (3b).
 - The `sig/` shape matches the design: no `Net::` constant in any `.rbs`, `.using`'s client typed
-  `untyped`, `Assertion#body` typed `^(untyped) -> void`, and `_Transport` declared only in
-  `dexpace-conformance`'s `sig/`.
+  `untyped`, and `Assertion#body` typed `^(untyped) -> void`. **Corrected 2026-09-13**: this bullet
+  read "`_Transport` declared only in `dexpace-conformance`'s `sig/`", which was true of this plan
+  and wrong about the repository — phase 2 declares `Dexpace::_Transport` in core's
+  `sig/dexpace/transport.rbs`, so the conformance copy was a duplicate of the same name in a second
+  gem. `dexpace-conformance` now declares `_Wire` only and references `Dexpace::_Transport`;
+  `TransportCase#transport` is `untyped`, because it returns clause 8's guard and clause 1 admits a
+  future-returning transport.
 
 ## Handoff to follow-through
 
@@ -5648,10 +6562,10 @@ that changed; what is listed here is what a follow-through agent still has to ca
    `docs/first-release.md` either** — `TRANSPORT-30` and `TRANSPORT-28`'s zero-copy clause stay
    declined for v1 under its § What v1 ships without, and `BODY-12` clause 2 stays declined by this
    sub-phase, as the design's *Work phase 8a postponed* section records.
-3. **The `P8-<n>` bands are fixed in the charter**: `8a` `P8-1`–`P8-19` (using `P8-1`–`P8-14`), `8b`
+3. **The `P8-<n>` bands are fixed in the charter**: `8a` `P8-1`–`P8-19` (using `P8-1`–`P8-15`), `8b`
    `P8-20`–`P8-35` (using `P8-20`–`P8-25`), `8c` `P8-36`–`P8-50` (using `P8-36`–`P8-40`, with
    `P8-41`–`P8-50` unallocated and `P8-41` retired unfiled). **Nothing was renumbered**, so no
-   citation moved; `docs/deviations.md` receives fourteen rows from this sub-phase when the phase
+   citation moved; `docs/deviations.md` receives fifteen rows from this sub-phase when the phase
    lands, unchanged.
 4. **The suite contract is one list of twelve clauses**, owned by this sub-phase's design under
    `R16` → *The suite contract*, and cited by `8c`'s design by section name and path. **Task 6 now

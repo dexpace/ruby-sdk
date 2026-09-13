@@ -66,7 +66,26 @@ live.
    name; the equivalent with `module Dexpace::Auth::DigestHandler` (the compact form) raises
    `NameError: uninitialized constant`, confirming the note's condition holds for a `class` body
    nested inside `module`, not only for two `module` bodies.
-6. `Future#on_settle` accepting a second registration on an already-settled future and running both
+6. **Six fences in this plan were executed before they were written down, and four of them were wrong
+   in their first form.** Measured on 3.4.10: (a) the challenge parser's obvious shape consumes the
+   top-level comma twice and returns `["basic"]` for `"Basic realm=x, Digest realm=y"`, and records no
+   `token68` at all for `"Bearer dGhl…=="`, because `TOKEN` stops before base64 padding — the fence in
+   Task 5 is the corrected one and is green on all twelve of that task's assertions; (b)
+   `"auth-int".include?("auth")` is `true`, so `AUTH-15`'s auth-int-only decline needs a token-exact
+   comparison; (c) reopening a `private_constant` as `class Dexpace::BoundedMap` raises
+   `NameError: private constant Dexpace::BoundedMap referenced`, while the full-nesting form resolves
+   the bare name from `module Dexpace; module Auth; class DigestHandler`; (d) `["read"].dup.freeze`
+   does not stop a caller's `scopes[0] << ":write"` from changing the stored value, which `AUTH-2`
+   forbids; (e) `Data.define(:name).allocate.instance_variable_set(:@name, "X").name` is `nil`; (f)
+   re-entering a `Thread::Mutex` from an `#on_settle` callback that ran inline on an already-settled
+   future raises `ThreadError: deadlock; recursive locking`.
+7. **The Digest expectations were recomputed rather than transcribed.** RFC 2617 §3.5's classic
+   `response` is a `qop=auth` value (`nc=00000001`, `cnonce="0a4f113b"`); the legacy no-`qop` form of
+   the same inputs is `670fd8c2df070c60b045671b8b24ff02`, computed here. RFC 7616's SHA-256 example is
+   **§3.9.1**, not §5.2, and its printed `response` is 63 hex characters — no SHA-256 digest is — so
+   Task 7's two SHA-256 expectations are derived here from the RFC's inputs with `Digest::SHA256` and
+   only 64-hex values that were actually produced are committed.
+8. `Future#on_settle` accepting a second registration on an already-settled future and running both
    callbacks exactly once, in registration order — checked directly against phase 2's own shipped
    test (`gems/dexpace-core/test/dexpace/async/future_test.rb`'s "on_settle runs once whether
    registered before or after settlement" case, read rather than re-derived) — this is `R12`'s
@@ -77,24 +96,29 @@ live.
 The design's *Open questions for 6c's own plan* section named three; resolved here before any task
 depends on the answer.
 
-1. **RFC 7616 §5.2's SHA-256 vector.** RFC 7616 §5.2 gives a full worked example for `SHA-256-sess`
-   with `qop=auth`, fixed `nonce`/`cnonce`/`nc`, and states the expected `response` value directly.
-   Task 7's test lifts it verbatim rather than hand-deriving one, and adds one independently
-   constructed `MD5` vector (RFC 2617's classic `Mufasa`/`Circle of Life` example) for the
-   non-session, legacy no-`qop` branch, so the four algorithms are covered by two independent
-   sources rather than one vector varied four ways.
-2. **Error placement.** `Dexpace::AuthResolutionError` and `Dexpace::Auth::UnencodableCredentialError`
-   are flat under `lib/dexpace/error/`, matching every other `Dexpace::Error` subclass in the
-   codebase (`P1-1`'s precedent, confirmed against phase 4b's `Dexpace::ProtocolError` and 4a's
-   `Dexpace::ContextConflictError`, both flat). No counter-example exists anywhere in the module
-   layouts read for this plan.
+1. **RFC 7616's SHA-256 vector, resolved the other way.** The worked example is §**3.9.1**, and its
+   printed `response` could not be reproduced from its own inputs on 3.4.10 (it is 63 hex characters).
+   Task 7 therefore takes the RFC's **inputs** and derives both the `SHA-256` and the `SHA-256-sess`
+   expectation here, committing only values actually produced. The MD5 side uses RFC 2617 §3.5's
+   genuine vector — against a `qop=auth` challenge and a fixed cnonce, which is what that vector
+   actually is — plus a separately computed legacy no-`qop` expectation, so the four algorithms are
+   still covered by two independent derivations rather than one value varied four ways.
+2. **Error placement.** Every error **file** is flat under `lib/dexpace/error/` (`P1-1`'s precedent,
+   confirmed against phase 4b's `Dexpace::ProtocolError` and 4a's `Dexpace::ContextConflictError`).
+   The **constant** is namespaced where the requirement scopes it: `Dexpace::AuthResolutionError` flat,
+   and `Dexpace::Auth::UnencodableCredentialError`, `Dexpace::Auth::HTTPSRequiredError` and
+   `Dexpace::Auth::ProviderError` under `Auth`. File placement and constant nesting are independent;
+   the design's module layout is the authority for both and every test in this plan spells the
+   namespaced form.
 3. **`KeyStamper` sharing.** Confirmed in Task 9: `KeyStamper#call(request) -> Request` performs no
-   I/O, no fork, and touches no cursor, so it is called identically from `Step#stamp` and
-   `AsyncStep#stamp` with no async-specific subclass.
+   I/O, no fork, and touches no cursor, so both runtimes call the identical object — as does
+   `BasicHandler#call`. Only `BearerStamper`/`AsyncBearerStamper` are a pair, and only because they
+   fetch.
 
 ## Task order and dependency chain
 
-Sixteen tasks. **Dependencies below are all *inside* this one plan** — the independence section of
+Sixteen numbered tasks, plus one sub-numbered addition, `11a`, which carries `AUTH-36`'s step-level
+half (the same shape `6b` uses for its own `13a`). **Dependencies below are all *inside* this one plan** — the independence section of
 the design states, and this plan does not silently retract, that no task here waits on `6a` or `6b`.
 
 1. Matrix fact verification and test support doubles — no dependency.
@@ -111,11 +135,13 @@ the design states, and this plan does not silently retract, that no task here wa
 10. `BearerProvider` duck type + `BearerStamper` (sync single-flight, eviction) — needs Task 4's
     `BearerToken`.
 11. `Dexpace::Auth::Step` — needs Tasks 6–10 and phase 4c's `Cursor`/`Stages`.
-12. Async bearer three-zone policy (`AsyncBearerStamper`) — needs Task 10 and phase 2's
-    `Async::Future`/`Completer`.
-13. `Dexpace::Auth::AsyncStep` — needs Tasks 6–9, 12, and Task 11's shared `replayable?` helper.
+11a. The bearer 401 branch on `Step` (`AUTH-36`'s step-level half) — needs Tasks 10 and 11.
+12. Async bearer three-zone policy (`AsyncBearerStamper`), `#stamp_fresh` and `#evict_if_matches` —
+    needs Task 10 and phase 2's `Async::Future`/`Completer`.
+13. `Dexpace::Auth::AsyncStep` — needs Tasks 6–9, 11a's branch shape, 12, and the shared
+    `Replayability` module.
 14. Pillar-step integration tests against phase 4c's `ForkingProbe`/`StateProbe` — needs Tasks
-    11 and 13.
+    11, 11a and 13.
 15. The end-to-end cross-origin convergence test (owned by `6c` per the segmentation design's
     "whichever of `6b`/`6c` lands second" rule) — needs Task 14, and needs `6b`'s real REDIRECT step
     to exist to run for real; written now, guarded to skip with a stated reason if `6b` has not
@@ -144,6 +170,9 @@ unquoted value, a bare token68).
 # SPDX-License-Identifier: MIT
 # scratch/verify_auth_facts.rb — not shipped. Run once per interpreter in the CI matrix.
 
+require "digest"
+require "securerandom"
+
 raise "pack(\"m0\") changed" unless ["alice:s3cr3t"].pack("m0") == "YWxpY2U6czNjcjN0"
 raise "unpack1 leniency changed" unless "!!a b c!!".unpack1("m") == "i\xB7".b
 raise "MD5 hexdigest not lower-case" unless Digest::MD5.hexdigest("x") =~ /\A[0-9a-f]{32}\z/
@@ -155,6 +184,31 @@ rescue Encoding::UndefinedConversionError
   true
 end == false
 raise "cnonce shape changed" unless SecureRandom.hex(16) =~ /\A[0-9a-f]{32}\z/
+raise "qop token test is a substring test" unless "auth-int".include?("auth") # the trap, asserted
+raise "Data allocate silently loses members" unless Data.define(:n).allocate
+  .instance_variable_set(:@n, "X").nil? || Data.define(:n).allocate.n.nil?
+
+# Task 7's Digest expectations, DERIVED rather than transcribed, and printed so a reviewer can
+# re-run them. RFC 2617 3.5's published response is a qop=auth value; RFC 7616 3.9.1's printed
+# SHA-256 response is 63 hex characters and is not reproducible from its own inputs.
+md5 = ->(x) { Digest::MD5.hexdigest(x) }
+ha1 = md5.call("Mufasa:testrealm@host.com:Circle Of Life")
+ha2 = md5.call("GET:/dir/index.html")
+nonce = "dcd98b7102dd2f0e8b11d0f600bfb0c093"
+raise "RFC 2617 qop=auth vector moved" unless
+  md5.call("#{ha1}:#{nonce}:00000001:0a4f113b:auth:#{ha2}") == "6629fae49393a05397450978507c4ef1"
+puts "  MD5 legacy no-qop expectation: #{md5.call("#{ha1}:#{nonce}:#{ha2}")}"
+
+sha = ->(x) { Digest::SHA256.hexdigest(x) }
+s_nonce = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v"
+s_cnonce = "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ"
+s_ha1 = sha.call("Jäsøn Doe:http-auth@example.org:Secret, or not?")
+s_ha2 = sha.call("GET:/doe.json")
+s_resp = sha.call("#{s_ha1}:#{s_nonce}:00000001:#{s_cnonce}:auth:#{s_ha2}")
+s_sess = sha.call("#{sha.call("#{s_ha1}:#{s_nonce}:#{s_cnonce}")}:#{s_nonce}:00000001:#{s_cnonce}:auth:#{s_ha2}")
+raise "SHA-256 expectation is not 64 hex" unless s_resp.length == 64 && s_sess.length == 64
+puts "  SHA-256 expectation:      #{s_resp}"
+puts "  SHA-256-sess expectation: #{s_sess}"
 puts "auth facts verified on #{RUBY_VERSION}"
 ```
 
@@ -212,7 +266,12 @@ class Dexpace::Auth::SchemeTest < DexpaceTestCase
   end
 
   def test_new_is_private
-    assert_raises(NoMethodError) { Dexpace::Auth::Scheme.new("X") }
+    assert_raises(NoMethodError) { Dexpace::Auth::Scheme.new(name: "X") }
+  end
+
+  def test_constants_carry_their_name # the allocate trick would leave these nil
+    assert_equal "NO_AUTH", Dexpace::Auth::Scheme::NO_AUTH.name
+    assert_equal Dexpace::Auth::Scheme::BASIC, Dexpace::Auth::Scheme.of("BASIC")
   end
 end
 ```
@@ -239,6 +298,19 @@ class Dexpace::Auth::RequirementTest < DexpaceTestCase
     assert_equal %w[read], req.scopes
   end
 
+  # AUTH-2, the half a shallow dup.freeze passes and still gets wrong: the caller mutates a String
+  # INSIDE the retained collection. This test is what forces Model.own over dup.freeze.
+  def test_a_caller_mutating_a_string_inside_a_retained_collection_cannot_reach_the_stored_value
+    scopes = ["read"]
+    params = { "aud" => ["api"] }
+    req = Dexpace::Auth::Requirement.build(scheme: Dexpace::Auth::Scheme::OAUTH2,
+                                            scopes: scopes, params: params)
+    scopes[0] << ":write"
+    params["aud"] << "other"
+    assert_equal ["read"], req.scopes
+    assert_equal({ "aud" => ["api"] }, req.params)
+  end
+
   def test_value_equality_over_scheme_scopes_params
     a = Dexpace::Auth::Requirement.build(scheme: Dexpace::Auth::Scheme::BASIC)
     b = Dexpace::Auth::Requirement.build(scheme: Dexpace::Auth::Scheme::BASIC)
@@ -260,26 +332,28 @@ Analogous failing tests for `Descriptor`: rejects an empty requirement list, def
 
 module Dexpace
   module Auth
-    # AUTH-1. The closed set the descriptor/resolver layer recognizes.
-    class Scheme
-      NAMES = %w[OAUTH2 API_KEY BASIC DIGEST NO_AUTH].freeze
-
-      attr_reader :name
+    # AUTH-1. The closed set the descriptor/resolver layer recognizes. A real Data, and its
+    # constants are built through the private #new exactly as phase 1's Method builds its own --
+    # NEVER `allocate` plus `instance_variable_set`, which silently produces nil members on a Data
+    # (verified on 3.4.10: `D = Data.define(:name); D.allocate.instance_variable_set(:@name, "X").name`
+    # is nil, because a Data's members are not instance variables).
+    class Scheme < ::Data.define(:name)
+      include Dexpace::Model
       private_class_method :new
 
-      def initialize(name) = @name = name
+      NAMES = %w[OAUTH2 API_KEY BASIC DIGEST NO_AUTH].freeze
 
-      class << self
-        def of(name)
-          raise Dexpace::InvalidArgumentError, "unknown auth scheme: #{name.inspect}" \
-            unless NAMES.include?(name)
+      NAMES.each { |n| const_set(n, send(:new, name: n)) }
+      ALL = NAMES.map { |n| const_get(n) }.freeze
 
-          const_get(name)
-        end
+      def self.of(name)
+        raise Dexpace::InvalidArgumentError, "unknown auth scheme: #{name.inspect}" \
+          unless NAMES.include?(name)
+
+        const_get(name)
       end
 
-      NAMES.each { |n| const_set(n, allocate.tap { |s| s.instance_variable_set(:@name, n) }) }
-      ALL = NAMES.map { |n| const_get(n) }.freeze
+      def to_s = name
     end
   end
 end
@@ -297,8 +371,15 @@ module Dexpace
       private_class_method :new
 
       def initialize(scheme:, scopes:, params:)
-        Dexpace.require_field!(scheme, "scheme")
-        super(scheme: scheme, scopes: scopes.dup.freeze, params: params.dup.freeze)
+        Dexpace::Model.required!("scheme", scheme)
+        raise Dexpace::InvalidArgumentError, "scheme must be a Dexpace::Auth::Scheme" \
+          unless scheme.is_a?(Scheme)
+
+        # Model.own, NOT dup.freeze: dup is shallow, and AUTH-2's "retained input collections
+        # mutated by the caller after construction MUST NOT affect the stored value" covers a
+        # caller mutating a String INSIDE the array. Verified on 3.4.10: with dup.freeze,
+        # `scopes[0] << ":write"` after construction turns the stored ["read"] into ["read:write"].
+        super(scheme: scheme, scopes: Dexpace::Model.own(scopes), params: Dexpace::Model.own(params))
       end
 
       def self.build(scheme:, scopes: [], params: {}) = new(scheme: scheme, scopes: scopes, params: params)
@@ -321,7 +402,7 @@ module Dexpace
       def initialize(requirements:)
         raise Dexpace::InvalidArgumentError, "requirements must be non-empty" if requirements.empty?
 
-        super(requirements: requirements.dup.freeze)
+        super(requirements: Dexpace::Model.own(requirements))
       end
 
       def self.build(requirements) = new(requirements: requirements)
@@ -441,8 +522,41 @@ end
 
 ## Task 4: Credential Types — `AUTH-8`, `AUTH-9`, `AUTH-10`, `AUTH-11` (bearer's data half)
 
-**Needs:** phase 1's non-blank helper.
-**Produces:** `BearerToken`, `KeyCredential`, `NamedKeyCredential`, `PasswordCredential`.
+**Needs:** phase 1's `Dexpace::Model`.
+**Produces:** `Dexpace::Auth::Validation` (`private_constant`), `BearerToken`, `KeyCredential`,
+`NamedKeyCredential`, `PasswordCredential`.
+
+- [ ] **Step 0: Write `Dexpace::Auth::Validation`, because phase 1 ships no non-blank helper.**
+  `Dexpace::Model.required!(name, value)` raises `"<name> is required"` **only when `value` is `nil`**
+  — that is `SEAM-29`'s fixed message form for a *missing* field and it does not reject `""` or
+  `"   "`, which `AUTH-9` requires ("MUST validate secret and identity fields as non-blank and reject
+  blanks"). One `private_constant` module, one method, one new message form that does not collide
+  with `SEAM-29`'s (deviation `P6-6`):
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+module Dexpace
+  module Auth
+    # AUTH-9. A nil field still goes through Dexpace::Model.required! and still reads
+    # "<name> is required" (SEAM-29's one form for a MISSING field, untouched). This names a
+    # BLANK field, which SEAM-29 does not legislate. AUTH-14's laxer non-EMPTY rule is a third
+    # check and lives at BasicHandler/DigestHandler, never here.
+    module Validation
+      module_function
+
+      def non_blank!(value, name)
+        Dexpace::Model.required!(name, value)
+        raise Dexpace::InvalidArgumentError, "#{name} must not be blank" if value.to_s.strip.empty?
+
+        value
+      end
+    end
+    private_constant :Validation
+  end
+end
+```
 
 - [ ] **Step 1: Write the failing tests.** Representative subset (the plan's actual test file covers
   all four types symmetrically):
@@ -513,7 +627,7 @@ module Dexpace
       include Dexpace::Model
 
       def initialize(token:, expiry: nil)
-        Dexpace.require_non_blank!(token, "token")
+        Validation.non_blank!(token, "token") # AUTH-9; see Task 4 Step 0 for why this is not Model.required!
         super
       end
 
@@ -534,12 +648,13 @@ module Dexpace
   module Auth
     # AUTH-8, AUTH-9. A plain class: no #== override, so Ruby's default identity equality applies.
     class KeyCredential
-      attr_reader :header_name
+      attr_reader :header_name, :prefix
 
-      def initialize(api_key:, header_name: "Authorization")
-        Dexpace.require_non_blank!(api_key, "api_key")
+      def initialize(api_key:, header_name: "Authorization", prefix: nil)
+        Validation.non_blank!(api_key, "api_key")
         @api_key = api_key
         @header_name = header_name
+        @prefix = prefix
         freeze
       end
 
@@ -553,7 +668,9 @@ end
 ```
 
 `NamedKeyCredential` follows the identical shape with `name:`, `key:`, `prefix:`, both `name` (shown)
-and `key` (redacted). `PasswordCredential` is `Data.define(:username, :password)` with no
+and `key` (redacted). **Both key credentials expose `#prefix` and `#key_value`** — `KeyCredential`'s
+`prefix` defaults to `nil` — because `AUTH-26`'s prefix clause and `KeyStamper` are written against
+the pair, and a `KeyCredential` with no `#prefix` reader is a `NoMethodError` at the stamper. `PasswordCredential` is `Data.define(:username, :password)` with no
 `initialize` override at all (Task 4's own no-validation decision, `R10`-adjacent, `P6-3` in the
 design's ledger) beyond redacting `password` in `#to_s`/`#inspect`.
 
@@ -618,7 +735,14 @@ class Dexpace::Auth::ChallengesTest < DexpaceTestCase
 
   def test_malformed_challenge_recovers_to_next_top_level_comma
     challenges = Dexpace::Auth::Challenges.parse("#{ChallengeFixtures::MALFORMED_STRAY_COMMA}, Basic realm=\"ok\"")
+    assert_equal %w[digest basic], challenges.map(&:scheme) # and NO spurious "nonce" challenge
     assert_includes challenges.map(&:scheme), "basic"
+  end
+
+  def test_a_second_challenge_after_a_parameterised_first_is_not_swallowed # AUTH-12
+    challenges = Dexpace::Auth::Challenges.parse('Digest realm="r", nonce="n", Basic realm="r"')
+    assert_equal %w[digest basic], challenges.map(&:scheme)
+    assert_equal({ "realm" => "r", "nonce" => "n" }, challenges.first.params)
   end
 
   def test_unterminated_quoted_string_terminates_at_end_of_input
@@ -661,41 +785,62 @@ module Dexpace
       module_function
 
       TOKEN = /[!#$%&'*+\-.^_`|~0-9A-Za-z]+/
+      TOKEN68 = %r{[A-Za-z0-9\-._~+/]+=*} # RFC 7235's own token68 production; TOKEN excludes / and =
+      NEXT_PARAM = /[!#$%&'*+\-.^_`|~0-9A-Za-z]+[ \t]*=/
 
-      # AUTH-12, AUTH-13.
+      # AUTH-12, AUTH-13. Every branch below was executed against this task's own test list on
+      # 3.4.10 before it was written down; three of them are where the obvious shape is wrong.
       def parse(header_value)
         return [] if header_value.nil? || header_value.strip.empty?
 
         s = ::StringScanner.new(header_value)
         challenges = []
         until s.eos?
-          s.skip(/[ \t,]+/)
+          s.skip(/[ \t,]+/) # the ONLY place a top-level separator is consumed -- consuming one here
+          break if s.eos?    # AND again at the foot of the loop silently drops every challenge but
+                             # the first (measured: "Basic realm=x, Digest realm=y" yielded ["basic"])
           scheme = s.scan(TOKEN)
           break unless scheme
+
+          if s.match?(/[ \t]*=/) # `name=value` at top level is a stray PARAM, never a scheme: a
+            s.skip_until(/,/) || s.terminate # challenge is `scheme [SP (token68 / params)]`, so a
+            next                             # token followed immediately by `=` is malformed here.
+          end                                # AUTH-13: recover to the next top-level comma.
 
           s.skip(/[ \t]+/)
           params = {}
           loop do
+            break if s.eos?
+
             pos_before = s.pos
+            # token68 FIRST, and only when it runs to the end of this challenge: TOKEN stops before
+            # base64 padding, so `Bearer dGhl…==` otherwise parses as a name=value pair with an
+            # unscannable value and records nothing at all (measured).
+            if params.empty? && (bare = s.scan(TOKEN68)) && (s.eos? || s.match?(/[ \t]*,/))
+              params["token68"] = bare
+              break
+            end
+            s.pos = pos_before
+
             name = s.scan(TOKEN)
             unless name && s.skip(/[ \t]*=[ \t]*/)
               s.pos = pos_before
-              if params.empty? && (bare = s.scan(TOKEN))
-                params["token68"] = bare # a bare scheme's own token, or an actual token68 value
-              end
               break
             end
             value =
-              if s.skip(/"/)
+              if s.match?(/[ \t]*,/) || s.eos? # `name=` with no value: drop the pair, keep the rest
+                nil
+              elsif s.skip(/"/)
                 scan_quoted(s)
               else
                 s.scan(TOKEN)
               end
             params[name.downcase] = value if value
-            break unless s.skip(/[ \t]*,[ \t]*/) && s.check(/[!#$%&'*+\-.^_`|~0-9A-Za-z]+[ \t]*=/)
+            # `check` BEFORE `skip`: the comma is consumed only when another `name=` really follows,
+            # so a comma introducing the NEXT CHALLENGE is left for the top of the outer loop.
+            break unless s.check(/[ \t]*,[ \t]*#{NEXT_PARAM}/o) && s.skip(/[ \t]*,[ \t]*/)
           end
           challenges << Challenge.build(scheme: scheme.downcase, params: params)
-          break unless s.skip(/[ \t]*,[ \t]*/)
         end
         challenges
       end
@@ -720,10 +865,16 @@ module Dexpace
 end
 ```
 
-The token68 detection above is deliberately conservative: it only fires when no `name=value` pair was
-found at all for this challenge (`params.empty?`), matching `AUTH-12`'s "a token68 value recorded
-under the synthetic parameter key" for schemes like `Bearer` that carry a single opaque token rather
-than named parameters.
+The token68 detection above is deliberately conservative: it fires only when no `name=value` pair has
+been found for this challenge (`params.empty?`) **and** the match runs to end-of-input or to a
+top-level comma, so `Digest realm="r"` — where `TOKEN68` also matches the leading `realm=` — falls
+through to the `name=value` branch. That second condition is what makes the two productions separable
+at all, and it was measured, not assumed.
+
+**This fence was executed before it was written down.** Run against the twelve assertions in this
+task's test list on `ruby 3.4.10`, it is green on all twelve, including the four that fail against the
+obvious shape: multiple comma-separated challenges, `token68`, the `Digest realm="r", nonce="n", Basic
+realm="r"` fixture Task 8 also uses, and `AUTH-13`'s stray-comma recovery.
 
 - [ ] **Step 4: Confirm green**, including the bounded-time assertion.
 
@@ -765,6 +916,19 @@ class Dexpace::Auth::BasicHandlerTest < DexpaceTestCase
     assert_nil handler.authorization_for([challenge("digest")], request, proxy: false)
   end
 
+  # AUTH-14 preemptively: the path OpenAPI's `http`/`basic` scheme takes. Without this there is no
+  # way to send Basic on a first request and the scheme costs a 401 round trip it never needs.
+  def test_call_stamps_authorization_preemptively_with_no_challenge
+    handler = Dexpace::Auth::BasicHandler.new(Dexpace::Auth::PasswordCredential.new(username: "alice", password: "s3cr3t"))
+    assert_equal "Basic YWxpY2U6czNjcjN0", handler.call(request).headers["Authorization"]
+  end
+
+  def test_call_and_authorization_for_share_one_precomputed_value # AUTH-14's "computed once"
+    handler = Dexpace::Auth::BasicHandler.new(Dexpace::Auth::PasswordCredential.new(username: "a", password: "b"))
+    assert_same handler.authorization_for([challenge("basic")], request, proxy: false),
+                handler.call(request).headers["Authorization"]
+  end
+
   def test_whitespace_only_password_is_permitted # AUTH-14's laxer rule
     Dexpace::Auth::BasicHandler.new(Dexpace::Auth::PasswordCredential.new(username: "a", password: "   "))
   end
@@ -804,20 +968,26 @@ end
 require_relative "../test_helper"
 
 class Dexpace::BoundedMapUpdateTest < DexpaceTestCase
+  # BoundedMap is a private_constant of Dexpace, so a test outside `module Dexpace` cannot name it
+  # with the scope operator -- `Dexpace::BoundedMap` raises NameError. #const_get ignores constant
+  # privacy and is the access route a test has (verified on 3.4.10). Phase 4a never needed this
+  # because it exercised BoundedMap only through ContextStore; AUTH-19 is its first direct test.
+  BOUNDED_MAP = Dexpace.const_get(:BoundedMap)
+
   def test_update_starts_from_nil_for_a_new_key
-    map = Dexpace::BoundedMap.new(cap: 8)
+    map = BOUNDED_MAP.new(cap: 8)
     result = map.update("k") { |old| (old || 0) + 1 }
     assert_equal 1, result
   end
 
   def test_update_increments_on_reuse
-    map = Dexpace::BoundedMap.new(cap: 8)
+    map = BOUNDED_MAP.new(cap: 8)
     map.update("k") { |old| (old || 0) + 1 }
     assert_equal 2, map.update("k") { |old| (old || 0) + 1 }
   end
 
   def test_update_drains_under_cap_and_still_returns_the_new_value
-    map = Dexpace::BoundedMap.new(cap: 2)
+    map = BOUNDED_MAP.new(cap: 2)
     map.update("a") { |old| (old || 0) + 1 }
     map.update("b") { |old| (old || 0) + 1 }
     result = map.update("c") { |old| (old || 0) + 1 } # evicts "a"
@@ -826,7 +996,7 @@ class Dexpace::BoundedMapUpdateTest < DexpaceTestCase
   end
 
   def test_concurrent_reuse_of_one_key_yields_correct_non_duplicated_counts # AUTH-24
-    map = Dexpace::BoundedMap.new(cap: 64)
+    map = BOUNDED_MAP.new(cap: 64)
     threads = 32.times.map { Thread.new { 100.times { map.update("shared") { |old| (old || 0) + 1 } } } }
     threads.each(&:join)
     assert_equal 3200, map.update("shared") { |old| old } # peek without incrementing further isn't offered;
@@ -849,31 +1019,49 @@ require_relative "../../test_helper"
 require_relative "../../support/challenge_fixtures"
 
 class Dexpace::Auth::DigestHandlerTest < DexpaceTestCase
-  # RFC 2617 §3.5's classic vector: MD5, no qop (legacy).
-  def test_rfc2617_md5_legacy_vector
-    credential = Dexpace::Auth::PasswordCredential.new(username: "Mufasa", password: "Circle Of Life")
-    challenge = Dexpace::Auth::Challenge.build(
-      scheme: "digest",
-      params: { "realm" => "testrealm@host.com", "nonce" => "dcd98b7102dd2f0e8b11d0f600bfb0c093",
-                "opaque" => "5ccc069c403ebaf9f0171e9517f40e41" }
-    )
-    handler = Dexpace::Auth::DigestHandler.new(credential)
-    header = handler.authorization_for([challenge], get_request("/dir/index.html"), proxy: false)
+  # RFC 2617 §3.5's classic vector. It is a qop=auth vector, NOT a legacy one: its published
+  # response is computed with qop=auth, nc=00000001 and cnonce="0a4f113b", so it is asserted
+  # against a qop=auth challenge and a FIXED cnonce source. Asserting it against a no-qop
+  # challenge (which computes H(HA1:nonce:HA2)) can never pass -- measured on 3.4.10, that form
+  # is 670fd8c2df070c60b045671b8b24ff02.
+  def test_rfc2617_md5_qop_auth_vector
+    handler = Dexpace::Auth::DigestHandler.new(mufasa, cnonce_source: FixedCnonce.new("0a4f113b"))
+    header = handler.authorization_for([mufasa_challenge(qop: "auth")], get_request("/dir/index.html"), proxy: false)
     assert_match(/response="6629fae49393a05397450978507c4ef1"/, header)
+    assert_match(/nc=00000001/, header)
+    assert_match(/cnonce="0a4f113b"/, header)
   end
 
-  # RFC 7616 §5.2's SHA-256-sess/qop=auth worked example.
-  def test_rfc7616_sha256_sess_vector
-    credential = Dexpace::Auth::PasswordCredential.new(username: "Jäsøn Doe", password: "Secret, or not?")
-    challenge = Dexpace::Auth::Challenge.build(
-      scheme: "digest",
-      params: { "realm" => "http-auth@example.org", "qop" => "auth", "algorithm" => "SHA-256-sess",
-                "nonce" => "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
-                "opaque" => "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS", "charset" => "UTF-8" }
-    )
-    handler = Dexpace::Auth::DigestHandler.new(credential, cnonce_source: FixedCnonce.new("f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ"))
-    header = handler.authorization_for([challenge], get_request("/doe.json"), proxy: false)
-    assert_match(/response="ae66e67d6b427bd3f120414a82e4acff38e8ecd9101d6c6020faceb0e768dad"/, header)
+  # AUTH-17's legacy RFC 2069 branch: the SAME inputs with qop absent, so the expectation is
+  # H(HA1:nonce:HA2) and is DIFFERENT from the vector above. Derived here, not published:
+  #   HA1 = MD5("Mufasa:testrealm@host.com:Circle Of Life")
+  #   HA2 = MD5("GET:/dir/index.html")
+  #   response = MD5("#{HA1}:dcd98b7102dd2f0e8b11d0f600bfb0c093:#{HA2}")
+  def test_md5_legacy_no_qop_branch
+    handler = Dexpace::Auth::DigestHandler.new(mufasa)
+    header = handler.authorization_for([mufasa_challenge(qop: nil)], get_request("/dir/index.html"), proxy: false)
+    assert_match(/response="670fd8c2df070c60b045671b8b24ff02"/, header)
+    refute_includes header, "qop="  # AUTH-22: cnonce/nc/qop emitted ONLY when qop is negotiated
+    refute_includes header, "nc="
+    refute_includes header, "cnonce="
+  end
+
+  # RFC 7616 §3.9.1's SHA-256 example inputs (§5 is Security Considerations and carries no vector).
+  # The EXPECTATIONS are derived here with Digest::SHA256 from those inputs and printed by Task 1's
+  # verification script; the RFC's own printed response could not be reproduced on 3.4.10 and is 63
+  # hex characters, which no SHA-256 digest can be. Only values actually produced are committed.
+  def test_sha256_vector
+    handler = Dexpace::Auth::DigestHandler.new(jason, cnonce_source: FixedCnonce.new(RFC7616_CNONCE))
+    header = handler.authorization_for([jason_challenge("SHA-256")], get_request("/doe.json"), proxy: false)
+    assert_match(/response="9fbf3e2223549127935ba79d47a0299af1f57eae1240ead830c0b47ad60346e1"/, header)
+    assert_match(/algorithm=SHA-256(?!-sess)/, header)
+  end
+
+  def test_sha256_sess_vector # the -sess HA1: H(H(user:realm:pass):nonce:cnonce)
+    handler = Dexpace::Auth::DigestHandler.new(jason, cnonce_source: FixedCnonce.new(RFC7616_CNONCE))
+    header = handler.authorization_for([jason_challenge("SHA-256-sess")], get_request("/doe.json"), proxy: false)
+    assert_match(/response="a0316f893cdcbd706441a5392ef9e690688b447acf4015a2b9ce520e6b551a5c"/, header)
+    assert_match(/algorithm=SHA-256-sess/, header) # AUTH-22's full RFC spelling, unquoted
   end
 
   def test_declines_auth_int_only
@@ -923,6 +1111,8 @@ class Dexpace::Auth::DigestHandlerTest < DexpaceTestCase
         handler.authorization_for([digest_challenge(algorithm: algorithm)], get_request("/"), proxy: false)
       end
       assert_equal "ISO-8859-1", error.encoding
+      assert_equal :password, error.field # R10's own test matrix; only per-field materialising
+                                          # can name it, which is why materialize takes a field
     end
   end
 
@@ -935,9 +1125,39 @@ class Dexpace::Auth::DigestHandlerTest < DexpaceTestCase
     refute_match(/algorithm="/, header)
   end
 
-  # ... helper methods (any_credential, digest_challenge, get_request, FixedCnonce) in the real file
+  private
+
+  RFC7616_CNONCE = "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ"
+
+  def mufasa = Dexpace::Auth::PasswordCredential.new(username: "Mufasa", password: "Circle Of Life")
+
+  def mufasa_challenge(qop:)
+    params = { "realm" => "testrealm@host.com", "nonce" => "dcd98b7102dd2f0e8b11d0f600bfb0c093",
+               "opaque" => "5ccc069c403ebaf9f0171e9517f40e41" }
+    params["qop"] = qop if qop
+    Dexpace::Auth::Challenge.build(scheme: "digest", params: params)
+  end
+
+  def jason = Dexpace::Auth::PasswordCredential.new(username: "Jäsøn Doe", password: "Secret, or not?")
+
+  def jason_challenge(algorithm)
+    Dexpace::Auth::Challenge.build(
+      scheme: "digest",
+      params: { "realm" => "http-auth@example.org", "qop" => "auth", "algorithm" => algorithm,
+                "nonce" => "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v",
+                "opaque" => "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS", "charset" => "UTF-8" }
+    )
+  end
+
+  # ... remaining helpers (any_credential, digest_challenge, get_request, FixedCnonce) in the real file
 end
 ```
+
+**`test_declines_auth_int_only` is the test the obvious implementation fails.** `qop` is a
+comma-separated token list and the comparison must be **token-exact**: verified on 3.4.10,
+`"auth-int".include?("auth")` is `true`, so a substring test accepts precisely the challenge
+`AUTH-15` requires be declined, and `"auth,auth-int"` would pass for the wrong reason. Step 3
+implements `qop_auth?` as a split-and-compare, per the design's listing.
 
 - [ ] **Step 2: Confirm both fail.**
 
@@ -947,17 +1167,23 @@ end
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 # Modifies gems/dexpace-core/lib/dexpace/bounded_map.rb — adds one method, phase 4a's forward table.
+# The FULL-NESTING form is mandatory, not a style choice: BoundedMap is a private_constant of
+# Dexpace, so reopening it as `class Dexpace::BoundedMap` raises
+# `NameError: private constant Dexpace::BoundedMap referenced` (verified on 3.4.10).
+# execution-context/b58728da; spec-forced boundary 8.
 
-class Dexpace::BoundedMap
+module Dexpace
+  class BoundedMap
   # Added by phase 6 for AUTH-19. Runs +block+ once, under this map's own mutex, passing the
   # current value for +key+ (nil if absent) and storing the block's return value; drains back
   # under the cap in the same critical section as #set already does. The block MUST touch only
   # in-memory state -- it runs while the lock is held (concurrency-and-async/f261a143).
-  def update(key)
-    @mutex.synchronize do
-      @h[key] = yield(@h[key])
-      @h.shift while @h.size > @cap
-      @h[key]
+    def update(key)
+      @mutex.synchronize do
+        @h[key] = yield(@h[key])
+        @h.shift while @h.size > @cap # XCUT-14: a LOOP, not a single pre-insert check-then-evict
+        @h[key]
+      end
     end
   end
 end
@@ -974,6 +1200,8 @@ module Dexpace
     class UnencodableCredentialError < Dexpace::Error
       attr_reader :field, :encoding
 
+      # +field+ is one of :username, :realm, :password -- the Digest handler materialises each
+      # component separately so the failure can name the one that could not be encoded.
       def initialize(field:, encoding:)
         @field = field
         @encoding = encoding
@@ -1029,6 +1257,31 @@ class Dexpace::Auth::ChallengeHandlerChainTest < DexpaceTestCase
     assert_equal "Authorization", chain.header_name(proxy: false)
     assert_equal "Proxy-Authorization", chain.header_name(proxy: true)
   end
+
+  # AUTH-25 and AUTH-30 meet here: the hook is the ONLY place a handler's header VALUE becomes a
+  # header NAME on an actual request. Without this adapter the Digest handler has no call path from
+  # the pillar step at all.
+  def test_as_challenge_hook_yields_a_replacement_request_carrying_the_selected_header
+    chain = Dexpace::Auth::ChallengeHandlerChain.new([basic_handler])
+    replacement = chain.as_challenge_hook.call('Basic realm="r"', get_request, stub_401)
+    assert_equal "Basic YTpi", replacement.headers["Authorization"]
+  end
+
+  def test_as_challenge_hook_writes_proxy_authorization_when_the_proxy_flag_is_set
+    chain = Dexpace::Auth::ChallengeHandlerChain.new([basic_handler])
+    replacement = chain.as_challenge_hook(proxy: true).call('Basic realm="r"', get_request, stub_401)
+    assert_equal "Basic YTpi", replacement.headers["Proxy-Authorization"]
+    assert_nil replacement.headers["Authorization"]
+  end
+
+  def test_as_challenge_hook_yields_nil_when_no_handler_satisfies # AUTH-25: no header, not an empty one
+    chain = Dexpace::Auth::ChallengeHandlerChain.new([])
+    assert_nil chain.as_challenge_hook.call('Digest realm="r", nonce="n"', get_request, stub_401)
+  end
+
+  def test_it_is_never_the_default_hook # AUTH-30: "The default hook MUST yield no replacement"
+    assert_nil Dexpace::Auth::Step::NO_REPLACEMENT.call('Basic realm="r"', get_request, stub_401)
+  end
 end
 ```
 
@@ -1076,8 +1329,10 @@ end
 ```
 
 - [ ] **Step 2: Confirm fail.**
-- [ ] **Step 3: Implement**, per the design's listing (calling `request.with_header`, phase 1's
-  builder-shaped mutation-via-copy, never a destructive write).
+- [ ] **Step 3: Implement**, per the design's listing. **The header write is
+  `request.new_builder.header(name, value).build`** — phase 1 ships no `Request#with_header`, and
+  `6c` adds no convenience method to a phase-1 model; `new_builder` is the phase-1 idiom and the one
+  `6b`'s re-issue path already uses. Never a destructive write.
 - [ ] **Step 4: Confirm green.**
 
 ---
@@ -1162,6 +1417,8 @@ end
 
 module Dexpace
   module Auth
+    # lib/dexpace/error/provider_error.rb -- flat FILE under error/, constant under Auth, per the
+    # design's module layout and its resolved open question 2.
     class ProviderError < Dexpace::Error; end
 
     # AUTH-11 (sync half), AUTH-34, AUTH-35, AUTH-36.
@@ -1177,12 +1434,19 @@ module Dexpace
       def call(request)
         token = @token # hot-path read, no lock (XCUT-12)
         token = refresh! if token.nil? || token.expired?(now: @clock.now, margin: @refresh_margin)
-        request.with_header("Authorization", "Bearer #{token.token}")
+        request.new_builder.header("Authorization", "Bearer #{token.token}").build
       end
 
+      # AUTH-36. Returns true iff THIS token was the one evicted, so a token another request already
+      # refreshed is preserved and the caller can say which happened. Compare-and-clear under the
+      # same lock, matched on the STAMPED HEADER VALUE and never on credential equality (AUTH-8's
+      # reference note: the key credentials use reference identity, so equality cannot do this).
       def evict_if_matches(rejected_header)
         @lock.synchronize do
-          @token = nil if @token && "Bearer #{@token.token}" == rejected_header
+          next false unless @token && "Bearer #{@token.token}" == rejected_header
+
+          @token = nil
+          true
         end
       end
 
@@ -1245,6 +1509,18 @@ class Dexpace::Auth::StepTest < DexpaceTestCase
     step.call(http_request, cursor) # does not raise
   end
 
+  # P4-39: a pillar step either drives once through #call and NEVER forks, or forks for every drive
+  # and never calls #call. 6c is the second kind, so the cross-origin path -- the one branch a
+  # reader is most likely to write as a bare cursor.call -- forks like every other drive.
+  def test_the_cross_origin_path_forks_like_every_other_drive
+    probe = ForkingProbe.new
+    step = build_step
+    cursor = probe.cross_origin_cursor_for(Dexpace::Pipeline::Stages::AUTH)
+    step.call(http_request, cursor)
+    assert_equal 1, probe.fork_count
+    refute cursor.spent?, "cursor.call must never be used on the cursor this step was handed"
+  end
+
   def test_same_origin_reissue_is_restamped_and_reguarded
     stamped = false
     step = build_step(stamper: ->(r) { stamped = true; r })
@@ -1262,7 +1538,7 @@ class Dexpace::Auth::StepTest < DexpaceTestCase
   end
 
   def test_401_with_challenge_consults_hook_and_replays_once # AUTH-30
-    replacement = https_request.with_header("Authorization", "Basic new")
+    replacement = https_request.new_builder.header("Authorization", "Basic new").build
     step = build_step(challenge_hook: ->(_c, _req, _res) { replacement })
     response = step.call(https_request, unauthorized_challenge_cursor)
     assert_equal 200, response.status.code # the replay's stub response
@@ -1307,29 +1583,120 @@ end
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+# lib/dexpace/error/https_required_error.rb -- flat FILE, constant under Auth (design module layout).
 module Dexpace
-  class HTTPSRequiredError < Error
-    attr_reader :scheme, :step
+  module Auth
+    class HTTPSRequiredError < Dexpace::Error
+      attr_reader :scheme, :step
 
-    def initialize(scheme:, step:)
-      @scheme = scheme
-      @step = step
-      super("#{step} refuses to stamp a credential onto a #{scheme} request: HTTPS is required")
+      def initialize(scheme:, step:)
+        @scheme = scheme
+        @step = step
+        super("#{step} refuses to stamp a credential onto a #{scheme} request: HTTPS is required")
+      end
     end
   end
 end
 ```
 
 `Step#enforce_https!` compares `request.url.scheme.downcase == "https"` and raises
-`Dexpace::HTTPSRequiredError.new(scheme: request.url.scheme, step: self.class.name)` otherwise
-(`AUTH-28`'s "naming the concrete step and the offending scheme"). `Step#stamp` dispatches on the
-resolved credential's class to the appropriate handler/stamper (`BasicHandler`/`DigestHandler` via
-the default `ChallengeHandlerChain`-backed `challenge_hook`, `KeyStamper`, or `BearerStamper`); the
-default `challenge_hook` for a request with no prior 401 is "attach nothing yet" for Digest (the
-first request to a fresh realm carries no Digest header at all — RFC 7616's own challenge-response
-shape) and "attach immediately" for Basic/key/bearer.
+`Dexpace::Auth::HTTPSRequiredError.new(scheme: request.url.scheme, step: self.class.name)` otherwise
+(`AUTH-28`'s "naming the concrete step and the offending scheme"). **`Step` does not dispatch on a
+credential class and has no `#stamp` of its own**: it calls `@stamper.call(request)`, and which
+object that is was decided at construction — `KeyStamper`, `BasicHandler` (preemptive, `AUTH-14`),
+`BearerStamper`, or `Step::NO_STAMP` for `AUTH-1`'s `NO_AUTH` sentinel. Challenge-driven schemes are
+**not** reached through the stamper and **not** through a default hook: `AUTH-30` fixes the default
+as "yields no replacement", so Digest arrives only when the caller passes
+`ChallengeHandlerChain#as_challenge_hook` (Task 8). The constructor is the design's pinned signature,
+and `Step::NO_REPLACEMENT` / `Step::NO_STAMP` are defined with it.
 
 - [ ] **Step 4: Confirm green.**
+
+---
+
+## Task 11a: The Bearer 401 Branch on `Step` — `AUTH-36`
+
+**Needs:** Tasks 10 and 11.
+**Produces:** `Step#bearer_retry`, the step-level half of `AUTH-36`. Task 10 built the eviction
+*primitive*; nothing called it. `AUTH-36` is a requirement about **the bearer auth step**, not about
+a cache method — "evict … **and re-stamp the single retry** with a freshly fetched token" — so
+without this task `AUTH-36` has a tested method and no behaviour.
+
+- [ ] **Step 1: Write the failing tests.**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+# test/dexpace/auth/step_bearer_challenge_test.rb — AUTH-36
+
+require_relative "../../test_helper"
+
+class Dexpace::Auth::StepBearerChallengeTest < DexpaceTestCase
+  def test_401_with_a_bearer_challenge_evicts_and_retries_once_with_a_fresh_token
+    provider = scripted_provider("old", "new")
+    step = bearer_step(provider)
+    response = step.call(https_request, cursor_replying(unauthorized_bearer, ok))
+    assert_equal 200, response.status.code
+    assert_equal ["Bearer old", "Bearer new"], transport.stamped_headers
+  end
+
+  def test_the_retry_fires_regardless_of_method # AUTH-36: never gated by idempotency
+    step = bearer_step(scripted_provider("old", "new"))
+    response = step.call(post_request, cursor_replying(unauthorized_bearer, ok))
+    assert_equal 200, response.status.code
+  end
+
+  def test_a_token_another_request_already_refreshed_is_preserved_and_reused
+    step = bearer_step(scripted_provider("old", "never-fetched"))
+    step.stamper.instance_variable_set(:@token, bearer("refreshed-elsewhere")) # simulates the race
+    step.call(https_request, cursor_replying(unauthorized_bearer("Bearer old"), ok))
+    assert_equal "Bearer refreshed-elsewhere", transport.stamped_headers.last
+  end
+
+  def test_no_authorization_header_on_the_rejected_request_surfaces_the_401_unchanged # AUTH-36
+    step = bearer_step(scripted_provider("old"))
+    cursor = cross_origin_cursor_replying(unauthorized_bearer) # suppressed: nothing was stamped
+    response = step.call(https_request, cursor)
+    assert_equal 401, response.status.code
+    assert_equal 1, transport.drive_count
+  end
+
+  def test_a_401_advertising_no_bearer_challenge_surfaces_unchanged # AUTH-36
+    step = bearer_step(scripted_provider("old"))
+    response = step.call(https_request, cursor_replying(unauthorized('Basic realm="r"')))
+    assert_equal 401, response.status.code
+    assert_equal 1, transport.drive_count
+  end
+
+  def test_a_non_replayable_body_skips_the_retry_and_leaves_the_401_open # AUTH-31, P6-7
+    step = bearer_step(scripted_provider("old"))
+    response = step.call(https_request.new_builder.tap { |b| b.body = NonReplayableBody.new }.build,
+                         cursor_replying(unauthorized_bearer))
+    assert_equal 401, response.status.code
+    refute response.closed?
+  end
+
+  def test_the_bearer_branch_is_not_the_challenge_hook # AUTH-30's default is still no replacement
+    hook_called = false
+    step = bearer_step(scripted_provider("old", "new"), challenge_hook: ->(*) { hook_called = true; nil })
+    step.call(https_request, cursor_replying(unauthorized_bearer, ok))
+    refute hook_called, "the bearer 401 branch owns a Bearer challenge and returns before the hook"
+  end
+end
+```
+
+- [ ] **Step 2: Confirm fail** — `Step#bearer_retry` does not exist and the 401 falls through to the
+  hook, which by default yields no replacement, so every test above surfaces a 401.
+
+- [ ] **Step 3: Implement `Step#bearer_retry` and `#bearer_offered?` per the design's listing.** The
+  three "surface the 401 unchanged" conditions are guards, in this order: the stamper does not
+  respond to `#evict_if_matches` (not a bearer stamper), the rejected request carried no
+  `Authorization` header (cross-origin suppression), the response advertises no `Bearer` challenge.
+  `Replayability.replayable?` is the fourth (`P6-7`). The branch runs **before** the challenge hook
+  and returns the retry's response directly, so no further challenge handling happens on it.
+
+- [ ] **Step 4: Confirm green**, including the preserved-token case and the two surface-unchanged
+  cases, each asserting the downstream was driven exactly once.
 
 ---
 
@@ -1394,6 +1761,25 @@ class Dexpace::Auth::AsyncBearerStamperTest < DexpaceTestCase
     completer.fail(RuntimeError.new("refresh failed")) # must not raise anywhere, must not be observed
   end
 
+  # The regression this task exists to prevent: a provider that only implements #fetch is wrapped
+  # per AUTH-11 into an ALREADY-SETTLED future, whose #on_settle runs inline on the calling fiber.
+  # If the fetch is started while @lock is held, the callback re-enters it and Thread::Mutex raises
+  # `ThreadError: deadlock; recursive locking`. No other test in this file catches it, because
+  # every other one uses an unsettled Completer.
+  def test_an_already_settled_provider_future_does_not_deadlock_the_refresh
+    provider = sync_only_provider { Dexpace::Auth::BearerToken.new(token: "t", expiry: nil) }
+    stamper = Dexpace::Auth::AsyncBearerStamper.new(provider: provider, clock: Dexpace::Clock::SYSTEM)
+    assert_equal "Bearer t", stamper.stamp(get_request).value.headers["Authorization"]
+  end
+
+  def test_stamp_fresh_never_reuses_the_cached_token # AUTH-37's post-eviction clause
+    calls = 0
+    provider = async_provider { calls += 1; settled_future(fresh_token) }
+    stamper = seeded_stamper(provider: provider, token: fresh_token) # a perfectly valid cached token
+    stamper.stamp_fresh(get_request).value
+    assert_equal 1, calls, "stamp_fresh must await a genuinely fresh fetch, not stamp the cache"
+  end
+
   def test_failed_fetch_is_not_cached_and_a_later_request_retries
     calls = 0
     completer1 = Dexpace::Async::Completer.new
@@ -1436,7 +1822,8 @@ module Dexpace
       def stamp(request)
         token = @token
         if token && !token.expired?(now: @clock.now, margin: @refresh_margin)
-          kick_off_background_refresh! if token.expired?(now: @clock.now, margin: 0) # placeholder for the expiring zone below
+          # Fresh: stamp, no provider call at all. (There is deliberately no background refresh
+          # here: a token that is not expired WITH the margin cannot be expired without it.)
           settled(request, token)
         elsif token && !token.expired?(now: @clock.now, margin: 0)
           # Expiring-but-valid: stamp now, refresh in the background, never await it.
@@ -1452,12 +1839,12 @@ module Dexpace
 
       def settled(request, token)
         completer = Dexpace::Async::Completer.new
-        completer.fulfil(request.with_header("Authorization", "Bearer #{token.token}"))
+        completer.fulfil(request.new_builder.header("Authorization", "Bearer #{token.token}").build)
         completer.future
       end
 
       def stamp_with(request, token)
-        request.with_header("Authorization", "Bearer #{token.token}")
+        request.new_builder.header("Authorization", "Bearer #{token.token}").build
       end
 
       def background_refresh!
@@ -1474,22 +1861,50 @@ module Dexpace
         # AUTH-37's "MUST NOT fail the in-flight request" -- there is no in-flight request left to fail.
       end
 
+      # REGISTER under the lock, RELEASE, then fetch. The fetch must not be started while the lock
+      # is held, and the settle callback must be the only thing that re-takes it. Thread::Mutex is
+      # NOT reentrant, and AUTH-11's default wrapper mirrors a sync-only provider's #fetch into an
+      # ALREADY-SETTLED future -- on which phase 2's #on_settle "invokes the block immediately, on
+      # the calling fiber". Calling fetch_async inside the synchronize block therefore runs the
+      # callback's own @lock.synchronize while the outer lock is still held, which raises
+      # `ThreadError: deadlock; recursive locking` (verified on 3.4.10) for the commonest provider
+      # shape there is. The design's R12 says "release the lock, call provider.fetch_async"; this
+      # is that sentence as code.
       def coalesced_refresh_future
+        completer = nil
         @lock.synchronize do
           return @in_flight if @in_flight
 
           completer = Dexpace::Async::Completer.new
           @in_flight = completer.future
-          @provider.fetch_async.on_settle do |settlement|
-            @lock.synchronize { @in_flight = nil }
-            if settlement.success? && valid?(settlement.response)
-              @lock.synchronize { @token = settlement.response }
-              completer.fulfil(settlement.response)
-            else
-              completer.fail(settlement.error || ProviderError.new("provider returned no usable token"))
-            end
+        end
+
+        @provider.fetch_async.on_settle do |settlement|
+          @lock.synchronize do
+            @in_flight = nil
+            @token = settlement.response if settlement.success? && valid?(settlement.response)
           end
-          completer.future
+          if settlement.success? && valid?(settlement.response)
+            completer.fulfil(settlement.response)
+          else
+            completer.fail(settlement.error || ProviderError.new("provider returned no usable token"))
+          end
+        end
+        completer.future
+      end
+
+      # AUTH-37's last clause: the post-eviction challenge path MUST await a genuinely fresh fetch,
+      # so the retry can never re-send the token the server just rejected. It bypasses the
+      # three-zone read entirely; AsyncStep calls this after an eviction and never #stamp.
+      def stamp_fresh(request) = coalesced_refresh_future.then_map { |fresh| stamp_with(request, fresh) }
+
+      # AUTH-36, async half. Same compare-and-clear as BearerStamper's, same Boolean result.
+      def evict_if_matches(rejected_header)
+        @lock.synchronize do
+          next false unless @token && "Bearer #{@token.token}" == rejected_header
+
+          @token = nil
+          true
         end
       end
 
@@ -1529,7 +1944,16 @@ class Dexpace::Auth::AsyncStepTest < DexpaceTestCase
   def test_https_guard_failure_is_a_failed_future_not_a_synchronous_raise # AUTH-38
     step = build_async_step
     future = step.call(http_request, async_cursor)
-    assert_raises(Dexpace::HTTPSRequiredError) { future.value }
+    assert_raises(Dexpace::Auth::HTTPSRequiredError) { future.value }
+  end
+
+  # AUTH-36 + AUTH-37's post-eviction clause, on the async runtime: the retry awaits a GENUINELY
+  # fresh fetch, so #stamp_fresh is what AsyncStep calls after an eviction, never #stamp.
+  def test_the_bearer_401_branch_awaits_a_fresh_fetch_and_never_restamps_the_rejected_token
+    step = build_async_step(stamper: async_bearer_stamper(scripted: %w[old new]))
+    response = step.call(https_request, async_cursor_replying(unauthorized_bearer, ok)).value
+    assert_equal 200, response.status.code
+    assert_equal ["Bearer old", "Bearer new"], transport.stamped_headers
   end
 
   def test_hook_error_is_a_failed_future
@@ -1545,8 +1969,11 @@ class Dexpace::Auth::AsyncStepTest < DexpaceTestCase
     assert_instance_of Dexpace::Async::Future, future
   end
 
-  def test_replayability_gate_is_the_same_helper_step_uses # AUTH-31 uniformity
-    assert_same Dexpace::Auth::Step.method(:replayable?), Dexpace::Auth::AsyncStep.method(:replayable?)
+  def test_replayability_gate_is_the_same_helper_both_steps_use # AUTH-31 uniformity, P6-7
+    assert_equal Dexpace::Auth::Replayability,
+                 Dexpace::Auth::Step::REPLAYABILITY
+    assert_equal Dexpace::Auth::Replayability,
+                 Dexpace::Auth::AsyncStep::REPLAYABILITY
   end
 end
 ```
@@ -1576,7 +2003,8 @@ module Dexpace
         completer = Dexpace::Async::Completer.new
         begin
           if cross_origin?(cursor)
-            completer.fulfil(cursor.fork.call(request).value) # still async-shaped; see note below
+            # AUTH-29: no guard, no stamp -- and still a FORK, never cursor.call (P4-39).
+            chain_into(cursor.fork.call(request), completer)
           else
             enforce_https!(request)
             stamp_async(request).on_settle do |settlement|
@@ -1597,11 +2025,10 @@ module Dexpace
 end
 ```
 
-The `cross_origin?` branch's `cursor.fork.call(request).value` is a placeholder shown for space; the
-real implementation threads the downstream `Future` through without an intermediate `#value` call,
-matching `R12`'s "no blocking wait anywhere" rule — the plan's actual file chains it with
-`cursor.fork.call(request).on_settle { |s| s.success? ? completer.fulfil(s.response) :
-completer.fail(s.error) }`, consistent with `drive`'s own shape.
+`chain_into(future, completer)` is the one-line combinator every branch uses —
+`future.on_settle { |s| s.success? ? completer.fulfil(s.response) : completer.fail(s.error) }` — so
+**no `#value` or `#wait` call appears anywhere in `AsyncStep`**, which is `R12`'s "no blocking wait
+anywhere" rule as code rather than as a promise. `drive` has the same shape.
 
 - [ ] **Step 4: Confirm green.**
 
@@ -1648,12 +2075,20 @@ class Dexpace::Auth::CrossOriginConvergenceTest < DexpaceTestCase
     skip "6b's real REDIRECT step is not yet built; see phase6/phase6c's Task 15" \
       unless defined?(Dexpace::Redirect::Step)
 
+    # Phase 4c's shapes, exactly: Pipeline.builder(transport:) is a required keyword; #append takes
+    # the STEP first and the stage as an optional keyword -- `append(stage, step)` is two positional
+    # arguments to a one-argument method and raises ArgumentError; #build takes none.
     pipeline = Dexpace::Pipeline.builder(transport: two_hop_cross_origin_transport)
-                                 .append(Dexpace::Pipeline::Stages::REDIRECT, Dexpace::Redirect::Step.new)
-                                 .append(Dexpace::Pipeline::Stages::AUTH,
-                                         Dexpace::Auth::Step.new(credential: Dexpace::Auth::KeyCredential.new(api_key: "secret")))
+                                 .append(Dexpace::Redirect::Step.new,
+                                         stage: Dexpace::Pipeline::Stages::REDIRECT)
+                                 .append(Dexpace::Auth::Step.new(
+                                           stamper: Dexpace::Auth::KeyStamper.new(
+                                             Dexpace::Auth::KeyCredential.new(api_key: "secret")
+                                           )
+                                         ),
+                                         stage: Dexpace::Pipeline::Stages::AUTH)
                                  .build
-    response = pipeline.call(seed_request)
+    pipeline.call(seed_request)
     refute_includes captured_headers_for_second_hop, "Authorization"
   end
 end
@@ -1698,8 +2133,12 @@ own bookkeeping.
   it, plus the two ⏳-adjacent rows this plan carries with no code: `AUTH-29`'s stripping clause
   ("satisfied by construction, no code," Task 11) and nothing else, since `6c` files no deferral.
 
-- [ ] **Step 7: Route the finding this plan's design identified to its owner**, by hand, in the place the
-  design names. There is one, and its substance is: `AUTH-4`–`AUTH-7`'s tier resolution takes a per-call, an
+- [ ] **Step 7: VERIFY — do not re-file — the two findings this plan's design identified.** Both were
+  routed when they were found and both already exist in `docs/first-release.md`: the `AuthDescriptor`
+  carrier under § Blockers before first publish, and query-/cookie-carried `apiKey` credentials under
+  § What v1 ships without. This step reads that file, confirms both lines are present and still say
+  what `6c` found, and **appends nothing** — a finding is routed once, and a second append would
+  produce two lines owning one decision. The first line's substance is: `AUTH-4`–`AUTH-7`'s tier resolution takes a per-call, an
   operation and a client `AuthDescriptor` in that preference order, and no phase — not 1 through 5, and not
   `AUTH`'s own 38 IDs — specifies **where a per-call or operation-level `AuthDescriptor` is carried**;
   `docs/sdk-design-ruby/` names no field on `Request`, on `RequestOptions` or on any `Operation` construct
@@ -1708,10 +2147,13 @@ own bookkeeping.
   phase the resolver ships correct and exercised only by its own unit tests, never by an end-to-end call
   path. **Owner: `docs/first-release.md` § Blockers before first publish**, as a standing decision line in
   the shape of the existing `HTTP-22`/`HTTP-48`/`HTTP-49`/`HTTP-50` line, naming the reopening event — the
-  first phase that builds Operation-level request construction. A finding is routed to an owner when it is
-  found — a numbered task in the phase whose scope it falls in, phase 10's inbound list when it is audit or
-  repair work on an already-planned phase, or `docs/first-release.md` when it belongs to the release — never
-  to a standing register and never under an ID chosen in advance.
+  first phase that builds Operation-level request construction. The second line's substance is that
+  `AUTH-26` is header-only, so an OpenAPI `apiKey` carried `in: query` or `in: cookie` has no AUTH-step
+  path and therefore no `AUTH-28` guard, no `AUTH-29` suppression and no `AUTH-8` redaction; its owner is
+  § What v1 ships without and its reopening event is the first consumer that needs one. A finding is routed
+  to an owner when it is found — a numbered task in the phase whose scope it falls in, phase 10's inbound
+  list when it is audit or repair work on an already-planned phase, or `docs/first-release.md` when it
+  belongs to the release — never to a standing register and never under an ID chosen in advance.
 
 - [ ] **Step 8: Run housekeeping** (`ruby .claude/skills/housekeeping/probe.rb`) and fix what it
   reports before calling the sub-phase done.
@@ -1721,8 +2163,10 @@ own bookkeeping.
 **What this plan has and has not established.** Every one of `R10`, `R11`, `R12`'s resolutions is
 implemented by a specific task (`R10`: Task 7's `UnencodableCredentialError`; `R11`: Task 7's
 per-handler `BoundedMap` plus the design's no-deferral argument, nothing further to implement;
-`R12`: Task 12's `AsyncBearerStamper` and Task 13's uniform failed-future delivery). The three
-deviation-ledger entries beyond those (`P6-2`, `P6-3`) are implemented in Tasks 8 and 4 respectively.
+`R12`: Task 12's `AsyncBearerStamper` and Task 13's uniform failed-future delivery). The remaining
+deviation-ledger entries are implemented by specific tasks too: `P6-2` in Task 8, `P6-3` in Task 4,
+`P6-6` (the non-blank helper beside `SEAM-29`'s message form) in Task 4's Step 0, and `P6-7`
+(`AUTH-31`'s gate extended to `AUTH-36`'s retry) in Tasks 11a and 13.
 The one finding is routed by hand in Task 16, not by any earlier task's code.
 
 **What remains genuinely open at the end of this plan.** Task 15's end-to-end test is written but
@@ -1743,15 +2187,19 @@ that task's own execution time against phase 2's actual shipped surface, not gue
 | 7 | AUTH-15, AUTH-16, AUTH-17, AUTH-18, AUTH-19, AUTH-20, AUTH-21, AUTH-22, AUTH-24 |
 | 8 | AUTH-23, AUTH-25 |
 | 9 | AUTH-26 |
-| 10 | AUTH-11, AUTH-34, AUTH-35, AUTH-36 |
+| 10 | AUTH-11, AUTH-34, AUTH-35, AUTH-36 (the cache half only: eviction matched on the stamped header) |
 | 11 | AUTH-27, AUTH-28, AUTH-29, AUTH-30, AUTH-31, AUTH-32, AUTH-33 |
-| 12 | AUTH-37 |
-| 13 | AUTH-38, AUTH-27..AUTH-36 (async mirror) |
+| 11a | AUTH-36 (the step half: the 401 branch, the three surface-unchanged conditions, the one retry) |
+| 12 | AUTH-37 (including its post-eviction clause, `#stamp_fresh`) |
+| 13 | AUTH-38, AUTH-27..AUTH-36 (async mirror, including 11a's branch) |
 | 14 | (cross-cutting integration, no new IDs) |
 | 15 | REDIR-11, AUTH-29 (convergence) |
 | 16 | (wiring, no new IDs) |
 
-All 38 `AUTH` IDs appear above at least once. `AUTH-29` appears twice (Task 11's construction and
+All 38 `AUTH` IDs appear above at least once. `AUTH-36` appears in **three** rows deliberately: its
+cache primitive (10), its step behaviour (11a) and its async mirror (13) — `AUTH-36` is a requirement
+about the bearer *step*, so a row naming only the cache method would leave the requirement's verb
+("re-stamp the single retry") with no owning task. `AUTH-29` appears twice (Task 11's construction and
 Task 15's convergence test) deliberately — the segmentation design's convergence-point rule requires
 the end-to-end assertion to exist somewhere, and it is not a substitute for Task 11's own unit-level
 `AUTH-29` tests.

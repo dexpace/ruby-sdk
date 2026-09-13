@@ -123,8 +123,8 @@ in the built tree and re-run. Reverting, and the message each produces:
 | `Hooks.notify` becomes a bare `each` in `Source#cancel` | `cancellation_test.rb` | "Expected: `[:first, :third]`, Actual: `[:first]`" |
 | `Hooks.notify` becomes a bare `each` in `Completer#settle` | `async/completer_test.rb` | "Expected: `[:first, :third]`, Actual: `[:first]`" |
 | `Cancellation.over`'s `is_a?(Source)` guard | `cancellation_test.rb` | "`Dexpace::InvalidArgumentError` expected but nothing was raised" |
-| `deliver`'s delivery branch written as a method-level `else` | `transport/async_over_test.rb` | "the future never settled and `#value` would block" |
-| `#on_cancel`'s per-registration guard becomes one token-level flag | `async_transport/sync_over_test.rb` | "a waiter never unblocked: SEAM-18's interruption clause is violated" |
+| `deliver`'s delivery branch written as a method-level `else` | `bridge/async_over_test.rb` | "the future never settled and `#value` would block" |
+| `#on_cancel`'s per-registration guard becomes one token-level flag | `bridge/sync_over_test.rb` | "a waiter never unblocked: SEAM-18's interruption clause is violated" |
 
 Two of those fail as a **hang** rather than an assertion and are the ones to run under `timeout`:
 the `SEAM-18` two-waiter test, and the re-entrant-resolve trio, whose reverted failure is Ruby's own
@@ -168,7 +168,8 @@ proofs, which need `test/support/probe_scheduler.rb`.
 the version-skew guard are separately reviewable.
 
 **The transport seams (Tasks 9–11).** `lib/dexpace/transport.rb`, `lib/dexpace/async_transport.rb`,
-and the `SEAM-18` bridges inside them; with `test/support/fake_transport.rb`,
+and the `SEAM-18` bridges the two modules expose, which live in `lib/dexpace/bridge/` and are
+mirrored by `test/dexpace/bridge/`; with `test/support/fake_transport.rb`,
 `test/support/fake_async_transport.rb` and `test/support/warning_capture.rb`.
 
 **The codec seam (Task 12).** `lib/dexpace/serde/error.rb`,
@@ -1506,7 +1507,8 @@ obligation 5.
   Boolean`, `#request_cancel(reason) -> Boolean`, `#on_cancel`, `#on_settle`, `#settled?`,
   `#outcome`, `#await(cancellation)`; `Dexpace::Async::Future` — `.new(completer)`, `#settled?`,
   `#cancelled?`, `#wait(cancellation: nil)`, `#value(cancellation: nil)`, `#on_settle`,
-  `#cancel(reason = nil)`. Tasks 6, 9, 10 and 11 consume all three.
+  `#cancel(reason = nil)`, `#then { |value| … } -> Future`. Tasks 6, 9, 10 and 11 consume all
+  three.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1743,6 +1745,68 @@ class DexpaceAsyncFutureTest < DexpaceTestCase
     assert_respond_to(future, :settled?)
     assert_respond_to(future, :cancelled?)
     refute_respond_to(future, :completer)
+  end
+
+  test "then derives a future settled with the block's result" do
+    completer = Dexpace::Async::Completer.new
+    derived = completer.future.then { |response| "mapped #{response}" }
+
+    completer.fulfil("ok")
+
+    assert_equal("mapped ok", derived.value)
+  end
+
+  test "then maps a future that had already settled" do
+    completer = Dexpace::Async::Completer.new
+    completer.fulfil(2)
+
+    assert_equal(4, completer.future.then { |value| value * 2 }.value)
+  end
+
+  test "then forwards the failure unchanged, as the same object" do
+    boom = ::IOError.new("reset")
+    completer = Dexpace::Async::Completer.new
+    derived = completer.future.then { |_value| flunk("the block must not run on a failure") }
+
+    completer.fail(boom)
+
+    assert_same(boom, assert_raises(::IOError) { derived.value })
+  end
+
+  test "then forwards cancellation as cancellation, not as a plain failure" do
+    completer = Dexpace::Async::Completer.new
+    derived = completer.future.then { |_value| flunk("the block must not run on a cancellation") }
+
+    completer.future.cancel(:caller_gave_up)
+
+    error = assert_raises(Dexpace::CancelledError) { derived.value }
+    assert_equal(:caller_gave_up, error.reason)
+    assert(derived.cancelled?, "a derived future that lost its source is cancelled, not failed")
+  end
+
+  test "cancelling the derived future cancels the one it was derived from" do
+    completer = Dexpace::Async::Completer.new
+    derived = completer.future.then { |value| value }
+
+    derived.cancel(:downstream_gave_up)
+
+    assert(completer.future.cancelled?, "SEAM-18's bidirectional cancellation, one link up")
+    assert_equal(:downstream_gave_up, completer.outcome.error.reason)
+    assert(derived.cancelled?)
+  end
+
+  test "a raising block fails the derived future rather than escaping the settling thread" do
+    completer = Dexpace::Async::Completer.new
+    derived = completer.future.then { |_value| raise(::ArgumentError, "bad map") }
+
+    completer.fulfil(:source)
+
+    assert_equal("bad map", assert_raises(::ArgumentError) { derived.value }.message)
+    assert(completer.future.settled?, "the source future still settled successfully")
+  end
+
+  test "then requires a block" do
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Async::Completer.new.future.then }
   end
 end
 ```
@@ -2090,6 +2154,51 @@ module Dexpace
         @completer.request_cancel(reason)
         self
       end
+
+      # Derives a future from this one's value, so a caller can adapt a response without blocking a
+      # thread to do it -- the shape every core consumer of the pivot already hand-rolls out of
+      # #on_settle plus a second Completer.
+      #
+      # Four rules, and none of them is new: the block runs only on a success and the derived
+      # future settles with what it returns; a failure is forwarded as **the same object**, because
+      # this port never wraps; a cancellation is forwarded as a *cancellation* rather than as a
+      # plain failure, so `#cancelled?` stays true one link down and RETRY/XCUT-2 classification
+      # still reads #reason's class; and cancelling the derived future cancels the one it came
+      # from, which is the bidirectional half SEAM-18 and ASYNC-6 ask for. Neither direction loops:
+      # Completer#request_cancel returns false on an already-settled completer.
+      #
+      # It settles through Completer#fulfil, so **SEAM-30 applies to a derived future exactly as to
+      # any other**: a mapped value that loses the completion race is closed through
+      # Dexpace.close_quietly rather than leaked. That is the whole reason the block's result is
+      # not written to the outcome directly.
+      #
+      # A block that raises fails the derived future instead of escaping the settling thread, and a
+      # block returning nil fails it through Settlement's "exactly one of response or error" rule
+      # rather than leaving it unsettled -- both because the call sits inside the rescue.
+      #
+      # The name shadows Kernel#then (yield_self) on this class deliberately: on a future the
+      # promise-combinator reading is the only one a caller means, and leaving Kernel#then
+      # reachable here would hand back the block's value rather than a Future.
+      def then(&block)
+        raise Dexpace::InvalidArgumentError, "then requires a block" unless block
+
+        derived = Completer.new
+        derived.on_cancel { |reason| cancel(reason) }
+        on_settle do |settlement|
+          if settlement.cancelled
+            derived.request_cancel(settlement.error.reason)
+          elsif settlement.error
+            derived.fail(settlement.error)
+          else
+            begin
+              derived.fulfil(block.call(settlement.response))
+            rescue ::StandardError => error
+              derived.fail(error)
+            end
+          end
+        end
+        derived.future
+      end
     end
   end
 end
@@ -2110,6 +2219,7 @@ module Dexpace
       def value: (?cancellation: Dexpace::Cancellation?) -> untyped
       def on_settle: () { (Dexpace::Async::Settlement) -> void } -> self
       def cancel: (?untyped reason) -> self
+      def then: () { (untyped) -> untyped } -> Dexpace::Async::Future
     end
   end
 end
@@ -3594,7 +3704,9 @@ end
 # SPDX-License-Identifier: MIT
 
 require_relative "../async/completer"
+require_relative "../async/future"
 require_relative "../closeable"
+require_relative "../error/seam_error"
 
 module Dexpace
   # The two sync<->async bridges SEAM-18 requires, each in its own file.
@@ -3636,19 +3748,53 @@ module Dexpace
 
       private
 
-      # Check-after-resume (design §3.3): the send may have suspended, so the cancellation state is
-      # re-read before acting on the value it produced. If cancelled, the response is closed and
-      # the future settles through the failure channel rather than delivering. Completer#fulfil
-      # closes the orphan on a lost race too, so SEAM-30 holds even if this branch is missed.
+      # Check-BEFORE-dispatch, then check-after-resume (design §3.3).
       #
-      # The whole body is inside the rescue, deliberately. Written with a method-level `else` the
-      # delivery branch sits OUTSIDE the rescue's protection, so anything raised between the send
-      # returning and the future settling -- reading #cancelled? off an argument that is not a
+      # The worker's ::Thread::Queue#pop is one of the four suspension points
+      # concurrency-and-async/611b9392 enumerates, so this block begins executing immediately after
+      # a resume -- the earliest check-after-resume point a queued task has -- and one test at the
+      # top turns a wasted round trip into no round trip. Nothing is *broken* without it: ASYNC-3's
+      # third clause asks only that a queued task not be interrupted, and SEAM-30/ASYNC-5 close the
+      # orphan through Completer#fulfil's losing-race branch either way. What is lost is one
+      # connection and, on a non-idempotent method, one server-side side effect a caller believed
+      # they had cancelled. It belongs to core rather than to the runtime adapter, because
+      # dexpace-async-thread cannot see the token: the pool posts an opaque block by design
+      # (concurrency-and-async/08a0e08d), which is also what lets the same object serve
+      # Dexpace::Page::_Executor.
+      #
+      # After the send the state is re-read before acting on the value it produced. If cancelled,
+      # the response is closed and the future settles through the failure channel rather than
+      # delivering. Completer#fulfil closes the orphan on a lost race too, so SEAM-30 holds even if
+      # that branch is missed.
+      #
+      # The delivered value is type-checked the way Bridge::SyncOver#call checks the future it is
+      # handed, and for the mirror-image reason. Both seams' .conforms? is
+      # Dexpace::Registry.callable?(object, arity: 3) and #parameters cannot see a return type, so
+      # an ASYNC transport handed to Transport.async_over is accepted at construction. Without this
+      # branch #deliver hands a Dexpace::Async::Future to Completer#fulfil, whose only validation
+      # is "exactly one of response or error": the outer Future#value then returns the INNER
+      # future, nothing raises anywhere, and the real response is never closed because nothing on
+      # that path knows there is one inside. Phase 4c's Pipeline/AsyncPipeline pair is what makes
+      # that cheap to hit, and the finding is 4c's, routed here.
+      #
+      # The whole body is inside the rescue, deliberately -- the raise above included, so it
+      # settles the future instead of escaping the posted block. Written with a method-level `else`
+      # the delivery branch sits OUTSIDE the rescue's protection, so anything raised between the
+      # send returning and the future settling -- reading #cancelled? off an argument that is not a
       # token is the cheapest example -- escapes the posted block, kills the worker under a real
       # threaded executor, and leaves the future permanently unsettled with every #value blocked
       # on it. Reproduced on 3.2.11, 3.4.10 and 4.0.6.
       def deliver(completer, request, options, cancellation)
+        return completer.request_cancel(cancellation.reason) if cancellation&.cancelled?
+
         response = @transport.call(request, options, cancellation)
+        if response.is_a?(Dexpace::Async::Future)
+          raise Dexpace::SeamError,
+                "Transport.async_over wraps a SYNCHRONOUS transport; the one it was given " \
+                "delivered a #{response.class}. Call that transport directly, or present it " \
+                "through Dexpace::AsyncTransport.sync_over first."
+        end
+
         if cancellation&.cancelled?
           Dexpace.close_quietly(response)
           completer.request_cancel(cancellation.reason)
@@ -3671,7 +3817,11 @@ end
 ```rbs
 module Dexpace
   interface _Transport
-    def call: (untyped request, untyped options, Dexpace::Cancellation? cancellation) -> untyped
+    def call: (
+      Dexpace::Request request,
+      Dexpace::RequestOptions options,
+      Dexpace::Cancellation? cancellation,
+    ) -> Dexpace::Response
   end
 
   module Transport
@@ -3688,7 +3838,13 @@ end
 
 `interface _Transport` is the static half of the seam — what a consumer's own `steep check` sees at
 a parameter — and is the artifact `data-modeling/a13e9ffe`'s Sorbet abstract module is replaced by
-(`docs/knowledge/notes/data-modeling.md`).
+(`docs/knowledge/notes/data-modeling.md`). **It is typed, not `untyped`**: design §3.2 states the
+seam as "a transport is any object responding to `#call(request, options, cancellation)` and
+returning a `Dexpace::Response`", all three types are phase 1's and `NFR-11` is satisfied because
+every name is a `Dexpace::` constant. An `untyped` interface would be the one artifact a generated
+client type-checks against carrying no information, and would leave `dexpace-conformance` to
+re-declare the shape later. The module's own class methods stay `untyped` on the provider, for the
+reason `sig/dexpace/registry.rbs` gives: a provider is whatever an adapter supplies.
 
 - [ ] **Step 7: Add the two `require_relative`s to `lib/dexpace.rb`**
 
@@ -3945,7 +4101,11 @@ end
 - [ ] **Step 6: Write `sig/dexpace/async_transport.rbs` and `sig/dexpace/bridge/sync_over.rbs`**
 
 `sig/dexpace/async_transport.rbs` mirrors Task 9's file, with `interface _AsyncTransport` whose
-`#call` returns `Dexpace::Async::Future` and `.sync_over` returning `Dexpace::Bridge::SyncOver`.
+`#call` takes the same three typed parameters as `_Transport`'s —
+`(Dexpace::Request request, Dexpace::RequestOptions options, Dexpace::Cancellation? cancellation)` —
+and returns `Dexpace::Async::Future`, and `.sync_over` returning `Dexpace::Bridge::SyncOver`. The
+two interfaces differ in exactly one position, the return type, which is the whole of what
+`.conforms?` cannot check and the reason both are declared at all.
 `sig/dexpace/bridge/sync_over.rbs` declares the class, its `include Dexpace::Closeable`, and
 `#call` returning `untyped`.
 
@@ -3975,17 +4135,19 @@ bridges"; §3.3's check-after-resume rule; deviation P2-4.
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace/bridge/async_over.rb` (the two amendments below)
-- Test: `gems/dexpace-core/test/dexpace/transport/async_over_test.rb`,
-  `gems/dexpace-core/test/dexpace/async_transport/sync_over_test.rb`
+- Test: `gems/dexpace-core/test/dexpace/bridge/async_over_test.rb`,
+  `gems/dexpace-core/test/dexpace/bridge/sync_over_test.rb`
 
 **Interfaces:**
 - Consumes: `Dexpace::Transport.async_over` and `Dexpace::Bridge::AsyncOver` (Task 9),
   `Dexpace::AsyncTransport.sync_over` and `Dexpace::Bridge::SyncOver` (Task 10), `FakeTransport`,
   `OptionsIgnoringTransport`, `InlineExecutor` (Task 9), `FakeAsyncTransport` (Task 10),
   `Dexpace::Cancellation` (Task 4).
-- Produces: nothing new in `lib/` — the two amendments below are one branch each inside
-  `Dexpace::Bridge::AsyncOver`, which Task 9 already wrote. A separate task because `SEAM-18` is a
-  MUST whose proof is the deliverable, and a reviewer can accept both modules and reject the proof.
+- Produces: no new file — Step 2 below adds two branches to `Dexpace::Bridge::AsyncOver#deliver`,
+  which Task 9 created. **Task 9's `#deliver` already carries both**, so Step 2 is a verification
+  step when Task 9 landed after 2026-09-13 and an edit when it did not. A separate task because
+  `SEAM-18` is a MUST whose proof is the deliverable, and a reviewer can accept both modules and
+  reject the proof.
 
 **Amendment, 2026-09-13 — `Bridge::AsyncOver#deliver` type-checks the value it delivers, and this
 task proves it.** The two bridges are asymmetric, and it only shows once a caller has two core-owned
@@ -4008,8 +4170,8 @@ returned future, raising `Dexpace::SeamError` naming the class, at a cost of one
 two were a construction-time refusal driven by a marker predicate that `AsyncPipeline` and future
 async adapters answer, and leaving it while documenting the trap on both bridges.) Add the failing
 test to `async_over_test.rb` — an async transport handed to `Transport.async_over` raises at the
-first send instead of delivering a `Future` of a `Future` — and add its deliberate break to Step 2's
-list.
+first send instead of delivering a `Future` of a `Future` — and add its deliberate break to Step 3's
+list (break 7).
 
 **Amendment, 2026-09-13 — the posted block checks cancellation *before* the send as well as after
 it.** `Bridge::AsyncOver`'s block, as Task 9 writes it and as the design describes it, performs the
@@ -4028,11 +4190,11 @@ opaque block by design (`concurrency-and-async/08a0e08d`), which is also what le
 serve `Dexpace::Page::_Executor`. Prove it in `async_over_test.rb` with a token already cancelled
 before the executor runs the block and a transport that counts its calls: the future raises
 `Dexpace::CancelledError` and the transport was **never** called. Its deliberate break — remove the
-pre-dispatch check and watch that count go to one — joins Step 2's list.
+pre-dispatch check and watch that count go to one — joins Step 3's list (break 8).
 
 - [ ] **Step 1: Write the failing tests**
 
-`gems/dexpace-core/test/dexpace/transport/async_over_test.rb`:
+`gems/dexpace-core/test/dexpace/bridge/async_over_test.rb`:
 
 ```ruby
 # frozen_string_literal: true
@@ -4044,7 +4206,7 @@ require_relative "../../support/fake_transport"
 # SEAM-18's sync-to-async half, and the one place in phase 2 where core itself can produce a
 # response no caller will take delivery of -- which is where SEAM-30 is exercised rather than
 # merely stated.
-class DexpaceTransportAsyncOverTest < DexpaceTestCase
+class DexpaceBridgeAsyncOverTest < DexpaceTestCase
   class FakeResponse
     include Dexpace::Closeable
 
@@ -4100,6 +4262,41 @@ class DexpaceTransportAsyncOverTest < DexpaceTestCase
     assert_raises(Dexpace::CancelledError) { future.value }
     assert_equal(1, response.closes,
                  "SEAM-30: check-after-resume closes a response no caller receives")
+  end
+
+  # Both transport seams share one .conforms? -- Dexpace::Registry.callable?(object, arity: 3) --
+  # and #parameters cannot see a return type, so an async transport is accepted at construction.
+  # Without #deliver's guard the outer future delivers the INNER future, nothing raises anywhere,
+  # and the real response is never closed. Phase 4c's Pipeline/AsyncPipeline pair is what makes it
+  # cheap to hit; the finding is 4c's plan's, routed to this task.
+  test "an async transport handed to async_over raises at the first send" do
+    inner = Dexpace::Async::Completer.new
+    async = Dexpace::Transport.async_over(
+      ->(_request, _options, _cancellation) { inner.future }, executor: InlineExecutor.new,
+    )
+
+    future = async.call(:request, nil, nil)
+
+    error = assert_raises(Dexpace::SeamError) { future.value }
+    assert_match(/SYNCHRONOUS transport/, error.message)
+    assert_match(/Dexpace::Async::Future/, error.message, "the message names the class it got")
+  end
+
+  # Check-before-dispatch. ASYNC-3's third clause holds without it -- nothing here is ever
+  # interrupted -- and SEAM-30 closes the orphan either way. What it saves is one round trip and,
+  # on a non-idempotent method, one server-side side effect a caller believed they had cancelled.
+  # It belongs to core because the pool posts an opaque block and cannot see the token.
+  test "a token cancelled before the block runs never reaches the transport at all" do
+    source = Dexpace::Cancellation.source
+    source.cancel(:gave_up)
+    sync = FakeTransport.new(response: :ok)
+    async = Dexpace::Transport.async_over(sync, executor: InlineExecutor.new)
+
+    future = async.call(:request, nil, source.token)
+
+    error = assert_raises(Dexpace::CancelledError) { future.value }
+    assert_equal(:gave_up, error.reason)
+    assert_empty(sync.calls, "check-before-dispatch: the send was never made")
   end
 
   test "the bridge's product conforms to the async seam" do
@@ -4158,7 +4355,7 @@ class DexpaceTransportAsyncOverTest < DexpaceTestCase
 end
 ```
 
-`gems/dexpace-core/test/dexpace/async_transport/sync_over_test.rb`:
+`gems/dexpace-core/test/dexpace/bridge/sync_over_test.rb`:
 
 ```ruby
 # frozen_string_literal: true
@@ -4168,7 +4365,7 @@ require_relative "../../test_helper"
 require_relative "../../support/fake_async_transport"
 
 # SEAM-18's async-to-sync half, clause by clause.
-class DexpaceAsyncTransportSyncOverTest < DexpaceTestCase
+class DexpaceBridgeSyncOverTest < DexpaceTestCase
   test "returns the delivered response" do
     response = Object.new
     sync = Dexpace::AsyncTransport.sync_over(FakeAsyncTransport.new(response: response))
@@ -4268,7 +4465,43 @@ class DexpaceAsyncTransportSyncOverTest < DexpaceTestCase
 end
 ```
 
-- [ ] **Step 2: Run them to confirm they fail**
+- [ ] **Step 2: Confirm `Bridge::AsyncOver#deliver` carries both amendment branches**
+
+Open `gems/dexpace-core/lib/dexpace/bridge/async_over.rb` and check `#deliver` against Task 9's
+body. Both branches are Task 9's to write and this step is where they are verified; add whichever
+is missing, changing nothing else:
+
+```ruby
+def deliver(completer, request, options, cancellation)
+  return completer.request_cancel(cancellation.reason) if cancellation&.cancelled?
+
+  response = @transport.call(request, options, cancellation)
+  if response.is_a?(Dexpace::Async::Future)
+    raise Dexpace::SeamError,
+          "Transport.async_over wraps a SYNCHRONOUS transport; the one it was given " \
+          "delivered a #{response.class}. Call that transport directly, or present it " \
+          "through Dexpace::AsyncTransport.sync_over first."
+  end
+
+  if cancellation&.cancelled?
+    Dexpace.close_quietly(response)
+    completer.request_cancel(cancellation.reason)
+  else
+    completer.fulfil(response)
+  end
+rescue ::StandardError => error
+  completer.fail(error)
+end
+```
+
+The `raise` sits **inside** the method's `rescue`, deliberately: a `SeamError` that escaped the
+posted block would kill the worker under a real threaded executor and leave the future permanently
+unsettled, which is the failure the rescue's own comment documents. The pre-dispatch `return`
+settles through `#request_cancel`, so a cancelled caller still gets an outcome rather than a future
+that never settles. `require_relative "../async/future"` and `require_relative "../error/seam_error"`
+are Task 9's, at the top of the same file.
+
+- [ ] **Step 3: Run them to confirm they fail**
 
 If Tasks 9 and 10 landed, these pass immediately. **That is not good enough for a MUST.** Break each
 clause deliberately and confirm the matching test goes red, then restore:
@@ -4280,7 +4513,7 @@ clause deliberately and confirm the matching test goes red, then restore:
    `Completer#fulfil` wins the race and delivers rather than closing.
 4. Change `future.value(cancellation: cancellation)` to `future.value` — the cancellation test must
    hang; kill it and confirm, then restore. **Run this one with a timeout**:
-   `timeout 20 bundle exec ruby -w gems/dexpace-core/test/dexpace/async_transport/sync_over_test.rb`.
+   `timeout 20 bundle exec ruby -w gems/dexpace-core/test/dexpace/bridge/sync_over_test.rb`.
 5. In `lib/dexpace/cancellation.rb`, replace `#on_cancel`'s per-registration list with a single
    token-level "already fired" flag — the shape a reader is most likely to reach for, because
    `.any` does need to fire once across several sources. The two-waiter test must then fail on its
@@ -4290,8 +4523,16 @@ clause deliberately and confirm the matching test goes red, then restore:
 6. In `lib/dexpace/bridge/async_over.rb`, remove the `rescue ::StandardError => error` around
    `@executor.post` — the executor-raise test must fail with the `IOError` escaping `#call`
    instead of settling the future.
+7. Delete `#deliver`'s `response.is_a?(Dexpace::Async::Future)` guard — the async-transport test
+   must fail: `future.value` returns the inner `Dexpace::Async::Future`, nothing raises, and
+   `assert_raises(Dexpace::SeamError)` reports that nothing was raised. Restore it. This is the
+   break that proves phase 4c's finding is closed rather than merely described.
+8. Delete `#deliver`'s leading `return completer.request_cancel(...) if cancellation&.cancelled?` —
+   the never-dispatched test must fail on `assert_empty(sync.calls)`, because the send is made and
+   its response is then closed on the losing-race path. The `CancelledError` still arrives, which
+   is exactly why the call count is the assertion and the error is not.
 
-- [ ] **Step 3: Run them to confirm they pass**
+- [ ] **Step 4: Run them to confirm they pass**
 
 Run both suites, then `mise exec ruby@3.2.11 -- bundle exec rake test:gems` and
 `mise exec ruby@4.0.6 -- bundle exec rake test:gems`.
@@ -5185,6 +5426,19 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { operation.build_request(base_url: "ht tp://x") }
   end
 
+  # Phase 1's Query::Builder#add coerces String, Symbol, Integer, Float, true and false through
+  # #to_s and nil to "", and raises for a Hash or an Array. A generated client reaching for an
+  # OpenAPI deepObject or a non-default style must fail here rather than render
+  # "{:color=>\"red\"}" into the query -- a URL that is well-formed, wrong, and silent, which is
+  # the same failure mode the nil-path-input test guards on the path side.
+  test "a structured query value is refused, not rendered as an inspect string" do
+    subject = operation(projections: { filter: [:query, "filter"] })
+
+    assert_raises(Dexpace::InvalidArgumentError) do
+      subject.build_request(base_url: "https://host", inputs: { filter: { color: "red" } })
+    end
+  end
+
   test "a repeated query projection emits one parameter per value" do
     subject = operation(projections: { tag: [:query, "tag"] })
 
@@ -5696,8 +5950,9 @@ Four edits, and no others:
    `URI::RFC3986_PARSER.join` and is `REDIR-13`'s. One line each, pointing at the phase-2 design.
 3. The **command block** — add `bundle exec rake cops:test` if phase 0 did not already list it.
 4. The **counts the `claims` check reads** — the gem count and the harvested-topic count are
-   unchanged; the phase-directory sentence already says three and must now describe a `phase2/`
-   holding a design, a plan **and a checklist**.
+   unchanged; the phase-directory sentence already enumerates ten phase directories and **that
+   count must not change** — what changes is its description of `phase2/`, which now holds a
+   design, a plan **and a checklist**.
 
 - [ ] **Step 9: Run the probe and fix what it reports**
 

@@ -115,7 +115,26 @@ stated in the release notes rather than discovered at `bundle install`.
       and leaves the map populated. The repair is **phase 10's**, because `8c` owns the file and has already
       run by the time phase 9's audit does, and it sits on phase 10's inbound list (the roadmap's 2026-09-13
       status note) with the measured detail and the line numbers. The gate stays red until it lands, and
-      `XCUT-14` being a MUST is why this is a blocker rather than a report line
+      `XCUT-14` being a MUST is why this is a blocker rather than a report line. **Amended 2026-09-13
+      by the final pre-build review of phase 8c: `8c`'s plan Task 8 now bounds the map at planning
+      time** — `Clients::MAX_ORIGINS`, drained back to the cap in a loop after each insert, with each
+      evicted client's pool closed — so the map is expected to be bounded the moment `8c` lands and
+      this blocker to close then, without a phase-10 repair. Phase 9's routing assumed `8c` had
+      already run; it had not. This line stays open until a green `gates:bounded_map` run confirms it
+- [ ] **Before release, `docs/sdk-documentation/` carries one worked end-to-end example** — a
+      generated-style client over `dexpace-core` + `dexpace-transport-net_http` + `dexpace-serde-json`:
+      operation descriptor, request assembly, pipeline with an AUTH step, decode, typed error, one
+      paginated call. Filed 2026-09-13 by the roadmap-level generator-fitness review. This is the
+      artifact **three standing decisions name as their reopening trigger** — the `AuthDescriptor`
+      carrier line and the `HTTP-22`/`48`/`49`/`50` line above both read "a worked example in
+      `docs/sdk-documentation/`" — so writing it forces both rather than leaving each waiting on an
+      artifact nothing schedules. No phase produces it: the phase-7 and phase-8 segmentation designs
+      each record `docs/sdk-documentation/architecture.md` as "**not** a phase deliverable. Recorded
+      so the absence is a decision", and no `NFR` reaches user documentation, so phase 9 dispositions
+      nothing here. The same pass discharges the three narrow obligations this file already carries
+      against that tree: the conformance-run caveat, the `include Dexpace` constant shadow, and
+      `Dexpace::IO::MAX_MATERIALIZED_BYTES`. Cites `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`,
+      `PIPE-39`
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
       accidental breaking change
 - [ ] `SECURITY.md` contact confirmed reachable and monitored
@@ -170,6 +189,12 @@ this section.** None is a blocker: each is a requirement below MUST level that v
 rules and says so. Every entry leads with its subject and requirement IDs, and a checklist row marked ⏳
 for one of those IDs cites the entry here rather than a phase.
 
+**One subsection is a fourth kind, added 2026-09-13**: *Behavioural asymmetries a consumer must know*
+records a place where v1 **satisfies** its requirements and two paths still behave differently. Its
+entries carry no ⏳ row, because nothing is declined or postponed; they are here because this is the
+section the release notes are read out of, and a consumer who needs the fact would otherwise have to
+find it in a design document.
+
 ### Unsatisfied MUSTs
 
 - **Cancel-with-interrupt against a blocking worker — `ASYNC-3` and `PIPE-33`'s interrupt clause
@@ -183,8 +208,11 @@ for one of those IDs cites the entry here rather than a phase.
   pooled connection; the check-after-resume rule and `Completer#on_cancel` mitigate but do not close the
   gap, since a transport blocked inside an uninterruptible C-extension read cannot be aborted early. No v1
   phase adopts such a path and none may, which is why the item is recorded as post-v1 rather than left
-  waiting for a phase. **Where it is carried.** `8b`'s checklist marks `ASYNC-3` ⏳ and `PIPE-33`'s
-  cross-reference row ⏳, both citing this entry; phase 9's `ExecutorSuite` asserts `ASYNC-3` so that it
+  waiting for a phase. **Where it is carried.** Phase 4c's checklist marks `PIPE-33` ⏳ citing this entry —
+  `PIPE-33` is inside phase 4c's own ID range, and its row names the four clauses that **are** met so it is not
+  read as a wholly unbuilt requirement; `8b`'s checklist marks `ASYNC-3` ⏳ and `PIPE-33`'s
+  cross-reference row ⏳, both citing this entry, which is a re-assertion at the point the requirement's
+  antecedent becomes real rather than a second decision; phase 9's `ExecutorSuite` asserts `ASYNC-3` so that it
   **genuinely fails**
   and the thread driver waives it by ID (phase 9, Task 11 and Task 16 Step 4) — a waived failing assertion,
   never a green one; phase 10 audits the §10.5 ledger and may not re-open the trade (roadmap cross-cutting
@@ -202,6 +230,36 @@ for one of those IDs cites the entry here rather than a phase.
   owns the row's form (⏳ against this entry with a note that the entry does not cite `CFG-20`, ✅-with-clauses
   naming the three that are met, or a partial marker of its own). The parallel worth reading beside it is
   §11.20's `RECOV-31`/`RETRY-38`, "the same feature under two IDs", and phase 4's treatment of it.
+
+- **Streaming a response body through the deserializer without materializing it — `SERDE-27`'s
+  no-materialization clause (MUST).** Added 2026-09-13 (found in the final review of phase 7a, decided
+  by 7a's design on 2026-09-10 as `7a P7-1`). `SERDE-27` requires a response-decoding handler to
+  "stream the response body directly through the deserializer into the target value (**without first
+  materializing the whole body**)". **Why the clause is unmet.** Measured against **json 2.19.9**, the
+  exact floor `dexpace-serde-json`'s gemspec declares — not merely against the 2.9.1 the interpreter
+  ships — `JSON.parse` raises `TypeError` on a `StringIO`, `JSON::Parser` exposes only
+  `#parse`/`#source`, and no singleton method is pull-shaped; the one IO-accepting entry point is
+  `JSON.load`, which design §3.4 bans by lint rule for `create_additions`/CVE-2020-10663. The
+  `#to_str` loophole works and buys nothing, because `#to_str` must return the whole `String`. The only
+  remaining route is to write a JSON parser inside the gem whose entire purpose is to delegate to
+  `json`, which would make the `>= 2.19.9` floor meaningless. **What ships instead.**
+  `Dexpace::Serde::DecodingHandler` materialises nothing — it hands `#load` the `BufferedSource` — and
+  the adapter then drains to EOF into one `String` under `Dexpace::IO::MAX_MATERIALIZED_BYTES`, 3a's
+  64 MiB ceiling, checked incrementally. A body above it raises `Dexpace::StreamError`, an `::IOError`,
+  which propagates unwrapped past the codec's `rescue ::JSON::JSONError` — correct under `SERDE-12`,
+  and the observable behaviour a caller meets. **Why it is adapter-local and repairable.** The seam's
+  `#load(source, witness)` **already takes the source**, so an adapter whose library has a pull parser
+  satisfies the clause outright with no change to core, to the handlers or to the seam;
+  `dexpace-serde-oj` (§ Post-v1 gems) is the named candidate and its entry records the same property
+  from the other side. **Two things owed before release**, which is why this is an entry and not only a
+  ledger row: the documented behaviour of a typed response handler on a body above
+  `MAX_MATERIALIZED_BYTES` must be stated in `docs/sdk-documentation/`, so a caller streaming a large
+  JSON response meets a documented limit rather than an `::IOError`; and phase 8's adapters must each
+  be checked for whether their library offers a pull parser that would satisfy the clause — phase 8's
+  segmentation design already records that none of its three does. **Where it is carried.** `7a`'s
+  checklist marks `SERDE-27` with the clause named and cites this entry; the deviation row is
+  `7a P7-1`, consolidated into design §10 and audited by `docs/deviations.md`. Cites `SERDE-27`,
+  `SEAM-21`, `IO-9`, `BODY-32`.
 
 ### SHOULD- and MAY-level requirements declined for v1
 
@@ -248,11 +306,30 @@ and the phase whose checklist carries the ⏳ row citing the entry here.
   Trigger: the post-v1 `dexpace-instrumentation-otel` gem together with the post-v1 async adapters,
   `dexpace-async-async` and `dexpace-async-concurrent_ruby`, all below.
   ⏳ rows: phase 5c (`OBS-32`) and phase 5b (`OBS-37`).
-- **`TRANSPORT-28`'s zero-copy clause and `TRANSPORT-30` (SHOULD), both per-adapter.** The two
-  MVP transports do not need either to satisfy the transport contract; `8a`'s R5 finds `TRANSPORT-28`'s
+- **`TRANSPORT-28`'s zero-copy clause (SHOULD), per-adapter.** The two
+  MVP transports do not need it to satisfy the transport contract; `8a`'s R5 finds `TRANSPORT-28`'s
   reachable half satisfiable on `Net::HTTP` and only its zero-copy clause outstanding. Trigger: a transport
-  adapter beyond the two the MVP ships. ⏳ rows: phase 8a — `TRANSPORT-30` whole, `TRANSPORT-28`'s
-  zero-copy clause.
+  adapter beyond the two the MVP ships. ⏳ row: phase 8a — `TRANSPORT-28`'s
+  zero-copy clause. **`TRANSPORT-30` was in this entry and is no longer** *(narrowed 2026-09-13)*:
+  `8a`'s `R17` found the deferral resting on a premise that was false in both directions — phase 5a
+  ships `CFG-22`–`CFG-28`'s proxy resolver and routes proxy *use* to phase 8, and `Net::HTTP.new`'s
+  `p_addr` defaults to `:ENV`, so the adapter was already proxying from the environment with a
+  credential it had never resolved. `8a` implements the requirement instead (its plan Task 19b), which
+  also gives that resolver its first consumer.
+- **Connection reuse: `dexpace-transport-net_http` opens one TCP — and over HTTPS one TLS —
+  connection per request** *(added 2026-09-13)*. Design §3.2 requires a per-call `Net::HTTP` and `8a`
+  measured why: one shared client under eight threads produced 128 errors **and 26 responses matched
+  to the wrong request**, which is `TRANSPORT-29`'s conformance clause failing. So v1 ships with no
+  keep-alive and no connection pool on the reference synchronous transport, and every request pays a
+  handshake. It is not a requirement gap — no `TRANSPORT` ID asks for pooling — but it is the first
+  thing a user benchmarking against `faraday` will find, so it is stated here rather than left to be
+  discovered. A pool is not reachable inside `NFR-2`'s budget (`connection_pool` would be a second
+  third-party declaration and `gates:gemspec_audit` rejects it), and a hand-rolled one would have to
+  answer every bounded-pool and deterministic-teardown rule the corpus routes to
+  `dexpace-async-thread`, in a gem that is not that one. Trigger: a deliberately designed bounded pool
+  with a checkout timeout, or `dexpace-transport-httpx`/`-excon` (§ Post-v1 gems), whose libraries
+  pool natively. The corpus note is `docs/knowledge/notes/transport-adapter.md`'s `## Reference` entry
+  beside `resource-management/4aca52f9`; `docs/sdk-documentation/` must state it before release.
 - **Presence-gated auto-activation for instrumentation (design §3.6; cites `SEAM-5`, `SEAM-2`,
   `OBS-31`).** Phase 2 shipped the three seam registries and no auto-activation hook of any kind, with a
   test asserting the hook is absent; phase 5c read the deferral's condition — "an instrumentation seam
@@ -265,6 +342,42 @@ and the phase whose checklist carries the ⏳ row citing the entry here.
   instrumentation the worst outcome of guessing wrong is a span that is or is not emitted. Trigger:
   that gem. No ⏳ row carries it — it names a mechanism, not a requirement of its own; phase 2's absence
   test is the artefact.
+- **An `apiKey` credential carried in a query parameter or a cookie has no AUTH-step path —
+  `AUTH-26` (MUST, satisfied as written), `AUTH-1`, `AUTH-8`, `AUTH-28`, `AUTH-29`.** Added 2026-09-13
+  by phase 6c's final review. `AUTH-26` is explicit and header-only — "static key-credential stamping
+  MUST write the key value into the credential's configured **header**" — and no `AUTH` requirement
+  names a query or cookie carrier, so `6c` implements the requirement in full and the gap is in the
+  specification's scope rather than in the port. It matters because OpenAPI's `apiKey` scheme admits
+  `in: header | query | cookie`, and a generated SDK targeting a query-keyed API can still send the
+  credential — it builds the query itself, at the operation layer — but in doing so it gets **none** of
+  what the AUTH step exists for on that credential: no `AUTH-28` HTTPS guard before the value is
+  attached, no `AUTH-29` cross-origin suppression (a query parameter survives a redirect re-issue on
+  which `REDIR-7` would have stripped a header), and no `AUTH-8` redaction in diagnostics. That makes
+  it a release decision with a security consequence rather than a missing convenience. No ⏳ row
+  carries it, because no requirement is declined. The event that would reopen it is **the first
+  consumer that needs one — a worked example in `docs/sdk-documentation/`, a `dexpace-conformance`
+  fixture, or a downstream SDK's `SEAM-26` operation projection carrying a non-header `apiKey`**;
+  widening `AUTH-26`'s carrier is a specification change and belongs to whoever makes it, not to a
+  phase. Until then the release notes state that query- and cookie-carried API keys are outside the
+  AUTH layer and what the consumer loses by placing one there
+
+### Behavioural asymmetries a consumer must know
+
+Not declined requirements and not gaps: places where v1 satisfies its requirements and the resulting
+behaviour still differs between two paths a consumer may reasonably expect to match. **The release notes
+MUST state every item here**, for the same reason the section above is stated.
+
+- **The async standard pipeline follows no redirects — `PIPE-32`, `REDIR-25` (MUST).** Added
+  2026-09-13 by the roadmap-level generator-fitness review. `Pipeline.standard` installs redirect, retry
+  and instrumentation; `AsyncPipeline.standard` requires `redirect: :unsupported` as a **required**
+  keyword and installs no step at `Stages::REDIRECT` (phase 6b's Task 13a, the constructors phase 4c
+  postponed). That is the requirement, not a shortfall — `PIPE-32` forbids pipeline-layer redirect
+  following on the async path — and `PIPE-32`'s own last clause, "a port MUST document this asymmetry
+  with the sync standard pipeline", is discharged in phase 4c's design and in the YARD on
+  `Dexpace::AsyncPipeline`. What that does not reach is a **consumer**: a generated client exposing a
+  sync and an async method for one operation ships two behaviours on a 301/302, and the reader who needs
+  to know types neither constant. So the release notes state it, and `docs/sdk-documentation/` states it
+  beside the worked example the blocker above owes.
 
 ### Post-v1 gems
 
@@ -286,7 +399,8 @@ design of 2026-09-05 stated it.
 - **`dexpace-transport-typhoeus`.** Trigger: `typhoeus` interop is requested.
 - **`dexpace-serde-oj`**, a faster codec over a seam `dexpace-serde-json` already proves with
   the reference wire codec. Phase 7a's design (2026-09-10) added a second motive beyond throughput, which
-  `P7-1` makes visible: `oj` has a genuine streaming parser, so an `oj` adapter would satisfy `SERDE-27`'s
+  `7a P7-1` makes visible (phase 7's three sub-phases knowingly share `P7-<n>` numbers until
+  consolidation into design §10, so a phase-7 row is cited with its sub-phase letter): `oj` has a genuine streaming parser, so an `oj` adapter would satisfy `SERDE-27`'s
   "without first materializing the whole body" clause that `dexpace-serde-json` measurably cannot at its
   gemspec floor — a new property, not merely a faster codec (cites `SERDE-27`, `SEAM-21`, `IO-9`). That
   does not change the trigger, since throughput is still what a user will feel first, but it changes what
@@ -394,6 +508,19 @@ the trigger, then the one job to do when it fires.
   then a lifted assertion over a single subject is a test with one subject living in a package whose
   purpose is many; phase 9's 61-row `APPENDIX_B.md` map, dispositioning the 22 items by reference
   (`P9-1`), stands and is phase 9's.
+- **`gates:drain_loop`, the `XCUT-14` drain-shape scan — a non-conforming drain shape appears that the
+  deterministic assertion cannot reach** → write the AST gate phase 9 planned and then dropped. Recorded
+  2026-09-13; decided during phase 9's final review. `XCUT-14` (MUST) requires eviction "using a loop (not
+  a single pre-insert check-then-evict)", and phase 9 ships that clause as a **behavioural** assertion —
+  `InvariantSuite`'s `bounded_map_drains` (its plan, Task 7) pre-fills a store to cap + 5, performs one
+  `set`, and observes a drain loop ending at 8 against a check-then-evict ending at 13, deterministically
+  on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. The shape gate that would have sat beside it measured **1 of 3
+  non-conforming shapes caught, with one false positive** (a `loop do … break … end` drain) and misses a
+  file whose `set` checks-then-evicts while `put` loops. A second line weaker than the first is a
+  maintenance cost carrying no evidence, so it is out of v1 and phase 9 ships **three** repository gates
+  rather than four. What fires this: a drain implementation whose non-conformance the cap-and-drain
+  observation cannot see — a second eviction path, or an eviction reached only on a branch the
+  behavioural test does not drive. Touches `XCUT-14`, `NFR-17`.
 - **`XCUT-12` under a fiber scheduler, the fallback — the post-v1 `dexpace-async-async` reactor-native
   adapter (above) ships** → run `XCUT-12`'s single-flight assertion under a fiber scheduler, driving
   `6c`'s bearer or digest cache through a reactor via the suite contract's clause 9 `around:` wrapper. The

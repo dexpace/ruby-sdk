@@ -722,7 +722,21 @@ Dexpace::Async::Future            # the read side: a facade over one Completer
   #wait(cancellation: nil)        # settles-or-returns; returns self; never raises the failure
   #on_settle { |settlement| … }   # invoked exactly once, on the settling thread-or-fiber
   #cancel(reason)                 # cooperative
+  #then { |value| … } -> Future   # derives: maps the value, forwards failure and cancellation
 ```
+
+**`#then` is the one combinator on the read side, and it is here because every core consumer of the
+pivot otherwise hand-rolls it.** It settles the derived future with the block's result, forwards a
+failure as the same object and a cancellation *as a cancellation* (so `#cancelled?` stays true one
+link down and `XCUT-2`'s out-of-band classification still reads `#reason`'s class), forwards
+`#cancel` upstream for `SEAM-18`/`ASYNC-6`'s bidirectional half, and settles through
+`Completer#fulfil`, so `SEAM-30`'s orphan-close rule reaches a mapped value that loses the
+completion race exactly as it reaches a transport's. A raising block fails the derived future
+rather than escaping the settling thread. **Phase 2 does not rewrite the four existing hand-rolled
+`#on_settle`-plus-a-second-`Completer` bridges in core** — phase 4c's plan at `:1753` and `:1774`,
+phase 6a's design, and phase 7c's pump — which may adopt `#then` when their own phase touches them;
+converting them here would edit four phases' code to prove one method, and each has assertions
+written against its own shape.
 
 **The state lives in the `Completer` and the `Future` is a facade over it**, rather than the state
 living in the `Future` with the `Completer` reaching in. Ruby has no package-private visibility, so
@@ -1099,7 +1113,34 @@ This is the one place in phase 2 where core itself can produce a response nobody
 of, so it is where `SEAM-30` is actually exercised rather than merely stated: the posted block
 performs the blocking send, re-checks cancellation on return (check-after-resume), and on a lost
 race hands the response to `Completer#fulfil`, which closes it through `Dexpace.close_quietly` and
-returns `false`. A raise from `#post` **itself** — a shut-down pool, a rejected task — is routed to
+returns `false`.
+
+**The posted block checks cancellation before the send as well as after it.** The worker's
+`::Thread::Queue#pop` is one of the four suspension points `concurrency-and-async/611b9392`
+enumerates, so the block begins executing immediately after a resume — the earliest
+check-after-resume point a queued task has — and one test at the top turns a wasted round trip into
+no round trip. Nothing is *broken* without it: `ASYNC-3`'s third clause asks only that a queued task
+not be interrupted, and `SEAM-30`/`ASYNC-5` close the orphan through `Completer#fulfil`'s
+losing-race branch either way. What is lost is one connection and, on a non-idempotent method, one
+**server-side side effect a caller believed they had cancelled**. It belongs to core rather than to
+the runtime adapter, because `dexpace-async-thread` cannot see the token: the pool posts an opaque
+block by design (`concurrency-and-async/08a0e08d`), which is also what lets the same object serve
+`Dexpace::Page::_Executor`.
+
+**And `#deliver` type-checks the value it delivers**, the way `Bridge::SyncOver#call` checks the
+future it is handed, and for the mirror-image reason. The two bridges are asymmetric, and it shows
+the moment a caller has two core-owned objects with identical `#call(request, options,
+cancellation)` shapes and different return types in one namespace — which phase 4c creates as
+`Dexpace::Pipeline` and `Dexpace::AsyncPipeline`. `.conforms?` cannot separate them: both seams'
+predicate is `Dexpace::Registry.callable?(object, arity: 3)`, and `#parameters` cannot see a return
+type. `AsyncTransport.sync_over(sync_pipeline)` is already **loud**; without this branch
+`Transport.async_over(async_pipeline, executor:)` is **silent, at every layer and for ever** —
+`#deliver` hands the inner `Future` to `Completer#fulfil`, whose only validation is "exactly one of
+response or error", so the outer `Future#value` returns the inner future, nothing raises anywhere,
+and the real response is never closed because nothing on that path knows there is one inside. So
+`#deliver` raises `Dexpace::SeamError` naming the class it got, at a cost of one `is_a?`, and the
+raise sits **inside** the method's `rescue` so it settles the future rather than killing the worker.
+The finding is phase 4c's, routed to this phase's plan, Task 11. A raise from `#post` **itself** — a shut-down pool, a rejected task — is routed to
 `Completer#fail` alongside a raise from the wrapped transport, because `ASYNC-2` and `PIPE-30` ask
 for one normalisation and a caller of an async seam should never have to `rescue` around `#call`.
 
@@ -1205,7 +1246,7 @@ exercises, and a non-obvious branch names the ID that forced it. Every suite sub
 owns it, and the checklist written at execution time names the plan task, not this document. Three
 IDs are exercised in more than one file by nature: `SEAM-2` in `registry_test.rb` (the error names
 no gem) and in `transport_test.rb`/`serde_test.rb` (the registries start empty); `SEAM-30` in
-`async/completer_test.rb` (the lost-race close) and in `transport/async_over_test.rb` (the bridge's discard
+`async/completer_test.rb` (the lost-race close) and in `bridge/async_over_test.rb` (the bridge's discard
 path); `SEAM-14` in `closeable_test.rb` and in each fake's own suite.
 
 **The concurrency tests, which are the ones a reader would otherwise write wrong.**
@@ -1318,7 +1359,7 @@ design §10; it is frozen.
 | P2-8 | A sixth custom cop, `Dexpace/QualifiedCoreConstant` | design §9's gate table; phase 0's P0-3 precedent | Verified: a bare `Thread` inside `module Dexpace::Async` silently rebinds to `Dexpace::Async::Thread` when the adapter gem is required, and core's own suite never requires it — a bug that cannot fail in the tree that contains it. Addendum §9-A1 |
 | P2-9 | **Private** snapshot `Data` types — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State`, all `private_constant` — do not include `Dexpace::Model` and expose no `.build` | phase 1's construction rule; `data-modeling/677b01de` | Phase 1's rule governs public models, and each of its three reasons is about a public constructor: `.build` is public API, `#with` routes derivation through it, and `send(:new, …)` reaches the constructor anyway. A `private_constant` snapshot has no public constructor, no caller derivation and no required-field contract, and including `Model` would put a `#with`→`.build` round trip on the registry's write path with no validation to run. They stay `Data` because `concurrency-and-async/2c743901` asks for immutable `Data` at every concurrency boundary, which is exactly what they are. The rule and its boundary: **a `Data` that is public API follows phase 1's construction rule without exception** — `Dexpace::Async::Settlement` and `Dexpace::Operation` both do — and only a `private_constant` snapshot is exempt |
 | P2-10 | `Dexpace::Registry` is public API — YARD, RBS and a surface-manifest row — where the design names no such constant | design §3.6; `api-design/b0e18938` | `SEAM-5`–`SEAM-9`'s five branches are implemented once and delegated to by three seams; documenting them once on the class beats documenting them three times on the delegators, and a third-party seam author needs the same mechanism. The alternative — an internal helper — still appears in the runtime surface manifest, because that gate walks `Dexpace`'s constant tree, so "internal" would have bought a YARD exemption and nothing else |
-| P2-11 | Six public methods and one public class method the design's §3 does not name: `Cancellation.over`, `Cancellation#merged_with`, `Completer#await`, `Completer#request_cancel`, `Completer#settled?`, `Completer#outcome`, `Registry.callable?`, `Cancellation::Source#cancelled_at` | design §3.3, §3.6; `NFR-4`; `api-design/b0e18938` | `NFR-4` locks every public signature at the first release tag, so a name that arrives by accident is locked by accident. Each survives for a stated reason: `.over` is the class-level constructor `#merged_with` and phase 5's deadline source both need; `#merged_with` exists so `#sources` can stay **protected**, which a class-method `.any` cannot do; `#await` and `#request_cancel` are what the `Future` facade delegates to, and Ruby offers no package-private visibility that would let the facade reach them otherwise — the alternative is a cross-object `send`, a hole in the boundary the pair exists to draw; `#settled?` and `#outcome` are the producer's legitimate "did I lose the race" query; `Registry.callable?` is the runtime half of the `#call` duck type both transport seams share, and lives on `Registry` because `Registry` is what validates a provider; `Source#cancelled_at` is what a composed token orders its sources by, and is what lets a token subscribe to nothing at construction. `Serde::CONTRACT`, `Operation::TARGETS`, `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are all `private_constant` for the same reason |
+| P2-11 | **Eight public instance methods and seven public class methods** no component section above names. Instance: `Cancellation#merged_with`, `Completer#await`, `Completer#request_cancel`, `Completer#settled?`, `Completer#outcome`, `Cancellation::Source#cancelled_at`, `Settlement#success?`, `Future#then`. Class: `Cancellation.over`, `Registry.callable?`, `Serde.missing_methods`, `Operation.placeholders_in`, `Settlement.success`, `Settlement.failure`, `Settlement.cancellation`. (`.build` is excluded throughout: phase 1's construction rule requires one on every public `Data`, so it is a convention rather than a name that arrived by accident.) | design §3.3, §3.6; `NFR-4`; `api-design/b0e18938` | `NFR-4` locks every public signature at the first release tag, so a name that arrives by accident is locked by accident. Each survives for a stated reason: `.over` is the class-level constructor `#merged_with` and phase 5's deadline source both need; `#merged_with` exists so `#sources` can stay **protected**, which a class-method `.any` cannot do; `#await` and `#request_cancel` are what the `Future` facade delegates to, and Ruby offers no package-private visibility that would let the facade reach them otherwise — the alternative is a cross-object `send`, a hole in the boundary the pair exists to draw; `#settled?` and `#outcome` are the producer's legitimate "did I lose the race" query; `Registry.callable?` is the runtime half of the `#call` duck type both transport seams share, and lives on `Registry` because `Registry` is what validates a provider; `Source#cancelled_at` is what a composed token orders its sources by, and is what lets a token subscribe to nothing at construction; `Settlement#success?` is the one question `#on_settle`'s block actually asks, and computing it from two `nil` checks at every call site is how a caller gets the cross-field rule wrong. `Serde.missing_methods` exists so a registration failure can name *which* of the six seam methods a codec forgot — `.conforms?` returns a Boolean, and an error message that says only "does not implement the seam" is the one `SEAM-19` most needs to be specific; `Operation.placeholders_in` is the template scan `#initialize`'s construction-time check runs, exposed because a generator validating a template before building an `Operation` needs the same answer; `Settlement.success`, `.failure` and `.cancellation` are the three shapes `SEAM-16` permits, named so a producer cannot construct a fourth by passing the wrong keyword pair to `.build`; `Future#then` is the derivation every core consumer of the pivot otherwise hand-rolls out of `#on_settle` and a second `Completer`, and putting it on the future once is what makes `SEAM-30`'s orphan close reach a mapped value — it also deliberately shadows `Kernel#then` on this class, because on a future the promise-combinator reading is the only one a caller means. `Serde::CONTRACT`, `Operation::TARGETS`, `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are all `private_constant` for the same reason |
 | P2-12 | The `SEAM-8` warning is observed in tests through a block-scoped `WarningCapture`, not through phase 0's warning allowlist | phase 0's `test/support/dexpace_test_case.rb`; `NFR-6` | The design said this phase would add the first entry to phase 0's zero-entry allowlist. An allowlist entry is a message pattern that stays permitted for the life of the suite, so every later warning matching it is swallowed too, and it presumes an allowlist API shaped the way the design guessed. `WarningCapture` prepends to `Warning`'s singleton class **after** phase 0's raising module, so it sits ahead in the ancestor chain, records only inside its own block, and delegates outside it — verified on 3.2.11, 3.4.10 and 4.0.6. Narrower, and it needs nothing of phase 0 but the ordering |
 | P2-13 | Both `SEAM-18` bridges live in a `Dexpace::Bridge` namespace, one file each, rather than under the seam module that exposes them | design §3.3, §5.3; P2-1 | The design names neither constant. `Dexpace::Transport::AsyncOver` would sit beside the adapter namespaces `Dexpace::Transport::NetHTTP` and `::AsyncHTTP`, and a reader meeting three constants there cannot tell which one core owns — which is exactly the seat P2-1 keeps the async *seam* out of. Both bridges are also `Dexpace::Closeable` with `owned: false`, which is what makes `SEAM-14`'s "both transport seams MUST be closeable" true of the two transports this phase actually ships |
 | P2-14 | `Cancellation#on_cancel` returns a `Cancellation::Subscription` handle rather than `self`, and `Cancellation::Source` gains a public `#off_cancel(hook)` | design §3.3; `SEAM-13`, `SEAM-18`; `NFR-4` | The design describes registration and says nothing about withdrawing one, which leaves `Completer#await` no way to detach the hook it arms on the caller's token. That hook reaches the `Completer` and through it the response the future settled with, so `.any(client_token, per_call_token)` with `future.value(cancellation:)` — what phase 5a's `deadline:` keyword does on every request — retained one closure and one response per request on the client-lifetime source: measured 200 of 200, and 500 100 KB responses still reachable after `GC.start`, on 3.2.11, 3.4.10 and 4.0.6. Composing without subscribing fixes only the composition half of that leak. The cost is one public constant and one public method, both locked by `NFR-4` at the first release tag, which is why they are here and not in a comment |

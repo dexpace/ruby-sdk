@@ -31,10 +31,23 @@ document extends the mechanism to close that asymmetry; and the second gem's bou
 rather than *at* a sub-phase boundary, which is why shipping it does not change the cut the way the roadmap
 says four gems will change phase 8's.
 
-Phase 7 adds **no new unsatisfied MUST**, postpones **nothing**, carries **one** v1 decline (`SSE-41`, declined for v1
+Phase 7 postpones **nothing**, carries **one** v1 decline (`SSE-41`, declined for v1
 and staying so) as a ⏳ line and **resolves the line-cap finding phase 3a opened against `#read_line_utf8`** —
 with a correction to the requirement ID that finding's own resolution text names. It **declines the phase-7 target floated for the four unbuilt HTTP helpers** (`HTTP-22`,
 `HTTP-48`–`HTTP-50`), with the argument below.
+
+**Corrected in place, 2026-09-13 (final review of `7a`).** This paragraph read "Phase 7 adds **no new
+unsatisfied MUST**". It does add one: `7a`'s design decides `SERDE-27`'s "without first materializing
+the whole body" clause is **not satisfied** and numbers the gap `7a P7-1`
+(`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md`, `R1`), because stdlib
+`json` has no incremental parser at the gemspec floor and its one IO-accepting entry point,
+`JSON.load`, is banned by lint rule. The clause is a memory guarantee, not an architectural one, so
+delegation does not discharge it. **One clause of one MUST, adapter-local and repairable without
+touching core** — the seam's `#load(source, witness)` already takes the source, so an adapter whose
+library has a pull parser satisfies it outright — but a new unsatisfied MUST all the same, and it is
+carried under `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs. Nothing else in
+this paragraph changes.
+
 Its spec-reading budget is **zero**: `ruby scripts/knowledge.rb --gaps SERDE,SSE,PAGE` reports 0 of 107 with
 no substantive corpus entry.
 
@@ -1289,7 +1302,9 @@ conditions its own work bears on. It closes none outright and postpones nothing.
   naming because a reader will wonder: wire-boundary re-validation of header names and outbound values is phase 8's
   (phase 8a Task 16, phase 8c Task 9), and `SERDE-2`'s stamped `Content-Type` is among the values it will
   re-validate; the unsatisfied MUSTs `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause (§ Unsatisfied MUSTs)
-  are phase 8's and **phase 7 adds no fourth**.
+  are phase 8's, and **phase 7 adds one of its own and only one** — `SERDE-27`'s no-materialization
+  clause, `7a P7-1`, corrected in place at the head of this document on 2026-09-13 and carried under
+  `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs. `7b` and `7c` add none.
 
 ### Findings, and who owns them now
 

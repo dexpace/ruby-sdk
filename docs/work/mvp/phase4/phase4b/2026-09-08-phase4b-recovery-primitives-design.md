@@ -1089,7 +1089,12 @@ Following 4a's P4-1 reading of "sharing a module": a module the two **include**,
 `Data.define(:response)` and `Data.define(:error)` — §5.2's own spelling — each including
 `Dexpace::Model` and `Dexpace::Outcome`, each with `private_class_method :new` and a validating
 `.build(response:)` / `.build(error:)` (phase 1's rule, P2-9's exemption not applying because both
-are public API).
+are public API). **Phase 1's rule is taken whole and not paraphrased**: `.build` is the `new`
+wrapper and the validation lives in each variant's own `initialize`, which calls `super` — the
+shape `Status` and every other phase-1 `Data` already has. Putting it in `.build` instead would
+work only because `Model#with` happens to route through `.build`, and would leave the type's own
+constructor unvalidated on the one path — `Data#with` on 3.2.11 — that the `Model#with` override
+exists to cover.
 
 `RECOV-1` enumerates the derivable surface and 4b ships exactly it, on both:
 
@@ -1107,7 +1112,7 @@ documented case `CTX-18` reserved for 4a. **P4-21.** `#fold`'s "at most once" is
 variant's implementation calls one lambda once and returns its value; there is no loop and no retry,
 so the property is asserted rather than defended.
 
-`Failure.build(error:)` **validates that `error` is an `Exception`**. Nothing else in the model would
+`Failure`'s `initialize` **validates that `error` is an `Exception`**. Nothing else in the model would
 catch a `Failure` carrying a string, and `RECOV-10` would then `raise` it into a `TypeError` at the
 one point the caller is furthest from the cause.
 
@@ -1138,7 +1143,7 @@ non-error status — `XCUT-8`'s first clause, and an argument error is what that
 sanctioned convenience form, shipped because `ErrorMappingStep` needs exactly that shape and would
 otherwise write a status check its own `RECOV-15` predicate already performed.
 
-**No `#retryable?`.** `XCUT-5` requires the baked flag to come from "a SINGLE shared status
+**No `#retryable_by_status?`.** `XCUT-5` requires the baked flag to come from "a SINGLE shared status
 classifier", and that classifier is `RETRY-1`'s and phase 6's; building one here would fix a phase-6
 seam a phase early, which is the charter's own test and the reason `RECOV-27` moved. Postponed below to
 phase 6a, Task 6. Adding a predicate later widens a signature, which `NFR-4` permits.
@@ -1199,8 +1204,18 @@ cursor)` (boundary 1). **P4-25.**
   response is returned **by identity**, body not read, consumed or closed — `PIPE-37`'s parenthesised
   clause, asserted by `assert_same` plus an assertion that `#source` was never called on the body.
 - On an error status it calls `Recovery.buffer_error_body` **first** (`RECOV-16`'s "before mapping"),
-  then `factory` on the buffered response, then raises the result. `RECOV-7` converts the raise into
-  a `Failure`.
+  then `factory` on the buffered response, then raises the result — **`raise error, cause: nil`,
+  not a bare `raise`**. `RECOV-7` converts the raise into a `Failure`. The spelling is verified
+  fact 5 applied at the site `RECOV-10`'s own text names: the factory *constructs* the error, so
+  its `#cause` is `nil` and a bare `raise` would fill it in from the caller's in-flight `$!` — and
+  `RECOV-10`'s `cause: nil` unwrap suppresses an assignment without clearing one already made, so
+  the pollution would survive to the call site. A 4xx or 5xx raised from inside a caller's
+  `rescue` is the ordinary case in a generated client, not an exotic one, and `Dexpace.each_cause`
+  is what §6.1's retryability walk reads, so a foreign cause on the chain is an input to a later
+  classification. The corpus note this phase files already claims that scope — "every `RECOV-10`
+  unwrap **and every place core re-raises an error it is carrying rather than one it just
+  rescued**" — and this is such a place. The same spelling is used at the two `Dexpace::OutcomeError`
+  raises, which construct their error for the same reason.
 - **`factory:` defaults to core's own and is a keyword**, so a generated SDK substitutes its typed
   errors without a second step. §5.1's word is "delegates to"; `XCUT-8`'s definite article is what
   makes the default core's rather than absent.
@@ -1534,7 +1549,7 @@ Stated as a contract, so a later phase cites rather than re-derives.
 | **Phase 6**, on `RETRY-34` | `Dexpace.attach_suppressed` with the skip-self guard, applied to **both** retry stacks through this one helper — §5.2's resolution of the third reference asymmetry. Phase 6 writes no second helper |
 | **Phase 6**, on `RETRY-25` | `RECOV-2`'s fatal-family passthrough, already implemented: a non-`StandardError` is surfaced unchanged with no trail attached |
 | **Phase 6**, on the recovery-stack engine postponement (6a, Tasks 3, 4, 5, 7 and 11) | `Dexpace::Recovery::ResponseChain` and `Orchestrator` are what the recovery-aware retry stack installs into, and `Dexpace::ProtocolError` is the error `RECOV-19`/`RETRY-36` re-classifies. `Recovery.buffer_error_body` is the one buffering call site and phase 6 adds no second |
-| **Phase 6**, on the retryability-flag postponement (6a, Task 6) | `Dexpace::ProtocolError` gains `#retryable?` from `XCUT-5`'s single shared classifier, added to **this** class rather than a second one. Adding a method widens; `NFR-4` permits |
+| **Phase 6**, on the retryability-flag postponement (6a, Task 6) | `Dexpace::ProtocolError` gains `#retryable_by_status?` from `XCUT-5`'s single shared classifier, added to **this** class rather than a second one. The name is design §6.1's and is deliberately *not* `#retryable?`: the baked set answers a status question, and a `ProtocolError` must never answer the generic capability query with it (`RECOV-17`/`XCUT-6`/`XCUT-7`). Adding a method widens; `NFR-4` permits |
 | **Phase 6 and 7**, on `XCUT-9` | `Dexpace.each_cause`, which yields the error first and tracks by reference identity through `#compare_by_identity`. Every classification uses it; none walks `#cause` by hand |
 | **Phase 7**, on `SSE-33`–`SSE-36` | `Dexpace::Outcome`, reused with a third variant **in the SSE namespace** and never by adding one here (`RECOV-1`, spec-forced boundary 6) |
 | **Phase 7**, on `PAGE-13`/`PAGE-15`/`SSE-29`/`SSE-36` | `Dexpace.attach_suppressed` and `Dexpace.suppressed`. A primary that is not a `Dexpace::Error` is handled; a **frozen** primary is silently not, which is stated |
@@ -1588,7 +1603,7 @@ It is the same objection the charter used to move `RECOV-27` into the recovery-s
 (its wait is `CFG-15`'s object, phase 5's) and that phase 2 used to decline `deadline:` (P2-5).
 
 *Condition:* phase 6, with `RETRY-1`–`RETRY-45`. The attachment point already exists and the work is one
-method: add `#retryable?` to `Dexpace::ProtocolError`, computed once at construction from the shared
+method: add `#retryable_by_status?` to `Dexpace::ProtocolError`, computed once at construction from the shared
 classifier, and add **no** second protocol-error type. Adding a method **widens** a signature, which
 `NFR-4`'s "disappears or narrows" lock permits, so shipping the class without the predicate now prejudices
 nothing. The recovery-stack engine lands in the same phase and the two are read together: its `RECOV-17`
@@ -1596,7 +1611,7 @@ is the eligibility rule that consults `XCUT-7`'s configured set rather than this
 relationship backwards is what `XCUT-5`'s own closing NOTE warns against. *Owner:* phase 6a, Task 6. As
 built, the classifier is phase 5a's `Dexpace::Retryability` — the status half of `CFG-35`, which 5a's R1
 settled — rather than one phase 6 builds as the paragraph above anticipated; 6a's Task 6 computes
-`#retryable?` from it once at construction.
+`#retryable_by_status?` from it once at construction — the name design §6.1 fixes, chosen over `#retryable?` so a `ProtocolError` never answers the generic capability query with the baked status set, which is what `XCUT-5`'s own closing NOTE warns against.
 
 ### Postponed work read at planning time
 

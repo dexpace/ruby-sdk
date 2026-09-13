@@ -23,7 +23,10 @@ Prerequisites section states that independence in `8a`'s own words rather than i
 habit.
 
 Eight decisions the charter named and declined to make are made here — `R1`–`R7` and `8a`'s half of
-`R16`. Five of them turn on facts this document **measured**, and three of the five invert a premise the
+`R16` — **and two this document adds, `R17` (the proxy phase 5a resolves and this adapter never used)
+and `R18` (the TLS settings `.build` had no way to take), both added 2026-09-13 at the end of the
+phase's own risk sequence so they collide with none of the charter's sixteen.** Five of the original
+eight turn on facts this document **measured**, and three of the five invert a premise the
 charter had to reason around:
 
 - **`R1` is decided as a per-response producer `Thread` over a `Thread::SizedQueue`, not a `Fiber`, and
@@ -258,9 +261,8 @@ Verified Ruby facts section is for.
 
 | Disposition | IDs | Count |
 |---|---|---|
-| Implemented | `TRANSPORT-1`–`6`, `10`, `11`, `14`–`20`, `22`, `24`–`27`, `29` | 20 |
+| Implemented | `TRANSPORT-1`–`6`, `10`, `11`, `14`–`17`, `19`, `20`, `22`, `24`–`27`, `29`, `30` | 21 |
 | Partially satisfied, one clause ⏳ (declined for v1) | `TRANSPORT-28` | 1 |
-| ⏳ whole, declined for v1 | `TRANSPORT-30` | 1 |
 | Vacuous with a stated reason | `TRANSPORT-18` (once `max_retries = 0`) | 1 |
 | **Total in budget** | | **23** |
 
@@ -268,10 +270,14 @@ Level split, derived mechanically from appendix C on 2026-09-11: **19 MUST, 4 SH
 `TRANSPORT-27`, `TRANSPORT-28`, `TRANSPORT-30`). No `MUST NOT` row appears. **No postponed item moves
 an ID into `8a` and none moves one out.**
 
-**Two dispositions differ from the charter's table and both are narrowings in the requirement's
-favour**, argued under `R4` and `R5`: `TRANSPORT-27` is **satisfied whole** where the charter expected
-"half unreachable", and `TRANSPORT-28` is **partially satisfied** — its embedded MUST and its
-byte-range clause met, its zero-copy clause ⏳ — where the charter carried the whole ID ⏳. A sub-phase
+**Three dispositions differ from the charter's table and all three are narrowings in the requirement's
+favour**, argued under `R4`, `R5` and `R17`: `TRANSPORT-27` is **satisfied whole** where the charter expected
+"half unreachable", `TRANSPORT-28` is **partially satisfied** — its embedded MUST and its
+byte-range clause met, its zero-copy clause ⏳ — where the charter carried the whole ID ⏳, and
+**`TRANSPORT-30` is implemented** where the charter and an earlier revision of this document both
+carried it ⏳ whole (`R17`, added 2026-09-13: phase 5a ships the proxy resolver and hands proxy *use* to
+phase 8, and `Net::HTTP`'s `p_addr = :ENV` default meant the "no proxy at all" premise the ⏳ rested on
+was false). A sub-phase
 narrowing its own charter's ⏳ toward satisfaction is the direction the charter invites (`R5` asks `8a`
 to "decide whether to implement the reachable half and mark `TRANSPORT-28` partially satisfied"); the
 checklist rows carry both halves separately so neither disappears into a tick.
@@ -326,6 +332,19 @@ appendix — never on `8a`'s convenience.
   client survives the transport's close and stays usable; an SDK-managed transport refuses a later send
   (`SEAM-15`). The row states that "releases only resources the transport itself created" is satisfied
   by there being none, not by a release nobody runs.
+  **"MUST NOT be … mutated" is read literally, and that decides three things the adapter would
+  otherwise do to a borrowed client** (`P8-15`): it assigns **no** knob on it — not `use_ssl`, not a
+  timeout, not `max_retries` (`P8-10` refuses the construction instead), and not the endpoint, which
+  `Net::HTTP` exposes as `attr_reader :address`/`:port` and which therefore comes **from the client**;
+  it never calls `#start` or `#finish` on it, leaving `Net::HTTP#request`'s own session handling to
+  open and close a session on an unstarted client and to **reuse** a caller's already-started one; and,
+  because the endpoint is the client's, a request whose URL names a different host, port or scheme is
+  **refused** with `Dexpace::InvalidArgumentError` rather than silently sent somewhere the caller's
+  `Dexpace::Request` does not name. `TRANSPORT-29` then needs a mechanism rather than a construction
+  argument on this path — verified fact 9 measured one shared `Net::HTTP` under eight threads returning
+  **26 responses matched to the wrong request** — so concurrent calls through a borrowing transport are
+  **serialised**, one exchange at a time, for the whole life of the response rather than the life of
+  `#call`. `P8-15` carries the mechanism and the two narrowings it leaves.
 - **`TRANSPORT-17` is true because of one line, and the row names it.** `max_retries = 0` removes the
   only route by which `Net::HTTP` re-runs `req.exec` and therefore re-writes the body (verified fact 2).
   The requirement's second half — "MUST NOT itself trigger a second write" — is `8a`'s own discipline
@@ -346,13 +365,30 @@ appendix — never on `8a`'s convenience.
   (`docs/first-release.md` § What v1 ships without, the `TRANSPORT-28`/`TRANSPORT-30` entry), measured:
   `send_request_with_body_stream` writes to a `Net::BufferedIO`, whose `is_a?(::IO)` is **false**
   (verified fact 12), so the kernel path is unreachable without bypassing the library's own write path.
-- **`TRANSPORT-30` is ⏳ whole under the same `docs/first-release.md` entry, and the row states which of its
-  clauses are *already* true.**
-  Its embedded MUSTs — proxy credentials never logged, never answered to an origin 401 — hold vacuously
-  because `8a` configures no proxy at all and therefore never holds a credential: the adapter passes no
-  `p_addr`/`p_user`/`p_pass` and sets `proxy_from_env = false` explicitly, so `Net::HTTP`'s own
-  environment-derived proxy cannot activate behind the SDK's back. The row states that as the reason the
-  MUSTs are safe while the SHOULD is deferred, rather than leaving a ⏳ over an embedded MUST.
+- **`TRANSPORT-30` is implemented, not ⏳ — corrected 2026-09-13, with the correction stated.** This
+  bullet read "⏳ whole … because `8a` configures no proxy at all and therefore never holds a
+  credential", and both halves of that sentence were wrong. Phase 5a ships `CFG-22`–`CFG-28`'s proxy
+  **model and resolver** — `Dexpace::Proxy.resolve(configuration) -> Proxy?` — and hands "proxy *use*
+  … on a real adapter" to phase 8 in its own exclusions table
+  (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`), so an adapter that
+  consumes nothing leaves six `CFG` MUSTs with no consumer in v1. And the adapter did **not** disable
+  the environment proxy: `Net::HTTP.new`'s third positional is `p_addr = :ENV`, so a client built as
+  `Net::HTTP.new(host, port)` routes through `http_proxy` by default — measured, with
+  `http_proxy=http://user:pw@127.0.0.1:3128` a fresh client reports `#proxy?` `true` and
+  `#proxy_user` `"user"`, which is the *opposite* of the vacuity this bullet claimed and which would
+  have put a credential the SDK never resolved onto the wire. So `8a` **resolves the proxy itself**
+  (`R17`, plan Task 19b): `proxy_from_env = false` beside `max_retries = 0`, and the per-call client is
+  constructed with `Dexpace::Proxy.resolve`'s host, port, username and password as `p_addr`/`p_port`/
+  `p_user`/`p_pass`, or with an explicit `nil` `p_addr` when nothing resolves or the target host
+  matches the non-proxy list (`CFG-23`). The requirement's two embedded MUSTs then hold
+  **structurally rather than vacuously** and are asserted: credentials are never logged because the
+  only place they exist is the `Net::HTTP` constructor's arguments and 5b's redaction is default-deny
+  over event fields, and they are never answered to an origin 401 because this adapter stamps no
+  header in response to any status — it does not read the status at all. Its SHOULD half is
+  discharged in the one shape `Net::HTTP` makes reachable: a resolved `Proxy` carrying a
+  **`challenge_handler`** is a feature the native client cannot honour, so the adapter logs it at
+  `Severity::WARNING` and falls back to Basic from username/password, which is the requirement's own
+  named remedy.
 
 ### What `8a` additionally ships, without owning a new ID
 
@@ -378,6 +414,11 @@ appendix — never on `8a`'s convenience.
   `NFR-4`-locked surface nothing exercises". `R3`.
 - **A named per-gem exception to phase 0's require denylist**, so `dexpace-conformance`'s `lib/` may
   `require "socket"`. `R7`.
+- **The first consumer of phase 5a's `Dexpace::Proxy.resolve`** — the resolver `CFG-22`–`CFG-28` built
+  and no v1 code path read, which phase 5a's own exclusions table routes here. `R17`, plan Task 19b.
+- **A `tls:` keyword on `.build`**, taking plain values and typed `untyped` for `NFR-11`'s sake, so a
+  caller with a private CA bundle or a client certificate does not have to give up per-call timeouts
+  and concurrency by going through `.using`. `R18`, plan Task 19a.
 - **The stated cross-reference for `TRANSPORT-12`'s and `TRANSPORT-13`'s sync halves**, both vacuous on
   this adapter (verified fact 5) and both `8c`'s rows.
 
@@ -1449,6 +1490,108 @@ so a third-party adapter author is not misled about what a green run proves. `P8
 
 ---
 
+## `R17` — the proxy the SDK already resolves and this adapter never used
+
+**Added 2026-09-13, and it is a decision this document takes rather than one the charter delegated.**
+Phase-8 risk numbering is phase-wide — the charter's `R1`–`R16` are spoken for, `R8`–`R12` by `8b` — so
+the two risks this revision adds continue the phase's own sequence at `R17` and `R18` and collide with
+nothing.
+
+**Decision: `dexpace-transport-net_http` consumes `Dexpace::Proxy.resolve` and disables the
+environment-derived proxy `Net::HTTP` would otherwise use behind the SDK's back. `TRANSPORT-30` is
+implemented rather than ⏳.** Plan Task 19b.
+
+**The hand-off is explicit and was unanswered.** Phase 5a's exclusions table routes
+"`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real adapter" to phase 8,
+with the reason "5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver**; nothing in core opens a
+socket" (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`). The two
+requirement IDs in that cell are wrong — `TRANSPORT-3` is sync-path cancellation and `TRANSPORT-8` is
+a native-internal cancel; the cell means `TRANSPORT-30` and `TRANSPORT-13`, the same substitution the
+charter already applied to phase 5b's `OBS-19` condition — but the route it describes is right, and
+neither the charter's sweep nor an earlier revision of this document dispositioned it. The IDs are a
+correction owed to a phase-5a document this sub-phase may not edit and are on phase 10's inbound list.
+
+**What made the earlier ⏳ untenable.** Two facts, one about the port and one about the library.
+`Dexpace::Proxy` is public API (`CFG-22`–`CFG-28`, six of them MUST) with `Proxy.resolve`,
+`Proxy::Type`, `Proxy::HostPattern` and a `#bypass?` decision — and in v1 **no code path reads any of
+it** unless a transport does, which is `SEAM-2`'s "core names the shape and never an implementation"
+producing a resolver with no consumer. And `Net::HTTP.new`'s third positional parameter is
+`p_addr = :ENV`: measured on 3.4.10, `Net::HTTP.new("example.com", 80)` with
+`http_proxy=http://user:pw@127.0.0.1:3128` in the environment reports `#proxy?` `true`,
+`#proxy_address` `"127.0.0.1"` and `#proxy_user` `"user"`. So the adapter was not "configuring no
+proxy at all"; it was inheriting one from the environment, with credentials it had never resolved and
+a bypass list it had never consulted — the silent-misbehaviour case `TRANSPORT-30`'s SHOULD is named
+for.
+
+**The shape.** `proxy_from_env = false` sits beside `max_retries = 0` as a second one-line disable, and
+the per-call client is constructed with explicit proxy positionals:
+`Net::HTTP.new(host, port, p_addr, p_port, p_user, p_pass)`, where the four proxy values come from
+`Dexpace::Proxy.resolve(Dexpace.configuration)` and are all `nil` when nothing resolves or when the
+target host matches the resolved proxy's non-proxy list (`CFG-23`'s `#bypass?`). An explicit `nil`
+`p_addr` is what takes the `:ENV` branch off the table; passing it is not the same as omitting it.
+
+**Why the two embedded MUSTs are now structural rather than vacuous, and both are asserted.**
+"Proxy credentials MUST NOT be logged": the only place a credential exists in this gem is the
+argument list of one `Net::HTTP.new` call, and every log event goes through 5b's redactor, which is
+default-deny over event fields — the adapter emits no field carrying a `Proxy`, a URL with userinfo,
+or a password. "MUST NOT be answered to an origin-server (401) challenge": this adapter stamps no
+header in response to any status, because it never inspects one — `AUTH-25`'s proxy-flag header
+selection is phase 6's and is where that rule is enforced for the pipeline. Both are tested rather
+than argued (plan Task 19b).
+
+**The SHOULD half, in the one shape `Net::HTTP` makes reachable.** `TRANSPORT-30`'s named example is
+"a custom (non-Basic) proxy challenge handler SHOULD be surfaced with a WARN and proxy auth SHOULD
+fall back to Basic from username/password". `Dexpace::Proxy` carries a `challenge_handler` slot
+(`CFG-22`) and `Net::HTTP` can express nothing but Basic through `p_user`/`p_pass` — so a resolved
+proxy carrying a handler is exactly the requirement's antecedent, and the adapter logs it once at
+`Severity::WARNING` naming the limitation and proceeds with Basic. A `Proxy::Type` of `SOCKS4`/`SOCKS5`
+is the same shape and takes the same warning, because `Net::HTTP` speaks no SOCKS.
+
+**What this does not do.** It does not add a dependency, a configuration key or a public constant to
+either gem: `Dexpace::Proxy` is phase 5a's and `Keys::HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` already
+exist unread. And it does not reach the borrowing construction, where the caller's client carries
+whatever proxy the caller gave it — which is `P8-15`'s verbatim rule, not an omission.
+
+---
+
+## `R18` — the TLS settings a generated client needs and `.build` had no way to take
+
+**Added 2026-09-13. Decision: `.build` gains one `tls:` keyword taking plain values, applied to the
+per-call client when the request URL is `https`.** Plan Task 19a.
+
+Verified fact 16 settles the *default* and nothing else: an adapter that assigns no `verify_mode` gets
+`OpenSSL::SSL::SSLContext#set_params`' defaults, which are `VERIFY_PEER` with `verify_hostname`, so
+the safe configuration is the one that needs no code. What it does not settle is the case a generated
+service client meets constantly and cannot work around: a private or corporate CA bundle, a
+client certificate for mutual TLS, or a pinned minimum protocol version. Before this revision the only
+route to any of them was `.using(client)` — and `P8-15` now (correctly) forbids the adapter from
+assigning `use_ssl` or an endpoint on a borrowed client, `P8-6` refuses a per-call timeout there, and
+`P8-15` serialises its calls, so routing every TLS-configuring caller down the borrowing path would
+mean telling them to give up per-call timeouts and concurrency to set a CA file. That is not a
+trade a transport should impose, and no document recorded it as one.
+
+**The shape, and the three things that constrain it.** `NetHTTP.build(timeout:, logger:, tls:)`, where
+`tls` is `nil` (the default, and the case that keeps verification on with no code) or a `Hash` of
+plain values — `ca_file:`, `ca_path:`, `cert:`, `key:`, `verify_mode:`, `min_version:` — assigned onto
+the per-call `Net::HTTP` only when `use_ssl` is true, and otherwise not assigned at all so
+`set_params`' defaults survive. **`NFR-11` is why the values are plain**: the RBS scan rejects any
+constant outside `Dexpace::` and the stdlib allowlist in a public signature, and
+`OpenSSL::X509::Certificate`, `OpenSSL::PKey::RSA` and `OpenSSL::SSL::VERIFY_PEER` are all such
+constants — so the keyword is typed `untyped` with a YARD block stating exactly what it accepts, the
+same treatment `.using`'s client argument already takes and the same one `7a` gave `#load`'s `source`.
+**Unknown keys are rejected** with `Dexpace::InvalidArgumentError` naming the key, because a silently
+ignored `verify_mode:` is a security setting the caller believes they set. And the adapter **never
+weakens** a default on its own: every value comes from the caller, and the row in the adapter's YARD
+says that passing `verify_mode: OpenSSL::SSL::VERIFY_NONE` is the caller disabling verification
+deliberately, which is a thing a toolkit permits and never does for them.
+
+**No new requirement ID and no deviation.** No `TRANSPORT` requirement mentions TLS configuration;
+`TRANSPORT-20` names a TLS handshake failure only as a failure to classify, which `Failures.wrap`
+already covers through `OpenSSL::SSL::SSLError`. This is public surface `NFR-4` locks, so it joins
+`P8-11`'s constant list and `P8-12`'s method list rather than earning a ledger row of its own.
+
+---
+
 ## `R16` — who writes the conformance harness
 
 **`8a` writes it.** The charter assigns §9.3's `TCPServer` fixture and the conformance assertion protocol to
@@ -1493,13 +1636,23 @@ which is the half `8c` supplied and which an `8a`-only reading would have left u
    native shape from failing on the other's.)*
 3. It answers `#close`, `#closed?` and `#owned?` (phase 2's `Dexpace::Closeable`).
 4. It is built by a **callable factory, never a pre-built instance and never a constant**, taking keyword
-   settings, of which the suite passes at most `timeout:`, `logger:` and — for `TRANSPORT-15`'s borrowed
-   half — whatever the adapter's borrowing entry point is named, which the driver supplies as a second
-   optional factory rather than assuming a name. *(`8c`'s clause 1. It asked additionally for a
+   settings, of which the suite passes at most `timeout:` and `logger:`. *(`8c`'s clause 1. It asked
+   additionally for a
    `base_url` positional; that is **not** needed and is deliberately not added: `TransportCase#request`
    already builds every request against the live fixture's own port, and an adapter that routes by
    `Request#url` — which `8c`'s does — needs nothing else. A factory that also wanted a base URL would
    force every adapter to accept one.)*
+4a. **`TRANSPORT-15`'s borrowed half is a second, optional factory that builds *both* sides, and the
+   suite never names a native client class.** `borrow:` takes the live fixture's port and returns a
+   `Dexpace::Conformance::BorrowedPair` — the transport, and a `probe` callable answering "is the
+   caller's own client still usable?" — because the caller's client is an
+   **adapter-specific object** (`Net::HTTP` here, an `Async::HTTP::Client` on `8c`) and an assertion
+   that constructs one has parameterised itself on which adapter it is looking at, which clause 6's
+   whole section forbids. An adapter with no borrowing construction passes nothing and
+   `TransportCase#borrowed_transport` raises `Vacuous`. *(Added 2026-09-13. An earlier revision had the
+   assertion build a `::Net::HTTP` itself, inside `dexpace-conformance`'s own `lib/` — a gem that
+   declares `dexpace-core` and nothing else — which would have been both an undeclared constant and
+   an unrunnable assertion on the second driver.)*
 5. Every failure it raises, or fails its future with, that carried no HTTP response answers `#retryable?`
    (`XCUT-4` branch (b), the phase-level `Dexpace::TransportError`), and a **cancellation** surfaces as
    `Dexpace::CancelledError` — terminal and non-retryable — from whichever of the two channels clause 8
@@ -1520,6 +1673,16 @@ which is the half `8c` supplied and which an `8a`-only reading would have left u
    §17 assertion is written twice and the two copies drift, which is §11.12's "four reference sync/async
    drifts" reappearing inside the port's own suite. *(`8c`'s clause 3, and the single most load-bearing
    thing `8c` needs that `8a`'s original five did not carry.)*
+   **The clause is mechanised rather than asked for** *(added 2026-09-13)*: `TransportCase#transport`
+   and `#borrowed_transport` return the built transport wrapped in a `private_constant` guard that
+   delegates every message except `#call`, on which it raises with "use `kase.settle(…)`"; `#settle`
+   unwraps before invoking the driver's primitive. The reason it needs a mechanism is that the sync
+   driver's **default `#settle` *is* `transport.call(…)`**, so an assertion that calls `#call` directly
+   passes every run `8a` performs and fails only once `8c` drives the suite — a defect no test in this
+   sub-phase can see, in a file this sub-phase owns. The guard makes it a red test here instead. This
+   is why clause 1 admits "a `Dexpace::Response` **or a `Dexpace::Async::Future` of one**" without the
+   suite's `sig/` ever having to say so: `#transport` is typed `untyped` and the return type lives on
+   `#settle`.
 9. **Every assertion body is invoked by the driver, so the driver may wrap it.** `TransportSuite.run`
    takes an optional `around:` callable that receives each assertion's invocation as a block; the async
    driver passes `->(&blk) { Sync { blk.call } }`, because `8c`'s transport fails its future outside a
@@ -1592,6 +1755,8 @@ gems/dexpace-transport-net_http/
   lib/dexpace/transport/net_http/response_pump.rb      private_constant ResponsePump
   lib/dexpace/transport/net_http/deadline.rb           private_constant Deadline
   lib/dexpace/transport/net_http/failures.rb           private_constant Failures
+  lib/dexpace/transport/net_http/tls_settings.rb       private_constant TLSSettings   (R18)
+  lib/dexpace/transport/net_http/proxy_route.rb        private_constant ProxyRoute    (R17)
   sig/dexpace/transport/net_http.rbs          MODIFIED
   sig/dexpace/transport/net_http/adapter.rbs  NEW
   test/dexpace/transport/net_http/…           the adapter's own suite, plus the conformance driver
@@ -1605,13 +1770,15 @@ gems/dexpace-conformance/
   lib/dexpace/conformance/report.rb           Dexpace::Conformance::Report
   lib/dexpace/conformance/wire_server.rb      Dexpace::Conformance::WireServer
   lib/dexpace/conformance/scripts.rb          Dexpace::Conformance::Scripts
+  lib/dexpace/conformance/borrowed_pair.rb    Dexpace::Conformance::BorrowedPair    (suite contract 4a)
   lib/dexpace/conformance/transport_case.rb   Dexpace::Conformance::TransportCase
+                                              + private_constant SettleOnly (suite contract 8's guard)
   lib/dexpace/conformance/transport_suite.rb  Dexpace::Conformance::TransportSuite
   lib/dexpace/conformance/minitest_driver.rb  Dexpace::Conformance::MinitestDriver
   lib/dexpace/conformance/rspec_driver.rb     Dexpace::Conformance::RSpecDriver — NOT required by the entry file
   lib/dexpace/conformance/recording_span.rb   Dexpace::Conformance::RecordingSpan   (5c's OBS-21 obligation)
   lib/dexpace/conformance/allocations.rb      Dexpace::Conformance::Allocations     (5b's R8 / OBS-25 obligation)
-  sig/…                                       thirteen mirrors
+  sig/…                                       fourteen mirrors
   test/…                                      the gem's own suite, driving a FakeTransport
 ```
 
@@ -1655,13 +1822,14 @@ arriving.
 
 | Member | Role |
 |---|---|
-| `.build(timeout: nil, logger: Dexpace::Instrumentation::Logger::NULL) -> Adapter` | The **SDK-managed** construction. Builds a `Net::HTTP` per call. `owned?` is `true` |
-| `.using(client, logger: …) -> Adapter` | The **borrowing** construction. Wraps a caller-built `Net::HTTP`. `owned?` is `false`. Raises `Dexpace::InvalidArgumentError` at construction unless `client.max_retries.zero?` (`P8-10`) |
+| `.build(timeout: nil, logger: Dexpace::Instrumentation::Logger::NULL, tls: nil) -> Adapter` | The **SDK-managed** construction. Builds a `Net::HTTP` per call **from the request's own URL** — `Net::HTTP` exposes `address` and `port` as `attr_reader` only, so the endpoint is a constructor argument and never an assignment (`R1`'s dispatch order). `tls:` is `R18`'s plain-value settings hash, applied only when the URL is `https`. `owned?` is `true` |
+| `.using(client, logger: …) -> Adapter` | The **borrowing** construction. Wraps a caller-built `Net::HTTP` **verbatim**: no knob, no endpoint and no `use_ssl` is ever assigned on it, `#start`/`#finish` are left to `Net::HTTP#request`'s own session handling, the endpoint comes from the client and a request naming a different host, port or scheme is refused, and concurrent calls are serialised (`P8-15`). `owned?` is `false`. Raises `Dexpace::InvalidArgumentError` at construction unless `client.max_retries.zero?` (`P8-10`) |
 | `.default -> Adapter` | `SEAM-5`'s zero-argument factory the registry calls; a **fresh** instance every call, never a memoized one |
 | `REGISTRY_KEY = :net_http` | The key the require-time registration uses |
 | `MANAGED_HEADERS` | The frozen, folded `TRANSPORT-11` drop set (`R2`) |
 | `DEFAULT_CONTENT_TYPE` | `"application/octet-stream"` (`R2`, `P8-4`) |
 | `DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`, `JOIN_DEADLINE_SECONDS` | The three tuning constants, named rather than embedded (`resource-management/2b9040ef`'s purpose) |
+| `TLS_SETTINGS` | The frozen list of keys `tls:` accepts — `ca_file`, `ca_path`, `cert`, `key`, `verify_mode`, `min_version`. Public because an unknown key raises and a caller needs to see the set (`R18`) |
 | `VERSION` | phase 0's, unchanged |
 
 The file ends with
@@ -1756,8 +1924,9 @@ and it is the whole of `TRANSPORT-3`, `TRANSPORT-4` and `TRANSPORT-20`. Its rule
 | `Dexpace::Conformance::Report` | A frozen list of `Result`s with `#passed?`, `#failures`, `#vacuous`, `#waived`, `#errors`, `#to_s`. `#to_s` names every waived ID on every run, per §9.3's "the gap stays visible" |
 | `Dexpace::Conformance::WireServer` | The `TCPServer` fixture. `.start(script) { |server| … }` and a non-block form with `#close`; `#port`, `#requests`, `#connections`, `#closed_connections`, and `#await_closed_connection(count = 1)` — a blocking `Queue#pop` fed from the connection handler's `ensure`, so a test that needs "the server has seen the close" waits on a condition instead of polling `#closed_connections` in a `sleep` loop (Global Constraints; `testing/4ef070df`) |
 | `Dexpace::Conformance::Scripts` | The named scripts, module functions returning callables |
-| `Dexpace::Conformance::TransportCase` | What an assertion receives: `#transport(**settings)`, `#borrowed_transport(client)`, `#wire`, `#request(path:, method:, headers:, body:)`, and a teardown the runner drives |
-| `Dexpace::Conformance::TransportSuite` | `.assertions -> Array[Assertion]` (frozen, ordered) and `.run(build:, borrow: nil, waive: [])` |
+| `Dexpace::Conformance::BorrowedPair` | `Data.define(:transport, :probe)` with `#still_usable?` → `probe.call`. What a driver's `borrow:` factory returns, so `TRANSPORT-15`'s borrowed half never names a native client class inside this gem (suite contract 4a) |
+| `Dexpace::Conformance::TransportCase` | What an assertion receives: `#transport(**settings)`, `#borrowed_transport`, `#settle`, `#wire`, `#request(path:, method:, headers:, body:)`, and a teardown the runner drives. `#transport` and `#borrowed_transport` return the transport behind a `private_constant SettleOnly` guard that delegates everything but `#call` (suite contract 8) |
+| `Dexpace::Conformance::TransportSuite` | `.assertions -> Array[Assertion]` (frozen, ordered) and `.run(build:, borrow: nil, waive: [], around: nil, settle: nil, wire: nil)` |
 | `Dexpace::Conformance::MinitestDriver` | `extend`-able; `conformance(suite, **options)` defines one test method per assertion |
 | `Dexpace::Conformance::RSpecDriver` | The same over `::RSpec.describe`, referenced at call time and **never `require`d** |
 | `Dexpace::Conformance::RecordingSpan` | 5c's `OBS-21` obligation: a span whose `#recording?` is true and which records attributes, errors and `#end` calls, so idempotence has a subject |
@@ -1796,12 +1965,25 @@ rather than mechanics:
   scan's five fixtures cover a return type, a superclass, an `include`, a type alias and a generic upper
   bound; the borrowing constructor's argument is the sixth position a name could occupy, and typing it
   `untyped` is what keeps the count at zero.
-- **`dexpace-conformance` declares one RBS interface and it is the transport seam's**:
-  `interface _Transport; def call: (Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation) -> Dexpace::Response; end`,
-  in `sig/dexpace/conformance/transport_case.rbs`. `TransportCase#transport` returns it. That is the
-  *only* place in the repository where the duck type phase 2 deliberately left structural acquires a
-  named shape, and it is deliberate: the suite is the one consumer that must state what it assumes, and
-  a `sig/`-only interface adds no runtime constant and no `.conforms?` competitor.
+- **`dexpace-conformance` declares no `_Transport` of its own; it references phase 2's — corrected
+  2026-09-13, with the correction stated.** This bullet declared
+  `interface _Transport` in `sig/dexpace/conformance/transport_case.rbs` and called it "the *only*
+  place in the repository where the duck type phase 2 deliberately left structural acquires a named
+  shape". **The sentence is false and the interface is a duplicate**: phase 2 already declares
+  `interface _Transport` in `dexpace-core`'s `sig/dexpace/transport.rbs`
+  (`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:3672-3675`, with its own paragraph
+  calling it "the static half of the seam — what a consumer's own `steep check` sees at a parameter"),
+  typed `(Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation?) -> Dexpace::Response`.
+  Two interfaces of the same name in two gems' `sig/` trees is one name resolving to two shapes for
+  anyone who loads both — which every consumer of this gem does, since it declares `dexpace-core`. So
+  `8a` **deletes its copy and writes `Dexpace::_Transport`** where it needs the type, and the only
+  interface this gem declares is `_Wire`, which is genuinely its own (suite contract 11) and which
+  core has no reason to know about. **`TransportCase#transport` is typed `untyped`, not
+  `Dexpace::_Transport`**, for two reasons that agree: it returns the suite-contract-8 guard wrapper
+  rather than the transport itself, and clause 1 admits a transport whose `#call` returns a
+  `Dexpace::Async::Future` — which core's interface, returning `Dexpace::Response`, correctly does not
+  describe. `#settle` carries the `-> Dexpace::Response` return instead, which is where the suite
+  actually depends on it.
 - **`Assertion#body` is `^(untyped) -> void`**, not a named interface, because an assertion's subject is
   whatever suite it belongs to and phase 9 adds suites for seams that are not transports.
 - **The two drivers' `define_method`-generated tests are invisible to RBS and to the surface snapshot
@@ -1927,7 +2109,7 @@ Each of the charter's twenty boundaries is honoured by name, not re-argued. The 
 
 ## Testing strategy
 
-Seven groups. Three of them exist because a measured fact showed the obvious test would pass under the
+Seven groups, two of them split in two by `R17` and `R18`. Three of them exist because a measured fact showed the obvious test would pass under the
 bug.
 
 1. **`RequestMapper` unit tests, against the `WireServer` and asserting the bytes on the wire.**
@@ -1968,7 +2150,25 @@ bug.
    several times, stable state, and a pre-existing cancellation flag still set afterwards.
    `TRANSPORT-29`'s clause as a real concurrency proof — many concurrent calls through one transport with
    each response matched to its own request, which verified fact 9 shows is a test that **fails** against
-   a shared client and is therefore worth writing.
+   a shared client and is therefore worth writing — **run twice, once against `.build` and once against
+   `.using`** (`P8-15`), because the second construction satisfies the clause by serialisation rather
+   than by per-call construction and a proof of one is not a proof of the other. Two more on the
+   borrowing side: a client the caller **already started** is reused rather than refused, which is what
+   "no `#start`/`#finish` by the adapter" buys; and a request whose URL names a different host, port or
+   scheme is refused with `Dexpace::InvalidArgumentError` rather than sent to the client's own endpoint.
+5a. **`R18`'s TLS tests.** That `.build` with no `tls:` assigns nothing, so `SSLContext#set_params`
+   supplies `VERIFY_PEER` and `verify_hostname` (verified fact 16, asserted structurally rather than
+   over a socket); that each accepted key reaches the per-call client; that an unknown key raises
+   `Dexpace::InvalidArgumentError` naming it; and that `tls:` on a plain-`http` URL is not assigned at
+   all. `P8-9`'s plaintext-only fixture is why the last one is structural rather than a handshake.
+5b. **`R17`'s proxy tests.** That `proxy_from_env = false` holds with `http_proxy` set in the
+   environment — the measured default is `#proxy?` `true`, so this is the assertion that catches a
+   regression to `Net::HTTP.new(host, port)`; that a resolved `Dexpace::Proxy` reaches the client as
+   `p_addr`/`p_port`/`p_user`/`p_pass` and that a host matching the non-proxy list does not (`CFG-23`);
+   that a resolved proxy carrying a `challenge_handler` logs once at `Severity::WARNING` and still
+   sends; and `TRANSPORT-30`'s two embedded MUSTs — **no log event carries the credential** (asserted
+   over a recording sink across a whole proxied exchange, not over one call site) and **no request to
+   the origin carries `Proxy-Authorization`** when the origin answers `401`.
 6. **The conformance suite's own tests, in `gems/dexpace-conformance/test/`.** The suite is code and gets
    tested like code: an assertion that passes, one that raises `Failure`, one that raises `Vacuous`, one
    that raises something else, and a waived one, each landing in the right `Result` status; a `Report`
@@ -2028,8 +2228,8 @@ reserved for `8b` and `P8-36`–`P8-50` for `8c` — corrected in place 2026-09-
 stated.** This sentence read "`P8-20`–`P8-39` … and `P8-40` onward for `8c`", which is one of three
 mutually inconsistent band statements the three concurrent designs each wrote. The charter now fixes the
 allocation once, under its own *Deviation Ledger* (`8a` `P8-1`–`P8-19`, `8b` `P8-20`–`P8-35`, `8c`
-`P8-36`–`P8-50`; used: `P8-1`–`P8-14`, `P8-20`–`P8-25`, `P8-36`–`P8-40`), and this document cites it
-rather than restating a fourth version. Nothing was renumbered: `8a` uses `P8-1`–`P8-14`, which is inside
+`P8-36`–`P8-50`; used: `P8-1`–`P8-15`, `P8-20`–`P8-25`, `P8-36`–`P8-40`), and this document cites it
+rather than restating a fourth version. Nothing was renumbered: `8a` uses `P8-1`–`P8-15` (`P8-15` added 2026-09-13), which is inside
 its band under every version of the sentence. The three sub-phase designs were written **concurrently**
 in the same working tree, so a shared "next free number" would have had two documents taking the same
 one; a ledger id is cited from source comments and tests and can never be renumbered. Reserving blocks is
@@ -2050,10 +2250,11 @@ audited by `docs/deviations.md`.
 | P8-8 | **`Dexpace::Conformance::Failure` is a `::StandardError` and does not include `Dexpace::Error`** | the conformance assertion protocol phase 0 postponed to this phase; design §9.3; phase 1's `P1-2`; `error-handling/e91f8733` | Phase 1 made `Dexpace::Error` a module every SDK error includes so a caller can `rescue Dexpace::Error` broadly. A conformance failure is a **test result**, not an SDK error; including it would make that rescue catch one, and an adapter author's `rescue Dexpace::Error` around a send would swallow the assertion that the send was wrong. §9.3 names the class and says nothing about its ancestry, which is why this is a decision rather than a reading |
 | P8-9 | **The conformance wire fixture speaks plaintext only and exercises no connect timeout**, and the report says so | `TRANSPORT-4`, `TRANSPORT-20`; design §9.3; verified facts 7 and 16 | A self-signed TLS fixture is portable in principle and brittle across three interpreters and two OpenSSL majors; the property that matters — the adapter assigns no `verify_mode`, so `SSLContext#set_params` supplies `VERIFY_PEER` and `verify_hostname` — is a structural assertion in the adapter's own suite and needs no socket. A connect timeout has no portable local fixture at all (a listener that accepts slowly is not expressible), so `TRANSPORT-4`'s read half and `TRANSPORT-20`'s refused half are scripted and the open half is a unit test. Both omissions are printed in the report's preamble, because a third-party author who reads a green run as "fully conformant" is the failure this gem exists to prevent |
 | P8-10 | **The borrowing construction *asserts* `client.max_retries.zero?` at construction rather than setting it** | `TRANSPORT-1`, `TRANSPORT-2`, `XCUT-22`; verified facts 2 and 3; the charter's retry finding | `TRANSPORT-2` scopes the disable to an "SDK-managed" transport, and `XCUT-22` forbids mutating a caller's client — so on a borrowed client the adapter may neither set the knob nor leave the hole. Refusing the construction closes it loudly, mutates nothing, and names the requirement in the message. The hole is not hypothetical: measured, a default `max_retries` turns a cancelled call into a completed `200` |
-| P8-11 | Public **constants** design §3.2 and §9.3 do not name: `Dexpace::Transport::NetHTTP::Adapter`, `::MANAGED_HEADERS`, `::DEFAULT_CONTENT_TYPE`, `::DEFAULT_TIMEOUT_SECONDS`, `::MIN_TIMEOUT_SECONDS`, `::JOIN_DEADLINE_SECONDS`, `::REGISTRY_KEY`; `Dexpace::Conformance::Failure`, `::Vacuous`, `::Assertion`, `::Result`, `::Report`, `::WireServer`, `::Scripts`, `::TransportCase`, `::TransportSuite`, `::MinitestDriver`, `::RSpecDriver`, `::RecordingSpan`, `::Allocations`; `Dexpace::Configuration::Keys::REQUEST_TIMEOUT`; and the RBS interface `Dexpace::Conformance::_Transport` | `NFR-4`; `NFR-11`; `api-design/b0e18938`; `P1-1`, `P2-11`, `P3-14`, `P4-24`, `P5-1`, `P5-40`, `P6-1`, `P7-2` precedent | `NFR-4` locks a name before it locks a signature. §3.2 names exactly one Ruby identifier for this gem (`dexpace-transport-net_http` itself) and §9.3 names one (`Dexpace::Conformance::Failure`). Each name above is chosen for a stated reason in the object model. Two deserve naming here: **`MinitestDriver`/`RSpecDriver`** carry the suffix deliberately, because inside `module Dexpace::Conformance` a constant named `Minitest` shadows `::Minitest` for the whole namespace — 5a's `P5-3` reasoning applied to a second case; and **`Keys::REQUEST_TIMEOUT` is a `dexpace-core` constant added by an adapter sub-phase**, whose precedent is `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` in the same module, read by no core file |
-| P8-12 | Public **methods** those chapters do not name: `NetHTTP.build`, `.using`, `.default`; `Adapter#call`, `#close`, `#closed?`, `#owned?`; `Failure#expected`, `#actual`, `#requirement_ids`; `Vacuous#reason`; `Assertion#ids`, `#name`, `#body`, `#call`; `Result#assertion`, `#status`, `#detail`; `Report#passed?`, `#failures`, `#vacuous`, `#waived`, `#errors`, `#to_s`; `WireServer.start`, `#port`, `#requests`, `#connections`, `#closed_connections`, `#await_closed_connection`, `#close`; `TransportCase#transport`, `#borrowed_transport`, `#wire`, `#request`; `TransportSuite.assertions`, `.run`; `MinitestDriver.conformance`, `RSpecDriver.conformance`; `RecordingSpan`'s recording surface; `Allocations.delta` | `NFR-4`; `api-design/b0e18938`; `P4-23`, `P5-2`, `P6-2`, `P7-3` precedent | `NFR-4` locks a signature, not only a name. Two deserve naming. **`.using` is a second construction entry point**, and it exists because §3.7 makes ownership a construction-time fact and phase 2's `SEAM-15` rule keys the post-close behaviour off it; a single `.build(client: nil)` would make ownership an argument value, which `P3-11` already rejected for `BufferedSource`. **`TransportSuite.run`'s `borrow:` keyword is optional**, so an adapter with no borrowing construction supplies nothing and `TRANSPORT-15`'s borrowed half records `:vacuous` rather than failing |
+| P8-11 | Public **constants** design §3.2 and §9.3 do not name: `Dexpace::Transport::NetHTTP::Adapter`, `::MANAGED_HEADERS`, `::DEFAULT_CONTENT_TYPE`, `::DEFAULT_TIMEOUT_SECONDS`, `::MIN_TIMEOUT_SECONDS`, `::JOIN_DEADLINE_SECONDS`, `::TLS_SETTINGS`, `::REGISTRY_KEY`; `Dexpace::Conformance::Failure`, `::Vacuous`, `::Assertion`, `::Result`, `::Report`, `::WireServer`, `::Scripts`, `::TransportCase`, `::TransportSuite`, `::MinitestDriver`, `::RSpecDriver`, `::RecordingSpan`, `::Allocations`, `::BorrowedPair`; `Dexpace::Configuration::Keys::REQUEST_TIMEOUT`; and the RBS interface `Dexpace::Conformance::_Wire` | `NFR-4`; `NFR-11`; `api-design/b0e18938`; `P1-1`, `P2-11`, `P3-14`, `P4-24`, `P5-1`, `P5-40`, `P6-1`, `P7-2` precedent | `NFR-4` locks a name before it locks a signature. §3.2 names exactly one Ruby identifier for this gem (`dexpace-transport-net_http` itself) and §9.3 names one (`Dexpace::Conformance::Failure`). Each name above is chosen for a stated reason in the object model. Two deserve naming here: **`MinitestDriver`/`RSpecDriver`** carry the suffix deliberately, because inside `module Dexpace::Conformance` a constant named `Minitest` shadows `::Minitest` for the whole namespace — 5a's `P5-3` reasoning applied to a second case; and **`Keys::REQUEST_TIMEOUT` is a `dexpace-core` constant added by an adapter sub-phase**, whose precedent is `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` in the same module, read by no core file. **Corrected 2026-09-13**: this row listed an RBS interface `Dexpace::Conformance::_Transport`, which is a **duplicate** of the `Dexpace::_Transport` phase 2 declares in core's `sig/dexpace/transport.rbs` and is deleted rather than locked; `_Wire` is the interface this gem genuinely owns. `::TLS_SETTINGS` (`R18`) and `::BorrowedPair` (suite contract 4a) are the two names this revision adds |
+| P8-12 | Public **methods** those chapters do not name: `NetHTTP.build`, `.using`, `.default`; `Adapter#call`, `#close`, `#closed?`, `#owned?`; `Failure#expected`, `#actual`, `#requirement_ids`; `Vacuous#reason`; `Assertion#ids`, `#name`, `#body`, `#call`; `Result#assertion`, `#status`, `#detail`; `Report#passed?`, `#failures`, `#vacuous`, `#waived`, `#errors`, `#to_s`; `WireServer.start`, `#port`, `#requests`, `#connections`, `#closed_connections`, `#await_closed_connection`, `#close`; `TransportCase#transport`, `#borrowed_transport`, `#settle`, `#wire`, `#request`; `BorrowedPair#transport`, `#probe`, `#still_usable?`; `TransportSuite.assertions`, `.run`; `MinitestDriver.conformance`, `RSpecDriver.conformance`; `RecordingSpan`'s recording surface; `Allocations.delta` | `NFR-4`; `api-design/b0e18938`; `P4-23`, `P5-2`, `P6-2`, `P7-3` precedent | `NFR-4` locks a signature, not only a name. Two deserve naming. **`.using` is a second construction entry point**, and it exists because §3.7 makes ownership a construction-time fact and phase 2's `SEAM-15` rule keys the post-close behaviour off it; a single `.build(client: nil)` would make ownership an argument value, which `P3-11` already rejected for `BufferedSource`. **`TransportSuite.run`'s `borrow:` keyword is optional**, so an adapter with no borrowing construction supplies nothing and `TRANSPORT-15`'s borrowed half records `:vacuous` rather than failing — and **it takes the fixture's port and returns a `BorrowedPair`** (suite contract 4a, added 2026-09-13) rather than taking a caller-built native client, because the suite may not name one. **`.build`'s `tls:` keyword** (`R18`) is on this row rather than its own: it is public surface `NFR-4` locks and not a difference from the reference contract |
 | P8-13 | **`MANAGED_HEADERS` extends `TRANSPORT-11`'s named minimum with seven hop-by-hop names** — `connection`, `keep-alive`, `proxy-connection`, `te`, `trailer`, `upgrade`, `expect` | `TRANSPORT-11`; RFC 9110 §7.6.1; verified fact 4 | The requirement itself says "plus any the native client rejects outright … The exact drop set is transport-specific (OkHttp does not drop Connection)", so an extension is inside the requirement rather than beside it. Six of the seven are hop-by-hop headers, which belong to the connection, and the connection is the transport's. Two carry their own reason: **`expect`**, because `continue_timeout` is `nil` by default so `wait_for_continue` never runs and `Expect: 100-continue` would hang against a server that waits; and **`connection`**, because this adapter builds and closes a client per call, so a caller-set value either agrees with what it already does or contradicts it |
 | P8-14 | **Phase 0's require-allowlist denylist gains a per-gem scope**, so `dexpace-conformance`'s `lib/` may `require "socket"` | `SEAM-1`, `SEAM-2`, `NFR-2`; phase 0's `gates:require_allowlist` (`:455-475`); verified fact 17 | The denylist entry for `socket` carries its reason — "`SEAM-1`/`SEAM-2`: core embeds no concrete transport" — and that reason does not reach `dexpace-conformance`, which embeds no transport either: it embeds a **server**, which is the fixture §9.3 requires and which exists precisely so the suite depends on no transport. `socket` is **non-gemified stdlib** (a `.so` with no gemspec), so it can never migrate to the bundled set and the bundled-gem half of the rule has no subject. The amendment is a named per-gem exception with its reason attached, in the style phase 0 already uses for each denied name — not a removal |
+| P8-15 | **A borrowing transport is used verbatim, refuses a request whose URL does not name its own endpoint, and serialises its calls** — one exchange at a time, from `#call` until the response is closed | `TRANSPORT-15`, `TRANSPORT-29`, `TRANSPORT-19`, `XCUT-22`, `SEAM-11`; verified fact 9; `Net::HTTP`'s `attr_reader :address`/`:port` | `TRANSPORT-15` says a BYO client "MUST NOT be shut down **or mutated**", and an earlier revision of this design's plan assigned `address`, `port` and `use_ssl` on it and called `#start`/`#finish` around every exchange. Read literally the adapter may assign nothing — which makes the **endpoint the client's**, so a request naming a different host, port or scheme is refused with `Dexpace::InvalidArgumentError` rather than silently sent to an address the caller's `Dexpace::Request` does not name; and it leaves session handling to `Net::HTTP#request`, which opens and closes one on an unstarted client and **reuses** a caller's already-started one. That leaves `TRANSPORT-29` with no per-call client to rely on — verified fact 9 measured one shared `Net::HTTP` under eight threads returning 26 responses matched to the wrong request — so calls through a borrowing transport hold a **one-permit `Thread::SizedQueue`** acquired in `#call` and released by the response pump's own teardown. It is not a `Thread::Mutex`: the critical section ends on the pump's thread, and `Mutex#unlock` from a non-owner raises `ThreadError: Attempt to unlock a mutex which is locked by another thread/fiber` (measured). **Two narrowings, stated rather than hidden.** Concurrency on this construction is *serialised*, not parallel — a caller who wants parallelism uses `.build`, and the YARD says so. And `#close` on an undrained borrowed response cannot shorten a blocked read, because the socket is the caller's to close: the queue closes and the join is bounded, and the caller's own `read_timeout` is what bounds the producer — `TRANSPORT-19`'s teardown stays idempotent and prompt on the managed construction, where the port owns the socket |
 
 **Three errata against this document, found by its own plan and corrected in place on 2026-09-12 rather
 than numbered.** None is a deviation from the reference contract — each is a sentence this document got
@@ -2186,15 +2387,35 @@ than restating them, so each is written out in full.
   the `docs/first-release.md` entry; it reverses the decline only if execution finds a route the planning
   pass did not, and then names it.
 - **`TRANSPORT-28`'s zero-copy clause and `TRANSPORT-30` — declined for v1 by the MVP scope design
-  (2026-09-05); `8a` leaves that standing, and the distinction from the `BODY-12` decline is the point.**
-  Why: both are SHOULD-level and per-adapter, and the MVP's two transports do not need either to satisfy
-  the transport contract. The condition — "revisit when a transport adapter **beyond** the two MVP
-  transports ships" — is **not met** by phase 8, which ships exactly those two, so this is not a decline by
-  `8a` where `BODY-12` clause 2 is: that clause named phase 8 itself. `TRANSPORT-30` is carried ⏳ whole
-  and `TRANSPORT-28`'s zero-copy clause ⏳ as a clause (`R5`); `TRANSPORT-28` is narrowed from ⏳-whole to
-  partially satisfied, the two-rows-one-obligation treatment phase 2 gave `SEAM-29`. Owner:
+  (2026-09-05); `8a` leaves the first standing and **takes** the second — corrected 2026-09-13.**
+  Why the decline was written: both are SHOULD-level and per-adapter, and the MVP's two transports do not
+  need either to satisfy the transport contract. The condition — "revisit when a transport adapter
+  **beyond** the two MVP transports ships" — is **not met** by phase 8, which ships exactly those two, so
+  neither is a decline by `8a` the way `BODY-12` clause 2 is: that clause named phase 8 itself.
+  `TRANSPORT-28`'s zero-copy clause stays ⏳ as a clause (`R5`), and `TRANSPORT-28` is narrowed from
+  ⏳-whole to partially satisfied, the two-rows-one-obligation treatment phase 2 gave `SEAM-29`.
+  **`TRANSPORT-30` is no longer ⏳ at all**: `R17` found that the ⏳ rested on a premise that was false
+  twice over — the SDK *does* carry a proxy configuration for this adapter to honour or fail to honour
+  (`Dexpace::Proxy`, `CFG-22`–`CFG-28`), and the adapter was *already* proxying, from the environment,
+  through `Net::HTTP.new`'s `p_addr = :ENV` default. Deferring a requirement about making a proxy
+  limitation discoverable, while silently inheriting an undiscoverable proxy, is the one disposition the
+  requirement rules out. `8a` implements it (plan Task 19b). Owner of what remains:
   `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1,
-  the `TRANSPORT-28`/`TRANSPORT-30` entry.
+  whose `TRANSPORT-28`/`TRANSPORT-30` entry is narrowed to `TRANSPORT-28`'s zero-copy clause alone.
+- **Proxy *use* on a real adapter — handed to phase 8 by phase 5a (2026-09-09), landed by `8a`.** Why
+  phase 5a postponed it: 5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver** — `Dexpace::Proxy`,
+  `Proxy::Type`, `Proxy::HostPattern`, `Proxy.resolve` and `#bypass?` — and "nothing in core opens a
+  socket", so the resolver had no consumer and could have none until a transport existed
+  (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`). Its condition names
+  this phase, and `8a` is the adapter it names. **The row's two requirement IDs are wrong** — it reads
+  "`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real adapter", where
+  `TRANSPORT-3` is sync-path cancellation and `TRANSPORT-8` a native-internal cancel; the IDs the cell
+  means are **`TRANSPORT-30`** (proxy) and **`TRANSPORT-13`** (header-drop reporting, which is `8c`'s),
+  the same substitution the charter already applied to phase 5b's `OBS-19` condition, which repeated the
+  identical `TRANSPORT-8` error. The route is right and the IDs are not; `8a` acts on the route and routes
+  the ID correction to phase 10's inbound list, because the sentence lives in a phase-5a document this
+  sub-phase may not edit. Owner: `R17` and plan Task 19b for the work; phase 10's inbound list in
+  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` for the two wrong IDs.
 - **`OBS-19`'s header-drop verbosity policy — postponed by phase 5b (2026-09-09) to phase 8's first
   adapter that drops rather than raises; that adapter is `8c`'s, and `8a` supplies the cross-reference the
   correction needs.** `TRANSPORT-12`'s and `TRANSPORT-13`'s antecedent is a native wire grammar stricter
@@ -2245,7 +2466,7 @@ than restating them, so each is written out in full.
 
 ## Findings, and who owns them now
 
-**Five, in the words this design measured them in. None is acted on by this document; each is followed by
+**Six, in the words this design measured them in. None is acted on by this document; each is followed by
 the owner that carries it** *(the owner lines were added 2026-09-13, when the find-list was retired and
 every finding was routed to an owner instead of a register row — a numbered plan task, phase 10's inbound
 list, a knowledge note, or `docs/first-release.md`)*.
@@ -2328,8 +2549,37 @@ implemented.
 >
 > **Resolution:** *(open)*
 
+**Owner: phase 10's inbound list in the roadmap — phase 5a's exclusions row names two requirement IDs
+that are not the ones it means; `R17` acts on the route the row describes and only the IDs are owed.**
+
+> ### phase 5a hands proxy use to phase 8 under two requirement IDs that are about something else
+>
+> - **Opened:** 2026-09-13, phase 8a design
+> - **Status:** open
+> - **Cites:** TRANSPORT-3, TRANSPORT-8, TRANSPORT-13, TRANSPORT-30, CFG-22–CFG-28, OBS-19
+>
+**Phase 5a's exclusions table routes "`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop
+reporting on a real adapter" to phase 8** (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`),
+with the reason "5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver**; nothing in core opens a
+socket". Neither ID is about either subject: `TRANSPORT-3` is "on the synchronous send path a genuine
+caller-initiated cancellation MUST surface as a terminal, non-retryable interrupt-shaped IOException",
+and `TRANSPORT-8` is a cancellation "that originates inside" the native client. The IDs the row means
+are **`TRANSPORT-30`** for proxy use and **`TRANSPORT-13`** for header-drop reporting — and this is the
+**second** occurrence of the same substitution, because phase 5b's `OBS-19` condition also read
+"`TRANSPORT-8`'s subject" where it meant `TRANSPORT-12`/`TRANSPORT-13`, which the charter corrected on
+2026-09-12. Two documents making one error the same way is a pattern rather than a slip, and both
+originated in phase 5. Nothing is broken by the wrong IDs alone — `8a` reads the route rather than the
+IDs and implements it under `R17` — but a phase-9 or phase-10 audit tracing `TRANSPORT-3`'s coverage
+lands on a proxy row, and tracing `TRANSPORT-30`'s finds no hand-off at all. What would resolve it:
+the phase-5a row corrected the way phase 5b's was, in the same shape and with the correction stated.
+Nothing is broken today because nothing is implemented.
+>
+> **Resolution:** *(open)*
+
 **Owner: `docs/knowledge/notes/transport-adapter.md` — a `## Reference` entry beside
-`resource-management/4aca52f9`, recording connection-per-request and why.**
+`resource-management/4aca52f9`, recording connection-per-request and why; and, because it is a
+property a v1 user meets rather than one an implementer meets, a line in `docs/first-release.md`
+§ What v1 ships without (added 2026-09-13).**
 
 > ### `dexpace-transport-net_http` opens a TCP (and over HTTPS a TLS) connection per request, and the corpus rule that forbids that has no note
 >
@@ -2526,8 +2776,9 @@ Paths and identifiers a plan or a later phase will need, in one place.
 | The Ruby mapping, read critically | `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.2 (`:155-188`), §3.7 (`:452-518`) |
 | The conformance argument | `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.3 (`:65-113`) |
 | The two charter findings this design's facts are about | §12's `Net::HTTP` retry rows and §3.2's `read_body` sentence, both on phase 10's inbound list |
-| The findings this design raises, and their owners | phase 10's inbound list (§8.3's unscoped `Timeout.timeout` ban), phase 0's plan Task 2 (the explicit `minitest` `Gemfile` line), phase 0's plan Task 9 (the per-gem denylist scope), `docs/knowledge/notes/transport-adapter.md` (connection per request), and `docs/first-release.md` (the conformance-run blocker) |
-| The deviation block | `P8-1`–`P8-19`, of which `P8-1`–`P8-14` are used. The charter fixes the phase-wide allocation (`8b` `P8-20`–`P8-35`, `8c` `P8-36`–`P8-50`) |
+| The findings this design raises, and their owners | phase 10's inbound list (§8.3's unscoped `Timeout.timeout` ban; phase 5a's two wrong requirement IDs on the proxy hand-off), phase 0's plan Task 2 (the explicit `minitest` `Gemfile` line), phase 0's plan Task 9 (the per-gem denylist scope), `docs/knowledge/notes/transport-adapter.md` **and** `docs/first-release.md` (connection per request), and `docs/first-release.md` (the conformance-run blocker) |
+| The two risks this design adds to the charter's sixteen | `R17` (the proxy phase 5a resolves and this adapter never used; plan Task 19b) and `R18` (the `tls:` keyword; plan Task 19a), numbered after `R16` so they collide with none of `8b`'s or `8c`'s |
+| The deviation block | `P8-1`–`P8-19`, of which `P8-1`–`P8-15` are used. The charter fixes the phase-wide allocation (`8b` `P8-20`–`P8-35`, `8c` `P8-36`–`P8-50`) |
 | The shared transport contracts `8a` and `8c` both implement | the charter's *Shared transport contracts* subsection — the ten-name drop set, `Events::TRANSPORT_HEADER_DROPPED`, `TRANSPORT-13`'s `8c`-only policy, and `Keys::REQUEST_TIMEOUT` |
 | Corpus keys cited | `transport-adapter/7e8e2c60`, `/d16c7444`, `/52b448e8`, `/deccd514`, `/2985bb74`, `/e25582ce`, `/0921e946`; `cancellation-and-timeouts/b7cde725`, `/c8ff4730`, `/128ecb55`, `/40c2fd15`; `concurrency-and-async/611b9392`, `/c0fab747`, `/ee54cb68`, `/f261a143`; `resource-management/4aca52f9`, `/346deaec`, `/b7587eb7`, `/d1f16cad`; `io-and-byte-streams/a005249e`, `/a44b4de6`; `pipeline/7ce4431d`; `module-organization/1828a984`, `/5c33e5ce`; `api-design/88e6bf12`; `testing/4ef070df`; `observability/65191069` |
 | The audit-group row this sub-phase ran | *Transport and async-runtime adapters* — `--topic transport-adapter,cancellation-and-timeouts,concurrency-and-async --section rules --brief` and `--prefix TRANSPORT,ASYNC --section rules --brief`. **Still owed** to `.claude/skills/knowledge-lookup/SKILL.md`, together with phase 7's |

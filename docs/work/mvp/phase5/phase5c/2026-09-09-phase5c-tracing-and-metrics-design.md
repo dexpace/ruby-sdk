@@ -270,7 +270,12 @@ segmentation design that already exists at the `phase5/` level.
 
 ## Prerequisites, and the independence this sub-phase must state
 
-**5c depends on `5a` and `5b` for nothing, and neither depends on 5c.** The charter is explicit that every
+**5c consumes no `5a` or `5b` *behaviour*, and neither depends on 5c — but it does `require` one `5b`
+file.** `scope.rb` and `tracing.rb` open `require_relative "diagnostics"` for `5b`'s two key constants
+(`R11`), so `5b`'s `diagnostics.rb` must exist before 5c's files load: 5c reads no configuration value,
+emits no log event and constructs no `Event`, and the recommended `5a → 5b → 5c` order already satisfies the
+one file-level edge, but a 5c-first execution would have to create that file rather than discovering the
+`LoadError`. The charter is explicit that every
 phase-5 boundary is a convenience: "A `5b` plan whose first task waits on `5a`'s `Configuration` object has
 re-imposed a chain that does not exist; so has a `5c` plan that waits on `5b`'s `Logger`." 5c reads no
 configuration value, emits no log event and constructs no `Event`. Its edges to `5b` are a **contract**, not an
@@ -324,8 +329,9 @@ regenerating the manifest must not read a stable diff as proof the `Data` reader
 ### From phase 1
 
 - **`Dexpace::Model`** with `Model.required!` raising `Dexpace::InvalidArgumentError` and the one message form
-  `"<name> is required"` (`SEAM-29`). 5c has exactly one validating entry point — `TraceIdFlavour#generate`
-  takes no argument — so this binds only the `Meter` protocol's documented refusal to validate (`OBS-33`
+  `"<name> is required"` (`SEAM-29`). 5c has exactly one validating entry point —
+  `TraceIdFlavour#generate_trace_id`, whose only argument is a defaulted test seam — so this binds only the
+  `Meter` protocol's documented refusal to validate (`OBS-33`
   forbids hot-path validation, so the helper is *not* called there, and that is the point).
 - **`Dexpace::ArgumentError` is never defined**, in this or any later phase.
 - **Public wire-model constants are flat (P1-1) — but a subsystem the design already names with a namespace
@@ -650,6 +656,19 @@ reader or has a `Pipeline.standard` (phase 6b, Task 13a) thread a bundle in at c
 choose; phase 6a's Task 8 — the `Cursor` context-bundle widening — is where it lands. Both plans state the
 degradation at the call site.
 
+**One thing it does cost, found at review and fixed in `Tracing.correlate` rather than left in the margin:
+the unreachable bundle is `Bundle::NONE`, and `Bundle::NONE`'s ids are `OBS-26`'s invalid sentinels.** A
+consumer who installs a real `tracer_factory:` — the only way to get tracing in v1 — gets a **recording**
+span paired with that bundle on every request, so a `correlate` that branched on `span.recording?` alone
+would push `trace.id` of 32 zeros and `span.id` of 16 zeros into the diagnostic context, and `5b` folds
+`DEFAULT_KEYS` into every event: a fake trace id on every log line, which `OBS-26` requires be treated as
+no-trace and which is worse than an absent key. `correlate` therefore also delegates to `.activate` when the
+bundle is not `#valid?`. **The eventual source of real ids is `_Span#context`**, which this segment's own
+`_Span` interface already declares as returning a `Bundle` — once phase 6a's Task 8 makes a populated bundle
+reachable, the step passes it and the guard stops firing; until then a span's own context is the only object
+that could carry live ids, and reading it is phase 6's decision to make with the widening, not 5c's to
+anticipate.
+
 ### `OBS-34`'s independence of the log level, and the half 5c owes
 
 `OBS-34` is `5b`'s ID and **its conformance clause is discharged by a `5b` test**: the one that drives the
@@ -662,7 +681,7 @@ mechanism is how a requirement ends up with no test at all. What 5c owes is the 
 writable, and it is a structural property rather than a behaviour:
 
 > **Nothing 5c ships reads a log level, holds a sink, or references `Dexpace::Instrumentation::Event`.**
-> `Tracing`, `Scope`, `HTTPTracer`, `NULL`, `TraceIdFlavour#generate`, `NO_METER` and its instruments have no
+> `Tracing`, `Scope`, `HTTPTracer`, `NULL`, `TraceIdFlavour#generate_trace_id`, `NO_METER` and its instruments have no
 > constructor parameter, no ivar and no method argument through which a level could reach them.
 
 That is asserted directly, in 5c's own suite, by a test that would otherwise not be written: **a grep-shaped
@@ -1046,7 +1065,11 @@ class (`data-modeling/b74a2869`).
 - **`.correlate(span, bundle) → _Scope`** — `OBS-23`. For a **recording** span, pushes
   `Diagnostics::TRACE_ID` and `::SPAN_ID` — `5b`'s constants — from the bundle and returns a `Scope` carrying
   all three restores. For a **non-recording** span, skips the push and delegates to `.activate` — the
-  requirement's own words.
+  requirement's own words. **And for a bundle that is not `#valid?`, it likewise skips the push and
+  delegates**, because `OBS-26` requires an all-zero trace/span id to "be treated as invalid/no-trace" and
+  a recording span paired with `Bundle::NONE` is the only state `5b`'s step can reach in phase 5 (`R11`) —
+  without the guard every log event of a tracing-enabled client would carry `trace.id` of 32 zeros, a fake
+  trace and worse than an absent key. `Bundle#valid?` is 4a's derived predicate and is exactly this test.
 - **`.with_correlated_span(span, bundle) { |span| … }`** — the block form of the above. It is implemented in
   terms of `.correlate` plus one `ensure`, so there is one code path and not two, and it is the form a caller
   whose scope is purely lexical should reach for; 5c's own `OBS-22`/`OBS-23` suite drives it.
@@ -1480,7 +1503,9 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`. *
 and is deliberately not contiguous with `5a`'s.** `5a` consumed `P5-1`–`P5-15`; the block `P5-16`–`P5-39` is
 reserved for `5b`, which was being written concurrently in the same working tree and could not be read from
 here. Reserving a block is what keeps two designs from claiming one number; the gap is the visible cost and it
-is preferred to a collision.
+is preferred to a collision. **`P5-50` was added at final review** and is the eleventh row; it is the number
+`5a`'s plan and `5b`'s design both named as "the next number no sub-phase has claimed", so those two pointer
+sentences now want `P5-51` — a repair for their owners, not an edit made from here.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
@@ -1494,6 +1519,7 @@ is preferred to a collision.
 | P5-47 | `NO_SCOPE` is returned on an **identity** test — the span being activated is `equal?` to the current one — and not on the span's recording flag | `OBS-22`, `OBS-25` | The recording-flag reading is the obvious one and it is wrong: a non-recording span activated on top of a recording one still owes a restore, and `OBS-23` requires that case to exist ("activation MUST delegate to plain current-span activation"). Returning the cached singleton there would leave the recording span un-restored, which is `OBS-22`'s exact failure. The identity test returns the singleton in every case the flag test would, plus one it misses, and never in the case that breaks — and in an untraced application it is true on every activation, which is what `OBS-25`'s clause is about |
 | P5-48 | Core ships **no recording span, no recording tracer and no recording meter**; every recording-branch clause of `OBS-21`, `OBS-29`, `OBS-30` and `OBS-31` is asserted against a fake under `test/support/` | `OBS-21`, `OBS-29`, `OBS-30`, `OBS-31`; `SEAM-2`; phase 5a's `FakeClock` precedent | Core owns no exporter and no metrics runtime — `OBS-31` forbids the second in as many words — so a recording implementation would be a second, unused runtime beside the no-ops, with an export path nothing consumes. The clauses are obligations on an implementer and are stated in each protocol's YARD, which is where a duck-typed SPI's contract can bind. The cost is real and is accepted: four MUSTs are verified against a fake rather than against shipped code, and phase 8's `dexpace-conformance` is where the same assertions meet a real adapter |
 | P5-49 | A diagnostic key that was present with a `nil` **value** is turned **absent** by `OBS-23`'s per-key restore | `OBS-23` ("restore each key to its prior value (or remove it if previously unset)"); `OBS-10`; verified fact 4; the observability note on `Fiber#storage=` | `Fiber[:k] = nil` deletes the key (measured), so one assignment serves both of `OBS-23`'s branches and no presence check is needed — at the price of collapsing "was absent" and "was present and null" into removal. A null-valued key is reachable only through `Fiber#storage=`, the warned setter that note records, and `OBS-10`'s "Keys with null values MUST be skipped" makes the two states fold identically at the only reader. Recorded rather than buried because the argument that makes it harmless is `OBS-10`'s clause, and a later phase that relaxes that clause re-opens this |
+| P5-50 | `TraceIdFlavour#generate_trace_id` dispatches on `case name`, against phase 4a's own rule that the per-flavour behaviour is "data, not code, never a case statement" | `OBS-27`; phase 4a's `trace_id_flavour.rb` comment and `P4-7`; `type-system/545949a5`; boundary 10 | 4a made the flavour a frozen `Data` over a frozen table precisely so a pattern and a sentinel are *values*, and generation is the one behaviour that cannot be. A fourth member holding a generator callable is **redefinition** — boundary 10 forbids adding a `Data` member, because a new member changes the generated `==`, `hash` and `to_h` and with them every `Bundle::NONE` comparison already written — and a table keyed on `name` outside the `Data` is the case statement wearing a hash. So the `case` stays, 4a's comment is kept **verbatim** rather than quietly trimmed to fit (the draft's reprint dropped its second clause, which is how a rule disappears), and the cost is stated: a flavour built through the public `.build` with a name outside the three raises `InvalidArgumentError` from generation. `OBS-27` fixes exactly three flavours, so the closed set is the requirement's and not this port's |
 
 ## Work phase 5c postponed, and who owns it now
 
@@ -1694,7 +1720,13 @@ Six, each bounded, none reopening a decision above.
    current span is not one, so nothing needs it today, and `5b`'s design confirms it: `Diagnostics::DEFAULT_KEYS`
    is the pair and nothing else. Recommendation: keep it private and expose only the reader; if `5b` finds it
    needs the span itself for an event field, that is a `.current_span` call and not a third key name, and it
-   must not become one (boundary 15).
+   must not become one (boundary 15). **What actually enforces "not folded" is `5b`'s side, and it is not
+   the allow-list**: `OBS-10`'s unfiltered mode (a `nil` allow-list) folds *every* key present in
+   `Fiber.current.storage`, which includes this slot — verified at review, a fold over storage holding the
+   slot returns `["dexpace.current_span", "trace.id"]` — so a live span object would become a log field
+   rendered through `OBS-6`'s totality path. `Diagnostics.folded`'s unfiltered branch skipping the reserved
+   `dexpace.` prefix is what makes this section's "must never be folded" true; that change is `5b`'s
+   (its Task 6) and is routed there, and 5c's obligation is to keep every slot it writes under that prefix.
 5. **How `#generate_trace_id` takes its randomness source.** The zero-draw coercion is unreachable by
    sampling, so the test must inject a generator that returns zero. Recommendation: one optional positional
    parameter defaulting to `SecureRandom` — not a keyword, because it is a test seam and not part of the

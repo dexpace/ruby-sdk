@@ -1084,7 +1084,7 @@ Data.define(:overrides, :env_source, :property_source)
 |---|---|
 | `overrides` | `CFG-1` tier 1, keyed by the **exact** name. `Model.own`'d at construction, so `CFG-8`'s defensive copy and its deep freeze are one call and later builder mutation cannot reach it |
 | `env_source` | `CFG-1` tier 2 and `CFG-11`'s first seam: a callable from exact key name to `String?` |
-| `property_source` | `CFG-1` tier 3 and `CFG-11`'s second seam: a callable from **normalised** key name to `String?`. This is §10.16's substituted source — the process-wide defaults `Dexpace.configure` installs, not a second `ENV` read under another name (P11) |
+| `property_source` | `CFG-1` tier 3 and `CFG-11`'s second seam: a callable from an **exact key name** to `String?` — `#string` normalises the *lookup* key before calling it (`CFG-3`) and `#raw_property` does not (`CFG-4`), so the seam itself stores and is queried verbatim; folding at the write side would make `CFG-4`'s own examples, `https.proxyHost` and `http.nonProxyHosts`, unreachable. This is §10.16's substituted source — the process-wide defaults `Dexpace.configure` installs, not a second `ENV` read under another name (P11) |
 
 | Method | Requirement |
 |---|---|
@@ -1148,7 +1148,9 @@ Frozen `String` constants. Five are `CFG-14`'s own; two are the names 5a's own w
 | `MAX_MATERIALIZED_BYTES` | `"MAX_MATERIALIZED_BYTES"` | the ceiling half of the body-logging caps phase 3b postponed |
 | `MAX_TRACKED_CONTEXTS` | `"MAX_TRACKED_CONTEXTS"` | the context store's cap phase 4a postponed |
 
-`5b` adds the body-preview and body-logging-enablement key names **in the change that reads them**, and 5a
+`5b` adds **one** key name, `LOG_PREVIEW_BYTES`, **in the change that reads it** — verified against 5b's
+own Keys task, which adds that one and no other; the body-logging **enablement** gate reads 5a's shipped
+`Keys::LOG_LEVEL` and 5b must not restate, rename or revalue it. 5a
 does not pre-declare them: a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is
 the `TeeSink#clear_tap` shape (3a plan, Task 14).
 
@@ -1616,7 +1618,7 @@ that does not exist. What 5a ships as a stable contract:
 | Consumer | What it gets, and when |
 |---|---|
 | **`5b`**, on `OBS-35` | `Configuration#string(name, default:)` and `Configuration::Keys::LOG_LEVEL`. **`LOG_LEVEL` is a published name a caller may pass, not a default any resolver falls back to** — `OBS-35`'s embedded MUST is "The SDK MUST NOT bake in a default config key name", so `5b`'s log-level resolution takes its key as a **required** argument |
-| **`5b`**, on the body-logging caps | The chain, plus `Keys`. `5b` adds the body-preview and enablement key names in the change that reads them, wires `RequestLoggingBody`/`ResponseLoggingBody`, and — landing second — marks the item phase 3b postponed as done. 5a has already given `MAX_MATERIALIZED_BYTES` its source |
+| **`5b`**, on the body-logging caps | The chain, plus `Keys`. `5b` adds **one** key name, `LOG_PREVIEW_BYTES`, in the change that reads it; the **enablement** gate needs no new name and reads 5a's `Keys::LOG_LEVEL`, which 5b must not restate, rename or revalue. `5b` wires `RequestLoggingBody`/`ResponseLoggingBody` and — landing second — marks the item phase 3b postponed as done. 5a has already given `MAX_MATERIALIZED_BYTES` its source |
 | **`5b`**, on `CFG-24`/`CFG-25` | `Dexpace::ProxyResolution`'s `Kernel#warn` call sites. `5b` adds an `http.instrumentation.*` event **beside** each and removes neither, which is P2-6's shape (`P5-8`) |
 | **`5b`**, on `CFG-22` | `Proxy#to_s`/`#inspect` already mask credentials, so a proxy reaching a log line is not a redaction case `OBS-11`–`OBS-19` has to catch. `5b` may not rely on that for any other type |
 | **`5c`** | Nothing. 5a touches `Dexpace::Instrumentation` not at all |

@@ -424,14 +424,31 @@ lib/dexpace/auth/digest_handler.rb                     Dexpace::Auth::DigestHand
 lib/dexpace/auth/key_stamper.rb                        Dexpace::Auth::KeyStamper
 lib/dexpace/auth/challenge_handler_chain.rb            Dexpace::Auth::ChallengeHandlerChain
 lib/dexpace/auth/bearer_provider.rb                    Dexpace::Auth::BearerProvider           (duck-type doc only)
+lib/dexpace/auth/bearer_stamper.rb                     Dexpace::Auth::BearerStamper
+lib/dexpace/auth/async_bearer_stamper.rb               Dexpace::Auth::AsyncBearerStamper
+lib/dexpace/auth/replayability.rb                      Dexpace::Auth::Replayability     (module)
+lib/dexpace/auth/validation.rb                         Dexpace::Auth::Validation        (private_constant)
 lib/dexpace/auth/step.rb                               Dexpace::Auth::Step
 lib/dexpace/auth/async_step.rb                         Dexpace::Auth::AsyncStep
 lib/dexpace/error/auth_resolution_error.rb             Dexpace::AuthResolutionError
 lib/dexpace/error/unencodable_credential_error.rb      Dexpace::Auth::UnencodableCredentialError
 lib/dexpace/error/https_required_error.rb              Dexpace::Auth::HTTPSRequiredError
+lib/dexpace/error/provider_error.rb                    Dexpace::Auth::ProviderError
 lib/dexpace/bounded_map.rb                             MODIFIED: adds #update(key) { |old| new }
 lib/dexpace.rb                                         MODIFIED: explicit requires for the tree above
 ```
+
+**`Dexpace::Auth::Validation` is `6c`'s own non-blank helper, and it is not `SEAM-29`'s.** Phase 1's
+`Dexpace::Model.required!(name, value)` raises `"<name> is required"` **only when the value is `nil`**
+— that is `SEAM-29`'s fixed message form and `HTTP-4`'s missing-field rule, and it is deliberately not
+a blank check. `AUTH-9` asks for something strictly stronger ("MUST validate secret and identity
+fields as non-blank and reject blanks"), so `6c` adds one `private_constant` module function,
+`Validation.non_blank!(value, name)`, raising `Dexpace::InvalidArgumentError` with the message
+`"<name> must not be blank"`. **The relation to `SEAM-29` is that the two do not overlap**: a `nil`
+field still goes through `Model.required!` and still reads `"<name> is required"`, so `SEAM-29`'s one
+message form for a *missing* field is untouched, and the new form names a *blank* field, which
+`SEAM-29` does not legislate. `AUTH-14`'s laxer non-**empty** rule is a third check and lives at the
+handler, per *Other decisions* above; `Validation` is never applied to `PasswordCredential`.
 
 `Dexpace::Auth::Digest` does **not** exist as a separate namespace level in this layout —
 `DigestHandler` and its nonce store live directly under `Dexpace::Auth`. This departs from the
@@ -449,18 +466,24 @@ resolved from that body regardless.
 
 ### `Dexpace::Auth::Scheme` — `AUTH-1`
 
-A frozen `Data`-backed closed set over exactly `OAUTH2`, `API_KEY`, `BASIC`, `DIGEST`, `NO_AUTH`,
-`private_class_method :new`, `.of(name) -> Scheme` raising `Dexpace::InvalidArgumentError` on an
-unrecognised name — the same closed-domain shape phase 4c used for `Stage` (`type-system/545949a5`,
+`Data.define(:name)` including `Dexpace::Model`, `private_class_method :new`, its five constants built
+through `Scheme.send(:new, name: …)` exactly as phase 1's `Method` builds its constants (never
+`allocate` plus `instance_variable_set`: verified on 3.4.10, a `Data`'s members are not ivars, so
+`D.allocate.instance_variable_set(:@name, "X").name` is `nil` and the trick fails silently), and
+`.of(name) -> Scheme` raising `Dexpace::InvalidArgumentError` on an unrecognised name — the same closed-domain shape phase 4c used for `Stage` (`type-system/545949a5`,
 P4-32's precedent). `NO_AUTH` is the sentinel meaning "this operation may run anonymously," never a
 wire scheme (`AUTH-1`'s own text).
 
 ### `Dexpace::Auth::Requirement` — `AUTH-2`
 
 `Data.define(:scheme, :scopes, :params)`, `private_class_method :new`, `.build(scheme:, scopes: [],
-params: {})` — validates `scheme` is a `Scheme`, `dup`s and freezes `scopes` (`Array`) and `params`
-(`Hash`) exactly once at construction (§4's domain-model pattern), so a caller's later mutation of
-the array or hash they passed cannot reach the stored value. `scopes`/`params` are retained and
+params: {})` — validates `scheme` is a `Scheme` and takes ownership of `scopes` (`Array`) and `params`
+(`Hash`) through **`Dexpace::Model.own`**, phase 1's `Ractor.make_shareable(collection, copy: true)`
+helper, exactly once at construction (§4's domain-model pattern). `Model.own` and not `dup.freeze`:
+`dup` is shallow, and `AUTH-2`'s "retained input collections mutated by the caller after construction
+MUST NOT affect the stored value" covers a caller mutating a `String` *inside* the array — verified on
+3.4.10, `stored = ["read"].dup.freeze` followed by the caller's `scopes[0] << ":write"` leaves
+`stored == ["read:write"]`, while `Model.own` deep-copies and deep-freezes. `scopes`/`params` are retained and
 exposed for every scheme, per `AUTH-2`'s "preserved for caller inspection" even though resolution
 itself (`AUTH-5`) never inspects them for any scheme but `OAUTH2`'s own bookkeeping. Value equality
 over all three members (`Data`'s default) is `AUTH-2`'s own text.
@@ -468,7 +491,7 @@ over all three members (`Data`'s default) is `AUTH-2`'s own text.
 ### `Dexpace::Auth::Descriptor` — `AUTH-3`
 
 `Data.define(:requirements)`, `private_class_method :new`, `.build(requirements)` — rejects an empty
-array with `Dexpace::InvalidArgumentError`, `dup`s and freezes the array. `#allows_anonymous?` — true
+array with `Dexpace::InvalidArgumentError` and takes ownership of it through `Dexpace::Model.own`. `#allows_anonymous?` — true
 iff any requirement's scheme is `Scheme::NO_AUTH`. Immutable in and immutable out: `#requirements`
 returns the same frozen array reference at every call (`HTTP-5`'s pattern, applied here for the same
 reason it is applied to every other model collection).
@@ -520,8 +543,10 @@ only in `#to_s`/`#inspect`, never in `==`/`hash`/`eql?`.
 
 `Dexpace::Auth::KeyCredential` and `::NamedKeyCredential` — plain classes, not `Data`, per design
 §6.3's "the key credentials … do not define `==`, so Ruby's default identity equality is what they
-get." `KeyCredential.new(api_key:, header_name: "Authorization")`; `NamedKeyCredential.new(name:,
-key:, header_name: "Authorization", prefix: nil)`. Both validate their secret/identity fields
+get." `KeyCredential.new(api_key:, header_name: "Authorization", prefix: nil)`; `NamedKeyCredential.new(name:,
+key:, header_name: "Authorization", prefix: nil)`. **Both** carry `#prefix` (defaulting to `nil`) and
+`#key_value`, because `AUTH-26`'s prefix clause and `KeyStamper` are written against the pair and a
+`KeyCredential` with no `#prefix` reader would be a `NoMethodError` at the stamper. Both validate their secret/identity fields
 non-blank in `initialize` (`AUTH-9`), freeze themselves at the end of construction, and override
 `#to_s`/`#inspect` to redact `api_key`/`key` while showing `header_name`/`prefix`/`name` (non-secret,
 `AUTH-8`). Neither overrides `==`, `eql?` or `hash`, so `KeyCredential.new(api_key: "x") ==
@@ -606,6 +631,13 @@ class BasicHandler
     @value = "Basic #{["#{credential.username}:#{credential.password}"].pack("m0")}".freeze
   end
 
+  # AUTH-14 preemptively: the stamper duck type Step takes. This is the path OpenAPI's
+  # `http` / `basic` security scheme uses -- a generated SDK sends the credential on the FIRST
+  # request and never waits for a 401, which is universal convention for that scheme.
+  def call(request) = request.new_builder.header("Authorization", @value).build
+
+  # AUTH-14 as a challenge answer: the same precomputed value, returned only when a Basic challenge
+  # was actually offered. This is the path ChallengeHandlerChain drives.
   def authorization_for(challenges, _request, proxy:)
     return nil unless challenges.any? { |c| c.scheme.casecmp?("basic") }
 
@@ -613,6 +645,11 @@ class BasicHandler
   end
 end
 ```
+
+**One class, two roles, one precomputed value.** `#call` is preemptive stamping and `#authorization_for`
+is challenge answering; `AUTH-14` describes both ("Basic stamping MUST produce … computed once" and
+"MUST accept a Basic challenge case-insensitively") and a second class would compute the same
+`pack("m0")` value twice.
 
 Computed once at construction and reused (`AUTH-14`'s own text) — never per request. `String#casecmp?`
 is a locale-independent, no-argument comparison (`downcase`'s no-argument rule extended to its sibling
@@ -631,7 +668,11 @@ class DigestHandler
     @credential = credential
     @preference = preference.freeze
     @cnonce_source = cnonce_source
-    @nonces = Dexpace::BoundedMap.new(cap: cap) # per-handler; never shared (R11)
+      # BARE and unqualified, resolved from the `module Dexpace; module Auth; class DigestHandler`
+      # lexical scope: `BoundedMap` is a `private_constant` of `Dexpace`, so the qualified spelling
+      # `Dexpace::BoundedMap` raises `NameError: private constant Dexpace::BoundedMap referenced`
+      # (verified on 3.4.10). `execution-context/b58728da`; spec-forced boundary 8.
+      @nonces = BoundedMap.new(cap: cap) # per-handler; never shared (R11)
   end
 
   def authorization_for(challenges, request, proxy:)
@@ -643,20 +684,24 @@ class DigestHandler
     session = algorithm.end_with?("-sess")
     charset_utf8 = challenge.params["charset"]&.casecmp?("utf-8") || false
 
-    ha1_input = materialize(
-      "#{@credential.username}:#{challenge.params.fetch("realm")}:#{@credential.password}",
-      charset_utf8
+    # AUTH-21 + R10: each component is materialised UNDER ITS OWN FIELD NAME, so the typed failure
+    # can name :username, :realm or :password rather than a joined string (R10's test matrix asserts
+    # `#field == :password`).
+    ha1_input = join(
+      materialize(@credential.username, :username, charset_utf8),
+      materialize(challenge.params.fetch("realm"), :realm, charset_utf8),
+      materialize(@credential.password, :password, charset_utf8)
     )
     hasher = HASHES.fetch(base_algorithm)
     ha1 = hasher.hexdigest(ha1_input)
 
     cnonce = @cnonce_source.hex(16) # AUTH-20, XCUT-21: 128 bits, never Random
-    ha1 = hasher.hexdigest(materialize("#{ha1}:#{challenge.params.fetch("nonce")}:#{cnonce}", charset_utf8)) if session
+    ha1 = hasher.hexdigest(join(ha1.b, challenge.params.fetch("nonce").b, cnonce.b)) if session # hex/nonce/cnonce are ASCII
 
     uri = request_target(request)
-    ha2 = hasher.hexdigest(materialize("#{request.method}:#{uri}", charset_utf8))
+    ha2 = hasher.hexdigest(join(request.method.to_s.b, uri.b)) # method and request-target are ASCII
 
-    qop = challenge.params["qop"]&.include?("auth") ? "auth" : nil
+    qop = qop_auth?(challenge) ? "auth" : nil
     nc = next_count(challenge.params.fetch("nonce"))
 
     response =
@@ -678,7 +723,7 @@ class DigestHandler
     satisfiable = challenges.select do |c|
       c.scheme.casecmp?("digest") &&
         c.params.key?("realm") && c.params.key?("nonce") &&
-        (c.params["qop"].nil? || c.params["qop"].include?("auth")) &&
+        (c.params["qop"].nil? || qop_auth?(c)) &&
         (c.params["algorithm"].nil? || ALGORITHMS.include?(c.params["algorithm"]))
     end
     @preference
@@ -686,17 +731,28 @@ class DigestHandler
       .compact.first
   end
 
+  # AUTH-15, AUTH-16: the qop parameter is a comma-separated TOKEN LIST and the comparison is
+  # token-exact, never a substring test -- verified on 3.4.10, `"auth-int".include?("auth")` is
+  # `true`, so a substring test accepts exactly the auth-int-only challenge AUTH-15 requires be
+  # declined.
+  def qop_auth?(challenge)
+    (challenge.params["qop"] || "").split(",").any? { |token| token.strip.casecmp?("auth") }
+  end
+
   # AUTH-21. Raises Dexpace::Auth::UnencodableCredentialError (R10), never :replace.
-  def materialize(string, charset_utf8)
+  def materialize(string, field, charset_utf8)
     return string.b if charset_utf8 # already UTF-8; binary-tag for hashing, no transcode
 
     begin
       string.encode(::Encoding::ISO_8859_1).b
     rescue ::Encoding::UndefinedConversionError => e
-      raise Dexpace::Auth::UnencodableCredentialError.new(field: :credential, encoding: "ISO-8859-1"),
+      raise Dexpace::Auth::UnencodableCredentialError.new(field: field, encoding: "ISO-8859-1"),
             cause: e
     end
   end
+
+  # Components are already BINARY here, so the joiner is BINARY too (HTTP-13's outbound rule).
+  def join(*parts) = parts.join(":".b)
 
   # AUTH-18, AUTH-19, AUTH-24: increments under BoundedMap's own mutex via #update; starts at 1 for
   # a nonce the map has not seen (including a nonce the drain evicted, restarting at 1 per AUTH-19's
@@ -755,8 +811,28 @@ class ChallengeHandlerChain
   end
 
   def header_name(proxy:) = proxy ? "Proxy-Authorization" : "Authorization"
+
+  # AUTH-23, AUTH-25, AUTH-30. The adapter that makes the chain reachable from the pillar step.
+  # AUTH-30's hook contract is "a replacement REQUEST or nil", while a handler returns a header
+  # VALUE; this is the one place the two meet, and it is where AUTH-25's proxy-selected header NAME
+  # is actually written onto a request rather than merely computed. It is never installed by
+  # default -- AUTH-30's "The default hook MUST yield no replacement" is not negotiable -- so a
+  # caller (or a generated SDK's client constructor) opts in by passing it.
+  def as_challenge_hook(proxy: false)
+    lambda do |header_value, request, _response|
+      value = authorization_for(header_value, request, proxy: proxy)
+      next nil unless value
+
+      request.new_builder.header(header_name(proxy: proxy), value).build
+    end
+  end
 end
 ```
+
+`#as_challenge_hook` is what gives `AUTH-15`–`AUTH-25` — Digest above all, which is challenge-driven
+by construction and cannot be stamped preemptively — a call path from the pillar step. Without it the
+Digest handler would ship correct and unreachable, which is the failure shape this design already
+records once for the tier resolver.
 
 Caller-supplied ordering is the documented responsibility `AUTH-23`'s own text assigns ("Callers MUST
 order stronger schemes first … since a server offering both is answered by the first matching
@@ -769,10 +845,13 @@ class KeyStamper
   def initialize(credential)
     @header_name = credential.header_name
     @value = credential.prefix ? "#{credential.prefix} #{credential.key_value}" : credential.key_value
-    @value.freeze
+    @value = @value.dup.freeze
   end
 
-  def call(request) = request.with_header(@header_name, @value)
+  # phase 1 ships no `Request#with_header`; the builder-shaped copy IS the phase-1 idiom, and it is
+  # the one 6b's re-issue path already uses (`request.new_builder.header(…).build`). 6c adds no
+  # convenience method to a phase-1 model.
+  def call(request) = request.new_builder.header(@header_name, @value).build
 end
 ```
 
@@ -782,37 +861,88 @@ after construction (`AUTH-26`'s own text).
 
 ### `Dexpace::Auth::Step` — `AUTH-27`–`AUTH-36`, `AUTH-9` (bearer half), `AUTH-11` (sync half)
 
-Declares `#stage` returning `Dexpace::Pipeline::Stages::AUTH`. Constructed with an already-resolved
-credential-or-provider (see *Other decisions* above), a `challenge_hook:` defaulting to "yield no
-replacement" (`AUTH-30`'s default), optional `logger:`/`redactor:` (defaulting to the no-op pair, `R8`
-of `6b`'s reasoning applied identically here), and, for the bearer variant, `refresh_margin:`
-(default 30 seconds, `AUTH-34`).
+Declares `#stage` returning `Dexpace::Pipeline::Stages::AUTH`. **The constructor signature is pinned
+here, because it is the one object a generated SDK installs and everything else in this chapter is
+reachable only through it:**
+
+```ruby
+Dexpace::Auth::Step.new(
+  stamper:,                        # REQUIRED. Anything responding to #call(request) -> Request:
+                                   #   KeyStamper      -- API key in a header (AUTH-26)
+                                   #   BasicHandler    -- preemptive Basic (AUTH-14)
+                                   #   BearerStamper   -- OAuth2/OIDC/bearer (AUTH-34..AUTH-36)
+                                   #   Step::NO_STAMP  -- the NO_AUTH sentinel's stamper (AUTH-1)
+  challenge_hook: Step::NO_REPLACEMENT,  # AUTH-30's default: yields no replacement, no retry.
+                                   #   ChallengeHandlerChain#as_challenge_hook is how Digest and
+                                   #   challenge-answered Basic are opted into.
+  logger: nil, redactor: nil       # R8 of 6b's reasoning, applied identically
+)
+
+Step::NO_REPLACEMENT = ->(_challenge, _request, _response) { nil }   # AUTH-30's default hook
+Step::NO_STAMP       = ->(request) { request }                       # AUTH-1's NO_AUTH sentinel
+```
+
+`refresh_margin:` is **not** a `Step` keyword: it belongs to `BearerStamper.new(provider:, clock:,
+refresh_margin: 30)`, because the margin is a property of one credential's cache and a `Step` holding
+a bearer-only knob it forwards to nothing would be a signature `NFR-4` locks for no reason.
 
 ```ruby
 def call(request, cursor)
-  return cursor.call(request) if cross_origin?(cursor)         # AUTH-29: no guard, no stamp
-
+  return cursor.fork.call(request) if cross_origin?(cursor)     # AUTH-29: no guard, no stamp -- and
+                                                                # still a FORK (P4-39: a pillar step
+                                                                # forks for every drive or calls once
+                                                                # and never forks; 6c is the first)
   enforce_https!(request)                                       # AUTH-28, before any fetch/stamp
-  stamped = stamp(request)                                      # Basic / Digest-if-cached / key / bearer
-  response = cursor.fork.call(stamped)                          # spec-forced boundary 1: fork for every drive
+  stamped = @stamper.call(request)                              # preemptive: key / Basic / bearer
+  response = cursor.fork.call(stamped)                          # spec-forced boundary 1
+
+  return response unless response.status.code == 401
 
   challenge = response.headers["WWW-Authenticate"]
-  return response unless response.status.code == 401 && challenge
+  return response unless challenge                              # AUTH-33: hook never consulted
+
+  evicted = bearer_retry(challenge, stamped, response, cursor)  # AUTH-36
+  return evicted if evicted
 
   replacement = @challenge_hook.call(challenge, stamped, response) # AUTH-30
   return response unless replacement
-
-  unless replacement.body.nil? || replacement.body.replayable?     # AUTH-31
-    return response # skip replay, surface original 401 unclosed
-  end
+  return response unless Replayability.replayable?(replacement)   # AUTH-31: surfaced UNCLOSED
 
   response.close                                                  # AUTH-30: close before the replay
-  cursor.fork.call(replacement)                                   # exactly once, no further challenge handling
+  cursor.fork.call(replacement)                                   # exactly once, no further handling
 rescue => e
   response&.close                                                 # AUTH-32
   raise
 end
+
+# AUTH-36, the bearer step's own 401 branch, which is NOT the generic challenge hook: it fires only
+# for a stamper that owns a token cache, and it fires regardless of HTTP method (never gated by
+# idempotency). Its three "surface the 401 unchanged" conditions are the first three guards.
+def bearer_retry(challenge, stamped, response, cursor)
+  return nil unless @stamper.respond_to?(:evict_if_matches)         # not a bearer stamper
+  rejected = stamped.headers["Authorization"]
+  return nil unless rejected                                        # cross-origin suppression: no header
+  return nil unless bearer_offered?(challenge)                      # no Bearer challenge advertised
+  return nil unless Replayability.replayable?(stamped)              # AUTH-31, uniformly (see below)
+
+  @stamper.evict_if_matches(rejected) # evicts ONLY the exact token that produced this 401; a token
+                                      # another request already refreshed does not match and survives
+  response.close
+  cursor.fork.call(@stamper.call(stamped)) # ONE retry, re-stamped with the freshly fetched token
+end
+
+def bearer_offered?(header_value)
+  Dexpace::Auth::Challenges.parse(header_value).any? { |c| c.scheme == "bearer" } # already lower-cased
+end
 ```
+
+**`AUTH-31`'s gate is applied to the `AUTH-36` retry as well**, which the requirement does not say in
+so many words. The reading is stated rather than assumed: `AUTH-31` exists because a non-replayable
+body cannot be sent twice, and that is a property of the body, not of which of the two 401 paths is
+re-driving it. §11.12's "toward the stricter, uniform behaviour, each through a single shared
+implementation" is the same instruction one level up. The shared implementation is
+`Dexpace::Auth::Replayability.replayable?`, called from all four sites (sync hook replay, sync bearer
+retry, and both async mirrors).
 
 `cross_origin?(cursor)` reads `cursor.state(Dexpace::Pipeline::Stages::REDIRECT).fetch(:cross_origin,
 false)` — the whole mechanism §10.15 and `AUTH-29` describe, with no header on the request read or
@@ -822,8 +952,20 @@ for a deliberately-allowed downgrade hop rather than a hard failure, exactly as 
 requires ("because no credential is attached on this path, MUST skip the HTTPS guard").
 
 `AUTH-33` ("A 401 response that does not carry a `WWW-Authenticate` header MUST be returned unchanged
-without consulting the challenge hook") is the `return response unless response.status.code == 401 &&
-challenge` guard — the hook is never called when this short-circuits.
+without consulting the challenge hook") is the two `return response unless …` guards before
+`bearer_retry` — neither the bearer branch nor the hook is reached when either short-circuits.
+
+**How a generated SDK expresses each OpenAPI security scheme, in one table**, because `6c`'s purpose
+is to be the runtime a generator targets and "the objects exist" is not the same claim as "a
+generator can reach them":
+
+| OpenAPI scheme | What the generator constructs |
+|---|---|
+| `http` `bearer`, `oauth2`, `openIdConnect` | `Step.new(stamper: BearerStamper.new(provider:, clock:))`, where `provider` is the user's static-token or refresh callback object (`#fetch`, optionally `#fetch_async`) |
+| `http` `basic` | `Step.new(stamper: BasicHandler.new(PasswordCredential.new(username:, password:)))` — preemptive, no 401 round trip |
+| `http` `digest` | `Step.new(stamper: Step::NO_STAMP, challenge_hook: ChallengeHandlerChain.new([DigestHandler.new(credential)]).as_challenge_hook)` — challenge-driven by construction |
+| `apiKey` in `header` | `Step.new(stamper: KeyStamper.new(KeyCredential.new(api_key:, header_name:, prefix:)))` |
+| `apiKey` in `query` or `cookie` | **Not expressible through the AUTH step.** `AUTH-26` is header-only and no `AUTH` ID covers the other two carriers. See *Findings* below |
 
 The bearer variant's `stamp` implements `AUTH-34`'s double-checked single-flight: read `@token`
 (an instance variable, written only under `@lock`) with no lock; if valid-and-fresh (`AUTH-35`
@@ -849,7 +991,11 @@ Same `#stage`, same `#call(request, cursor) -> Future` shape as every other asyn
 whole body runs inside one `Completer`-backed frame (`R12`'s closing paragraph): the HTTPS guard, the
 challenge hook, and the bearer three-zone policy (`R12`'s mechanism) all settle the one returned
 `Future` rather than raising synchronously, uniformly, which is what makes `AUTH-38`'s SHOULD true
-without a scheduler-presence branch anywhere in this class. `AUTH-31`'s replayability gate is applied
+without a scheduler-presence branch anywhere in this class. `AUTH-36`'s bearer 401 branch is mirrored here with one addition `AUTH-37` makes explicit: **the
+post-eviction path MUST await a genuinely fresh fetch**, so the retry can never re-send the token the
+server just rejected. `AsyncBearerStamper#stamp_fresh(request) -> Future` is that method — it bypasses
+the three-zone read entirely and settles on a coalesced fetch — and `AsyncStep` calls it, never
+`#stamp`, after an eviction. `AUTH-31`'s replayability gate is applied
 identically on this path — `RETRY-34`'s sync/async uniformity (§11.12, item 13 of the segmentation
 design's spec-forced boundaries) extended to `AUTH-31` by the same reasoning §11.12 already gives:
 "toward the stricter, uniform behaviour, each through a single shared implementation." Concretely,
@@ -920,8 +1066,10 @@ per `CLAUDE.md`'s workflow rule. Three kinds of test recur across `6c`'s tasks:
    primitives — `Scheme`, `Requirement`, `Descriptor`, `Resolver`, the four credential types,
    `Challenge`/`Challenges`.
 2. **Handler tests against RFC 7616's own test vectors** for Digest (the classic `Mufasa`/`circle of
-   life` MD5 vector, extended with a hand-derived SHA-256 vector per RFC 7616 §5.2's own worked
-   example) and against verified fact 1 for Basic.
+   life` MD5 vector, asserted against the `qop=auth` challenge it is actually a vector for, plus a
+   separately computed legacy no-`qop` expectation; and both SHA-256 expectations **derived** from
+   RFC 7616 §3.9.1's inputs rather than transcribed from its printed response, which is 63 hex
+   characters and cannot be a SHA-256 digest) and against verified fact 1 for Basic.
 3. **Pillar-step tests against phase 4c's test doubles** — `ForkingProbe` standing in for REDIRECT to
    exercise `AUTH-29`'s two branches, and a bare `Cursor.build` plus a stub downstream step standing
    in for the rest of the pipeline for `AUTH-27`, `AUTH-28`, `AUTH-30`–`AUTH-38`. No real transport,
@@ -953,6 +1101,8 @@ ledgers concurrently, and is resolved at consolidation into design §10, not her
 | P6-2 | The challenge-handler protocol is one method, `#authorization_for(challenges, request, proxy:) -> String \| nil`, not a separate `#can_handle?` query plus a build call | `AUTH-23`, `AUTH-25`; `api-design/b0e18938` | Behaviourally identical to a two-method protocol; halves the public surface `NFR-4` locks. |
 | P6-3 | `Dexpace::Auth::PasswordCredential` performs no construction-time validation; `AUTH-14`'s laxer non-empty check is applied by `BasicHandler`/`DigestHandler` at use time | `AUTH-9` (which does not name this type), `AUTH-14` | `AUTH-9` enumerates exactly three types; applying its stricter non-blank rule to a fourth would silently over-apply a rule the requirement does not extend to it. |
 | P6-4 | The Digest nonce-counter store is owned by the `DigestHandler` instance, not by a process-wide or class-level singleton | `AUTH-19`, `AUTH-24`; `data-modeling/3e37c086` | Argued in full under `R11`. One handler per credential/realm is the natural unit; a shared singleton would let one server's nonce rotation evict another's live nonce for no requirement-driven reason. |
+| P6-6 | `Dexpace::Auth::Validation.non_blank!` raises a **second** construction-failure message form, `"<name> must not be blank"`, beside `SEAM-29`'s `"<name> is required"` | `AUTH-9`, `SEAM-29`; phase 1's `Model.required!` | `Model.required!` fires only on `nil`; `AUTH-9` requires blanks rejected too. The two forms do not overlap — a missing field still reads `"<name> is required"` — so `SEAM-29`'s single form for a missing field is preserved rather than widened. |
+| P6-7 | `AUTH-31`'s replayability gate is applied to `AUTH-36`'s eviction-driven bearer retry as well, which `AUTH-36` does not require | `AUTH-31`, `AUTH-36`; §11.12 | A non-replayable body cannot be sent twice whichever of the two 401 paths re-drives it; §11.12 already resolves the four sync/async drifts "toward the stricter, uniform behaviour, each through a single shared implementation". Strictly narrows what is sent, never what is accepted. |
 | P6-5 | "Kick off an off-thread background refresh" (`AUTH-37`) is implemented as calling the provider's async fetch and attaching `#on_settle` without awaiting it — no thread is spawned by phase 6 itself | `AUTH-37`, `AUTH-11`; `Dexpace::Async::Future#on_settle` | Argued in full under `R12`. The SDK owns no thread pool; "off-thread"-ness is a property of the caller's provider implementation, exactly as `AUTH-11` already establishes for the default-mirrored case. |
 
 ## Work phase 6c postpones, and who owns it now
@@ -979,7 +1129,7 @@ segmentation design named as touching `6c`'s area are confirmed here and neither
 
 ## Findings, and who owns them now
 
-One, with the owner that carries it. **Not acted on by this document, and no file outside
+Two, each with the owner that carries it. **Not acted on by this document, and no file outside
 `docs/work/mvp/phase6/phase6c/` is edited by it.**
 
 **Owner: `docs/first-release.md` § Blockers before first publish — a standing decision line in the shape of the
@@ -1002,16 +1152,40 @@ and `6a`'s Task 8 cursor widening all have — a sentence that reads correctly a
 built — and it is recorded here as a candidate rather than assumed settled by shipping the resolver alone.
 Cites: `AUTH-1`, `AUTH-4`, `AUTH-5`, `AUTH-6`, `AUTH-7`.
 
+**Owner: `docs/first-release.md` § What v1 ships without — a line naming the reopening event.**
+**An `apiKey` credential carried in a query parameter or a cookie has no AUTH-step path, and that is a
+purpose-fit gap rather than a missing implementation.** `AUTH-26` is explicit and header-only ("static
+key-credential stamping MUST write the key value into the credential's configured **header**"), and no
+`AUTH` ID names a query or cookie carrier; `AUTH-1`'s scheme set has one `API_KEY` member and does not
+distinguish the three. OpenAPI's `apiKey` scheme admits `in: header | query | cookie`, so a generator
+targeting a query-keyed API can still send the credential — it builds the query itself, at the
+Operation layer — but it then loses everything the AUTH step is for on that credential: `AUTH-28`'s
+HTTPS guard, `AUTH-29`'s cross-origin suppression (the query survives a redirect re-issue that
+`REDIR-7` would have stripped a header on), and `AUTH-8`'s redaction. That makes it a **release
+decision with a security consequence**, not a feature request: v1 either states that query- and
+cookie-carried API keys are outside the AUTH layer, or a later phase widens `AUTH-26`'s carrier. The
+event that would reopen it is **the first consumer that needs one — a worked example in
+`docs/sdk-documentation/`, a `dexpace-conformance` fixture, or a downstream SDK's `SEAM-26` operation
+projection carrying a non-header `apiKey`**. Widening `AUTH-26` is a specification change and is not
+`6c`'s to make. Cites: `AUTH-1`, `AUTH-8`, `AUTH-26`, `AUTH-28`, `AUTH-29`, `REDIR-7`.
+
 ## Open questions for 6c's own plan
 
-1. Whether the RFC 7616 §5.2 SHA-256 worked example is precise enough to lift directly as a test
-   vector, or whether the plan must hand-derive one from the RFC's HA1/HA2/response definitions
-   against a fixed nonce/cnonce — resolved when Task 7 is written.
-2. Whether `Dexpace::AuthResolutionError` and `Dexpace::Auth::UnencodableCredentialError` live under
-   `lib/dexpace/error/` (flat, `P1-1`'s precedent for every other flat error) or nested under
-   `lib/dexpace/auth/` — this design places both flat, matching every other `Dexpace::Error` subclass
-   in the codebase, and the plan's final wiring task confirms no counter-example was missed.
-3. Whether `KeyStamper` needs its own `AsyncStep`-shaped variant or is reused unchanged on both
-   runtimes — since it performs no I/O and no fork, this design expects it is shared code called from
-   both `Step#stamp` and `AsyncStep#stamp` with no async-specific version, confirmed when Task 12 is
-   written.
+1. **Resolved, and the resolution is not "lift the RFC".** The SHA-256 worked example is RFC 7616
+   **§3.9.1** (§5 is Security Considerations and carries no vector), and its printed `response` could
+   not be reproduced on 3.4.10 from the example's own inputs. Both the plan's SHA-256 and
+   SHA-256-sess expectations are therefore **derived here** with `Digest::SHA256` from the RFC's
+   inputs and committed as 64-hex values that were actually produced, with the derivation printed in
+   the task so it can be re-run. The MD5 vector is RFC 2617 §3.5's and is genuine — but it is the
+   **`qop=auth`** form (`nc=00000001`, `cnonce="0a4f113b"`), so it is asserted against a `qop=auth`
+   challenge and a fixed cnonce source, and the legacy no-`qop` expectation is computed separately.
+2. **Resolved.** Every error **file** is flat under `lib/dexpace/error/` (`P1-1`'s precedent), while
+   the **constant** is namespaced where the requirement scopes it: `Dexpace::AuthResolutionError` is
+   flat because `AUTH-6` describes a general resolution failure, and
+   `Dexpace::Auth::UnencodableCredentialError`, `Dexpace::Auth::HTTPSRequiredError` and
+   `Dexpace::Auth::ProviderError` are under `Auth` because each names a condition only this subsystem
+   can raise. File placement and constant nesting are independent here and the module layout above is
+   the authority for both.
+3. **Resolved.** `KeyStamper` and `BasicHandler#call` perform no I/O, no fork and touch no cursor, so
+   both runtimes call the identical object; only `BearerStamper`/`AsyncBearerStamper` are a pair, and
+   they are a pair because only they fetch.

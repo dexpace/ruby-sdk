@@ -283,12 +283,18 @@ tail — so no byte is lost and the snapshot is still exactly the cap the caller
 alternative, `#eof?`, would widen what a delegate's source must provide beyond
 `Dexpace::IO::_Source`'s single `#read_into`, which is the contract `FakeSource` is built to be.
 
-**10. `Body.buffer_bounded` drains through `#each` with a `break`, not through a bounded sink.**
-`#each`-with-`break` runs the body's own `ensure`s on all three interpreters (fact 3), so a
-`FileBody`'s handle still closes; and stopping the pull is what makes "the bytes beyond the cap are
-not read" true rather than "read and discarded". The truncation is markerless — no ellipsis, no
-sentinel — because `BODY-30` says "dropping bytes beyond the cap" and a marker would corrupt a
-`Content-Length` a caller might still trust.
+**10. `Body.buffer_bounded` drains through `#source`, not through `#each` and not through a bounded
+sink.** Stopping the pull is what makes "the bytes beyond the cap are not read" true rather than
+"read and discarded", and a capped `#read_into` loop over the body's read handle stops exactly
+there. It is `#source` and not `#each` because `#each` is `#write_to` (P3-21) and
+`ResponseLoggingBody#write_to` raises by design, while phase 5b's logging step puts that wrapper
+into `Response#body` inside the RETRY pillar (`PIPE-2`) — so an `#each` drain would raise on every
+logged 4xx/5xx instead of buffering. All three bodies that can occupy `Response#body` answer
+`#source` (P3-23), and `BODY-30`/`HTTP-52` are about an error **response** body, so nothing is lost.
+The original's `#close` still runs in `buffer_bounded`'s `ensure`, which is what releases a
+`FileBody` handle or a transport connection on every path. The truncation is markerless — no
+ellipsis, no sentinel — because `BODY-30` says "dropping bytes beyond the cap" and a marker would
+corrupt a `Content-Length` a caller might still trust.
 
 ---
 
@@ -742,10 +748,24 @@ module Dexpace
         @block = block
       end
 
+      # The chunk handed to the block is an INDEPENDENT frozen BINARY String, by 3a's own
+      # binary_of/store_append rule, and that is not tidiness. FileBody#write_to is
+      # ::IO.copy_stream, which REUSES AND CLEARS one destination String across #write calls, so
+      # yielding the argument itself hands a consumer a buffer that is empty the moment the block
+      # returns: `file_body.each.to_a` comes back as five zero-length Strings, all the same object
+      # (verified on 3.4.10). Every other variant reaches a sink through #emit_exactly, which
+      # already copies; FileBody -- and any MultipartBody or RequestLoggingBody carrying a file
+      # part -- is the one path that does not, and §10.2's #each duck type is public surface.
       def write(*strings)
-        payload = strings.length == 1 ? strings.first : strings.join.b
-        @block.call(payload)
-        payload.bytesize
+        payload = strings.length == 1 ? strings.first : strings.join
+        chunk =
+          if payload.frozen? && payload.encoding == ::Encoding::BINARY
+            payload
+          else
+            payload.b.freeze
+          end
+        @block.call(chunk)
+        chunk.bytesize
       end
     end
 
@@ -2839,6 +2859,28 @@ class DexpaceFileBodyTest < DexpaceTestCase
     end
   end
 
+  # ---- §10.2: the chunks #each yields are values, not a reused buffer --------------------------
+
+  # ::IO.copy_stream reuses and CLEARS one destination String across #write calls, so a BlockSink
+  # that yielded its argument would hand every consumer a buffer that is empty the instant the
+  # block returns -- `file_body.each.to_a` as N zero-length Strings, all the same object (verified
+  # on 3.2.11, 3.4.10 and 4.0.6). FileBody is the one variant whose bytes never pass through
+  # #emit_exactly, so it is the only place this can be asserted.
+  test "each yields independent chunks that survive the block, over a real copy_stream write" do
+    file = Tempfile.new("dexpace-each")
+    file.binmode
+    file.write("\xC3\xA9".b * 60_000)
+    file.flush
+
+    chunks = Dexpace::FileBody.new(file.path).each.to_a
+
+    assert_equal(120_000, chunks.sum(&:bytesize))
+    assert(chunks.none?(&:empty?))
+    assert(chunks.all? { |chunk| chunk.encoding == ::Encoding::BINARY })
+  ensure
+    file.close!
+  end
+
   # ---- §7.1's residue: the three verified behaviours, asserted rather than described --------
 
   test "internal iteration with a break runs the ensure" do
@@ -2949,6 +2991,7 @@ proof, and an admission nobody can find is not an admission.
 # SPDX-License-Identifier: MIT
 
 require_relative "../body"
+require_relative "../../model"
 
 module Dexpace
   # HTTP-40/BODY-11's file body: replayable, a FRESH ::File handle per write, and fail-fast
@@ -3118,7 +3161,9 @@ Expected: PASS — **24 tests**, one of which skips where `/proc/self/fd` is abs
 
 ## Task 7: `Dexpace::MultipartBody` and `MultipartBody::Part`
 
-**Requirement IDs:** `BODY-2`'s two conjunctions, `HTTP-51` in full, `HTTP-46`.
+**Requirement IDs:** `BODY-2`'s two conjunctions, `HTTP-51` in full, `HTTP-46`; `HTTP-3` as a
+**cross-reference** row — the ID is phase 1's, and its canonical text names "the multipart body" among
+the builder-based models, a clause phase 1 could not build because no multipart body existed there.
 **Design:** "`MultipartBody` derives its length and its bytes from one routine".
 
 **Files:**
@@ -3131,8 +3176,9 @@ Expected: PASS — **24 tests**, one of which skips where `/proc/self/fd` is abs
 - Consumes: Tasks 1–6 — every variant can be a part; Task 1's `counting_sink` and
   `emit_exactly`; phase 1's `Dexpace::MediaType` and `Dexpace::HeaderSyntax`; `securerandom`.
 - Produces: `Dexpace::MultipartBody.new(parts, boundary:, subtype:)` with `#parts`, `#boundary`,
-  `.generate_boundary` and `BOUNDARY_CHARS`; `Dexpace::MultipartBody::Part.new(name:, body:,
-  filename:, headers:)`.
+  `#subtype`, `#new_builder`, `.generate_boundary` and `BOUNDARY_CHARS`;
+  `Dexpace::MultipartBody::Builder` with `#parts`, `#boundary`, `#subtype` and `#build` (`HTTP-3`);
+  `Dexpace::MultipartBody::Part.new(name:, body:, filename:, headers:)`.
 
 **Sixth, because every part is one of Tasks 1–6's bodies.** Its property test is the
 highest-value one in the sub-phase: over random part lists the **declared length equals the bytes
@@ -3166,7 +3212,7 @@ covers the case where a part's length is not known.
 require_relative "../../../test_helper"
 require "stringio"
 
-# HTTP-46, HTTP-51, BODY-2.
+# HTTP-3, HTTP-46, HTTP-51, BODY-2.
 class DexpaceMultipartBodyTest < DexpaceTestCase
   def part(name: "f", body: Dexpace::Body.bytes("héllo"), **rest)
     Dexpace::MultipartBody::Part.new(name: name, body: body, **rest)
@@ -3176,6 +3222,37 @@ class DexpaceMultipartBodyTest < DexpaceTestCase
     sink = Dexpace::IO::Buffer.new
     body.write_to(sink)
     sink.snapshot
+  end
+
+  # ---- HTTP-3: the multipart body is a builder-based model --------------------------------
+
+  # HTTP-3 names "the multipart body" alongside Request, Response, Headers, QueryParams,
+  # RequestOptions and RequestConditions: newBuilder() returns a builder PRE-POPULATED with the
+  # instance's current fields, so a caller derives a modified copy without restating what did
+  # not change. The ID is phase 1's; the subject only exists here.
+  test "new_builder returns a builder pre-filled with the body's own fields" do
+    original = Dexpace::MultipartBody.new([part(name: "a")], subtype: "mixed")
+
+    derived = original.new_builder.tap { |b| b.parts += [part(name: "b")] }.build
+
+    assert_equal(original.boundary, derived.boundary)
+    assert_equal("mixed", derived.subtype)
+    assert_equal(%w[a b], derived.parts.map(&:name))
+    assert_equal(%w[a], original.parts.map(&:name))
+  end
+
+  # HTTP-3's second clause: "the pre-filled builder MUST NOT alias the original's internal
+  # collections (each value list is copied)". A shared Array would let a later builder mutation
+  # reach back into a frozen body's parts and change the bytes it writes.
+  test "the pre-filled builder does not alias the original's parts list" do
+    original = Dexpace::MultipartBody.new([part(name: "a")])
+    builder = original.new_builder
+
+    builder.parts << part(name: "b")
+
+    refute_same(original.parts, builder.parts)
+    assert_equal(%w[a], original.parts.map(&:name))
+    assert_equal(1, original.parts.length)
   end
 
   # ---- HTTP-51's one shared framing routine ------------------------------------------------
@@ -3383,6 +3460,7 @@ through phase 1's `HeaderSyntax.valid_outbound_value?` rather than a second copy
 require "securerandom"
 
 require_relative "../body"
+require_relative "../../model"
 require_relative "../media_type"
 require_relative "../header_syntax"
 
@@ -3456,10 +3534,40 @@ module Dexpace
 
       @parts = list.freeze
       @boundary = boundary.nil? ? self.class.generate_boundary : validate_boundary!(boundary)
-      @media_type = Dexpace::MediaType.parse("multipart/#{subtype}; boundary=#{@boundary}")
+      @subtype = subtype.to_s.dup.freeze
+      @media_type = Dexpace::MediaType.parse("multipart/#{@subtype}; boundary=#{@boundary}")
     end
 
-    attr_reader :media_type
+    attr_reader :media_type, :subtype
+
+    # HTTP-3, whose canonical text names "the multipart body" in the builder-based list beside
+    # Request, Response, Headers, QueryParams, RequestOptions and RequestConditions. Design §4's
+    # own builder list omits it, which is why phase 1 -- the ID's owner, and a phase with no
+    # multipart body to build -- could not carry the clause; 3b is where the subject exists.
+    #
+    # The pre-filled builder MUST NOT alias this instance's internal collections, so the parts
+    # list is DUPed rather than shared: later builder mutation cannot reach back into the body it
+    # came from. The Part objects themselves are frozen and are shared deliberately -- HTTP-3 asks
+    # that "each value list is copied", not that every value be cloned.
+    def new_builder
+      Builder.new(parts: @parts.dup, boundary: @boundary, subtype: @subtype)
+    end
+
+    # HTTP-3's derivation target. Mutable by design and validating only in #build, so the whole of
+    # #initialize's checking runs on the way out and there is no second validation site.
+    class Builder
+      attr_accessor :parts, :boundary, :subtype
+
+      def initialize(parts: [], boundary: nil, subtype: "form-data")
+        @parts = parts
+        @boundary = boundary
+        @subtype = subtype
+      end
+
+      def build
+        MultipartBody.new(@parts, boundary: @boundary, subtype: @subtype)
+      end
+    end
 
     # BODY-2: replayable if and only if EVERY constituent part is replayable.
     def replayable?
@@ -3592,12 +3700,24 @@ module Dexpace
       def hash: () -> Integer
     end
 
+    class Builder
+      attr_accessor parts: Array[Dexpace::MultipartBody::Part]
+      attr_accessor boundary: String?
+      attr_accessor subtype: String
+
+      def initialize: (?parts: Array[Dexpace::MultipartBody::Part], ?boundary: String?,
+                       ?subtype: String) -> void
+      def build: () -> Dexpace::MultipartBody
+    end
+
     attr_reader parts: Array[Dexpace::MultipartBody::Part]
     attr_reader boundary: String
+    attr_reader subtype: String
     attr_reader media_type: Dexpace::MediaType
 
     def initialize: (Array[Dexpace::MultipartBody::Part] parts, ?boundary: String?,
                      ?subtype: String) -> void
+    def new_builder: () -> Dexpace::MultipartBody::Builder
     def replayable?: () -> bool
     def content_length: () -> Integer
     def write_to: (Dexpace::IO::_Sink sink) -> Integer
@@ -3609,7 +3729,7 @@ module Dexpace
     private
 
     def compute_content_length: () -> Integer
-    def emit: (Dexpace::IO::_Sink sink) -> Integer
+    def emit: (Dexpace::IO::_Sink sink, ?count_only: bool) -> Integer
     def part_headers: (Dexpace::MultipartBody::Part part) -> String
     def quote: (String value) -> String
     def validate_boundary!: (untyped boundary) -> String
@@ -3621,7 +3741,7 @@ end
 
 - [ ] **Step 6: Run the test to confirm it passes**
 
-Expected: PASS — **21 tests**.
+Expected: PASS — **23 tests**.
 
 - [ ] **Step 7: Run the require-allowlist audit**
 
@@ -4412,8 +4532,8 @@ exist and why they are not optional.
   `gems/dexpace-core/test/dexpace/http/body_test.rb` (append one section)
 
 **Interfaces:**
-- Consumes: Task 1's `clamp_cap`, `#each` and the contract's `#close`; Task 2's
-  `Dexpace::BufferBody`; Task 8's `Dexpace::ResponseBody#close`.
+- Consumes: Task 1's `clamp_cap` and the contract's `#source` and `#close` (P3-23) — **not `#each`**,
+  see the drain note below; Task 2's `Dexpace::BufferBody`; Task 8's `Dexpace::ResponseBody#close`.
 - Produces: `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES` and
   `Dexpace::Body.buffer_bounded(body, cap:) -> Dexpace::BufferBody`. **Phase 4's**
   `Recovery.buffer_error_body(response)` is the only caller, and it reads this constant rather
@@ -4431,6 +4551,16 @@ wrong from inside the body layer: the only thing that can classify is phase 4's 
 predicate it may use is phase 1's `Status#error?`. "A response with no body MUST be returned
 unchanged" is a statement about a **response** and is phase 4's too. Two tests assert the negative
 mechanically, because "we did not write a status check" stops being true one refactor later.
+
+**The drain is `#source`-shaped, and the tests are driven over all three response-side bodies.**
+`buffer_bounded` reads through `body.source` and never through `#each`/`#write_to`, for the reason
+the routine's own comment gives: `ResponseLoggingBody#write_to` raises by design, and phase 5b puts
+that wrapper into `Response#body` inside the RETRY pillar (`PIPE-2`), so an `#each` drain would raise
+on every logged 4xx/5xx. The suite therefore runs `buffer_bounded` over a `Dexpace::ResponseBody`, a
+`Dexpace::ResponseLoggingBody` in **both** regimes (fits-cap and over-cap) and a
+`Dexpace::BufferBody` — the same three-body shape the design mandates for `#close`/`#body_string`,
+and the shape that would have caught this. A `write_to`-only fake is no longer sufficient: every
+double this task's tests drain must answer `#source`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4627,18 +4757,32 @@ Immediately after `private_class_method :clamp_cap` and before the `private` key
     end
 
     # Truncation is MARKERLESS -- no ellipsis, no sentinel -- and the bytes beyond the cap are not
-    # pulled from the body at all. #each with a break runs the body's own ensures (verified on
-    # 3.2.11, 3.4.10 and 4.0.6), which is why the original's handles still close.
+    # pulled from the body at all: the loop stops asking rather than reading and discarding.
+    #
+    # It drains through the READ side of the contract -- #source (P3-23) -- and NOT through #each,
+    # which is #write_to (P3-21). BODY-30/HTTP-52 are about an error RESPONSE body, and all three
+    # bodies that can occupy Response#body answer #source, while ResponseLoggingBody's #write_to
+    # RAISES by design ("a response capture wrapper produces no request body"). Phase 5b's logging
+    # step puts exactly that wrapper into Response#body at Stages::LOGGING, which PIPE-2 places
+    # INSIDE the RETRY pillar, so phase 6a's per-attempt Recovery.buffer_error_body and phase 4b's
+    # error-mapping step both hand one to this routine on any 4xx/5xx. Draining through #each would
+    # raise there instead of buffering -- RECOV-16, RETRY-36, BODY-30 and HTTP-52 all lost at once.
+    # Found by review on 2026-09-13; it is the write-side half of the surface P3-23 records.
+    #
+    # The original's close still happens in #buffer_bounded's ensure above, so a FileBody handle or
+    # a transport connection is released on every path.
     def self.copy_bounded(body, buffer, limit)
       return nil if limit.zero?
 
+      source = body.source
       taken = 0
-      body.each do |chunk|
-        headroom = limit - taken
-        piece = chunk.bytesize <= headroom ? chunk : chunk.byteslice(0, headroom)
-        buffer.write(piece)
-        taken += piece.bytesize
-        break if taken >= limit
+      while taken < limit
+        chunk = (+"").b
+        got = source.read_into(chunk, count: limit - taken)
+        break if got.negative?
+
+        buffer.write(chunk)
+        taken += got
       end
       nil
     end
@@ -6753,10 +6897,11 @@ in the phase that discharges it — the same treatment phase 2 gave `SEAM-29`.
 - [ ] **Step 5: Regenerate the runtime surface snapshot**
 
 Run: `bundle exec rake surface:regenerate` then `git diff test/fixtures/surface/dexpace-core.txt`
-Expected: **additions only**. **Thirteen** constant rows — the design's R6 table counts twelve
-because it folds `MultipartBody::Part` into `MultipartBody`, and the walk sees a nested constant as
-its own row: `Dexpace::Body`, `BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`,
-`FormBody`, `MultipartBody`, `MultipartBody::Part`, `ResponseBody`, `RequestLoggingBody`,
+Expected: **additions only**. **Fourteen** constant rows — the design's R6 table counts twelve
+because it folds `MultipartBody::Part` and `MultipartBody::Builder` into `MultipartBody`, and the
+walk sees a nested constant as its own row: `Dexpace::Body`, `BytesBody`, `BufferBody`, `FileBody`,
+`StreamBody`, `ChunkedBody`, `FormBody`, `MultipartBody`, `MultipartBody::Part`,
+`MultipartBody::Builder` (`HTTP-3`), `ResponseBody`, `RequestLoggingBody`,
 `ResponseLoggingBody`, `TypedResponse` — plus `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES`,
 `FormBody::MEDIA_TYPE`, `MultipartBody::BOUNDARY_CHARS`/`BOUNDARY_LENGTH`/`CRLF`/`DASHES`, and
 three methods on `Response`. `PercentEncoding::FORM_UNRESERVED` is **not** among them: it is
@@ -6818,8 +6963,8 @@ beside it.
 
 `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`, **one row per
 requirement ID**, naming for each the numbered task above that satisfies it, or recording it as a
-deferral or a deviation. **50 rows: the 49 IDs the segmentation design fixes, plus `HTTP-46`'s
-cross-reference row.** The mapping, so the checklist is a transcription and not a re-derivation:
+deferral or a deviation. **51 rows: the 49 IDs the segmentation design fixes, plus `HTTP-46`'s and `HTTP-3`'s
+cross-reference rows.** The mapping, so the checklist is a transcription and not a re-derivation:
 
 | ID | Task | Note |
 |---|---|---|
@@ -6862,7 +7007,7 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `BODY-37` | 10 | one mechanism with `IO-28`, not two |
 | `HTTP-36` | 1 | |
 | `HTTP-37` | 1, 2, 4 | materialize-once in 1/2, the second-write guard in 4 |
-| `HTTP-38` | 1, 2, 4, 5, 6 | the factory table completes in Task 5 |
+| `HTTP-38` | 1, 2, 4, 5, 6 | the eight factories complete in Task 5; the clause naming **serialized-object** bodies replayable has no subject until a codec exists and is satisfied by phase 7a, Task 9's `Body.serialized`, which widens the set to nine |
 | `HTTP-39` | 1 | |
 | `HTTP-40` | 6 | |
 | `HTTP-41` | 8 | |
@@ -6870,6 +7015,7 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `HTTP-43` | 8 | a pure forward; idempotence lives in `ResponseBody`'s latch |
 | `HTTP-44` | 12 | |
 | `HTTP-45` | 12 | |
+| `HTTP-3` | 7 | cross-reference: the ID is phase 1's, whose checklist row now points here for the multipart clause. `HTTP-3`'s builder-based list names "the multipart body" and design §4's restatement omits it, so the clause reached no phase until 3b built the subject: `MultipartBody#new_builder` plus `MultipartBody::Builder`, with the non-aliasing clause asserted. §4's omission is a documentation erratum on the roadmap's phase-10 inbound list |
 | `HTTP-46` | 14 | cross-reference: the ID is phase 1's; 3b supplies the type and the test |
 | `HTTP-51` | 7 | |
 | `HTTP-52` | 9 | body half |

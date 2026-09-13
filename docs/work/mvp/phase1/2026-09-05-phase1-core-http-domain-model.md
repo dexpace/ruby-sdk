@@ -155,8 +155,11 @@ the field in one error class. This phase's own coercions already disagree with e
 not. So state the rule once, here, as the rule every factory in core follows: **a public factory or
 coercion that raises a stdlib exception *because of the argument it was given* rescues it and
 re-raises `Dexpace::InvalidArgumentError` naming the argument, in `SEAM-29`'s message form, with the
-original left as the `cause`** — and apply it in Tasks 6, 7 and 8 when their `of`/`parse` pairs are
-written. The narrow reading is available and is why this is a rule to state rather than a defect to
+original left as the `cause`**. Tasks 6, 7 and 8 satisfy this rule by **never letting a stdlib
+exception arise** — the byte check precedes every case fold and the `is_a?(Integer)` check precedes
+`between?` — so they add no `rescue`, and an implementer should not insert one. The
+rescue-and-rewrap form applies where pre-emption is not available, as in Task 12's `URL.parse!` and
+phase 3b's two `Body` factories below. The narrow reading is available and is why this is a rule to state rather than a defect to
 fix: a caller could have encoded the `String` themselves. It is stated because a constraint that is
 true of most call sites and silently false at two is worse than one stated with its exceptions.
 Phase 3b's Tasks 1 and 7 cite this rule for the two `Body` factories above.
@@ -1021,7 +1024,7 @@ Expected: PASS, 7 runs.
 **Interfaces:**
 - Consumes: `Dexpace::Model`, `Dexpace::Builder`, `Dexpace::HeaderSyntax`, `Dexpace::HeaderName`.
 - Produces: `Dexpace::Headers` — `.build(values:, casing:, direction: :outbound)`, `.builder`,
-  `.inbound_builder`, `Headers::EMPTY`, `Headers::DIRECTIONS`, `#[](name) -> Array[String]?`,
+  `.inbound_builder`, `Headers::EMPTY`, `Headers::EMPTY_INBOUND`, `Headers::DIRECTIONS`, `#[](name) -> Array[String]?`,
   `#include?(name)`, `#names -> Array[String]`, `#entries -> Array[[String, String]]`,
   `#each_entry`, `#size`, `#empty?`, `#direction`, `#new_builder`, `#==`/`#eql?`/`#hash`; and
   `Dexpace::Headers::Builder` — `.new(direction:)`, `#direction`, `#add(name, value)`,
@@ -1395,6 +1398,10 @@ module Dexpace
     end
 
     EMPTY = build(values: {}, casing: {})
+    # The inbound counterpart, and not a convenience: `direction` is a member precisely so that
+    # #new_builder agrees with the model it came from, and a response defaulted to the OUTBOUND
+    # empty would hand a transport a strict builder that refuses the obs-text HTTP-19 relaxes.
+    EMPTY_INBOUND = build(values: {}, casing: {}, direction: :inbound)
   end
 end
 ```
@@ -1500,6 +1507,7 @@ module Dexpace
 
     DIRECTIONS: Array[Symbol]
     EMPTY: Headers
+    EMPTY_INBOUND: Headers
 
     attr_reader direction: Symbol
 
@@ -2259,8 +2267,11 @@ bare and anything else is emitted quoted with `\` and `"` escaped — which is w
 `Regexp.new(source, timeout: 1.0)`.
 
 `#charset` looks up `"charset"` (the keys are already folded), downcases the value with no
-argument, and returns it only if `Encoding.name_list` recognises it — otherwise `nil`, never a
-raise (`HTTP-24`). `#matches?(other)` returns true when this type is `*` and this subtype is `*`,
+argument, and returns it only if `Encoding.name_list.any? { |name| name.downcase == value }` —
+otherwise `nil`, never a raise (`HTTP-24`). The fold on **both** sides is the point:
+`Encoding.name_list` carries canonical casing, so `Encoding.name_list.include?("utf-8")` is
+`false` (verified on 3.4.10) and a membership test against the raw list would return `nil` for
+every charset, including the one this task's own test asserts. `#matches?(other)` returns true when this type is `*` and this subtype is `*`,
 or this type equals the other's and this subtype is `*` or equals the other's; parameters take no
 part (`HTTP-27`), and `.parse` rejects a wildcard type paired with a concrete subtype.
 
@@ -2466,6 +2477,19 @@ class DexpaceQueryTest < DexpaceTestCase
     assert_nil(query["absent"])
   end
 
+  # Phase 2's OperationProjection passes operation inputs through unchanged, so a scalar has to
+  # coerce here; a container must not, because #to_s would put Ruby's inspect form on the wire.
+  test "add coerces a scalar value and refuses a container" do
+    query = Dexpace::Query.builder.add("limit", 1).add(:sort, :name).add("live", true).build
+
+    assert_equal("limit=1&sort=name&live=true", query.encode)
+    error = assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::Query.builder.add("filter", { "a" => 1 })
+    end
+
+    assert_includes(error.message, "Hash")
+  end
+
   test "returns empty for an empty query and omits the leading question mark" do
     assert_equal("", Dexpace::Query::EMPTY.encode)
   end
@@ -2606,7 +2630,37 @@ is the model and `#[]` is a scan.
 
 - [ ] **Step 4: Write `lib/dexpace/http/query/builder.rb`**
 
-`#add(name, value)` maps a `nil` value to `""` (`HTTP-28`'s `?flag`); `#set(name, values)` replaces
+**`#add(name, value)` coerces a scalar and refuses a container.** `Query.build` requires every pair
+to be two `String`s (Step 3), and the builder is where a caller's raw value becomes one — phase 2's
+`OperationProjection` passes operation inputs straight through, so `{ limit: 1 }` has to render
+`limit=1` rather than raise. The accepted set is `String`, `Symbol`, `Integer`, `Float`, `true` and
+`false`, each coerced through `#to_s`; `nil` becomes `""` (`HTTP-28`'s `?flag`). **Anything else —
+notably `Hash` and `Array` — raises `Dexpace::InvalidArgumentError` naming the class**, because
+`#to_s` on a container emits Ruby's inspect form (`{"a" => 1}`) onto the wire, which is a silently
+wrong URL rather than a failure. A caller flattening an object-valued parameter (OpenAPI's
+`deepObject` style) supplies the flattened names itself, one `#add` per leaf:
+
+```ruby
+SCALARS = [::String, ::Symbol, ::Integer, ::Float, ::TrueClass, ::FalseClass].freeze
+
+def add(name, value)
+  @pairs << [coerce(name, "query name"), value.nil? ? "" : coerce(value, "query value")]
+  self
+end
+
+private
+
+def coerce(value, label)
+  unless SCALARS.any? { |type| value.is_a?(type) }
+    raise InvalidArgumentError,
+          "#{label} must be a scalar, got #{value.class} -- flatten it before adding it"
+  end
+
+  value.to_s
+end
+```
+
+`#set(name, values)` replaces
 every occurrence of a name with the given list, in place at the name's first position;
 `#remove(name)` drops them all; `#build` **rejects any name whose value list came out empty**
 before constructing, which is `HTTP-30`'s phantom-entry rule — an empty list would otherwise leave
@@ -2618,7 +2672,7 @@ accepted by the generic helper `SEAM-29` requires; add `Query.builder` to that s
 - [ ] **Step 6: Run both suites to confirm they pass**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/http/query_test.rb` and the builder suite.
-Expected: PASS, 13 runs and 5 runs.
+Expected: PASS, 14 runs and 5 runs.
 
 ---
 
@@ -3134,7 +3188,18 @@ callable.
 - [ ] **Step 4: Write `lib/dexpace/http/request/builder.rb`**
 
 `include Dexpace::Builder`, writers for the four members, `#header(name, value)` as a convenience
-over the headers builder, and a `#build` that applies `HTTP-4`, then `HTTP-8`, then `HTTP-7` — in
+that **derives a new `Headers` into `@headers`** rather than keeping a second, unread builder
+beside it — `#headers=` stores a `Headers` (phase 2 assigns one directly), and `#build` reads
+`@headers`, so an accumulator the build never consults would silently drop every header set this
+way:
+
+```ruby
+def header(name, value)
+  tap { @headers = (@headers || Headers::EMPTY).new_builder.add(name, value).build }
+end
+```
+
+and a `#build` that applies `HTTP-4`, then `HTTP-8`, then `HTTP-7` — in
 that order, because the missing-method error must be reported before the no-body rule can name the
 wrong mistake. Add `Request.builder` to Task 2's builder-contract suite.
 
@@ -3185,7 +3250,8 @@ assertion that a `Struct` with four readers responds to four readers restates Ru
 
 **Interfaces:**
 - Consumes: `Dexpace::Model`, `Dexpace::Request`, `Dexpace::Protocol`, `Dexpace::Status`,
-  `Dexpace::Headers`.
+  `Dexpace::Headers` and `Headers::EMPTY_INBOUND` (Task 5), which is this builder's header
+  default.
 - Produces: `Dexpace::Response` — `.build(request:, protocol:, status:, reason:, headers:, body:)`,
   `.builder`, `#request`, `#protocol`, `#status`, `#reason`, `#headers`, `#body`, `#new_builder`,
   and the six classification predicates delegating to `#status`; and
@@ -3236,6 +3302,16 @@ class DexpaceResponseTest < DexpaceTestCase
     assert_nil(built.reason)
     assert_nil(built.body)
     assert_predicate(built.headers, :empty?)
+  end
+
+  # HTTP-19: the default is the INBOUND empty, so deriving from a header-less response yields a
+  # builder that still accepts obs-text rather than one that refuses it.
+  test "defaults its headers to the inbound empty, so a derived builder stays lenient" do
+    derived = response.headers.new_builder
+
+    assert_equal(:inbound, response.headers.direction)
+    assert_equal(["v\xC3\xA5lue"],
+                 derived.add("Content-Disposition", "v\xC3\xA5lue").build["Content-Disposition"])
   end
 
   test "derives its classification from its status rather than restating the ranges" do
@@ -3300,7 +3376,9 @@ def error? = status.error?
 than stubbed — a stub would be a method whose contract nothing implements.
 
 - [ ] **Step 4: Write `lib/dexpace/http/response/builder.rb`** — `include Dexpace::Builder`, a
-  writer per member, and a `#build` that defaults `headers` to `Headers::EMPTY` and delegates.
+  writer per member, and a `#build` that defaults `headers` to **`Headers::EMPTY_INBOUND`** —
+  a response's headers are inbound, and defaulting to the outbound empty would make
+  `response.headers.new_builder` a strict builder that refuses obs-text — and delegates.
   The required-field checks live in the model's `initialize` override, in the order the
   requirement lists them, so `.build` and `#with` enforce them too:
 
@@ -3437,7 +3515,8 @@ bundle exec rake gates:surface_snapshot gates:rbs_surface gates:sig_diff
 
 Expected: the manifest grows from two lines to the phase's whole public surface; the three gates
 then pass, with `gates:sig_diff` still printing `no release tag yet — the first v* tag becomes the
-baseline`. **Read the diff before accepting it**: a constant in it that no task above created is a
+baseline`. The manifest's new constants include `Headers::EMPTY_INBOUND` alongside `Headers::EMPTY`.
+**Read the diff before accepting it**: a constant in it that no task above created is a
 leak, and regeneration is a reviewed act, never a way to silence a failure (`api-design/46c8b5fc`).
 
 - [ ] **Step 4: Write the checklist**
@@ -3451,7 +3530,18 @@ implemented and tested · 🚫 not built (permanent simplification, named reason
 (naming the plan task — phase, task number and path — that will do it, or the `docs/first-release.md`
 entry that owns it) · N/A not applicable in this port. Each row names the
 **numbered task above** that satisfies it. `HTTP-1` and `HTTP-2` are ✅ against Task 2 with "by
-construction" stated and `HTTP-2`'s residual gap named. `HTTP-22`, `HTTP-48`, `HTTP-49` and
+construction" stated and `HTTP-2`'s residual gap named. **`HTTP-3`'s row is split three ways**,
+because the requirement's builder list reaches past this phase: ✅ against Tasks 5, 11, 13, 14 and
+15 for the five models phase 1 builds; ⏳ for **the multipart body**, whose `newBuilder()`-style
+derivation phase 1 cannot supply because it ships no body — owned by
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md` Task 7, which builds
+`Dexpace::MultipartBody`; and **`RequestConditions` recorded as vacuous**, because the type is
+`HTTP-50`'s and `HTTP-50` is itself ⏳ under `docs/first-release.md`, so there is no instance for
+the clause to bind to. A single ✅ on this row would claim a clause nothing implements.
+`HTTP-9`'s row is ✅ against Task 7 and **cites Deviation Ledger row P1-10**: the single-source half
+is satisfied exactly, and the requirement's parenthetical — "an internal constant rather than a
+public accessor on the method type" — is departed from deliberately, because phase 6a and 6b read
+`#idempotent?` and `Method::IDEMPOTENT` by receiver from sibling files. `HTTP-22`, `HTTP-48`, `HTTP-49` and
 `HTTP-50` are ⏳, owned by `docs/first-release.md` § Blockers before first publish, the
 `HTTP-22`/`48`/`49`/`50` decision line — no v1 phase constructs a conditional request. Add the audit-group section the roadmap
 requires: the four groups this phase ran (*Public API surface*; *RBS / Steep typing*; *Minitest
@@ -3475,7 +3565,8 @@ Append one dated entry to `## Phase Status Notes` in
 `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`. Never rewrite an earlier one. It states
 what landed, the two verified interpreter findings and where each is recorded, the four notes
 filed, the three items it postponed with their owners, and the one count that changed — the
-phase-directory count is unchanged at two, and `gems/` is still six.
+phase-directory count is unchanged by this phase — confirm the sentence in `CLAUDE.md` still
+matches the live tree before repeating its numeral — and `gems/` is still six.
 
 - [ ] **Step 7: Update `CLAUDE.md`**
 
@@ -3488,7 +3579,8 @@ Three edits, and no others:
    `initialize` override on Ruby 3.2, and `Dexpace::Error` is a module so that `XCUT-4`'s
    `IOError` family stays reachable. Both are one line each, pointing at the phase-1 design.
 3. The **counts the `claims` check reads** — the gem count and the harvested-topic count are
-   unchanged; the phase-directory sentence already says two and stays true.
+   unchanged; this phase adds no phase directory, so read the phase-directory sentence as it
+   currently stands and confirm it still matches the live tree rather than assuming a numeral.
 
 - [ ] **Step 8: Run the probe and fix what it reports**
 
@@ -3511,7 +3603,8 @@ and that every harvested key they cite is still live.
 - [ ] **Step 10: Hand over**
 
 Do not commit. Report to the manager: the twenty-two new `lib/` files with their `sig/` and `test/`
-mirrors, the seventeen gates green on 3.2 and 4.0, the surface-manifest diff, the `DEF-` rows, the
+mirrors, the seventeen gates green on 3.2 and 4.0, the surface-manifest diff, the postponed items
+and their owners from the design's *Work Phase 1 Postponed* section, the
 checklist's forty-two rows with any ⏳ or 🚫 named, and the `CLAUDE.md` diff.
 
 ---
@@ -3574,8 +3667,9 @@ bury the two lines that differ.
 - `HeaderName.of` accepts `String | HeaderName` (Task 4) and is called with both in Task 5.
 - `PercentEncoding.encode_component` / `.decode_component` (Task 10) are called in Task 11 only.
 - `URL.parse!` / `.external_form` (Task 12) are called in Task 14's builder and equality.
-- `Headers::EMPTY`, `Query::EMPTY` and `RequestOptions::EMPTY` are the three canonical empties, each
-  defined in its own model file after `.build` exists.
+- `Headers::EMPTY`, `Headers::EMPTY_INBOUND`, `Query::EMPTY` and `RequestOptions::EMPTY` are the
+  canonical empties, each defined in its own model file after `.build` exists.
+  `Headers::EMPTY_INBOUND` exists because `Response::Builder` (Task 15) defaults to it.
 - Every `Data` type's `.build` validates through an `initialize` override: `HeaderName` (4),
   `Headers` (5), `Status` (6), `Method` (7), `Protocol` (8), `MediaType` (9), `Query` (11),
   `RequestOptions` (13), `Request` (14), `Response` (15). `URL` (12) is a module of functions and
@@ -3601,6 +3695,7 @@ bury the two lines that differ.
   fix is a narrower copy, not a shallower freeze.
 - `Request#method` shadows `Object#method`. Deliberate, matching `Net::HTTPGenericRequest#method`,
   and documented at the accessor.
-- `MediaType#charset` consults `Encoding.name_list`, so "unknown" means "unknown to this Ruby".
+- `MediaType#charset` consults `Encoding.name_list` with both sides downcased, so "unknown" means
+  "unknown to this Ruby".
   `HTTP-24` asks for `nil` on an unknown charset and does not define the vocabulary; this is the
   narrowest available answer and is stated at the accessor.

@@ -9,7 +9,7 @@
 (`Dexpace::Resilience::RecoveryRetry` installed beneath phase 4b's `Recovery::Orchestrator`, and
 `Dexpace::Resilience::RetryStep`/`::AsyncRetryStep` at `Dexpace::Pipeline::Stages::RETRY`) —
 satisfying all 45 `RETRY-1`–`RETRY-45` requirements and, as the recovery-stack engine phase 4 postponed here, all
-fifteen `RECOV-17`–`RECOV-30`/`RECOV-34` requirements; picking up and closing `ProtocolError#retryable?` (phase 4b's
+fifteen `RECOV-17`–`RECOV-30`/`RECOV-34` requirements; picking up and closing `ProtocolError#retryable_by_status?` (phase 4b's
 deferral), `CFG-35`'s throwable half (phase 5a's) and the per-attempt half of `OBS-29`'s wiring (phase 5c's);
 and executing the `Cursor` context-bundle widening (Task 8).
 
@@ -39,6 +39,19 @@ RBS + Steep, RuboCop with phase 0's custom cops, SimpleCov, YARD.
 `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` rows 245–258 and 262
 carry the canonical text of the fifteen `RECOV` IDs, which appear in no prose chapter — the roadmap's
 gap paragraph records `RECOV-17`–`34` as appendix-C only.
+
+**`RETRY-4`, and why no task below owns it.** `RETRY-4` (MUST) — "A transport-level failure that
+occurred before a complete response was received … MUST be classified as a retryable condition
+unconditionally at the condition level" — is satisfied **outside this plan**, by the flag on the
+wrapper type an adapter raises, not by anything `6a` writes: `Policy.throwable_retryable?` asks
+`XCUT-6`'s capability and `dexpace-core` may not name `Errno::ETIMEDOUT`, `SocketError` or
+`Timeout::Error` (`CLAUDE.md`'s bundled-gem rule; 5a verified each is absent from a bare
+interpreter). The owner is **phase 8a's Task 2**, `Dexpace::TransportError < ::IOError` with
+`#retryable?` returning `true` unconditionally, recorded at `docs/first-release.md`'s phase-8
+transport-wrapping entry, which phase 8's planning already closed in design. `6a`'s checklist
+carries `RETRY-4` as a row naming that owner, **not** as a `6a` task and **not** as ⏳ — the design's
+disposition table previously listed it under "Implemented — `RETRY`" with no task behind it, which
+is the one shape a checklist cannot render.
 
 ## Global Constraints
 
@@ -113,11 +126,11 @@ document's prose, because two of `6a`'s decisions (`R1`, `R2`) turn on the liter
 3. **`Dexpace::Retryability.retryable_status?`** (`gems/dexpace-core/lib/dexpace/retryability.rb`,
    5a's Task 4) is `[408, 429].include?(code) || (code.between?(500, 599) && ![501, 505].include?(code))`
    or equivalent — the exact set `RETRY-1` names, confirmed against 5a's own test fixture rather than
-   re-derived, so `ProtocolError#retryable?` (Task 6 below) computes from it verbatim.
+   re-derived, so `ProtocolError#retryable_by_status?` (Task 6 below) computes from it verbatim.
 4. **`Dexpace::Method::IDEMPOTENT`** (`gems/dexpace-core/lib/dexpace/http/method.rb`, phase 1's) is
    `{GET, HEAD, OPTIONS, PUT, DELETE}` exposed as `#idempotent?`; `Dexpace::Body#replayable?`
    (`gems/dexpace-core/lib/dexpace/http/body.rb`, phase 3b's) defaults to `false`. `Resend.eligible?`
-   (Task 4 below) reads both and defines neither.
+   (Task 5 below) reads both and defines neither.
 5. **`Dexpace::Recovery::Orchestrator.build(transport:, request_chain:, response_chain:)`**
    (`gems/dexpace-core/lib/dexpace/recovery/orchestrator.rb`, phase 4b's) is confirmed to accept any
    object answering phase 2's `Dexpace::Transport` duck type as `transport:`, with no type check
@@ -150,8 +163,8 @@ The design's four open questions are resolved below with a concrete decision eac
    failure). Task 9 ships it beside `RetryStep`.
 2. **Where `Policy`'s per-form pacing parsers live.** *Decision:* a `private_constant` sibling
    module, `Dexpace::Resilience::PacingParsers`, mirroring 5a's `Dexpace::ConfigParsers` exactly —
-   `Policy`'s own public surface stays the eight methods the design names, and the parsing internals
-   (`parse_retry_after`, `parse_millis`, `parse_epoch_reset`) carry no `NFR-4` lock. Task 3 builds
+   `Policy`'s own public surface stays the seven methods the design names, and the parsing internals
+   (`parse_retry_after`, `parse_millis`, `parse_epoch_reset`) carry no `NFR-4` lock. Task 4 builds
    it.
 3. **The fake transport double's shape.** *Decision:* `Dexpace::Resilience::Test::FakeTransport` (a
    plain Ruby class, not a `Data`, because it is genuinely mutable — it holds a script and a call
@@ -181,13 +194,14 @@ before Task 9 (`RetryStep`), Task 10 (`AsyncRetryStep`) or Task 11 (`RecoveryRet
 2. `Dexpace::HTTPDate`'s day-tolerance widening (`RETRY-15`, `R1`) — modifies 5a's file; standalone.
 3. `Dexpace::Resilience::Policy` — constants, the backoff calculator, the retryability classifier
    consult (`RETRY-1`, `RETRY-2`, `RETRY-9`–`RETRY-14`, `RETRY-37`, `RETRY-41`, `RECOV-21`, `RECOV-28`,
-   `RECOV-30`) — standalone.
+   `RECOV-30`, and `CFG-35`'s throwable half) — standalone.
 4. `Dexpace::Resilience::Policy`'s pacing parser (`RETRY-15`–`RETRY-22`, `RECOV-22`–`RECOV-26`,
    `RECOV-29`) — needs Task 2's widened `HTTPDate.parse`.
 5. `Dexpace::Resilience::Resend` (`RETRY-5`–`RETRY-8`, `RECOV-18`) — standalone.
-6. `Dexpace::ProtocolError#retryable?` (`XCUT-5`'s baked flag, phase 4b's deferral) — standalone, needs 5a's `Retryability`
-   only.
-7. `Dexpace::Resilience::RetrySettings` (`RECOV-34`) — needs Task 3's constants.
+6. `Dexpace::ProtocolError#retryable_by_status?` (`RETRY-3`; `XCUT-5`'s baked flag, phase 4b's
+   deferral) — standalone, needs 5a's `Retryability` only.
+7. `Dexpace::Resilience::RetrySettings` (`RECOV-34`, `RETRY-12`'s `Keys::MAX_RETRY_ATTEMPTS` read) —
+   needs Task 3's constants.
 8. The `Cursor` context-bundle widening — `Cursor#bundle`, `Pipeline#call`'s and `AsyncPipeline#call`'s
    `bundle:` keyword, 5b's `bundle_for`'s first clause — standalone; independent of every other task
    in this plan (`R3`'s finding: `6a`'s own emission task does not consume it).
@@ -200,7 +214,7 @@ before Task 9 (`RetryStep`), Task 10 (`AsyncRetryStep`) or Task 11 (`RecoveryRet
     helpers (`eligible?`, `resolve_delay`, extracted to a shared `private_constant` mixin in this
     task) and 5a's `Async.delay`.
 11. `Dexpace::Resilience::RecoveryRetry`, the recovery-stack engine (`RECOV-17`, `RECOV-19`,
-    `RECOV-20`, `RECOV-27`–`RECOV-29`, `RETRY-27`, `RETRY-28`, `RETRY-36`) — needs Tasks 3, 4, 5, 6,
+    `RECOV-20`, `RECOV-27`–`RECOV-29`, `RETRY-27`, `RETRY-28`, `RETRY-34`, `RETRY-36`) — needs Tasks 3, 4, 5, 6,
     and phase 4b's `Recovery::Orchestrator`/`Recovery.buffer_error_body`/`ProtocolError.for_or_nil`.
 12. The `RETRY-14` convergence test, spanning Tasks 9 and 11 — needs both to exist.
 13. Final wiring: the require additions to `lib/dexpace.rb`, the surface snapshot regeneration, the
@@ -419,8 +433,11 @@ ships — `Dexpace::Resilience::Policy`".
 - Test: `gems/dexpace-core/test/dexpace/resilience/policy_test.rb`
 
 **Needs:** `Dexpace.each_cause` (4b's), `Dexpace::ProtocolError` (4b's, no `#retryable?` yet — that's
-Task 6, and this task's `.retryable?` calls `error.status.code`, never `error.retryable?`).
-**Produces:** `Policy::DEFAULT_*` constants; `.status_retryable?`, `.throwable_retryable?`,
+Task 6, and this task's `.retryable?` dispatcher calls `error.status.code`, never the error's own
+baked predicate -- `ProtocolError` answers `#retryable_by_status?`, deliberately NOT the generic
+`#retryable?` `XCUT-6`'s capability query looks for, so a `ProtocolError` anywhere in a cause chain
+can never smuggle the baked set past `RETRY-37`'s authoritative configured set (`P6-10`)).
+**Produces:** `Policy::DEFAULT_*` constants; `.retry_eligible?`, `.throwable_retryable?`,
 `.retryable?`, `.backoff_delay`, `.effective_max_retries`, `.budget_remaining`.
 
 - [ ] **Step 1: Write the failing test**
@@ -433,26 +450,39 @@ require_relative "../../test_helper"
 require "dexpace"
 
 class DexpaceResiliencePolicyTest < DexpaceTestCase
-  test "RETRY-1/XCUT-7: status_retryable? consults only the given set, never a baked flag" do
-    refute(Dexpace::Resilience::Policy.status_retryable?(418, retryable_statuses: ::Set[418]).!)
-    assert(Dexpace::Resilience::Policy.status_retryable?(418, retryable_statuses: ::Set[418]))
-    refute(Dexpace::Resilience::Policy.status_retryable?(500, retryable_statuses: ::Set[418]))
+  test "RETRY-1/XCUT-7: retry_eligible? consults only the given set, never a baked flag" do
+    assert(Dexpace::Resilience::Policy.retry_eligible?(418, set: ::Set[418]))
+    refute(Dexpace::Resilience::Policy.retry_eligible?(500, set: ::Set[418]))
+    # RETRY-37 narrows as well as widens: 500 is in Retryability's baked set and still refused here.
+    assert(Dexpace::Retryability.retryable_status?(500))
   end
 
-  test "RETRY-2: throwable_retryable? walks the cause chain via the capability, cycle-safe" do
+  test "RETRY-2: throwable_retryable? walks the cause chain via the capability" do
+    # Exception#cause is set by the interpreter at the raise site and CANNOT be assigned through an
+    # ivar (verified on 3.4.10: `e.instance_variable_set(:@__cause__, x); e.cause` is still nil), so
+    # every cause chain in this suite is built by actually raising.
     retryable_class = Class.new(StandardError) { def retryable? = true }
-    plain = StandardError.new("no capability")
-    wrapped = StandardError.new("wrapper")
-    wrapped.instance_variable_set(:@__cause__, retryable_class.new("inner"))
+    wrapped =
+      begin
+        begin
+          raise retryable_class, "inner"
+        rescue retryable_class
+          raise StandardError, "wrapper"
+        end
+      rescue StandardError => e
+        e
+      end
+    assert_kind_of(retryable_class, wrapped.cause) # the fixture itself is load-bearing
     assert(Dexpace::Resilience::Policy.throwable_retryable?(wrapped))
-    refute(Dexpace::Resilience::Policy.throwable_retryable?(plain))
+    refute(Dexpace::Resilience::Policy.throwable_retryable?(StandardError.new("no capability")))
   end
 
   test "RETRY-2: throwable_retryable? terminates on a cyclic cause chain" do
-    a = StandardError.new("a")
-    b = StandardError.new("b")
-    a.instance_variable_set(:@__cause__, b)
-    b.instance_variable_set(:@__cause__, a)
+    # 4b's own each_cause suite builds its cycle the only way Ruby permits -- `raise e, cause: e2`
+    # with a pair already linked the other way -- and this test reuses that exact fixture helper
+    # (test/support/cyclic_cause.rb, 4b's) rather than inventing a second mechanism. Task 1 Step 2
+    # confirms the helper's name against 4b's shipped suite before this test is written.
+    a, _b = cyclic_cause_pair
     refute(Dexpace::Resilience::Policy.throwable_retryable?(a)) # must return, not loop forever
   end
 
@@ -461,6 +491,36 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
     error = Dexpace::ProtocolError.for(response)
     assert(Dexpace::Resilience::Policy.retryable?(error, retryable_statuses: ::Set[418]))
     refute(Dexpace::Resilience::Policy.retryable?(error, retryable_statuses: ::Set[500]))
+  end
+
+  test "RETRY-37/P6-10: a ProtocolError buried in a cause chain cannot answer the capability query" do
+    # The baked flag is #retryable_by_status?, not #retryable?, precisely so this cannot happen:
+    # a 503 ProtocolError wrapped in a generic error must NOT be classified retryable through
+    # XCUT-6's capability branch, bypassing a configured set that narrows 503 away.
+    protocol = Dexpace::ProtocolError.for(fake_response(status: 503))
+    assert(protocol.retryable_by_status?)
+    refute_respond_to(protocol, :retryable?)
+    wrapped =
+      begin
+        begin
+          raise protocol
+        rescue Dexpace::ProtocolError
+          raise Dexpace::PipelineError, "downstream"
+        end
+      rescue Dexpace::PipelineError => e
+        e
+      end
+    refute(Dexpace::Resilience::Policy.throwable_retryable?(wrapped))
+  end
+
+  test "RETRY-41: a negative configured value is clamped AND the clamp is logged" do
+    sink = RecordingLogSink.new
+    assert_equal(
+      Dexpace::Resilience::Policy::DEFAULT_MAX_RETRIES,
+      Dexpace::Resilience::Policy.effective_max_retries(override: nil, configured: -1, log: sink),
+    )
+    assert_equal(1, sink.events.size)
+    assert_match(/clamp/i, sink.events.first.message)
   end
 
   test "RETRY-9/RETRY-11: backoff_delay is the unjittered formula, clamped and overflow-safe" do
@@ -552,8 +612,8 @@ module Dexpace
 
       # RETRY-37/XCUT-7: the configured retryable-status set is consulted alone -- never AND-ed
       # with XCUT-5's baked classifier. No baked-flag parameter exists on this method by design.
-      def status_retryable?(status, retryable_statuses:)
-        retryable_statuses.include?(status)
+      def retry_eligible?(status, set:)
+        set.include?(status)
       end
 
       # RETRY-2/XCUT-6: the retryable-throwable set, defined once, as a capability query walked
@@ -568,7 +628,7 @@ module Dexpace
       # is the capability query (RETRY-2).
       def retryable?(error, retryable_statuses:)
         if error.is_a?(Dexpace::ProtocolError)
-          status_retryable?(error.status.code, retryable_statuses: retryable_statuses)
+          retry_eligible?(error.status.code, set: retryable_statuses)
         else
           throwable_retryable?(error)
         end
@@ -591,12 +651,16 @@ module Dexpace
       end
 
       # RETRY-41: present-override-wins (validated non-negative), else configured, negative
-      # configured clamped to the default, zero meaning "no retries" (both stacks' own default is
-      # this same clamp -- there is no second resolution rule).
-      def effective_max_retries(override:, configured:)
+      # configured clamped to the default AND the clamp logged, zero meaning "no retries" (both
+      # stacks' own default is this same clamp -- there is no second resolution rule). `log:` is a
+      # duck-typed sink (5b's logger facade or anything answering #warn); core never requires
+      # `logger` (CLAUDE.md's bundled-gem rule) and the default is the no-op sink, so the clause
+      # RETRY-41 states in parentheses is implemented rather than silently dropped.
+      def effective_max_retries(override:, configured:, log: Dexpace::Instrumentation::NO_LOG)
         return override if override && override >= 0
         return configured if configured >= 0
 
+        log.warn("max_retries #{configured} is negative; clamped to #{DEFAULT_MAX_RETRIES} (RETRY-41)")
         DEFAULT_MAX_RETRIES
       end
 
@@ -626,12 +690,12 @@ module Dexpace
       MAX_PACING_DELAY_SECONDS: Integer
       MAX_DURATION_NANOSECONDS: Integer
 
-      def self.status_retryable?: (Integer status, retryable_statuses: ::Set[Integer]) -> bool
+      def self.retry_eligible?: (Integer status, set: ::Set[Integer]) -> bool
       def self.throwable_retryable?: (Exception error) -> bool
       def self.retryable?: (Exception error, retryable_statuses: ::Set[Integer]) -> bool
       def self.backoff_delay: (Integer attempt, initial_delay: Float, multiplier: Float, max_delay: Float, jitter: Float, random: Random) -> Float
-      def self.effective_max_retries: (override: Integer?, configured: Integer) -> Integer
-      def self.budget_remaining: (elapsed: Float, total_timeout: Float) -> Float
+      def self.effective_max_retries: (override: Integer?, configured: Integer, ?log: untyped) -> Integer
+      def self.budget_remaining: (elapsed: Float | Integer, total_timeout: Float | Integer) -> Float
     end
   end
 end
@@ -645,7 +709,11 @@ Add `require_relative "dexpace/resilience/policy"` to `gems/dexpace-core/lib/dex
 - [ ] **Step 6: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/resilience/policy_test.rb`
-Expected: PASS, 10 runs, 0 failures, 0 errors.
+Expected: PASS, 12 runs, 0 failures, 0 errors.
+
+(`RecordingLogSink` is 5b's own test double and `NO_LOG` is 5b's no-op sink; Task 1 Step 2 confirms
+both names against 5b's shipped suite. `cyclic_cause_pair` is 4b's `each_cause` fixture helper,
+likewise confirmed there and reused rather than rebuilt.)
 
 ---
 
@@ -658,6 +726,9 @@ questions, resolved" §2.
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/resilience/pacing_parsers.rb` (`private_constant`)
 - Modify: `gems/dexpace-core/lib/dexpace/resilience/policy.rb` (adds `.pacing_delay`)
+- Modify: `gems/dexpace-core/sig/dexpace/resilience/policy.rbs` (adds `.pacing_delay`'s signature —
+  a public method with no `sig/` line is not public under `CLAUDE.md`'s definition and would break
+  the `NFR-4` RBS diff)
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
 - Test: `gems/dexpace-core/test/dexpace/resilience/policy_test.rb` (extends Task 3's file)
 
@@ -804,6 +875,11 @@ end
 
 - [ ] **Step 4: Add `.pacing_delay` to `policy.rb`**
 
+**`module_function` does not survive a module reopening** — verified on 3.4.10: defining `b` in a
+second `module P` body after a first body called `module_function` leaves `P.b` a `NoMethodError`.
+So `.pacing_delay` is written with an explicit `def self.` (the form that cannot silently regress),
+and the `module_function` directive in Task 3's body is left exactly as it is.
+
 ```ruby
 require_relative "pacing_parsers"
 
@@ -812,7 +888,8 @@ module Dexpace
     module Policy
       # RETRY-15-RETRY-22/RECOV-22-RECOV-26/RECOV-29: total dispatch over header_order (the
       # recovery stack's fixed precedence, or the stage stack's caller-configurable list).
-      def pacing_delay(headers, header_order:, now: ::Time.now, random: ::Random.new)
+      # `def self.` and not a bare `def`: module_function is scoped to the body that declares it.
+      def self.pacing_delay(headers, header_order:, now: ::Time.now, random: ::Random.new)
         header_order.each do |name|
           value = headers[name]&.first
           next if value.nil?
@@ -838,10 +915,18 @@ module Dexpace
 end
 ```
 
-- [ ] **Step 5: Add require to `lib/dexpace.rb`; run test to confirm it passes**
+- [ ] **Step 5: Add `.pacing_delay` to `sig/dexpace/resilience/policy.rbs`**
+
+```rbs
+      def self.pacing_delay: (
+        Dexpace::Headers headers, header_order: ::Array[String], ?now: ::Time, ?random: ::Random
+      ) -> Float?
+```
+
+- [ ] **Step 6: Add require to `lib/dexpace.rb`; run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/resilience/policy_test.rb`
-Expected: PASS, 20 runs total (Task 3's 10 plus this task's 10), 0 failures, 0 errors.
+Expected: PASS, 22 runs total (Task 3's 12 plus this task's 10), 0 failures, 0 errors.
 
 ---
 
@@ -858,6 +943,17 @@ Expected: PASS, 20 runs total (Task 3's 10 plus this task's 10), 0 failures, 0 e
 
 **Needs:** phase 1's `Dexpace::Method::IDEMPOTENT`/`#idempotent?`; phase 3b's `Dexpace::Body#replayable?`.
 **Produces:** `Resend.eligible?(request)`.
+
+**Ownership, stated once because two sub-phases were writing the same constant.** **`6a` owns
+`Dexpace::Resilience::Resend.eligible?` and it carries `RETRY-7`'s semantics** — a body-less request
+is re-sendable *only* when its method is idempotent, so a bare non-idempotent POST is **not**
+eligible. `6b` no longer defines `eligible?`: it defines `Dexpace::Resilience::NotReplayableError`
+and its own distinct `Resend.replayable_body?(request)` (`REDIR-6`'s question, which is about the
+body alone and deliberately says nothing about the method), in the same file. **This task creates
+`resend.rb` unconditionally and runs whether or not `6b` has landed** — it has no "no-op if the file
+EXISTS" skip, because such a skip in either direction leaves one of the two predicates or
+`NotReplayableError` undefined. If the file already exists because `6b` landed first, this task
+*adds* `eligible?` beside `6b`'s two constants and deletes nothing.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -937,11 +1033,14 @@ Expected: PASS, 4 runs, 0 failures, 0 errors.
 
 ---
 
-## Task 6: `Dexpace::ProtocolError#retryable?`
+## Task 6: `Dexpace::ProtocolError#retryable_by_status?`
 
-**Requirement IDs:** none new (`XCUT-5`'s baked flag, which phase 4b postponed to this phase).
+**Requirement IDs:** `RETRY-3` (MUST — "An exception that carries a received HTTP response MUST
+derive its own retryable flag from the single status classifier (`RETRY-1`) at construction time,
+not from a hardcoded per-subclass constant"); also `XCUT-5`'s baked flag, which phase 4b postponed to
+this phase. `RETRY-3` was previously named by no task in this plan and is this task's, alone.
 **Design:** "`CFG-35`'s throwable half: picked up and closed here" (adjacent), "The object model `6a` ships —
-`Dexpace::ProtocolError#retryable?`".
+`Dexpace::ProtocolError#retryable_by_status?`".
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace/error/protocol_error.rb`
@@ -949,22 +1048,31 @@ Expected: PASS, 4 runs, 0 failures, 0 errors.
 - Modify: `gems/dexpace-core/test/dexpace/error/protocol_error_test.rb` (4b's file, extended)
 
 **Needs:** 5a's `Dexpace::Retryability.retryable_status?`.
-**Produces:** `ProtocolError#retryable?`.
+**Produces:** `ProtocolError#retryable_by_status?`.
 
 - [ ] **Step 1: Write the failing test, appended to 4b's file**
 
 ```ruby
 class DexpaceProtocolErrorRetryableTest < DexpaceTestCase
-  test "XCUT-5: retryable? is computed once at construction from Dexpace::Retryability" do
+  test "RETRY-3/XCUT-5: retryable_by_status? is computed at construction from Dexpace::Retryability" do
     response = fake_response(status: 503)
     error = Dexpace::ProtocolError.for(response)
-    assert(error.retryable?)
-    assert_equal(Dexpace::Retryability.retryable_status?(503), error.retryable?)
+    assert(error.retryable_by_status?)
+    assert_equal(Dexpace::Retryability.retryable_status?(503), error.retryable_by_status?)
   end
 
-  test "XCUT-5: retryable? agrees with Dexpace::Retryability for a non-retryable status" do
+  test "RETRY-3/XCUT-5: retryable_by_status? agrees with Retryability for a non-retryable status" do
     error = Dexpace::ProtocolError.for(fake_response(status: 501))
-    refute(error.retryable?)
+    refute(error.retryable_by_status?)
+  end
+
+  test "P6-10: ProtocolError does NOT answer XCUT-6's generic #retryable? capability" do
+    refute_respond_to(Dexpace::ProtocolError.for(fake_response(status: 503)), :retryable?)
+  end
+
+  test "NFR-4: the constructor keeps 4b's single positional parameter" do
+    assert_equal(1, Dexpace::ProtocolError.instance_method(:initialize).arity)
+    assert_instance_of(Dexpace::ProtocolError, Dexpace::ProtocolError.for(fake_response(status: 503)))
   end
 end
 ```
@@ -972,42 +1080,59 @@ end
 - [ ] **Step 2: Run test to confirm it fails**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/error/protocol_error_test.rb`
-Expected: fails with `NoMethodError: undefined method 'retryable?'`.
+Expected: fails with `NoMethodError: undefined method 'retryable_by_status?'`.
 
-- [ ] **Step 3: Add `#retryable?` to `protocol_error.rb`**
+- [ ] **Step 3: Add `#retryable_by_status?` to `protocol_error.rb`**
+
+4b ships **one positional** parameter and no `Model.required!` call — `ProtocolError < ::StandardError`
+is not a `Data` model, and `.for`/`.for_or_nil` both call `new(response)`. This task keeps that
+signature exactly: turning it into keywords would narrow a published signature (`NFR-4`) and break
+both factories. 4b's shipped body, with the two added lines marked:
 
 ```ruby
-def initialize(response:, status:)
-  # ... existing Model.required! calls unchanged ...
-  @retryable = Dexpace::Retryability.retryable_status?(status.code)
-  super
+def initialize(response)
+  @response = response
+  @status = response.status
+  # RETRY-3/XCUT-5: the baked flag, computed once at construction from the SINGLE shared status
+  # classifier (5a's), never a per-subclass constant. Deliberately NOT named #retryable?: that is
+  # XCUT-6's open capability, and a ProtocolError answering it would let the baked set override the
+  # configured set RETRY-37 makes authoritative whenever the error is wrapped (P6-10).
+  @retryable_by_status = Dexpace::Retryability.retryable_status?(@status.code)
+  canonical = status.canonical_name
+  msg = canonical ? "HTTP #{status.code} #{canonical}" : "HTTP #{status.code}"
+  super(msg)
 end
 
-def retryable?
-  @retryable
+def retryable_by_status?
+  @retryable_by_status
 end
 ```
 
-(exact insertion point confirmed against 4b's shipped `initialize` on this task's first step, since
-this plan does not re-derive 4b's constructor body from scratch.)
+`protocol_error.rb` gains `require_relative "../retryability"`. 4b's own file carries a NOTE saying
+no test pins the **absence** of the predicate, so no 4b assertion has to be deleted for this to land
+and the Step 4 expectation below holds as written.
 
 - [ ] **Step 4: Widen the `sig/` mirror; run to confirm it passes**
 
 ```rbs
-def retryable?: () -> bool
+def retryable_by_status?: () -> bool
 ```
 
-added to `sig/dexpace/error/protocol_error.rbs`'s existing class body.
+added to `sig/dexpace/error/protocol_error.rbs`'s existing class body. `def initialize:
+(Dexpace::Response response) -> void` is **unchanged** — this task widens and narrows nothing.
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/error/protocol_error_test.rb`
-Expected: PASS, all of 4b's existing runs plus this task's 2 new ones, 0 failures, 0 errors.
+Expected: PASS, all of 4b's existing runs plus this task's 4 new ones, 0 failures, 0 errors.
 
 ---
 
 ## Task 7: `Dexpace::Resilience::RetrySettings`
 
-**Requirement IDs:** `RECOV-34`.
-**Design:** "The object model `6a` ships — `Dexpace::Resilience::RetrySettings`".
+**Requirement IDs:** `RECOV-34`, `RETRY-12` (the five default values, *and* the wiring of 5a's
+`Configuration::Keys::MAX_RETRY_ATTEMPTS`, whose semantics `P6-6` fixes as the stage-vocabulary
+`max_retries`).
+**Design:** "The object model `6a` ships — `Dexpace::Resilience::RetrySettings`",
+"`Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS` — `RETRY-12`'s values, 5a's name".
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/resilience/retry_settings.rb`
@@ -1015,8 +1140,12 @@ Expected: PASS, all of 4b's existing runs plus this task's 2 new ones, 0 failure
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
 - Test: `gems/dexpace-core/test/dexpace/resilience/retry_settings_test.rb`
 
-**Needs:** Task 3's `Policy` constants; `Dexpace::Model`, `Dexpace::Clock::SYSTEM` (5a's).
-**Produces:** `RetrySettings.build`.
+**Needs:** Task 3's `Policy` constants; `Dexpace::Model`, `Dexpace::Clock::SYSTEM`,
+`Dexpace.configuration`, `Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS` (all 5a's).
+**Produces:** `RetrySettings.build`, and the **first reader** of `Keys::MAX_RETRY_ATTEMPTS` — 5a
+shipped the key name with nothing consulting its value, and without this task `RETRY-12`'s configured
+budget stays unreachable and a generated client cannot set its retry count from configuration at
+all.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1045,6 +1174,25 @@ class DexpaceResilienceRetrySettingsTest < DexpaceTestCase
 
   test "RECOV-34: rejects a jitter outside [0.0, 1.0]" do
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Resilience::RetrySettings.build(jitter: 1.5) }
+  end
+
+  test "RETRY-12/P6-6: max_retries defaults through Keys::MAX_RETRY_ATTEMPTS when not passed" do
+    with_configuration(Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS => "7") do
+      assert_equal(7, Dexpace::Resilience::RetrySettings.build.max_retries)
+    end
+  end
+
+  test "RETRY-12/P6-6: an explicit max_retries: wins over the configured key" do
+    with_configuration(Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS => "7") do
+      assert_equal(1, Dexpace::Resilience::RetrySettings.build(max_retries: 1).max_retries)
+    end
+  end
+
+  test "RETRY-12: with the key unset the default is Policy::DEFAULT_MAX_RETRIES" do
+    assert_equal(
+      Dexpace::Resilience::Policy::DEFAULT_MAX_RETRIES,
+      Dexpace::Resilience::RetrySettings.build.max_retries,
+    )
   end
 
   test "RECOV-34: retryable_statuses and pacing_header_order are defensively copied and frozen" do
@@ -1097,21 +1245,40 @@ module Dexpace
         raise Dexpace::InvalidArgumentError, "jitter must be within [0.0, 1.0]" unless jitter.between?(0.0, 1.0)
       end
 
+      # RETRY-12/P6-6: `max_retries:` defaults to the UNSET sentinel rather than to the constant, so
+      # "the caller did not pass one" is distinguishable from "the caller passed the default", which
+      # is what lets Keys::MAX_RETRY_ATTEMPTS be consulted without ever overriding an explicit
+      # argument. The key denotes the STAGE vocabulary (excluding the initial send); the recovery
+      # driver's max_attempts is always max_retries + 1, an arithmetic identity rather than a second
+      # configurable number (P6-6).
+      UNSET = ::Object.new.freeze
+      private_constant :UNSET
+
       def self.build(
         initial_delay: Policy::DEFAULT_INITIAL_DELAY,
         multiplier: Policy::DEFAULT_MULTIPLIER,
         max_delay: Policy::DEFAULT_MAX_DELAY,
         jitter: Policy::DEFAULT_JITTER,
-        max_retries: Policy::DEFAULT_MAX_RETRIES,
+        max_retries: UNSET,
         total_timeout: 0,
         retryable_statuses: Policy::DEFAULT_RETRYABLE_STATUSES,
         pacing_header_order: nil,
         random: ::Random.new,
         clock: Dexpace::Clock::SYSTEM
       )
+        resolved_max_retries =
+          if UNSET.equal?(max_retries)
+            Dexpace.configuration.integer(
+              Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS,
+              default: Policy::DEFAULT_MAX_RETRIES,
+            )
+          else
+            max_retries
+          end
+
         new(
           initial_delay: initial_delay, multiplier: multiplier, max_delay: max_delay, jitter: jitter,
-          max_retries: max_retries, total_timeout: total_timeout,
+          max_retries: resolved_max_retries, total_timeout: total_timeout,
           retryable_statuses: Model.own(retryable_statuses.to_set),
           pacing_header_order: pacing_header_order && Model.own(pacing_header_order.dup),
           random: random, clock: clock,
@@ -1128,8 +1295,13 @@ end
 
 - [ ] **Step 4: Write the `sig/` mirror, add the require, run to confirm it passes**
 
+(`with_configuration` is 5a's own test helper for seeding `Dexpace.configuration` and restoring it in
+an `ensure`; Task 1 Step 2 confirms its name against 5a's shipped suite. `Configuration#integer`'s
+exact spelling — `#integer(key, default:)` — is confirmed there in the same step, and this task
+follows whatever 5a shipped rather than the spelling assumed here.)
+
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/resilience/retry_settings_test.rb`
-Expected: PASS, 5 runs, 0 failures, 0 errors.
+Expected: PASS, 8 runs, 0 failures, 0 errors.
 
 ---
 
@@ -1284,9 +1456,9 @@ questions, resolved" §1.
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
 - Test: `gems/dexpace-core/test/dexpace/resilience/retry_step_test.rb`
 
-**Needs:** Tasks 3, 4, 5 (`Policy`, `Resend`); `Dexpace::Instrumentation::HTTPTracer::NULL` (5c's);
+**Needs:** Tasks 3, 4, 5 (`Policy`, `Resend`); `Dexpace::Instrumentation::NULL` (5c's);
 4c's `Cursor`, `Stages::RETRY`, `Dexpace::PipelineError`; `ForkingProbe`/`StateProbe` (4c's).
-**Produces:** `RetryStep.build`, `#call`, `#stage`; `Dexpace::RetryPredicateError`.
+**Produces:** `RetryStep.build`, `#call`, `#stage`; `Dexpace::Resilience::RetryPredicateError`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1348,17 +1520,141 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
     assert_equal(2, probe.fork_count)
   end
 
-  test "RETRY-34: a terminal failure's suppressed trail carries every prior attempt's error" do
-    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
+  test "RETRY-34: the terminal raise carries every prior attempt's error as suppressed" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 2, initial_delay: 0.0, jitter: 0.0)
     step = Dexpace::Resilience::RetryStep.build(settings: settings)
-    r1 = fake_response(status: 503)
-    r2 = fake_response(status: 503)
-    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [r1, r2])
+    e1 = Dexpace::StreamError.new("one", retryable: true)
+    e2 = Dexpace::StreamError.new("two", retryable: true)
+    e3 = Dexpace::StreamError.new("three", retryable: true)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(raises: [e1, e2, e3])
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    surfaced = assert_raises(Dexpace::StreamError) { step.call(request, cursor) }
+
+    assert_same(e3, surfaced)                              # the LAST error is the surfaced one
+    assert_equal([e1, e2], Dexpace.suppressed(surfaced))   # and it carries the whole prior trail
+    refute_includes(Dexpace.suppressed(surfaced), e3)      # RETRY-34's skip-self guard
+  end
+
+  test "RETRY-34: on eventual success the prior-attempt trail is discarded, not surfaced" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 2, initial_delay: 0.0, jitter: 0.0)
+    step = Dexpace::Resilience::RetryStep.build(settings: settings)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(
+      raises: [Dexpace::StreamError.new("one", retryable: true)], responses: [fake_response(status: 200)]
+    )
     request = fake_request(method: Dexpace::Method.of("GET"))
     cursor = fake_pillar_cursor(downstream: probe, request: request)
 
     response = step.call(request, cursor)
-    assert_equal(503, response.status.code) # the stage step returns the still-erroring response, never raises
+    assert_equal(200, response.status.code) # nothing is attached to a success; there is nothing to attach to
+  end
+
+  test "RETRY-34: a terminal error status is returned, never raised, and the trail is dropped" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
+    step = Dexpace::Resilience::RetryStep.build(settings: settings)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(
+      responses: [fake_response(status: 503), fake_response(status: 503)]
+    )
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    response = step.call(request, cursor)
+    assert_equal(503, response.status.code) # the stage step returns the still-erroring response
+  end
+
+  test "RETRY-35: a throwing should_retry predicate still closes the open response first" do
+    step = Dexpace::Resilience::RetryStep.build(should_retry: ->(*) { raise "boom" })
+    open_response = fake_response(status: 503)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [open_response])
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    assert_raises(Dexpace::Resilience::RetryPredicateError) { step.call(request, cursor) }
+    assert(open_response.closed?) # RETRY-35's third ordering, the one a naive step drops
+  end
+
+  test "RETRY-35: a throwing delay computation still closes the open response first" do
+    open_response = fake_response(status: 503)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [open_response])
+    step = Dexpace::Resilience::RetryStep.build(
+      settings: Dexpace::Resilience::RetrySettings.build(max_retries: 1),
+      delay_override: ->(*) { raise ::NotImplementedError, "fatal-shaped" },
+    )
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    assert_raises(::NotImplementedError) { step.call(request, cursor) }
+    assert(open_response.closed?)
+  end
+
+  test "RETRY-8: a should_retry predicate cannot override the re-sendability gate" do
+    # RETRY-7: a bare non-idempotent POST is not re-sendable even when the condition is retryable
+    # and even though there is no payload to resend. A caller predicate returning true must not
+    # reach the wire a second time.
+    step = Dexpace::Resilience::RetryStep.build(
+      settings: Dexpace::Resilience::RetrySettings.build(max_retries: 5, initial_delay: 0.0),
+      should_retry: ->(*) { true },
+    )
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(
+      responses: [fake_response(status: 503), fake_response(status: 200)]
+    )
+    request = fake_request(method: Dexpace::Method.of("POST"), body: nil)
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    response = step.call(request, cursor)
+    assert_equal(1, probe.fork_count)
+    assert_equal(503, response.status.code)
+  end
+
+  test "RETRY-20: a pacing hint replaces the exponential schedule and gains no extra jitter" do
+    clock = FakeClock.new
+    settings = Dexpace::Resilience::RetrySettings.build(
+      initial_delay: 30.0, max_delay: 30.0, jitter: 0.5, max_retries: 1
+    ).with(clock: clock)
+    step = Dexpace::Resilience::RetryStep.build(settings: settings)
+    hinted = fake_response(status: 503, headers: { "Retry-After" => "2" })
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [hinted, fake_response(status: 200)])
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    step.call(request, cursor)
+
+    # replaces (not 30.0, the exponential value) and is verbatim (not jittered into [1.5, 2.5]);
+    # RETRY-20's stage-stack half: no deadline, so the hint is returned exactly as parsed.
+    assert_equal([2.0], clock.sleeps)
+  end
+
+  test "RETRY-23: cancellation during the inter-attempt wait is never retried, and aborts the loop" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 5, initial_delay: 0.0)
+    step = Dexpace::Resilience::RetryStep.build(settings: settings)
+    source = Cancellation.source
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(
+      responses: [fake_response(status: 503)],
+      before_each_call: ->(n) { source.cancel(:test) if n == 1 },
+    )
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request, cancellation: source.token)
+
+    error = assert_raises(Dexpace::CancelledError) { step.call(request, cursor) }
+    assert_equal(1, probe.fork_count) # no attempt launched after the cancellation
+    refute(Dexpace::Resilience::Policy.throwable_retryable?(error)) # never a retryable condition
+  end
+
+  test "RETRY-24: a read timeout that is an IOError subtype is retried, not read as cancellation" do
+    # RETRY-24's Ruby shape: Dexpace::StreamError < ::IOError is in the same family a cancellation
+    # would be mistaken for; it answers #retryable? and MUST flow through normal classification.
+    timeout_like = Dexpace::StreamError.new("read timeout", retryable: true)
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
+    step = Dexpace::Resilience::RetryStep.build(settings: settings)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(
+      raises: [timeout_like], responses: [fake_response(status: 200)]
+    )
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_pillar_cursor(downstream: probe, request: request)
+
+    assert_equal(200, step.call(request, cursor).status.code)
+    assert_equal(2, probe.fork_count)
   end
 
   test "RETRY-39: the exception path skips the pacing-header step" do
@@ -1374,13 +1670,13 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
     assert_equal(200, response.status.code)
   end
 
-  test "RETRY-40: a throwing should_retry predicate aborts as Dexpace::RetryPredicateError" do
+  test "RETRY-40: a throwing should_retry predicate aborts as Dexpace::Resilience::RetryPredicateError" do
     step = Dexpace::Resilience::RetryStep.build(should_retry: ->(*) { raise "boom" })
     probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [fake_response(status: 503)])
     request = fake_request(method: Dexpace::Method.of("GET"))
     cursor = fake_pillar_cursor(downstream: probe, request: request)
 
-    error = assert_raises(Dexpace::RetryPredicateError) { step.call(request, cursor) }
+    error = assert_raises(Dexpace::Resilience::RetryPredicateError) { step.call(request, cursor) }
     assert_kind_of(RuntimeError, error.cause)
   end
 
@@ -1425,7 +1721,10 @@ end
 
 (`fake_pillar_cursor`, `ForkingProbe` and `FakeClock` are 4c's and 5a's respective doubles, reused
 per this plan's Global Constraints; `fake_response`/`fake_request`/`fake_headers`/`fake_body` are
-existing repository-wide test helpers, extended if a keyword this task needs is missing.)
+existing repository-wide test helpers, extended if a keyword this task needs is missing.
+`ForkingProbe` gains `raises:`, `before_each_call:` and a `#closed?`-answering fake response, and
+`FakeClock` gains `#sleeps`, in this task's first step — each confirmed against the shipped double
+before the test is written, and added there rather than duplicated here.)
 
 - [ ] **Step 2: Run test to confirm it fails**
 
@@ -1470,18 +1769,20 @@ module Dexpace
     class RetryStep
       def self.build(
         settings: RetrySettings.build,
-        http_tracer_factory: ->(_cursor) { Dexpace::Instrumentation::HTTPTracer::NULL },
+        http_tracer_factory: ->(_cursor) { Dexpace::Instrumentation::NULL },
         delay_override: nil,
-        should_retry: nil
+        should_retry: nil,
+        log: Dexpace::Instrumentation::NO_LOG
       )
-        new(settings, http_tracer_factory, delay_override, should_retry)
+        new(settings, http_tracer_factory, delay_override, should_retry, log)
       end
 
-      def initialize(settings, http_tracer_factory, delay_override, should_retry)
+      def initialize(settings, http_tracer_factory, delay_override, should_retry, log)
         @settings = settings
         @http_tracer_factory = http_tracer_factory
         @delay_override = delay_override
         @should_retry = should_retry
+        @log = log # RETRY-41's clamp log only; duck-typed, core never requires `logger`
       end
 
       def stage
@@ -1490,10 +1791,12 @@ module Dexpace
 
       def call(request, cursor)
         tracer = @http_tracer_factory.call(cursor)
-        max_retries = Policy.effective_max_retries(override: cursor.options.max_retries, configured: @settings.max_retries)
+        max_retries = Policy.effective_max_retries(
+          override: cursor.options.max_retries, configured: @settings.max_retries, log: @log
+        )
 
         attempt = 1
-        suppressed = nil
+        trail = [] # RETRY-34: every prior failed attempt, surfaced on the terminal path
 
         loop do
           tracer.attempt_started(cursor, attempt)
@@ -1502,24 +1805,59 @@ module Dexpace
           begin
             response = fork.call(cursor.request)
           rescue ::StandardError => e
-            raise unless attempt <= max_retries && eligible?(e, request)
+            # RETRY-34: the terminal path attaches the WHOLE trail to the surfaced instance before
+            # it propagates. Attaching only at the retry decision (the earlier shape) built a trail
+            # that was then discarded, because the error that is actually raised is the last one and
+            # nothing had been attached to it. attach_suppressed already skips self (4b's).
+            unless attempt <= max_retries && eligible?(e, request)
+              trail.each { |prior| Dexpace.attach_suppressed(e, prior) }
+              tracer.retries_exhausted(cursor, e)
+              raise
+            end
 
             delay = resolve_delay(attempt, nil, e)
             tracer.attempt_failed(cursor, e, delay)
-            Dexpace.attach_suppressed(e, suppressed) if suppressed
-            suppressed = e
+            trail << e
             @settings.clock.sleep(delay, cancellation: cursor.cancellation)
             attempt += 1
             next
           end
 
-          unless response.status.error? && attempt <= max_retries && eligible?(nil, request, response)
+          # RETRY-35: the retry decision and the delay computation both run while the response is
+          # still open, and BOTH are fenced so the response is closed before any throwable (a
+          # RetryPredicateError from a caller's should_retry, most concretely) propagates.
+          decided =
+            begin
+              response.status.error? && attempt <= max_retries && eligible?(nil, request, response)
+            rescue ::Exception # rubocop:disable Lint/RescueException -- close, then re-raise unchanged (RETRY-25)
+              response.close
+              raise
+            end
+
+          unless decided
+            # RETRY-34 bites on the path that surfaces a THROWABLE, which for this step is the
+            # rescue branch above. Here the step returns a response by contract (the pipeline maps
+            # an error status to an exception downstream, not here), so there is no surfaced
+            # exception to attach a trail to and the trail is discarded -- stated rather than
+            # silently dropped. `retries_exhausted` is emitted only when a retry actually happened
+            # and the budget is what stopped it, never for a first-attempt non-retryable status.
             tracer.retries_exhausted(cursor, nil) if attempt > 1 && response.status.error?
             return response
           end
 
-          delay = resolve_delay(attempt, response, nil)
-          tracer.attempt_failed(cursor, response, delay)
+          delay =
+            begin
+              resolve_delay(attempt, response, nil)
+            rescue ::Exception # rubocop:disable Lint/RescueException -- RETRY-35, then re-raise
+              response.close
+              raise
+            end
+          # OBS-28: #attempt_failed's second argument is an Exception, per _HTTPTracer. The
+          # response is converted once and the same instance goes into the trail, so a later
+          # terminal raise attaches exactly the object the tracer reported.
+          attempt_error = Dexpace::ProtocolError.for(response)
+          tracer.attempt_failed(cursor, attempt_error, delay)
+          trail << attempt_error
           response.close # RETRY-35: release before the wait
           @settings.clock.sleep(delay, cancellation: cursor.cancellation)
           attempt += 1
@@ -1529,17 +1867,22 @@ module Dexpace
       private
 
       def eligible?(error, request, response = nil)
+        # RETRY-8: the two gates are independent and NEITHER implies the other, so the
+        # re-sendability gate is checked FIRST and unconditionally. A caller's should_retry
+        # predicate widens or narrows the *condition* (RETRY-39/RETRY-40); it may not authorise
+        # re-sending a non-replayable body or a bare POST, which RETRY-7 forbids outright.
+        return false unless Resend.eligible?(request)
+
         classification_target = error || Dexpace::ProtocolError.for_or_nil(response)
         return false unless classification_target
 
-        base = Policy.retryable?(classification_target, retryable_statuses: @settings.retryable_statuses)
-        base &&= Resend.eligible?(request)
-        return base if @should_retry.nil?
+        return Policy.retryable?(classification_target, retryable_statuses: @settings.retryable_statuses) if
+          @should_retry.nil?
 
         begin
           @should_retry.call(classification_target, request)
         rescue ::StandardError => e
-          raise Dexpace::RetryPredicateError.new("the should_retry predicate raised"), cause: e
+          raise Dexpace::Resilience::RetryPredicateError.new("the should_retry predicate raised"), cause: e
         end
       end
 
@@ -1573,6 +1916,13 @@ end
 ```
 
 - [ ] **Step 5: Write `sig/dexpace/instrumentation/http_tracer.rbs` (`R3`)**
+
+`context` stays `untyped` **deliberately**: `OBS-28` fixes the vocabulary, not the correlation
+handle's type, and `6a` passes a `Cursor` from the two stage drivers and a `Request` from
+`RecoveryRetry`. Typing it to either would make the other a Steep error and would lock (`NFR-4`) a
+type no requirement names. The YARD block on `HTTPTracer` records exactly this. Every other position
+IS typed, and `error` is an `Exception` — which is why the drivers convert an error-status response
+with `ProtocolError.for` before reporting it rather than passing the `Response`.
 
 ```rbs
 module Dexpace
@@ -1738,13 +2088,50 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
     assert_equal(1, probe.fork_count) # no second attempt launched after cancellation
   end
 
-  test "RETRY-33: a throwing delay computation completes the future exceptionally" do
+  test "RETRY-33: a throwing should_retry predicate completes the future exceptionally" do
     settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
-    step = Dexpace::Resilience::AsyncRetryStep.build(
-      settings: settings, delay_override: ->(*) { raise "boom" }, should_retry: nil
-    )
-    # the fallback backoff computation itself is made to raise via a stubbed Policy call in this
-    # task's fixture, so the override's own non-fatal rescue is bypassed for this one test.
+    step = Dexpace::Resilience::AsyncRetryStep.build(settings: settings, should_retry: ->(*) { raise "boom" })
+    open_response = fake_response(status: 503)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [open_response], async: true)
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_async_pillar_cursor(downstream: probe, request: request)
+
+    future = step.call(request, cursor)
+
+    # the whole point: NOT a hang. Without the callback fence the raise escapes on_settle and the
+    # returned future is never settled, which is the one outcome RETRY-33 names.
+    assert_raises(Dexpace::Resilience::RetryPredicateError) { future.value }
+    assert(open_response.closed?) # RETRY-33: "any open retryable response MUST be closed"
+  end
+
+  test "RETRY-33: a throwing tracer call completes the future exceptionally rather than hanging" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
+    exploding = Object.new
+    def exploding.attempt_started(*) = raise("tracer blew up")
+    step = Dexpace::Resilience::AsyncRetryStep.build(settings: settings, http_tracer_factory: ->(_) { exploding })
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(responses: [fake_response(status: 200)], async: true)
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_async_pillar_cursor(downstream: probe, request: request)
+
+    future = step.call(request, cursor)
+    error = assert_raises(::RuntimeError) { future.value }
+    assert_equal("tracer blew up", error.message)
+  end
+
+  test "RETRY-34: the async terminal failure carries the whole prior trail as suppressed" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 2, initial_delay: 0.0, jitter: 0.0)
+    step = Dexpace::Resilience::AsyncRetryStep.build(settings: settings)
+    e1 = Dexpace::StreamError.new("one", retryable: true)
+    e2 = Dexpace::StreamError.new("two", retryable: true)
+    e3 = Dexpace::StreamError.new("three", retryable: true)
+    probe = Dexpace::Pipeline::Test::ForkingProbe.new(raises: [e1, e2, e3], async: true)
+    request = fake_request(method: Dexpace::Method.of("GET"))
+    cursor = fake_async_pillar_cursor(downstream: probe, request: request)
+
+    surfaced = assert_raises(Dexpace::StreamError) { step.call(request, cursor).value }
+    assert_same(e3, surfaced)
+    assert_equal([e1, e2], Dexpace.suppressed(surfaced)) # identical to the sync driver's assertion
+    refute_includes(Dexpace.suppressed(surfaced), e3)
   end
 end
 ```
@@ -1781,18 +2168,20 @@ module Dexpace
 
       def self.build(
         settings: RetrySettings.build,
-        http_tracer_factory: ->(_cursor) { Dexpace::Instrumentation::HTTPTracer::NULL },
+        http_tracer_factory: ->(_cursor) { Dexpace::Instrumentation::NULL },
         delay_override: nil,
-        should_retry: nil
+        should_retry: nil,
+        log: Dexpace::Instrumentation::NO_LOG
       )
-        new(settings, http_tracer_factory, delay_override, should_retry)
+        new(settings, http_tracer_factory, delay_override, should_retry, log)
       end
 
-      def initialize(settings, http_tracer_factory, delay_override, should_retry)
+      def initialize(settings, http_tracer_factory, delay_override, should_retry, log)
         @settings = settings
         @http_tracer_factory = http_tracer_factory
         @delay_override = delay_override
         @should_retry = should_retry
+        @log = log
       end
 
       def stage
@@ -1802,49 +2191,68 @@ module Dexpace
       def call(request, cursor)
         tracer = @http_tracer_factory.call(cursor)
         completer = Dexpace::Async::Completer.new
-        max_retries = Policy.effective_max_retries(override: cursor.options.max_retries, configured: @settings.max_retries)
-        suppressed = nil
+        max_retries = Policy.effective_max_retries(
+          override: cursor.options.max_retries, configured: @settings.max_retries, log: @log
+        )
+        trail = [] # RETRY-34
 
+        # RETRY-33: EVERY terminal path completes the future. The whole callback body is fenced, not
+        # only the delay computation -- a throwing should_retry predicate, a throwing tracer call, a
+        # throwing #close and a synchronous scheduler rejection all reach this rescue, and each
+        # closes any open response before completing the future exceptionally. Without the fence an
+        # exception raised inside on_settle escapes into whatever settled the downstream future and
+        # the returned future hangs forever, which is the one outcome RETRY-33 names by name.
         pump = lambda do |attempt|
-          tracer.attempt_started(cursor, attempt)
-          fork = cursor.fork
-          fork.call(cursor.request).on_settle do |settlement|
-            if completer.settled? # RETRY-32
-              Dexpace.close_quietly(settlement.response)
-              next
-            end
+          settle_guarded(completer) do
+            tracer.attempt_started(cursor, attempt)
+            fork = cursor.fork
+            fork.call(cursor.request).on_settle do |settlement|
+              response = settlement.response
+              settle_guarded(completer, response) do
+                if completer.settled? # RETRY-32
+                  Dexpace.close_quietly(response)
+                  next
+                end
 
-            response = settlement.response
-            error = settlement.error
-            retryable = attempt <= max_retries &&
-                        (error ? eligible?(error, request) : response.status.error? && eligible?(nil, request, response))
+                error = settlement.error
+                retryable = attempt <= max_retries &&
+                            (error ? eligible?(error, request) : response.status.error? && eligible?(nil, request, response))
 
-            unless retryable
-              response ? completer.fulfil(response) : completer.fail(error)
-              next
-            end
+                unless retryable
+                  if error
+                    # RETRY-34: the surfaced instance carries the whole prior trail.
+                    trail.each { |prior| Dexpace.attach_suppressed(error, prior) }
+                    tracer.retries_exhausted(cursor, error)
+                    completer.fail(error)
+                  else
+                    tracer.retries_exhausted(cursor, nil) if attempt > 1 && response.status.error?
+                    completer.fulfil(response)
+                  end
+                  next
+                end
 
-            begin
-              delay = resolve_delay(attempt, response, error)
-            rescue ::StandardError => e
-              response&.close
-              completer.fail(e) # RETRY-33
-              next
-            end
+                delay = resolve_delay(attempt, response, error)
 
-            tracer.attempt_failed(cursor, error || response, delay)
-            response&.close # RETRY-35
-            failure_for_trail = error || Dexpace::ProtocolError.for_or_nil(response)
-            Dexpace.attach_suppressed(failure_for_trail, suppressed) if suppressed && failure_for_trail
-            suppressed = failure_for_trail
+                # OBS-28: attempt_failed's second argument is an Exception, never a Response.
+                attempt_error = error || Dexpace::ProtocolError.for(response)
+                tracer.attempt_failed(cursor, attempt_error, delay)
+                response&.close # RETRY-35
+                trail << attempt_error
 
-            Dexpace::Async.delay(delay).on_settle do |delay_settlement|
-              if delay_settlement.error
-                completer.fail(delay_settlement.error) # R2: SeamError from a scheduler-less wait
-              elsif completer.settled? # RETRY-32
-                nil
-              else
-                pump.call(attempt + 1) # the re-arm: a plain call, from a fresh callback frame
+                Dexpace::Async.delay(delay).on_settle do |delay_settlement|
+                  settle_guarded(completer) do
+                    if delay_settlement.error
+                      # R2: a SeamError from a scheduler-less positive wait, RETRY-33's
+                      # "synchronous scheduler rejection" clause. The trail travels with it.
+                      trail.each { |prior| Dexpace.attach_suppressed(delay_settlement.error, prior) }
+                      completer.fail(delay_settlement.error)
+                    elsif completer.settled? # RETRY-32
+                      nil
+                    else
+                      pump.call(attempt + 1) # the re-arm: a plain call, from a fresh callback frame
+                    end
+                  end
+                end
               end
             end
           end
@@ -1852,6 +2260,23 @@ module Dexpace
 
         pump.call(1)
         completer.future
+      end
+
+      private
+
+      # RETRY-33: one fence, used at every callback boundary AND around pump's synchronous head, so
+      # no path out of this driver can leave `completer` unsettled. A fatal-family error (::Exception
+      # that is not a ::StandardError) is re-raised unchanged per RETRY-25 -- but only after the
+      # future is failed, because a hung future is not an acceptable price for propagating it.
+      def settle_guarded(completer, response = nil)
+        yield
+      rescue ::StandardError => e
+        Dexpace.close_quietly(response)
+        completer.fail(e) unless completer.settled?
+      rescue ::Exception => e # rubocop:disable Lint/RescueException -- RETRY-25 + RETRY-33
+        Dexpace.close_quietly(response)
+        completer.fail(e) unless completer.settled?
+        raise
       end
     end
   end
@@ -1868,7 +2293,7 @@ Expected: PASS, all runs, 0 failures, 0 errors.
 ## Task 11: `Dexpace::Resilience::RecoveryRetry` — the recovery-stack engine
 
 **Requirement IDs:** `RECOV-17`, `RECOV-19`, `RECOV-20`, `RECOV-27`, `RECOV-28`, `RECOV-29`,
-`RETRY-27`, `RETRY-28`, `RETRY-36`.
+`RETRY-27`, `RETRY-28`, `RETRY-34` (the recovery stack's half), `RETRY-36`.
 **Design:** "`R6`", "The object model `6a` ships — `Dexpace::Resilience::RecoveryRetry`", "This
 plan's open questions, resolved" §3, §4.
 
@@ -1878,7 +2303,7 @@ plan's open questions, resolved" §3, §4.
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
 - Test: `gems/dexpace-core/test/dexpace/resilience/recovery_retry_test.rb`
 
-**Needs:** Task 1's `FakeTransport`; Tasks 3, 4, 5, 6 (`Policy`, `Resend`, `ProtocolError#retryable?`
+**Needs:** Task 1's `FakeTransport`; Tasks 3, 4, 5, 6 (`Policy`, `Resend`, `ProtocolError#retryable_by_status?`
 not directly used but the class it belongs to is); phase 4b's `Recovery::Orchestrator`,
 `Recovery.buffer_error_body`, `Dexpace::ProtocolError.for_or_nil`.
 **Produces:** `RecoveryRetry.build`, `#call`.
@@ -1925,6 +2350,16 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
     transport.calls.each { |(sent_request, _, _)| assert_same(request, sent_request) }
   end
 
+  test "RECOV-19: a NON-retryable error status passes through as Success, returned not raised" do
+    settings = Dexpace::Resilience::RetrySettings.build(retryable_statuses: ::Set[503])
+    transport = Dexpace::Resilience::Test::FakeTransport.new([fake_response(status: 404)])
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    response = engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    assert_equal(404, response.status.code) # the outer ErrorMappingStep maps it; this engine does not
+    assert_equal(1, transport.calls.size)
+  end
+
   test "RECOV-18/RETRY-5: a non-idempotent, non-replayable request performs exactly one attempt" do
     settings = Dexpace::Resilience::RetrySettings.build(max_retries: 5)
     transport = Dexpace::Resilience::Test::FakeTransport.new([fake_response(status: 503), fake_response(status: 200)])
@@ -1936,29 +2371,106 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
     assert_equal(1, transport.calls.size)
   end
 
-  test "RECOV-20: a zero total_timeout is unbounded; a positive one is exhausted before max attempts" do
-    settings = Dexpace::Resilience::RetrySettings.build(
-      total_timeout: 0.02, initial_delay: 0.05, max_delay: 0.05, jitter: 0.0, max_retries: 10
-    )
-    transport = Dexpace::Resilience::Test::FakeTransport.new(Array.new(11) { fake_response(status: 503) })
+  test "RECOV-17/RETRY-37: a THROWN transport failure is retried, not propagated on the first attempt" do
+    # The engine decorates the RAW transport, below Orchestrator's rescue region, so a transport
+    # that raises reaches #call as an exception. RECOV-17: "a network-level failure (no response
+    # ever received) is always retryable via that flag."
+    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0, jitter: 0.0)
+    boom = Dexpace::StreamError.new("connection reset", retryable: true)
+    transport = Dexpace::Resilience::Test::FakeTransport.new([boom, boom, fake_response(status: 200)])
     engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
-    request = fake_request(method: Dexpace::Method.of("GET"))
 
-    response = engine.call(request, RequestOptions::EMPTY, Cancellation.none)
-    assert_operator(transport.calls.size, :<, 11) # budget exhausted well before the attempt cap
+    response = engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    assert_equal(200, response.status.code)
+    assert_equal(3, transport.calls.size) # exactly three sends, not one raise on the first
   end
 
-  test "RECOV-27: cancellation during the inter-attempt wait aborts the loop" do
-    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 5.0, jitter: 0.0)
-    transport = Dexpace::Resilience::Test::FakeTransport.new([fake_response(status: 503), fake_response(status: 200)])
+  test "RECOV-17: a thrown failure with no retryability capability is surfaced on the first attempt" do
+    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0)
+    transport = Dexpace::Resilience::Test::FakeTransport.new([ArgumentError.new("bug"), fake_response(status: 200)])
     engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    assert_raises(ArgumentError) do
+      engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    end
+    assert_equal(1, transport.calls.size)
+  end
+
+  test "RETRY-25: a fatal-family error propagates at the throw site, unclassified and unretried" do
+    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0)
+    transport = Dexpace::Resilience::Test::FakeTransport.new([::NoMemoryError.new("oom")])
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    error = assert_raises(::NoMemoryError) do
+      engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    end
+    assert_empty(Dexpace.suppressed(error)) # RETRY-25: "no suppressed-trail attachment"
+  end
+
+  test "RECOV-20/RETRY-34: exhausting the attempt cap raises, carrying the whole prior trail" do
+    settings = Dexpace::Resilience::RetrySettings.build(max_retries: 2, initial_delay: 0.0, jitter: 0.0)
+    transport = Dexpace::Resilience::Test::FakeTransport.new(Array.new(3) { fake_response(status: 503) })
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    error = assert_raises(Dexpace::ProtocolError) do
+      engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    end
+    assert_equal(3, transport.calls.size)                 # max_retries 2 + 1 initial send
+    assert_equal(503, error.status.code)
+    assert_equal(2, Dexpace.suppressed(error).size)       # the two earlier 503s, not discarded
+  end
+
+  test "RECOV-20: a positive total_timeout aborts on `remaining`, at the attempt the arithmetic names" do
+    # remaining = total_timeout - elapsed. With a FakeClock the arithmetic is exact rather than
+    # wall-clock-dependent: total_timeout 1.0, a flat 0.4s delay, and a clock that advances 0.0 per
+    # send gives remaining 1.0 -> sleep 0.4 -> remaining 0.6 -> sleep 0.4 -> remaining 0.2, and
+    # 0.4 > 0.2 suppresses the third delay. Three sends, then the surfaced failure.
+    clock = FakeClock.new
+    settings = Dexpace::Resilience::RetrySettings.build(
+      total_timeout: 1.0, initial_delay: 0.4, max_delay: 0.4, jitter: 0.0, max_retries: 10
+    ).with(clock: clock)
+    transport = Dexpace::Resilience::Test::FakeTransport.new(Array.new(11) { fake_response(status: 503) })
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    assert_raises(Dexpace::ProtocolError) do
+      engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    end
+    assert_equal(3, transport.calls.size)       # exact, not `< 11`
+    assert_equal([0.4, 0.4], clock.sleeps)      # never a negative or over-budget sleep
+  end
+
+  test "RECOV-20: a zero total_timeout is unbounded -- only the attempt cap stops the loop" do
+    clock = FakeClock.new(monotonic: 0.0)
+    settings = Dexpace::Resilience::RetrySettings.build(
+      total_timeout: 0, initial_delay: 0.0, jitter: 0.0, max_retries: 4
+    ).with(clock: clock)
+    transport = Dexpace::Resilience::Test::FakeTransport.new(Array.new(5) { fake_response(status: 503) })
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
+
+    assert_raises(Dexpace::ProtocolError) do
+      engine.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
+    end
+    assert_equal(5, transport.calls.size) # max_retries 4 + 1; the budget never intervened
+  end
+
+  test "RECOV-27/RETRY-23: cancellation during the inter-attempt wait aborts the loop" do
+    # Deterministic, not a race: the fake transport cancels from INSIDE its first #call, so the
+    # cancellation is already asserted by the time the loop reaches the wait, and the wait is the
+    # only thing that can observe it. A thread that races `engine.call` would pass this assertion
+    # by cancelling before the first send, proving nothing about the wait.
+    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 5.0, jitter: 0.0)
     source = Cancellation.source
+    transport = Dexpace::Resilience::Test::FakeTransport.new(
+      [->(_req, _opts, _cancel) { source.cancel(:test); fake_response(status: 503) },
+       fake_response(status: 200)]
+    )
+    engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
     request = fake_request(method: Dexpace::Method.of("GET"))
 
-    thread = Thread.new { source.cancel(:test) }
     error = assert_raises(Dexpace::CancelledError) { engine.call(request, RequestOptions::EMPTY, source.token) }
-    thread.join
-    assert_predicate(source.token, :cancelled?)
+    assert_equal(1, transport.calls.size)                          # the second send never happened
+    assert_equal(:test, error.reason) if error.respond_to?(:reason)
+    refute(Dexpace::Resilience::Policy.throwable_retryable?(error)) # RETRY-23: never retryable
   end
 
   test "RECOV-17: eligibility is the configured status set, never the baked flag" do
@@ -1974,8 +2486,13 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
   test "no factory: keyword -- a caller-configured ErrorMappingStep factory sees the terminal response only" do
     calls = []
     factory = ->(response) { calls << response.status.code; Dexpace::ProtocolError.for(response) }
-    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0)
-    transport = Dexpace::Resilience::Test::FakeTransport.new([fake_response(status: 503), fake_response(status: 503)])
+    # A NON-retryable terminal status: the engine returns it (RECOV-19's Success pass-through) and
+    # the caller's factory is what maps it -- exactly once, on that one response, and never on an
+    # intermediate retried 503. (When the engine exhausts a RETRYABLE status it raises instead, so
+    # no response reaches ErrorMappingStep at all and the factory is legitimately never called;
+    # that is the RECOV-20/RETRY-34 test above, not this one.)
+    settings = Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0, jitter: 0.0, max_retries: 3)
+    transport = Dexpace::Resilience::Test::FakeTransport.new([fake_response(status: 503), fake_response(status: 404)])
     engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
     orchestrator = Dexpace::Recovery::Orchestrator.build(
       transport: engine,
@@ -1988,7 +2505,7 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
     assert_raises(Dexpace::ProtocolError) do
       orchestrator.call(fake_request(method: Dexpace::Method.of("GET")), RequestOptions::EMPTY, Cancellation.none)
     end
-    assert_equal([503], calls) # called exactly once, on the terminal (last) response
+    assert_equal([404], calls) # called exactly once, on the terminal response, never on the 503
   end
 end
 ```
@@ -2020,78 +2537,137 @@ module Dexpace
       def self.build(
         transport:,
         settings: RetrySettings.build,
-        http_tracer_factory: ->(_request) { Dexpace::Instrumentation::HTTPTracer::NULL }
+        http_tracer_factory: ->(_request) { Dexpace::Instrumentation::NULL },
+        log: Dexpace::Instrumentation::NO_LOG
       )
-        new(transport, settings, http_tracer_factory)
+        new(transport, settings, http_tracer_factory, log)
       end
 
-      def initialize(transport, settings, http_tracer_factory)
+      def initialize(transport, settings, http_tracer_factory, log)
         @transport = transport
         @settings = settings
         @http_tracer_factory = http_tracer_factory
+        @log = log
       end
 
       def call(request, options, cancellation)
         tracer = @http_tracer_factory.call(request)
         start = @settings.clock.monotonic
+        max_attempts = Policy.effective_max_retries(
+          override: nil, configured: @settings.max_retries, log: @log
+        ) + 1 # RETRY-14/P6-6: max_attempts is max_retries + 1, an identity, never a second number
         attempt = 1
-        suppressed = nil
+        trail = []
 
         loop do
           cancellation.check!
           tracer.attempt_started(request, attempt)
-          response = @transport.call(request, options, cancellation)
-          error = classify(response)
-          return response if error.nil? # terminal Success
 
-          unless attempt < Policy.effective_max_retries(override: nil, configured: @settings.max_retries) + 1 &&
-                 Policy.retryable?(error, retryable_statuses: @settings.retryable_statuses) &&
-                 Resend.eligible?(request)
-            return response # terminal, still an error status: the outer chain classifies it
+          # RECOV-17: "a network-level failure (no response ever received) is always retryable via
+          # that flag" and RETRY-37's second sentence says the same for a no-response transport
+          # failure. This engine decorates the RAW transport, below Recovery::Orchestrator's own
+          # rescue region, so a transport that RAISES reaches this method as an exception; without
+          # this rescue a connection reset or socket timeout was never retried at all and
+          # Policy.throwable_retryable? had no caller on this stack.
+          response = nil
+          error =
+            begin
+              raw = @transport.call(request, options, cancellation)
+              # RETRY-36/RECOV-16: classify BUFFERS the error body, which is what releases the
+              # connection, and returns the buffered response. Everything downstream -- the pacing
+              # parse, the terminal return, the outer ErrorMappingStep -- sees the buffered object,
+              # never the drained original.
+              response, err = classify(raw)
+              err
+            rescue ::StandardError => e
+              e # RETRY-25: the fatal family (non-StandardError) propagates at the throw site
+            end
+
+          return response if error.nil? # terminal Success -- the outer chain sees this response
+
+          retryable = Policy.retryable?(error, retryable_statuses: @settings.retryable_statuses) &&
+                      Resend.eligible?(request)
+          unless attempt < max_attempts && retryable
+            return terminal(error, response, trail, tracer, request, retryable: retryable)
           end
 
-          delay = Policy.pacing_delay(response.headers, header_order: recovery_header_order, random: @settings.random) ||
-                  Policy.backoff_delay(attempt, **@settings.to_backoff_kwargs)
+          delay = (response && Policy.pacing_delay(
+            response.headers, header_order: RECOVERY_HEADER_ORDER, random: @settings.random
+          )) || Policy.backoff_delay(attempt, **@settings.to_backoff_kwargs)
 
+          # RETRY-27/RECOV-20/RECOV-21/RECOV-22: `remaining` is what Policy.budget_remaining
+          # returns -- total_timeout MINUS elapsed, or Infinity when the budget is disabled. Every
+          # comparison below is therefore against `remaining`, never against `elapsed`: the earlier
+          # `elapsed >= budget` form aborted at HALF the configured budget (total_timeout 10s,
+          # elapsed 5s) and `[budget - elapsed, delay].min` went NEGATIVE past that point.
           elapsed = @settings.clock.monotonic - start
-          budget = Policy.budget_remaining(elapsed: elapsed, total_timeout: @settings.total_timeout)
-          if elapsed >= budget || (elapsed + delay) > budget
-            return response # RECOV-20: budget exhausted, surface the last response unmapped
+          remaining = Policy.budget_remaining(elapsed: elapsed, total_timeout: @settings.total_timeout)
+          if remaining <= 0 || delay > remaining
+            # RECOV-20: "A scheduled delay that would push cumulative elapsed time past the
+            # total-timeout MUST be suppressed and the last failure surfaced unchanged."
+            return terminal(error, response, trail, tracer, request, retryable: true)
           end
 
           tracer.attempt_failed(request, error, delay)
-          Dexpace.attach_suppressed(error, suppressed) if suppressed
-          suppressed = error
+          trail << error
 
-          @settings.clock.sleep([budget - elapsed, delay].min, cancellation: cancellation)
+          # RECOV-21/RECOV-22's clamp: the hint or the backoff, never overshooting what is left.
+          @settings.clock.sleep([remaining, delay].min, cancellation: cancellation)
           attempt += 1
         end
       end
 
       private
 
+      RECOVERY_HEADER_ORDER = %w[
+        Retry-After retry-after-ms x-ms-retry-after-ms X-RateLimit-Reset
+      ].freeze
+      private_constant :RECOVERY_HEADER_ORDER
+
+      # RECOV-20: "When retries are exhausted or disallowed, the terminal failure's throwable MUST
+      # be surfaced" -- and RETRY-34 requires the whole prior trail attached to it. Returning the
+      # bare response instead (the earlier shape) surfaced nothing on a stack used without an
+      # ErrorMappingStep and discarded the trail in every case, since the errors the loop built were
+      # chained to each other and then dropped.
+      def terminal(error, response, trail, tracer, request, retryable:)
+        # RECOV-19: a response whose status is NOT in the retryable set -- or a request that was
+        # never re-sendable -- "passes through as Success". It is returned, not raised, and the
+        # outer chain's ErrorMappingStep (with whatever custom factory: the caller configured) is
+        # what turns it into a throwable. Nothing was retried, so there is no trail to lose.
+        return response if response && !retryable
+
+        # RECOV-20: "When retries are exhausted or disallowed, the terminal failure's throwable
+        # MUST be surfaced" -- and RETRY-34 attaches the whole prior trail to it first. Returning
+        # the bare response here (the earlier shape) surfaced nothing at all on a stack used
+        # without an ErrorMappingStep, and discarded the trail in every case, because the errors
+        # the loop built were chained to one another and then dropped.
+        trail.each { |prior| Dexpace.attach_suppressed(error, prior) }
+        tracer.retries_exhausted(request, error)
+        raise error, cause: nil # pipeline/7ce4431d: never a bare `raise` on a carried error
+      end
+
       # RECOV-19/RETRY-36: internal-only reclassification, discarded once a final response is
       # chosen. Always the default factory -- never the caller's ErrorMappingStep factory, which
-      # runs exactly once, on the response this method ultimately returns.
+      # runs exactly once, on the response this method ultimately returns. Returns the pair
+      # [response, error]: the response is the BUFFERED one whenever buffering happened, so no
+      # caller downstream can read a body this method has already drained.
       def classify(response)
-        return nil unless response.status.error?
+        return [response, nil] unless response.status.error?
 
         buffered = Dexpace::Recovery.buffer_error_body(response)
-        Dexpace::ProtocolError.for(buffered)
+        [buffered, Dexpace::ProtocolError.for(buffered)]
       end
 
-      def recovery_header_order
-        %w[Retry-After retry-after-ms x-ms-retry-after-ms X-RateLimit-Reset]
-      end
     end
   end
 end
 ```
 
-(The sketch in the design document omits the `classify`/rebuffer distinction and the response
-returned on budget exhaustion being the buffered one rather than the original; this task's code
-threads `buffered` through correctly — confirmed by the "no factory: keyword" test above, which
-would fail if the wrong response object reached `ErrorMappingStep`.)
+(`classify` returns the pair `[response, error]` precisely so the **buffered** response is the one
+every later line uses — the pacing-header parse, the `RECOV-19` pass-through return, and whatever
+`ErrorMappingStep` the caller configured. Fact 6 in *What was verified during planning* is what
+makes the outer step's second `buffer_error_body` call safe; this pair is what makes the first one
+non-destructive for the caller.)
 
 - [ ] **Step 4: Write the `sig/` mirror, add the require, run to confirm it passes**
 
@@ -2130,7 +2706,10 @@ class DexpaceResilienceBudgetEquivalenceTest < DexpaceTestCase
 
     transport = Dexpace::Resilience::Test::FakeTransport.new(all_failures.dup)
     engine = Dexpace::Resilience::RecoveryRetry.build(transport: transport, settings: settings)
-    engine.call(request, RequestOptions::EMPTY, Cancellation.none)
+    # RECOV-20: the recovery stack SURFACES the terminal throwable when it exhausts; the stage
+    # stack returns the response. The two differ in how they end and agree on the send count,
+    # which is the only thing RETRY-14 is about.
+    assert_raises(Dexpace::ProtocolError) { engine.call(request, RequestOptions::EMPTY, Cancellation.none) }
     recovery_sends = transport.calls.size
 
     step = Dexpace::Resilience::RetryStep.build(settings: settings)
@@ -2168,13 +2747,18 @@ regenerates the two mechanised snapshots, per the roadmap's own execution steps.
 - Regenerate: the RBS baseline diffed against the previous release tag
 - Record, in this phase's checklist and its status note, that the work earlier phases postponed here has landed:
   - the checklist rows for `RECOV-17`–`RECOV-30` and `RECOV-34` (the recovery-stack engine phase 4's segmentation
-    postponed; Tasks 3, 4, 5, 7 and 11), for `XCUT-5`'s baked `ProtocolError#retryable?` (phase 4b's deferral; Task 6),
+    postponed; Tasks 3, 4, 5, 7 and 11), for `XCUT-5`'s baked `ProtocolError#retryable_by_status?` (phase 4b's deferral; Task 6),
     for `CFG-35`'s throwable half (phase 5a's deferral; Task 3) and for `OBS-29`'s per-attempt group (the half of phase
     5c's postponed wiring `6a` reaches; Task 9) are ✅ and name those tasks; the phase status note in the roadmap says
     the four have landed, and that `OBS-29`'s operation-lifecycle triple stays unwired, together with the
     transport-milestone group, on phase 10's inbound list as the one `OBS-29` surface decision.
-  - Apply, by hand, the one release-register text the design document already drafted:
-    `docs/first-release.md`: the phase-8 line on wrapping stdlib I/O/timeout errors, as drafted.
+  - **No `docs/first-release.md` edit is owed.** The phase-8 line on wrapping stdlib I/O and timeout
+    errors — the one `6a`'s design drafts under *Findings* — **is already filed**, at
+    `docs/first-release.md`'s release-path entry beginning "Phase 8's first transport adapter must
+    wrap every stdlib I/O and timeout error it lets escape", and phase 8's own planning already
+    closed it in design against `8a`'s Task 2. Re-applying the drafted text here would file the same
+    finding twice. This step **verifies** the entry is present and names `P6-4`, and does nothing
+    else to it.
     Nothing else is filed: Task 8's cursor widening lands the mechanism its own amendment states, and the
     `CFG-35`/`XCUT-5` classifier cross-reference closes here — 5a's Task 4 supplied the status half and this
     plan's Task 3 supplies the throwable half. Any **new** finding this task turns up is routed to its owner
@@ -2215,10 +2799,12 @@ there and nowhere else unexpected).
 - [ ] **Step 4: Record the landed deferrals and apply the one release-register edit**
 
 Mark the checklist rows named under **Files** above ✅ against their tasks, and write the phase status note sentence
-saying the work phases 4, 4b, 5a and 5c postponed here has landed (with the `OBS-29` residuals named). Then edit
-`docs/first-release.md` with the exact text the design document's *Findings, and who owns them now* section drafts,
-verbatim. The other two findings in that section need no edit here: one is owned by Task 8, which builds it, and the
-other by phase 10's inbound list, which already carries it.
+saying the work phases 4, 4b, 5a and 5c postponed here has landed (with the `OBS-29` residuals named). Then **verify** — do not re-file — that
+`docs/first-release.md` still carries the phase-8 transport-wrapping entry naming `P6-4`; it was filed
+before this plan was written and phase 8 closed it in design. The other two findings in the design's
+*Findings, and who owns them now* section need no edit either: one is owned by Task 8, which builds
+it, and the other by phase 10's inbound list, which already carries it. **No register gains a line
+from this task.**
 
 - [ ] **Step 5: Run `housekeeping`'s probe**
 

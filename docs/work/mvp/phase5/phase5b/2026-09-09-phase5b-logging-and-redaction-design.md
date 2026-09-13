@@ -36,12 +36,23 @@ not a crash but a bearer token in a log aggregator, which no happy-path test fin
 welded to the event object rather than offered as a sink hook, and it is the one structural claim in the
 sub-phase that a later refactor must not be able to undo quietly.
 
-**5b depends on `5a` and `5c` for nothing, and neither depends on 5b.** The charter's finding is that the
-`CFG`↔`OBS` edges run in both directions and that every phase-5 boundary is a convenience. 5b discharges its
-half of both without `5a`: `OBS-35`'s resolution takes a `Configuration` **as an argument** and a
-configuration-free caller passes a level directly, and the body-logging caps' two remaining wirings are the only place 5b
-touches the chain at all. **A 5b plan whose first task waits on `Dexpace::Configuration` has re-imposed a
-chain that does not exist**, and so has one that waits on a `5c` tracer.
+**5b depends on `5a` for nothing, and neither `5a` nor `5c` depends on 5b's facade.** The charter's finding is
+that the `CFG`↔`OBS` edges run in both directions and that every phase-5 boundary is a convenience. 5b
+discharges its half of both without `5a`: `OBS-35`'s resolution takes a `Configuration` **as an argument** and
+a configuration-free caller passes a level directly, and the body-logging caps' two remaining wirings are the
+only place 5b touches the chain at all. **A 5b plan whose first task waits on `Dexpace::Configuration` has
+re-imposed a chain that does not exist.**
+
+**The independence from `5c` is narrower, and the boundary is exact: it holds for the plan's Tasks 1–14 and
+not for Tasks 15–16.** Everything this segment *defines* — the event object, the facade, the sink, the
+redactor, the diagnostic-context bridge, the preview renderer, the level type, the containment primitive —
+is `5c`-free, which is the claim that matters, and it is what lets the two be designed and built in parallel.
+The **step** is not: `Step` calls `5c`'s `Tracing.correlate` and defaults `meter:` to `5c`'s `NO_METER`
+(`R11`, `P5-33`), so `step.rb` requires `5c`'s `tracing.rb` and `meter.rb` and `5c`'s Tasks 5, 6 and 7 come
+first. `5c` symmetrically needs this segment's `diagnostics.rb` for `OBS-23`. The two plans therefore
+**interleave** — 5b Tasks 1–14, then `5c` Tasks 1–7, then 5b Tasks 15–16 — which is not a cycle, because the
+halves that depend on each other are in different tasks. Stated here because the charter's recommended order
+is `5a → 5b → 5c` and a worker who follows it straight through stops at Task 15.
 
 Seven decisions reshape what a plan can write, and each was forced by a fact run on a real interpreter rather
 than by taste.
@@ -1580,6 +1591,7 @@ A module with no instance side.
 |---|---|
 | `Diagnostics::TRACE_ID = :"trace.id"`, `::SPAN_ID = :"span.id"` | `OBS-10`'s default allow-list, `OBS-23`'s keys. **`Symbol`s**, and 5b's against `5c`'s `String` counter-proposal; `R11`, `P5-24`. `5c` cites these and declares no second pair |
 | `Diagnostics::DEFAULT_KEYS = [TRACE_ID, SPAN_ID].freeze` | `OBS-10`'s "MUST be exactly {trace.id, span.id}" |
+| `Diagnostics::RESERVED_PREFIX = "dexpace."` | `P5-39`. Fiber-storage keys under this prefix are core's own slots and are **never folded**, in either mode — `5c`'s `:"dexpace.current_span"` is one, and `OBS-10`'s unfiltered mode would otherwise fold a live `Span` into every event |
 | `Diagnostics.capture -> Hash` | `OBS-24`'s "immutable snapshot": `(Fiber.current.storage \|\| {}).freeze` |
 | `Diagnostics.with(snapshot) { … } -> Object` | `OBS-24`'s reinstall-and-restore bridge, `begin/ensure`, per key over the union |
 | `Diagnostics.folded(allow_list) -> Hash` | `OBS-10`'s fold, keyed by `String`, `nil` values skipped |
@@ -1613,7 +1625,8 @@ the one residual and the YARD block carries it.
 one `String` per key per event. Two modes:
 
 - `allow_list` non-`nil`: read **per key** through `Fiber[k]`, skip `nil`.
-- `allow_list` `nil`: read the **whole map** through `Fiber.current.storage`, skip `nil`-valued keys.
+- `allow_list` `nil`: read the **whole map** through `Fiber.current.storage`, skip `nil`-valued keys **and
+  every key whose name begins with `RESERVED_PREFIX`** (`P5-39`).
 
 `R12` explains why those are two readers and why `OBS-10`'s null clause is live in the second.
 
@@ -1630,7 +1643,7 @@ Data.define(:query_allow_list, :header_allow_list, :url_header_names, :omit_disa
 | `query_allow_list` | `Set["api-version"]` | `OBS-12` "MUST be exactly {api-version}". A **`Set`** of already-folded names; an empty set redacts every value, which the requirement requires and which a `nil`-means-default keyword would make unreachable |
 | `header_allow_list` | the frozen set below | `OBS-18` "MUST contain only diagnostic, non-credential headers", `XCUT-19`(c) |
 | `url_header_names` | `Set["location", "content-location"]` | `OBS-17` "at minimum Location and Content-Location" |
-| `omit_disallowed_headers` | `false` | `OBS-18`'s boolean policy: `false` emits the fixed `REDACTED` marker, `true` omits the header entirely |
+| `omit_disallowed_headers` | `false` | `OBS-18`'s boolean policy: `false` emits the fixed `REDACTED` marker, `true` omits the header entirely. **The `Emitter`'s header loop is the one reader**, and it consults the member rather than always omitting — a policy nothing consults is the `TeeSink#clear_tap` shape (3a plan, Task 14) under a different name, and both modes carry an assertion |
 
 **The default header allow-list, in full, because `NFR-4` locks it and `XCUT-19` audits it:** `accept`,
 `accept-encoding`, `cache-control`, `connection`, `content-encoding`, `content-length`, `content-location`,
@@ -1661,7 +1674,7 @@ A plain class holding one frozen `RedactionPolicy`, itself frozen. `Redactor::DE
 | Member | Requirement |
 |---|---|
 | `#url(value) -> String` | `OBS-11`–`OBS-15`. Total; `MALFORMED_URL` on parse or rebuild failure |
-| `#header_value(name, value) -> String` | `OBS-16`, `OBS-17`. Total; `?***` on the relative/unparseable route |
+| `#header_value(name, value) -> String` | `OBS-16`, `OBS-17`. Total; `?***` on the relative/unparseable route. Returns a `String` **always** — a `nil` value returns `""` — which is the one place `api-design/6ea28c9c` is overruled by requirement. `Event#field` never routes a `nil` here, so `OBS-3`'s literal `"null"` is untouched |
 | `#header_name?(name) -> bool` | `OBS-18`'s gate, against the folded name |
 | `#policy -> RedactionPolicy` | so a caller can derive one with `#with` rather than rebuilding |
 | `Redactor::MALFORMED_URL = "[malformed url]"` | `OBS-15`'s fixed sentinel |
@@ -1794,9 +1807,23 @@ Both are plain classes with `private_class_method :new` and the same `.build` ke
 
 | Event | Fields |
 |---|---|
-| `Events::HTTP_REQUEST` | `Keys::HTTP_REQUEST_METHOD`, `Keys::URL_FULL` (redacted, structurally), the allow-listed request headers under `Keys::HTTP_REQUEST_HEADER_PREFIX`, `Keys::HTTP_REQUEST_BODY_SIZE` and — at `BODY` — `Keys::HTTP_REQUEST_BODY_PREVIEW` |
-| `Events::HTTP_RESPONSE` | `Keys::HTTP_RESPONSE_STATUS_CODE`, `Keys::HTTP_RESPONSE_DURATION_MS`, the allow-listed response headers under `Keys::HTTP_RESPONSE_HEADER_PREFIX`, `Keys::HTTP_RESPONSE_BODY_SIZE` and — at `BODY` — `Keys::HTTP_RESPONSE_BODY_PREVIEW` |
-| `Events::HTTP_RESPONSE` (failure) | `Keys::ERROR_TYPE` and the throwable attached with `#cause` — **and no body and no body preview**, at any level below `BODY`, which is phase 4b's `ProtocolError` decision confirmed and extended |
+| `Events::HTTP_REQUEST` | `Keys::HTTP_REQUEST_METHOD`, `Keys::URL_FULL` (redacted, structurally), the request headers under `Keys::HTTP_REQUEST_HEADER_PREFIX` — allow-listed by value, the rest marked or omitted per `omit_disallowed_headers` (`P5-35`) — and `Keys::HTTP_REQUEST_BODY_SIZE` **only when the declared length is known**. **No request body preview**: see below |
+| `Events::HTTP_RESPONSE` | `Keys::HTTP_RESPONSE_STATUS_CODE`, `Keys::HTTP_RESPONSE_DURATION_MS`, the response headers under `Keys::HTTP_RESPONSE_HEADER_PREFIX` on the same gate, and — at `BODY` — `Keys::HTTP_RESPONSE_BODY_PREVIEW` **and `Keys::HTTP_REQUEST_BODY_PREVIEW`**, each with its `…BODY_SIZE` taken from the **captured preview** |
+| `Events::HTTP_RESPONSE` (failure) | `Keys::ERROR_TYPE` and the throwable attached with `#cause`; at `BODY`, `Keys::HTTP_REQUEST_BODY_PREVIEW` — **and no response body and no response preview at any level**, which is phase 4b's `ProtocolError` decision confirmed and extended |
+
+**Why the request preview rides on the response event and not on the request event, which is the one ordering
+in this sub-phase that is easy to get backwards.** `RequestLoggingBody` mirrors **on write**: phase 3b's
+`#snapshot` "reads `@tee&.tap_snapshot`" and the tee is constructed inside `#write_to`. The write happens
+inside `cursor.call`, which is **after** the request event. A preview read at request-emission time is
+therefore `nil` on every request and renders as `""` — present, empty, and silently useless. Reading it on
+the response and failure events is also what `BODY-20` asks for in its own words: "the bytes mirrored up to
+the failure point, **to aid diagnosis of a failed request**".
+
+**And why the size fields are the preview's at `BODY` and the declared length elsewhere.** `OBS-36`: "Logged
+body-size/preview fields therefore describe the captured preview, not necessarily the full body", and its
+conformance clause asserts "the size field reflects the preview". Below `BODY` nothing is captured, so the
+field is `OBS-39`'s content-length — emitted only when it is **known**, because `BODY-35` fixes the unknown
+sentinel at `-1` and a truthiness guard would log `-1` for every chunked body.
 
 `Keys::HTTP_RESPONSE_DURATION_MS` is computed from `clock.monotonic` differences and never from `Time.now` —
 `CFG-16`'s rule, arriving at its first consumer.
@@ -2136,24 +2163,24 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 onward for `5c`.** `5a` consumed `P5-1`–`P5-15`. The sequence is not contiguous with `5c`'s because the two
 sub-phases were designed **concurrently**: a shared "next free number" would have had both documents taking
 the same one, and a ledger id is cited from source comments and tests and can never be renumbered.
-Twenty-three of the twenty-four reserved numbers are used.
+All twenty-four reserved numbers are used.
 
-**`P5-39` is a deliberate gap and not a lost row.** It was reserved by this document and never needed; nothing
-was written against it, nothing was deleted, and nothing is renumbered to close it. A reader meeting the jump
-from `P5-38` to `5c`'s `P5-40` should read it as the cost of two designs landing without a lock between them,
-which is what the reservation was for.
+**`P5-39` was a deliberate gap and is now claimed.** It was reserved by this document and not needed when the
+document was written; the 5b/5c review found the `Diagnostics` crossing neither design had noticed — `5c`'s
+private `:"dexpace.current_span"` slot folded into every event by `OBS-10`'s unfiltered mode — and that row
+takes the number. Nothing was renumbered to close the gap; the gap was filled by the thing it was held for.
 
 **The collision with `5a`'s plan is resolved, and the sentence that moved is `5a`'s.** `5a`'s **plan**
 (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration.md`) reserved `P5-16` for "a sixteenth
 deviation found at execution time", which is the number this block starts at. 5a's design ledger is complete
 at `P5-15` and its sixteenth row was hypothetical; this document's `P5-16` is actual and its rows are written,
-so the actual row keeps the number. The reconciliation pass repointed 5a's plan to **`P5-50`** — the next
-number no sub-phase has claimed, `5c`'s block ending at `P5-49` — and recorded there that `P5-39`'s gap is
-deliberate.
+so the actual row keeps the number. The reconciliation pass repointed 5a's plan to **`P5-51`** — the next
+number no sub-phase has claimed, `5c`'s block ending at `P5-49` and `5c`'s review having since claimed
+`P5-50` — and `P5-39`'s gap, recorded there as deliberate, is now claimed by this document's own last row.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P5-16 | Public **constants** design §8.1 does not name: `Dexpace::Instrumentation::Severity` (+ four constants and `ALL`); `::Keys` (twelve frozen `String` constants) and `::Events` (eight); `::NULL_SINK`; `::Logger` (+ `Logger::NULL`); `::Diagnostics` (+ `TRACE_ID`, `SPAN_ID`, `DEFAULT_KEYS`); `::RedactionPolicy` (+ `DEFAULT`); `::Redactor` (+ `DEFAULT`, `MALFORMED_URL`, `REDACTED_VALUE`, `REDACTED_USERINFO`, `REDACTED_HEADER`, `RELATIVE_MARKER`); `::Preview` (+ `BINARY_MARKER_FORMAT`, `TEXT_SUBTYPES`); `::HTTPLogging` (+ `NONE`, `HEADERS`, `BODY`, `DEFAULT`); `::Step`; `::AsyncStep`; `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`; and the RBS interfaces `_Sink` and `_DiagnosticSnapshot` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11, phase 4a's P4-2 and `5a`'s P5-1 precedent | §8.1 names exactly three Ruby identifiers in this segment — `Dexpace::Instrumentation::Event`, `Event::INERT` and `NullLogger` — and describes everything else in prose. `NFR-4` locks every public name at the first release tag, so a name arriving by accident is locked by accident. Each is chosen for a stated reason in the object-model section, and the `Keys`/`Events` constants are additionally required to be snapshot-covered by §8.1 itself |
+| P5-16 | Public **constants** design §8.1 does not name: `Dexpace::Instrumentation::Severity` (+ four constants and `ALL`); `::Keys` (fifteen frozen `String` constants — thirteen for `OBS-39`'s named minimum, plus the two instrument names below) and `::Events` (eight); `::NULL_SINK`; `::Logger` (+ `Logger::NULL`); `::Diagnostics` (+ `TRACE_ID`, `SPAN_ID`, `DEFAULT_KEYS`); `::RedactionPolicy` (+ `DEFAULT`); `::Redactor` (+ `DEFAULT`, `MALFORMED_URL`, `REDACTED_VALUE`, `REDACTED_USERINFO`, `REDACTED_HEADER`, `RELATIVE_MARKER`); `::Preview` (+ `BINARY_MARKER_FORMAT`, `TEXT_SUBTYPES`); `::HTTPLogging` (+ `NONE`, `HEADERS`, `BODY`, `DEFAULT`); `::Step`; `::AsyncStep`; `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`; and the RBS interfaces `_Sink` and `_DiagnosticSnapshot` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11, phase 4a's P4-2 and `5a`'s P5-1 precedent | §8.1 names exactly three Ruby identifiers in this segment — `Dexpace::Instrumentation::Event`, `Event::INERT` and `NullLogger` — and describes everything else in prose. `NFR-4` locks every public name at the first release tag, so a name arriving by accident is locked by accident. Each is chosen for a stated reason in the object-model section, and the `Keys`/`Events` constants are additionally required to be snapshot-covered by §8.1 itself |
 | P5-17 | Public **methods** design §8.1 does not name: `Logger.build`, `#event`, `#enabled?`, `#context`, `#sink`; `Event#field`, `#event`, `#cause`, `#emit`; `Severity.of`; `Diagnostics.capture`, `.with`, `.folded`; `RedactionPolicy.build`, `#with`; `Redactor.build`, `#url`, `#header_value`, `#header_name?`, `#policy`; `Preview.render`; `HTTPLogging.of`, `.parse`, `.resolve`, `#at_least?`; `Step.build`, `#call`, `#stage`; `AsyncStep.build`, `#call`, `#stage`; `Dexpace::Instrumentation.contain`; plus the `logger:` keyword added to `Dexpace.close_quietly` and to `Dexpace::Proxy.resolve` | `NFR-4`; phase 2's P2-11 and phase 4a's P4-11, both of which cover methods as well as constants | `NFR-4` locks a public *signature*, not only a name. Two deserve naming here. **`Logger::NULL` exists so no caller ever holds a `nil` logger** — `contain` takes one, `close_quietly` takes one, and a `nil` would make every containment site branch; `Bundle::NONE` is phase 4a's identical decision. **`Redactor#policy` is public so a later phase derives with `#with` rather than rebuilding**, which is what keeps `OBS-17`'s "shared … so it cannot drift" true when phase 6 needs one more allow-listed header |
 | P5-18 | `Event#tag(key, value)`, listed in design §8.1's code block, is **not shipped** | §8.1; `OBS-4`, `OBS-5`; `NFR-4`; the `TeeSink#clear_tap` shape (3a plan, Task 14) | §8.1 lists it once and never mentions it again. No `OBS` requirement names a tag other than `OBS-4`'s reserved `event` tag, which `#event(name)` sets, and `OBS-5`'s precedence enumerates exactly three sources — so a fourth channel would have no precedence rule, no default and no test. A public, `NFR-4`-locked method with no requirement and no caller is `TeeSink#clear_tap`'s exact shape, and that keep-or-drop decision is open right now because a previous phase shipped one. Adding a method later **widens**, so nothing is prejudiced. The finding against §8.1 — the unsourced `Event#tag` — is on phase 10's inbound list, because the method is named in a frozen document |
 | P5-19 | The default sink is `Dexpace::Instrumentation::NULL_SINK`, one frozen instance of a `private_constant` class, and not §8.1's `NullLogger` class | §8.1; `OBS-1`; phase 4a's `NO_SPAN`/`NO_TRACER_FACTORY` precedent; `Dexpace/QualifiedCoreConstant` | Two reasons. What `OBS-1` needs is a **value** to install and compare, not a class to instantiate, and phase 4a already set the shape for exactly that: a public constant naming a frozen instance of a private class. And `Logger` is already taken in this namespace by the facade §8.1 itself calls `Logger#event`, so a second constant whose name also says "Logger" would put the facade and its default output under one word in one namespace — the confusion `P5-3` avoided for `Sources::ENV` |
@@ -2176,6 +2203,7 @@ deliberate.
 | P5-36 | `HTTPLogging.resolve(configuration, key:, default:)` takes its configuration key as a **required** keyword with no default, and `Configuration::Keys::LOG_LEVEL` is a name a caller may pass rather than a fallback | `OBS-35`'s embedded MUST ("The SDK MUST NOT bake in a default config key name"); `CFG-14`; `5a`'s own reconciliation | `CFG-14` asks for "stable well-known key constants … for … SDK log level" and `OBS-35` forbids baking one in, and the two are only consistent one way. `5a` fixed it and 5b implements it: the constant exists and nothing falls back to it. Restated as a ledger row rather than inherited silently, because `.resolve` is 5b's method and a required keyword with an obvious default is exactly what a later reader supplies a default for. `.parse` is the sibling for a caller who holds a level `String` and no `Configuration`, which is also what makes 5b's independence from `5a` concrete |
 | P5-37 | `Instrumentation.contain(logger, event:)` is a **module function**, not a method on `Logger` or on `Event` | `OBS-20`, `XCUT-20`; §8.1 | A `logger.contain { }` reads as "the logger contains", which invites the containment to move to the sink — the placement §8.1 rejects for redaction, and for the identical reason: it can be bypassed by installing a different sink. A module function has no receiver to reimplement. It returns `nil` and swallows the block's value, so no call site can branch on whether logging worked, which is what `OBS-20` forbids; and its secondary rescue does nothing at all, because a swallow path with its own failure mode is a third failure mode |
 | P5-38 | `Dexpace::Instrumentation::Logger` keeps §8.1's name despite shadowing the stdlib `Logger` for a bare reference inside `module Dexpace`, and the shadow is **not** covered by `Dexpace/QualifiedCoreConstant` | §8.1; `Dexpace/QualifiedCoreConstant` (P2-8, P3-7); `5a`'s P5-3; `SEAM-1` | `5a` met the same hazard for `ENV` and chose a different name. That escape is unavailable here: §8.1 names the facade `Logger`, and the sink duck type is deliberately the stdlib `Logger` surface as a structural subset, so the word is load-bearing. The cop cannot carry it either — adding `Logger` to `SHADOWED` would flag every legitimate bare reference in an adapter gem that declares the dependency, which is the budget `NFR-2` exists to permit. Mitigated in the two places it can be: the default sink is `NULL_SINK` and not §8.1's `NullLogger`, so exactly one `Logger`-shaped name exists in the namespace (`P5-19`), and every reference to either constant in 5b's own code is fully qualified. Recorded as a deviation because a reader checking §8.1 against the code will see a name the repository's own cop set would normally forbid; the plan's Task 10 owns the cop-coverage gap, as the bare-`Logger` watch scoped to `module Dexpace` |
+| P5-39 | `Diagnostics::RESERVED_PREFIX = "dexpace."` — `OBS-10`'s **unfiltered** mode skips every fiber-storage key whose name begins with it, in addition to skipping `nil` values | `OBS-10`; `OBS-6`; `OBS-1`; `5c`'s `CURRENT_SPAN_KEY` | `5c` stores the current span in `Fiber[:"dexpace.current_span"]` and declares it "NOT a diagnostic-context key" that "must never be folded", while `OBS-10`'s unfiltered mode is defined as folding *every present* key — so the two requirements meet on one map and neither document noticed. Folding it puts a live `Span` through `OBS-6`'s totality path on every event, which is a rendering cost on the hot path `OBS-1` protects and a span object in a log aggregator. Verified on 3.4.10: the unfiltered fold returned `["dexpace.current_span", "trace.id"]` before the skip and `["trace.id"]` after. The prefix is safe by inspection — the only keys 5b declares are `:"trace.id"` and `:"span.id"`, and the only other core fiber slot in the repository is `5c`'s — and it is public rather than `private_constant` because an application that puts its own key under `dexpace.` has to be able to read why it never appears |
 
 ## Work phase 5b postponed, and who owns it now
 

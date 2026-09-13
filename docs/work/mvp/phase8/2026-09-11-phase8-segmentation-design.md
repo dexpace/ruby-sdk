@@ -786,8 +786,24 @@ Gem: `dexpace-transport-async_http` (declares `dexpace-core` + `async-http`).
 
 `8c` additionally owns, without owning a new ID: `OBS-29`'s transport-milestone emitter call sites on this
 adapter, once `R6` settles the route; the wire-boundary re-validation call site in this adapter; the
-`rbs_collection.yaml` row for `async-http`; the second driver for every one of `8a`'s 23 conformance
-assertions; and the `ASYNC-7` README section for a reactor-backed adapter.
+`rbs_collection.yaml` row for `async-http`; the second driver for every assertable one of `8a`'s 23
+conformance assertions; **the seven portable assertions for its own `TRANSPORT` rows** —
+`TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23` — written **into `dexpace-conformance`** against the
+suite contract's own primitives and resolving `:vacuous` with a stated reason on a transport with no
+async antecedent; and the `ASYNC-7` README section for a reactor-backed adapter.
+
+**The seven-assertion clause is added 2026-09-13 by the final pre-build review, and it closes a gap
+three documents each half-saw.** `8a` writes 23 assertions and records that these seven "are absent,
+which is the charter's `8c` assignment"; `8a`'s design states the counterpart obligation — "`8c` adds
+a **driver and seven assertions**, and forks nothing (`R16`)"; and phase 9's design then reads B.6 as
+"**Already written**… Phase 9 adds no assertion and forks nothing". This list previously said
+"driver" alone, so nobody owned the seven. §9.3 requires "**B.6** is exercised **per adapter**" and
+appendix B lists all seven among B.6's items: without them a third-party async adapter running the
+published suite is held to none of the seven §17 requirements only an async transport can satisfy —
+the one outcome §9.3 says the gem is published to prevent. They cost `dexpace-conformance` no
+dependency: written against `build:`/`borrow:`/`settle:`/`around:`/`wire:` and
+`Dexpace::Cancellation`, no `async` or `Protocol::HTTP` constant enters its `lib/` or `sig/` and
+boundary 7 holds. `8c`'s plan Task 19 Step 1a owns them.
 
 ---
 
@@ -2154,7 +2170,7 @@ at the top so `8c` has headroom**, and it is the one every phase-8 document now 
 
 | Sub-phase | Reserved | Used | Free inside the band |
 |---|---|---|---|
-| `8a` | `P8-1`–`P8-19` | `P8-1`–`P8-14` | `P8-15`–`P8-19` |
+| `8a` | `P8-1`–`P8-19` | `P8-1`–`P8-15` | `P8-16`–`P8-19` |
 | `8b` | `P8-20`–`P8-35` | `P8-20`–`P8-25` | `P8-26`–`P8-35` |
 | `8c` | `P8-36`–`P8-50` | `P8-36`–`P8-40` | `P8-41`–`P8-50` |
 

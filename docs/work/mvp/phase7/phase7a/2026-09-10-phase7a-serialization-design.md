@@ -825,9 +825,10 @@ implementation — `SEAM-29` exists because of it, and phase 1's `Model.required
 took. `DecodeContext` is `Model.required!` for the decode side.
 
 ```
-Dexpace::Serde::DecodeContext          # Data.define(:path), include Dexpace::Model
-  .root                                -> DecodeContext         # frozen, path []
+Dexpace::Serde::DecodeContext          # Data.define(:path, :target), include Dexpace::Model
+  .root(target: nil)                   -> DecodeContext         # frozen, path [], target's NAME
   #path                                -> Array[String|Integer] # frozen, JSON-Pointer-ish segments
+  #target                              -> String?               # SERDE-13: the decode's target type
   #at(segment)                         -> DecodeContext         # a child with one segment appended
   #object!(value, key: nil)            -> Hash                  # SERDE-21
   #array!(value, key: nil)             -> Array
@@ -840,10 +841,32 @@ Dexpace::Serde::DecodeContext          # Data.define(:path), include Dexpace::Mo
 ```
 
 Every `!` method raises `Dexpace::Serde::DeserializationError` through `#error!`, with one message
-form — `"expected <target> at <path>, got <actual class>"` — which is the `SEAM-29` shape applied to a
-second family of failures. `key:` is a convenience that appends one segment for the message only, so
+form — `"expected <expected> at <path>, got <actual class>"` — which is the `SEAM-29` shape applied to
+a second family of failures. `key:` is a convenience that appends one segment for the message only, so
 `ctx.string!(h["name"], key: "name")` reads naturally without a separate `#at` call; `#at` is what a
 combinator uses to descend.
+
+**`#target` exists because `SERDE-13` says "naming the target type" and the root frame is the one
+place nothing else knows it.** The requirement is "Decoding a wire null literal into a non-null target
+type MUST fail with a deserialization exception **naming the target type**, across every decode
+overload" (`appendix-c…:463`), and its conformance clause decodes "the literal null into a non-null
+**DTO**". A witness reached with `nil` calls `ctx.object!(nil)`, which knows only the shape it wanted —
+so without `#target` the message reads `expected Hash at /, got NilClass` and names `Hash` where the
+requirement asks for `Pet`. `#error!` therefore renders the root frame as
+`"expected Pet (Hash) at /, got NilClass"` when `#path` is empty and `#target` is set, and falls back
+to the plain form everywhere else, because a nested frame's target *is* the expected shape. `#target`
+is carried unchanged by `#at`, so it stays available for a diagnostic but never displaces the
+expectation at a nested path.
+
+**The target is set at the decode's entry point, not by a `nil` check.** `Codec#load` builds
+`DecodeContext.root(target: witness)` and `.root` stores the witness's **name**
+(`witness.is_a?(::Module) ? witness.name : witness.class.name`), never the witness object — a frozen
+`String` member keeps `DecodeContext` a plain value and keeps a caller's class object out of a
+`Data`'s equality. A blanket `raise if parsed.nil?` inside `#load` would be the wrong fix and is
+rejected explicitly: `SERDE-20` requires "deserialize a top-level null → Null", so
+`load(source("null"), Tristate.of(String))` and `load(source("null"), Nullable.of(Pet))` must both
+succeed. The repair is witness-aware by construction — those two combinators never call `ctx.object!`
+on `nil`, so nothing raises and nothing needs an exemption — and both cases get their own assertion.
 
 A worked witness, which is also the shape the YARD block shows:
 
@@ -970,6 +993,18 @@ end
 
 - **"stream the response body directly through the deserializer"** — the handler passes
   `body.source`, a `Dexpace::IO::BufferedSource`, and copies nothing. Clause satisfied.
+- **Which bodies that is true of, stated because `#source`'s default raises.** `Dexpace::Body`'s
+  module default for `#source` **raises `Dexpace::StreamError` naming the class**, and exactly three
+  classes override it: `ResponseBody` (the transport's), `ResponseLoggingBody` (phase 5's) and
+  `BufferBody` (`Body.buffer`, and what `Recovery.buffer_error_body` produces)
+  (`…phase3b…-design.md:731`, `:744-748`). `BytesBody` — what `Body.bytes` and `Body.string` return —
+  does not, so a typed handler over a hand-built `Response` carrying one raises a stream error for a
+  body that is perfectly readable, and the failure is indistinguishable from `SERDE-27`'s "genuine
+  mid-stream I/O error". That matters beyond a test: roadmap cross-cutting constraint 4 makes phases
+  1 through 7 test against an in-memory fake transport, and a downstream SDK's own tests take the
+  same path. **The YARD block names the three readable variants and points at `Body.buffer`**, and
+  `7a` adds no `respond_to?` fallback — `HTTP-41` names `#source` as *the* read handle, and a quieter
+  failure would be the same gap harder to see. Asserted by its own test.
 - **"(without first materializing the whole body)"** — `P7-1`. Not satisfied by this adapter; the
   handler's own behaviour is the strongest half of it available.
 - **"MUST consume and close the response on every path"** — an `ensure`, unguarded, because
@@ -1083,7 +1118,11 @@ phase 9 inherits a target rather than a search.
 preference: the charter's cross-cutting constraint states "`Dexpace::Serde::JSON` appears in no core
 file, in no core `sig/` file (`NFR-11`) and in **no core test**". `DecodingHandler`'s and
 `StatusAwareHandler`'s suites therefore drive `FakeCodec` (phase 2's, in
-`gems/dexpace-core/test/support/`) with a lambda witness, and a core test that `require`d
+`gems/dexpace-core/test/support/`) with a **named witness class answering both `.dexpace_load` and
+`.call`** — `FakeCodec#load` drives its witness through `#call` because phase 2 shipped before the
+protocol existed, while `.build` runs `Dexpace::Serde.witness!`, which requires `.dexpace_load`, so a
+bare lambda satisfies one and fails the other and `witness!` must not be widened to accept `#call`
+(`SERDE-5`, `SERDE-8`) — and a core test that `require`d
 `dexpace/serde/json` would also fail phase 0's clean-bundle run, because core's bundle does not
 contain that gem. The plan's Task 1 adds the negative assertion — a grep-shaped test over core's
 `test/` tree — so the constraint is mechanised rather than remembered.
@@ -1100,6 +1139,7 @@ gems/dexpace-core/
   lib/dexpace/serde/decode_context.rb        Dexpace::Serde::DecodeContext
   lib/dexpace/serde/witness.rb               Dexpace::Serde.witness!/.witness?, WITNESS_METHOD, DUMP_METHOD
   lib/dexpace/serde/native.rb                Dexpace::Serde::Native, Dexpace::Serde::OMIT
+  lib/dexpace/serde/scalars.rb               Dexpace::Serde::BOOLEAN (+ the private_constant table)
   lib/dexpace/serde/tristate.rb              Dexpace::Serde::Tristate (+ ABSENT, NULL, Present)
   lib/dexpace/serde/list.rb                  Dexpace::Serde::List
   lib/dexpace/serde/map.rb                   Dexpace::Serde::Map
@@ -1108,9 +1148,9 @@ gems/dexpace-core/
   lib/dexpace/serde/decoding_handler.rb      Dexpace::Serde::DecodingHandler
   lib/dexpace/serde/status_aware_handler.rb  Dexpace::Serde::StatusAwareHandler
   lib/dexpace/http/body.rb                   MODIFIED: Body.serialized(value, serde:)
-  lib/dexpace.rb                             MODIFIED: ten require_relative lines
+  lib/dexpace.rb                             MODIFIED: eleven require_relative lines
   sig/dexpace/serde.rbs                      MODIFIED: interface _Codec's body (phase 2 left it empty)
-  sig/…                                      ten mirrors + the Body and dexpace.rbs edits
+  sig/…                                      eleven mirrors + the Body and dexpace.rbs edits
 
 gems/dexpace-serde-json/
   dexpace-serde-json.gemspec                 MODIFIED: add_dependency "json", ">= 2.19.9"
@@ -1124,9 +1164,13 @@ gems/dexpace-serde-json/
   test/dexpace/serde/json/codec_test.rb      the adapter's own suite
 ```
 
-Ten new `lib/` files in core (nine public constants plus the two module functions on `Dexpace::Serde`
-itself), one new `lib/` file in the gem, two modified core `lib/` files, one modified gem entry file,
-one gemspec line, and three new test-support files. Design §3.4 and §7.3 between them name six of the
+Eleven new `lib/` files in core (ten public constants plus the two module functions on
+`Dexpace::Serde` itself), one new `lib/` file in the gem, two modified core `lib/` files, one modified
+gem entry file, one gemspec line, and three new test-support files. `scalars.rb` carries the frozen
+`private_constant` class-to-scalar-witness table that makes `List.of(String)` and `Map.of(String, Pet)`
+work verbatim, plus the one public constant it needs — `Dexpace::Serde::BOOLEAN`, a named witness
+rather than two class keys, because Ruby has no `Boolean` class to key on and `List.of(TrueClass)`
+would read as a list of `true`s (the plan resolves this as its open question 1). Design §3.4 and §7.3 between them name six of the
 constants above — `Dexpace::Serde::JSON`, `List`, `Map`, `Nullable`, `Tristate` (with `ABSENT`,
 `NULL`, `Present`) and `Dexpace::TypedResponse` (3b's) — so every other name carries a ledger row
 (`P7-2`).
@@ -1145,11 +1189,16 @@ default encoder configuration renders date and time values as ISO-8601 strings")
 
 ### `Dexpace::Serde::DecodeContext`
 
-Specified under `R2`. `Data.define(:path)`, `include Dexpace::Model`, `private_class_method :new`,
-`.root` returning a frozen singleton with an empty frozen path, `#at(segment)` returning a new
-context. Every `!` method funnels into `#error!`, which is the **one** raise site for a decode shape
-failure — `SEAM-29`'s discipline applied to a second family, and the thing that makes `SERDE-13`'s
-"across every decode overload" a property of one method rather than of every witness anyone writes.
+Specified under `R2`. `Data.define(:path, :target)`, `include Dexpace::Model`,
+`private_class_method :new`, `.root(target: nil)` returning a frozen context with an empty frozen path
+and the target's **name** as a frozen `String?`, `#at(segment)` returning a new context carrying the
+same target. Every `!` method funnels into `#error!`, which is the **one** raise site for a decode
+shape failure — `SEAM-29`'s discipline applied to a second family, and the thing that makes
+`SERDE-13`'s "across every decode overload" a property of one method rather than of every witness
+anyone writes. `#error!` renders `"expected <target> (<expected>) at / , got <actual>"` at the root
+frame when a target is set and `"expected <expected> at <pointer>, got <actual>"` everywhere else,
+which is what makes `SERDE-13`'s "naming the target type" true of the DTO case its conformance clause
+names rather than only of the field case.
 
 `#float!` is the one method with a permission rather than a prohibition: `SERDE-22` requires integer
 → float widening, so `ctx.float!(1)` returns `1.0` while `ctx.integer!(1.5)` raises. Both directions
@@ -1335,7 +1384,8 @@ def load(source, witness)
   end
 
   parsed = @coder.load(text)
-  witness.dexpace_load(parsed, Dexpace::Serde::DecodeContext.root)
+  # SERDE-13: the root frame carries the TARGET so a top-level null names Pet and not Hash.
+  witness.dexpace_load(parsed, Dexpace::Serde::DecodeContext.root(target: witness))
 rescue ::JSON::JSONError => e
   raise Dexpace::Serde::DeserializationError, "…"   # inside the rescue: Ruby sets #cause (SERDE-9)
 end
@@ -1367,6 +1417,7 @@ module Dexpace
   module Serde
     module JSON
       MINIMUM_JSON_VERSION = "2.19.9"                                  # P7-7
+      REQUIRED_CORE        = "~> 0.0"                                  # the registry's core: argument
 
       def self.default = Codec.build                                  # SERDE-25: fresh every call
       def self.build(**options) = Codec.build(**options)
@@ -1381,11 +1432,26 @@ plus, at require time, the floor assertion and the seam registration:
 if ::Gem::Version.new(::JSON::VERSION) < ::Gem::Version.new(MINIMUM_JSON_VERSION)
   raise Dexpace::SeamError, "dexpace-serde-json requires json >= #{MINIMUM_JSON_VERSION} …"
 end
-Dexpace::Serde.register(:json, -> { default }, core: Dexpace::VERSION)
+Dexpace::Serde.register(:json, -> { default }, core: REQUIRED_CORE)
 ```
 
 The `core:` argument is design §2.4's registration-time version-skew assertion, spent here for the
 first time by an adapter with a third-party dependency. `Gem::Version` needs no `require` (verified).
+
+**It is `REQUIRED_CORE`, a two-segment `~>` string, and never `Dexpace::VERSION`.** Phase 2's
+`Registry#assert_core_version!` matches the argument against
+`CORE_REQUIREMENT = /\A~>\s*(\d+)\.(\d+)\z/` and raises `Dexpace::InvalidArgumentError` —
+"core: must be a two-segment pessimistic requirement such as \"~> 1.2\"" — on anything else
+(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:2817`, `:3096-3101`). `Dexpace::VERSION`
+is `"0.0.0"` and does not match, so passing it would make `require "dexpace/serde/json"` raise at
+load. Phase 2's own tests spell it `CORE = "~> 0.0"` (`…phase2…:2398`), and phases 8a and 8c both
+spell it `core: "~> MAJOR.MINOR"`. It is also the value `Dexpace::VERSION` could never carry: the
+argument states the core the adapter was *built against*, which is the whole point of a skew guard,
+and the running core's own version is a tautology. `REQUIRED_CORE` must equal the string the gemspec
+declares for `dexpace-core` — `DexpaceVersions.core_constraint`, `"~> 0.0"` today
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md:253`, `:515`) — and the plan's
+Task 13 asserts that agreement, which `gates:gemspec_audit` checks from one side and nothing checked
+from the other.
 
 ---
 
@@ -1619,14 +1685,21 @@ Stated as a contract, so a later phase cites rather than re-derives.
 
 ## Deviation Ledger
 
-Numbering starts at `P7-1`; **no `P7-<n>` exists anywhere in `docs/`, verified 2026-09-10.** Each row
-is consolidated into design §10 and audited by `docs/deviations.md`.
+Numbering starts at `P7-1`, which was unused anywhere in `docs/` when this document was written on
+2026-09-10. **It is no longer unique:** `7b` and `7c` number their own ledgers from `P7-1` too, and
+the roadmap records the collision as deliberate rather than discovered — "**knowingly sharing numbers
+with `7a`'s and `7b`'s** … resolved at consolidation into design §10"
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md:1507`). Until that consolidation renumbers
+them, **every citation of a phase-7 row from outside its own sub-phase carries the sub-phase letter** —
+`7a P7-1` for the row below, `7c P7-1` for `PAGE-15`'s wrapping clause — which is how
+`docs/deviations.md` and `docs/first-release.md` now spell them. Each row is consolidated into design
+§10 and audited by `docs/deviations.md`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P7-1 | **`SERDE-27`'s "without first materializing the whole body" is NOT satisfied.** The handler materialises nothing and hands `#load` the `BufferedSource`; the JSON adapter then drains to EOF into one `String` under `Dexpace::IO::MAX_MATERIALIZED_BYTES`. A body above the ceiling raises `Dexpace::StreamError`, unwrapped | `SERDE-27`; design §3.4's `JSON.load` ban; `serde/5e420c20`; verified facts 1, 2 and 4 | Verified against **json 2.19.9**, the gemspec floor, not only against the interpreter's 2.9.1: `JSON.parse` raises `TypeError` on a `StringIO`, `JSON::Parser` exposes only `#parse`/`#source`, and no singleton method is pull-shaped. `JSON.load` is the sole IO-accepting entry point and is banned by lint rule for CVE-2020-10663's `create_additions` hazard. The `#to_str` loophole works and buys nothing, because `#to_str` returns the whole `String`. The only remaining route is to write a JSON parser inside the gem whose purpose is to delegate to `json`, which would make the `>= 2.19.9` floor meaningless. The seam's shape keeps the deviation adapter-local: an adapter with a pull parser satisfies the clause with **no change to core, to the handlers or to the seam** |
-| P7-2 | Public **constants** neither design §3.4 nor §7.3 names: `Dexpace::Serde::DecodeContext`, `::Native`, `::OMIT`, `::Instant`, `::DecodingHandler`, `::StatusAwareHandler`, `::WITNESS_METHOD`, `::DUMP_METHOD`; `Dexpace::Serde::JSON::Codec` and `::MINIMUM_JSON_VERSION` | `NFR-4`; `NFR-11`; `api-design/b0e18938`; `P1-1`, `P2-11`, `P3-14`, `P4-24`, `P5-1`, `P6-1` precedent | `NFR-4` locks a name before it locks a signature. §7.3 names `Dexpace::Serde.witness!`, four combinators and `Tristate`'s three members; §3.4 names `Dexpace::Serde::JSON.default`. Everything above is chosen here for a stated reason in the object model, and placement follows `P1-1` unchanged — `Dexpace::Serde` is a namespace the design itself wrote, so these nest inside it and nothing else does |
-| P7-3 | Public **methods** neither design §3.4 nor §7.3 names: `Dexpace::Serde.witness?`; `DecodeContext.root`, `#path`, `#at`, `#object!`, `#array!`, `#string!`, `#integer!`, `#float!`, `#boolean!`, `#present!`, `#error!`; `Tristate.absent`, `.null`, `.present`, `.from_nullable`, and the six instance methods; `Native.of`; `List`/`Map`/`Nullable`/`Tristate`'s `#dexpace_load` and `Tristate.of`'s `#dexpace_load_field`; `Instant.dexpace_load`/`#dexpace_dump`; both handlers' `.build` and `#call`; `Codec.build`, `.default` and the six seam methods; `Dexpace::Body.serialized` | `NFR-4`; `api-design/b0e18938`; `P4-23`, `P5-2`, `P6-2` precedent | `NFR-4` locks a signature, not only a name. Two deserve naming here. **`#dexpace_load_field(hash, key, ctx)` is a second entry point on one combinator** — `Tristate.of`'s — and exists because verified fact 6 makes the in-object case answerable only with the enclosing `Hash` in hand; the top-level `#dexpace_load` is `SERDE-20`'s and cannot see a key. **`Body.serialized` widens phase 3b's factory set from eight to nine**, which `NFR-4`'s "disappears or narrows" lock permits and `api-design/1d9e6e0b` covers |
+| P7-2 | Public **constants** neither design §3.4 nor §7.3 names: `Dexpace::Serde::DecodeContext`, `::Native`, `::OMIT`, `::Instant`, `::BOOLEAN`, `::DecodingHandler`, `::StatusAwareHandler`, `::WITNESS_METHOD`, `::DUMP_METHOD`; `Dexpace::Serde::JSON::Codec`, `::MINIMUM_JSON_VERSION` and `::REQUIRED_CORE` | `NFR-4`; `NFR-11`; `api-design/b0e18938`; `P1-1`, `P2-11`, `P3-14`, `P4-24`, `P5-1`, `P6-1` precedent | `NFR-4` locks a name before it locks a signature. §7.3 names `Dexpace::Serde.witness!`, four combinators and `Tristate`'s three members; §3.4 names `Dexpace::Serde::JSON.default`. Everything above is chosen here for a stated reason in the object model, and placement follows `P1-1` unchanged — `Dexpace::Serde` is a namespace the design itself wrote, so these nest inside it and nothing else does. Two deserve naming. **`BOOLEAN` is a named witness where the other three scalars are class objects**, because Ruby has no `Boolean` class for the lookup table to key on. **`REQUIRED_CORE` is public because a consumer debugging a version-skew failure needs to read the constraint the adapter was built against**, and because the plan's Task 13 asserts it equals the gemspec's `dexpace-core` requirement — an agreement `gates:gemspec_audit` checks from one side and nothing checked from the other |
+| P7-3 | Public **methods** neither design §3.4 nor §7.3 names: `Dexpace::Serde.witness?`; `DecodeContext.root(target:)`, `#path`, `#target`, `#at`, `#object!`, `#array!`, `#string!`, `#integer!`, `#float!`, `#boolean!`, `#present!`, `#error!`; `Tristate.absent`, `.null`, `.present`, `.from_nullable`, and the six instance methods; `Native.of`; `List`/`Map`/`Nullable`/`Tristate`'s `#dexpace_load` and `Tristate.of`'s `#dexpace_load_field`; `Instant.dexpace_load`/`#dexpace_dump`; both handlers' `.build` and `#call`; `Codec.build`, `.default` and the six seam methods; `Dexpace::Body.serialized` | `NFR-4`; `api-design/b0e18938`; `P4-23`, `P5-2`, `P6-2` precedent | `NFR-4` locks a signature, not only a name. Two deserve naming here. **`#dexpace_load_field(hash, key, ctx)` is a second entry point on one combinator** — `Tristate.of`'s — and exists because verified fact 6 makes the in-object case answerable only with the enclosing `Hash` in hand; the top-level `#dexpace_load` is `SERDE-20`'s and cannot see a key. **`Body.serialized` widens phase 3b's factory set from eight to nine**, which `NFR-4`'s "disappears or narrows" lock permits and `api-design/1d9e6e0b` covers |
 | P7-4 | **`SERDE-26` is satisfied by a per-instance private `::JSON::Coder`, and the adapter accepts no caller-supplied engine** — where design §7.3 predicts "close to vacuous for a stateless `JSON` module … satisfied by holding configuration in a frozen options hash … the requirement's own fallback clause covers this" | `SERDE-26`; design §7.3; §11.18; verified fact 8 | §7.3 and §11.18 were written against **json 2.9.1**, which has no `JSON::Coder`. The floor the gemspec declares — **2.19.9** — does, and it is a real per-instance engine: freezable, thread-safe across 8 × 500 concurrent dumps, `[:dump, :generate, :load, :load_file, :parse]`. So the port does not need the fallback clause and does not invoke it. Two properties follow that the frozen-options-hash route does not give: no engine is ever shared between two serdes, and there is no caller instance to mutate because `Codec.build` takes options rather than a coder — which makes `SERDE-26`'s antecedent false by construction *and* its purpose satisfied literally, rather than either alone |
 | P7-5 | **`#dump_into`'s target is a mutable `Encoding::BINARY` `String` only.** Ruby's `IO::Buffer` is rejected with `Dexpace::InvalidArgumentError`, where design §3.4 writes "a caller-supplied `String`/`IO::Buffer`" | `SEAM-20`; `SERDE-4`; design §3.4; phase 0's warnings-fatal gate; verified fact 5 | Measured: `IO::Buffer.new` emits an experimental warning through `Warning.warn` at **every** warning level, and phase 0's shared test case overrides `Warning.warn` **to raise** — so a test that constructs one fails the build, and a requirement whose conformance clause cannot be tested is not satisfied. Second reason: `IO::Buffer#set_string` raises `ArgumentError` where `String#[]=` raises `IndexError`, so supporting both would give `SERDE-4`'s "range/overflow error" two classes and a caller two rescues. Third: `Dexpace::IO::Buffer` — the name a reader will reach for — is a **FIFO with no offset addressing**, so it is not the missing third option either. A BINARY `String` *is* Ruby's byte array (§10.13's own argument), so nothing about `SEAM-20`'s buffer profile is lost |
 | P7-6 | **`#load` validates that the drained text is valid UTF-8 before parsing**, raising `DeserializationError` — a guard neither the requirement nor the design names | `SERDE-9`, `SERDE-13`; `io-and-byte-streams/6eb5155f`; phase 10's inbound-list entry on design §3.1's decode sentence; verified fact 7 | Two silences compose into one: phase 3a's `#read_utf8` **retags without validating** (its own stated contract — "no replacement policy — that is `HTTP-42`'s"), and `::JSON.parse` accepts invalid UTF-8 and returns a UTF-8-tagged `String` whose `#valid_encoding?` is `false`. Without the guard a caller receives a `String` that claims an encoding it does not have, several frames from the cause, with no error anywhere. A *transcode* is the wrong repair — `"\xc3\xa9".b.encode(UTF_8, BINARY)` raises on a perfectly valid `é` — so retag-then-**validate** is the recipe, and `7a` adds the second step rather than changing 3a's primitive, because `7b`'s SSE machine reads the same primitive and may legitimately want bytes that are not valid UTF-8 |
@@ -1638,8 +1711,10 @@ is consolidated into design §10 and audited by `docs/deviations.md`.
 
 ## Work phase 7a postpones, and who owns it now
 
-**None.** Every one of `7a`'s 30 IDs is implemented here, three of them with a deviation row and six
-with a stated clause. No ID cluster moves out of `7a`'s scope to a later phase, and design §12's
+**None.** Every one of `7a`'s 30 IDs is implemented here, **nine** of them touched by a deviation row
+(`SERDE-4`, `9`, `13`, `15`, `19`, `20`, `24`, `26`, `27`, through `P7-1`, `P7-4`, `P7-5`, `P7-6`,
+`P7-8` and `P7-9`) and **nine** carrying a stated clause (`SERDE-6`, `7`, `8`, `11`, `14`, `17`, `26`,
+`27`, `29` — the section above). No ID cluster moves out of `7a`'s scope to a later phase, and design §12's
 `SERDE` row — "*Deferred:* none" — is unchanged by this document.
 
 ### Items earlier phases postponed or declined that touch `7a`

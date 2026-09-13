@@ -1011,7 +1011,7 @@ Expected: PASS — 3 runs, 0 failures, 0 errors.
 `#response` and `#status`, with a message naming the status code and its canonical name... There is
 no per-status subclass tree, and that is P4-20... `ProtocolError.for(response)` raises
 `Dexpace::InvalidArgumentError` for a non-error status (`XCUT-8`)... `ProtocolError.for_or_nil(response)`
-returns `nil` instead... No `#retryable?` (postponed to phase 6a, Task 6)."
+returns `nil` instead... No `#retryable_by_status?` (postponed to phase 6a, Task 6)."
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/error/protocol_error.rb`,
@@ -1092,10 +1092,10 @@ class DexpaceProtocolErrorTest < DexpaceTestCase
     assert_equal(500, err.status.code)
   end
 
-  test "ProtocolError does not define retryable? (postponed to phase 6a, Task 6)" do
-    err = Dexpace::ProtocolError.new(build_response(503))
-    refute_respond_to(err, :retryable?)
-  end
+  # NOTE: no test pins the ABSENCE of #retryable_by_status?. XCUT-5's baked flag is postponed to
+  # phase 6a, Task 6, which adds the predicate to THIS class and extends THIS file; a refute_respond_to
+  # here would be a test phase 6a has to delete, and 6a's own plan expects every run in this file
+  # to keep passing. A postponement is recorded in a checklist row, not pinned by an assertion.
 end
 ```
 
@@ -1169,7 +1169,7 @@ Add `require_relative "dexpace/error/protocol_error"` to `gems/dexpace-core/lib/
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/error/protocol_error_test.rb`
-Expected: PASS — 6 runs, 0 failures, 0 errors.
+Expected: PASS — 5 runs, 0 failures, 0 errors.
 
 ---
 
@@ -1431,8 +1431,15 @@ module Dexpace
       private_class_method :new
 
       def self.build(response:)
-        Model.required!("response", response) # phase 1's signature is (name, value)
         new(response: response)
+      end
+
+      # Phase 1's construction rule, unchanged: `.build` is the `new` wrapper and validation
+      # lives in the Data type's own `initialize`, so `Data#with` cannot route around it on any
+      # supported interpreter. Model#with additionally routes through `.build`.
+      def initialize(response:)
+        Model.required!("response", response) # phase 1's signature is (name, value)
+        super
       end
 
       def success?
@@ -1480,12 +1487,20 @@ module Dexpace
       private_class_method :new
 
       def self.build(error:)
+        new(error: error)
+      end
+
+      # Phase 1's construction rule, unchanged: `.build` is the `new` wrapper and validation
+      # lives in the Data type's own `initialize`. The Exception check is here and not in
+      # `.build` for the same reason RECOV-10 needs it at all -- a Failure carrying a String
+      # would become a TypeError at the unwrap, furthest from the cause.
+      def initialize(error:)
         Model.required!("error", error) # phase 1's signature is (name, value)
         unless error.is_a?(::Exception)
           raise Dexpace::InvalidArgumentError, "error must be an Exception"
         end
 
-        new(error: error)
+        super
       end
 
       def success?
@@ -2475,6 +2490,27 @@ class DexpaceRecoveryErrorMappingStepTest < DexpaceTestCase
     assert_predicate(body, :closed?, "original body must be closed by buffering")
   end
 
+  # Verified fact 5, at the site RECOV-10's own test cannot reach: the factory CONSTRUCTS the
+  # error, so a bare `raise` here would hand it the caller's in-flight $! as a #cause -- and
+  # RECOV-10's `cause: nil` unwrap cannot clear a cause that is already there. A 4xx/5xx raised
+  # from inside a caller's rescue is the ordinary case, not an exotic one.
+  test "the raise attaches no cause while an unrelated exception is in flight (RECOV-10)" do
+    step = Dexpace::Recovery::ErrorMappingStep.build
+    resp = build_response(404, response_body("error payload"))
+
+    raised = begin
+      raise "unrelated caller in-flight exception"
+    rescue ::StandardError
+      begin
+        step.apply(resp)
+      rescue Dexpace::ProtocolError => error
+        error
+      end
+    end
+
+    assert_nil(raised.cause, "the mapping step must not add a cause to the error it constructs")
+  end
+
   test "custom factory can map response to alternative exception" do
     custom_error_class = Class.new(StandardError)
     custom_factory = ->(r) { custom_error_class.new("status: #{r.status.code}") }
@@ -2539,7 +2575,12 @@ module Dexpace
         # RECOV-16: Buffer error body before mapping
         buffered = Dexpace::Recovery.buffer_error_body(response)
         error = @factory.call(buffered)
-        raise error
+        # verified fact 5: the factory CONSTRUCTED this error, so its #cause is nil and a bare
+        # `raise` would assign the caller's in-flight $! to it -- and RECOV-10's `cause: nil`
+        # unwrap cannot clear a cause that is already there. This is RECOV-10's own named case,
+        # "a recovery step constructing the error and returning a Failure", so core must not be
+        # the thing that adds a cause here either.
+        raise error, cause: nil
       end
     end
   end
@@ -2571,7 +2612,7 @@ Add `require_relative "dexpace/recovery/error_mapping_step"` to `gems/dexpace-co
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/recovery/error_mapping_step_test.rb`
-Expected: PASS — 4 runs, 0 failures, 0 errors.
+Expected: PASS — 5 runs, 0 failures, 0 errors.
 
 ---
 
@@ -3161,7 +3202,9 @@ module Dexpace
             case returned
             in Dexpace::Outcome::Success => success then success
             in Dexpace::Outcome::Failure => failure then failure
-            else raise Dexpace::OutcomeError, returned.class
+            # cause: nil for the same reason the unwrap uses it (verified fact 5): this error is
+            # constructed here, so a bare raise would hand it the caller's in-flight $!.
+            else raise Dexpace::OutcomeError.new(returned.class), cause: nil
             end
           end
         end
@@ -3492,7 +3535,8 @@ module Dexpace
           # verified fact 5: cause: nil suppresses implicit assignment of caller's $!
           raise f.error, cause: nil
         else
-          raise Dexpace::OutcomeError, final_outcome.class
+          # constructed here, so cause: nil for the same reason as the Failure arm above
+          raise Dexpace::OutcomeError.new(final_outcome.class), cause: nil
         end
       end
     end
@@ -3544,8 +3588,8 @@ sentence."
 - Modify: `gems/dexpace-core/lib/dexpace.rb`,
   `gems/dexpace-core/sig/dexpace.rbs`,
   `test/fixtures/surface/dexpace-core.txt`,
-  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` (the phase-4b status note),
-  `CLAUDE.md`
+  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` (the phase-4b status note)
+- Read, and modify only if it has gone false: `CLAUDE.md` (Step 9)
 - Create: `docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`
 
 - [ ] **Step 1: Check `lib/dexpace.rb` require order**
@@ -3664,7 +3708,11 @@ Account for all 34 `RECOV` requirements:
   - `RECOV-12` -> Task 13
   - `RECOV-13` -> Task 13
   - `RECOV-14` -> Tasks 12, 13
-  - `RECOV-15` -> Task 11
+  - `RECOV-15` -> Task 11. The row also records the one thing Task 5 shipped **without**:
+    `XCUT-5`'s baked retryability flag on `Dexpace::ProtocolError`, postponed by this sub-phase's
+    design to **phase 6a, Task 6**, which adds `#retryable_by_status?` to this same class from phase 5a's
+    `Dexpace::Retryability`. The row is where that postponement lives — no test in Task 5 pins
+    the predicate's absence, because 6a extends Task 5's suite rather than replacing it
   - `RECOV-16` -> Tasks 7, 11
   - `RECOV-32` -> Task 9
   - `RECOV-33` -> Task 10
@@ -3697,7 +3745,7 @@ dated sentence per item that the work an earlier phase postponed here has landed
   - The retryability flag on `Dexpace::ProtocolError`: **postponed onward** by this sub-phase's design on
     2026-09-08 to phase 6a, Task 6, and this plan postpones nothing further. The step is to confirm the
     design's postponement still reads true of what Task 5 shipped — the class with `#response`,
-    `#status`, `.for` and `.for_or_nil`, and no `#retryable?` — and that the `RECOV-15` checklist row
+    `#status`, `.for` and `.for_or_nil`, and no `#retryable_by_status?` — and that the `RECOV-15` checklist row
     says so.
 - **Deviations.** The design filed `P4-12` through `P4-25` and this plan adds none; the plan's five
   open-question answers are decisions the design asked it to make, not new departures. Consolidating
@@ -3712,14 +3760,17 @@ dated sentence per item that the work an earlier phase postponed here has landed
 
 - **Release blockers.** None. Nothing is published and every gem stays at `0.0.0`.
 
-- [ ] **Step 9: Update `CLAUDE.md` claims sentence**
+- [ ] **Step 9: Check `CLAUDE.md`'s claims sentence, and change it only if it has gone false**
 
-Update the claims sentence in `CLAUDE.md`:
-"three sub-phase directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; `phase4a/`
-and `phase4b/` each hold a design and a plan, `phase4c/` a design with the plan still to be written."
+`CLAUDE.md`'s phase-4 sentence already reads "three sub-phase directories — `phase4/phase4a/`,
+`phase4/phase4b/` and `phase4/phase4c/`; each holds a design and a plan", which is true: all three
+sub-phase directories carry both documents. **Write no replacement sentence here.** The `claims`
+check derives only three counts from the repository — gems, phase directories and harvested topics
+(`Claims#table` in `.claude/skills/housekeeping/probe.rb`) — so it cannot catch a regression in this
+clause, and a plan step that rewrites it from a stale reading of the tree is exactly how one lands.
 
-Run: `ruby .claude/skills/housekeeping/probe.rb --only claims`
-Expected: PASS.
+Run: `ruby .claude/skills/housekeeping/probe.rb`
+Expected: PASS, no drift found.
 
 ---
 

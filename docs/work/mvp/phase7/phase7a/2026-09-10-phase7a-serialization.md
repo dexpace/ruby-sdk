@@ -8,8 +8,10 @@
 (`Dexpace::Serde.witness!`, `DecodeContext`, four combinators), the `Tristate` three-state PATCH
 type, the `Native` encode walk, `Body.serialized`, and the two `Dexpace::_ResponseHandler`s supplied
 into phase 3b's `TypedResponse`; and `dexpace-serde-json`'s `Codec`, which fills that gem's `lib/`
-and declares the `json >= 2.19.9` floor. All thirty `SERDE-1`–`SERDE-30` requirements, with three
-carrying a deviation row and six a stated clause. No deferral is filed.
+and declares the `json >= 2.19.9` floor. All thirty `SERDE-1`–`SERDE-30` requirements, with nine
+touched by a deviation row (`SERDE-4`, `9`, `13`, `15`, `19`, `20`, `24`, `26`, `27`) and nine
+carrying a stated clause (`SERDE-6`, `7`, `8`, `11`, `14`, `17`, `26`, `27`, `29`). No deferral is
+filed.
 
 **Architecture:** One decode context (`Dexpace::Serde::DecodeContext`) carrying the path and the
 **one** raise site for every shape failure — `SEAM-29`'s discipline applied to `SERDE-13`/`SERDE-21`/
@@ -25,6 +27,10 @@ rather than building a second buffering site or a second error type. One adapter
 (`Dexpace::Serde::JSON::Codec`), frozen, owning a private `::JSON::Coder` built from a frozen options
 `Hash`, passing `strict: true`, reading UTF-8 through 3a's `#read_utf8` under `IO-9`'s ceiling,
 validating it, and rescuing `::JSON::JSONError` and nothing wider.
+
+The plan's last substantive task is a **composition slice** over a fake transport: `Dexpace::Operation`
+(phase 2) → `Pipeline.direct` (phase 4c) → `TypedResponse` + `StatusAwareHandler` + the real codec,
+which is the path a generated SDK walks and which no phase composed before.
 
 **Tech Stack:** Ruby 3.2–4.0 (authored on 3.4.10), Minitest, RBS + Steep (the `serde_json` target has
 **two** signature roots), RuboCop with phase 0's five original custom cops plus phase 2's sixth,
@@ -204,7 +210,7 @@ The design's five open questions are resolved below with a concrete decision eac
 
 ## Task order and dependency chain
 
-Eighteen tasks. The chain has one hard external ordering rule and one internal one, and both are
+Nineteen tasks. The chain has one hard external ordering rule and one internal one, and both are
 stated so a reader can see they are not habit.
 
 **Hard rule, external:** the gemspec line (Task 13) lands **before** the first `require "json"` (Task
@@ -242,11 +248,13 @@ every witness, because every witness raises through the first and is validated b
     Tasks 6, 7, 8, 14, 15.
 17. `SerdeSeamAssertions` and the adapter conformance suite (`SERDE-3`, `SERDE-4`, `SERDE-9`,
     `SERDE-10`, `SERDE-12`, `SERDE-29`) — needs Tasks 14–16.
-18. Final wiring: the requires, the RBS baseline diff, the runtime surface snapshot, the knowledge
+18. The `SEAM-26`/`SEAM-27` composition slice over a fake transport (`SEAM-26`, `SEAM-27`,
+    `SERDE-28`, `RECOV-15`, `HTTP-52`/`BODY-30`) — needs Tasks 9, 11, 14, 16.
+19. Final wiring: the requires, the RBS baseline diff, the runtime surface snapshot, the knowledge
     note, and the four register-edit texts the design already drafted for a human to apply. The
     checklist is written at execution time, per `CLAUDE.md`, and is not a task this plan performs.
 
-**Tasks 2–11 are core and Tasks 13–17 are the adapter**, and the boundary between them is where a
+**Tasks 2–11 are core and Tasks 13–17 are the adapter**, with Task 18 the one place both meet, and the boundary between them is where a
 reviewer should check that no core file, `sig/` file or test names `Dexpace::Serde::JSON` — Task 1
 builds the test that makes that mechanical.
 
@@ -267,6 +275,19 @@ all set. It also builds `SEAM-2`'s mechanised guard, which has no ID of its own 
 **Needs:** phase 2's `FakeCodec` (reused, not rebuilt); phase 3a's `BufferedSource`; phase 3b's
 `Response`/`ResponseBody`.
 **Produces:** three doubles plus the `SEAM-2` guard.
+
+**One thing about `FakeCodec` every handler task depends on, stated here once.** Phase 2's
+`FakeCodec#load(source, witness) = witness.call(source.read)`
+(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:4361`) drives its witness through
+**`#call`**, because phase 2 shipped before the witness protocol existed. `7a`'s
+`Dexpace::Serde.witness!` validates `respond_to?(:dexpace_load)` (Task 3) and both handlers run it at
+`.build`, so **a bare lambda is not a witness here**: it satisfies `FakeCodec` and fails
+`witness!`. Every handler test therefore uses a **named witness object answering both** —
+`.dexpace_load(parsed, ctx)` for the predicate and `.call(text)` for `FakeCodec` — and the two names
+sit side by side in the fixture so the reason is visible. **Do not widen `witness!` to accept
+`#call`**: `SERDE-5` requires an explicit runtime type witness and `SERDE-8` requires construction to
+fail fast without one, and a `#call` fallback would make every lambda a witness and both MUSTs
+unenforceable.
 
 - [ ] **Step 1: Install the matrix and re-run every fact**
 
@@ -342,7 +363,7 @@ must not break.
 - Test: `gems/dexpace-core/test/dexpace/serde/decode_context_test.rb`
 
 **Needs:** phase 1's `Dexpace::Model`; phase 2's `Dexpace::Serde::DeserializationError`.
-**Produces:** `DecodeContext.root`, `#path`, `#at`, and the eight `!` methods.
+**Produces:** `DecodeContext.root(target:)`, `#path`, `#target`, `#at`, and the eight `!` methods.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -364,6 +385,32 @@ class DexpaceSerdeDecodeContextTest < DexpaceTestCase
     assert_empty(ctx.path)
     assert_predicate(ctx.path, :frozen?)
     assert_predicate(ctx, :frozen?)
+    assert_nil(ctx.target)
+  end
+
+  # SERDE-13's conformance clause decodes "the literal null into a non-null DTO" and asserts the
+  # message names THE TARGET TYPE. A witness reached with nil calls ctx.object!(nil), which knows
+  # only the shape it wanted -- so without a target on the root frame the message names Hash where
+  # the requirement asks for Pet. The target is carried by #at but only RENDERED at the root, because
+  # a nested frame's target IS its expected shape.
+  test "SERDE-13: the root frame names the target type, and a nested frame does not" do
+    root = Dexpace::Serde::DecodeContext.root(target: "Pet")
+
+    assert_equal("Pet", root.target)
+    assert_equal("Pet", root.at("tags").target)
+
+    at_root = assert_raises(Dexpace::Serde::DeserializationError) { root.object!(nil) }
+    nested  = assert_raises(Dexpace::Serde::DeserializationError) { root.at("tags").string!(nil) }
+
+    assert_match(/Pet/, at_root.message)
+    assert_match(/Hash/, at_root.message)
+    assert_match(/String/, nested.message)
+    refute_match(/Pet/, nested.message)
+  end
+
+  test ".root accepts a class or a module and stores its NAME, never the object" do
+    assert_equal("String", Dexpace::Serde::DecodeContext.root(target: ::String).target)
+    assert_predicate(Dexpace::Serde::DecodeContext.root(target: ::String).target, :frozen?)
   end
 
   test "#at appends one segment and returns a new context, leaving the receiver untouched" do
@@ -465,10 +512,15 @@ Expected: FAIL — `uninitialized constant Dexpace::Serde::DecodeContext`.
 
 - [ ] **Step 3: Write `lib/dexpace/serde/decode_context.rb`**
 
-`Data.define(:path)`, `include Dexpace::Model`, `private_class_method :new`. `.root` memoizes one
-frozen instance with an empty frozen path. `#at(segment)` returns
-`self.class.__build(path: (path + [segment]).freeze)` — an internal builder, not public, because a
-caller constructing an arbitrary path has no use for one. Every `!` method has the same two-line
+`Data.define(:path, :target)`, `include Dexpace::Model`, `private_class_method :new`.
+`.root(target: nil)` returns a frozen context with an empty frozen path and the target's **name** —
+`target.is_a?(::Module) ? target.name : target.to_s`, frozen, `nil` when no target is supplied — and
+memoizes the no-target instance. Storing the *name* and not the witness object is what keeps
+`DecodeContext` a plain value: a caller's class object inside a `Data` member would put it into
+`==`/`hash`. `#at(segment)` returns
+`self.class.__build(path: (path + [segment]).freeze, target: target)` — an internal builder, not
+public, because a caller constructing an arbitrary path has no use for one; the target rides along
+unchanged so it is available for a diagnostic at any depth. Every `!` method has the same two-line
 shape:
 
 ```ruby
@@ -497,8 +549,12 @@ end
 ```ruby
 def error!(expected:, actual:, key: nil)
   at = key.nil? ? self : self.at(key)
+  # SERDE-13: "naming the target type". At the ROOT frame the expected shape is not the target --
+  # a null decoded into Pet reports `expected Hash`, which names the wrong thing -- so the root
+  # frame names both. A nested frame's target IS its expected shape, so it renders the plain form.
+  wanted = at.path.empty? && at.target ? "#{at.target} (#{expected})" : expected
   raise Dexpace::Serde::DeserializationError,
-        "expected #{expected} at #{at.pointer}, got #{actual.class}"
+        "expected #{wanted} at #{at.pointer}, got #{actual.class}"
 end
 ```
 
@@ -514,8 +570,9 @@ module Dexpace
       include Dexpace::Model
 
       attr_reader path: Array[String | Integer]
+      attr_reader target: String?
 
-      def self.root: () -> DecodeContext
+      def self.root: (?target: untyped) -> DecodeContext
       def at: (String | Integer segment) -> DecodeContext
       def pointer: () -> String
       def object!: (untyped value, ?key: (String | Integer)?) -> Hash[String, untyped]
@@ -1357,7 +1414,21 @@ require_relative "../../support/counting_response"
 class DexpaceSerdeDecodingHandlerTest < DexpaceTestCase
   S = Dexpace::Serde
 
-  def handler(serde: FakeCodec.new, witness: ->(text) { text.upcase })
+  # A named witness answering BOTH protocol methods: .dexpace_load for Dexpace::Serde.witness!, which
+  # DecodingHandler.build runs, and .call for phase 2's FakeCodec#load, which predates the protocol
+  # (Task 1). A bare lambda answers only the second and fails at .build -- and widening witness! to
+  # accept #call would break SERDE-5 and SERDE-8.
+  class UpcaseWitness
+    def self.dexpace_load(parsed, _ctx) = parsed.upcase
+    def self.call(text) = dexpace_load(text, nil)
+  end
+
+  class PetWitness
+    def self.dexpace_load(parsed, ctx) = ctx.object!(parsed)
+    def self.call(text) = dexpace_load(text, S::DecodeContext.root(target: self))
+  end
+
+  def handler(serde: FakeCodec.new, witness: UpcaseWitness)
     S::DecodingHandler.build(serde: serde, witness: witness)
   end
 
@@ -1448,12 +1519,32 @@ class DexpaceSerdeDecodingHandlerTest < DexpaceTestCase
 
   test "a non-witness fails at handler construction, not at first body access" do
     assert_raises(Dexpace::InvalidArgumentError) { S::DecodingHandler.build(serde: FakeCodec.new, witness: 5) }
+    assert_raises(Dexpace::InvalidArgumentError) do
+      S::DecodingHandler.build(serde: FakeCodec.new, witness: ->(text) { text.upcase })
+    end
+  end
+
+  # The handler reads response.body.SOURCE, and Dexpace::Body's module default for #source RAISES
+  # Dexpace::StreamError naming the class (phase 3b, P3-23). Only ResponseBody, ResponseLoggingBody
+  # and BufferBody override it -- BytesBody, which Body.bytes and Body.string return, does not. So the
+  # obvious in-memory spelling is not readable by a typed handler, and the failure looks exactly like
+  # SERDE-27's "genuine mid-stream I/O error" for a body that is perfectly readable. This test makes
+  # the limit a documented contract rather than a discovery; Body.buffer is the readable spelling.
+  test "a BytesBody-backed response raises StreamError, and Body.buffer is the readable spelling" do
+    bytes = Dexpace::Response.build(status: 200, body: Dexpace::Body.bytes(%q("héllo").b))
+
+    assert_raises(Dexpace::StreamError) { handler.call(bytes) }
+
+    buffered = Dexpace::Response.build(status: 200, body: Dexpace::Body.buffer(%q("héllo").b))
+
+    assert_equal(%q("HÉLLO"), handler.call(buffered))
   end
 end
 ```
 
-`PetWitness` is a two-line named witness class in the test file, so `SERDE-27`'s "naming the target
-type" is asserted against a name a reader can see.
+`PetWitness` and `UpcaseWitness` are the two named witness classes at the top of the test file, so
+`SERDE-27`'s "naming the target type" is asserted against a name a reader can see and the
+`witness!`-versus-`FakeCodec` protocol difference is visible at the fixture rather than inferred.
 
 - [ ] **Step 2: Run to confirm it fails**
 
@@ -1466,6 +1557,18 @@ running `Model.required!` on both and `Dexpace::Serde.witness!` on the witness. 
 the design's eight lines, with the `ensure` unguarded and the `SERDE-3`-versus-`SERDE-27` comment at
 the `ensure`.
 
+**Which bodies `#call` can read, stated in the code and in the YARD.** `body.source` is the module
+default on `Dexpace::Body` and it **raises `Dexpace::StreamError` naming the class**; only
+`Dexpace::ResponseBody` (the transport's), `Dexpace::ResponseLoggingBody` (phase 5's) and
+`Dexpace::BufferBody` (`Body.buffer`, and what `Recovery.buffer_error_body` produces) override it
+(`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md:731`, `:744-748`). A
+`BytesBody` — what `Body.bytes` and `Body.string` return, and the spelling a caller or a generated
+SDK reaches for first when building a response by hand against the in-memory fake transport — does
+**not**, so a typed handler over one raises a stream error for a body that is perfectly readable. The
+YARD block on `DecodingHandler#call` names the three readable variants and points at `Body.buffer`
+for an in-memory response; the handler adds no `respond_to?` fallback, because `HTTP-41` names
+`#source` as *the* read handle and a quieter failure would be the same gap harder to see.
+
 The "empty body" check is the handler's (open question 3): `body.nil? || body.content_length.zero?`,
 and additionally a `rescue` converting a codec-side end-of-input `DeserializationError` whose
 `#cause` is a parse error over empty input into the same target-naming message — because
@@ -1474,7 +1577,7 @@ and additionally a `rescue` converting a codec-side end-of-input `Deserializatio
 - [ ] **Step 4: Write the `sig/` mirror and run to confirm it passes**
 
 `def call: (Dexpace::Response response) -> untyped`, which is `Dexpace::_ResponseHandler`'s shape
-exactly. Expected: PASS, 9 runs.
+exactly. Expected: PASS, 10 runs.
 
 ---
 
@@ -1508,8 +1611,15 @@ require_relative "../../support/counting_response"
 class DexpaceSerdeStatusAwareHandlerTest < DexpaceTestCase
   S = Dexpace::Serde
 
+  # Named, answering both protocol methods, for Task 1's reason: .dexpace_load is what
+  # Dexpace::Serde.witness! requires and .call is what phase 2's FakeCodec#load drives.
+  class UpcaseWitness
+    def self.dexpace_load(parsed, _ctx) = parsed.upcase
+    def self.call(text) = dexpace_load(text, nil)
+  end
+
   def handler(factory: nil)
-    kwargs = { serde: FakeCodec.new, witness: ->(text) { text.upcase } }
+    kwargs = { serde: FakeCodec.new, witness: UpcaseWitness }
     kwargs[:factory] = factory unless factory.nil?
     S::StatusAwareHandler.build(**kwargs)
   end
@@ -1639,7 +1749,7 @@ returns `Dexpace::MediaType?`. `#load`'s `source` is `untyped` rather than
 `Dexpace::IO::BufferedSource`, because `SERDE-3`'s subject is "a caller-supplied stream" and phase
 2's own test passes a `StringIO`.
 
-- [ ] **Step 2: Add the ten `require_relative`s to `lib/dexpace.rb`, in dependency order**
+- [ ] **Step 2: Add the eleven `require_relative`s to `lib/dexpace.rb`, in dependency order**
 
 `serde/decode_context`, `serde/witness`, `serde/native`, `serde/scalars`, `serde/tristate`,
 `serde/list`, `serde/map`, `serde/nullable`, `serde/instant`, `serde/decoding_handler`,
@@ -1692,11 +1802,26 @@ signatures, and Task 1's `SEAM-2` test must still pass.
   test "the adapter registers itself against the seam with a core version assertion" do
     assert_includes(Dexpace::Serde.registered_keys, :json)
   end
+
+  # The registry's core: argument is a TWO-SEGMENT PESSIMISTIC REQUIREMENT, never Dexpace::VERSION.
+  # Phase 2's Registry#assert_core_version! matches it against /\A~>\s*(\d+)\.(\d+)\z/ and raises
+  # Dexpace::InvalidArgumentError on anything else (…phase2…:2817, :3096-3101), so `core:
+  # Dexpace::VERSION` ("0.0.0") would make `require "dexpace/serde/json"` raise at load. It must also
+  # AGREE with the string the gemspec declares for dexpace-core -- the agreement gates:gemspec_audit
+  # checks from one side and nothing checked from the other (phase 8b's P8-21 makes the same point).
+  test "REQUIRED_CORE is a ~> constraint and equals the gemspec's dexpace-core requirement" do
+    spec = Gem::Specification.load(File.expand_path("../../../dexpace-serde-json.gemspec", __dir__))
+    declared = spec.runtime_dependencies.find { |d| d.name == "dexpace-core" }.requirements_list
+
+    assert_match(/\A~>\s*\d+\.\d+\z/, Dexpace::Serde::JSON::REQUIRED_CORE)
+    assert_equal(declared, [Dexpace::Serde::JSON::REQUIRED_CORE])
+  end
 ```
 
 - [ ] **Step 2: Run to confirm they fail**
 
-Expected: FAIL on all three — no `json` dependency, no `MINIMUM_JSON_VERSION`, no registration.
+Expected: FAIL on all four — no `json` dependency, no `MINIMUM_JSON_VERSION`, no `REQUIRED_CORE`, no
+registration.
 
 - [ ] **Step 3: Add the gemspec line**
 
@@ -1707,10 +1832,18 @@ place in the repository that floor may be stated** (`CLAUDE.md`'s hard rule, des
 - [ ] **Step 4: Extend the entry file**
 
 Keep phase 0's shadowing caution verbatim. Add, in order: `require "json"` (the first in this gem, and
-legal only because Step 3 landed), the `MINIMUM_JSON_VERSION` constant, the `Gem::Version` floor
-assertion raising `Dexpace::SeamError`, `require_relative "json/codec"`, and the registration
-`Dexpace::Serde.register(:json, -> { default }, core: Dexpace::VERSION)` — design §2.4's
+legal only because Step 3 landed), the `MINIMUM_JSON_VERSION` constant, the `REQUIRED_CORE = "~> 0.0"`
+constant, the `Gem::Version` floor assertion raising `Dexpace::SeamError`,
+`require_relative "json/codec"`, and the registration
+`Dexpace::Serde.register(:json, -> { default }, core: REQUIRED_CORE)` — design §2.4's
 version-skew assertion, spent here for the first time by an adapter with a third-party dependency.
+**`REQUIRED_CORE`, never `Dexpace::VERSION`:** phase 2's registry accepts only a two-segment `~> M.N`
+string and raises `Dexpace::InvalidArgumentError` on `"0.0.0"`, which would make the gem unloadable;
+and the argument states the core the adapter was *built against*, not the one that happens to be
+running. Its value is the gemspec's own `dexpace-core` constraint —
+`DexpaceVersions.core_constraint`, `"~> 0.0"` today
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates.md:253`, `:515`) — and Step 1's
+fourth test asserts the two agree.
 `.default` and `.build` delegate to `Codec`, which Task 14 writes; this step leaves them raising
 `NotImplementedError` so the ordering is visible in the diff.
 
@@ -1752,6 +1885,14 @@ require_relative "../../../support/close_counting_sink"
 # phase 2's Dexpace/QualifiedCoreConstant, and this is the first code it bites.
 class DexpaceSerdeJSONCodecTest < DexpaceTestCase
   C = Dexpace::Serde::JSON::Codec
+
+  # Codec#load runs Dexpace::Serde.witness! on its second argument, so a bare lambda is NOT a witness
+  # (Task 1, Task 3). A named class answering .dexpace_load is the smallest thing that is one.
+  class Identity
+    def self.dexpace_load(parsed, _ctx) = parsed
+  end
+
+  def source(text) = Dexpace::IO::BufferedSource.of_bytes(text.b)
 
   test "SERDE-1: the seam's six methods are all present, so .conforms? accepts it" do
     assert(Dexpace::Serde.conforms?(C.default))
@@ -1859,8 +2000,8 @@ class DexpaceSerdeJSONCodecTest < DexpaceTestCase
 
     refute_respond_to(a, :coder)
     assert_predicate(a, :frozen?)
-    assert_raises(Dexpace::Serde::DeserializationError) { a.load(source("[[[[[1]]]]]"), ->(x, _c) { x }) }
-    assert_equal([[[[[1]]]]], b.load(source("[[[[[1]]]]]"), ->(x, _c) { x }))
+    assert_raises(Dexpace::Serde::DeserializationError) { a.load(source("[[[[[1]]]]]"), Identity) }
+    assert_equal([[[[[1]]]]], b.load(source("[[[[[1]]]]]"), Identity))
   end
 
   test "an unknown option is refused rather than forwarded silently" do
@@ -2015,11 +2156,24 @@ class DexpaceSerdeJSONCodecLoadTest < DexpaceTestCase
     assert_raises(Dexpace::StreamError) { C.default.load(over_ceiling, Pet) }
   end
 
-  # SERDE-13 across "every decode overload" -- which is one method here, so one test.
+  # SERDE-13 across "every decode overload" -- which is one method here, so one test. Its conformance
+  # clause decodes "the literal null into a non-null DTO" and asserts the message names THE TARGET
+  # TYPE, so /Pet/ is the assertion and /Hash/ is the shape that rides beside it. #load builds
+  # DecodeContext.root(target: witness) for exactly this.
   test "SERDE-13: a wire null into a non-null target names the target type" do
     error = assert_raises(Dexpace::Serde::DeserializationError) { C.default.load(source("null"), Pet) }
 
+    assert_match(/Pet/, error.message)
     assert_match(/Hash/, error.message)
+  end
+
+  # And the repair is WITNESS-AWARE rather than a nil check in #load: SERDE-20 requires
+  # "deserialize a top-level null -> Null", so a combinator that legitimately accepts nil must still
+  # succeed. Neither of these calls ctx.object! on nil, so nothing raises and neither needs an
+  # exemption -- which is the whole reason #load does not screen for nil itself.
+  test "SERDE-20: a top-level null still decodes through Nullable and Tristate" do
+    assert_nil(C.default.load(source("null"), S::Nullable.of(Pet)))
+    assert_predicate(C.default.load(source("null"), S::Tristate.of(String)), :null?)
   end
 
   # SERDE-21/SERDE-22, through the REAL codec rather than through DecodeContext alone: JSON.parse
@@ -2062,13 +2216,15 @@ Expected: FAIL — `NoMethodError: undefined method 'load'`.
 
 - [ ] **Step 3: Implement `#load`**
 
-The design's ten lines, verbatim, with three comments that must survive review: the
-`::JSON::Coder#load`-is-not-`::JSON.load` note, the `P7-6` validation note, and the
-`rescue ::JSON::JSONError`-and-never-`StandardError` note naming verified fact 3 as the reason.
+The design's ten lines, verbatim, with four comments that must survive review: the
+`::JSON::Coder#load`-is-not-`::JSON.load` note, the `P7-6` validation note, the
+`rescue ::JSON::JSONError`-and-never-`StandardError` note naming verified fact 3 as the reason, and
+the `SERDE-13` note at `Dexpace::Serde::DecodeContext.root(target: witness)` saying why the target is
+set at the entry point rather than screened for `nil` there (`SERDE-20`'s top-level null).
 
 - [ ] **Step 4: Run to confirm it passes**
 
-Expected: PASS, 12 runs. Re-run Task 14's suite.
+Expected: PASS, 13 runs. Re-run Task 14's suite.
 
 ---
 
@@ -2266,7 +2422,232 @@ callable assertion shape (phase 8a Tasks 4–8 and 20) is **not** pre-empted.
 
 ---
 
-## Task 18: Final wiring
+## Task 18: The `SEAM-26`/`SEAM-27` composition slice, over a fake transport
+
+**Requirement IDs:** `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`, `HTTP-52`/`BODY-30` — each already
+satisfied by an earlier task or an earlier phase; **this task asserts they compose**, and it owns its
+own checklist rows saying so beside the rows that satisfy them.
+**Design:** `R3`; "The interface surface later phases may cite".
+
+**Why this task exists.** `Dexpace::Operation` shipped in phase 2 (Tasks 13–14) and **no phase composes
+it with the pipeline and the codec**. Every piece of the path a generated SDK actually walks is built
+and unit-tested, and the seam between them is tested nowhere: `Operation#build_request` produces a
+`Request` no test then dispatches, `Pipeline.direct` dispatches a `Request` no test built from an
+operation, and `StatusAwareHandler` decodes a `Response` no test obtained from a pipeline. `7a` is the
+first sub-phase that holds every piece at once — it is the one that adds the codec and the handlers —
+so it is where the slice costs one test file rather than a phase. **The socket twin lives in 8a**
+(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`),
+which owns `dexpace-transport-net_http` and the conformance gem's `WireServer`; this task uses phase
+2's in-memory `FakeTransport` and no socket, per roadmap cross-cutting constraint 4 ("phases 1 through
+7 test against an in-memory fake transport").
+
+**Files:**
+- Create: `gems/dexpace-serde-json/test/dexpace/serde/json/composition_test.rb`
+
+**Needs:** Tasks 9, 11, 14 and 16; phase 2's `Dexpace::Operation` and `FakeTransport`; phase 4c's
+`Dexpace::Pipeline`; phase 4b's `Recovery`/`ProtocolError`; phase 3b's `TypedResponse`.
+**Produces:** no `lib/` code. It lives in the adapter's gem because it drives the **real**
+`Dexpace::Serde::JSON::Codec`, which `SEAM-2` forbids core's tests from naming (Task 1's negative test).
+
+**Names verified against the current phase documents rather than recalled** —
+`Dexpace::Operation.build(method:, template:, projections:)` with `projections` a
+`Hash[key, [Symbol, String]]` over `:path`/`:query`/`:header`/`:body`, and
+`#build_request(base_url:, inputs: {}) -> Dexpace::Request`
+(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md`, Tasks 13–14);
+`Dexpace::Pipeline.direct(transport)` with
+`#call(request, options = RequestOptions::EMPTY, cancellation = Cancellation.none)`
+(`docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md:777`, `:1135-1136`);
+`Dexpace::TypedResponse.new(response:, handler:)` and `#value`
+(`…phase3b…-design.md:514-558`); `Dexpace::ProtocolError.for(response)` carrying `#response` and
+`#status`, and `Recovery.buffer_error_body` as the **one** buffering call site
+(`…phase4b…-design.md:1110-1150`).
+
+- [ ] **Step 1: Write the failing test**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require_relative "../../../test_helper"
+require_relative "../../../support/fake_transport"
+
+# SEAM-26, SEAM-27, SERDE-28, RECOV-15, HTTP-52/BODY-30 -- composed, not re-satisfied. Every clause
+# below has an owning unit test elsewhere; what has no home anywhere is the SEAM between them, and
+# Dexpace::Operation (phase 2, Tasks 13-14) is composed with the pipeline and the codec by no phase.
+# The socket twin of this slice is phase 8a's, over dexpace-transport-net_http and the conformance
+# gem's WireServer; this one uses phase 2's in-memory FakeTransport (roadmap cross-cutting
+# constraint 4: phases 1 through 7 test against an in-memory fake transport).
+class DexpaceSerdeJSONCompositionTest < DexpaceTestCase
+  CODEC = Dexpace::Serde::JSON
+
+  class Pet
+    attr_reader :id, :name
+
+    def self.dexpace_load(parsed, ctx)
+      h = ctx.object!(parsed)
+      new(id: ctx.integer!(h["id"], key: "id"), name: ctx.string!(h["name"], key: "name"))
+    end
+
+    def initialize(id:, name:) = (@id = id; @name = name)
+  end
+
+  class PetPatch
+    def initialize(name:, nick:) = (@name = name; @nick = nick)
+
+    # SERDE-15: the Absent key is dropped by core's Native walk (P7-9), not by this method.
+    def dexpace_dump = { "name" => @name, "nick" => @nick }
+  end
+
+  def show_operation
+    Dexpace::Operation.build(method: "GET", template: "/pets/{id}",
+                             projections: { id: [:path, "id"] })
+  end
+
+  def json_response(status:, body:, headers: {})
+    Dexpace::Response.build(status: status, headers: headers,
+                            body: Dexpace::Body.buffer(body.b))
+  end
+
+  def typed(response, witness: Pet, factory: nil)
+    kwargs = { serde: CODEC.default, witness: witness }
+    kwargs[:factory] = factory unless factory.nil?
+    Dexpace::TypedResponse.new(response: response,
+                               handler: Dexpace::Serde::StatusAwareHandler.build(**kwargs))
+  end
+
+  # SEAM-26 + SEAM-27 + SERDE-28's 2xx branch: descriptor -> request -> pipeline -> typed value.
+  test "a 200 walks operation, pipeline and codec and decodes to the witness's type" do
+    transport = FakeTransport.new(response: json_response(status: 200, body: %q({"id":7,"name":"Ré"})))
+    request = show_operation.build_request(base_url: "https://host/v1", inputs: { id: 7 })
+
+    pet = typed(Dexpace::Pipeline.direct(transport).call(request)).value
+
+    assert_equal("https://host/v1/pets/7", transport.calls.first.first.url.to_s)
+    assert_instance_of(Pet, pet)
+    assert_equal(7, pet.id)
+    assert_equal("Ré", pet.name)
+  end
+
+  # SERDE-28's 4xx/5xx branch through RECOV-15's mapped error and HTTP-52/BODY-30's bounded copy.
+  # "so the error body is readable AFTER the live response closes" -- and BODY-30's own words are
+  # "decode it, then snapshot it", which is why BufferBody#source hands out a fresh peek view per
+  # call (P3-23). Two reads, both after the walk is over.
+  test "a 404 raises the factory-built error carrying status, headers and a re-readable body" do
+    body = %q({"error":"no such pet"})
+    transport = FakeTransport.new(
+      response: json_response(status: 404, body: body, headers: { "x-request-id" => "abc123" }),
+    )
+    request = show_operation.build_request(base_url: "https://host/v1", inputs: { id: 7 })
+    response = Dexpace::Pipeline.direct(transport).call(request)
+
+    error = assert_raises(Dexpace::ProtocolError) { typed(response).value }
+
+    assert_equal(404, error.status.code)
+    assert_equal("abc123", error.response.headers["x-request-id"])
+    assert_equal(body, error.response.body_string)
+    assert_equal(body, error.response.body_string, "BODY-30: readable repeatably, after the close")
+  end
+
+  # RECOV-15 + SERDE-28's "the MAPPED HTTP-error exception": a generated SDK substitutes its own typed
+  # error through the same factory: keyword ErrorMappingStep already uses, and it decodes the buffered
+  # error body with its own witness -- the hook an OpenAPI generator needs for a modelled error schema.
+  test "the factory keyword lets a generated SDK decode the error body into its own type" do
+    api_error = Class.new(::StandardError) { attr_accessor :detail }
+    factory = lambda do |response|
+      e = api_error.new("HTTP #{response.status.code}")
+      e.detail = CODEC.default.load(response.body.source, ErrorWitness)
+      e
+    end
+    transport = FakeTransport.new(response: json_response(status: 404, body: %q({"error":"gone"})))
+    request = show_operation.build_request(base_url: "https://host/v1", inputs: { id: 7 })
+
+    error = assert_raises(api_error) do
+      typed(Dexpace::Pipeline.direct(transport).call(request), factory: factory).value
+    end
+
+    assert_equal("gone", error.detail)
+  end
+
+  # SEAM-27: "a path value containing a slash is encoded, not split into segments" -- phase 2's own
+  # words, asserted here THROUGH the composed path because that is where a generator meets it.
+  test "a path parameter containing a slash is one segment on the wire" do
+    transport = FakeTransport.new(response: json_response(status: 200, body: %q({"id":1,"name":"x"})))
+    request = show_operation.build_request(base_url: "https://host/v1", inputs: { id: "a/b" })
+
+    typed(Dexpace::Pipeline.direct(transport).call(request)).value
+
+    sent = transport.calls.first.first
+
+    assert_equal("https://host/v1/pets/a%2Fb", sent.url.to_s)
+    assert_equal(4, sent.url.path.split("/").length, "one segment, not two")
+  end
+
+  # SERDE-15/SERDE-19 through the composed path: SEAM-26's "the body is carried, not encoded" means
+  # the OPERATION carries a Dexpace::Body and Body.serialized (Task 9) is what encodes it, so the
+  # Absent key is dropped by core's Native walk (P7-9) on the way to the wire and the Null one is not.
+  test "a Tristate::ABSENT field is omitted from the PATCH body and NULL is not" do
+    t = Dexpace::Serde::Tristate
+    patch = Dexpace::Operation.build(method: "PATCH", template: "/pets/{id}",
+                                     projections: { id: [:path, "id"], body: [:body, "body"] })
+    transport = FakeTransport.new(response: json_response(status: 200, body: %q({"id":7,"name":"Ré"})))
+
+    request = patch.build_request(
+      base_url: "https://host/v1",
+      inputs: { id: 7,
+                body: Dexpace::Body.serialized(PetPatch.new(name: "Ré", nick: t::ABSENT),
+                                               serde: CODEC.default) },
+    )
+    typed(Dexpace::Pipeline.direct(transport).call(request)).value
+
+    sent = transport.calls.first.first
+    sink = StringIO.new(+"".b)
+    sent.body.write_to(sink)
+
+    assert_equal(%q({"name":"Ré"}), sink.string.dup.force_encoding(::Encoding::UTF_8))
+    assert_equal(Dexpace::MediaType.parse("application/json"), sent.body.media_type)
+
+    null_sink = StringIO.new(+"".b)
+    Dexpace::Body.serialized(PetPatch.new(name: "Ré", nick: t::NULL), serde: CODEC.default)
+                 .write_to(null_sink)
+
+    assert_equal(%q({"name":"Ré","nick":null}),
+                 null_sink.string.dup.force_encoding(::Encoding::UTF_8))
+  end
+end
+```
+
+`ErrorWitness` is a two-line named witness class in the test file reading `h["error"]` through
+`ctx.string!`, so the factory's decode names something a reader can see.
+
+- [ ] **Step 2: Run to confirm it fails**
+
+Expected: FAIL — on a fresh tree the first failure is `uninitialized constant Dexpace::Operation` only
+if phase 2 has not landed; against a green Tasks 1–17 the expected failures are the composition
+assertions, which is the point. **If every test passes on the first run, the slice has asserted
+nothing new** — check that `FakeTransport#calls` is really being read and that the `PATCH` body is
+really being drained, because both are the assertions the unit suites cannot make.
+
+- [ ] **Step 3: Fix what it reports, in the owning task's code, not here**
+
+This task writes **no `lib/` code**. A failure here is a defect in `Operation`, `Pipeline`,
+`Body.serialized`, `Native`, `StatusAwareHandler` or `Codec`, and it is fixed in that task's file with
+its own unit test added beside the fix — the composition test stays a composition test. Anything that
+turns out to belong to phase 2, 3b, 4b or 4c goes to phase 10's inbound list in
+`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` rather than being patched here.
+
+- [ ] **Step 4: Add the checklist rows**
+
+Six rows, each naming this task **beside** the task that satisfies the ID, never instead of it:
+`SEAM-26` and `SEAM-27` (phase 2 Tasks 13–14 satisfy; Task 18 asserts the composition),
+`SERDE-28` (Task 11 satisfies; Task 18 asserts the 2xx and 4xx branches end to end),
+`RECOV-15` (phase 4b satisfies; Task 18 asserts the `factory:` substitution a generated SDK uses),
+and `HTTP-52`/`BODY-30` (phase 3b and 4b satisfy; Task 18 asserts the buffered copy is readable twice
+after the walk). The rows say "composition asserted, not satisfied here", so a phase-9 audit reading
+them does not count the ID twice.
+
+---
+
+## Task 19: Final wiring
 
 **Requirement IDs:** none new (`NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`).
 **Design:** "The `sig/` shape"; "The knowledge note `7a` files"; "Findings, and who owns them now".

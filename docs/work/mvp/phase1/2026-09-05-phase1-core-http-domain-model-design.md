@@ -492,7 +492,8 @@ text wins (Deviation Ledger P1-7). Both halves are asserted, so a later "optimis
 quietly collapse them into one behaviour.
 
 Public surface: `.build(values:, casing:, direction: :outbound)`, `Headers.builder`,
-`Headers.inbound_builder`, `Headers::EMPTY`, `#[](name)` → the model's own frozen `Array[String]`
+`Headers.inbound_builder`, `Headers::EMPTY`, `Headers::EMPTY_INBOUND` (the default a response's
+builder uses, so a header-less response still derives a lenient builder), `#[](name)` → the model's own frozen `Array[String]`
 or `nil`, `#include?(name)`, `#names` → a fresh frozen `Array[String]` in insertion order with
 original casing, `#entries` → a fresh frozen array of frozen `[name, value]` pairs, `#each_entry`,
 `#size`, `#empty?`, `#direction`, `#new_builder`.
@@ -557,6 +558,11 @@ allow-list and its inherent replay-safety gate both derive from it and neither r
 (`retry-and-resilience/a742b808`). `Method::BODY_FORBIDDEN` is the second frozen set,
 `{GET, HEAD, TRACE, CONNECT}`, exposed as `#body_forbidden?`; `HTTP-7` is enforced in
 `Request::Builder#build` by asking the method, not by re-listing the four names there.
+
+Both sets and both predicates are **public**, which `HTTP-9`'s parenthetical — "the idempotent set
+is an internal constant rather than a public accessor on the method type" — says they should not
+be. The requirement's substantive half is met exactly and the departure is the shape half only;
+it is Deviation Ledger row P1-10 rather than an oversight, and the `HTTP-9` checklist row cites it.
 
 ## Protocol (`lib/dexpace/http/protocol.rb`)
 
@@ -730,7 +736,8 @@ The model's `initialize` requires `request`, `protocol`, `status` and `headers` 
 `Model.required!`, in the order the requirement lists them, so a missing one fails with
 `status is required` and names the field (`HTTP-4`) whether it was reached through `.build`,
 through `#with` or through the builder. `reason` and `body` are optional, and the builder defaults
-`headers` to `Headers::EMPTY`.
+`headers` to `Headers::EMPTY_INBOUND` — a response's headers are inbound, and the outbound empty
+would make `#new_builder` refuse the obs-text `HTTP-19` relaxes.
 
 `HTTP-11`'s "a response MUST expose these derived from its status" is six one-line delegations to
 `Status`, not a second copy of the ranges.
@@ -891,6 +898,7 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 | P1-7 | `HTTP-5` is implemented in **two tiers** — a fresh per-call snapshot for the name set and the entry set, the model's own frozen list per name — where design §4 says "the same frozen reference is returned from every accessor" | `HTTP-5`; design §4, §10.11 | Appendix C's own text splits them: "Name-set and entry-set accessors return a fresh per-call snapshot; per-name value-list accessors return the instance's own list." Design §4's sentence is a summary of the second tier, the specification is normative, and both halves are asserted so neither can be collapsed later |
 | P1-8 | `Headers#==`/`#hash` compare folded names and values only; casing and direction take no part | `HTTP-13`; `api-design/e4fa3438` | `HTTP-13` puts equality and hashing under the fold. `Data` would generate equality over all three members, making `Accept` and `ACCEPT` unequal — the exact confusion the requirement exists to remove |
 | P1-9 | `Request` and `Response` are frozen and deep-frozen in their collections but are **not** `Ractor.shareable?` | design §4; `data-modeling/996c0b12` | The design's "deep-freezing at construction makes the whole wire model Ractor-shareable" holds for every model whose members are strings and collections, and not for the two that hold a `URI::Generic`: verified on 3.2.11 and 4.0.6, a frozen URI is not shareable because `@host` and `@path` stay unfrozen, and `Ractor.make_shareable(uri)` reaches shareability only by deep-freezing `URI::RFC3986_PARSER` — a process-global object — in place, which is the one thing §4 says never to do. `Ractor` is load-bearing nowhere (§4, §9), so the claim is narrowed rather than the global frozen. Filed as a corpus note |
+| P1-10 | `Method::IDEMPOTENT` and `#idempotent?` are **public API** — a constant in `sig/` and a row in the `NFR-4` surface manifest — where `HTTP-9` says "the idempotent set is an internal constant rather than a public accessor on the method type" | `HTTP-9` | The requirement's substantive half — one set, the single source both the retry allow-list and the replay-safety gate derive from — is satisfied exactly, and nothing re-lists the five names. Only its shape parenthetical is departed from, because the two consumers live in sibling files and read it by receiver: phase 6a's `Resilience::Resend` calls `request.method.idempotent?` and phase 6b asserts against `Method::IDEMPOTENT` to prove it is *not* conflated with the redirect set. A private predicate cannot be called with an explicit receiver, so the alternative is a second copy of the set in `Resend` — the one thing `HTTP-9` exists to forbid. Recorded rather than reversed, because `NFR-4` locks the name at the first release tag |
 | P1-6 | `Request#==`/`#hash` override `Data`'s generated equality | `HTTP-46`; `api-design/e4fa3438` | `HTTP-46` requires comparison by textual external form; the generated equality would compare `URI::Generic` objects by `URI`'s own normalising rules, which is a different relation. The override carries the why-comment the styleguide requires |
 
 ## Work Phase 1 Postponed, and Who Owns It Now

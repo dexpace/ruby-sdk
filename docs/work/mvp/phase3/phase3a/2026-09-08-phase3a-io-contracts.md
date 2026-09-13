@@ -109,6 +109,13 @@ with `RUBYOPT=-W:deprecated`:
 207 runs, 826 assertions, 0 failures, 0 errors, 0 skips   # 830 assertions on 4.0.6
 ```
 
+**That run predates the 2026-09-13 amendment and has not been repeated since.** The amendment changes
+five lines of `typed_reads.rb` (Task 10, Step 4a) and adds two assertions to
+`buffered_source_test.rb`, so the numbers above are the pre-amendment ones: expect **209 runs** and a
+higher assertion count, and treat the figures here as the baseline the amended tree must beat rather
+than as a count to match. Re-running them on all three interpreters is Task 10's Step 4a and Task 15's
+Step 6, not a formality.
+
 The run count is identical on all three and identical across five random seeds (1, 7, 12345, 99991,
 424242); stderr was empty on every row. The assertion count differs on 4.0.6 for phase 2's stated
 reason — 3.2, 3.3 and 3.4 resolve Minitest 5.x and 4.0 resolves 6.0.0, and the two count some
@@ -137,7 +144,11 @@ ladder rather than an assertion that it is one:
 | 8 | 65 runs, 141 assertions, **1 failure, 16 errors** |
 | 9 | 65 runs, 233 assertions, **0 failures, 0 errors** |
 
-The five fragments reconstruct the shipped file byte for byte, which was checked rather than assumed.
+The five fragments reconstruct the shipped file byte for byte, which was checked rather than assumed —
+**as the fragments stood on 2026-09-08**. The 2026-09-13 amendment edited five of their lines in
+place (Task 10, Step 4a, which lists all five), so the reconstruction holds for the amended fragments
+and the ladder's failure counts above are pre-amendment: they are the shape to expect, not numbers to
+match. Re-checking the concatenation after splicing is Step 4a's table.
 
 **One thing that run was not.** It is not the seventeen gates: no Steep, SimpleCov or YARD is
 installed here, and the RuboCop and RBS versions above are not the ones `VERSIONS` will pin. Task 1
@@ -194,12 +205,17 @@ That satisfies both invariants the design fixed:
   reading somewhere else (P3-5). `@dexpace_views` therefore serves `IO-22`/`IO-38`'s invalidation on
   close and nothing else; 3b's plan, Task 13 measures what that retention costs on a real drain.
 
-**2. `#each`'s chunk granularity: whatever the upstream returned.** `#store_take_chunk` hands back the
-whole remaining head chunk, so `BufferedSource.over(body)` yields exactly the boundaries `body#each`
-yielded — which is what `BODY-17`'s byte-exact mirroring needs to mean what it says, and it is
-asserted in Task 10 rather than described. A `wrapping` source has no caller chunking to preserve and
-yields whatever `#readpartial` returned. A caller that has already consumed part of the head chunk
-gets the remainder as `#each`'s first chunk; that is honest and it is tested.
+**2. `#each`'s chunk granularity: the upstream's own chunks on `.over`, a segment on `.wrapping`.**
+`#store_take_chunk` hands back the whole remaining head chunk, so `BufferedSource.over(body)` yields
+exactly the boundaries `body#each` yielded — which is what `BODY-17`'s byte-exact mirroring needs to
+mean what it says, and it is asserted in Task 10 rather than described. **A `wrapping` source has no
+caller chunking to preserve, so the claim is vacuous there and a size has to be chosen**: `#each` and
+`#drain_all` ask for `TypedReads::READ_SEGMENT_BYTES`, 64 KiB, `private_constant` and therefore not
+`NFR-4` surface, exactly symmetric to `TypedWrites::WRITE_ALL_SEGMENT_BYTES`. The literal `1` this
+replaced asked a wrapped stream for one byte per `readpartial` call — phase 3b measured 200 001 calls
+for 200 000 bytes — and it is Task 10's 2026-09-13 amendment, guarded by that task's Step 4a. A caller
+that has already consumed part of the head chunk gets the remainder as `#each`'s first chunk; that is
+honest and it is tested.
 
 **3. The one allocating `IO-9` test runs on every matrix row.** It is in Task 12. Measured cost, once
 per run per row, on the three interpreters:
@@ -1453,7 +1469,14 @@ module Dexpace
       NEWLINE = "\n".b.freeze
       CARRIAGE_RETURN = "\r".b.freeze
 
-      private_constant :NEWLINE, :CARRIAGE_RETURN
+      # The read size for the two readers that have no caller count -- #each and #drain_all.
+      # Symmetric to TypedWrites::WRITE_ALL_SEGMENT_BYTES and private for the same reason: it is
+      # not NFR-4 surface, so phase 5 is free to make it a setting without widening a public
+      # signature. It exists because a literal 1 here asks a wrapped stream for one byte per
+      # readpartial call (Task 10's 2026-09-13 amendment).
+      READ_SEGMENT_BYTES = 64 * 1024
+
+      private_constant :NEWLINE, :CARRIAGE_RETURN, :READ_SEGMENT_BYTES
 
       # Call from the including class's #initialize, after #initialize_closeable.
       def initialize_typed_reads
@@ -1489,7 +1512,11 @@ module Dexpace
         # IO-2: 0 for a zero count, never -1, without touching the buffer or the upstream.
         return 0 if count.zero?
 
-        fill_once_if_empty
+        # The caller's own count reaches the upstream, so a wrapped stream is asked for `count`
+        # bytes and not for one (Task 10's 2026-09-13 amendment). Filling ONCE, not to `count`:
+        # blocking until `count` bytes or end of stream is #read(n)'s contract, not the
+        # primitive's, and IO-1 asks only for "at least 1 when the source is not exhausted".
+        fill_once_if_empty(count)
         return -1 if @dexpace_buffered.zero?
 
         taken = [count, @dexpace_buffered].min
@@ -1581,8 +1608,16 @@ module Dexpace
               "#fill(min_bytes)"
       end
 
-      def fill_once_if_empty
-        ensure_buffered(1) if @dexpace_buffered.zero?
+      # Fills ONCE, with the count its caller has. The default of 1 is for the readers that
+      # genuinely want one byte -- #getbyte, #readbyte and #eof?; #read_into passes its `count`
+      # and #readpartial its `maxlen`, so the min_bytes reaching #fill, and therefore
+      # readpartial(want) in BufferedSource, is the number the caller asked for.
+      # It calls #fill ONCE and never loops: #ensure_buffered(min_bytes) would block until
+      # min_bytes bytes or end of stream, which is #read(n)'s contract and not the primitive's.
+      # At min_bytes 1 that is behaviour-identical to the ensure_buffered(1) this replaced, since
+      # that loop exits after one #fill either way.
+      def fill_once_if_empty(min_bytes = 1)
+        fill(min_bytes) if @dexpace_buffered.zero?
         @dexpace_buffered
       end
 
@@ -2103,7 +2138,7 @@ in Task 5.
         loop do
           chunk = store_take_chunk
           if chunk.nil?
-            break if ensure_buffered(1).zero?
+            break if fill_once_if_empty(READ_SEGMENT_BYTES).zero?
 
             next
           end
@@ -2496,7 +2531,7 @@ Expected: FAIL — `undefined method 'read'` and `'readpartial'` and `'each'`, 9
           if maxlen.zero?
             (+"").b
           else
-            fill_once_if_empty
+            fill_once_if_empty(maxlen)
             raise_end_of_stream("readpartial(#{maxlen})") if @dexpace_buffered.zero?
 
             store_take([maxlen, @dexpace_buffered].min)
@@ -2507,8 +2542,11 @@ Expected: FAIL — `undefined method 'read'` and `'readpartial'` and `'each'`, 9
       end
 
       # Design §10.2: yields BINARY chunks until exhausted, so a source IS a canonical body
-      # representation. The granularity is whatever the upstream produced -- .over must preserve
-      # the wrapped body's own chunking for BODY-17's byte-exact mirroring to mean what it says.
+      # representation. On the .over path the granularity is whatever the upstream produced --
+      # .over must preserve the wrapped body's own chunking for BODY-17's byte-exact mirroring to
+      # mean what it says. On the .wrapping path there is no caller chunking to preserve and no
+      # caller count to pass, so the read size is READ_SEGMENT_BYTES; a literal 1 here asked a
+      # wrapped stream for one byte per readpartial call (Task 10's 2026-09-13 amendment).
       #
       # §7.1: the resource lives on the instance and #close is on the instance, so an Enumerator
       # abandoned mid-#next leaks nothing #close would not still release.
@@ -2520,7 +2558,7 @@ Expected: FAIL — `undefined method 'read'` and `'readpartial'` and `'each'`, 9
         loop do
           chunk = store_take_chunk
           if chunk.nil?
-            break if ensure_buffered(1).zero?
+            break if fill_once_if_empty(READ_SEGMENT_BYTES).zero?
 
             next
           end
@@ -2914,7 +2952,8 @@ view.dexpace_invalidate }` must not be autocorrected**: `#dexpace_invalidate` is
 - Create: `gems/dexpace-core/lib/dexpace/io/buffered_source.rb`,
   `gems/dexpace-core/sig/dexpace/io/buffered_source.rbs`,
   `gems/dexpace-core/test/support/fake_chunked.rb`
-- Modify: `gems/dexpace-core/lib/dexpace.rb`
+- Modify: `gems/dexpace-core/lib/dexpace.rb`,
+  `gems/dexpace-core/lib/dexpace/io/typed_reads.rb` (Step 4a, the 2026-09-13 amendment below)
 - Test: `gems/dexpace-core/test/dexpace/io/buffered_source_test.rb`
 
 **Interfaces:**
@@ -2962,10 +3001,11 @@ from the two readers that have one: `#read_into`'s `count` and `#readpartial`'s 
 did, and it must **not** become `ensure_buffered(count)`: that loop blocks until `count` bytes or end of
 stream, which is `#read(n)`'s contract and not the primitive's. `#read(n)` is already the efficient path
 — `#read_up_to` calls `ensure_buffered(length)` — and is untouched. For `#each` and `#drain_all` there is
-no caller count, so the literal there is a decision this task states in the fragment rather than leaves
-as a `1`: while the upstream is asked for one byte at a time, the design's "the granularity is whatever
-the upstream produced" claim is vacuous for a `wrapping` source, and only `.over` preserves a real
-chunking.
+no caller count, so the literal there is a decision this task makes rather than leaves as a `1`: it is
+`TypedReads::READ_SEGMENT_BYTES`, 64 KiB, `private_constant` and therefore not `NFR-4` surface, exactly
+symmetric to `TypedWrites::WRITE_ALL_SEGMENT_BYTES`. With a literal `1` the upstream is asked for one
+byte at a time and the design's "the granularity is whatever the upstream produced" claim is vacuous for
+a `wrapping` source; only `.over` preserves a real chunking, and the fragments now say so at both sites.
 
 **Why it lands here.** It is a **throughput** defect and not a correctness one — every read returns the
 right bytes in the right order, every `IO` requirement is met, and 3a's suite is green either way, which
@@ -3756,6 +3796,71 @@ the parent's own fill has already been driven to exhaustion for the requested wi
 is returned. `FakeChunked` scripts the first case and `FakeSource` the third-party violation the
 second one names.
 
+- [ ] **Step 4a: Land the 2026-09-13 amendment in `lib/dexpace/io/typed_reads.rb`, and guard it**
+
+The amendment above is **already spliced into Tasks 5, 6 and 8's fences**, so a worker who assembled
+`typed_reads.rb` from them has it. This step is where it is confirmed rather than assumed, because a
+count that silently reverts to `1` is invisible to every gate: the reads still return the right bytes
+in the right order and 3a's suite is green either way.
+
+Confirm all five sites read exactly this, and correct any that do not:
+
+| Site | Task | Must read |
+|---|---|---|
+| `READ_SEGMENT_BYTES = 64 * 1024`, in the `private_constant` list | 5 | present |
+| `#read_into` | 5 | `fill_once_if_empty(count)` |
+| `#fill_once_if_empty(min_bytes = 1)` | 5 | `fill(min_bytes) if @dexpace_buffered.zero?` — **one** `#fill`, never `#ensure_buffered` |
+| `#drain_all` | 6 | `break if fill_once_if_empty(READ_SEGMENT_BYTES).zero?` |
+| `#readpartial` / `#each` | 8 | `fill_once_if_empty(maxlen)` / `break if fill_once_if_empty(READ_SEGMENT_BYTES).zero?` |
+
+Then add the guard to `test/dexpace/io/buffered_source_test.rb`, which is the only assertion standing
+between this fix and a silent revert — `FakeChunked` cannot catch it, because the `.over` path never
+consulted a count:
+
+```ruby
+  # Task 10's 2026-09-13 amendment. Phase 3b measured BufferedSource.wrapping(io) delivering ONE
+  # BYTE per #read_into for any positive count: 200 000 bytes through 200 001 readpartial(1) calls,
+  # ~0.21 s, on 3.2.11, 3.4.10 and 4.0.6 alike. Every IO requirement is met either way -- IO-1 asks
+  # only for "at least 1" -- so no gate sees it and only this assertion does.
+  test "wrapping passes the caller's own count through to the upstream" do
+    asked = []
+    upstream = Object.new
+    upstream.define_singleton_method(:readpartial) do |want|
+      asked << want
+      raise ::EOFError if asked.size > 1
+
+      "x" * want
+    end
+
+    Dexpace::IO::BufferedSource.wrapping(upstream) do |source|
+      assert_equal(4096, source.read_into(+"".b, count: 4096))
+    end
+
+    assert_equal([4096], asked)
+  end
+
+  # #each and #drain_all have no caller count, so they carry READ_SEGMENT_BYTES instead of a 1.
+  test "each and a count-less read ask the upstream for a segment, not a byte" do
+    asked = []
+    upstream = Object.new
+    upstream.define_singleton_method(:readpartial) do |want|
+      asked << want
+      raise ::EOFError if asked.size > 1
+
+      "y" * 10
+    end
+
+    Dexpace::IO::BufferedSource.wrapping(upstream) { |source| source.each { |_| nil } }
+
+    assert_equal([64 * 1024], asked)
+  end
+```
+
+Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/io/buffered_source_test.rb`
+Expected: PASS, both assertions — and
+**FAIL against the pre-amendment fences**, `[1]` where `[4096]` was expected, which is the check that
+makes this step worth a step.
+
 - [ ] **Step 5: Write `sig/dexpace/io/buffered_source.rbs`**
 
 ```rbs
@@ -3789,7 +3894,7 @@ After `dexpace/io/typed_reads`.
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/io/buffered_source_test.rb`, then
 `bundle exec ruby -w gems/dexpace-core/test/dexpace/io/typed_reads_test.rb`.
-Expected: PASS, 32 and 65 tests — **Task 9's view tests go green here**. Then
+Expected: PASS, 34 and 65 tests (32 before Step 4a added its two guards) — **Task 9's view tests go green here**. Then
 `(cd gems/dexpace-core && bundle exec rake test)` and
 `mise exec ruby@3.2.11 -- bundle exec rake test:gems`, because the `StringIO`-backed BINARY
 assertion and the `Enumerator` `ensure` asymmetry are both floor-straddlers.

@@ -22,7 +22,10 @@ half of the wire-boundary re-validation phase 1 postponed to the adapters.
 `TRANSPORT-21`, `TRANSPORT-23`, `ASYNC-6`, `ASYNC-21`, `ASYNC-22` — nine MUST and one SHOULD
 (`TRANSPORT-13`), with `ASYNC-21` **N/A** by §11.21 and the charter's own row. Ten is small; the charter
 argues at length why it is nonetheless its own segment, and this document does not re-argue it. What the
-count does not see is the twenty-three second-adapter conformance rows, a fifteen-gem transitive closure
+count does not see is the second-adapter conformance rows — **22 of `8a`'s 23 are assertable**,
+`TRANSPORT-30` alone being ⏳ whole and declined for v1 (the charter's `:872` says 21, written before
+its own 2026-09-12 correction made `TRANSPORT-28` partially satisfied rather than ⏳; refreshed here
+2026-09-13) — a fifteen-gem transitive closure
 with a native extension, and an HTTP/2 path that no earlier document in this repository had exercised.
 
 **The charter assigns 8c four risks — `R13`, `R14`, `R15` and (jointly with `8a`) `R16` — and this
@@ -53,13 +56,15 @@ three invert something the charter had to reason around:
 ## Governing documents
 
 - `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md` — **the charter**, read in full and
-  binding. It fixes 8c's ten IDs (`:747-767`), the twenty spec-forced boundaries (`:532-629`), the six
-  rejected cuts, the four convergence points (`:840-878`), the phase-level tasks (`:882-923`), the
-  fifteen verified Ruby facts (`:1057-1269`), the sweep of everything earlier phases postponed, and risks `R13`–`R16` (`:1857-1897`).
+  binding. It fixes 8c's ten IDs (`:770-791`), the twenty spec-forced boundaries (`:540-642`), the six
+  rejected cuts, the four convergence points (`:864-905`), the phase-level tasks (`:908-1076`), the
+  fifteen verified Ruby facts (`:1213-1430`), the sweep of everything earlier phases postponed, and
+  risks `R13`–`R16` (`:1947-2132`). *(Line citations refreshed 2026-09-13; the charter grew after
+  this document first cited it and all six resolved to the wrong section.)*
 - `docs/product-spec/17-transport-adapter-conformance-contract.md` (51 lines) and
   `docs/product-spec/18-asynchronous-runtime-adapter-contract.md` (46 lines), both read in full, with
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md:559-610` for the canonical
-  text and modal level of all ten IDs plus the twenty-three 8c re-asserts. The chapters' `*Conformance:*`
+  text and modal level of all ten IDs plus the 22 assertable rows 8c re-asserts. The chapters' `*Conformance:*`
   clauses, which appendix C drops, are load-bearing in six places named below.
 - `docs/product-spec/03-pluggable-seams-and-extension-model.md` — `SEAM-11`, `SEAM-13`, `SEAM-14`,
   `SEAM-15`, `SEAM-16`, `SEAM-17`, `SEAM-24`, `SEAM-25`, `SEAM-30`.
@@ -69,8 +74,9 @@ three invert something the charter had to reason around:
   property this adapter's response body must feed, and `SSE-37`'s serde-independence, which 7b made a
   mechanised MUST and which 8c does not touch.
 - `docs/product-spec/19-cross-cutting-invariants-and-policies.md` and `20-non-functional-requirements.md`
-  — `XCUT-2`, `XCUT-4`, `XCUT-11`, `XCUT-13`, `XCUT-18`, `XCUT-22`, `NFR-1`, `NFR-2`, `NFR-3`, `NFR-4`,
-  `NFR-11`, `NFR-13`.
+  — `XCUT-2`, `XCUT-4`, `XCUT-11`, `XCUT-13`, **`XCUT-14`** (the bounded-map MUST, which binds both
+  of this gem's caller-keyed maps — added 2026-09-13), `XCUT-18`, `XCUT-22`, `NFR-1`, `NFR-2`,
+  `NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` §2.1 (`:16-25`, "The reference *asynchronous*
   transport" and the sentence that says why it is MVP and not later), §2.3 (`:39-68`, the layout and the
   `~> MAJOR.MINOR` skew constraint) and §2.4 (`:71-105`, the zero-dependency rule, the bundled-gem hazard
@@ -338,10 +344,29 @@ fact — never on 8c's convenience.
   `Severity` constants and its once-per-key latch, exactly as phase 5b's hand-forward predicts.
 - **The second driver for every assertable row of `8a`'s conformance suite** — the charter's headline
   convergence point. `R16` states what 8c needs the suite to assume.
+- **Seven portable assertions written *into* `dexpace-conformance`**, one per `TRANSPORT` ID this
+  sub-phase owns (`TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23`), each resolving `:vacuous` with a
+  stated reason on a transport with no async antecedent. *(Added 2026-09-13 by the final pre-build
+  review.)* `8a` writes the 23 assertions for its own rows and records that these seven "are absent,
+  which is the charter's `8c` assignment"; `8a`'s design states the counterpart — "`8c` adds a
+  **driver and seven assertions**, and forks nothing (`R16`)"; and phase 9 then adds none, because
+  its own design reads the suite as already written. §9.3 requires "**B.6** is exercised **per
+  adapter**" and appendix B lists all seven among B.6's items, so without this the seven live only
+  in this gem's private `test/` tree and a third-party async adapter running the published suite is
+  held to none of them. They are written against the twelve-clause contract's own primitives
+  (`build:`/`borrow:`/`settle:`/`around:`/`wire:` and `Dexpace::Cancellation`) and **nothing else**,
+  so no `async` or `Protocol::HTTP` constant enters that gem and its `dexpace-core`-only gemspec is
+  untouched (boundary 7). Plan Task 19 Step 1a; Tasks 12–16 remain this adapter's own regression
+  suite and keep the fixtures a portable assertion may not depend on.
 - **An in-process HTTP/2 conformance driver**, plaintext and TLS, which no other adapter in the MVP can
   supply and which `8a`'s `TCPServer` fixture cannot speak.
 - **`ASYNC-7`'s README section for a reactor-backed adapter** — §3.3 fixes the content: "the
-  reactor-backed ones abort at the next scheduler checkpoint". `8b` owns the ID; 8c writes its half.
+  reactor-backed ones abort at the next scheduler checkpoint". `8b` owns the ID; 8c writes its half,
+  in `gems/dexpace-transport-async_http/README.md`, which also carries the four caveats this
+  document states elsewhere and which `P8-39` makes a documentation obligation: the reactor
+  requirement, the `sync_over`-still-needs-a-reactor caveat, the `content-length: 0`-on-GET wrinkle
+  and `Transport.async_over`'s open hazard. **Plan Task 19 Step 1b** *(the task was added
+  2026-09-13; the README was named a deliverable five times here and owned by nobody)*.
 - **The `rbs_collection.yaml` row for `async-http`** and the gem's named Steep target.
 - **The registration call** — `Dexpace::AsyncTransport.register(key, factory, core: "~> MAJOR.MINOR")`,
   with the skew keyword required, never optional (boundary 8).
@@ -1130,8 +1155,12 @@ broken — a gate reporting green over a real defect.
 **What has to change, named so it is not discovered at execution time.** Three edits, none of them 8c's to
 make alone, all owned by the plan's Task 3:
 
-- **`VERSIONS` gains a per-gem floor key**, in the shape phase 0 already uses for the other rows —
-  `ruby floor dexpace-transport-async_http   3.3` beside the global `ruby floor   3.2`.
+- **`VERSIONS` gains a per-gem floor key**, **colon-joined into the existing three-token `name`
+  column** — `ruby floor:dexpace-transport-async_http  3.3` beside the global `ruby floor  3.2`.
+  *(Corrected 2026-09-13; this sketched a four-token row, which `VERSIONS`' own `RECORD` regex
+  cannot represent — a fourth token collapses into the existing `floor` row's value. The charter
+  fixes the colon-joined form under *The CI matrix after `8c`'s per-gem Ruby floor*, and the plan's
+  Task 3 Step 3 states the reason in full.)*
 - **`gates:versions` reads it**: a gemspec's `required_ruby_version` equals `>= ` plus its own per-gem
   floor if one exists, else the global one. That is a three-line change to a phase-0 gate and it is the
   only gate change phase 8 asks for.
@@ -1596,9 +1625,26 @@ across the flip** — and its `#release` closes the `Clients` map if `@owned`. I
 The per-origin client map, and the object deviation `P8-37` lives on.
 
 ```
+MAX_ORIGINS     = 32                                          # XCUT-14's hard cap
 #fetch(origin)  -> an object responding to #call(protocol_request) and #close
+#size           -> Integer                                    # the bound, asserted not assumed
 #close          -> nil
 ```
+
+**The map is bounded, and `XCUT-14` is why.** *(Added 2026-09-13 by the final pre-build review,
+which found this map uncapped while the same sub-phase had already bounded `DropPolicy` at 64.)*
+`XCUT-14` (MUST): "Every process/instance-lived map whose key space is influenced by callers or
+remote servers … MUST be bounded by a hard cap and MUST drain back under the cap after each insert
+using a loop (not a single pre-insert check-then-evict), so a concurrent insert burst converges to
+the bound instead of overshooting permanently. Arbitrary-victim eviction is acceptable; the cap is a
+memory backstop and MUST NOT be relied on as the primary cleanup mechanism." Both influences are
+present: a caller's URLs choose origins and a server's redirect `Location` chooses new ones, and the
+map is instance-lived — an `Adapter` lives as long as the client, and `#close` is the primary
+cleanup. So `#fetch` drains back to `MAX_ORIGINS` **in a loop** after each insert, under the same
+lock as the insert, and **closes each evicted client's pool outside it**, because the values own
+pools and an evicted pool that is merely dropped is a connection leak wearing a cap. The residual
+is `P8-37`'s, unchanged: an evicted client still serving an in-flight exchange has its connection
+retired and that exchange surfaces a wrapped, retryable `Dexpace::TransportError`. Plan Task 8.
 
 `#fetch` is memoise-or-create under one `Thread::Mutex` whose critical section is **the `Hash` read and
 the `Hash` insert and nothing else**: the client is built *outside* the lock and inserted under it, so a
@@ -1726,8 +1772,8 @@ appears in a *public* signature either way.
 
 ## Spec-forced boundaries, honoured
 
-The charter fixes twenty (`:532-629`). Fourteen reach 8c; here is where each is met, and none is
-re-decided.
+The charter fixes twenty (`:540-642`). **Sixteen** reach 8c — the four named at the foot of this
+table are `8a`'s and the phase's; here is where each is met, and none is re-decided.
 
 | # | Boundary | Where 8c meets it |
 |---|---|---|
@@ -1782,6 +1828,11 @@ decides otherwise.
   token predicate in step 6 — and constructs it with `Regexp.new(source, timeout:)`, never
   `Regexp.timeout`. (The pattern is a simple character class with no backtracking, so the timeout is
   belt-and-braces; the rule is repository-wide and 8c does not carve an exception.)
+- **Every caller-keyed map is bounded** (`XCUT-14`, MUST). There are two, and both carry a number
+  rather than a promise: `Clients::MAX_ORIGINS` (32, drained back to the cap in a loop after each
+  insert, evicted pools closed) and `DropPolicy::MAX_TRACKED_NAMES` (64, degrading to the quiet
+  mode). Neither is the primary cleanup mechanism — `#close` is — which is the requirement's own
+  caveat. *(Added 2026-09-13; the `Clients` half was missing and the `DropPolicy` half was not.)*
 - **`Ractor` is never load-bearing**, and is not reachable here at all: a reactor is thread-bound.
 - **SPDX header and `# frozen_string_literal: true` on every file** (`NFR-13`), checked by a custom cop.
 - **`ruby -w` with warnings fatal.** Fact 12: `require "async/http"` under `-w` with
@@ -2141,8 +2192,9 @@ list, a knowledge note, or `docs/first-release.md`)*.
 > only dependency that satisfies `>= 3.2` is eleven minor releases behind the one the phase-8c design
 > verified every one of its facts against. Phase 8c takes the narrowing as deviation `P8-36` and
 > `dexpace-core`'s floor does not move. What this row records is the **machinery that has to change and
-> that no sub-phase owns**: (a) `VERSIONS` gains a per-gem floor key
-> (`ruby floor dexpace-transport-async_http  3.3`) beside the global one; (b) `gates:versions` reads a
+> that no sub-phase owns**: (a) `VERSIONS` gains a per-gem floor key, colon-joined into the
+> existing three-token `name` column (`ruby floor:dexpace-transport-async_http  3.3`), beside the
+> global one; (b) `gates:versions` reads a
 > per-gem floor when one exists and the global floor otherwise — a change to a phase-0 gate; (c) the root
 > `Gemfile`'s `gems/*` glob skips a gem this interpreter's version cannot satisfy, without which
 > `bundle install` on the 3.2 row fails for the whole workspace; (d) the 3.2 row excludes this one gem

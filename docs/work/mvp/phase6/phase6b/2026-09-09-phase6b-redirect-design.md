@@ -27,14 +27,24 @@ both handled below rather than silently reimplemented:
 - **The `Cursor` context-bundle widening (`R13`)** — assigned to `6a`. `6b`'s emission task (`R8`) takes its own
   `logger:`/`redactor:` constructor keywords regardless of whether the widening exists, so `6b` neither blocks
   on it nor builds it. See *Prerequisites* below for the concrete consequence if `6b` lands first.
-- **`Dexpace::Resilience::Resend.eligible?(request)`** — the replayability predicate `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`'s forward
-  table names as phase 6's, and which `RETRY-5`, `REDIR-6` and `AUTH-31` all consult (`docs/sdk-design-ruby/05-pipeline-architecture.md`
-  §5.2). The charter's `R5` gives `6a` the visibility decision and "confirms or changes" it, but does not say
-  `6a` builds it *first*. `6b` needs it for `REDIR-6` regardless of landing order, so this document's plan
-  builds it as one of `6b`'s own tasks, under the `Dexpace::Resilience` namespace 3b already named — not under
-  `Dexpace::Redirect` — precisely so that whichever of `6a`/`6b` lands second finds the file already there and
-  consumes it rather than duplicating it. If `6a` lands first, `6b`'s task for it is deleted and `6b` cites
-  `6a`'s file instead. Neither sub-phase may put a second predicate under a different name.
+- **The `Dexpace::Resilience` re-sendability namespace, and the one method in it that is *not* `6b`'s to
+  call.** 3b's forward table names `Dexpace::Resilience::Resend.eligible?(request)` as phase 6's, and
+  `RETRY-5`, `REDIR-6` and `AUTH-31` are its three cited call sites (`docs/sdk-design-ruby/05-pipeline-architecture.md`
+  §5.2). **`6a`'s `R5` has since settled `eligible?` with a second clause `6b` must not inherit**: `request.body.nil?
+  ? request.method.idempotent? : request.body.replayable?` (`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-design.md`
+  §`R5`), because `RETRY-7` makes a body-less **non-idempotent** request un-re-sendable. `REDIR-6` asks a
+  strictly narrower question — "is the body present and not replayable?" — and says nothing about idempotency;
+  method eligibility for a redirect is `REDIR-3`/`REDIR-4`'s configured allowed-method set and is decided
+  elsewhere in this step. Calling `eligible?` here would reject a body-less `POST` 307 under a widened
+  `allowed_methods:` that `REDIR-3`/`REDIR-4` explicitly permit. **So the two are different predicates and get
+  different names.** `6b` writes `Dexpace::Resilience::Resend.replayable_body?(request)` —
+  `request.body.nil? || request.body.replayable?` — plus `Dexpace::Resilience::NotReplayableError`, both under
+  the `Dexpace::Resilience` namespace 3b already named and never under `Dexpace::Redirect`; `6a` writes
+  `eligible?` in the same module. Neither sub-phase touches the other's method, neither no-ops on finding the
+  file present (the file is shared; the methods are not), and `6c` discharges `AUTH-31` with a direct
+  `request.body&.replayable?` and consumes neither (`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-design.md`).
+  If `6a` lands first, `6b`'s Task 2 still runs: it adds its own method and the error class to the existing
+  file.
 
 **One correction to the charter, verified rather than inherited, per this document's own instruction to verify
 every prerequisite before asserting it.** The charter's *Prerequisites* section wrote `Dexpace::HTTP::URL.parse!`
@@ -74,7 +84,8 @@ sub-phase's to consume and not to edit.
   pivot's real names (`Dexpace::Async::Future`/`::Completer`/`::Settlement`, never `Dexpace::Future`), and the
   error-class shape (`class X < ::StandardError; include Dexpace::Error; end`).
   `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` for `Dexpace::Body#replayable?`/
-  `#to_replayable`, `Response#close`, and the forward-named `Dexpace::Resilience::Resend.eligible?(request)`.
+  `#to_replayable`, `Response#close`, and the `Dexpace::Resilience` re-sendability namespace 3b
+  forward-named (`6b` adds `.replayable_body?` to it; `.eligible?` is `6a`'s — see *Independence*).
   `docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md` for the error-class shape's
   precedent and `Dexpace.close_quietly`.
   `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md` for
@@ -186,6 +197,24 @@ Three rows carry a clause the checklist must state rather than tick, named by th
   **seed** request's URL, never the previous hop's, and never `URI#==`. Verified fact 3 below is why the
   `downcase` calls are not optional and why the port half is free.
 
+**Four clauses inside otherwise unremarkable rows that a plan will implement narrower than the text**, named
+here because each is the half of a requirement an implementation reads past:
+
+- **`REDIR-3`/`REDIR-4` say "the ORIGINAL request method", not the current hop's.** The two are the same
+  through any method-preserving chain, and differ after a `follow303` GET rebuild: `POST` → 303 → GET → 301
+  continues under `GET`, which the default `{GET, HEAD}` set admits, while the seed method `POST` does not.
+  `Step` therefore captures the seed method beside the seed origin triple and tests *that*, and the suite
+  carries the `POST`→303→301 chain as its witness.
+- **`REDIR-5` says "every `Content-*` request header (case-insensitively)"**, and its three examples are
+  examples — `e.g.` in both appendix C and chapter 10. The 303 rebuild strips by **prefix**
+  (`name.downcase.start_with?("content-")`), never by a fixed list, or `Content-MD5`, `Content-Language`,
+  `Content-Range` and `Content-Disposition` survive a body that does not.
+- **`REDIR-18` lists three triggers, and the third is "an unsupported/unknown scheme".** RFC 3986 resolution
+  raises on neither an `ftp:` nor a `mailto:` target; `R7`'s `Location::SUPPORTED_SCHEMES` screen is what makes
+  that clause implemented rather than assumed.
+- **`REDIR-22a` is an ordering clause.** See *Testing strategy*: the prior response is closed **before** the
+  next fork is issued, not after it returns.
+
 ## Object model `6b` ships
 
 All under `lib/dexpace/redirect/`, per `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` §2.3's
@@ -200,7 +229,7 @@ All under `lib/dexpace/redirect/`, per `docs/sdk-design-ruby/02-gem-and-workspac
 | `lib/dexpace/redirect/location.rb` | `Dexpace::Redirect::Location` | `private_constant` — `R7` |
 | `lib/dexpace/redirect/origin.rb` | `Dexpace::Redirect::Origin` | `private_constant` |
 | `lib/dexpace/redirect/errors.rb` | `Dexpace::Redirect::SchemeDowngradeError` | public (an error class, per `SEAM-29`'s neighbourhood) |
-| `lib/dexpace/resilience/resend.rb` | `Dexpace::Resilience::Resend`, `::NotReplayableError` | public — shared with `6a`/`6c`, see *Independence* |
+| `lib/dexpace/resilience/resend.rb` | `Dexpace::Resilience::Resend.replayable_body?`, `::NotReplayableError` | public — the module is shared with `6a`'s `.eligible?`; the method is not, see *Independence* |
 
 `Location` and `Origin` get **no `sig/` mirror and no dedicated test file**, following 5a's precedent for
 `ConfigParsers`/`DeepValue`: both are asserted only at `Step`'s own call sites, because neither is public API and
@@ -251,10 +280,11 @@ requires and design §6.2 specifies explicitly rather than via `URI#==`.
 **`Dexpace::Redirect::SchemeDowngradeError < ::StandardError; include Dexpace::Error`** — `REDIR-15`'s "fail with
 a clear error," raised by `Step`, never by `Location` or `Origin`.
 
-**`Dexpace::Resilience::Resend`** — a module, no state, `.eligible?(request) -> bool` = "no body, or the body
-responds `#replayable?` truthfully," and `Dexpace::Resilience::NotReplayableError < ::StandardError; include
-Dexpace::Error`, message form naming replayability by name (`REDIR-6`'s "the reference raises an exception whose
-message names replayability").
+**`Dexpace::Resilience::Resend.replayable_body?`** — a module function, no state, `.replayable_body?(request)
+-> bool` = "no body, or the body responds `#replayable?` truthfully," and
+`Dexpace::Resilience::NotReplayableError < ::StandardError; include Dexpace::Error`, message form naming
+replayability by name (`REDIR-6`'s "the reference raises an exception whose message names replayability").
+**It is not `6a`'s `.eligible?`**, which folds in `RETRY-7`'s idempotency clause — see *Independence*.
 
 ## `R7` — the `Location` parsing route
 
@@ -281,12 +311,26 @@ module Dexpace
     # inspects the exception's #message: it differs by one space between 3.2.11 and 4.0.6
     # (url-and-query-encoding/08c54234), so no caller anywhere may match on it.
     module Location
+      # REDIR-18's third trigger, "an unsupported/unknown scheme". RFC 3986 resolution does NOT
+      # raise on one -- measured on 3.4.10: join("https://h/x", "mailto:a@b") returns a URI::MailTo
+      # whose #host is nil, and join("https://h/x", "ftp://o/z") a perfectly valid URI::FTP -- so
+      # the scheme is screened explicitly here rather than discovered downstream as a NoMethodError
+      # on nil.host inside Origin.of or as a "cannot set user with opaque" out of #userinfo=.
+      SUPPORTED_SCHEMES = ::Set["http", "https"].freeze
+
       # @param current_url [URI::Generic] the request URL of the current hop (always absolute).
       # @param header_value [String] the raw Location header value, absolute or relative.
-      # @return [URI::Generic] frozen; userinfo NOT yet stripped -- that is Step's job (REDIR-12).
-      # @raise [::URI::InvalidURIError] on a syntactically invalid reference (REDIR-18).
+      # @return [URI::Generic] NOT frozen and NOT yet userinfo-stripped -- Step strips (REDIR-12)
+      #   and freezes once afterwards. Freezing here would make that strip raise FrozenError.
+      # @raise [::URI::InvalidURIError] on a syntactically invalid reference, or on a resolved
+      #   target whose scheme this client cannot dispatch (REDIR-18, both triggers, one rescue).
       def self.resolve(current_url, header_value)
-        ::URI::RFC3986_PARSER.join(::Dexpace::URL.external_form(current_url), header_value).freeze
+        target = ::URI::RFC3986_PARSER.join(::Dexpace::URL.external_form(current_url), header_value)
+        unless target.scheme && SUPPORTED_SCHEMES.include?(target.scheme.downcase)
+          raise ::URI::InvalidURIError, "unsupported redirect scheme"
+        end
+
+        target
       end
     end
   end
@@ -299,19 +343,40 @@ entirely (`REDIR-14`'s "Absolute Location values are used as-is"), a relative on
 own worked example, `'/v2/x'` relative to `'https://h/v1/x'` → `'https://h/v2/x'`) — so `Location.resolve` needs
 no branch distinguishing the two cases, and needs no separate parse-then-resolve step: `.join` does both, and
 raising `::URI::InvalidURIError` on a malformed reference is exactly `REDIR-18`'s "malformed or unresolvable"
-trigger. `REDIR-19`'s missing/empty `Location` is checked by `Step` before calling `Location.resolve` at all — an
+trigger. **What `.join` does *not* do is reject an unsupported scheme**, which is `REDIR-18`'s third listed
+trigger ("syntactically invalid URI, illegal characters, **or an unsupported/unknown scheme**"), so the scheme
+screen above is not belt-and-braces: without it a `Location: mailto:…` reaches `Origin.of` and raises
+`NoMethodError` on a nil host, and a `Location: ftp://…` is dispatched to an HTTP transport. It raises the same
+class as a malformed reference so one rescue covers both of `REDIR-18`'s shapes, and because `REDIR-18` forbids
+throwing either way, the distinction has no observable consequence at the call site.
+`REDIR-19`'s missing/empty `Location` is checked by `Step` before calling `Location.resolve` at all — an
 absent or empty header never reaches the parser.
 
 `Step`'s call site:
 
 ```ruby
-begin
+# One call site, reached on BOTH decision routes -- the built-in one and a configured predicate's
+# `true` (REDIR-20 overrides the FOLLOW decision, not REDIR-18's and REDIR-19's MUST-not-throw).
+# The result is stripped (REDIR-12) and frozen here, once, and the same object is what the visited
+# check (REDIR-16) and the follow-up builder both see -- see R9.
+def resolve_target(current_request, response)
+  location_value = response.headers["Location"]&.first
+  return nil if location_value.nil? || location_value.empty?   # REDIR-19
+
   target = Dexpace::Redirect::Location.resolve(current_request.url, location_value)
+  target.userinfo = ""                          # REDIR-12; "" clears, nil is a silent no-op
+  target.freeze
 rescue ::URI::InvalidURIError => e
-  emit_location_malformed(location_value, e)   # REDIR-28's raw-string exception, R8
-  return current_response                       # REDIR-18: unfollowed, body left open (REDIR-22c)
+  emit_location_malformed(location_value, e)    # REDIR-28's raw-string exception, R8
+  nil                                            # REDIR-18: unfollowed, body left open (REDIR-22c)
 end
 ```
+
+A `nil` return from `resolve_target` is `Step`'s single "return the current response unfollowed" signal, and
+it covers `REDIR-19`'s missing/empty header, `REDIR-18`'s malformed reference and `REDIR-18`'s unsupported
+scheme alike. **It is evaluated before either decision route**, so a configured predicate that answers `true`
+cannot drive the step into a follow-up it has no target for — `REDIR-20` overrides the built-in *follow
+decision*, and `REDIR-18`/`REDIR-19` are MUSTs about not throwing that no predicate may waive.
 
 **`REDIR-12`'s userinfo strip is spelled `target.userinfo = ""`, not `target.userinfo = nil` and not
 `#user =`/`#password =` separately**, and this is the one piece of code in this sub-phase this document verifies
@@ -325,6 +390,16 @@ fact 1, for the measurement; the note it produces is filed under *Findings* belo
 and `Instrumentation::Event` machinery for level-gating and sink dispatch, and performs redaction itself, by an
 explicit call to `redactor.url` at each event's construction site — never through 5b's `Event` reserved-key
 auto-redaction table.**
+
+**5b's public surface, quoted rather than assumed, because the first draft of this section invented one.**
+`P5-17` fixes `Logger`'s public methods at `.build`, `#event`, `#enabled?`, `#context` and `#sink`
+(`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction.md`, Task "…`Logger` class,
+`Logger::NULL` singleton") — there is **no** `#info`, `#warn`, `#info?` or `#warn?` on it, and `Event` is never
+constructed by a caller: `Logger#event(severity)` makes the enabled decision **once** and returns either a live
+`Event` or the shared frozen `Event::INERT`, and the event is finished with `#event(name)`, `#field(key, value)`,
+`#cause(error)` and `#emit`. So every emitter below is one chain, the enablement guard is `#event`'s own return
+value rather than a predicate call, and a test reads what was emitted off a `Dexpace::RecordingSink`'s
+`#entries`, each carrying a `#payload` hash keyed by `Instrumentation::Keys`.
 
 The redirect step sits at `Stages::REDIRECT` (order 200), strictly outside 5b's instrumentation step at
 `Stages::LOGGING` (order 1100), so it cannot read that installed step's logger — there is no cursor-scoped
@@ -353,9 +428,15 @@ own stated exception — the malformed-`Location` event logs the **raw, unredact
 module Dexpace
   module Redirect
     module Events
-      HOP_FOLLOWED               = "http.redirect.hop".freeze
+      HOP_FOLLOWED                = "http.redirect.hop".freeze
       LOOP_DETECTED               = "http.redirect.loop_detected".freeze
+      # REDIR-15 has TWO observable outcomes and they are not the same event. The rejection is
+      # already observable as a raised SchemeDowngradeError; the OPT-IN is observable only here,
+      # and REDIR-15's "MUST surface it observably (e.g. a warning log)" binds on that branch.
+      # Emitting the "rejected" name for a downgrade that was permitted would make the log say the
+      # opposite of what happened.
       SCHEME_DOWNGRADE_REJECTED   = "http.redirect.scheme_downgrade_rejected".freeze
+      SCHEME_DOWNGRADE_PERMITTED  = "http.redirect.scheme_downgrade_permitted".freeze
       LOCATION_MALFORMED          = "http.redirect.location_malformed".freeze
     end
 
@@ -376,27 +457,42 @@ end
 ```
 
 ```ruby
-def emit_hop(from:, to:, status:)
-  return unless @logger.info?
-
-  @logger.info do
-    Dexpace::Instrumentation::Event.new
-      .event(Events::HOP_FOLLOWED)
-      .field(Keys::FROM_URL, @redactor.url(Dexpace::URL.external_form(from)))
-      .field(Keys::TO_URL, @redactor.url(Dexpace::URL.external_form(to)))
-      .field(Keys::STATUS_CODE, status.code)
-  end
+def emit_hop(from:, to:, status:, redirect_count:)
+  # Logger#event makes the enabled decision once and hands back Event::INERT when the sink is not
+  # listening; INERT's #field/#event/#cause are no-ops returning self and its #emit returns nil, so
+  # there is no predicate to call and nothing to guard.
+  @logger.event(Dexpace::Instrumentation::Severity::INFO)
+         .event(Events::HOP_FOLLOWED)
+         .field(Keys::FROM_URL, redacted_url(from))
+         .field(Keys::TO_URL, redacted_url(to))
+         .field(Keys::STATUS_CODE, status.code)
+         .field(Keys::REDIRECT_COUNT, redirect_count)
+         .emit
 end
 
 def emit_location_malformed(raw_value, error)
-  return unless @logger.warn?
+  @logger.event(Dexpace::Instrumentation::Severity::WARNING)
+         .event(Events::LOCATION_MALFORMED)
+         .field(Keys::LOCATION_RAW, raw_value)  # NOT passed through @redactor -- REDIR-28's exception
+         .cause(error)
+         .emit
+end
 
-  @logger.warn do
-    Dexpace::Instrumentation::Event.new
-      .event(Events::LOCATION_MALFORMED)
-      .field(Keys::LOCATION_RAW, raw_value)   # NOT passed through @redactor -- REDIR-28's exception
-      .cause(error)
-  end
+def emit_scheme_downgrade_permitted(from, to)
+  @logger.event(Dexpace::Instrumentation::Severity::WARNING)
+         .event(Events::SCHEME_DOWNGRADE_PERMITTED)
+         .field(Keys::FROM_URL, redacted_url(from))
+         .field(Keys::TO_URL, redacted_url(to))
+         .emit
+end
+
+# REDIR-28's "redaction failures MUST NOT crash logging" binds on ANY configured redactor, and
+# `redactor:` is a constructor keyword, so a caller-supplied one is not guaranteed total the way
+# Redactor::DEFAULT is. One rescue, one placeholder, one place.
+def redacted_url(uri)
+  @redactor.url(Dexpace::URL.external_form(uri))
+rescue ::StandardError
+  Dexpace::Instrumentation::Redactor::MALFORMED_URL
 end
 ```
 
@@ -404,12 +500,13 @@ end
 "redaction failures MUST NOT crash logging (a redaction error is swallowed to a placeholder)" — `6b` writes no
 second `rescue` around `@redactor.url` because 5b's already degrades rather than raises.
 
-**Defaults.** `logger: Dexpace::Instrumentation::Logger::NULL` (a caller who wires nothing pays for a no-op
-level check and nothing else, matching 5c's `NULL` `HTTPTracer` pattern) and `redactor:
-Dexpace::Instrumentation::Redactor::DEFAULT` (5b's real default redactor is stateless and safe to hold even when
-`logger` is `NULL`, since nothing calls it in that case — defaulting it to a real instance rather than a second
-null object costs nothing and means a caller who supplies only `logger:` gets real redaction with no second
-keyword).
+**Defaults.** `logger: Dexpace::Instrumentation::Logger::NULL` (a caller who wires nothing gets `Event::INERT`
+from every `#event` call and pays for nothing else, matching 5c's `NULL` `HTTPTracer` pattern; a caller who
+wants records passes `Dexpace::Instrumentation::Logger.build(sink: …)`, which is 5b's only public constructor)
+and `redactor: Dexpace::Instrumentation::Redactor::DEFAULT` (5b's real default redactor is stateless and safe to
+hold even when `logger` is `NULL`, since nothing calls it in that case — defaulting it to a real instance rather
+than a second null object costs nothing and means a caller who supplies only `logger:` gets real redaction with
+no second keyword).
 
 ## `R9` — `REDIR-20`'s condition snapshot
 
@@ -445,15 +542,24 @@ unless RECOGNIZED_CODES.include?(response.status.code)   # REDIR-1, REDIR-2
 end
 
 snapshot = build_snapshot(response, redirect_count, visited)   # allocated unconditionally past this point
+target   = resolve_target(current_request, response)           # REDIR-12, REDIR-18, REDIR-19; R7
+return response if target.nil?                                 # unfollowed, open (REDIR-22c)
+
+decision = @predicate ? @predicate.call(snapshot) : default_follow?(...)  # REDIR-20/REDIR-21
+return response unless decision
+return response if redirect_count >= @max_hops                 # REDIR-17's ceiling, OVER the answer
 ```
 
 **The one exception this document names as a deliberate decision, not a spec violation, and flags for the
-Deviation Ledger.** `REDIR-17`'s max-hops cap is enforced as a **hard ceiling the step checks before consulting
-either the default decision logic or a configured predicate**, rather than being folded into "the built-in follow
-decision" `REDIR-20` says a predicate "fully overrides." The snapshot is still allocated (per `REDIR-21`'s NOTE,
-quoted above, which draws no exception for the cap), and `redirect_count` is part of what the snapshot hands the
-predicate — a predicate that wants its own, different notion of "too many hops" can read it and decide not to
-follow on its own account — but the step does not let a predicate override the cap upward, because `REDIR-17`'s
+Deviation Ledger.** `REDIR-17`'s max-hops cap is enforced as a **hard ceiling applied *over* the follow
+decision, never in place of it**: the snapshot is allocated and the configured predicate is consulted exactly as
+`REDIR-21`'s NOTE requires, and only then — on a `true` answer — does the cap veto the follow. Ordering the two
+the other way round, with `return response if redirect_count >= @max_hops` placed above the predicate call,
+would allocate a snapshot and then discard it unread and would make `REDIR-21`'s "always … consults the
+configured predicate" false at exactly the hop where a predicate most wants to be heard; that shape is
+deliberately rejected here. `redirect_count` is part of what the snapshot hands the predicate — a predicate that
+wants its own, different notion of "too many hops" can read it and decide not to follow on its own account — but
+the step does not let a predicate override the cap upward, because `REDIR-17`'s
 "the number of followed redirects MUST be capped by maxHops" is phrased with no carve-out for a predicate and
 because an uncapped custom predicate would turn `REDIR-23`'s stack-safety guarantee (bounded memory per hop, an
 iterative loop) into an unbounded one in wall-clock and connection terms even though it stays stack-safe. The
@@ -463,9 +569,14 @@ hop should be followed* — because those are all read from the same snapshot th
 them is independently safety-critical the way an unbounded loop is. `REDIR-15`'s downgrade rejection and
 `REDIR-7`/`REDIR-8`/`REDIR-9`/`REDIR-11`/`REDIR-24`'s credential hygiene are **never** overridable by a
 predicate either, for the same reason and because the specification itself frames them as unconditional
-("`REDIR-7`... MUST be stripped before EVERY redirect re-issue"), never as part of "the decision." Filed below as
-a candidate for the phase-6 Deviation Ledger, numbered at consolidation (`P6-<n>`, not assigned here because `6a`
-and `6c` are being written concurrently and a specific number would risk colliding with theirs).
+("`REDIR-7`... MUST be stripped before EVERY redirect re-issue"), never as part of "the decision." Neither are
+`REDIR-18`'s and `REDIR-19`'s MUST-not-throw clauses: `resolve_target` (`R7`) runs before either decision route
+and a `nil` from it returns the current response unfollowed whatever a predicate would have answered — which is
+also what keeps a predicate-forced follow from reaching `Location.resolve` with a `nil` header value, where
+`URI::RFC3986_PARSER.join` raises `ArgumentError` rather than the `URI::InvalidURIError` any rescue here expects.
+Filed below as a candidate for the phase-6 Deviation Ledger, numbered at consolidation (`P6-<n>`, not assigned
+here because `6a` and `6c` are being written concurrently and a specific number would risk colliding with
+theirs).
 
 ## Verified Ruby facts this document is built on
 
@@ -608,9 +719,11 @@ error-class shape `class X < ::StandardError; include Dexpace::Error; end`, whic
 `Resilience::NotReplayableError` both follow.
 
 **From phase 3b** — `Dexpace::Body#replayable?`/`#to_replayable`, `Response#close`,
-`Dexpace::StreamError < ::IOError`. **`Dexpace::Resilience::Resend.eligible?(request)` does not yet exist as a
-shipped surface** — 3b's own forward table names it as phase 6's to write, and this sub-phase's plan builds it,
-under the independence caveat given at the top of this document.
+`Dexpace::StreamError < ::IOError`. **The `Dexpace::Resilience` re-sendability namespace does not yet exist as a
+shipped surface** — 3b's own forward table names it as phase 6's to write. This sub-phase's plan adds
+`Resend.replayable_body?(request)` and `Resend::NotReplayableError` to it and adds nothing else; `Resend.eligible?`,
+with `RETRY-7`'s idempotency clause, is `6a`'s and is never called from here, under the independence caveat given
+at the top of this document.
 
 **From phase 4a** — nothing `6b` consumes directly (`BoundedMap`, `Bundle`, `ContextStore` are `6c`'s and `6a`'s
 concerns respectively).
@@ -698,13 +811,19 @@ otherwise-empty `Pipeline::Builder` with only `Redirect::Step` installed at `Sta
 phase 2's `test/support/fake_transport.rb` and 4c's own no-transport testing rule (roadmap cross-cutting
 constraint 4).
 
-**Reused from phase 4c, unmodified:** `test/support/state_probe.rb` (`StateProbe`, a pillar-stage probe that
-forks with a named state map, and a slot probe that reads one) — installed at `Stages::AUTH` in every test that
-needs to observe what `Redirect::Step`'s fork actually wrote, which is how this sub-phase **extends 4c's R11
-negative-assertion 4 from a probe pair to a real step**: the same assertion 4c wrote against two `StateProbe`
-instances is re-run here with the real `Redirect::Step` at `REDIRECT` and a `StateProbe` reader at `AUTH`,
-proving the production step obeys the write-restriction contract it was built against, not only that the
-contract itself holds for a probe.
+**Reused from phase 4c, unmodified — under the names 4c actually ships, verified against its plan rather than
+recalled.** They live in `gems/dexpace-core/test/support/probe_steps.rb` (not a `state_probe.rb`), they are
+**top-level constants** in no namespace, and the write and read sides are two different classes:
+`ForkingProbe.new(times:, state_per_drive:)` is R11's write side (it forks for every drive and writes each
+drive's state map into its own stage slot) and `StateProbe.new(stage_to_read:)` is the read side, recording
+`cursor.state(stage_to_read)` into `#reads` at every invocation. Neither declares `#stage` — 4c asserts
+`refute_respond_to(…, :stage)` — so every install in this sub-phase's suite names the stage as an `append`
+argument. `StateProbe` is what goes at `Stages::AUTH` in every test that needs to observe what
+`Redirect::Step`'s fork actually wrote, which is how this sub-phase **extends 4c's R11 negative-assertion 4 from
+a probe pair to a real step**: the assertion 4c wrote with a `ForkingProbe` writing and a `StateProbe` reading is
+re-run here with the real `Redirect::Step` at `REDIRECT` and a `StateProbe` reader at `AUTH`, proving the
+production step obeys the write-restriction contract it was built against, not only that the contract itself
+holds for a probe.
 
 **New in this sub-phase:**
 
@@ -742,6 +861,14 @@ contract itself holds for a probe.
   hop 1's and hop 2's responses but leaves hop 3's (the final, returned) response open (`22a`/`22c` together) —
   asserted by three independent closed-flags on three fake response bodies, not by counting close calls, because
   a count alone cannot say *which* response was closed.
+- **`REDIR-22a`'s ordering is a separate assertion from its effect, and only the ordering one is load-bearing.**
+  The requirement is "**before** issuing a follow-up request, the prior redirect response's body MUST be
+  closed", and design §6.2 restates it in those words; 4c's own `ForkingProbe` — the `PIPE-40` fixture this
+  sub-phase extends — closes the superseded intermediate and only then issues the next drive. Deferring the
+  close to *after* the next fork returns passes every close-flag assertion above and is still wrong: it holds
+  hop N's connection for the whole of hop N+1, which deadlocks any transport with a one-connection pool. So the
+  suite asserts the **order** — the fake body's close is recorded against the transport's call count — and not
+  merely that the close happened.
 
 ## Deviation Ledger
 

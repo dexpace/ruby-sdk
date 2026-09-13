@@ -200,10 +200,17 @@ treatment of the same situation. Recorded here so their absence is a decision ra
 and the roadmap's phase-7 cell's `PAGE` component (`:92`). **`7c` adds no unsatisfied MUST**; the port's three
 live under `ASYNC-3`, `ASYNC-4` and `PIPE-33` (§10.5) and `7c` adds no fourth.
 
-### Six rows the checklist must state rather than tick
+### Seven rows the checklist must state rather than tick
 
 Each is a row where "implemented" is true but a bare tick would hide the argument that makes it true.
 
+- **`PAGE-1` is satisfied on BOTH engines, and the row names four sites rather than two.** `PAGE-1` is not
+  qualified by engine — `PAGE-6` shows the chapter qualifies explicitly when it means one — and `PAGE-27`
+  settles it in as many words: the async engine closes each response "after the page is **drained to the
+  consumer (item- or page-level)**". So the blocking engine's `Items`/`Pages` are half the answer and
+  `AsyncPaginator#walk`/`#walk_pages` are the other half, over one pump with one drain branch. A row citing
+  only `Items` and `Pages` would tick a MUST the async engine did not meet, which is the failure mode this
+  section exists for.
 - **`PAGE-35` is vacuous rather than declined, and the distinction is design §12's.** Its own text is
   conditional — "**If** a mutable paging-options object is offered to fetchers, the *same* instance SHOULD be
   threaded through every fetcher call" — and design §12's `PAGE` row settles it: "the port offers an immutable
@@ -346,7 +353,7 @@ them as such.
 
 - **`gates:require_allowlist`.** Core may `require` only `monitor`, `uri`, `stringio`, `strscan`, `time`,
   `date`, `securerandom`, `digest`, `openssl`, `forwardable`, `set`, `singleton`
-  (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md:459`). **`7c` needs `uri`
+  (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md:450`). **`7c` needs `uri`
   only, and it is already on the list**, so no allowlist diff is required by this sub-phase. `json` is on the
   **denylist** by name — which is exactly why boundary 5 is needed, since the boundary at issue is core's
   pagination layer reaching for core's own `Dexpace::Serde`, which no allowlist sees.
@@ -427,7 +434,7 @@ core re-raises an error it is **carrying**.
 4c's forward table written **for this phase**: "`PIPE-26`: a built pipeline is a transport, so a paginator
 takes one with no declaration. `Pipeline#close` is a no-op on the transport (`PIPE-27`), so a paginator
 wrapping one owns nothing"
-(`docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md:1436`). **`7c`'s consequence,
+(`docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md:1447`). **`7c`'s consequence,
 stated so it cannot be quietly re-decided**: `Dexpace::Page::Paginator` takes a `#call`-shaped transport, holds
 it by reference, declares no `Pipeline` dependency, and **never closes it**. `PAGE-3`'s ownership transfer is
 about the **response**, never about the transport it came from. `7c` installs no step, forks no cursor and
@@ -775,6 +782,7 @@ lib/dexpace/page/cursor_strategy.rb          Dexpace::Page::CursorStrategy    (P
 lib/dexpace/page/page_number_strategy.rb     Dexpace::Page::PageNumberStrategy (PAGE-17)
 lib/dexpace/page/link_strategy.rb            Dexpace::Page::LinkStrategy      (PAGE-18, PAGE-19, PAGE-20)
 lib/dexpace/page/walk.rb                     Dexpace::Page::Walk              (the lifetime owner; Closeable)
+lib/dexpace/page/closing.rb                  Dexpace::Page::Closing           (R8's $!-branching close_walk)
 lib/dexpace/page/items.rb                    Dexpace::Page::Items             (PAGE-1, PAGE-8, PAGE-11)
 lib/dexpace/page/pages.rb                    Dexpace::Page::Pages             (PAGE-1, PAGE-12, PAGE-14, PAGE-15)
 lib/dexpace/page/paginator.rb                Dexpace::Page::Paginator         (PAGE-6..PAGE-10, PAGE-36)
@@ -782,7 +790,7 @@ lib/dexpace/page/async_paginator.rb          Dexpace::Page::AsyncPaginator    (P
 lib/dexpace/page/fetchers.rb                 Dexpace::Page::Fetchers          (PAGE-34, PAGE-35)
 
 lib/dexpace/http/url.rb                      MODIFIED: URL.resolve added (P7-3, PAGE-19)
-lib/dexpace.rb                               MODIFIED: the thirteen requires
+lib/dexpace.rb                               MODIFIED: the fourteen requires
 
 sig/dexpace/page/strategy.rbs                NEW, sig/-only: interface _Strategy, _Extractor, _Executor
 test/support/counting_transport.rb           a scriptable, exchange-counting sync + async transport double
@@ -791,8 +799,11 @@ test/support/closing_probe.rb                a Response double counting #close a
 tasks/gates.rake                             MODIFIED or NEW: gates:serde_isolation (R11)
 ```
 
-Thirteen new `lib/` files, thirteen `sig/` mirrors, thirteen `test/` mirrors, one `sig/`-only interface file
-with no `lib/` counterpart, two modified existing files, three new test-support doubles, and one gate.
+Fourteen new `lib/` files — the thirteen public ones plus `closing.rb`, whose `Dexpace::Page::Closing` mixin
+is `private_constant` and carries no `sig/`, no `test/` mirror and no manifest row, exactly as `LinkHeader`
+and `Walk` do. Eleven `sig/` mirrors — one per public `lib/` file — thirteen `test/` mirrors (`Closing` is
+exercised through the two views), one `sig/`-only interface file with no `lib/`
+counterpart, two modified existing files, three new test-support doubles, and one gate.
 
 **`Dexpace::Page` is a class *and* the namespace, and that is a decision rather than a default.** Design §7.1
 names exactly one Ruby identifier for this subsystem — `Dexpace::Page`, in the shorthand
@@ -801,8 +812,8 @@ keeps `lib/dexpace/page/**` as the audited glob boundary 5 fixes, and keeps the 
 correspondence phases 6a (`Dexpace::Resilience::*`) and 6c (`Dexpace::Auth::*`) established. **Phase 3b's
 `P3-7` shadowing lesson — the one `docs/first-release.md` carries as a blocker, that a `Dexpace::` constant
 shadowing a core one is not inert outside core — is applied rather than ignored**: the nested names are `Info`,
-`QueryRewriter`, `LinkHeader`, `CursorStrategy`, `PageNumberStrategy`, `LinkStrategy`, `Walk`, `Items`,
-`Pages`, `Paginator`, `AsyncPaginator` and `Fetchers`, and **none shadows a Ruby core constant or a
+`QueryRewriter`, `LinkHeader`, `CursorStrategy`, `PageNumberStrategy`, `LinkStrategy`, `Walk`, `Closing`,
+`Items`, `Pages`, `Paginator`, `AsyncPaginator` and `Fetchers`, and **none shadows a Ruby core constant or a
 `Dexpace::` one**; the plan's final task runs an explicit shadowing audit over the list rather than trusting
 this sentence. The names 3b rejected — `File`, `Buffer`, `Response` — have no counterpart here. Recorded as
 `P7-2`.
@@ -953,7 +964,20 @@ structural rather than promised**, and `PAGE-8`'s "safe to share" follows for th
   `Regexp.new(source, timeout:)`), and sets the next page to current + 1. `start` defaults to 1 and 0 is
   permitted, for 0-based servers.
 - **`LinkStrategy.build(extract_items:, header: "Link")`** — `PAGE-18`, `PAGE-19`, `PAGE-20`. Reads
-  `response.headers[header]`, hands the array to `LinkHeader.next_target`, and resolves the result.
+  `response.headers[header]`, hands the array to `LinkHeader.next_target`, and passes the result to
+  `Dexpace::Page.next_request_from`.
+
+**`Dexpace::Page.next_request_from(template, response, target)` is public, and that is a decision.** It
+carries `PAGE-19`'s whole answer — blank or whitespace-only target → `nil` (`P7-5`); unresolvable target →
+`nil` rather than an error; otherwise `template.with(url: Dexpace::URL.resolve(response.request.url,
+target))`, which is `PAGE-23`'s "swap only the request's URL, preserving the template's method, headers, and
+body". It is public rather than a private method on `LinkStrategy` because **a next-page URL in the response
+body is the one shape a generated client commonly needs that none of the three built-ins covers**: the spec
+names exactly three strategies, `7c` adds no fourth, and the supported route is a caller-written `#parse`.
+A caller-written `#parse` that re-derives this branch by hand gets `PAGE-19`'s two end-of-stream rules
+silently wrong — an unresolvable target aborting iteration, or a blank one looping to the page cap — so the
+branch is shipped once and `_Strategy`'s YARD names it with a worked body-derived example. `NFR-4` locks one
+module function; the alternative locks the same behaviour three times in three callers' code.
 
 **`PAGE-19`'s reference resolution, and the two measured facts behind it.** The base is
 `response.request.url` — the request the transport was handed, which after a redirect chain is the *final*
@@ -1041,8 +1065,12 @@ nothing open.**
 not run.** `PAGE-11`'s eager-close means the only suspension points an external consumer can abandon the walk
 at are points where no response is live. The residue of `pagination/b2a85752` on this view is therefore
 **zero**, and that is worth stating because it is the one place in this subsystem where the hard rule costs
-nothing. `Items#close` exists anyway, forwarding to the walk, so the two views share one lifetime vocabulary
-and a consumer never has to remember which one needs it.
+nothing. `Items#close` exists anyway — **as a documented no-op**, so the two views share one lifetime
+vocabulary and a consumer never has to remember which one needs it. It cannot be anything else, and the
+reason is `PAGE-8`: the walk is a `#each`-local so that each iteration restarts with fresh state, so the view
+holds no walk to forward to, and by `PAGE-11` there is nothing open to release in any case. **A `@walk` on
+the view added to give `#close` something to do breaks `PAGE-8` the moment two iterations overlap**; the YARD
+says so, and a test asserts that `#close` releases nothing and never raises.
 
 `PAGE-1`'s "items MUST be delivered in server-defined order across page boundaries" is the drive routine's
 order, asserted against a three-page fixture.
@@ -1058,8 +1086,20 @@ which is `PAGE-8`'s two-iterations clause; design §7.1 fixes that the fresh-res
 The advance sequence is `PAGE-12`'s, verbatim: close the previous page as the consumer advances, close the
 last page at exhaustion, and buffer the fetched-but-undelivered page in `Walk#@buffered` — **storage the walk
 owns**, per `pagination/9bdf90fc` and design §7.1's "**PAGE-12**'s one-slot look-ahead lives on the engine,
-not in the enumerator's closure". `#any?`/`#peek`-style emptiness probes fill `@buffered`; `#close` releases
-both slots.
+not in the enumerator's closure". `#more?` fills `@buffered`; `#close` releases both slots.
+
+**Two properties of that sentence are load-bearing and are stated so no task can weaken either.** First,
+**the advance-close is a `PAGE-15` close, not a quiet one**: when the consumer has returned from the previous
+yield nothing is in flight, so a close error raised while releasing the page being advanced past is
+**surfaced**, not swallowed — `PAGE-15`'s first clause says so of a held page and does not carve out the
+advance. `Walk#hold` therefore runs `R8`'s `$!`-branch and **not** `Dexpace.close_quietly`; the quiet route
+belongs to `PAGE-26` and `PAGE-32`'s already-settled and already-failed paths and nowhere else. Second,
+**the look-ahead is one slot and a staged page is never displaced**: `#more?` returns `true` without fetching
+when a page is already staged, and `Walk#buffer` raises rather than overwrite one. Overwriting would spend a
+second exchange on a single yielded page — against `PAGE-6`'s one-per-page — and strand the displaced
+response, which is exactly the leak `PAGE-12`'s buffering clause exists to prevent. A probe on a closed or
+exhausted walk fetches nothing (`Walk#fetch_next_page` returns `nil` when `closed?`), so a `#more?` after the
+view's own `ensure` has run cannot acquire a response nothing will ever close.
 
 ### `Dexpace::Page::Paginator` — `PAGE-6`–`PAGE-10`, `PAGE-36`
 
@@ -1091,12 +1131,25 @@ a `Walk` that has fetched nothing. `R10` states the two assertions.
 Data.define(:transport, :template, :strategy, :cap, :options, :executor)
   .build(transport:, template:, strategy:, cap: Float::INFINITY,
          options: Dexpace::RequestOptions::EMPTY, executor: nil)
-  #walk(consumer, cancellation: nil) -> Dexpace::Async::Future
+  #walk(consumer, cancellation: nil)       -> Dexpace::Async::Future   items, serially   (PAGE-29)
+  #walk_pages(consumer, cancellation: nil) -> Dexpace::Async::Future   whole pages       (PAGE-1)
 ```
+
+**Two walk methods, one pump.** `PAGE-1`'s two views are required of *the engine*, not of the blocking
+engine, and `PAGE-27`'s "drained to the consumer (item- or page-level)" is the async engine's own text for
+the second of them. Both methods are one private `#drive(consumer, cancellation, mode:)`; the **only**
+difference is the drain step — item mode yields each item serially, page mode yields the `Dexpace::Page`
+once, **before** the close, so the consumer sees the live response for the length of its own call.
+Everything expensive is therefore written once and inherited by both: `PAGE-26`'s stop-at-the-page-boundary
+rule, `PAGE-27`'s exactly-once close, `PAGE-30`'s staged-page close and `PAGE-32`'s `$!`-branching drain
+close. `PAGE-29`'s "MUST NOT be invoked concurrently" holds for page mode by the same at-most-one-in-flight
+argument, and `PAGE-14`'s single-use latch has no async counterpart because a walk method is not a view a
+caller can obtain twice — each call is its own walk, which is `PAGE-8`.
 
 The driver is a `while` pump over a re-arm flag, guarded by a `Thread::Mutex` **held across the flag flip
 only** (`R9`). One iteration: dispatch → `#on_settle` → on a response, parse, build the page, deliver each
-item to the consumer serially, close the page, re-arm. The eight behaviours, each with its site:
+item (or the page, in page mode) to the consumer, close the page, re-arm. The nine behaviours, each with its
+site:
 
 | Requirement | Site |
 |---|---|
@@ -1104,6 +1157,7 @@ item to the consumer serially, close the page, re-arm. The eight behaviours, eac
 | `PAGE-26` — page-granular: a settled result mid-drain lets the current page finish delivering; a fetched-but-undrained page is dropped **and closed**, close errors **swallowed** | the settled check runs at the page boundary, never inside the drain loop; the drop path is `Dexpace.close_quietly(page)` |
 | `PAGE-27` — exactly once on all four paths | the `Page`'s own `Closeable` latch, which is why the page is not a `Data` |
 | `PAGE-28` — consumer throw, transport failure, parse failure, null success, **and an eagerly-throwing transport**, each failing the walk with the **original** cause | `transport.call` is wrapped in a `rescue ::StandardError` for the eager-throw clause; `Settlement#error` is passed to `Completer#fail` **unwrapped**, because phase 2's pivot wraps nothing; the null-success branch is the `Settlement` dispatch's explicit `else` |
+| `PAGE-1` (async half) — an item-level and a page-level view over the same walk | `#walk` and `#walk_pages`, one private `#drive(…, mode:)` with a two-branch drain; page mode yields the `Page` before the close so the live response is visible for the consumer's call |
 | `PAGE-29` — serial, ordered delivery; inline by default; executor mode runs the driver | the pump; `executor.nil? ? yield : executor.post { … }` at the one re-dispatch site |
 | `PAGE-30` — a rejecting executor fails the walk and closes any staged page | every `#post` call site is wrapped; the raised error becomes the failure and the staged page is closed on the way out |
 | `PAGE-31` — iterative, never recursive | the `while` pump, measured against 200,000 synchronous pages |
@@ -1148,10 +1202,12 @@ Stated as five sentences a reviewer can hold the implementation to.
    measurably.
 3. **The item view holds nothing at a yield point**, because `PAGE-11` closes each page before yielding any of
    its items; the page view holds up to two, which `PAGE-12` names and `Walk#release` releases.
-4. **Every `ensure` that closes reads `$!` first and branches**, because a bare `ensure` inverts
-   `PAGE-13`/`PAGE-32`'s primary-error rule (measured). The two branches are `raise` when nothing is in
-   flight and `Dexpace.attach_suppressed` (or `Dexpace.close_quietly`, where the requirement says *swallow*)
-   when something is.
+4. **Every close of a held page reads `$!` first and branches** — every `ensure`, and `Walk#hold`'s advance
+   too — because a bare `ensure` inverts `PAGE-13`/`PAGE-32`'s primary-error rule (measured). The two
+   branches are `raise` when nothing is in flight and `Dexpace.attach_suppressed` when something is.
+   `Dexpace.close_quietly` is **not** a third branch of this rule: it is reached only where a requirement
+   says *swallow* — `PAGE-26`'s already-settled drop and `PAGE-32`'s already-failed consumer — and using it
+   anywhere else silently breaks `PAGE-15`'s "surfaced, not swallowed".
 5. **The paginator owns no transport.** `PIPE-26`/`PIPE-27` make a built pipeline a transport whose `#close`
    is a no-op, and `PAGE-3`'s ownership transfer is about the response. A paginator that closed its transport
    would break a caller who built one pipeline for a whole client.
@@ -1279,7 +1335,7 @@ Five groups, all against phase 2's in-memory fakes and `7c`'s three doubles. Roa
    exactly-`N`-then-stop against a server echoing one cursor forever, plus the construction-time rejection of
    a non-positive cap; `PAGE-36`'s override on **every** request, asserted by inspecting each recorded call's
    options rather than only the first.
-4. **The lifetime suite, which is this sub-phase's real test surface.** Six tests, and the last two are the
+4. **The lifetime suite, which is this sub-phase's real test surface.** Nine tests, and the last four are the
    ones a suite written without `R8` would omit:
    - `PAGE-11`: take one item from a multi-item first page and stop; assert the first page closed and no
      second exchange.
@@ -1291,12 +1347,21 @@ Five groups, all against phase 2's in-memory fakes and `7c`'s three doubles. Roa
      assert the **consumer's** error is the one that propagates and the close error is in
      `Dexpace.suppressed`. A bare `ensure` passes every other test in this list and fails this one.
    - **`PAGE-15`, both-pages-fail**: make both held pages' closes raise; assert the first propagates with the
-     second attached. Written with the word "wrapped" absent and `P7-1` cited in the header comment.
+     second attached. Written with the word "wrapped" absent and `P7-1` cited in the header comment. The two
+     slots are only ever full together **inside** the loop — `view.each { |p| view.more?; break }` — because
+     `#each`'s own `ensure` closes the walk on the way out, so a probe after the loop is too late to reach
+     the state the requirement describes.
+   - **`PAGE-15`, the advance**: make page 1's close raise and iterate to page 2; assert the error is
+     surfaced. This is the test that fails if the advance was written with `Dexpace.close_quietly`.
+   - **`PAGE-6`/`PAGE-12`, the repeated probe**: call `#more?` twice; assert one exchange and one page
+     closed by `#close`. This is the test that fails if the look-ahead slot can be overwritten.
 5. **Async engine tests, against the counting transport's async mode and `ProbeExecutor`'s three modes.**
    `PAGE-25`'s cancel-mid-walk (assert the in-flight transport future cancelled and no further dispatch);
    `PAGE-26`'s staged-page drop (assert closed, walk ends cleanly, no masking error); `PAGE-27` across all
    four paths with an instrumented response asserting exactly one close each; `PAGE-28`'s five failure modes
-   including the eagerly-throwing transport; `PAGE-29`'s serial ordered delivery plus an executor-mode test
+   including the eagerly-throwing transport; **`PAGE-1`'s async page-level walk — `#walk_pages` yields whole
+   pages in order, each live for the length of the consumer's call and closed exactly once after it**;
+   `PAGE-29`'s serial ordered delivery plus an executor-mode test
    asserting consumer invocations run on the executor; `PAGE-30`'s reject-the-second-dispatch case;
    `PAGE-31`'s thousands-of-synchronous-pages test through **both** paths; `PAGE-32`'s throwing close on the
    success path (assert the future completes exceptionally rather than hanging — a test with a timeout, since
@@ -1340,7 +1405,7 @@ precedent, and the failure `6a` and `6c` both walked into by numbering in isolat
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P7-1 | **`PAGE-15`'s wrapping clause is not implemented; no wrapper type ships.** The ID's other two clauses are implemented in full | `PAGE-15`; design §11.15's "clauses with no Ruby manifestation" family | Measured, four terminal shapes: a close error raised from an `ensure` reaches the caller **unwrapped** through `Enumerable#first`, `Enumerator::Lazy#first(2)`, an explicit `break` and a plain block. The clause's antecedent — a terminal that cannot declare the underlying I/O error type — cannot arise in a language with no checked exceptions. A wrapper would be a type with no reachable construction site, one more `NFR-4` lock, and a second thing every caller must `rescue`. §12's `PAGE` row records `PAGE-35`'s vacuity and **not** this one, so the row is owed an addition (filed below) |
-| P7-2 | Public constants and methods design §7.1 does not name: `Dexpace::Page` (as a **class and namespace**) with `::Info`, `::QueryRewriter`, `::CursorStrategy`, `::PageNumberStrategy`, `::LinkStrategy`, `::Walk`, `::Items`, `::Pages`, `::Paginator`, `::AsyncPaginator`, `::Fetchers`; every `.build` and `#each`/`#close`/`#each_item`/`#each_page`; the RBS interfaces `_Strategy`, `_Extractor`, `_Executor` | `NFR-4`; `api-design/b0e18938`; phases 3b (`P3-14`), 5a (`P5-1`) and 6a (`P6-1`) precedent | Design §7.1 names one Ruby identifier, `Dexpace::Page`, in a block-form shorthand and describes everything else in prose. `NFR-4` locks a signature, not only a name, so each is listed. **`Dexpace::Page` being a class that is also the namespace** is the one sub-decision needing its own argument: it keeps `lib/dexpace/page/**` as boundary 5's glob, keeps the glossary's noun for the value, and is checked against `P3-7`'s shadowing hazard — the `include Dexpace` shadow `docs/first-release.md` carries as a blocker — by an explicit audit over the twelve nested names rather than by assertion. `Dexpace::Page::LinkHeader` is `private_constant` and carries no `sig/` and no manifest row |
+| P7-2 | Public constants and methods design §7.1 does not name: `Dexpace::Page` (as a **class and namespace**) with `::Info`, `::QueryRewriter`, `::CursorStrategy`, `::PageNumberStrategy`, `::LinkStrategy`, `::Items`, `::Pages`, `::Paginator`, `::AsyncPaginator`, `::Fetchers`; the module function `Dexpace::Page.next_request_from(template, response, target)`, public so a caller-written strategy reaches `PAGE-19`'s two end-of-stream rules rather than re-deriving them for a body-carried next URL; `AsyncPaginator#walk_pages`, `PAGE-1`'s page-level view over the non-blocking engine; every `.build` and `#each`/`#close`/`#more?`/`#each_item`/`#each_page`; the RBS interfaces `_Strategy`, `_Extractor`, `_Executor`. `::Walk`, `::Closing` and `::LinkHeader` are `private_constant` and carry no `sig/` and no manifest row | `NFR-4`; `api-design/b0e18938`; phases 3b (`P3-14`), 5a (`P5-1`) and 6a (`P6-1`) precedent | Design §7.1 names one Ruby identifier, `Dexpace::Page`, in a block-form shorthand and describes everything else in prose. `NFR-4` locks a signature, not only a name, so each is listed. **`Dexpace::Page` being a class that is also the namespace** is the one sub-decision needing its own argument: it keeps `lib/dexpace/page/**` as boundary 5's glob, keeps the glossary's noun for the value, and is checked against `P3-7`'s shadowing hazard — the `include Dexpace` shadow `docs/first-release.md` carries as a blocker — by an explicit audit over the thirteen nested names rather than by assertion |
 | P7-3 | `Dexpace::URL` gains a third function, `.resolve(base, reference)`, wrapping `URI::RFC3986_PARSER.join` — a widening of phase 1's module rather than a resolution call inside the Link strategy | `PAGE-19`; `HTTP-46`/`HTTP-47`; phase 0's `Dexpace/NoUriDefaultParser`; `api-design/1d9e6e0b` | `PAGE-19` needs *resolution*, and `URL.parse!` cannot do it — it rejects a non-absolute URI, which every relative `rel=next` target is. The cop bans `URI.join`, so the call must be `URI::RFC3986_PARSER.join`, and the design's rule is that the pin lives in one place. Putting it in `URL` beside `.parse!` keeps that true; putting it in the strategy would make `lib/dexpace/page/` the second file in core that knows which parser is pinned. Adding a module function widens and prejudices no existing signature |
 | P7-4 | `QueryRewriter.set` normalises an empty spliced query to `nil`, so removing the only parameter yields a URL with **no** `?` rather than a dangling one | `PAGE-23`; `HTTP-29`'s "returns `""` when empty" | Measured: `uri.query = nil` gives `https://x/a` and `uri.query = ""` gives `https://x/a?`. `PAGE-23`'s own example removes one of two parameters and does not settle the degenerate case. A dangling `?` is a different URL on the wire, and a next-page request that differs from the caller's template by a stray `?` is a difference `PAGE-24`'s "only the query may change" did not license |
 | P7-5 | A blank or whitespace-only `rel=next` target is treated as **end-of-stream before resolution is attempted**, rather than resolved | `PAGE-18`, `PAGE-19`; `PAGE-34`'s explicit rule for the fetcher front-end | Measured: `URI::RFC3986_PARSER.join(base, "")` and `join(base, "//")` **succeed**, returning the base unchanged — so `<>; rel=next` produces a next request identical to the current one and loops until the page cap. `PAGE-18`'s "Absence of a Link header or a rel=next segment" does not literally cover present-but-blank, and `PAGE-34` states exactly this rule for the other front-end, so applying it here makes the two consistent rather than inventing one |
@@ -1467,11 +1532,13 @@ Five, each bounded, none re-opening a decision above.
 2. **The exact spelling of the page view's emptiness probe.** `PAGE-12`'s conformance clause says "probe
    has-next without advancing, then close", and Ruby's `Enumerable` vocabulary for that is `#any?`, which
    consumes. *Recommendation:* `Pages#more?` as an explicit non-consuming probe that fills `@buffered`, with
-   its YARD stating that it runs an exchange — because `PAGE-12`'s own rationale is that probing is not free,
-   and a method named `any?` that costs an HTTP request is a trap. Confirm against `api-design`'s naming rules
-   on the plan's first task.
+   its YARD stating that **the first** such probe runs an exchange — because `PAGE-12`'s own rationale is that
+   probing is not free, and a method named `any?` that costs an HTTP request is a trap. A **repeated** probe
+   costs nothing and must not: it reads the staged page rather than fetching past it (`PAGE-6`), which is why
+   `Walk#buffer` raises rather than displace one. Confirm against `api-design`'s naming rules on the plan's
+   first task.
 3. **Whether `Walk` is `private_constant`.** It is per-iteration state a consumer never constructs, which
-   argues for private; but `Items#close` and `Pages#close` delegate to it and a `sig/` mirror is cheaper if it
+   argues for private; but `Pages#close` delegates to it and a `sig/` mirror is cheaper if it
    is public. *Recommendation:* `private_constant`, no `sig/`, no manifest row — phase 4's precedent, and the
    views' `#close` is the public surface.
 4. **The counting transport double's exact shape**, given it must serve both the sync path (returns a

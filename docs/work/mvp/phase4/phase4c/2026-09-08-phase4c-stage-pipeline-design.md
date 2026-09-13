@@ -1018,8 +1018,15 @@ they differ only in return type. That is why `#build` and `#build_async` are two
 
 ### `Dexpace::Pipeline::Entry` — `PIPE-22`, `PIPE-23`, `PIPE-25`, `PIPE-35`
 
-`Data.define(:stage, :step)`, including `Dexpace::Model`, `private_class_method :new`, `.build(stage:, step:)`
-validating that `stage` is a `Stage`, that `stage.installable?` and that `Step.conforms?(step)`.
+`Data.define(:stage, :step, :name)`, including `Dexpace::Model`, `private_class_method :new, :[]`,
+`.build(stage:, step:, name: nil)` validating that `stage` is a `Stage`, that `stage.installable?`, that
+`Step.conforms?(step)` and that `name` is `nil`, a `Symbol` or a frozen `String`.
+
+`name` is the **optional surgical-edit anchor** the *Findings* section below argues for: `PIPE-18`–`PIPE-21` key
+on a step *type*, and every lambda step's type is `Proc` (verified fact 13), so a type anchor cannot address one
+lambda and not another. A name addresses exactly one entry. It is **not** part of `PIPE-22`/`PIPE-23`'s "this
+step, at this stage" pair and nothing reads it outside the four edits; type anchoring is unchanged and stays the
+documented default.
 
 It is the unit the builder holds, the unit `#reload` and `#install_preset` take, and the unit
 `Builder.flattening` reads back off a built runtime. It is public because `PIPE-23`'s bulk reload and `PIPE-35`'s
@@ -1033,8 +1040,11 @@ A class, because it owns per-call state (`data-modeling/3e37c086`).
 **`.build` is public and validating, and its signature is
 `(drive:, request:, options:, cancellation:)` — there is no `owner_index:` or `position:` keyword and a caller
 cannot name one.** The `(owner_index, position)` pair is the runtime's: `.build` produces the cursor bound to
-entry 0, each advance produces the next one internally, and `#fork` copies the parent's pair unchanged — which is
+**no entry (`owner_index` −1): it advances *into* entry 0 and cannot fork**, each advance produces the next one
+internally, and `#fork` copies the parent's pair unchanged — which is
 R10's "a cursor handed to the step at index *i* carries `owner_index = i`", reached from the constructor side.
+The root cursor is the one object in the subsystem that is a cursor and is not a step's cursor, so a reader who
+takes "bound to entry 0" literally would expect `#may_fork?` to answer for entry 0; it answers `false`.
 That is why the surface is safe to leave public,
 and it is a narrower claim than the one phase 1's P8 makes about `Request`. The residual holes are the two P8
 already names and neither is closed here: `Cursor.send(:new, …)` reaches the generated constructor, and
@@ -1094,7 +1104,7 @@ satisfied by there being one deriver rather than by two derivers agreeing.
 | `#insert_after(anchor_type, step, stage: nil)` / `#insert_before(…)` | `PIPE-18`. First instance of the anchor type in flattened order; same-stage required; cross-stage rejected |
 | `#replace(anchor_type, step, stage: nil)` | `PIPE-19`. First instance, 1:1, same stage |
 | `#remove(anchor_type)` | `PIPE-20`. Every instance, relative order preserved, no-op when absent |
-| `#reload(entries)` | `PIPE-23`. All-or-nothing: validate the whole set, then swap |
+| `#reload(entries)` | `PIPE-23`. All-or-nothing: validate the whole set — types **and pillar exclusivity over the incoming set**, which is the collision `PIPE-23`'s own sentence is about and which `PIPE-5` names the bulk path for ("or seeding/flattening from an existing pipeline (bulk reload)") — then swap. Distinctness is `#equal?`; the same step twice collapses to one entry (`PIPE-6`) |
 | `#install_preset(entries)` | `PIPE-24`. Empty target pillars only, validated up front, whole call rejected on any collision (R14) |
 | `#entries -> Array[Entry]` | the flattened order as it currently stands; what `PIPE-22`'s determinism is asserted on |
 | `#build -> Pipeline` / `#build_async -> AsyncPipeline` | `PIPE-25`. Flatten once into an immutable runtime |
@@ -1393,8 +1403,14 @@ real in-memory implementations of an owned interface, not recorders of expectati
 - **`PIPE-22`'s determinism.** Build a set of steps, apply an `insert_after`, a `remove` and a `replace`, and
   assert `edited.entries == from_scratch.entries` for a builder seeded with the resulting step set. Comparing the
   *flattened entries* rather than the response is what makes the assertion about ordering.
-- **`PIPE-23` and `PIPE-24`'s all-or-nothing.** Capture `builder.entries` before the rejected call, assert the
-  raise, assert `builder.entries` is unchanged. Asserting only the raise would pass against a partial rebuild.
+- **`PIPE-23` and `PIPE-24`'s all-or-nothing, and the collision that triggers it.** Capture `builder.entries`
+  before the rejected call, assert the raise, assert `builder.entries` is unchanged. Asserting only the raise
+  would pass against a partial rebuild. **The rejection case that matters is a pillar collision, not a malformed
+  entry** — `PIPE-23` is written about "a distinct second step for an occupied pillar" and `PIPE-5` names the
+  bulk path outright, so a `#reload` or `#install_preset` that only type-checks its entries installs two steps on
+  one pillar and violates `PIPE-4` silently. Two tests, one per method, each with two *value-equal but distinct*
+  `Data` probes so an `==`-based check would miss the collision (verified fact 3, the `CTX-9` trap again); and the
+  same-object case asserts `PIPE-6`'s "no error, no duplication" on the bulk path.
 - **`PIPE-35`'s two seedings, distinguished by behaviour.** The same inner pipeline with a `ForkingProbe` at
   `REDIRECT`, seeded both ways, with a new probe added at `PRE_RETRY`: under FLATTEN the new probe runs **twice**
   (it is inside the redirect loop); under NEST it runs **once** (the inner pipeline is an opaque transport). That
@@ -1460,7 +1476,7 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`. N
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P4-26 | Public **constants** neither design §5.1 nor §5.3 names as Ruby constants: `Dexpace::Pipeline::Stage`, `::Stages` with its sixteen stage constants plus `ALL` and `PILLARS`, `::Step`, `::Entry`, `::Cursor`, `::Builder`, `::TransformStep`, `Dexpace::AsyncPipeline`, and the RBS interfaces `_Step` and `_AsyncStep` | `NFR-4`; `NFR-11`; P1-1; P2-11, P3-14, P4-2 and P4-24 precedent | `NFR-4` locks a name before it locks a signature. §5.1 names `Dexpace::Pipeline::Stages` and `Dexpace::PipelineError` and no other Ruby constant; §5.3 names `Stages` again and nothing else. Every name above is chosen for a stated reason in the object-model section. Placement follows P1-1 unchanged: `Pipeline` is a namespace the design itself wrote, `PipelineError` is flat and joins `lib/dexpace/error/`, and `AsyncPipeline` is flat on P2-1's precedent |
-| P4-27 | Public **methods** neither §5.1 nor §5.3 names: `Stage#pillar?`, `#terminal?`, `#installable?`; `Stages.of`; `Step.conforms?`; `Entry.build`; `Cursor.build`, `#call`, `#fork`, `#may_fork?`, `#request`, `#options`, `#cancellation`, `#state`, `#spent?`; `Builder.new`, `.flattening`, `.nesting`, `#append`, `#prepend`, `#append_all`, `#prepend_all`, `#insert_after`, `#insert_before`, `#replace`, `#remove`, `#reload`, `#install_preset`, `#entries`, `#build`, `#build_async`; `Pipeline.builder`, `.direct`, `#call`, `#steps`, `#entries`, `#transport`, `#close`; `AsyncPipeline.direct`, `.map_response`, and its five instance methods; `TransformStep.build`, `#call`, `#transform` | `NFR-4`; `api-design/b0e18938`; P2-11, P3-8, P4-11 and P4-23 precedent | `NFR-4` locks a public *signature*, not only a public name, and §5.1 describes the whole subsystem in prose while naming two Ruby constants and no method at all. Three deserve naming here. **`Cursor#spent?` and `#may_fork?` have no caller in `lib/`** — both exist so a step can ask rather than rescue and so the suite can assert without `assert_nothing_raised`, and deleting either later would be an `NFR-4` break for a method core never used. **`Pipeline#transport` is public only because `Builder.flattening` must read it**, and Ruby has no package-private visibility; the alternative is a cross-object `send`, which is the hole P2's `Completer`/`Future` pair exists to avoid. The `Data`-generated readers on `Stage` and `Entry` are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, and the phase's last task regenerates both |
+| P4-27 | Public **methods** neither §5.1 nor §5.3 names: `Stage#pillar?`, `#terminal?`, `#installable?`; `Stages.of`; `Step.conforms?`; `Entry.build` and `Entry#name`; `Cursor.build`, `#call`, `#fork`, `#may_fork?`, `#request`, `#options`, `#cancellation`, `#state`, `#spent?`; `Builder.new`, `.flattening`, `.nesting`, `#append`, `#prepend`, `#append_all`, `#prepend_all`, `#insert_after`, `#insert_before`, `#replace`, `#remove`, `#reload`, `#install_preset`, `#entries`, `#build`, `#build_async`; `Pipeline.builder`, `.direct`, `#call`, `#steps`, `#entries`, `#transport`, `#close`; `AsyncPipeline.direct`, `.map_response`, and its five instance methods; `TransformStep.build`, `#call`, `#transform` | `NFR-4`; `api-design/b0e18938`; P2-11, P3-8, P4-11 and P4-23 precedent | `NFR-4` locks a public *signature*, not only a public name, and §5.1 describes the whole subsystem in prose while naming two Ruby constants and no method at all. Three deserve naming here. **`Cursor#spent?` and `#may_fork?` have no caller in `lib/`** — both exist so a step can ask rather than rescue and so the suite can assert without `assert_nothing_raised`, and deleting either later would be an `NFR-4` break for a method core never used. **`Pipeline#transport` is public only because `Builder.flattening` must read it**, and Ruby has no package-private visibility; the alternative is a cross-object `send`, which is the hole P2's `Completer`/`Future` pair exists to avoid. The `Data`-generated readers on `Stage` and `Entry` are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, and the phase's last task regenerates both |
 | P4-28 | **Cursor-scoped state is keyed by `(stage, key)`**, not by key alone as design §5.1's "a small keyed map of per-call state" writes it | §5.1; §6.2; §10.15; `REDIR-11`, `AUTH-29`, `PIPE-16` | Under a flat namespace a `RETRY` pillar step — which sits between REDIRECT and AUTH in `PIPE-2`'s own order, occupies a pillar, and may therefore fork — can write the key AUTH reads, and AUTH cannot tell that value from REDIRECT's. §6.2's sentence "**no step downstream of AUTH can [set the marker] either**" and §10.15's "forgery becomes structurally impossible rather than defended against" are then true of non-pillar steps only. Namespacing by the writing step's stage, chosen by the runtime from the frozen entry table rather than by the caller, makes both sentences literally true against every step, and it costs one level of `Hash`. The writer set is exactly the five configurable pillars and each has at most one possible writer, because a pillar admits at most one step (`PIPE-4`) |
 | P4-29 | **A cursor has no state-setting method.** The only write is the `state:` argument to `#fork` | §5.1's "writable only by the pillar step that created the fork"; §10.15 | "Writable only by the pillar step that created the fork" can be implemented as a checked write or as an unwritable object plus a fork-time argument. The second needs no check, cannot be bypassed by any caller, and makes the negative assertion R11 demands a statement about the *surface* (`public_instance_methods(false)` contains no writer, pinned by the runtime manifest) rather than about a branch. The cost is that a pillar step which does not re-drive cannot set state for its downstream at all; that case has no requirement behind it, and if phase 6 ever needs it, it is a new `P4`-numbered deviation and a change to this row rather than a quiet second write path |
 | P4-30 | **One `Cursor` class and one `Builder` class serve both runtimes**; the async runtime differs by one `private_constant` driver and is not a parallel object graph | `PIPE-28`; §5.3's "both runtimes flatten through the same code" | `PIPE-28` forbids the two runtimes re-deriving ordering independently, and §5.3 satisfies it by sharing `Stages`. Sharing only `Stages` would still leave two builders duplicating the surgical-edit semantics `PIPE-28` also names ("same pillar exclusivity, same surgical-edit semantics") and two cursors duplicating the fork gate and the state rules R11 rests on — the exact drift the requirement targets, one level below where §5.3 stops. One builder with `#build` and `#build_async` and one cursor with a per-runtime driver leave nothing to keep in sync. The cost, stated: the builder cannot tell a sync step from an async one, because they differ only in return type — phase 2's admitted `.conforms?` gap arriving at a second seam — so the discriminator is which build method the caller called, and that is documented rather than checked |
@@ -1551,10 +1567,14 @@ satisfiable and jointly reach less far than either implies: `remove(Proc)` corre
 which is `PIPE-20`'s own semantics and is almost certainly not what a caller meant, and `insert_after(Proc, …)`
 anchors on whichever lambda happens to be flattened first. Nothing in the specification or the design notices it.
 
-4c's mitigation is documentation — the YARD on each surgical edit states that a step intended as an anchor should
-be a named class — and it needs more than documentation for two reasons: a caller who meets it has
-no recourse in the API, and phase 9's conformance pass will test the four edits against class-typed steps and
-would never see it. It is the same shape as the gap-paragraph pointers that send a reader to a chapter carrying
+Documentation alone — the YARD on each surgical edit stating that a step intended as an anchor should be a named
+class — is not enough, for two reasons: a caller who meets it has no recourse in the API, and phase 9's
+conformance pass will test the four edits against class-typed steps and would never see it. **So 4c ships the
+repair as well as the sentence** (added 2026-09-13): `Entry` carries an optional `name:`, every install
+affordance forwards it, `Builder.flattening` copies it, and the four edits accept a `Symbol` or `String` in the
+anchor position — matching on the entry's name instead of on `step.is_a?(anchor_type)`. Type anchoring is
+unchanged, `PIPE-20` keeps its "delete EVERY instance" type semantics, a name addresses exactly one entry, and an
+absent name fails with `PIPE-21`'s error identifying the name. It is the same shape as the gap-paragraph pointers that send a reader to a chapter carrying
 neither the five `SEAM` IDs, nor `IO-6`, nor `RECOV-17`–`RECOV-34` — a requirement that cannot be followed as
 written for a case another requirement makes legal — with the difference that here both requirements are
 satisfiable in isolation and it is their conjunction that is thin.

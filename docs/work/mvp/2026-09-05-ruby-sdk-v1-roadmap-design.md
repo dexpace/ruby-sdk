@@ -1341,7 +1341,7 @@ per-library; the filed row rests on the internal contradiction between `OBS-25` 
 on a claim about a gem neither phase could install).
 
 **2026-09-09** — **Catch-up entry, written 2026-09-12.** Phase 5c plan filed,
-`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`, closing phase 5. **Thirteen
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`, closing phase 5. **Twelve
 numbered tasks** over the tracing and metrics SPI, bounded by `OBS-20`, `OBS-30`, `CTX-20`, `XCUT-11`
 and `XCUT-20`, consuming `SEAM-28`'s stable operation identifier and closing the no-op span and tracer
 protocols 4a postponed here and `SEAM-28`'s consumer phase 2 postponed here (Tasks 3–5 and 4). It carries the reconciliation's `OBS-24` finding in its own goal statement rather than
@@ -1433,8 +1433,9 @@ arithmetic, and `6a`'s `Cursor` widening: a sentence that reads correctly and re
 is not there.
 
 **2026-09-10** — **Catch-up entry, written 2026-09-12.** Phase 6c plan filed,
-`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication.md`, closing phase 6. **Seventeen
-numbered tasks**, opening with a task that re-verifies on the 3.2 floor and the 4.0 column every fact the
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication.md`, closing phase 6. **Sixteen
+numbered tasks, plus the sub-numbered `11a`** that carries `AUTH-36`'s step-level half, opening with a
+task that re-verifies on the 3.2 floor and the 4.0 column every fact the
 design flags before anything depends on it. The zero-dependency rule is carried explicitly through a
 chapter that invites breaking it: Basic is `["u:p"].pack("m0")` and never `Base64`, Digest is
 `Digest::MD5`/`Digest::SHA256` and never `OpenSSL::Digest`, the cnonce is `SecureRandom.hex(16)` and
@@ -1462,7 +1463,8 @@ with its four combinators and decode context, the `Tristate` three-state PATCH t
 encode walk that makes `SERDE-15`/`SERDE-19`/`SERDE-20` structural rather than a per-model discipline,
 the `SERDE-2` body factory, the two response handlers supplied into phase 3b's `TypedResponse`; and
 `dexpace-serde-json`'s codec, which fills that gem's `lib/` and is the one place the `json >= 2.19.9`
-floor is declared. Nine deviations, `P7-1`–`P7-9`. Four findings, each now with an owner, the first
+floor is declared. Nine deviations, `7a P7-1`–`7a P7-9` (the sub-phase letter is load-bearing; see the
+`7c` entry below on the knowingly shared numbering). Four findings, each now with an owner, the first
 being that phase 2 declared `interface _Codec` and never wrote its body, so `SERDE-2`'s default
 Content-Type crosses a type boundary nothing declares — settled here by typing the interface
 `(Dexpace::MediaType | String)` and coercing at `Body.serialized`. One corpus note is drafted for
@@ -1472,8 +1474,13 @@ the plan's final task at execution time and is not filed yet.
 
 **2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7a plan filed,
 `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization.md`. **Nineteen numbered tasks** across
-the two gems, ending with the codec that declares the `json` floor. All thirty `SERDE` IDs, three
-carrying a deviation row and six a stated clause; no deferral is filed.
+the two gems, ending with the codec that declares the `json` floor. All thirty `SERDE` IDs, nine
+touched by a deviation row and nine carrying a stated clause; no deferral is filed. (Counts corrected
+in place 2026-09-13 in the final review of `7a`: the entry read "three carrying a deviation row and
+six a stated clause", against a design section headed "Nine rows carry a clause the checklist must
+state rather than tick". The task count went from eighteen to nineteen in the same review, when the
+`SEAM-26`/`SEAM-27` composition slice was added as Task 18 — `Dexpace::Operation` shipped in phase 2
+and was composed with the pipeline and the codec by no phase.)
 
 **2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b design filed, at
 `docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`. Forty-one `SSE` IDs,
@@ -1492,7 +1499,7 @@ execution time and not filed yet. It also builds spec-forced boundary 5's `SSE-3
 mechanism rather than describing it.
 
 **2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7b plan filed,
-`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`. **Fourteen numbered tasks** over
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`. **Thirteen numbered tasks** over
 `SSE::LineReader`, `::Reader`, `::Event`, `::Stream` and `::TypedStream`, satisfying `SSE-1`–`SSE-40`,
 carrying `SSE-41` ⏳ as a v1 decline, resolving the line-cap closure evidence in Task 12 with the
 corrected requirement ID and a documented line cap, and building the `SSE-37` require-and-constant audit that boundary 5 extends over core's
@@ -1514,7 +1521,7 @@ owed an addition. One corpus note is drafted for `docs/knowledge/notes/paginatio
 plan's final task at execution time.
 
 **2026-09-11** — **Catch-up entry, written 2026-09-12.** Phase 7c plan filed,
-`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`, closing phase 7. **Eighteen numbered
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`, closing phase 7. **Seventeen numbered
 tasks** over a frozen `Page::Paginator` producing per-iteration `Walk` objects that own every live
 response — all 36 `PAGE` IDs, 35 implemented outright and `PAGE-35` vacuous by construction on design
 §12's own authority. No deferral, no ⏳ row and no unsatisfied MUST is created.
@@ -1785,7 +1792,9 @@ read first.** **Restated as a list on 2026-09-13**, when the open-items register
 register's items were audit-or-repair work against a phase that is already planned, which is this list, and
 three more contribute a half each that no writable material could take. Every one is written out below **in full**,
 with its measured facts, because the register body that carried them no longer exists. Each entry names what is
-wrong, what the correct statement is, and where the code half already lives.
+wrong, what the correct statement is, and where the code half already lives. **Entries added after that
+restatement carry their own date**, so the list grows as later review passes route audit-or-repair work here
+and the fourteen-plus-three provenance above stays readable as provenance rather than as a running count.
 
 **From the reconciliation.**
 
@@ -1875,7 +1884,13 @@ wrong, what the correct statement is, and where the code half already lives.
   client, since the values own pools. It is phase 10's because `8c` owns the file and has already run by the
   time phase 9's audit does, and because design `R6` ("a bug found in `Dexpace::BoundedMap` is filed here and
   fixed by phase 10", design:661) applies to another gem's map. `gates:bounded_map` stays red until it lands,
-  and `XCUT-14` being a MUST is why `docs/first-release.md` carries a blocker line for it. Touches `XCUT-14`,
+  and `XCUT-14` being a MUST is why `docs/first-release.md` carries a blocker line for it. **Amended
+  2026-09-13 by the final pre-build review of phase 8c: `8c`'s plan Task 8 now bounds the map at planning
+  time** — `Clients::MAX_ORIGINS` with a loop drain back to the cap after each insert and
+  `Dexpace.close_quietly` on each evicted client's pool, plus two tests — so this entry is expected to be
+  moot when `8c` lands and phase 10 to find nothing to repair. It stays on this list until a green
+  `gates:bounded_map` run says so. What made the difference is only that `8c` had **not** in fact already
+  run when phase 9's audit read its plan, which is the premise the phase-10 routing rested on. Touches `XCUT-14`,
   `TRANSPORT-13`, `NFR-17`.
 - **8a's `Adapter#dispatch` leaves its rescue variable unused, and every repository tool that parses a filed
   source carries the same exposure.** `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
@@ -1941,6 +1956,23 @@ then; the two against §12's `TRANSPORT` row share one note.
   cannot raise), and `docs/knowledge/notes/io-and-byte-streams.md` overrides `io-and-byte-streams/fbcb4d19` so
   the next reader does not repeat the recipe. Not a deviation from the reference contract — `HTTP-42` is
   satisfied exactly. Interim note in `docs/deviations.md`. Touches `HTTP-42`, `HTTP-24`, `IO-13`, `BODY-16`.
+- **§4's builder list drops the multipart body, which `HTTP-3` names.**
+  `docs/sdk-design-ruby/04-domain-model-construction.md` §4 quotes `HTTP-3`'s own split and then restates the
+  builder side as "`Request`, `Response`, `Headers`, `Query`, `RequestOptions` and `Configuration` get real
+  mutable `Builder` classes". `HTTP-3`'s canonical text (appendix C) lists **seven** subjects — "Request,
+  Response, Headers, QueryParams, RequestOptions, RequestConditions, **and the multipart body**" — each of
+  which "MUST expose a newBuilder()-style derivation returning a builder pre-populated with the instance's
+  current fields … the pre-filled builder MUST NOT alias the original's internal collections". §4 adds
+  `Configuration`, which is fine, and silently drops the multipart body, which is not. **The cost of leaving
+  it:** the omission already cost the clause an owner once. Phase 1 owns `HTTP-3` and builds no multipart
+  body, so its checklist could only tick the six models §4 names; phase 3b ships
+  `Dexpace::MultipartBody` and, reading §4 rather than appendix C, filed it with a plain `.new` and no
+  derivation — a MUST with a named subject satisfied by nobody, found by review on 2026-09-13. Phase 3b now
+  ships `MultipartBody#new_builder` and `MultipartBody::Builder` with the non-aliasing clause asserted
+  (its plan, Task 7), and carries `HTTP-3` as a cross-reference row while phase 1 keeps the ID. **The
+  addition owed:** the multipart body named in §4's builder sentence. Not a deviation — the port satisfies
+  `HTTP-3` in full once 3b lands; only the design's restatement of the requirement is short. Touches
+  `HTTP-3`, `HTTP-51`, `BODY-2`.
 - **§3.1's ownership sentence and §10.12 attribute `IO-6`'s rule to the retired `SEAM-3`.**
   `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1's "Two ownership rules, deliberately
   different" paragraph reads "At the I/O layer, wrapping takes ownership: closing a `BufferedSource` built over
@@ -2080,6 +2112,25 @@ then; the two against §12's `TRANSPORT` row share one note.
   statement:** §8.3 gains one clause scoping the prohibition to code this repository writes. **Code half:**
   none is owed — the cop and the ban stand as written. Touches `ASYNC-3`, `PIPE-33`, `XCUT-13`,
   `TRANSPORT-4`, `NFR-2`.
+- **Phase 5a's exclusions table hands proxy use to phase 8 under two requirement IDs that are about
+  something else, and it is the second document to make that substitution** *(added 2026-09-13, phase 8a
+  review)*. The row reads "`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real
+  adapter | 8. 5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver**; nothing in core opens a socket"
+  (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md:255`). Neither ID is about
+  either subject: `TRANSPORT-3` is "on the synchronous send path a genuine caller-initiated cancellation
+  MUST surface as a terminal, non-retryable interrupt-shaped IOException", and `TRANSPORT-8` is a
+  cancellation "that originates inside" the native client. The IDs the row means are **`TRANSPORT-30`**
+  (the proxy requirement, whose own text opens "When the SDK's proxy configuration carries a feature the
+  native client cannot honor") and **`TRANSPORT-13`** (the header-drop logging policy, which is phase 8c's).
+  This is the **same substitution** the phase-8 segmentation design already corrected in phase 5b's
+  `OBS-19` condition — "phase 8, at the first adapter that drops a caller-set header rather than raising on
+  it — which is `TRANSPORT-8`'s subject" — so two phase-5 documents made one error the same way, which is a
+  pattern rather than a slip. **The correct statement:** the phase-5a row names `TRANSPORT-30` and
+  `TRANSPORT-13`, corrected in place with the correction stated, in the shape phase 5b's was. **Code half:
+  already owned** — phase 8a's `R17` and its plan Task 19b implement proxy use, wire
+  `Dexpace::Proxy.resolve` into the per-call client and disposition `TRANSPORT-30`, so nothing waits on
+  this row; what is wrong is only the pointer a later audit would follow. Touches `TRANSPORT-3`,
+  `TRANSPORT-8`, `TRANSPORT-13`, `TRANSPORT-30`, `CFG-22`–`CFG-28`, `OBS-19`.
 - **§9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that
   distinction.** §9.3's argument for choosing Minitest over RSpec is that "**it ships with the interpreter as
   a default gem**, so the same argument §2.4 makes about `base64` and `logger` applies to the test
@@ -2111,3 +2162,89 @@ then; the two against §12's `TRANSPORT` row share one note.
   the worst among its assertions with every contributing status listed — and the 61-row map phase 9 commits is
   the only place the real mapping is written down, which is why a porter reading §9.3 alone still builds the
   wrong granularity. Interim note in `docs/deviations.md`. Touches `NFR-17`, `ASYNC-3`, `ASYNC-4`.
+- **Nothing in the MVP constructs or promotes an execution context, so `CTX-16`'s operation name never
+  reaches the tracing seam it is defined to label.** Phase 4a ships the whole promotion chain — 20 `CTX` IDs,
+  three flavours, the bounded store — and `CTX-16` makes the operation name "a schema-defined operation id
+  such as 'GetUser'" that is "exposed to the tracing seam to label the operation", which is exactly what an
+  OpenAPI generator fills from `operationId`. **No phase in the roadmap builds a call path that creates or
+  promotes a context.** Verified 2026-09-13 by repository-wide grep over `docs/work/mvp/`: outside phase 4a's
+  own documents, `DispatchContext`, `promote_to_request` and `promote_to_exchange` appear in **no** phase
+  plan at all. Phase 4a's charter states the same property from the other side and treats it as a feature —
+  "`CTX` is consumed by nothing in `RECOV` or `PIPE`" — and `4c` says "4c does not consume 4a at all". The
+  consumers that do exist cannot reach one: phase 5b's `Dexpace::Instrumentation::Step` resolves its tracer
+  factory and its operation name through `bundle_for(request)` and `operation_name_for(request)`, both of
+  which probe `request.respond_to?(:context)` while `Dexpace::Request`'s members are
+  `(:method, :url, :headers, :body)`, so both always take their fallback, and `PIPE-11` forbids the ambient
+  route. Phase 6a's Task 8 closes **half** of it — `Cursor#bundle` seeded by a `bundle:` keyword on
+  `Pipeline#call`/`AsyncPipeline#call` — and a `Bundle` carries no operation name, so `SEAM-28`'s identifier
+  half stays unreachable after it lands; phase 7a separately rules the context out of the serde seam, for
+  its own good reasons. The result is conforming — ch.07 never asks the pipeline to own the chain and ch.08
+  names no `CTX` ID — and it is a purpose-fit gap rather than a spec gap: a generated client gets a
+  correlation model it must drive by hand, and `ContextStore`'s cap, `CTX-19`'s reachability and `CTX-9`'s
+  eviction are exercised only by tests. **The correct statement:** phase 4a's forward-obligations row now
+  says phase 5c, Task 4 consumes `RequestContext#operation_name` **as a signature** and that no wired path
+  delivers it; what is still unowned is the decision itself — whether v1 carries the operation name on the
+  call path (a `Cursor#operation_name` beside phase 6a's `Cursor#bundle`, or an `operation_name:` keyword on
+  `Pipeline#call` threaded into `Instrumentation::Step`), or whether driving the chain is documented as the
+  SDK author's job in `docs/sdk-documentation/`. **Code half:** none written; phase 6a, Task 8 is the file
+  and the widening shape either answer extends (`api-design/1d9e6e0b`, so `NFR-4` permits it). Touches
+  `CTX-14`, `CTX-16`, `SEAM-28`, `OBS-34`, `PIPE-11`, `NFR-4`.
+- **`PAGE-14` and `SSE-26`/`SSE-40` guard the identical single-use latch with two different error families,
+  and the divergence has to be settled before `NFR-4` locks either.** Phase 7's own segmentation design pairs
+  them — "**`PAGE-14` and `SSE-26`'s single-use guards are two flags on two objects**"
+  (`docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md:891`) — and the two
+  sub-phase designs then answer the same question differently: `7c` raises `Dexpace::InvalidArgumentError` on
+  a second `Pages#each` (`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`, *`Dexpace::Page::Pages`*),
+  while `7b` ships a purpose-built `Dexpace::SSE::StreamStateError` for the second view
+  (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`, its module layout).
+  `Dexpace::InvalidArgumentError < ::ArgumentError`
+  (`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md:313`), so the pagination spelling
+  puts a **state** violation — no argument is involved, the object was simply used twice — into the argument
+  family, where a caller rescuing `ArgumentError` around a page loop now catches it and a caller rescuing the
+  SSE shape cannot use the same clause for both. Neither requirement names a type: `PAGE-14` says only
+  "re-iteration MUST fail rather than silently restart" and `SSE-26` says "a second attempt MUST fail loudly
+  (e.g. an **illegal-state error**)", whose own example is a state error. **The correct statement:** one
+  error family for the single-use latch across both subsystems — the `SSE-26`-shaped state error, with
+  `PAGE-14` raising it too, or one shared core type both namespaces use. **Code half:** one `raise` line in
+  each sub-phase's view task — `7c`'s is Task 12 — plus its `sig/`, and it is cheap only before the `NFR-4`
+  diff records two families. Touches `PAGE-14`, `SSE-26`, `SSE-40`, `NFR-4`, `SEAM-29`.
+
+**2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
+plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
+the phase table changes and no requirement ID moves; what changes is the order the phases are *run* in,
+which this document's own ordering rationale already leaves open in both places the amendment touches.
+
+**`7a` runs before phase 6.** The rationale under the phase table states it outright — "per `SSE-37` and
+§12's chapter intro, on nothing in phase 6 either, so **6 before 7 is a convenience order, not a
+dependency**" — so this spends no dependency argument. What it buys: after phases 0–5 plus `7a`, the whole
+synchronous slice a generator drives exists except the socket — `Dexpace::Operation#build_request`,
+`Pipeline.direct`, `Body.serialized`, `StatusAwareHandler` over `TypedResponse` — and can be exercised
+against cross-cutting constraint 4's in-memory fake transport, rather than first meeting each other after
+phase 6, the largest phase in the roadmap at 111 + 15 IDs. The rest of phase 7 still follows phase 6;
+only `7a` moves.
+
+**Within phase 7 the order is `7a` → `7c` → `7b`.** The segmentation bullet above already fixes the
+independence — "No sub-phase may depend on another, order is convenience only" — so this is a choice among
+equals and not a new constraint. `7c`'s pagination is on the path a generated client takes for an ordinary
+list endpoint; `7b`'s SSE is reached only by an API that streams, and at 41 IDs it is the second-largest
+sub-phase in the roadmap. Running it last is what makes the convenience order pay.
+
+**The end-to-end generator slice is split in two, and both halves are numbered plan tasks rather than
+anything registered here.** The review's finding was that `Dexpace::Operation` — `SEAM-26`/`SEAM-27`, the
+seam whose stated purpose is that operation arguments "flow through typed projections rather than being
+spliced into a URL by string surgery" — is built by phase 2 and named by no later phase's documents at all,
+so the composition a generator actually writes is never executed anywhere in the plan. **`7a` gains the
+fake-transport half**: descriptor → `#build_request` → `Pipeline.direct` over the in-memory transport →
+`StatusAwareHandler`, asserting the 200 decode, the 4xx typed error over `RECOV-15`'s buffered body, the
+single-segment path parameter, and a `Tristate::ABSENT` field omitted on PATCH. **`8a` gains the socket
+half**, the same slice over `Pipeline.standard` and the §9.3 `TCPServer` fixture with an AUTH step
+pre-seeded through the documented `builder:` keyword. Each is written by the unit that owns it; neither is
+a new requirement and neither changes a checklist row.
+
+Two release entries were filed by the same review and are `docs/first-release.md`'s, not this document's:
+a blocker requiring one worked end-to-end example in `docs/sdk-documentation/` — the artifact the
+`AuthDescriptor` carrier line and the `HTTP-22`/`48`/`49`/`50` line both already name as their reopening
+trigger, and which no phase produces — and a new *Behavioural asymmetries a consumer must know* subsection
+under what v1 ships without, opened by `PIPE-32`/`REDIR-25`: `AsyncPipeline.standard` follows no redirects
+while `Pipeline.standard` does, which is the requirement and is invisible to a consumer who reads neither
+constant's YARD.

@@ -1151,6 +1151,15 @@ module Dexpace
       timeout: 1.0,
     ).freeze
 
+    # Neither is public surface. `Public` here means a Dexpace:: constant with a YARD block and an
+    # RBS signature (CLAUDE.md), and NFR-4 locks every such name at the first release tag: these
+    # two are a month table and one pattern with a single reader each, and P5-1 enumerates HTTPDate
+    # alone. Phase 6a Task 2 widens GRAMMAR's day group by editing THIS file, so a private constant
+    # costs it nothing -- a bare reference from inside `module Dexpace; module HTTPDate` resolves
+    # whatever its visibility, which is what private_constant restricts (qualified reference from
+    # outside) and what it does not.
+    private_constant :MONTHS, :GRAMMAR
+
     module_function
 
     # Formats a Time instant as an RFC 1123 date string (CFG-29).
@@ -1208,9 +1217,8 @@ end
 ```rbs
 module Dexpace
   module HTTPDate
-    MONTHS: ::Hash[String, Integer]
-    GRAMMAR: ::Regexp
-
+    # MONTHS and GRAMMAR are private_constant and get no line here: sig/ is the public surface and
+    # an RBS signature is half of what makes a constant public at all.
     def self.format: (::Time time) -> String
     def self.parse: (String text) -> ::Time
   end
@@ -2376,6 +2384,30 @@ module Dexpace
       assert_nil(cfg.raw_property("HTTPS.PROXYHOST"))
     end
 
+    # The same clause through the ONLY in-SDK setter, which is the half a FakeSource cannot prove.
+    # CFG-4 names https.proxyHost and http.nonProxyHosts by example: a #property that folded its
+    # key would store "https.proxyhost" and make both unreachable, silently disabling §8.2's
+    # substituted third source for the entire proxy model while every FakeSource-driven test passed.
+    test "CFG-4: a camelCase property set through Builder#property keeps its casing" do
+      cfg = Configuration.builder
+                         .tap { |b| b.env_source = FakeSource.new }
+                         .tap { |b| b.property("https.proxyHost", "proxy.corp") }
+                         .tap { |b| b.property("http.nonProxyHosts", "*.internal") }
+                         .build
+
+      assert_equal("proxy.corp", cfg.raw_property("https.proxyHost"))
+      assert_equal("*.internal", cfg.raw_property("http.nonProxyHosts"))
+      assert_nil(cfg.raw_property("https.proxyhost"))
+
+      # CFG-3 is unaffected: normalisation stays on the lookup side, so a SCREAMING_NAME still
+      # finds a property stored under its dotted-lowercase form.
+      dotted = Configuration.builder
+                            .tap { |b| b.env_source = FakeSource.new }
+                            .tap { |b| b.property("max.retry.attempts", "5") }
+                            .build
+      assert_equal("5", dotted.string("MAX_RETRY_ATTEMPTS"))
+    end
+
     test "CFG-8: builder mutation after build does not mutate built configuration" do
       b = Configuration.builder
       b.override("KEY", "v1")
@@ -2445,11 +2477,17 @@ module Dexpace
       assert_same(prop, derived.property_source)
       assert_equal("v", derived.string("A_B"))
 
-      # #property on top of an installed seam is refused rather than silently discarding one of
-      # them; last-write-wins is right for CFG-13's process slot and wrong inside one builder.
-      assert_raises(Dexpace::InvalidArgumentError) do
-        base.derive { |builder| builder.property("c.d", "w") }
-      end
+      # #property on top of an INHERITED seam composes rather than raising or discarding: the
+      # added key shadows the inherited source and every other key still routes through it. That
+      # is what lets a second Dexpace.configure add a property to the process-wide slot, which
+      # CFG-13's "last-write-wins replacement" requires, without violating CFG-9 above -- the
+      # by-reference pass-through is the branch taken when no #property was called.
+      composed = base.derive { |builder| builder.property("c.d", "w") }
+      refute_same(prop, composed.property_source)
+      assert_equal("w", composed.raw_property("c.d"))
+      assert_equal("v", composed.raw_property("a.b"))
+      assert_equal("v", base.raw_property("a.b"))
+      assert_nil(base.raw_property("c.d"))
     end
 
     # Supplied through the ENV seam and not as an override, deliberately: a test that supplies the
@@ -2672,11 +2710,13 @@ module Dexpace
         @env_source = env_source
         @property_source = property_source
         @properties = {}
-        # A seam inherited through #new_builder counts as installed: #derive must hand the SAME
-        # object back (CFG-9's "shared, not copied"), so #property on top of one is the same
-        # silent-discard failure as #property after an explicit #property_source=.
-        @property_source_explicit =
-          !(property_source.nil? || property_source.equal?(Sources::NONE))
+        # An INHERITED seam does not count as installed. Only #property_source= sets this flag:
+        # Dexpace.configure seeds its builder from the live slot (config.rb), so treating the
+        # inherited seam as explicit would make the SECOND configure that calls #property raise,
+        # and CFG-13's slot is "last-write-wins replacement". CFG-9's "shared, not copied" is
+        # preserved in #build, which passes an inherited seam through by reference whenever no
+        # #property was added over it.
+        @property_source_explicit = false
       end
 
       def override(key, value)
@@ -2702,7 +2742,12 @@ module Dexpace
           raise Dexpace::InvalidArgumentError, "Cannot call #property after explicit #property_source="
         end
 
-        k = key.to_s.strip.downcase.tr("_", ".")
+        # The key is stored VERBATIM. CFG-3's normalisation is a lookup-side transform and #string
+        # already performs it; CFG-4's raw accessor reads this source by the EXACT name, and its
+        # own text names https.proxyHost and http.nonProxyHosts as the keys whose casing must
+        # survive. Folding here would make both unreachable through the only in-SDK setter, which
+        # is §8.2's substituted third source for the whole proxy model.
+        k = key.to_s.strip
         raise Dexpace::InvalidArgumentError, "property key cannot be empty" if k.empty?
 
         @properties[k] = value.to_s
@@ -2724,14 +2769,23 @@ module Dexpace
         @env_source = source
       end
 
-      # An installed seam is passed through BY REFERENCE, never rebuilt: CFG-9 requires
+      # An untouched seam is passed through BY REFERENCE, never rebuilt: CFG-9 requires
       # `derived.property_source.equal?(receiver.property_source)`, and a value-equal copy passes a
-      # test written with assert_equal while failing the requirement.
+      # test written with assert_equal while failing the requirement. When #property WAS called
+      # over an inherited seam the two are composed rather than one discarding the other: the
+      # added properties shadow the inherited source, which is CFG-13's last-write-wins at the key
+      # level and is what lets a second Dexpace.configure add a property to the slot.
       def build
+        inherited = @property_source
         prop_source = if @property_source_explicit
                         @property_source
                       elsif @properties.any?
-                        Sources.from_hash(@properties)
+                        props = @properties.dup.freeze
+                        if inherited.nil? || inherited.equal?(Sources::NONE)
+                          Sources.from_hash(props)
+                        else
+                          ->(k) { props.fetch(k.to_s) { inherited.call(k) } }.freeze
+                        end
                       else
                         @property_source || Sources::NONE
                       end
@@ -2869,7 +2923,7 @@ superclass reason stated there.
 - [ ] **Step 6: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/configuration_test.rb`
-Expected: PASS with 21 runs, 0 failures, 0 errors.
+Expected: PASS with 22 runs, 0 failures, 0 errors.
 
 ---
 
@@ -2916,6 +2970,25 @@ class DexpaceConfigTest < DexpaceTestCase
     cfg = Dexpace.configuration
     assert_equal("DexpaceApp", cfg.string("APP_NAME"))
     assert_equal("5000", cfg.string("SERVICE_TIMEOUT"))
+  end
+
+  # The slot is seeded from itself (config.rb: @configuration.new_builder), so a builder that
+  # treated an inherited seam as explicitly installed would make THIS raise -- and a library
+  # setting a default at boot followed by an application adding one is the ordinary case, not an
+  # exotic one. CFG-13 is "last-write-wins replacement", which this asserts at the key level.
+  test "CFG-13: a second configure adds a property to the slot rather than raising" do
+    Dexpace.configure { |c| c.property("service.timeout", "5000") }
+    Dexpace.configure { |c| c.property("https.proxyHost", "proxy.corp") }
+
+    cfg = Dexpace.configuration
+    assert_equal("proxy.corp", cfg.raw_property("https.proxyHost"))
+    assert_equal("5000", cfg.raw_property("service.timeout"))
+    assert_equal("5000", cfg.string("SERVICE_TIMEOUT"))
+
+    # Last-write-wins at the key level: a third configure replaces one key and keeps the rest.
+    Dexpace.configure { |c| c.property("service.timeout", "9000") }
+    assert_equal("9000", Dexpace.configuration.raw_property("service.timeout"))
+    assert_equal("proxy.corp", Dexpace.configuration.raw_property("https.proxyHost"))
   end
 
   test "CFG-13: reset_config! restores Configuration::EMPTY" do
@@ -3030,7 +3103,7 @@ Add `require_relative "dexpace/config"` to `gems/dexpace-core/lib/dexpace.rb`.
 - [ ] **Step 6: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/config_test.rb`
-Expected: PASS with 6 runs, 0 failures, 0 errors.
+Expected: PASS with 7 runs, 0 failures, 0 errors.
 
 ---
 ## Task 13: Downstream Store and IO Wirings
@@ -3813,6 +3886,30 @@ class DexpaceProxyTest < DexpaceTestCase
     assert_equal("secret", proxy.password)
   end
 
+  # Every other case here injects a FakeSource, which proves the resolver and nothing about the
+  # tier it actually reads in production. §8.2's substituted third source IS Dexpace.configure --
+  # "it reads the configure tier first and falls back to HTTPS_PROXY/HTTP_PROXY ... one deviation
+  # applied twice" -- so exactly one case drives it end to end. A #property that folded its key
+  # would resolve nil here while every FakeSource case above still passed.
+  test "CFG-24 / §10.16: a proxy configured through Dexpace.configure resolves" do
+    Dexpace.configure do |c|
+      c.env_source = Dexpace::FakeSource.new
+      c.property("https.proxyHost", "secure.corp")
+      c.property("https.proxyPort", "8443")
+      c.property("https.proxyUser", "alice")
+      c.property("https.proxyPassword", "secret")
+    end
+
+    proxy = Dexpace::Proxy.resolve
+
+    assert_equal("secure.corp", proxy.host)
+    assert_equal(8443, proxy.port)
+    assert_equal("alice", proxy.username)
+    assert_equal("secret", proxy.password)
+  ensure
+    Dexpace.reset_config!
+  end
+
   test "CFG-24: https.proxyHost wins over http.proxyHost, and takes https.proxyPort with it" do
     proxy = Dexpace::Proxy.resolve(config(properties: {
       "https.proxyHost" => "secure.corp", "https.proxyPort" => "8443",
@@ -4179,7 +4276,7 @@ its call site, `Proxy.resolve`.
 - [ ] **Step 6: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/proxy_test.rb`
-Expected: PASS with 14 runs, 0 failures, 0 errors.
+Expected: PASS with 15 runs, 0 failures, 0 errors.
 
 ---
 
@@ -4307,22 +4404,36 @@ The manifest is `test/fixtures/surface/dexpace-core.txt` at the **repository roo
 a deliberate, reviewed act and happens once, here — never as a way to silence an unintended break.
 Read the diff and confirm that every added line is a name `P5-1` or `P5-2` already accounts for, and
 that nothing else appeared: the private constants `ConfigParsers`, `ProxyResolution` and `DeepValue`,
-`Proxy::Type::ALL`, `Configuration::Sources`' internals and `Async::ELAPSED` must all be absent.
+`Proxy::Type::ALL`, `HTTPDate::MONTHS`, `HTTPDate::GRAMMAR`, `Configuration::Sources`' internals and
+`Async::ELAPSED` must all be absent.
 
 - [ ] **Step 4: Create the checklist**
 
 `docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`, one row per ID, using
 the roadmap's ✅ / 🚫 / ⏳ / N/A legend verbatim. The dispositions, which must match the design's
-scope table exactly — **35 implemented, `CFG-20` and `CFG-34` partially satisfied, `CFG-35` split**:
+scope table exactly — **36 ✅ (`CFG-34` among them, with one clause N/A), `CFG-20` ⏳ against the
+release entry, `CFG-35` ⏳ split to phase 6a**:
 
 - `CFG-1`–`CFG-18`: ✅ (Tasks 6, 7, 9, 10, 11, 12)
 - `CFG-19`: ✅ — satisfied **by construction**, no `unwrap` method ships (`P5-11`; Task 8)
 - `CFG-20`: ⏳, and the row is the one the design fixes, copied verbatim rather than paraphrased:
   > `| CFG-20 | SHOULD | ⏳ | first-release.md § What v1 ships without › Unsatisfied MUSTs, CFG-20's fourth clause | Three of four clauses met: the non-interrupting cancel is Future#cancel (phase 2); the queued-or-finished clause holds because no interrupt is ever delivered; the rejected-submission clause is Completer#fail's routing. The fourth — cancel-with-interrupt — is ASYNC-3's mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry names this clause among the gaps that mechanism covers. |`
 - `CFG-21`: ✅ (phase 2's code, this task's test)
-- `CFG-22`–`CFG-33`: ✅ (Tasks 3, 5, 10, 11, 14, 15)
-- `CFG-34`: ⏳ — NaN, signed-zero and element-kind distinctness implemented; the **container-kind**
-  clause recorded inapplicable per §11.15, and the inapplicability **not** extended (`P5-14`; Task 10)
+- `CFG-22`–`CFG-33`: ✅ (Tasks 3, 5, 10, 11, 14, 15). **`CFG-33`'s row states, because the checklist is
+  where a reader looks for it:** `DeepValue` has **no in-tree caller in v1** — verified, the only later
+  citations (phase 6b's design and plan) cite it as a `private_constant` *precedent*, not as a consumer —
+  and it exists to satisfy `CFG-33`'s conformance clause alone. It stays because `CFG-33` is a MUST; it is
+  `private_constant` (`R4`) precisely so a caller-less helper is not also `NFR-4`-locked public surface
+- `CFG-34`: ✅ (Task 10) — NaN equality, signed-zero distinctness and **element**-kind distinctness
+  (`[1]` ≠ `[1.0]`) all implemented, with hashing matching each; the **container**-kind clause
+  ("an object array and a primitive array") is **N/A** per §11.15, Ruby having one `Array` and no
+  second container to be unequal to, and the inapplicability is **not** extended to the other two
+  (`P5-14`). **Not ⏳**: the roadmap's legend makes ⏳ a deferral "naming the plan task … or the
+  `docs/first-release.md` entry that owns it", and this clause has no owner because there is
+  nothing left to do — a ⏳ row pointing at a 5a task that implements the ID is a deferral nothing
+  closes. `ASYNC-4` is the roadmap's own precedent for N/A on a clause with no manifestation. Like
+  `CFG-33`'s row above: `DeepValue` has **no in-tree caller in v1** and exists to satisfy the
+  conformance clause alone, which is why it is `private_constant` rather than public API
 - `CFG-35`: ⏳ — the status classifier ships as `XCUT-5`'s single shared object; the **throwable**
   half is phase 6a's, Task 3 (`R1`; Task 4)
 - `CFG-36`–`CFG-38`: ✅ (Tasks 2, 11)
@@ -4358,10 +4469,12 @@ recorded by the checklist row that names it and by the phase status note, not by
   10's inbound list when it is audit or repair work on an already-planned phase, or `docs/first-release.md`
   when it belongs to the release. The ledger is `P5-1`–`P5-15` and it
   is the 5a **design**'s; a sixteenth deviation found at execution time is appended there as
-  **`P5-50`** and consolidated into design §10, never renumbered and never duplicated into a second
-  list. **`P5-16` is not free and this sentence was repointed on 2026-09-09**: 5b's design took
+  **`P5-51`** and consolidated into design §10, never renumbered and never duplicated into a second
+  list. **`P5-16` is not free and this sentence has been repointed twice**: 5b's design took
   `P5-16`–`P5-38` as an actual ledger and 5c's took `P5-40`–`P5-49`, both written concurrently with
-  each other and after this plan, so the next number no sub-phase has claimed is `P5-50`. `P5-39` is
+  each other and after this plan, which pointed this sentence at `P5-50` on 2026-09-09; 5c's final
+  review then added `P5-50` as its eleventh row, so the next number no sub-phase has claimed is
+  **`P5-51`** (verified: no document claims it). `P5-39` is
   a **deliberate** gap — 5b reserved `P5-16`–`P5-39` and used twenty-three of the twenty-four — and
   is not a lost row; nothing is renumbered to close it.
 
@@ -4369,12 +4482,15 @@ recorded by the checklist row that names it and by the phase status note, not by
 
 The `claims` check compares each stated count against the live tree, so **both** sentences move:
 
-- the phase-directory count goes from **five to six**, and the sentence gains a `phase5/` clause:
-  "There are six phase directories under `docs/work/*/`; … `phase5/` carries its segmentation
-  design, `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and one sub-phase
-  directory, `phase5/phase5a/`, holding a design, a plan and a checklist."
-- the trailing "Every checklist is still to be written at execution time" is no longer true once
-  Step 4 lands, and must be narrowed to the phases that still have none.
+- **Re-derive both counts from the live tree; do not copy a number out of this plan.** This plan was
+  written on 2026-09-09, when `docs/work/mvp/` held five phase directories and `phase5/` held only
+  `phase5a/`; it now holds ten, and `phase5/` holds `phase5a/`, `phase5b/` and `phase5c/`. A
+  prescriptive numeral here would have regressed a correct sentence into a wrong one. So: run
+  `ls -d docs/work/*/phase*/` and `ls -d docs/work/mvp/phase5/phase5*/`, then make `CLAUDE.md`'s
+  phase-directory sentence and its `phase5/` clause say what those return.
+- the trailing "Every checklist is still to be written at execution time" stops being true the
+  moment Step 4 lands, and must be narrowed to the (sub-)phases that still have none — again by
+  listing `docs/work/*/phase*/**/*-checklist.md` rather than by assuming which those are.
 - the gems sentence changes only if this sub-phase is the first to create `gems/` — it is not.
 
 **Never rewrite the prose to satisfy the check.** Derive the counts, then say what is true.

@@ -259,9 +259,10 @@ test invokes it.
 2. `Dexpace::Context` (the shared module) + `FakeContext` (test support) — needed by Task 3.
 3. `Dexpace::BoundedMap` (private) + `Dexpace::ContextStore` — `CTX-7`, `CTX-8`, `CTX-11`,
    `CTX-12`, `CTX-13`, `CTX-18`, `CTX-19`, and the `Fiber[]` boundary, all driven by `FakeContext`.
-4. `Dexpace::Instrumentation::TraceIdFlavour` — needed by Task 7 (`Bundle`) and by Task 5's tests,
-   which need `Bundle::NONE`. Moved ahead of the promotion chain because every chain test below
-   needs an untraced bundle to build a context from.
+4. `Dexpace::Instrumentation::TraceIdFlavour` — needed by Task 6 (`Bundle`). Moved ahead of the
+   promotion chain because every chain test in Task 7 needs an untraced bundle — `Bundle::NONE`,
+   which Task 6 builds from this flavour table — to build a context from. Task 5 needs nothing
+   from here.
 5. `Dexpace::Instrumentation::NO_SPAN`, `NO_TRACER`, `NO_TRACER_FACTORY` — needed by Task 7.
 6. `Dexpace::Instrumentation::Bundle` — needs Tasks 4 and 5.
 7. `Dexpace::CallKey` (private) + the promotion chain: `DispatchContext`, `RequestContext`,
@@ -917,11 +918,14 @@ module Dexpace
     MAX_TRACKED_CONTEXTS = 1024
 
     class << self
-      # The one process-wide instance. Not a constant: a live store cannot be frozen at
-      # assignment, which a mutable constant must be.
-      def default
-        @default ||= new
-      end
+      # The one process-wide instance, assigned at file load into a class-level ivar (the last
+      # line of this class body). Not a constant: a live store cannot be frozen at assignment,
+      # which a mutable constant must be. Assigned eagerly rather than memoised with `||=`:
+      # that is an unsynchronised read-modify-write over shared state (XCUT-11, "any shared
+      # mutable state MUST be synchronized") with allocations inside `new`, so two threads
+      # reaching #default first can each publish a store and CTX-11's cap and CTX-19's
+      # reachability would then hold per store rather than per process.
+      def default = @default
     end
 
     def initialize(cap: MAX_TRACKED_CONTEXTS)
@@ -957,6 +961,9 @@ module Dexpace
     def size
       @map.size
     end
+
+    # Assigned at file load, once, before any thread exists. See .default above.
+    @default = new
   end
 end
 ```
@@ -1092,6 +1099,21 @@ class DexpaceInstrumentationTraceIdFlavourTest < DexpaceTestCase
     refute(datadog.valid_trace_id?(""))
   end
 
+  # OBS-27's Datadog flavour is "a 64-bit unsigned integer rendered as a decimal string", and a
+  # digit count cannot express that bound: \A[0-9]{1,20}\z accepts both values below, and only
+  # the second is out of range. The bound is max_value on the flavour, so this is the one test
+  # that fails if it is dropped -- the digit-count test above passes either way.
+  test "OBS-27: DATADOG rejects a 20-digit value above 2**64 - 1, at the boundary" do
+    datadog = Flavour::DATADOG
+
+    assert(datadog.valid_trace_id?((2**64 - 1).to_s))
+    refute(datadog.valid_trace_id?((2**64).to_s))
+    refute(datadog.valid_trace_id?("99999999999999999999"))
+    refute(datadog.renders?("99999999999999999999"))
+    assert_equal((2**64) - 1, datadog.max_value)
+    assert_nil(Flavour::W3C.max_value)
+  end
+
   test "W3C accepts exactly 32 lowercase hex characters" do
     assert(Flavour::W3C.valid_trace_id?("a" * 32))
     refute(Flavour::W3C.valid_trace_id?("A" * 32))
@@ -1118,15 +1140,18 @@ module Dexpace
     # OBS-27's trace-id encoding flavours: a frozen Data over a frozen table with an .of factory,
     # never a case statement or a bare Symbol -- the per-flavour behaviour (a pattern and a
     # sentinel) is data, not code.
-    class TraceIdFlavour < Data.define(:name, :trace_id_pattern, :invalid_trace_id)
+    class TraceIdFlavour < Data.define(:name, :trace_id_pattern, :invalid_trace_id, :max_value)
       include Dexpace::Model
       private_class_method :new
 
-      def self.build(name:, trace_id_pattern:, invalid_trace_id:)
-        new(name: name, trace_id_pattern: trace_id_pattern, invalid_trace_id: invalid_trace_id)
+      def self.build(name:, trace_id_pattern:, invalid_trace_id:, max_value: nil)
+        new(
+          name: name, trace_id_pattern: trace_id_pattern, invalid_trace_id: invalid_trace_id,
+          max_value: max_value,
+        )
       end
 
-      def initialize(name:, trace_id_pattern:, invalid_trace_id:)
+      def initialize(name:, trace_id_pattern:, invalid_trace_id:, max_value:)
         Model.required!("name", name)
         Model.required!("trace_id_pattern", trace_id_pattern)
         Model.required!("invalid_trace_id", invalid_trace_id)
@@ -1135,12 +1160,24 @@ module Dexpace
       end
 
       def valid_trace_id?(trace_id)
-        trace_id != invalid_trace_id && trace_id_pattern.match?(trace_id)
+        trace_id != invalid_trace_id && renderable?(trace_id)
       end
 
       def renders?(trace_id)
-        trace_id == invalid_trace_id || trace_id_pattern.match?(trace_id)
+        trace_id == invalid_trace_id || renderable?(trace_id)
       end
+
+      # The pattern fixes the SHAPE and max_value fixes the RANGE, because a digit count cannot
+      # express one: OBS-27's Datadog flavour is "a 64-bit unsigned integer rendered as a decimal
+      # string", and \A[0-9]{1,20}\z also accepts 99999999999999999999, which is larger than
+      # 2**64 - 1. nil means the flavour's pattern is the whole rule (both hex flavours).
+      # Data, not a case statement -- the per-flavour behaviour stays in the table.
+      def renderable?(trace_id)
+        return false unless trace_id_pattern.match?(trace_id)
+
+        max_value.nil? || trace_id.to_i <= max_value
+      end
+      private :renderable?
 
       # OBS-26's reserved sentinel: 32 hex zeros. Matches nothing else -- only the sentinel
       # renders -- because a disabled-tracing bundle carries no trace id of its own.
@@ -1163,6 +1200,7 @@ module Dexpace
         name: :datadog,
         trace_id_pattern: Regexp.new("\\A[0-9]{1,20}\\z", timeout: 1.0),
         invalid_trace_id: "0",
+        max_value: (2**64) - 1,
       )
 
       ALL = [NONE, W3C, DATADOG].freeze
@@ -1187,13 +1225,14 @@ module Dexpace
       attr_reader name: Symbol
       attr_reader trace_id_pattern: Regexp
       attr_reader invalid_trace_id: String
+      attr_reader max_value: Integer?
 
       NONE: TraceIdFlavour
       W3C: TraceIdFlavour
       DATADOG: TraceIdFlavour
       ALL: Array[TraceIdFlavour]
 
-      def self.build: (name: Symbol, trace_id_pattern: Regexp, invalid_trace_id: String) -> TraceIdFlavour
+      def self.build: (name: Symbol, trace_id_pattern: Regexp, invalid_trace_id: String, ?max_value: Integer?) -> TraceIdFlavour
       def self.of: (Symbol name) -> TraceIdFlavour
 
       def valid_trace_id?: (String trace_id) -> bool
@@ -1216,7 +1255,9 @@ After Task 3's lines: `require_relative "dexpace/instrumentation/trace_id_flavou
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/trace_id_flavour_test.rb`
-Expected: PASS, 8 runs. Verified: 8 runs, 83 assertions on 3.2.11 and 3.4.10, identical on 4.0.6.
+Expected: PASS, 9 runs — 8 as verified during planning (8 runs, 83 assertions on 3.2.11 and
+3.4.10, identical on 4.0.6) plus the `max_value` boundary case added by this review, whose own
+counts were not measured against the planning scratch tree.
 
 ---
 
@@ -1333,8 +1374,7 @@ module Dexpace
     # slot and the identity of the object filling it; OBS-21/OBS-25 fix the protocol, and that is
     # phase 5's (5c, Tasks 3-5). One frozen instance, so OBS-25's "MUST NOT allocate per call" is
     # assertable by reference identity.
-    # rubocop:disable-next Lint/EmptyClass -- postponed protocol: phase 5c adds it.
-    class NoSpan; end
+    class NoSpan; end # rubocop:disable Lint/EmptyClass -- postponed protocol: phase 5c adds it.
     private_constant :NoSpan
 
     NO_SPAN = NoSpan.new.freeze
@@ -1351,8 +1391,7 @@ end
 module Dexpace
   module Instrumentation
     # CTX-20's no-op tracer, returned by NO_TRACER_FACTORY#tracer. One frozen instance.
-    # rubocop:disable-next Lint/EmptyClass -- postponed protocol: phase 5c adds it.
-    class NoTracer; end
+    class NoTracer; end # rubocop:disable Lint/EmptyClass -- postponed protocol: phase 5c adds it.
     private_constant :NoTracer
 
     NO_TRACER = NoTracer.new.freeze
@@ -2875,16 +2914,14 @@ This step is where the row-by-row table is actually written — not here, per th
 Run: `ruby .claude/skills/housekeeping/probe.rb --only claims`
 
 **No count changes and the probe stays green** — `phase4/` and `phase4a/` are already committed
-directories and `CLAUDE.md` already reads "There are five phase directories under
-`docs/work/*/`", naming `phase0` through `phase4`. What this plan's filing stales is a **clause**
-the probe cannot see, because it carries no numeral: the same sentence ends "three sub-phase
-directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/` — each holding that
-sub-phase's design **with its plan still to be written**". Once this document lands, `phase4a/`
-holds a design *and* a plan. The correction is to that clause and to nothing else; the probe's
-`claims` check will not report it, which is exactly why it is named here. Per `CLAUDE.md`'s own
-"never rewrite prose to satisfy a check" rule, the judgement about the wording belongs to whoever
-lands the change — what this step fixes is that a previous draft of it pointed at a sentence that
-had already been corrected.
+directories, and `CLAUDE.md`'s claims sentence already reads "There are ten phase directories
+under `docs/work/*/`" and already says of phase 4's three sub-phase directories that "each holds
+a design and a plan", which is true once this document lands. **Nothing in that sentence needs
+changing for this phase; run the probe to confirm rather than to repair.** The clause this step
+formerly named — "each holding that sub-phase's design with its plan still to be written" — was
+corrected in a later change and no longer exists. Per `CLAUDE.md`'s own "never rewrite prose to
+satisfy a check" rule, if the probe does report a `claims` finding here, the judgement about the
+wording belongs to whoever lands the change.
 
 ---
 

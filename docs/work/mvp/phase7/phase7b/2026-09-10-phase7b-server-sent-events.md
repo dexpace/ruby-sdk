@@ -74,8 +74,11 @@ canonical text and modal level of each.
   caveat is stated in the YARD at both `SSE-29` and `SSE-36` sites**: `attach_suppressed` silently
   no-ops on a frozen primary (`P4-13`).
 - **No resource lives inside an `Enumerator` block or inside an owning `#each`**, and **no
-  `block_given?` guard is written anywhere** — it is measurably `true` inside `#each` reached through
-  `to_enum(:each)` and `#next`, so it forbids nothing.
+  `raise unless block_given?` guard is written anywhere** — `block_given?` is measurably `true` inside
+  `#each` reached through `to_enum(:each)` and `#next`, so such a guard forbids nothing. What is banned
+  is the *guard*, not `to_enum`: `Stream#events` and `TypedStream#values` are `to_enum` over a private
+  drive routine and are the only external-iteration entry points, so neither `#each` needs to ask
+  whether it was given a block.
 - **Formatting:** double quotes, 2-space indentation, 100 columns, `consistent_comma` trailing commas.
 - **Every new `lib/` file opens with the `require_relative`s for the core files it names** — phase 2's
   precedent, unchanged.
@@ -165,10 +168,10 @@ that carries the check.
    3a's shipped `#peek` rather than its prose.
 3. **`SSE-39`'s read-count assertion attaches to the body's `#each` yields**, not to the
    `BufferedSource`'s internal reads: a `BufferedSource` pulls a chunk when its buffer empties, so a 1:1
-   assertion against internal reads measures the buffer. Task 2 builds `CountingBody`, which yields one
+   assertion against internal reads measures the buffer. Task 1 builds `CountingBody`, which yields one
    event's bytes per chunk and counts its yields; Task 8's assertion is `assert_equal(1,
    body.yield_count)` after one pull. The fallback, if 3a's buffering makes even that indirect, is a
-   source double implementing `#getbyte` directly, and Task 2 builds that double anyway for Task 3.
+   source double implementing `#getbyte` directly, and Task 1 builds that double anyway for Task 3.
 4. **Task 11 begins by checking whether `tools/serde_boundary.rb` already exists**, because `7c` may
    have landed first. If it does, the task collapses to moving two `sse/**` rows into `GUARDED` and
    writes no fixtures; if it does not, the task builds the tool, the rake task and six fixtures. The
@@ -182,8 +185,8 @@ Thirteen tasks, in exact buildable dependency order. Nothing in this list waits 
 `SSE-37` positively forbids the first dependency and nothing in chapters 12 or 14 creates the second.
 
 1. **Matrix fact verification and test support doubles** — installs `ruby@3.2.11` and `ruby@4.0.6`,
-   re-runs the eight facts on all three, resolves open question 1, and produces the four doubles this
-   plan needs.
+   re-runs the eight facts on all three, resolves open question 1, and produces the five doubles and the
+   one shared `stream_over` helper this plan needs.
 2. `Dexpace::SSE`, the three constants, `Signal`/`SKIP`/`DONE`, `LimitExceededError`
    (`SSE-19` in part, `SSE-34` in part) — standalone.
 3. `Dexpace::SSE::LineReader` (`SSE-2`, `SSE-14`'s line half, `SSE-19`'s line cap) — needs Task 2's
@@ -221,7 +224,8 @@ precedent phases 3, 4, 5 and 6 all set.
 - Create: `tools/verify_7b_facts.rb` (run by hand on each interpreter; never in CI)
 
 **Needs:** phase 3a's `Dexpace::IO::BufferedSource`; phase 3b's `Dexpace::Body`.
-**Produces:** `ByteSource`, `CountingBody`, `CountingResource`, `PipeSource` — the four doubles.
+**Produces:** `ByteSource`, `CountingBody`, `CountingResource`, `PipeSource`, `FakeSSEResponse` — the
+five doubles — and `stream_over`, the one shared helper every later task calls.
 
 - [ ] **Step 1: Install the two missing interpreters and re-run the eight facts on all three**
 
@@ -259,24 +263,44 @@ A scratch script over 3a's shipped `BufferedSource`: build a source over a five-
 assert they are all there. Confirms `SSE-12`'s lookahead is genuinely non-consuming and that closing
 the view early disturbs nothing.
 
-- [ ] **Step 4: Write the four doubles**
+- [ ] **Step 4: Write the five doubles and the one shared helper**
+
+**Every member the later tasks call is listed here, with its signature**, because a double whose API is
+discovered in Task 8 is a double that gets written twice. `_ByteSource` (`P7-27`) is the RBS interface
+these satisfy: `getbyte`, `skip`, `peek`.
+
+| Double | Members Tasks 3–10 call |
+|---|---|
+| `ByteSource` | `.new(bytes, chunk_at: nil)`; `.failing_after(bytes, error)` — a factory whose `#getbyte` yields `bytes` and then **raises `error`**, which is `SSE-29`/`SSE-40`'s mid-stream failure; `#getbyte`, `#peek`, `#skip(count)`, `#close`, `#closed?`, `#getbyte_count` |
+| `CountingBody` | `.new(chunks)` — a `Dexpace::Body` yielding one chunk per `#each` yield; `#each`, `#yield_count`, `#close`, `#close_count`. `SSE-39`'s no-read-ahead assertion attaches to `#yield_count` |
+| `CountingResource` | `.new(raise_on_close: nil)` — `#close` counts, and **raises the supplied error** when one is given, which is `SSE-29`/`SSE-30`'s release-failure half; `#close_count`, `#closed?` |
+| `PipeSource` | `.new` over the read end of an `IO.pipe`; `#getbyte` blocks; `#wait_until_blocked` returns once the reading thread is parked in the read (sequenced through a `Thread::Queue`, never a sleep); `#close` closes **the pipe's read end** and counts, `#close_count`, `#closed?`. `SSE-31`'s hard half needs every one of those |
+| `FakeSSEResponse` | `.new(body:)` and `.with_sse_body(bytes)`; `#body` (a `Dexpace::ResponseBody`-shaped double answering `#source` and `#close`, or `nil`), `#close`, `#closed?`. **It is a double and not a `Dexpace::Response`**, because a `Response` is a frozen `Data` whose `#close` is `body&.close` and which has **no `#closed?`** (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md:928`); `SSE-32`'s assertion needs one |
+| `stream_over` | The one shared helper, **defined in this file and not in a test class**, so Tasks 8, 9 and 10 call the same thing: `stream_over(bytes = FIXTURE, resource: nil) -> [stream, resource]`, building `Stream.owning(ByteSource.new(bytes), resource: resource || CountingResource.new)`. **It returns a two-element array at every call site**, destructured as `stream, resource = stream_over(…)` or `stream, = stream_over(…)` |
 
 ```ruby
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# Test doubles for phase 7b. Four objects, each existing because a real one cannot be scripted:
+# Test doubles for phase 7b. Five objects and one helper, each existing because a real one cannot be
+# scripted:
 #
-#   ByteSource       - a BufferedSource-shaped double over a fixed BINARY String, whose #getbyte,
+#   ByteSource       - a _ByteSource-shaped double over a fixed BINARY String, whose #getbyte,
 #                      #peek and #skip are the only members 7b's line machine uses, and which counts
 #                      #getbyte calls. It is deliberately NOT a Dexpace::IO::BufferedSource: 7b's
-#                      contract on its source is exactly those three methods, and this is that and
-#                      nothing more (phase 3b's FakeResponseBody set the precedent).
+#                      contract on its source is exactly those three methods, and P7-27 declares that
+#                      contract as the RBS interface _ByteSource rather than as the class (phase 3b's
+#                      FakeResponseBody set the precedent).
 #   CountingBody     - a Dexpace::Body yielding one caller-supplied chunk per #each yield and
 #                      counting the yields. SSE-39's no-read-ahead assertion attaches here.
-#   CountingResource - a #close-counting closeable. SSE-23's five termination paths assert against it.
+#   CountingResource - a #close-counting closeable, optionally raising on close. SSE-23's five
+#                      termination paths and SSE-29/SSE-30's release failures assert against it.
 #   PipeSource       - a ByteSource-shaped double over the read end of an IO.pipe, so a read can be
-#                      parked and torn down from another thread. SSE-31's hard half needs it.
+#                      parked and torn down from another thread. SSE-31's hard half needs it, and it
+#                      is its OWN resource there: closing anything else leaves the read parked.
+#   FakeSSEResponse  - a response-shaped double answering #body, #close and #closed?. SSE-32 needs a
+#                      #closed? and Dexpace::Response, a frozen Data, has none.
+#   stream_over      - the one shared stream-building helper, returning [stream, resource].
 
 module Dexpace
   module Test
@@ -308,8 +332,9 @@ module Dexpace
 end
 ```
 
-`CountingBody`, `CountingResource` and `PipeSource` follow in the same file, each with the same
-why-comment shape.
+`ByteSource.failing_after`, `CountingBody`, `CountingResource`, `PipeSource`, `FakeSSEResponse` and
+`stream_over` follow in the same file, each with the same why-comment shape and each carrying every
+member the table above names.
 
 - [ ] **Step 5: Confirm the doubles load and the fact script is green on all three**
 
@@ -464,6 +489,22 @@ at a different layer from `Dexpace::IO::MAX_MATERIALIZED_BYTES` rather than as a
 Task 12 checks those sentences exist.
 
 - [ ] **Step 5: Write the `sig/` mirrors, add the requires, run to confirm it passes**
+
+`sig/dexpace/sse.rbs` also declares the source contract as a structural interface rather than as a
+class, and `P7-27` locks the name:
+
+```rbs
+interface _ByteSource
+  def getbyte: () -> Integer?
+  def skip: (Integer count) -> void
+  def peek: () -> _ByteSource
+end
+```
+
+**Not `Dexpace::IO::BufferedSource`.** `7b`'s contract on its source is exactly those three methods;
+naming the class would make every conforming duck — including this plan's own `ByteSource` and
+`PipeSource` doubles — a type error, and would claim a dependency the subsystem does not have.
+`LineReader.new`, `Reader.new` and the three `Stream` factories all take `_ByteSource`.
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/sse/sse_test.rb`
 Expected: PASS, 7 runs, 0 failures, 0 errors.
@@ -681,7 +722,9 @@ require "dexpace"
 
 class DexpaceSSEEventTest < DexpaceTestCase
   test "SSE-20: mutating the list the event was built from cannot reach inside it" do
-    original = ["a", "b"]
+    # `+` on each literal because this file is frozen_string_literal: true, under which
+    # `original[0] << "!"` raises FrozenError and the test would error rather than assert.
+    original = [+"a", +"b"]
     event = Dexpace::SSE::Event.build(data: original)
     original << "c"
     original[0] << "!"
@@ -1058,7 +1101,9 @@ for `SSE-18`; `P7-22`.
 # appended to reader_test.rb
 #
 # SSE-1 (a blank line collapses accumulated fields into exactly one event and resets accumulators),
-# SSE-13 (permissive dispatch; a no-field block is skipped), SSE-14 (EOF dispatches a pending block),
+# SSE-9 (a NUL id does not count as a "field seen" - the dispatch half of the clause Task 5 tests the
+# value half of), SSE-13 (permissive dispatch; a no-field block is skipped), SSE-14 (EOF dispatches a
+# pending block),
 # SSE-15 (a sticky end-of-stream sentinel), SSE-16 (only the BOM flag persists), SSE-17 (the reader
 # owns nothing), SSE-18 (documented single-threaded; no lock), SSE-19 (the event cap).
 
@@ -1092,6 +1137,15 @@ end
 
 test "SSE-13: a block in which no field was set is skipped" do
   assert_empty(events("\n\n\n"))
+end
+
+test "SSE-9/SSE-13: a NUL id does not count as a field seen, so its block dispatches nothing" do
+  # SSE-9: the field is "ignored ENTIRELY: it does not set the id, DOES NOT COUNT AS A 'FIELD SEEN',
+  # and does not overwrite a valid id already seen" (appendix C:418, sse-streaming/2fec5657). Every
+  # other SSE-9 test in Task 5 carries a data line, so the block dispatches whatever the flag does;
+  # this is the only assertion that fails when the dispatch flag is set on the field NAME before the
+  # NUL screen runs, which is the way an implementation gets this wrong.
+  assert_empty(events("id: a\0b\n\n"))
 end
 
 test "SSE-14: a partial block still present at EOF is dispatched" do
@@ -1160,7 +1214,7 @@ end
 - [ ] **Step 2: Run test to confirm it fails**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/sse/reader_test.rb`
-Expected: 14 new failures.
+Expected: 15 new failures.
 
 - [ ] **Step 3: Implement dispatch and the sticky end**
 
@@ -1176,7 +1230,7 @@ single-threaded contract explicitly, and **there is no test**, because no assert
 - [ ] **Step 4: Write the `sig/` update, run to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/sse/reader_test.rb`
-Expected: PASS, 40 runs, 0 failures, 0 errors.
+Expected: PASS, 41 runs, 0 failures, 0 errors.
 
 - [ ] **Step 5: Add the mutation battery on the two caps at their real values**
 
@@ -1202,9 +1256,10 @@ matrix row, stated so it is a decision rather than an accident.
 
 **Needs:** Task 7; phase 2's `Dexpace::Closeable` and `Dexpace::InvalidArgumentError`; phase 3b's
 `Dexpace::ResponseBody`; phase 4b's `Dexpace.close_quietly` and `Dexpace.attach_suppressed`; Task 1's
-`CountingResource`, `CountingBody` and `PipeSource`.
-**Produces:** `Stream.open(response)`, `.owning(source)`, `.borrowing(source)`, `#each`, `#events`,
-`#close`, `#closed?`; and `Dexpace::SSE::StreamStateError`, `SSE-26`/`SSE-27`'s loud failure.
+`CountingResource`, `CountingBody`, `PipeSource`, `FakeSSEResponse` and `stream_over`.
+**Produces:** `Stream.open(response)`, `.owning(source, resource: source)`,
+`.borrowing(source, resource: source)`, `#each`, `#events`, `#close`, `#closed?`, `#owned?`; and
+`Dexpace::SSE::StreamStateError`, `SSE-26`/`SSE-27`'s loud failure.
 
 - [ ] **Step 1: Write the failing test — the lifecycle battery**
 
@@ -1224,12 +1279,11 @@ require "dexpace"
 require "support/sse_doubles"
 
 class DexpaceSSEStreamTest < DexpaceTestCase
-  FIXTURE = "data: a\n\ndata: b\n\ndata: c\n\n"
+  include Dexpace::Test::SSEHelpers   # FIXTURE and stream_over, from support/sse_doubles (Task 1)
 
-  def stream_over(bytes = FIXTURE, resource: nil)
-    resource ||= Dexpace::Test::CountingResource.new
-    [Dexpace::SSE::Stream.owning(Dexpace::Test::ByteSource.new(bytes), resource: resource), resource]
-  end
+  # stream_over(bytes = FIXTURE, resource: nil) -> [stream, resource], building
+  # Stream.owning(ByteSource.new(bytes), resource: resource || CountingResource.new). It returns TWO
+  # values at every call site in this plan; Tasks 9 and 10 destructure it the same way.
 
   test "SSE-23/SSE-24: iterating to completion without close releases the resource exactly once" do
     stream, resource = stream_over
@@ -1335,9 +1389,13 @@ class DexpaceSSEStreamTest < DexpaceTestCase
     # verified fact 7: closing the read end of an IO.pipe from another thread while a thread is
     # parked in readpartial raises IOError in the parked thread. Sequenced through a Queue so it is
     # deterministic rather than timing-dependent, which is phase 3a's IO-38 precedent.
+    #
+    # The PipeSource is its OWN resource - the `resource: source` default - and that is the whole
+    # test. #close releases the RESOURCE, so a stream reading from the pipe while owning some
+    # unrelated close-counter would close the counter, leave the read parked, and HANG on
+    # Thread#value rather than fail.
     source = Dexpace::Test::PipeSource.new
-    resource = Dexpace::Test::CountingResource.new
-    stream = Dexpace::SSE::Stream.owning(source, resource: resource)
+    stream = Dexpace::SSE::Stream.owning(source)
     parked = ::Thread::Queue.new
     reader = ::Thread.new do
       parked << :ready
@@ -1349,22 +1407,31 @@ class DexpaceSSEStreamTest < DexpaceTestCase
     source.wait_until_blocked
     stream.close
     assert_kind_of(::IOError, reader.value)
-    assert_equal(1, resource.close_count)
+    assert_equal(1, source.close_count)
+  end
+
+  test "SSE-23/P7-25: resource: defaults to the source, so one argument owns one object" do
+    source = Dexpace::Test::ByteSource.new(FIXTURE)
+    stream = Dexpace::SSE::Stream.owning(source)
+    stream.each { |_e| nil }
+    assert(source.closed?)
   end
 
   test "SSE-32: opening over a response binds the stream's lifecycle to the response" do
-    response = fake_response_with_sse_body(FIXTURE)
+    # Stream.open passes response.body.source as the SOURCE and the response as the RESOURCE: the two
+    # are different objects, which is why the facade takes two parameters at all.
+    response = Dexpace::Test::FakeSSEResponse.with_sse_body(FIXTURE)
     Dexpace::SSE::Stream.open(response).each { |_e| nil }
     assert(response.closed?)
   end
 
   test "SSE-32: opening over a bodyless response fails loudly" do
     assert_raises(Dexpace::InvalidArgumentError) do
-      Dexpace::SSE::Stream.open(fake_response(body: nil))
+      Dexpace::SSE::Stream.open(Dexpace::Test::FakeSSEResponse.new(body: nil))
     end
   end
 
-  test "P7-25: a borrowed source is never closed by the stream" do
+  test "P7-25: a borrowed resource is never closed by the stream" do
     resource = Dexpace::Test::CountingResource.new
     stream = Dexpace::SSE::Stream.borrowing(Dexpace::Test::ByteSource.new(FIXTURE), resource: resource)
     stream.each { |_e| nil }
@@ -1406,11 +1473,16 @@ Expected: fails with `NameError: uninitialized constant Dexpace::SSE::Stream`, 2
 - [ ] **Step 3: Write `lib/dexpace/sse/stream.rb`**
 
 `include Dexpace::Closeable`; `#initialize_closeable(owned:)` in every constructor path; a private
-`#release` calling `@resource.close`. The three factories are `P7-25`'s three names, and **none is
-called `.over`**, because `Dexpace::IO::BufferedSource.over` means *borrowing* and a same-named method
+`#release` calling `@resource.close`. **A `Stream` reads from `source` and owns (or borrows) exactly one
+closeable `resource`, and `resource:` defaults to `source`** (`P7-25`), so `SSE-23`'s "exactly one
+closeable resource" names `resource` and one-argument calls own the object they read from. The three
+factories are `P7-25`'s three names, and **none is called `.over`**, because
+`Dexpace::IO::BufferedSource.over` means *borrowing* and a same-named method
 with the opposite polarity one namespace away is the kind of name that is wrong in the one way review
 does not catch. `Stream.open(response)` raises `Dexpace::InvalidArgumentError` when `response.body` is
-`nil` and builds a `Reader` over `response.body.source`.
+`nil`, builds a `Reader` over `response.body.source` as the **source**, and passes the **response** as
+the `resource` — the case that forces the two-parameter shape, since the byte source and the object
+owning the connection are different objects.
 
 The drive routine is the whole lifecycle:
 
@@ -1482,55 +1554,65 @@ require "dexpace"
 require "support/sse_doubles"
 
 class DexpaceSSETypedStreamTest < DexpaceTestCase
+  include Dexpace::Test::SSEHelpers   # stream_over -> [stream, resource], from Task 1
+
+  # The two consumption shapes mirror Stream's exactly: #each takes the block, #values returns the
+  # Enumerator. TypedStream does NOT include Enumerable and #each never returns an enumerator, so
+  # every external-iteration assertion below goes through #values (P7-27, design's TypedStream
+  # section) and there is no block_given? anywhere in the implementation it drives.
+
   test "SSE-33: the mapper receives the data lines joined with a single newline" do
     seen = []
-    stream_over("data: line1\ndata: line2\n\n").typed { |name, data| seen << [name, data] }.each { }
+    stream, = stream_over("data: line1\ndata: line2\n\n")
+    stream.typed { |name, data| seen << [name, data] }.each { |_v| nil }
     assert_equal([[nil, "line1\nline2"]], seen)
   end
 
   test "SSE-33: a no-data event gives the mapper the empty string, not nil" do
     seen = []
-    stream_over("event: ping\n\n").typed { |name, data| seen << [name, data] }.each { }
+    stream, = stream_over("event: ping\n\n")
+    stream.typed { |name, data| seen << [name, data] }.each { |_v| nil }
     assert_equal([["ping", ""]], seen)
   end
 
   test "SSE-33: the mapper's decoded value is what the consumer receives" do
-    values = stream_over("data: 1\n\ndata: 2\n\n").typed { |_n, d| d.to_i * 10 }.to_a
-    assert_equal([10, 20], values)
+    stream, = stream_over("data: 1\n\ndata: 2\n\n")
+    assert_equal([10, 20], stream.typed { |_n, d| d.to_i * 10 }.values.to_a)
   end
 
   test "SSE-33: a mapper returning nil yields nil - nil is a value, not a sentinel" do
-    assert_equal([nil], stream_over("data: x\n\n").typed { |_n, _d| nil }.to_a)
+    stream, = stream_over("data: x\n\n")
+    assert_equal([nil], stream.typed { |_n, _d| nil }.values.to_a)
   end
 
   test "SSE-34: SKIP drops the event and advances, never surfacing it" do
-    typed = stream_over("data: a\n\ndata: skipme\n\ndata: c\n\n").typed do |_n, d|
-      d == "skipme" ? Dexpace::SSE::SKIP : d
-    end
-    assert_equal(%w[a c], typed.to_a)
+    stream, = stream_over("data: a\n\ndata: skipme\n\ndata: c\n\n")
+    typed = stream.typed { |_n, d| d == "skipme" ? Dexpace::SSE::SKIP : d }
+    assert_equal(%w[a c], typed.values.to_a)
   end
 
   test "SSE-34: DONE ends iteration cleanly, closes the stream, and yields no model for the sentinel" do
     resource = Dexpace::Test::CountingResource.new
     stream, = stream_over("data: a\n\ndata: bye\n\ndata: never\n\n", resource: resource)
     typed = stream.typed { |_n, d| d == "bye" ? Dexpace::SSE::DONE : d }
-    assert_equal(%w[a], typed.to_a)
+    assert_equal(%w[a], typed.values.to_a)
     assert_equal(1, resource.close_count)
   end
 
   test "SSE-34: events after a DONE sentinel are never decoded" do
     decoded = []
-    stream_over("data: a\n\ndata: bye\n\ndata: never\n\n").typed do |_n, d|
+    stream, = stream_over("data: a\n\ndata: bye\n\ndata: never\n\n")
+    stream.typed do |_n, d|
       decoded << d
       d == "bye" ? Dexpace::SSE::DONE : d
-    end.to_a
+    end.values.to_a
     assert_equal(%w[a bye], decoded)
   end
 
   test "SSE-35: decoding is lazy - one mapper call per pull" do
     calls = 0
-    typed = stream_over("data: a\n\ndata: b\n\ndata: c\n\n").typed { |_n, d| calls += 1; d }
-    enum = typed.each
+    stream, = stream_over("data: a\n\ndata: b\n\ndata: c\n\n")
+    enum = stream.typed { |_n, d| calls += 1; d }.values
     enum.next
     assert_equal(1, calls)
     enum.next
@@ -1539,19 +1621,30 @@ class DexpaceSSETypedStreamTest < DexpaceTestCase
 
   test "SSE-35/SSE-39: draining Skips pulls only as many raw events as one element needs" do
     calls = 0
-    typed = stream_over("data: s\n\ndata: s\n\ndata: v\n\ndata: v2\n\n").typed do |_n, d|
+    stream, = stream_over("data: s\n\ndata: s\n\ndata: v\n\ndata: v2\n\n")
+    typed = stream.typed do |_n, d|
       calls += 1
       d == "s" ? Dexpace::SSE::SKIP : d
     end
-    assert_equal("v", typed.each.next)
+    assert_equal("v", typed.values.next)
     assert_equal(3, calls)   # two skips drained, one value produced; v2 not touched
+  end
+
+  test "SSE-26/SSE-40: the typed view is single-pass across both shapes and the raw stream's" do
+    # #each, #values and the underlying Stream's own two shapes compete for ONE @viewed latch, so a
+    # caller cannot take a second view by switching shapes.
+    stream, = stream_over
+    typed = stream.typed { |_n, d| d }
+    typed.values
+    assert_raises(Dexpace::SSE::StreamStateError) { typed.values }
+    assert_raises(Dexpace::SSE::StreamStateError) { typed.each { |_v| nil } }
+    assert_raises(Dexpace::SSE::StreamStateError) { stream.events }
   end
 
   test "SSE-36: a mapper that raises propagates at that pull and releases the resource first" do
     resource = Dexpace::Test::CountingResource.new
     stream, = stream_over("data: a\n\ndata: boom\n\n", resource: resource)
-    typed = stream.typed { |_n, d| d == "boom" ? raise(::ArgumentError, "nope") : d }
-    enum = typed.each
+    enum = stream.typed { |_n, d| d == "boom" ? raise(::ArgumentError, "nope") : d }.values
     assert_equal("a", enum.next)
     assert_raises(::ArgumentError) { enum.next }
     assert_equal(1, resource.close_count)
@@ -1561,7 +1654,7 @@ class DexpaceSSETypedStreamTest < DexpaceTestCase
     resource = Dexpace::Test::CountingResource.new(raise_on_close: ::IOError.new("close failed"))
     stream, = stream_over("data: boom\n\n", resource: resource)
     typed = stream.typed { |_n, _d| raise(::ArgumentError, "nope") }
-    error = assert_raises(::ArgumentError) { typed.to_a }
+    error = assert_raises(::ArgumentError) { typed.values.to_a }
     assert_equal(["close failed"], Dexpace.suppressed(error).map(&:message))
   end
 
@@ -1572,6 +1665,7 @@ class DexpaceSSETypedStreamTest < DexpaceTestCase
     typed.close
     typed.close
     assert(stream.closed?)
+    assert(typed.closed?)
     assert_equal(1, resource.close_count)
   end
 end
@@ -1588,11 +1682,25 @@ The join is `event.data.join("\n")`, done **here** and never in the parser, beca
 parser keep the raw per-line list. The outcome dispatch is identity, not equality:
 
 ```ruby
-outcome = @mapper.call(event.event, event.data.join("\n"))
-next   if outcome.equal?(Dexpace::SSE::SKIP)     # SSE-34
-break  if done!(outcome)                         # SSE-34: close, yield nothing for the sentinel
-yielder << outcome                               # SSE-33: the decoded value itself
+private def drive_values
+  @stream.send(:drive) do |event|                  # one @viewed latch, the Stream's
+    outcome = @mapper.call(event.event, event.data.join("\n"))
+    next  if outcome.equal?(Dexpace::SSE::SKIP)    # SSE-34
+    break if done!(outcome)                        # SSE-34: close, yield nothing for the sentinel
+    yield outcome                                  # SSE-33: the decoded value itself
+  end
+end
+
+def each(&block) = drive_values(&block)            # the block form
+def values = to_enum(:drive_values)                # the external form, Stream#events mirrored
 ```
+
+**The two shapes are `Stream`'s, mirrored** (`P7-27`): `#each` takes the block, `#values` returns the
+`Enumerator`. `#each` **never** returns an enumerator and `TypedStream` does **not** `include
+Enumerable`, so no `block_given?` appears here — a caller wanting `#map`, `#first` or `#lazy` takes
+`#values` once, which is `SSE-26`/`SSE-40`'s single-pass discipline holding across both shapes rather
+than thirty `Enumerable` methods each silently taking the one view. The resource stays on the `Stream`
+and never enters `#drive_values`, so §7.1's rule holds through the typed layer unchanged.
 
 `#close`/`#closed?` delegate to the `Stream`; `TypedStream` includes no `Closeable` and holds no
 resource, so `SSE-23`'s exactly-one claim survives the typed layer.
@@ -1633,13 +1741,16 @@ require "dexpace"
 require "support/sse_doubles"
 
 class DexpaceSSEBoundariesTest < DexpaceTestCase
+  include Dexpace::Test::SSEHelpers   # stream_over -> [stream, resource], from Task 1
+
   test "SSE-37: [DONE] is an ordinary data value and does not terminate the stream" do
-    events = stream_over("data: [DONE]\n\ndata: after\n\n").events.to_a
-    assert_equal([["[DONE]"], ["after"]], events.map(&:data))
+    stream, = stream_over("data: [DONE]\n\ndata: after\n\n")
+    assert_equal([["[DONE]"], ["after"]], stream.events.to_a.map(&:data))
   end
 
   test "SSE-37: an event named 'error' is an ordinary event and raises nothing" do
-    events = stream_over("event: error\ndata: {\"message\":\"x\"}\n\n").events.to_a
+    stream, = stream_over("event: error\ndata: {\"message\":\"x\"}\n\n")
+    events = stream.events.to_a
     assert_equal(1, events.size)
     assert_equal("error", events.first.event)
   end
@@ -1663,12 +1774,12 @@ class DexpaceSSEBoundariesTest < DexpaceTestCase
   end
 
   test "SSE-38/SSE-16: a second event's id is absent, so no last-event-id is persisted" do
-    events = stream_over("id: 1\ndata: a\n\ndata: b\n\n").events.to_a
-    assert_nil(events.last.id)
+    stream, = stream_over("id: 1\ndata: a\n\ndata: b\n\n")
+    assert_nil(stream.events.to_a.last.id)
   end
 
   test "SSE-38: an exhausted stream stays exhausted and does not reopen" do
-    stream = stream_over("data: a\n\n")
+    stream, = stream_over("data: a\n\n")
     assert_equal(1, stream.events.to_a.size)
     assert(stream.closed?)
   end
@@ -1938,8 +2049,8 @@ stops the task.**
 - [ ] **Step 4: Confirm `NFR-11`'s scan is still clean**
 
 No constant outside `Dexpace::` and the fixed stdlib allowlist appears in any `sig/dexpace/sse/*.rbs`.
-`7b`'s signatures name `Dexpace::` types, `::String`, `::Integer`, `::Symbol` and `::StandardError`
-only.
+`7b`'s signatures name `Dexpace::` types, the subsystem's own `_ByteSource` interface, `::String`,
+`::Integer`, `::Symbol` and `::StandardError` only.
 
 - [ ] **Step 5: Write the handover note**
 
@@ -1950,7 +2061,9 @@ for both cap constants; and the deviation-numbering band, so the human filing `7
 together can renumber safely in one change if they prefer contiguous numbers.
 
 **The checklist is written at execution time**, per `CLAUDE.md`, and is not a task this plan performs.
-It maps one row per requirement ID onto a task number above: `SSE-1`→7, `SSE-2`→3, `SSE-3`–`SSE-10`→5,
+It maps one row per requirement ID onto a task number above: `SSE-1`→7, `SSE-2`→3, `SSE-3`–`SSE-10`→5
+(`SSE-9` also →7, whose row must name both: Task 5 asserts the value half and Task 7 the "does not
+count as a field seen" half),
 `SSE-11`→6, `SSE-12`→5, `SSE-13`–`SSE-18`→7, `SSE-19`→2/3/7 (three rows' worth of evidence in one row,
 naming all three), `SSE-20`–`SSE-22`→4, `SSE-23`–`SSE-32`→8, `SSE-33`–`SSE-36`→9, `SSE-37`→10 and 11,
 `SSE-38`→10, `SSE-39`→8, `SSE-40`→8, and `SSE-41`→ ⏳ declined for v1 (`docs/first-release.md` § What v1 ships without), no task.
@@ -1966,7 +2079,13 @@ Run before handover; each line is a question the design answers and the plan mus
 - [ ] Does any task call `downcase`? **It must not** (`P7-24`).
 - [ ] Does any task add a `require` outside `dexpace/`? **It must not.**
 - [ ] Does any resource live inside an `Enumerator` block or an owning `#each`? **It must not.**
-- [ ] Is there a `block_given?` guard anywhere? **There must not be.**
+- [ ] Is there a `raise unless block_given?` guard anywhere? **There must not be** — the guard is
+      banned, `to_enum` is not: `#events` and `#values` are the external-iteration entry points and
+      neither `#each` branches on a block.
+- [ ] Does `TypedStream` mirror `Stream`'s two shapes — `#each { }` and `#values -> Enumerator` — and
+      `include Enumerable` nowhere? **Both must hold.**
+- [ ] Does every `Stream` factory call name its `resource:` (or rely on the documented
+      `resource: source` default), and does `SSE-31`'s shape-B test own the parked source itself?
 - [ ] Does any encoding assertion use ASCII-only content? **It must not** — such a test passes under
       exactly the bug.
 - [ ] Does any cap assertion name a literal rather than the constant? **It must not.**

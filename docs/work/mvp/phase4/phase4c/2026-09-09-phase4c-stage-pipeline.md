@@ -112,6 +112,14 @@ bundle exec rake surface:regenerate                                 # deliberate
    - `PIPE-21` missing anchor: `"anchor step of type #{anchor_type} was not found in pipeline (PIPE-21)"`
    - `PIPE-23` reload validation failure: `"cannot reload pipeline entries: #{details} (PIPE-23)"`
    - `PIPE-24` preset collision: `"cannot install preset: pillar #{stage.name} is already occupied by #{occupant_type} (PIPE-24)"`, one clause per occupied pillar joined by `"; "`
+   - `PIPE-4`/`PIPE-5` pillar collision **inside the incoming bulk set**, shared by `#reload` and
+     `#install_preset` because it is one condition on one validate-then-commit path:
+     `"pillar #{stage.name} would hold 2 distinct steps (#{occupant_type}, #{new_type}); a pillar admits at most one (PIPE-4, PIPE-5; rejected whole per PIPE-23 and PIPE-24)"`.
+     `PIPE-5` names the bulk path in as many words ("or seeding/flattening from an existing
+     pipeline (bulk reload)") and `PIPE-23`'s all-or-nothing clause is written *about* this
+     collision, so a bulk path that only type-checks its entries satisfies neither. The **same**
+     step twice on one pillar is not a collision and collapses to one entry (`PIPE-6`), so the
+     same pass carries both halves of the rule
 
    **Two more forms exist than P4-37 enumerates, and the gap is the design's own rather than this
    plan's invention.** P4-37 lists nine conditions; R10's precedence table rejects two further
@@ -1085,7 +1093,8 @@ simply where the name lives. Nothing else in this task changes, and `name:` is *
 
 **Interfaces:**
 - Consumes: `Dexpace::Model`, `Dexpace::Pipeline::Stage`, `Dexpace::Pipeline::Step`, `Dexpace::PipelineError`.
-- Produces: `Dexpace::Pipeline::Entry.build(stage:, step:) -> Entry`.
+- Produces: `Dexpace::Pipeline::Entry.build(stage:, step:, name: nil) -> Entry`, with `#name` the
+  optional surgical-edit anchor (this task's 2026-09-13 amendment).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1118,7 +1127,25 @@ class DexpacePipelineEntryTest < DexpaceTestCase
     entry = Dexpace::Pipeline::Entry.build(stage: @stage, step: @step)
     assert_same(@stage, entry.stage)
     assert_same(@step, entry.step)
+    assert_nil(entry.name, "name: is optional and defaults to nil")
     assert_predicate(entry, :frozen?)
+  end
+
+  # The 2026-09-13 amendment. A name is what lets PIPE-18-PIPE-21 address ONE lambda step, whose
+  # class is Proc like every other lambda's.
+  test "Entry.build carries an optional Symbol or String name, frozen" do
+    assert_equal(:auth_probe, Dexpace::Pipeline::Entry.build(stage: @stage, step: @step, name: :auth_probe).name)
+
+    named = Dexpace::Pipeline::Entry.build(stage: @stage, step: @step, name: +"auth_probe")
+    assert_equal("auth_probe", named.name)
+    assert_predicate(named.name, :frozen?)
+  end
+
+  test "Entry.build rejects a name that is neither Symbol nor String" do
+    error = assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::Pipeline::Entry.build(stage: @stage, step: @step, name: 42)
+    end
+    assert_includes(error.message, "name must be a Symbol or String (PIPE-18)")
   end
 
   test "Entry.build rejects terminal stage SEND with PipelineError" do
@@ -1165,13 +1192,17 @@ require_relative "../error/invalid_argument_error"
 module Dexpace
   class Pipeline
     # An immutable association between a pipeline Stage and a conforming Step (PIPE-22, PIPE-25).
-    class Entry < ::Data.define(:stage, :step)
+    class Entry < ::Data.define(:stage, :step, :name)
       include Dexpace::Model
 
       # Data.define generates .[] alongside .new; both are private so .build is the only path in.
       private_class_method :new, :[]
 
-      def self.build(stage:, step:)
+      # `name:` is the optional surgical-edit anchor (this task's 2026-09-13 amendment). It is NOT
+      # part of PIPE-22/PIPE-23's "this step, at this stage" pair -- nothing reads it outside
+      # PIPE-18-PIPE-21's four edits -- and it exists because every lambda step's class is Proc, so
+      # a type anchor cannot address one lambda and not another. Frozen with the rest of the model.
+      def self.build(stage:, step:, name: nil)
         unless stage.is_a?(Stage)
           raise Dexpace::InvalidArgumentError, "stage must be a Dexpace::Pipeline::Stage (PIPE-1)"
         end
@@ -1181,8 +1212,11 @@ module Dexpace
         unless Step.conforms?(step)
           raise Dexpace::InvalidArgumentError, "step must conform to Dexpace::Pipeline::Step (PIPE-12)"
         end
+        unless name.nil? || name.is_a?(::Symbol) || name.is_a?(::String)
+          raise Dexpace::InvalidArgumentError, "name must be a Symbol or String (PIPE-18)"
+        end
 
-        new(stage:, step:)
+        new(stage:, step:, name: name.is_a?(::String) ? Dexpace::Model.frozen_string(name) : name)
       end
     end
   end
@@ -1198,10 +1232,11 @@ module Dexpace
       include Dexpace::Model
 
       # .new and .[] are private; .build is the only public constructor.
-      def self.build: (stage: Stage, step: untyped) -> Entry
+      def self.build: (stage: Stage, step: untyped, ?name: (Symbol | String)?) -> Entry
 
       attr_reader stage: Stage
       attr_reader step: untyped
+      attr_reader name: (Symbol | String)?
     end
   end
 end
@@ -1214,7 +1249,7 @@ Positioned after `step.rb`: `require_relative "dexpace/pipeline/entry"`.
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/pipeline/entry_test.rb`
-Expected: PASS, 5 runs, 0 failures, 0 errors.
+Expected: PASS, 8 runs, 0 failures, 0 errors.
 
 ---
 
@@ -1761,7 +1796,8 @@ module Dexpace
   class Pipeline
     class Cursor
       # .new is private and takes owner_index:/position:/state: a caller cannot name; only .build
-      # is public, and it produces the cursor bound to entry 0 (R10).
+      # is public, and it produces the cursor bound to no entry (owner_index -1): it advances INTO
+      # entry 0 and cannot fork (R10). Every cursor a step is handed is made by the driver.
       def self.build: (drive: untyped, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation) -> Cursor
 
       attr_reader request: Dexpace::Request
@@ -1951,6 +1987,49 @@ class DexpacePipelineBuilderTest < DexpaceTestCase
     assert_includes(error.message, "anchor step of type String was not found in pipeline (PIPE-21)")
   end
 
+  # The 2026-09-13 amendment, and the case that makes PIPE-18-PIPE-21 reach a lambda step at all.
+  # Both lambdas below have the class Proc (verified fact 13), so insert_after(Proc, ...) anchors
+  # arbitrarily; the name addresses exactly one of them. Type anchoring is unchanged.
+  test "PIPE-18 / PIPE-20: a name anchors one lambda where a type anchors all of them" do
+    first = ->(req, cur) { cur.call(req) }
+    second = ->(req, cur) { cur.call(req) }
+    inserted = ->(req, cur) { cur.call(req) }
+    pre_auth = Dexpace::Pipeline::Stages::PRE_AUTH
+
+    assert_equal(Proc, first.class)
+    assert_equal(first.class, second.class, "a type anchor cannot tell two lambdas apart")
+
+    @builder.append(first, stage: pre_auth, name: :first_hook)
+    @builder.append(second, stage: pre_auth, name: :second_hook)
+    @builder.insert_after(:second_hook, inserted, stage: pre_auth, name: :inserted_hook)
+
+    assert_equal([first, second, inserted], @builder.entries.map(&:step))
+    assert_equal(%i[first_hook second_hook inserted_hook], @builder.entries.map(&:name))
+
+    # PIPE-20 keeps its type semantics; a name removes the one entry it names.
+    @builder.remove(:second_hook)
+    assert_equal([first, inserted], @builder.entries.map(&:step))
+    @builder.remove(Proc)
+    assert_empty(@builder.entries)
+  end
+
+  test "PIPE-21: an absent name anchor fails identifying the name rather than no-op'ing" do
+    @builder.append(->(req, cur) { cur.call(req) }, stage: Dexpace::Pipeline::Stages::PRE_AUTH, name: :present)
+
+    error = assert_raises(Dexpace::PipelineError) do
+      @builder.replace(:absent, ->(req, cur) { cur.call(req) }, stage: Dexpace::Pipeline::Stages::PRE_AUTH)
+    end
+    assert_includes(error.message, "anchor step named :absent was not found in pipeline (PIPE-21)")
+    assert_equal(1, @builder.entries.size, "a failed edit changes nothing")
+
+    # A name addresses one entry, so it cannot label a batch.
+    batch_error = assert_raises(Dexpace::PipelineError) do
+      @builder.append_all([->(r, c) { c.call(r) }, ->(r, c) { c.call(r) }],
+                          stage: Dexpace::Pipeline::Stages::POST_AUTH, name: :batch)
+    end
+    assert_includes(batch_error.message, "addresses exactly one entry")
+  end
+
   test "PIPE-7: append adds to the tail and prepend to the head within a non-pillar stage" do
     a = ProbeStep.new(tag: :a, log: [])
     b = ProbeStep.new(tag: :b, log: [])
@@ -2065,6 +2144,37 @@ class DexpacePipelineBuilderTest < DexpaceTestCase
     assert_equal(snapshot, @builder.entries, "builder entries must remain unchanged on rejected reload")
   end
 
+  # PIPE-23's all-or-nothing clause is written ABOUT this case -- "if it encounters a pillar
+  # collision (a distinct second step for an occupied pillar), it MUST leave the existing
+  # collection completely unchanged" -- and PIPE-5 names the bulk path outright. A reload that only
+  # type-checks its entries installs two steps on a pillar and violates PIPE-4 silently, which the
+  # invalid-entry test above would never see.
+  test "PIPE-23 & PIPE-5: reload rejects a pillar collision in the incoming set and installs nothing" do
+    @builder.append(ProbeStep.new(tag: :orig, log: []), stage: Dexpace::Pipeline::Stages::PRE_AUTH)
+    snapshot = @builder.entries.dup
+
+    log = []
+    first = ProbeStep.new(tag: :r, log: log)
+    second = ProbeStep.new(tag: :r, log: log)
+    assert_equal(first, second, "value-equal, so an ==-based check would miss the collision")
+    refute_same(first, second)
+
+    colliding = [
+      Dexpace::Pipeline::Entry.build(stage: Dexpace::Pipeline::Stages::RETRY, step: first),
+      Dexpace::Pipeline::Entry.build(stage: Dexpace::Pipeline::Stages::RETRY, step: second),
+    ]
+
+    error = assert_raises(Dexpace::PipelineError) { @builder.reload(colliding) }
+    assert_includes(error.message, "pillar retry would hold 2 distinct steps")
+    assert_equal(snapshot, @builder.entries, "a rejected reload leaves the collection completely unchanged")
+
+    # PIPE-6's identity rule from the other side: the SAME object twice is not a collision, and it
+    # collapses to one entry rather than duplicating ("no error, no duplication").
+    @builder.reload([colliding.first, Dexpace::Pipeline::Entry.build(stage: Dexpace::Pipeline::Stages::RETRY, step: first)])
+    assert_equal(1, @builder.entries.size)
+    assert_same(first, @builder.entries[0].step)
+  end
+
   test "PIPE-24: install_preset is all-or-nothing" do
     existing = ProbeStep.new(tag: :existing, log: [])
     @builder.append(existing, stage: Dexpace::Pipeline::Stages::RETRY)
@@ -2080,6 +2190,26 @@ class DexpacePipelineBuilderTest < DexpaceTestCase
     end
     assert_includes(error.message, "cannot install preset: pillar retry is already occupied by ProbeStep (PIPE-24)")
     assert_equal(snapshot, @builder.entries, "builder entries must remain unchanged on rejected preset")
+  end
+
+  # The other half of PIPE-24's "installing nothing": a preset whose OWN entries collide on a
+  # pillar. The occupancy check above passes (the target pillars are empty), so without the shared
+  # validate-then-commit check a preset would install two steps on one pillar -- PIPE-4 violated by
+  # the very method PIPE-24 exists to constrain. Rejected on the same path #reload uses, so the two
+  # requirements cannot drift.
+  test "PIPE-24 & PIPE-4: a preset colliding with itself on a pillar installs nothing" do
+    @builder.append(ProbeStep.new(tag: :slot, log: []), stage: Dexpace::Pipeline::Stages::PRE_AUTH)
+    snapshot = @builder.entries.dup
+
+    log = []
+    preset_entries = [
+      Dexpace::Pipeline::Entry.build(stage: Dexpace::Pipeline::Stages::REDIRECT, step: ProbeStep.new(tag: :a, log: log)),
+      Dexpace::Pipeline::Entry.build(stage: Dexpace::Pipeline::Stages::REDIRECT, step: ProbeStep.new(tag: :a, log: log)),
+    ]
+
+    error = assert_raises(Dexpace::PipelineError) { @builder.install_preset(preset_entries) }
+    assert_includes(error.message, "pillar redirect would hold 2 distinct steps")
+    assert_equal(snapshot, @builder.entries, "a rejected preset installs nothing")
   end
 
   test "PIPE-38: append_all preserves order; prepend_all reverses order" do
@@ -2136,7 +2266,9 @@ module Dexpace
       def self.flattening(pipeline)
         builder = new(transport: pipeline.transport)
         pipeline.entries.each do |entry|
-          builder.append(entry.step, stage: entry.stage)
+          # `name:` travels with FLATTEN, or a seeded pipeline would silently lose the anchors the
+          # four surgical edits address (PIPE-35 copies the steps; the names are part of the copy).
+          builder.append(entry.step, stage: entry.stage, name: entry.name)
         end
         builder
       end
@@ -2152,24 +2284,32 @@ module Dexpace
         end
       end
 
-      def append(step, stage: nil)
+      # `name:` is the optional surgical-edit anchor (Entry, Task 5). It addresses exactly one
+      # entry, which is what a type anchor cannot do for a lambda step: every lambda's class is
+      # Proc (verified fact 13), so insert_after(Proc, ...) anchors arbitrarily and remove(Proc)
+      # deletes every lambda in the pipeline. Type anchoring is unchanged and stays the default.
+      def append(step, stage: nil, name: nil)
         target_stage = resolve_stage(step, stage)
         check_pillar_exclusivity!(target_stage, step) do
-          @buckets[target_stage] << Entry.build(stage: target_stage, step:)
+          @buckets[target_stage] << Entry.build(stage: target_stage, step:, name:)
         end
         self
       end
 
-      def prepend(step, stage: nil)
+      def prepend(step, stage: nil, name: nil)
         target_stage = resolve_stage(step, stage)
         check_pillar_exclusivity!(target_stage, step) do
-          @buckets[target_stage].unshift(Entry.build(stage: target_stage, step:))
+          @buckets[target_stage].unshift(Entry.build(stage: target_stage, step:, name:))
         end
         self
       end
 
-      def append_all(steps, stage: nil)
-        steps.each { |s| append(s, stage:) }
+      # A name addresses exactly one entry, so naming a batch of more than one is a caller bug
+      # rather than a shorthand -- it would install two entries a later edit could not tell apart,
+      # which is the failure the name exists to remove.
+      def append_all(steps, stage: nil, name: nil)
+        reject_batch_name!(steps, name)
+        steps.each { |s| append(s, stage:, name:) }
         self
       end
 
@@ -2178,52 +2318,62 @@ module Dexpace
       # INDIVIDUALLY, so [a, b, c] ends up c, b, a within the stage, while append_all preserves the
       # batch's order. The reversal is a consequence of the definition rather than a special case,
       # and it is here in prose because a caller reading the signature alone would expect [a, b, c].
-      def prepend_all(steps, stage: nil)
-        steps.each { |s| prepend(s, stage:) }
+      def prepend_all(steps, stage: nil, name: nil)
+        reject_batch_name!(steps, name)
+        steps.each { |s| prepend(s, stage:, name:) }
         self
       end
 
       # PIPE-18. The anchor is the FIRST step in flattened order that is an instance of anchor_type.
+      #
+      # PIPE-18. The anchor is the FIRST step in flattened order that is an instance of anchor_type,
+      # or -- when a Symbol or String is given instead -- the one entry carrying that name.
       #
       # The four surgical edits are keyed by step TYPE, and every lambda step has the class
       # Proc (verified fact 13) -- so in a pipeline holding two lambdas, insert_after(Proc, ...)
       # anchors on whichever flattens first and remove(Proc) deletes both. A step intended as an
       # anchor should be a named class, or should carry Entry's optional name: and be anchored by
       # that name instead -- see this task's 2026-09-13 amendment.
-      def insert_after(anchor_type, step, stage: nil)
-        anchor_entry, bucket = find_anchor(anchor_type)
+      def insert_after(anchor, step, stage: nil, name: nil)
+        anchor_entry, bucket = find_anchor(anchor)
         target_stage = resolve_surgical_stage(step, stage, anchor_entry.stage)
 
         idx = bucket.index(anchor_entry)
-        bucket.insert(idx + 1, Entry.build(stage: target_stage, step:))
+        bucket.insert(idx + 1, Entry.build(stage: target_stage, step:, name:))
         self
       end
 
-      def insert_before(anchor_type, step, stage: nil)
-        anchor_entry, bucket = find_anchor(anchor_type)
+      def insert_before(anchor, step, stage: nil, name: nil)
+        anchor_entry, bucket = find_anchor(anchor)
         target_stage = resolve_surgical_stage(step, stage, anchor_entry.stage)
 
         idx = bucket.index(anchor_entry)
-        bucket.insert(idx, Entry.build(stage: target_stage, step:))
+        bucket.insert(idx, Entry.build(stage: target_stage, step:, name:))
         self
       end
 
-      def replace(anchor_type, step, stage: nil)
-        anchor_entry, bucket = find_anchor(anchor_type)
+      def replace(anchor, step, stage: nil, name: nil)
+        anchor_entry, bucket = find_anchor(anchor)
         target_stage = resolve_surgical_stage(step, stage, anchor_entry.stage)
 
         idx = bucket.index(anchor_entry)
-        bucket[idx] = Entry.build(stage: target_stage, step:)
+        bucket[idx] = Entry.build(stage: target_stage, step:, name:)
         self
       end
 
-      def remove(anchor_type)
+      # PIPE-20 keeps its type semantics -- EVERY instance of the type, relative order preserved,
+      # a no-op when absent. A NAME addresses exactly one entry, so a name anchor removes one.
+      def remove(anchor)
         @buckets.each_value do |bucket|
-          bucket.reject! { |entry| entry.step.is_a?(anchor_type) }
+          bucket.reject! { |entry| anchor_matches?(entry, anchor) }
         end
         self
       end
 
+      # PIPE-23, all-or-nothing. The whole set is validated -- types AND pillar exclusivity, which
+      # is the collision the requirement's own sentence is about -- BEFORE a single bucket is
+      # cleared, so a rejected reload leaves the existing collection completely unchanged without
+      # a rescue or a snapshot. PIPE-5 names this path in as many words.
       def reload(entries)
         validated = validate_reload_entries(entries)
         @buckets.each_value(&:clear)
@@ -2235,7 +2385,9 @@ module Dexpace
 
       # PIPE-24. Empty target pillars ONLY, validated up front, the WHOLE call rejected on any
       # collision, never an overlay. It shares validate-then-commit with #reload (PIPE-23) so
-      # "all-or-nothing" is one code path and the two requirements cannot drift.
+      # "all-or-nothing" is one code path and the two requirements cannot drift -- including the
+      # incoming-set pillar check, which is why a preset that collides with ITSELF on a pillar is
+      # rejected here too and not only one that collides with an occupant.
       #
       # R14/P4-34: this is the mechanism and there is no standard step SET behind it. The redirect
       # and retry families are phase 6's and the instrumentation step is phase 5's, so
@@ -2352,28 +2504,93 @@ module Dexpace
         yield
       end
 
-      def find_anchor(anchor_type)
+      def find_anchor(anchor)
         Stages::ALL.each do |stage|
           next if stage.terminal?
 
           bucket = @buckets[stage]
-          match = bucket.find { |entry| entry.step.is_a?(anchor_type) }
+          match = bucket.find { |entry| anchor_matches?(entry, anchor) }
           return [match, bucket] if match
         end
 
-        raise Dexpace::PipelineError, "anchor step of type #{anchor_type} was not found in pipeline (PIPE-21)"
+        # PIPE-21: "fail with an error identifying the missing type", and identifying the missing
+        # NAME on the name path, for the same reason -- a silent no-op is what the requirement
+        # forbids, and an error that does not say what was looked for is one a caller cannot act on.
+        raise Dexpace::PipelineError, "#{describe_anchor(anchor)} was not found in pipeline (PIPE-21)"
       end
 
+      # A Symbol or String anchors on Entry#name; anything else is a type anchor, unchanged.
+      def anchor_matches?(entry, anchor)
+        if anchor.is_a?(::Symbol) || anchor.is_a?(::String)
+          !entry.name.nil? && entry.name.to_s == anchor.to_s
+        else
+          entry.step.is_a?(anchor)
+        end
+      end
+
+      def describe_anchor(anchor)
+        if anchor.is_a?(::Symbol) || anchor.is_a?(::String)
+          "anchor step named #{anchor.inspect}"
+        else
+          "anchor step of type #{anchor}"
+        end
+      end
+
+      def reject_batch_name!(steps, name)
+        return if name.nil? || steps.size <= 1
+
+        raise Dexpace::PipelineError,
+              "name: #{name.inspect} addresses exactly one entry and cannot be given for a batch " \
+              "of #{steps.size} steps (PIPE-18)"
+      end
+
+      # PIPE-5 names the bulk path explicitly -- a distinct second step onto an occupied pillar
+      # "via append, prepend, insert-after/insert-before, or seeding/flattening from an existing
+      # pipeline (bulk reload)" -- and PIPE-23's all-or-nothing clause IS that collision: "if it
+      # encounters a pillar collision (a distinct second step for an occupied pillar), it MUST
+      # leave the existing collection completely unchanged". Both checks therefore run BEFORE any
+      # bucket is cleared or appended, which is what makes "leaves nothing partially rebuilt" a
+      # property of the order of operations rather than of a rescue.
       def validate_reload_entries(entries)
         unless entries.is_a?(::Array)
           raise Dexpace::PipelineError, "cannot reload pipeline entries: entries must be an Array (PIPE-23)"
         end
 
-        entries.map do |entry|
+        validated = entries.map do |entry|
           unless entry.is_a?(Entry)
             raise Dexpace::PipelineError, "cannot reload pipeline entries: invalid entry #{entry.inspect} (PIPE-23)"
           end
           entry
+        end
+
+        resolve_incoming_pillars(validated)
+      end
+
+      # PIPE-4's at-most-one rule over the INCOMING set, and PIPE-6's idempotence over it in the
+      # same pass. Distinctness is #equal?, never == (design section 5.1): core's models define
+      # value equality, so == on two structurally identical steps would report them the same and
+      # silently swallow a genuine collision -- the CTX-9 trap, arriving here for the third time.
+      # Two DISTINCT steps on one pillar reject the whole call; the SAME step twice collapses to
+      # one entry, which is PIPE-6's "no error, no duplication" on the bulk path.
+      def resolve_incoming_pillars(validated)
+        seen = {}.compare_by_identity
+
+        validated.reject do |entry|
+          stage = entry.stage
+          next false unless stage.pillar?
+
+          occupant = seen[stage]
+          if occupant.nil?
+            seen[stage] = entry.step
+            false
+          elsif occupant.equal?(entry.step)
+            true # PIPE-6: same step, no error, no duplication
+          else
+            raise Dexpace::PipelineError,
+                  "pillar #{stage.name} would hold 2 distinct steps " \
+                  "(#{occupant.class}, #{entry.step.class}); a pillar admits at most one " \
+                  "(PIPE-4, PIPE-5; rejected whole per PIPE-23 and PIPE-24)"
+          end
         end
       end
 
@@ -2404,14 +2621,17 @@ module Dexpace
       attr_reader transport: untyped
 
       def initialize: (transport: untyped) -> void
-      def append: (untyped step, ?stage: Stage | Symbol | nil) -> self
-      def prepend: (untyped step, ?stage: Stage | Symbol | nil) -> self
-      def append_all: (Array[untyped] steps, ?stage: Stage | Symbol | nil) -> self
-      def prepend_all: (Array[untyped] steps, ?stage: Stage | Symbol | nil) -> self
-      def insert_after: (singleton(Object) anchor_type, untyped step, ?stage: Stage | Symbol | nil) -> self
-      def insert_before: (singleton(Object) anchor_type, untyped step, ?stage: Stage | Symbol | nil) -> self
-      def replace: (singleton(Object) anchor_type, untyped step, ?stage: Stage | Symbol | nil) -> self
-      def remove: (singleton(Object) anchor_type) -> self
+      # `anchor` is a step TYPE or an Entry#name; `name:` labels the entry an edit installs.
+      type anchor = singleton(Object) | Symbol | String
+
+      def append: (untyped step, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def prepend: (untyped step, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def append_all: (Array[untyped] steps, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def prepend_all: (Array[untyped] steps, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def insert_after: (anchor anchor, untyped step, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def insert_before: (anchor anchor, untyped step, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def replace: (anchor anchor, untyped step, ?stage: Stage | Symbol | nil, ?name: (Symbol | String)?) -> self
+      def remove: (anchor anchor) -> self
       def reload: (Array[Entry] entries) -> self
       def install_preset: (Array[Entry] entries) -> self
       def entries: () -> Array[Entry]
@@ -2429,7 +2649,7 @@ Positioned after drivers: `require_relative "dexpace/pipeline/builder"`.
 - [ ] **Step 6: Run the test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/pipeline/builder_test.rb`
-Expected: PASS, 14 runs, 0 failures, 0 errors.
+Expected: PASS, 18 runs, 0 failures, 0 errors.
 
 ---
 

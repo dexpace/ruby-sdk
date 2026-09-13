@@ -650,18 +650,26 @@ a later reader "fixing" it.
 
 A frozen `Data` over a frozen table with an `.of` factory, per `type-system/545949a5`, and never a `T::Enum`
 — which does not exist here anyway, because `sorbet-runtime` is a dependency `SEAM-1` forbids. Three
-members, so the per-flavour behaviour is data rather than a `case`:
+members plus a numeric bound, so the per-flavour behaviour is data rather than a `case`:
 
-`TraceIdFlavour = Data.define(:name, :trace_id_pattern, :invalid_trace_id)`, with
-`#valid_trace_id?(trace_id)` returning `trace_id != invalid_trace_id && trace_id_pattern.match?(trace_id)`
-and `#renders?(trace_id)` returning `trace_id == invalid_trace_id || trace_id_pattern.match?(trace_id)`,
-which is what `Bundle`'s own validation calls.
+`TraceIdFlavour = Data.define(:name, :trace_id_pattern, :invalid_trace_id, :max_value)`, with a private
+`#renderable?(trace_id)` returning `trace_id_pattern.match?(trace_id) && (max_value.nil? || trace_id.to_i <=
+max_value)`, `#valid_trace_id?(trace_id)` returning `trace_id != invalid_trace_id && renderable?(trace_id)`
+and `#renders?(trace_id)` returning `trace_id == invalid_trace_id || renderable?(trace_id)`, which is what
+`Bundle`'s own validation calls.
 
-| Constant | `name` | pattern | `invalid_trace_id` |
-|---|---|---|---|
-| `TraceIdFlavour::NONE` | `:none` | `\A(?!)\z` — matches nothing, so only the sentinel `#renders?` | 32 hex zeros |
-| `TraceIdFlavour::W3C` | `:w3c` | 32 lowercase hex | 32 hex zeros |
-| `TraceIdFlavour::DATADOG` | `:datadog` | decimal digits of a 64-bit unsigned | `"0"` |
+**`max_value` exists because a digit count cannot express `OBS-27`'s range and the pattern alone is
+over-permissive.** `OBS-27` fixes the Datadog flavour as "a 64-bit unsigned integer rendered as a decimal
+string"; the pattern that admits every such rendering, `\A[0-9]{1,20}\z`, also admits
+`99999999999999999999`, which is larger than `2**64 - 1` (verified). The bound is a member rather than a
+branch so the table stays the whole of the per-flavour behaviour, and it is `nil` on both hex flavours,
+where the pattern *is* the whole rule.
+
+| Constant | `name` | pattern | `invalid_trace_id` | `max_value` |
+|---|---|---|---|---|
+| `TraceIdFlavour::NONE` | `:none` | `\A(?!)\z` — matches nothing, so only the sentinel `#renders?` | 32 hex zeros | `nil` |
+| `TraceIdFlavour::W3C` | `:w3c` | 32 lowercase hex | 32 hex zeros | `nil` |
+| `TraceIdFlavour::DATADOG` | `:datadog` | decimal digits, `\A[0-9]{1,20}\z` | `"0"` | `2**64 - 1` |
 
 `TraceIdFlavour.of(name)` resolves a `Symbol` against the frozen table and raises
 `Dexpace::InvalidArgumentError` on an unrecognised one — the `Protocol.parse` behaviour of `HTTP-33` and not
@@ -701,9 +709,13 @@ fill them. It does not fix the span or tracer protocols**, which are `OBS-21`–
 - `Dexpace::Instrumentation::NO_TRACER_FACTORY` — one frozen instance, and it is **not** empty, because
   `CTX-20`'s embedded MUST forbids that: "Its factory method MUST be safe to invoke concurrently from
   multiple threads." A factory with no factory method cannot satisfy a MUST about that method. It defines
-  exactly one, `#tracer(name = nil, version = nil)`, returning one shared frozen `NO_TRACER`
-  (`private_constant`). It holds no state, so concurrency safety is structural and the test asserts it by
-  identity across threads rather than by argument.
+  exactly one, `#tracer(name = nil, version = nil)`, returning one shared frozen
+  `Dexpace::Instrumentation::NO_TRACER` — a **public** constant, whose *class* `NoTracer` is the
+  `private_constant`. Public for the same reason `NO_SPAN` is, and the reason is the reference form: the
+  assertion `OBS-25`'s allocation clause needs is `assert_same Dexpace::Instrumentation::NO_TRACER,
+  factory.tracer`, a **qualified** reference, which raises `NameError: private constant … referenced`
+  against a private constant even from inside `Dexpace` (verified fact 6). It holds no state, so concurrency
+  safety is structural and the test asserts it by identity across threads rather than by argument.
 
 `#tracer`'s **name and positional arity are the ecosystem's, not this repository's**, and that is P4-8.
 §8.1 fixes core's tracing as "a structural subset of the `Tracer`/`Span` shape of `opentelemetry-api`" so
@@ -860,8 +872,9 @@ test/support/fake_context.rb                     the one double, required explic
 Twelve new `lib/` files, **ten** `sig/` mirrors and **ten** `test/` mirrors — `bounded_map.rb` and
 `context/call_key.rb` are `private_constant`s and get neither, per P2-15, and their behaviour is asserted at
 their call sites, which is the treatment phase 2 gave `Dexpace::Hooks` — one test-support file, one cop with
-its cases, and three already-existing files that gain content: `lib/dexpace.rb`, `sig/dexpace.rbs` and the
-repository-root `test/fixtures/surface/dexpace-core.txt`.
+its cases, and two already-existing files that gain content: `lib/dexpace.rb` and the repository-root
+`test/fixtures/surface/dexpace-core.txt`. `sig/dexpace.rbs` is **unchanged**: every constant this phase adds
+has its own file under `sig/`.
 
 **The placement rule is phase 1's and is applied, not re-decided** (P1-1, `module-organization/6e69ad04`): a
 public constant the design names without a namespace is flat and its file sits under a directory that
@@ -1111,9 +1124,13 @@ fakes into `dexpace-conformance` — a consumer outside `dexpace-core` — stays
 without meeting it.
 
 The promotion rules — `CTX-1`–`CTX-3`, `CTX-16`, `CTX-17` — are tested against **real** contexts with a
-`ContextStore.new(cap: …)` passed explicitly, never `ContextStore.default`. No test in 4a touches the
-process-wide store, which is what makes `testing/4ef070df`'s "every test must run alone, in any order" true
-of this suite rather than aspirational.
+`ContextStore.new(cap: …)` passed explicitly, never `ContextStore.default`. **No test in 4a registers a
+context in the process-wide store**, which is what makes `testing/4ef070df`'s "every test must run alone, in
+any order" true of this suite rather than aspirational. The cases that assert construction alone — `CTX-4`'s
+frozen key, `CTX-5`/`CTX-6`'s inequality, `CTX-15`'s minting, and the two `operation_name` rejections — do
+take `.build`'s `store: ContextStore.default` default, and that is inert by `CTX-17`: construction registers
+nothing, so those cases read the singleton and write nothing to it. It is inert only because `.default` is
+**assigned at file load** rather than memoised on first call; see the store's `.default` row above.
 
 **The tests a reader would otherwise write wrong.**
 
@@ -1205,8 +1222,8 @@ What 4a nonetheless ships as a stable contract, so that a later phase cites rath
 |---|---|
 | **4b**, optionally | `Dexpace::ContextConflictError` as the fourth member of the phase-2 error shape, if 4b wants a precedent for a conflict-class error. Nothing else. `RECOV-11`'s "current context" is phase 2's `Dexpace::Cancellation`, not this |
 | **4c**, optionally | `Dexpace::BoundedMap` — if `PIPE`'s per-call cursor ever needs a bounded keyed map, it uses this one and declares no second. `PIPE-11`'s cursor-scoped state is not a `CTX` artefact and 4c owns its shape |
-| **Phase 5**, obligatorily | `Dexpace::Instrumentation::Bundle` with its eight members, `Bundle::NONE`, `Bundle::INVALID_SPAN_ID`, `TraceIdFlavour` with its three constants and `.of`, `NO_SPAN`, `NO_TRACER_FACTORY` and `#tracer`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory`. The five-clause handshake in R3 is the contract; the no-op-protocol postponement below is its record, and phase 5c, Tasks 3, 4 and 5 perform it |
-| **Phase 5**, obligatorily | `RequestContext#operation_name` and `ExchangeContext#operation_name` — the chain half of `SEAM-28`'s postponed identifier, already carried and already advisory; phase 5c, Task 4 consumes it |
+| **Phase 5**, obligatorily | `Dexpace::Instrumentation::Bundle` with its eight members, `Bundle::NONE`, `Bundle::INVALID_SPAN_ID`, `TraceIdFlavour` with its three constants and `.of`, `NO_SPAN`, `NO_TRACER_FACTORY` and `#tracer`, `NO_TRACER` (public, by the reference-form argument above; phase 5c widens its class and keeps the object's identity), and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory`. The five-clause handshake in R3 is the contract; the no-op-protocol postponement below is its record, and phase 5c, Tasks 3, 4 and 5 perform it |
+| **Phase 5**, obligatorily | `RequestContext#operation_name` and `ExchangeContext#operation_name` — the chain half of `SEAM-28`'s postponed identifier, already carried and already advisory; phase 5c, Task 4 consumes it **as a signature** (`_TracerFactory#tracer(name:)` takes the identifier a caller passes). **No wired path delivers it, and that is stated here rather than left to be discovered downstream:** nothing in `RECOV`, `PIPE` or any transport constructs or promotes a context, so in the MVP no step can reach a `RequestContext` at all — phase 5b's plan records the same finding against its own `operation_name_for`/`bundle_for` helpers, and phase 6a, Task 8 supplies the widening, which carries an `Instrumentation::Bundle` on the cursor and **not** the operation name. The end-to-end wiring is phase 10's inbound list |
 | **Phase 5**, on the cap's postponed configuration source (5a, Task 13) | `ContextStore.new(cap:)` and `ContextStore::MAX_TRACKED_CONTEXTS`, which is where a configuration source attaches |
 | **Phase 6**, on `AUTH-19` | `Dexpace::BoundedMap`, reached by a bare unqualified name from `module Dexpace; module …` in the full nesting form, with `#update` added to it rather than a second map written |
 | **Phase 9**, on `XCUT-14` | The same map, as the single implementation the audit checks; and `ContextStore` as the one `CTX-11` instance of it |
@@ -1220,7 +1237,7 @@ the phase-4 segmentation design left the ledger empty.
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P4-1 | The three context flavours are flat — `Dexpace::DispatchContext`, `Dexpace::RequestContext`, `Dexpace::ExchangeContext` — and "sharing a module" (§5.4) is read as **a module they include**, `Dexpace::Context`, not a namespace containing them | design §5.4; P1-1; phase 3a's P3-7 | `Dexpace::Context::Request` would shadow phase 1's `Dexpace::Request` for every file inside `module Dexpace; module Context`, and `Dexpace::Context::Request#request` returns a `Dexpace::Request` — the two are one line apart. That is exactly the hazard `Dexpace/QualifiedCoreConstant` exists for, and the cop cannot express the fix: its message is "write `::Foo`", and `::Request` is wrong. The alternative — adding `Request` and `Response` to `SHADOWED` under the now repository-wide `WATCHED` — would flag every legitimate bare `Request` in core. The included-module reading is also what phase 1 already did twice, with `Dexpace::Error` and `Dexpace::Model` |
-| P4-2 | Public constants design §5.4 does not name: `Dexpace::Context`, `Dexpace::DispatchContext`, `Dexpace::RequestContext`, `Dexpace::ExchangeContext`, `Dexpace::ContextStore`, `Dexpace::ContextStore::MAX_TRACKED_CONTEXTS`, `Dexpace::ContextConflictError`, `Dexpace::Instrumentation`, `Dexpace::Instrumentation::TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, `Dexpace::Instrumentation::NO_SPAN`, `Dexpace::Instrumentation::NO_TRACER_FACTORY`, `Dexpace::Instrumentation::Bundle::INVALID_SPAN_ID`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and phase 3a's P3-8 precedent | `NFR-4` locks every public signature at the first release tag, so a name that arrives by accident is locked by accident. §5.4 describes the model and names no Ruby constant for any of it; §8.1 names only `Dexpace::Instrumentation::Bundle` and `Bundle::NONE`. Each name above is chosen on purpose and its reason is in this document's object-model section |
+| P4-2 | Public constants design §5.4 does not name: `Dexpace::Context`, `Dexpace::DispatchContext`, `Dexpace::RequestContext`, `Dexpace::ExchangeContext`, `Dexpace::ContextStore`, `Dexpace::ContextStore::MAX_TRACKED_CONTEXTS`, `Dexpace::ContextConflictError`, `Dexpace::Instrumentation`, `Dexpace::Instrumentation::TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, `Dexpace::Instrumentation::NO_SPAN`, `Dexpace::Instrumentation::NO_TRACER_FACTORY`, `Dexpace::Instrumentation::NO_TRACER`, `Dexpace::Instrumentation::Bundle::INVALID_SPAN_ID`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and phase 3a's P3-8 precedent | `NFR-4` locks every public signature at the first release tag, so a name that arrives by accident is locked by accident. §5.4 describes the model and names no Ruby constant for any of it; §8.1 names only `Dexpace::Instrumentation::Bundle` and `Bundle::NONE`. Each name above is chosen on purpose and its reason is in this document's object-model section |
 | P4-3 | `Dexpace::BoundedMap` and `Dexpace::CallKey` are `private_constant`, with no `sig/` mirror, no YARD gate entry and no surface-manifest row | design §5.4's "one implementation"; `CTX-4`; P2-15 | Verified: a `private_constant` on `Dexpace` is bare-name reachable from every full-nesting descendant and from nothing else, and `Module#constants` excludes it. Phase 6's `AUTH-19` store and phase 9's `XCUT-14` audit are both `dexpace-core` code, so the sharing works; no consumer outside this repository's namespace needs either, and `CTX-4` says outright that the key format and the counter mechanism "are a reference choice". The condition — `module-organization/64e84d64`'s full nesting form, never the compact one — is in the constants' own comments and in a corpus note |
 | P4-4 | A context is **not** a `Dexpace::Closeable`; it has `#close` and no latch, no `#closed?` and no block form | phase 2's `Closeable`; `CTX-9`, `CTX-10`, `CTX-18`; `resource-management/bf5560dc` | Verified on all three: a method on a frozen `Data` writing an ivar raises `FrozenError`, so `Closeable`'s latch cannot be included into a context. It is not needed: `CTX-9`'s eviction is conditional on reference identity, so a second close finds a different occupant or none and is already the well-defined no-op `CTX-18` requires. The block form is separately wrong here rather than merely absent — the object that must be closed is the **furthest-reached link**, which does not exist when the head is constructed, so a block on `DispatchContext.build` would close the head (a `CTX-10` no-op) and leak the exchange context that actually holds the slot |
 | P4-5 | The styleguide's block-form resource rule is recorded as not reaching this subsystem rather than as a conflict | `resource-management/bf5560dc`; phase 3a's P3-10 precedent | A rule that does not reach a case is a ledger row, not a corpus note; a note records what an implementation found a rule to get *wrong*. The reason is P4-4's second half and it is specific to a promotion chain, not general to value objects |
@@ -1263,7 +1280,8 @@ bundle in core; phase 5 implements the sentinels and populates rather than repla
 the decision to phase 5, and phase 5 cannot redefine it." The *protocols* of a span and a tracer are a
 different matter: they are `OBS-21`–`OBS-25`, phase 5's, and fixing them in phase 4 would be the same error
 in the other direction. So 4a ships three frozen singletons — `Dexpace::Instrumentation::NO_SPAN`,
-`NO_TRACER_FACTORY` and the `private_constant` `NO_TRACER` — and exactly **one** method between them,
+`NO_TRACER_FACTORY` and `NO_TRACER`, whose three classes are the `private_constant`s — and exactly **one**
+method between them,
 `NO_TRACER_FACTORY#tracer(name = nil, version = nil)`, which `CTX-20`'s embedded MUST ("Its factory method
 MUST be safe to invoke concurrently from multiple threads") forces into existence: a factory with no factory
 method cannot satisfy a MUST about that method. `NO_SPAN` responds to nothing beyond `Object`'s own surface,

@@ -89,6 +89,11 @@ text for `OBS-21`–`OBS-33` and related cross-cutting requirements (`CTX-20`, `
   instrument name, unit or attribute set** — `Keys::INSTRUMENT_REQUEST_COUNT` and
   `::INSTRUMENT_REQUEST_DURATION` are `5b`'s. `diagnostics.rb` requires nothing else in `5b` and
   defines no `Event`, so the require drags nothing. Nothing else in 5c waits on `5a` or `5b`.
+  **The consequence, stated so it is not met as a `LoadError`:** `5b`'s Task 6 must land before 5c's
+  Task 5, which the recommended `5a → 5b → 5c` order already gives. The charter's boundaries stay
+  conveniences — 5c consumes no `5a` or `5b` *behaviour* — but "a `5c` built first would be correct"
+  holds only if a 5c-first execution creates `diagnostics.rb` with `TRACE_ID`, `SPAN_ID` and
+  `DEFAULT_KEYS` itself and `5b` then adopts that file rather than creating a second one.
 - **Formatting:** double quotes, 2-space indentation, 100 columns, `consistent_comma` trailing
   commas.
 
@@ -723,7 +728,10 @@ require_relative "../error/invalid_argument_error"
 
 module Dexpace
   module Instrumentation
-    # OBS-27: trace-id encoding flavours: a frozen Data over a frozen table with an .of factory.
+    # OBS-27's trace-id encoding flavours: a frozen Data over a frozen table with an .of factory,
+    # never a case statement or a bare Symbol -- the per-flavour behaviour (a pattern and a
+    # sentinel) is data, not code. 4a's comment, kept verbatim: #generate_trace_id below is the
+    # ONE exception and P5-50 records why (a fourth member would be redefinition, boundary 10).
     class TraceIdFlavour < ::Data.define(:name, :trace_id_pattern, :invalid_trace_id)
       include Dexpace::Model
       private_class_method :new
@@ -1527,6 +1535,24 @@ class DexpaceInstrumentationTracingTest < DexpaceTestCase
                 Dexpace::Instrumentation::Tracing.current_span)
   end
 
+  test "OBS-26: a recording span with an invalid bundle activates but pushes no diagnostic key" do
+    # The only state 5b's step can reach in phase 5: a real tracer_factory: makes span.recording?
+    # true while bundle_for(request) is always Bundle::NONE. Pushing NONE's sentinels would
+    # publish trace.id=<32 zeros> on every event, which OBS-26 requires be treated as no-trace.
+    span = Dexpace::RecordingSpan.new
+
+    Dexpace::Instrumentation::Tracing.with_correlated_span(
+      span, Dexpace::Instrumentation::Bundle::NONE
+    ) do
+      assert_same(span, Dexpace::Instrumentation::Tracing.current_span)
+      refute(::Fiber.current.storage.key?(TRACE_ID))
+      refute(::Fiber.current.storage.key?(SPAN_ID))
+    end
+
+    assert_same(Dexpace::Instrumentation::NO_SPAN,
+                Dexpace::Instrumentation::Tracing.current_span)
+  end
+
   test "OBS-25, P5-47: activating currently active span returns NO_SCOPE by identity" do
     span = Dexpace::RecordingSpan.new
     Dexpace::Instrumentation::Tracing.with_span(span) do
@@ -1586,6 +1612,14 @@ module Dexpace
 
       def correlate(span, bundle)
         return activate(span) unless span.recording?
+        # OBS-26: "an all-zero trace/span id MUST be treated as invalid/no-trace". A recording
+        # span paired with Bundle::NONE is the ONLY state 5b's step can reach in phase 5 (no
+        # mechanism lets a step reach a RequestContext -- R11), so without this guard every log
+        # event of a tracing-enabled client would carry trace.id=<32 zeros>: a fake trace, which
+        # is worse than no key at all. Bundle#valid? is 4a's derived predicate and is exactly
+        # this test. The eventual source of real ids is _Span#context, once phase 6a's Task 8
+        # widening makes a populated bundle reachable.
+        return activate(span) unless bundle.valid?
 
         current = current_span
         prev_trace = ::Fiber[Diagnostics::TRACE_ID]
@@ -1635,7 +1669,7 @@ end
 - [ ] **Step 5: Run test to confirm it passes**
 
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/tracing_test.rb`
-Expected: PASS with 6 runs, 0 failures, 0 errors.
+Expected: PASS with 7 runs, 0 failures, 0 errors.
 
 ---
 
@@ -2660,8 +2694,10 @@ the clean-bundle isolation run on every Ruby in the matrix.
 - `P5-47` (`NO_SCOPE` returned on identity test, not recording flag): Task 6.
 - `P5-48` (Core ships no recording span/tracer/meter; assertions use fakes under `test/support/`): Tasks 1, 3, 4, 7, 8, 10.
 - `P5-49` (Per-key restore turns null-valued key into absent key): Tasks 5, 6.
+- `P5-50` (`#generate_trace_id` dispatches on `case name`; a fourth `Data` member is redefinition): Task 2.
 
-**Ten rows, `P5-40`–`P5-49`, and this plan adds none.** The design fixed the block; a plan that
+**Eleven rows, `P5-40`–`P5-50`, and this plan adds none.** `P5-50` was added to the **design's** block at
+final review, with this line and Task 2's restored comment as its code half. The design fixed the block; a plan that
 files a new `P5-` number has re-opened a decision the design closed. `5b` holds `P5-16`–`P5-38` with
 `P5-39` a deliberate unused gap, and nothing here reaches into that block. The `OBS-29` wiring item and the
 four findings the two reconciliation passes made already have owners, and are cited rather than re-stated.

@@ -15,7 +15,7 @@ rows with no budget line (`PIPE-33`, `ASYNC-6`). `ASYNC-3` stays ⏳ (an unsatis
 §10.5, on no such entry); nothing is postponed by this plan.
 
 **Architecture:** One class, `Dexpace::Async::Thread::Pool`, with a private `Job` (frozen `Data`)
-crossing the thread boundary and one `Thread.new` call in the whole gem. The worker loop clears its
+crossing the thread boundary and two bounded `Thread.new` call sites in the whole gem (`Pool#spawn_worker`, bounded by a validated `size`; `Timer#spawn_thread`, at most one per pool and only on the first positive `#delay`). The worker loop clears its
 *inherited* fiber storage once at thread start (`R8`/`P8-20`) so phase 5b's `Diagnostics.with`
 *replaces* rather than *merges onto* whatever the pool creator's fiber happened to hold, then loops
 `while (job = @queue.pop)` over a bounded `::Thread::SizedQueue`, installing each job's captured
@@ -76,8 +76,9 @@ C drops) for the exact assertion text six decisions below turn on.
   or `Dexpace::ClosedError` at the one call site that can raise them (`#post`), never left to
   propagate — `P6-4`'s obligation, met by a gem that is not a transport.
 - **`Diagnostics.capture`/`.with` are phase 5b's, called and never reimplemented.** This plan writes
-  exactly one new line against fiber storage — the worker's one-time inherited-storage clear
-  (`::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }`) — and calls `::Fiber#storage=`
+  exactly one new line against fiber storage, at two boundaries — the worker's inherited-storage clear
+  (`::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }`), once at thread start and again in
+  `#run`'s `ensure` after every task (`R8`/`P8-20`) — and calls `::Fiber#storage=`
   nowhere, so the warned `Fiber#storage=` setter — the one
   `docs/knowledge/notes/observability.md` records — is a call this gem never makes.
 - **`Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`.** Every reference in this plan
@@ -1187,15 +1188,24 @@ class PoolTest < DexpaceTestCase
     assert_raises(::NoMethodError) { Pool.new(1, 1, 1, "x", nil, nil) }
   end
 
-  test "there is exactly one Thread.new in the gem's lib, and it is in the spawn helper" do
-    hits = Dir.glob(File.join(ROOT, "gems/dexpace-async-thread/lib/**/*.rb")).flat_map do |path|
+  # Comments are stripped before matching: an explanatory comment naming the call ("the ONE
+  # ::Thread.new in this gem") is not a call, and counting it makes the assertion unsatisfiable
+  # against the code it is written for -- which is what an earlier draft of this test got wrong.
+  # The gem has TWO bounded spawn sites, not one: Pool#spawn_worker, and Timer#spawn_thread from
+  # Task 7. Both are bounded construction in a private method (R12's df658d73 row). The expected
+  # set is a literal so adding a site is a deliberate edit here, never a silent count bump; Task 7
+  # adds timer.rb to it in the same step that creates the file.
+  SPAWN_SITES = %w[pool.rb].freeze # Task 7 makes this %w[pool.rb timer.rb]
+
+  test "every Thread.new in the gem's lib is in a bounded spawn helper, and there are no others" do
+    hits = Dir.glob(File.join(ROOT, "gems/dexpace-async-thread/lib/**/*.rb")).sort.flat_map do |path|
       File.readlines(path).each_with_index.filter_map do |line, index|
-        "#{path}:#{index + 1}" if line.include?("::Thread.new") || line.match?(/(?<!:)\bThread\.new/)
+        code = line.sub(/#.*\z/, "")
+        File.basename(path) if code.include?("::Thread.new") || code.match?(/(?<!:)\bThread\.new/)
       end
     end
 
-    assert_equal(1, hits.size, hits.inspect)
-    assert_match(%r{lib/dexpace/async/thread/pool\.rb}, hits.first)
+    assert_equal(SPAWN_SITES, hits.sort)
   end
 
   test "the forbidden three and Thread.current[] appear nowhere in lib/" do
@@ -1398,9 +1408,10 @@ module Dexpace
           ::Thread.new do
             ::Thread.current.name = "#{@name} worker #{index}"
             ::Thread.current.report_on_exception = false # set INSIDE the thread; verified fact 10
-            # R8/R9: clear whatever this worker inherited from the fiber that called Pool.build,
-            # exactly once, before the first task. Fiber.current.storage returns a fresh Hash
-            # (verified fact 5), so this iterates a copy and writes to the live storage.
+            # R8/R9, boundary 1 of 2: clear whatever this worker inherited from the fiber that
+            # called Pool.build, once, before the first task. Fiber.current.storage returns a
+            # fresh Hash (verified fact 5), so this iterates a copy and writes to live storage.
+            # Boundary 2 is #run's ensure, and neither is sufficient alone.
             ::Fiber.current.storage&.each_key { |key| ::Fiber[key] = nil }
             begin
               while (job = @queue.pop) # a suspension point; check-after-resume's earliest chance
@@ -1429,6 +1440,17 @@ module Dexpace
                    .cause(e).emit
           end
           nil
+        ensure
+          # R8/R9, boundary 2 of 2, and it is not redundant with the thread-start clear.
+          # Diagnostics.with restores only (prior.keys | snapshot.keys), so a key the BLOCK itself
+          # writes -- an #on_settle handler (which runs on this worker), a caller's interceptor, a
+          # sink -- is in neither set and survives onto the next caller's task. Measured: a block
+          # doing Fiber[:tenant] = "A-LEAK" leaves the next task running with
+          # {tenant: "A-LEAK", "trace.id": "CALLER-B"}, which is ASYNC-9's "restore the prior
+          # context afterward ... never clobbered" failing across reuse. After the thread-start
+          # clear the worker's prior map is provably {}, so re-running the line IS "restore prior".
+          # Cost: one Fiber.current.storage read per task, against an HTTP round trip.
+          ::Fiber.current.storage&.each_key { |key| ::Fiber[key] = nil }
         end
       end
     end
@@ -1482,8 +1504,9 @@ Expected: PASS, 11 runs. Then `bundle exec rake rubocop rbs:validate steep`.
 
 - [ ] **Step 6: Prove the grep tests are not vacuous**
 
-Temporarily add a second `::Thread.new` anywhere in `lib/` (e.g. inside `#post`) and confirm the
-"exactly one Thread.new" test goes red; restore. Temporarily add a bare `Thread.current[:x]` read
+Temporarily add a third `::Thread.new` anywhere in `lib/` (e.g. inside `#post`) and confirm the
+two-sites test goes red; restore. Then add one inside a **comment** and confirm it stays green — the
+comment-stripping half needs its own proof, because it is what an earlier draft of this test got wrong. Temporarily add a bare `Thread.current[:x]` read
 and confirm the forbidden-three test goes red; restore. A test that has only ever been seen to
 pass has not been tested against failure.
 
@@ -1585,6 +1608,28 @@ class PoolDiagnosticsTest < DexpaceTestCase
     assert_equal({}, result_queue.pop)
   end
 
+  # The reuse floor, and the one the thread-start clear does NOT reach: Diagnostics.with restores
+  # only (prior.keys | snapshot.keys), so a key the BLOCK writes is in neither set. Without #run's
+  # ensure clear this test observes {tenant: "A-LEAK", "trace.id": "CALLER-B"} -- caller A's tag on
+  # caller B's log lines, on one reused worker. size: 1 is load-bearing: both tasks must land on
+  # the same worker or the assertion is vacuous.
+  test "ASYNC-9/R8: a key the work itself writes does not survive onto the next caller's task" do
+    gate = ::Thread::Queue.new
+    Dexpace::Instrumentation::Diagnostics.with({ :"trace.id" => "CALLER-A" }) do
+      @pool.post { ::Fiber[:tenant] = "A-LEAK"; gate << :done }
+    end
+    gate.pop
+
+    observed = ::Thread::Queue.new
+    Dexpace::Instrumentation::Diagnostics.with({ :"trace.id" => "CALLER-B" }) do
+      @pool.post { observed << ::Fiber.current.storage.dup }
+    end
+    seen = observed.pop
+
+    refute(seen.key?(:tenant), "the previous task's fiber-storage write leaked onto the next caller")
+    assert_equal({ :"trace.id" => "CALLER-B" }, seen)
+  end
+
   test "ASYNC-8/ASYNC-12: the three-context conformance sequence -- assemble A, execute B, re-execute C" do
     ::Fiber[:"trace.id"] = "A"
     # pool already built under A/tenant in setup; simulate "assembled under A" by using @pool as-is
@@ -1601,9 +1646,11 @@ end
 - [ ] **Step 2: Run them to confirm they pass against Task 4's code**
 
 Run: `bundle exec ruby -w gems/dexpace-async-thread/test/dexpace/async/thread/pool_diagnostics_test.rb`
-Expected: PASS, 4 runs.
+Expected: PASS, 5 runs.
 
 - [ ] **Step 3: The break-it proof — remove the clearing line and confirm red**
+
+Two proofs, one per boundary, because one clearing line passing does not prove the other is there.
 
 In `spawn_worker`, comment out `::Fiber.current.storage&.each_key { |key| ::Fiber[key] = nil }`.
 Run the suite again.
@@ -1611,6 +1658,11 @@ Expected: the "a key set at pool-build time…" test FAILS — `observed.key?(:t
 `{"trace.id": "CALLER-A", tenant: "assembly"}` observed instead of `{"trace.id": "CALLER-A"}`. This
 is design fact 7, reproduced against the real class rather than a standalone probe. Restore the
 line; confirm green again.
+
+Then comment out the **same line in `#run`'s `ensure`** and run again.
+Expected: the "a key the work itself writes…" test FAILS — `seen` is
+`{tenant: "A-LEAK", "trace.id": "CALLER-B"}` instead of `{"trace.id": "CALLER-B"}`. Restore; confirm
+green. The two failures are different tests, which is the point: each boundary has its own witness.
 
 ---
 
@@ -1638,12 +1690,17 @@ Add to `pool_test.rb` (replacing the `build`/`teardown` helper now that `#close`
     @pool = Pool.build(size: size, **kwargs)
   end
 
-  test "close is idempotent: twice returns nil twice and releases once" do
+  # Phase 2 fixes no return value for Dexpace::Closeable#close (…phase2…-design.md:896-925 states
+  # the latch, the ownership rule and the once-only #release and stops), and #close is Closeable's
+  # method, not the pool's. So this asserts the two properties 8b actually owns -- both calls
+  # return, and only the first releases -- and not a return value it cannot pin. Pin the return
+  # value against phase 2's landed code at execution time if a stronger assertion is wanted.
+  test "close is idempotent: both calls return and only the first releases" do
     pool = build(size: 2)
 
-    assert_nil(pool.close)
+    pool.close
     assert(pool.closed?)
-    assert_nil(pool.close)
+    pool.close # a second close is a no-op; the one-event assertion below is what proves it
   end
 
   test "close from 16 threads at once emits exactly one shutdown event" do
@@ -1892,6 +1949,20 @@ class PoolDelayTest < DexpaceTestCase
     assert_equal(:no_longer_needed, error.reason)
   end
 
+  # ASYNC-2, not ASYNC-18: "worker-pool rejection (a saturated/shut-down executor)" MUST arrive
+  # through the failure channel, "never thrown synchronously from the method that promised a
+  # future". #delay promises one, so a closed pool is a failed future and not a raise (R11's
+  # fifth clause). The negative-duration test above is the contrast: that one IS a raise.
+  test "delay on a closed pool returns a failed future rather than raising" do
+    pool = build
+    pool.close
+
+    future = pool.delay(0.05) # a raise here is the failure this test exists to catch
+
+    assert(future.settled?)
+    assert_raises(Dexpace::ClosedError) { future.value }
+  end
+
   test "close fails every outstanding delay with Dexpace::ClosedError" do
     pool = build
     future = pool.delay(10.0)
@@ -1916,14 +1987,14 @@ class PoolDelayTest < DexpaceTestCase
 
     ::Thread.new do
       ::Fiber.set_scheduler(scheduler)
-      first = ::Fiber.schedule do
+      ::Fiber.schedule do
         future = pool.delay(0.05)
         future.value
         outcomes << :first_settled
       end
-      second = ::Fiber.schedule do
+      ::Fiber.schedule do
         future = pool.delay(0.20)
-        future.cancel
+        future.cancel(:no_longer_needed)
         outcomes << :second_cancelled
       end
       ::Fiber.scheduler.close
@@ -2059,17 +2130,31 @@ end
         # Dexpace::Async.delay instead -- unavailable to a pool worker regardless, since
         # Fiber.scheduler is per-thread (design verified fact 15).
         #
-        # @raise [Dexpace::InvalidArgumentError] for a negative duration, before any timer thread
-        #   is created
-        # @raise [Dexpace::ClosedError] if the pool is closed
+        # @raise [Dexpace::InvalidArgumentError] for a negative or non-Numeric duration, before any
+        #   timer thread is created
+        # @return [Dexpace::Async::Future] already failed with Dexpace::ClosedError if the pool is
+        #   closed -- never a synchronous raise from a method that promised a future (ASYNC-2)
         def delay(duration)
           unless duration.is_a?(::Numeric)
             raise Dexpace::InvalidArgumentError, "duration must be Numeric, got #{duration.class}"
           end
           raise Dexpace::InvalidArgumentError, "duration must not be negative" if duration.negative?
-          raise Dexpace::ClosedError, "#{@name} is closed" if closed?
 
           completer = Dexpace::Async::Completer.new
+          # A CLOSED pool fails the future; it does not raise. #delay is a method that promised a
+          # future, and ASYNC-2 forbids delivering a detectable construction failure synchronously
+          # from one -- naming "worker-pool rejection (a saturated/shut-down executor)" as exactly
+          # this case. #post escapes it because the bridge routes its raise to Completer#fail;
+          # #delay has no router and does the routing itself. The two raises above stay raises:
+          # a negative or non-Numeric duration is a programming error in the call, not a failure
+          # detected while constructing an async operation, and ASYNC-18's own wording is "MUST
+          # reject a negative delay". R11's fifth clause and the ASYNC-18 checklist row state the
+          # split.
+          if closed?
+            completer.fail(Dexpace::ClosedError.new("#{@name} is closed"))
+            return completer.future
+          end
+
           if duration.zero?
             completer.fulfil(nil)
             return completer.future
@@ -2099,6 +2184,18 @@ require_relative "timer"                                     # beside require_re
 
           stop_timer(deadline)                               # in #release, after @queue.close
 ```
+
+and one line in `pool_test.rb`, in the same edit, because this task is what makes it true:
+
+```ruby
+  SPAWN_SITES = %w[pool.rb timer.rb].freeze
+```
+
+`Timer#spawn_thread` is the gem's second `::Thread.new`, and the only other one it will ever have:
+at most one thread per pool, created lazily on the first positive `#delay` and never in a loop, so
+`concurrency-and-async/df658d73`'s rule is satisfied at both sites. Leaving `SPAWN_SITES` at
+`%w[pool.rb]` turns Task 4's green test red the moment `timer.rb` lands, which is the failure this
+step exists to prevent.
 
 and the private helper it names, beside `#drain_workers`:
 
@@ -2132,7 +2229,7 @@ escaping the gem's `lib/`, which this one does not.
 - [ ] **Step 7: Run the tests to confirm they pass**
 
 Run: `bundle exec ruby -w gems/dexpace-async-thread/test/dexpace/async/thread/pool_delay_test.rb`
-Expected: PASS, 8 runs. The two-fiber test is the load-bearing one: it is the only shape that
+Expected: PASS, 9 runs. The two-fiber test is the load-bearing one: it is the only shape that
 proves `Timer`'s mutex is not held across a suspension point — a single-threaded test and a
 two-**thread** test both pass under a bug this test would catch, because thread-level mutex
 ownership would be correct in both. Then `bundle exec rake rubocop rbs:validate steep`.

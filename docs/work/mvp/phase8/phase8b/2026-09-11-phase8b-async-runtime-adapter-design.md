@@ -358,7 +358,12 @@ antecedent — never on `8b`'s convenience.
   (phase 2, asserted again here through the bridge), and an implementation that owns resources overrides it
   to follow `ASYNC-15` — which is `Pool#close`. "Behavior of executeAsync after close is undefined" is
   taken explicitly as `SEAM-15`'s rule instead: `#post` after close raises `Dexpace::ClosedError`.
-- **`ASYNC-18` is satisfied under a stated reading and carries a deviation row.** `R11` in full, `P8-25`.
+- **`ASYNC-18` is satisfied under a stated reading, carries a deviation row, and states where it raises and
+  where it fails a future.** `R11` in full, `P8-25`. The row records the split `R11`'s fifth clause fixes:
+  a negative or non-`Numeric` duration **raises** `Dexpace::InvalidArgumentError` naming the keyword, before
+  anything is scheduled, which is `ASYNC-18`'s own "MUST reject"; a **closed** pool returns a future failed
+  with `Dexpace::ClosedError`, because `ASYNC-2` forbids a method that promised a future from throwing a
+  detectable construction failure synchronously and names the shut-down executor as one.
   "Without blocking a thread" is satisfied for the *caller's* thread and for every *worker* thread and is
   **not** satisfied absolutely: one timer thread is parked per pool that has ever scheduled a positive
   delay. The row states the reading, names the thread, and names `Dexpace::Async.delay` (`CFG-18`, phase
@@ -555,7 +560,7 @@ yet in this repository** — these are design commitments, and `8b` inherits the
   (`Timeout.timeout`, `Thread#raise`, `Thread#kill`, `Thread#terminate`, `Thread#exit` — the cop that makes
   `ASYNC-3` a checklist row rather than a temptation), and **`Dexpace/QualifiedCoreConstant`** (`P2-8`,
   extended by `P3-7` to be repository-wide over every gem's `lib/` with a definition-site guard). `8b`'s gem
-  is the **second definition site** in the repository after `lib/dexpace/io.rb`, and the first in an adapter
+  is the **third definition site** in the repository — after `lib/dexpace/io.rb` (3a) and `dexpace-serde-json`'s `module Dexpace::Serde::JSON` (7a) — and the second in an adapter
   gem; verified fact 14 is why the guard matters.
 - **`Style/ClassAndModuleChildren: nested`** (`…phase0…-design.md:766`), which is what makes verified fact
   14's hazard live rather than hypothetical.
@@ -889,19 +894,35 @@ not through a stale *capture* but through a stale *floor under* the capture, whi
 requirement's own conformance clause ("assemble under context A, subscribe/execute under B → log lines
 carry B") does catch and which no test written in one context can see.
 
-**The repair, and why it is at the worker rather than at the install.** Each worker, as the first statement
-of its thread body and exactly once in its life, deletes every key it inherited:
+**The repair, and why it is at the worker rather than at the install.** The same line runs at **two
+boundaries**, and both are needed:
 
 ```ruby
 ::Fiber.current.storage&.each_key { |key| ::Fiber[key] = nil }
 ```
 
+— as the first statement of the thread body, once in the worker's life, and again in `#run`'s `ensure`,
+once per task.
+
 Three properties make this the right place. **It is safe**: `Fiber.current.storage` returns a fresh `Hash`
 (fact 5), so the iteration is over a copy and the writes go to the live storage — measured, not assumed.
-**It is once per worker, not once per task**: `size` deletions at construction, and nothing on the hot
-path. And **it makes `Diagnostics.with` correct without changing it**: with an empty prior map, merge *is*
+And **it makes `Diagnostics.with` correct without changing it**: with an empty prior map, merge *is*
 replace, and the union restore returns the worker to empty. `8b` therefore writes no install code at all —
 it writes one clearing line and calls core's pair.
+
+**Why the task boundary is not optional, which an earlier draft of this section got wrong.** The
+thread-start clear alone fixes the *construction* floor and leaves the *reuse* floor open, because
+`Diagnostics.with` restores only `(prior.keys | snapshot.keys)` — a key the **work itself** writes is in
+neither set and survives on the worker. Measured on 3.4.10, with 5b's `.with` and the clearing line exactly
+as written: a task whose block does `Fiber[:tenant] = "A-LEAK"` leaves the worker holding
+`{tenant: "A-LEAK"}`, and the *next* caller's task, submitted with a snapshot of `{"trace.id" =>
+"CALLER-B"}`, runs with `{tenant: "A-LEAK", "trace.id": "CALLER-B"}` visible. That is `ASYNC-9`'s
+"restore the prior context afterward … so a reused/pooled thread's own logging context is never clobbered"
+failing at the boundary the first clear does not reach, and `ASYNC-10`'s stale snapshot arriving from the
+previous *task* rather than from assembly. It is reachable from any `#on_settle` handler (which this
+adapter runs **on a pool worker**), any caller-supplied interceptor, sink or transport. The cost of the
+second clear is one `Fiber.current.storage` read per task, against an HTTP round trip; the worker's prior
+map is provably `{}` after the thread-start clear, so re-running the line *is* "restore prior" exactly.
 
 **Why not the other two routes, restated for this sub-phase.** A scoped `Warning.warn` filter is a
 `prepend` on a process-global object, which this port refuses for `Regexp.timeout` and
@@ -1093,10 +1114,11 @@ already has the better primitive one method call away.
 
 | Clause | Mechanism |
 |---|---|
-| "MUST reject a negative delay" | `Dexpace::InvalidArgumentError` raised **before** anything is scheduled and before the timer thread is created, with `SEAM-29`'s message form. 5a's `Clock#sleep` guard is the precedent and the reason is verified: `Queue#pop(timeout: -1)` returns `nil` immediately and raises nothing (fact 4), so the primitive will not reject for us |
+| "MUST reject a negative delay" | `Dexpace::InvalidArgumentError` naming the offending keyword, raised **before** anything is scheduled and before the timer thread is created. 5a's `Clock#sleep` guard is the precedent and the reason is verified: `Queue#pop(timeout: -1)` returns `nil` immediately and raises nothing (fact 4), so the primitive will not reject for us |
 | "MUST complete immediately for a zero delay" | A `Completer` settled with `nil` before the method returns. No queue, no entry, **no timer thread created** — a pool that only ever schedules zero delays never spawns one |
 | "MUST complete after the requested delay without blocking a thread" | One entry on the deadline-ordered list; the timer parks on `pop(timeout: remaining)` against the **nearest** deadline and re-computes after every wake. Elapsed time is differences of `clock.monotonic` (`CFG-16`), never `Time.now` |
 | "cancelling the returned future MUST cancel the underlying scheduled task so no scheduler thread is held" | `Completer#on_cancel` removes the entry under the timer's mutex and pushes a `:recompute` sentinel to the wake queue, so the timer wakes at once and re-parks against the *next* real deadline. Measured (fact 16): the cancelled entry never fired and the list emptied |
+| **A fifth clause, from `ASYNC-2` rather than from `ASYNC-18`** — `#delay` on a **closed** pool | A **failed future**, not a synchronous raise: `#delay` mints the `Completer`, calls `#fail(Dexpace::ClosedError.new(…))` and returns `completer.future`. `ASYNC-2` is quantified over "the method that promised a future", not over the transport send, and its named antecedent is "worker-pool rejection (a saturated/**shut-down** executor)" — a closed pool is exactly that, and chapter 18's conformance clause is "submit through a shut-down executor; assert the returned future completes exceptionally with the rejection". `#post` escapes this because the **bridge** routes its raise to `Completer#fail`; `#delay` has no such router, so it must do the routing itself. **The argument-validation raises stay raises**: a negative or non-`Numeric` duration is a programming error in the call, not a failure detected while constructing an async operation, and `ASYNC-18`'s own "MUST **reject** a negative delay" reads as a raise — the `ASYNC-18` checklist row states that split explicitly |
 
 **What `#delay` returns and what it settles with.** `Dexpace::Async::Future`, settled with `nil`. Not the
 duration, not a timestamp: the primitive's whole content is "later", and a value would be a surface
@@ -1140,9 +1162,9 @@ mechanism, and the two that name `concurrent-ruby` APIs are answered by what tho
 
 | Key | The rule | `8b`'s answer |
 |---|---|---|
-| `6764e0b5` | Use `Concurrent::FixedThreadPool` (never `CachedThreadPool` or raw `Thread.new`) for thread-based fan-out, and `Async::Semaphore` for Fiber-based fan-out, **declaring the bound as a named, documented constant** | **Adopted in substance; both named mechanisms are unavailable.** `concurrent-ruby` is barred by §2.1 and `f414b864`; `Async::Semaphore` would be a second third-party dependency and the gem's fan-out is threads, not fibers. The pool is **fixed-size and never grows**, which is the whole of what `FixedThreadPool`-over-`CachedThreadPool` buys. The `Thread.new` the rule calls "raw" is not raw here: it is one call, in one private method, bounded by a validated `size`, and it is the only `Thread.new` in the gem. **The bound is a required keyword rather than a constant**, argued below; the *derived* bound, `QUEUE_DEPTH_PER_WORKER`, is a named documented constant as the rule asks |
+| `6764e0b5` | Use `Concurrent::FixedThreadPool` (never `CachedThreadPool` or raw `Thread.new`) for thread-based fan-out, and `Async::Semaphore` for Fiber-based fan-out, **declaring the bound as a named, documented constant** | **Adopted in substance; both named mechanisms are unavailable.** `concurrent-ruby` is barred by §2.1 and `f414b864`; `Async::Semaphore` would be a second third-party dependency and the gem's fan-out is threads, not fibers. The pool is **fixed-size and never grows**, which is the whole of what `FixedThreadPool`-over-`CachedThreadPool` buys. The `Thread.new` the rule calls "raw" is not raw here: there are **two** call sites in the gem, each in one private method and each bounded — `Pool#spawn_worker`, bounded by a validated `size`, and `Timer#spawn_thread`, which creates at most one thread per pool and only on the first positive `#delay` (`R11`). **The bound is a required keyword rather than a constant**, argued below; the *derived* bound, `QUEUE_DEPTH_PER_WORKER`, is a named documented constant as the rule asks |
 | `dc345cae` | Use `SizedQueue` instead of `Queue` for producer-consumer channels, since an unbounded `Queue` lets producers race arbitrarily ahead of consumers while `SizedQueue` applies backpressure when the buffer is full | **Adopted for the mechanism, and its blocking behaviour deliberately not used.** The submission queue **is** a `::Thread::SizedQueue`, so the bound is real and enforced by the primitive. But `#post` uses the **non-blocking** push, so the backpressure signal is a *rejected future* rather than a *blocked producer* — argued in full below. The rule's purpose (a producer cannot race arbitrarily ahead) is met exactly; its mechanism's side effect (the producer parks) is what an async seam must not do |
-| `df658d73` | A custom RuboCop cop bans `Thread.new` inside loops; review rejects `Queue.new` where `SizedQueue.new` belongs; **pool size and queue bound must be named constants** | **Adopted; no new cop proposed.** This repository ships five original custom cops and none of them is a `Thread.new`-in-loop cop. `8b` proposes no sixth: the single site is `Array.new(size) { ::Thread.new { … } }`, bounded construction in a private method, which is the one place the pattern is correct — a cop whose only firing site in the repository is a false positive costs more than it catches. The rule's purpose is met structurally and asserted: a test greps the gem's `lib/` for `Thread.new` and asserts **exactly one** occurrence, in the named private method. `Queue.new` where `SizedQueue` belongs is answered by there being exactly one submission queue and it being sized |
+| `df658d73` | A custom RuboCop cop bans `Thread.new` inside loops; review rejects `Queue.new` where `SizedQueue.new` belongs; **pool size and queue bound must be named constants** | **Adopted; no new cop proposed.** This repository ships five original custom cops and none of them is a `Thread.new`-in-loop cop. `8b` proposes no sixth: the two sites are `Array.new(size) { ::Thread.new { … } }` in `Pool#spawn_worker` and the lazy `::Thread.new { run }` in `Timer#spawn_thread`, both bounded construction in a private method, which is where the pattern is correct — a cop whose only firing sites in the repository are false positives costs more than it catches. The rule's purpose is met structurally and asserted: a test greps the gem's `lib/` for `Thread.new` **with comments stripped** (an explanatory comment naming the call is not a call) and asserts **exactly two** occurrences, one in each named private method. `Queue.new` where `SizedQueue` belongs is answered by there being exactly one submission queue and it being sized |
 | `3692970f` | Join threads, shut down pools, and close queues deterministically, since an unjoined thread or pool may be killed mid-operation by the OS at process exit, corrupting the operation | **Adopted, and verified fact 14 sharpens rather than weakens it.** On 3.4.10 a blocked worker's `ensure` *did* run at process exit — but that is the interpreter delivering a termination at a point the program did not choose, which is the hazard the rule names. `#close` is the deterministic path: it closes the submission queue, waits for every worker's exit sentinel and the timer within a bounded budget, and reports whether the drain completed. **8b installs no `at_exit` hook** (`concurrency-and-async/b667b6a4` offers one as an alternative to an `ensure`): a library that registers a process-global `at_exit` on its host is the same imposition this port refuses for `Regexp.timeout` and `Warning[:experimental]`, and it would make a pool the application forgot to close **also** the reason the process exits slowly. The `ensure` form belongs in the caller's code and the README shows it |
 | `047644ea` | Call **both** `shutdown` (stop accepting new work) and `wait_for_termination` (block until in-flight work drains) on every pool | **Adopted as one method, and the merge is deliberate.** `#close` is both: closing the `SizedQueue` is `shutdown` (verified fact 3 — a push on a closed queue raises and queued items still drain) and the bounded sentinel drain is `wait_for_termination`. One method because `Dexpace::Closeable` is this repository's single close vocabulary — `Dexpace.close_quietly(pool)` calls `#close` with no arguments, and a pool that needed two calls to shut down would be the one closeable in the SDK that does not work through the helper §3.7 makes the single sanctioned exit |
 | `dd8e6d2d` | Every pool must have a paired `shutdown` plus `wait_for_termination` **in an `ensure` block**, and every `SizedQueue` must be `close`d on exit | **Adopted at the call site and at the implementation.** The queue is closed by `#release`, so a closed pool has a closed queue by construction. The `ensure` is the *caller's* and the README's first example is `pool = Pool.build(size: 4); begin … ensure pool.close end` — because the object that must be in an `ensure` is the one the caller holds, and a gem cannot write its consumer's `ensure` |
@@ -1174,7 +1196,7 @@ code, where `concurrency-and-async/6764e0b5`'s "named, documented constant" actu
 documented public constant. Eight is a depth, not a capacity: it says "a worker may have eight units of
 work waiting behind it before the pool rejects", which is a statement about burst tolerance that scales
 with whatever `size` the caller picked. Both are validated as positive `Integer`s with
-`Dexpace::InvalidArgumentError` and `SEAM-29`'s message form; `::Thread::SizedQueue.new(0)` would raise
+`Dexpace::InvalidArgumentError` naming the offending keyword; `::Thread::SizedQueue.new(0)` would raise
 anyway (fact 2), and `8b` raises first so the message names the keyword.
 
 **The pool does not grow, and does not shrink.** `size` threads are created at construction and live until
@@ -1271,10 +1293,14 @@ rather than as `respond_to?` reports it.
    `Severity::INFO` and two adapter-private fields: the worker count and whether the drain completed within
    the budget. The lifecycle event phase 2 postponed closes here.
 
-**`#close` returns `nil` whether or not the drain completed**, and the fact is carried on the event rather
-than in the return value, because `Dexpace::Closeable#close` is a duck type shared with `Response`, `IO`
-and `Tempfile` and a pool that returned a different kind of value from `#close` would break
-`close_quietly`'s uniformity for one caller's benefit. A caller who needs to know queries the event.
+**`#close` carries the drain's outcome on the event, not in its return value.** `#close` is
+`Dexpace::Closeable`'s method, not the pool's, and **phase 2 fixes no return value for it**
+(`…phase2…-design.md:896-925` states the latch, the ownership rule and the once-only `#release` and stops),
+so `8b` asserts nothing about what it returns and adds no pool-specific return: `Closeable#close` is a duck
+type shared with `Response`, `IO` and `Tempfile`, and a pool that returned a distinctive value would break
+`close_quietly`'s uniformity for one caller's benefit. A caller who needs to know whether the drain
+completed queries the event. **The plan's close tests must be pinned to phase 2's landed return value at
+execution time rather than assuming `nil`.**
 
 **Why there is no `cancellation:` keyword on `#close`.** §3.7 asks for "the wait itself performed through
 §8.3's cancellable queue wait and a bounded deadline, so a caller who closes inside a cancelled scope is
@@ -1403,8 +1429,9 @@ Pool::DEFAULT_NAME             = "dexpace-async-thread"
 
 `private_class_method :new`, and `.build` validates: `size` and `queue_limit` positive `Integer`s,
 `shutdown_timeout` a non-negative `Numeric`, `name` a non-empty `String`, `logger` responding to `#event`,
-`clock` responding to `#monotonic`. Every failure is `Dexpace::InvalidArgumentError` with `SEAM-29`'s one
-message form, through phase 1's shared helper. That is phase 1's construction pattern applied to a class
+`clock` responding to `#monotonic`. Every failure is `Dexpace::InvalidArgumentError` naming the offending
+keyword. (`SEAM-29`'s one message form, `"<name> is required"`, is the *missing-required* form and cannot
+express a type or range failure; phase 1's shared helper is not the route here.) That is phase 1's construction pattern applied to a class
 that is not a `Data` — the pool holds threads and is mutable by nature, so it is a plain class, which
 `data-modeling/3e37c086` is the rule for and which `Dexpace::Clock` (5a) and
 `Dexpace::Instrumentation::Logger` (5b) both already are.
@@ -1448,11 +1475,11 @@ it reachable.
 ### The worker loop, stated as code because four requirements are in its shape
 
 ```ruby
-def spawn_worker(index)                                   # the ONE Thread.new in this gem
+def spawn_worker(index)                                   # one of the gem's two bounded spawn sites
   ::Thread.new do
     ::Thread.current.name = "#{@name} worker #{index}"
     ::Thread.current.report_on_exception = false          # verified fact 10
-    ::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }   # R8/R9; once per worker
+    ::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }   # R8/R9; the construction floor
     begin
       while (job = @queue.pop)                            # a suspension point (611b9392)
         run(job)
@@ -1472,16 +1499,20 @@ rescue ::Exception => e                                   # the worker never die
            .cause(e).emit
   end
   nil
+ensure
+  ::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }  # R8/R9; the reuse floor, once per task
 end
 ```
 
-**Five decisions are in those fifteen lines and each is argued.**
+**Five decisions are in those lines and each is argued.**
 
 1. **`while (job = @queue.pop)` is the loop, and `nil` is the only exit.** The queue is closed exactly once,
    by `#release`, and a `nil` pop therefore means "closed and drained" unambiguously — the one place in the
    gem where verified fact 4's ambiguity does *not* bite, because nothing ever pushes a `nil` and no
    timeout is used here. The YARD comment says that, because it is the assumption a later edit would break.
-2. **The context clear is the first statement and runs once.** `R8`.
+2. **The context clear runs at two boundaries**: the first statement of the thread body, once per worker,
+   and `#run`'s `ensure`, once per task. `R8` argues both; the second is what `Diagnostics.with`'s union
+   restore cannot reach, because a key the work itself writes is in neither the snapshot nor the prior map.
 3. **`report_on_exception = false` is set *inside* the thread**, because setting it from outside is a race
    (verified fact 10) — and it is set even though the worker is designed never to die, because "designed
    never to die" is a claim about code a future edit can falsify and a stderr line nothing can see is the
@@ -1807,7 +1838,7 @@ listed as not `8b`'s so a reader can see the whole set was read.
 Seven groups. Three of them exist because a measured fact showed the obvious test would pass under the bug.
 
 1. **Construction and validation** — `size` required; `size`/`queue_limit` rejecting `0`, a negative and a
-   non-`Integer` with `SEAM-29`'s message form naming the keyword; `queue_limit` defaulting to
+   non-`Integer` with a `Dexpace::InvalidArgumentError` naming the keyword; `queue_limit` defaulting to
    `size * QUEUE_DEPTH_PER_WORKER`; `name`, `logger` and `clock` defaulting; `Pool.new` being private.
    Plus the entry file's `CORE_REQUIREMENT` agreeing with the gemspec, and the skew assertion raising
    `Dexpace::SeamError` naming both versions for a stubbed mismatched `Dexpace::VERSION`.
@@ -1936,7 +1967,7 @@ step of the plan's Task 1, with a regression test, rather than as a `P8-<n>`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P8-20 | **A pooled worker clears its inherited fiber storage once, at thread start**, so the caller's captured context is *installed* rather than *merged onto* whatever the pool creator's fiber happened to hold. Design §8.1 describes the adapter as saving, installing and restoring and does not mention the floor underneath | `ASYNC-9`, `ASYNC-10`, `ASYNC-12`; design §8.1 (`:136-142`); `OBS-24`; `P5-23`; `observability/65191069`; verified facts 5, 7, 8 | Measured: a pool built while `Fiber[:tenant] = "assembly"` was set runs a caller's task with `tenant: "assembly"` visible, through phase 5b's `Diagnostics.with` exactly as written, because `::Thread.new` inherited it at construction and the caller's snapshot has no key to overwrite it with. That is `ASYNC-10`'s "stale snapshot from when it was assembled" reaching a log line the caller believes describes their own call, and it is **invisible in any test that builds the pool in the same context it submits from**. The repair is one line, once per worker, on a `Hash` `Fiber.current.storage` already returns fresh — not a change to 5b's `.with`, which is correct for its own consumer, and not `Fiber#storage=`, which the observability note and `P5-23` both rule out. The residual `P5-49` records (a prior key holding a literal `nil` restores as absent) is doubly harmless here: after the clear there is no prior key at all |
+| P8-20 | **A pooled worker clears its fiber storage at two boundaries — once at thread start, and again in `#run`'s `ensure` after every task** — so the caller's captured context is *installed* rather than *merged onto* whatever the pool creator's fiber, or the previous task, happened to leave. Design §8.1 describes the adapter as saving, installing and restoring and does not mention the floor underneath | `ASYNC-9`, `ASYNC-10`, `ASYNC-12`; design §8.1 (`:136-142`); `OBS-24`; `P5-23`; `observability/65191069`; verified facts 5, 7, 8 | Measured: a pool built while `Fiber[:tenant] = "assembly"` was set runs a caller's task with `tenant: "assembly"` visible, through phase 5b's `Diagnostics.with` exactly as written, because `::Thread.new` inherited it at construction and the caller's snapshot has no key to overwrite it with. That is `ASYNC-10`'s "stale snapshot from when it was assembled" reaching a log line the caller believes describes their own call, and it is **invisible in any test that builds the pool in the same context it submits from**. The same mechanism fails at a second boundary, and both are repaired by the same line: `.with` restores only `(prior.keys | snapshot.keys)`, so a key the **work itself** writes is in neither set and survives on the worker — measured, a task doing `Fiber[:tenant] = "A-LEAK"` leaves the next caller's task running with `{tenant: "A-LEAK", "trace.id": "CALLER-B"}`, which is `ASYNC-9`'s clobber clause failing across reuse. The repair is one line at each boundary, on a `Hash` `Fiber.current.storage` already returns fresh — not a change to 5b's `.with`, which is correct for its own consumer, and not `Fiber#storage=`, which the observability note and `P5-23` both rule out. The residual `P5-49` records (a prior key holding a literal `nil` restores as absent) is doubly harmless here: after the clear there is no prior key at all |
 | P8-21 | **The version-skew assertion is made directly in the gem's entry file**, with `Gem::Requirement` against `Dexpace::VERSION`, rather than through `Dexpace::Registry#register`'s required `core:` keyword | `SEAM-10`'s replacement (the version-skew guard's runtime half, `P2-7`); §2.3's version-skew guard; `P2-1`; charter boundary 8 | `P2-1` established that **there is no executor registry**, because `SEAM-18` requires the executor to be caller-supplied with no default and an auto-resolved executor is exactly that default. The boundary's substance is the assertion, not the call that usually carries it, so the assertion is kept and the vehicle is dropped. Two properties are preserved and one is added: the failure is at `require` time and names both versions (§2.3's whole purpose), the keyword is not optional because there is no keyword, and a test asserts `CORE_REQUIREMENT` equals the gemspec's declared string — the agreement `gates:gemspec_audit` checks from one side and nothing checked from the other. 7a's `P7-7` is the precedent for a require-time assertion in an adapter entry file |
 | P8-22 | **A pool worker rescues `::Exception` and never dies**, where `RECOV-2`'s rule (design §5.2) is "rescue `Exception`, immediately re-raise anything outside `StandardError`, convert the rest" | `RECOV-2`; design §5.2; `ASYNC-15`; `error-handling/3bfdf6f0`; verified facts 10, 11 | On a worker thread, "re-raise" means the thread dies, and three measurements say nothing would notice: a worker's `SystemExit` does not exit the process and `exit(3)` on a worker is swallowed entirely; `Thread#report_on_exception` writes to `$stderr` **directly and not through `Warning.warn`**, so phase 0's warnings-fatal gate cannot see it; and the pool is then permanently one worker smaller with no signal, which is a capacity invariant the caller depends on silently violated by one bad task. The rule's *purpose* — never demote a programmer error to a handled operational error — is served by a different mechanism rather than abandoned: the error is **not** routed into any caller's result (the block already settled the future through `Completer#fail` before the net could see anything), and what reaches the net is a defect in the block, emitted as an `http.instrumentation.*` diagnostic through §3.7's second disposal route, which phase 5b's facade made available and phase 2 and 4b did not have. `Interrupt` is the case worth naming: `Ctrl-C` is delivered to the main thread, so swallowing it on a worker discards nothing |
 | P8-23 | **`#post` never blocks the calling thread**: the submission queue is a bounded `::Thread::SizedQueue` used with the **non-blocking** push, so a full queue is a `RejectedError` rather than a parked producer — where `concurrency-and-async/dc345cae` names `SizedQueue`'s blocking backpressure as the mechanism | `ASYNC-2`; `SEAM-18`; `PAGE-30`; `concurrency-and-async/dc345cae`, `/171f800d`; verified fact 2 | Four reasons, of which the first is normative. `ASYNC-2` names "worker-pool rejection (**a saturated**/shut-down executor)" as a failure that MUST arrive through the future; a blocking `#post` gives this adapter **no saturated case at all** and kills half the requirement's antecedent. Second, `Transport.async_over#call` promises a future and phase 2 makes it return that future before doing anything fallible — a `#post` that parks moves the blocking from the transport, where the caller asked for it, to the submission, where they did not. Third, `PAGE-30` was designed against a raising `#post` ("every `#post` call site is wrapped"). Fourth, a task that posts back to the same pool would park a worker waiting for a worker. The rule's *purpose* — a producer cannot race arbitrarily ahead of consumers — is met exactly by the bound; only its side effect is declined. Rejected alternatives: a caller-runs policy runs a blocking send on the caller's thread inside an async call; a `on_saturation:` keyword is an `NFR-4`-locked knob with no requirement behind it |

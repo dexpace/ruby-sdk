@@ -779,6 +779,12 @@ instead raises `EOFError`. So the test is writable, it is not flaky, and it asse
 `7b`'s facade turns that into a `Dexpace::StreamError` at the `BufferedSource` boundary, which is 3a's
 `::IOError` subclass, so "an I/O-style error" is satisfied by ancestry rather than by discipline.
 
+**The one wiring detail the test cannot get wrong.** `#close` releases the **`resource`**, so shape B is
+only a test of `SSE-31` if the resource *is* the parked source — a stream reading from a pipe while
+owning some unrelated close-counter would close the counter, leave the read parked, and **hang** on
+`Thread#value` rather than fail. The test therefore passes the `PipeSource` as both `source` and
+`resource` (the `resource: source` default), and counts closes on the `PipeSource` itself.
+
 **What neither shape proves, stated so a ✅ is not read as more than it is.** Phase 3a's deferral of `IO-38` on a
 Ruby without a GVL (`docs/first-release.md` § Post-release triggers) records that the *mechanism* behind a cross-thread flag — reading and
 writing it under a `Thread::Mutex` rather than relying on the GVL — cannot be exercised on any row of a
@@ -953,7 +959,12 @@ nothing else, with `private_class_method :new` and a validating
   This is `P7-24`, and it means **`7b` calls `downcase` nowhere**, so the charter's spec-forced boundary
   19 is honoured vacuously rather than at a site.
 - **`SSE-9`'s NUL check** is `value.include?("\x00".b)` on the BINARY value, before decoding, so a NUL
-  cannot be lost to a replacement character first.
+  cannot be lost to a replacement character first. **The check runs *before* the dispatch flag is set**,
+  because `SSE-9` requires the field be "ignored entirely: it does not set the id, **does not count as a
+  'field seen'**, and does not overwrite a valid id already seen earlier in the same block"
+  (`…appendix-c…:418`, and `sse-streaming/2fec5657`). An implementation that marks the block dispatchable
+  on recognising the field *name* satisfies every other `SSE-9` assertion and violates that clause, so a
+  block whose only line is `id: a\0b` must emit nothing and has its own test.
 - **`SSE-10`'s `event` field is stored raw with latest-wins semantics and surfaced as absent when no
   `event` line was sent**, and is **never defaulted to `message`.** The default is the one thing a
   reader of the WHATWG specification would add without noticing, since WHATWG *does* default it;
@@ -975,16 +986,27 @@ nothing else, with `private_class_method :new` and a validating
 
 `include Dexpace::Closeable`, holding one `Reader` and one closeable resource.
 
+- **A `Stream` reads from one thing and owns one thing, and they are two parameters.** The shape is
+  `(source, resource:)`: `source` is what the `Reader` pulls bytes from, `resource` is the single
+  closeable the facade releases, and **`resource:` defaults to `source`** so the common case reads as one
+  argument. `SSE-23`'s "exactly one closeable resource, closed exactly once" names **`resource`** and
+  nothing else — never the `source`, which the facade closes only when it *is* the resource. Two
+  parameters rather than one because `SSE-32`'s own convenience already needs them: a response's byte
+  source and the response that owns the connection are different objects, and collapsing them would make
+  `Stream.open` a special case of nothing.
 - **Three factories, and the names are chosen against a trap.** `Stream.open(response)` is `SSE-32`'s
   convenience: it takes a `Dexpace::Response`, raises `Dexpace::InvalidArgumentError` when
   `response.body` is `nil` ("MUST fail loudly if the response has no body"), builds a `Reader` over
-  `response.body.source`, and **owns the response** — `initialize_closeable(owned: true)`, `#release`
-  calls `response.close`, so closing the stream closes the response. `Stream.owning(source)` owns a
-  caller-supplied source; `Stream.borrowing(source)` does not. **None of them is called `.over`**,
+  `response.body.source` as the **source**, and passes the **response itself as the `resource`** —
+  `initialize_closeable(owned: true)`, `#release` calls `resource.close`, so closing the stream closes
+  the response. `Stream.owning(source, resource: source)` owns the resource it is given (the source
+  itself unless another is named); `Stream.borrowing(source, resource: source)` does not.
+  **None of them is called `.over`**,
   because `Dexpace::IO::BufferedSource.over` means *borrowing* and `.wrapping` means *owning*
   (`message-bodies/f060d944`), and a method named `.over` in the neighbouring subsystem with the
   opposite polarity is the kind of thing that reads correctly and is wrong. **`P7-25`.**
-- **`SSE-23`'s "exactly one closeable resource, closed exactly once" is `Closeable`'s latch**, and the
+- **`SSE-23`'s "exactly one closeable resource, closed exactly once" is `Closeable`'s latch over
+  `resource`**, and the
   test wraps a close-counting resource and drives each of the five termination paths the chapter names
   — clean end, explicit close, block-form exit, partial consume, mid-stream failure — asserting one
   close each.
@@ -1020,6 +1042,16 @@ nothing else, with `private_class_method :new` and a validating
 Returned by `Stream#typed(&mapper)`, or `.typed(mapper)`. It is **not** a second `Closeable`: it holds
 the `Stream` and delegates `#close`/`#closed?` to it, so `SSE-23`'s exactly-one-resource claim survives
 the typed layer.
+
+- **The two consumption shapes are `Stream`'s, mirrored.** `#each { |value| }` is the block form and
+  `#values -> Enumerator` is the external one — `to_enum(:drive_values)` over a private drive routine
+  that holds no resource, exactly as `Stream#events` is `to_enum(:drive)`. The mirror is deliberate: a
+  generated SDK method hands a `TypedStream` back to a caller who writes `#map`, `#first` or `#lazy`,
+  and those are `Enumerator`'s, reached through `#values`, rather than a second vocabulary invented
+  here. **`TypedStream` does not `include Enumerable`** — one view per object is `SSE-26`'s and
+  `SSE-40`'s single-pass discipline, and `Enumerable` would hand a caller thirty methods that each
+  silently take the one view. The single-use latch is the `Stream`'s and is shared: `#each` and
+  `#values` compete for the same `@viewed` flag as `Stream#each` and `Stream#events` do.
 
 - **`SSE-33`**: the mapper is called with `(event_name, joined_data)` — the raw `event` field, `nil`
   when absent, and the data lines joined with a single `"\n"`, the empty string when there was no
@@ -1063,7 +1095,8 @@ lib/dexpace/sse/reader.rb                   Dexpace::SSE::Reader
 lib/dexpace/sse/stream.rb                   Dexpace::SSE::Stream
 lib/dexpace/sse/typed_stream.rb             Dexpace::SSE::TypedStream
 
-sig/dexpace/sse.rbs                         and one .rbs per file above, mirroring lib/ exactly
+sig/dexpace/sse.rbs                         and one .rbs per file above, mirroring lib/ exactly;
+                                            sse.rbs also holds `interface _ByteSource` (P7-27)
 test/dexpace/sse/*_test.rb                  one suite per file above
 tools/serde_boundary.rb                     the SSE-37 gate body (R11) — if 7b lands first
 tasks/gates.rake                            + gates:serde_boundary                — if 7b lands first
@@ -1257,9 +1290,9 @@ change that files all three.
 | P7-22 | `SSE-15`'s end-of-stream sentinel is Ruby's `nil`, not a distinguished object | `SSE-15`; `api-design/6ea28c9c` | A stream terminator is the documented exception to never-`nil`-for-absent: `#gets`, `#getbyte` and `IO-14`'s own `#read_line_utf8` all use it, an `Event` is never `nil` so the sentinel is stable and distinct, and the facade — which is what nearly every caller uses — turns it into `Enumerator` termination and never surfaces it. Recorded because `RECOV-1`'s `#response_or_nil` set the precedent that this needs a row rather than a shrug |
 | P7-23 | `SSE-34`'s three outcomes are the mapper's decoded value returned **bare**, plus two frozen `Dexpace::SSE::Signal` singletons `SKIP` and `DONE`; `Dexpace::Outcome::Success`/`Failure` are **not** reused | `SSE-33`, `SSE-34`, `SSE-35`; `RECOV-1`; charter boundary 10; phase 4b's forward table (`…phase4b…-design.md:1528`) | `Outcome::Success = Data.define(:response)` with `build: (response: Dexpace::Response)` — a decoded model is not a response, and putting one there fails `steep check` and pulls toward widening a phase-4b type, which boundary 10 forbids. `Outcome`'s five derived methods answer success-versus-failure and Skip and Done are both successful. Returning the value bare also satisfies `SSE-33`'s "MUST yield the mapper's decoded value" literally, allocates nothing per event on a long-lived stream, and lets a mapper decode an explicit null. Boundary 10's two binding clauses are both honoured; only its "reused" framing is declined |
 | P7-24 | `SSE-7`'s field-name comparison is **case-sensitive**, so `7b` calls `downcase` nowhere and the charter's spec-forced boundary 19 has no site in this sub-phase | `SSE-7`; `HTTP-13`; charter boundary 19 | WHATWG compares SSE field names exactly, and `SSE-7` names four lowercase tokens and requires that "any other field name MUST be silently discarded". A fold would make `DATA:` an interpreted data field, which WHATWG discards and `SSE-7` requires be discarded. The boundary is honoured vacuously rather than at a site, and the charter's sentence naming `SSE-7` as one of three fold sites is corrected |
-| P7-25 | The facade's factories are `Stream.open(response)`, `Stream.owning(source)` and `Stream.borrowing(source)` — deliberately **not** `.over` | `SSE-23`, `SSE-32`; `SEAM-14`/`XCUT-22`; `message-bodies/f060d944` | `Dexpace::IO::BufferedSource.over` means **borrowing** and `.wrapping` means **owning**. A `Stream.over` in the neighbouring subsystem would read as the same polarity and mean the opposite, which is a name that is wrong in the one way review does not catch. `Closeable`'s ownership-at-construction rule is what the three names make legible at the call site |
+| P7-25 | The facade's factories are `Stream.open(response)`, `Stream.owning(source, resource: source)` and `Stream.borrowing(source, resource: source)` — deliberately **not** `.over`, and carrying a **second parameter**: the stream reads from `source` and owns (or borrows) exactly one closeable `resource`, which defaults to the source itself | `SSE-23`, `SSE-32`; `SEAM-14`/`XCUT-22`; `message-bodies/f060d944` | `Dexpace::IO::BufferedSource.over` means **borrowing** and `.wrapping` means **owning**. A `Stream.over` in the neighbouring subsystem would read as the same polarity and mean the opposite, which is a name that is wrong in the one way review does not catch. `Closeable`'s ownership-at-construction rule is what the three names make legible at the call site. The `resource:` keyword is not a convenience: `SSE-32` already requires the two-object shape, because a response's byte source and the response that owns the connection are different objects, and `SSE-23`'s "exactly one closeable resource" then names `resource` unambiguously rather than leaving a reader to guess which of the two the facade closes |
 | P7-26 | The SSE decode is retag-then-transcode `UTF-8 → UTF-8` with `invalid: :replace, undef: :replace`, both encodings named, applied per extracted field value rather than per chunk | `io-and-byte-streams/6eb5155f`, `/a44b4de6`; design §3.1; phase 10's inbound-list entry on §3.1's decode sentence | `text/event-stream` is UTF-8 by definition, so the declared source encoding is not a guess and no `MediaType#charset` is consulted. `String#b` first because `force_encoding` raises on a frozen chunk even when the target is the string's own encoding; both encodings named because `undef: :replace` with no target follows `Encoding.default_internal`, a process global the host sets. Per field value rather than per chunk so the caps count bytes and a multi-byte character cannot straddle a bound |
-| P7-27 | Public constants and methods design §7.2 does not name: `Dexpace::SSE` itself, `::LineReader`, `::Signal`, `::SKIP`, `::DONE`, `::LimitExceededError`, `::StreamStateError`, `::TypedStream`, `MAX_LINE_BYTES`, `MAX_EVENT_BYTES`, `MAX_RETRY_MS`; and the methods `LineReader#next_line`, `Reader#next_event`, `Stream.open`/`.owning`/`.borrowing`/`#each`/`#events`/`#typed`, `TypedStream#each`/`#close`, `Event#empty?` and `Event`'s five generated readers | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14, P4-23 and P4-24 precedent | `NFR-4` locks a public *name* before it locks a signature, and §7.2 names exactly one Ruby constant in the whole subsystem (`Dexpace::SSE::Event`). Each addition is deliberate rather than incidental: `LineReader` is public because `SSE-2`'s grammar has its own conformance clause and the cap lives on it; `Signal` is public because a caller writes `Dexpace::SSE::SKIP` in their own mapper; the three constants are public because `SSE-19` and `SSE-11` require them documented. `Event`'s `Data`-generated readers are public API too and are invisible to `rbs validate` — the runtime surface snapshot is what holds them, and the plan's last task regenerates both artifacts |
+| P7-27 | Public constants and methods design §7.2 does not name: `Dexpace::SSE` itself, `::LineReader`, `::Signal`, `::SKIP`, `::DONE`, `::LimitExceededError`, `::StreamStateError`, `::TypedStream`, `MAX_LINE_BYTES`, `MAX_EVENT_BYTES`, `MAX_RETRY_MS`, and the RBS interface `Dexpace::SSE::_ByteSource`; and the methods `LineReader.new`/`#next_line`/`#max_line_bytes`, `Reader.new`/`#next_event`/`#max_line_bytes`/`#max_event_bytes`, `Signal.build`/`#name`/`#to_s`/`#inspect`, `LimitExceededError#kind`/`#limit`, `Stream.open`/`.owning`/`.borrowing` (each with the `resource:` keyword) and `Stream#each`/`#events`/`#typed`/`#close`/`#closed?`/`#owned?`, `TypedStream#each`/`#values`/`#close`/`#closed?`, `Event.build`/`#empty?` and `Event`'s five generated readers | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14, P4-23 and P4-24 precedent | `NFR-4` locks a public *name* before it locks a signature, and §7.2 names exactly one Ruby constant in the whole subsystem (`Dexpace::SSE::Event`). Each addition is deliberate rather than incidental: `LineReader` is public because `SSE-2`'s grammar has its own conformance clause and the cap lives on it; `Signal` is public because a caller writes `Dexpace::SSE::SKIP` in their own mapper; the three constants are public because `SSE-19` and `SSE-11` require them documented; the two `max_*` readers are public because `SSE-19`'s "configurable" cap is unverifiable from outside without them. **`Stream#close`/`#closed?`/`#owned?` are listed although `Dexpace::Closeable` supplies them**: a method reaching a class through an included module never appears in `public_instance_methods(false)`, so the manifest and the list must agree by hand or the final task stops on a name nobody exported. **`_ByteSource` is an RBS `interface` — `getbyte`, `skip`, `peek` — and not `Dexpace::IO::BufferedSource`**, because `7b`'s contract on its source is exactly those three methods and the test doubles are deliberately not a `BufferedSource`; naming the class in `sig/` would make every conforming duck a type error and would claim a dependency the subsystem does not have. `Event`'s `Data`-generated readers are public API too and are invisible to `rbs validate` — the runtime surface snapshot is what holds them, and the plan's last task regenerates both artifacts |
 
 ---
 
@@ -1440,7 +1473,7 @@ Four, each with the task that must settle it. None blocks the design.
    source's read count", but a `BufferedSource` reads a chunk when its buffer empties, so a naive 1:1
    assertion measures the buffer and not the parser. The assertion this design intends is on the
    **body's `#each` yields**: a body yielding one event's bytes per chunk, with the count asserted at 1
-   after one pull. **Task 2** builds the counting body and states the assertion; if 3a's buffering makes
+   after one pull. **Task 1** builds the counting body and states the assertion; if 3a's buffering makes
    even that indirect, the fallback is a source double implementing `#getbyte` directly.
 4. **Is `gates:serde_boundary` already present?** `R11` resolves the convergence in both directions, but
    the plan cannot know which. **Task 11** begins by checking for `tools/serde_boundary.rb`; if it

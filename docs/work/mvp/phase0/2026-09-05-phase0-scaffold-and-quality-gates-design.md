@@ -16,8 +16,11 @@ reason the gem skeletons are here rather than deferred to the phase that first f
 gemspec audit, the require-allowlist audit and the clean-bundle isolation run "are only proven
 when they run against the artifact they are supposed to check." A gate standing over an empty
 directory is a gate nobody has seen fail. So every gate that can be given a failing input gets
-one, and the phase's own success criterion is that **fifty-two such inputs each turn a gate red
-on demand.** Thirteen of the seventeen gates carry at least one of their own; the Testing section
+one, and the phase's own success criterion is that **at least fifty-six such inputs each turn a
+gate red on demand.** It is a floor rather than a total: the keyword-splat cop added on 2026-09-13
+fixes only a minimum number of rows (the plan's Task 4 says "at least four rejected … and at least
+three accepted"), so the count below any honest tally is the one that binds.
+Thirteen of the seventeen gates carry at least one of their own; the Testing section
 below is the list, one row per gate, and it says for each of the remaining four — `rubocop`,
 `test:gates`, `steep` and `bundler_audit` — why a fixture there would prove nothing.
 
@@ -497,6 +500,14 @@ undeclared gem catches a transitive require reached at load time. It runs agains
 gems, not just core — an adapter's single declared dependency is exactly as testable this way —
 and on every Ruby in the matrix in CI, on the development Ruby locally.
 
+For an adapter the scratch `Gemfile` carries one line more than §9.2's: `dexpace-core` by `path:`
+beside the gem under test, and nothing else. Bundler resolves a path gem's own dependencies, every
+adapter gemspec declares `dexpace-core`, and nothing is published, so a Gemfile naming the adapter
+alone fails resolution before the smoke script runs. That addition is not a relaxation — a
+declared dependency resolved from the workspace is still declared, and the refusal the gate exists
+to observe is unchanged: verified on 4.0.6, an adapter bundle holding core by `path:` still fails
+an undeclared `require "logger"` with `cannot load such file -- logger (LoadError)`.
+
 The Ruby 4.0 column is where it actually bites, because that is where `logger`, `ostruct`,
 `benchmark`, `fiddle`, `pstore`, `irb`, `rdoc`, `reline` and `win32ole` leave the default set.
 Ruby 4.0.6 is released and `ruby/setup-ruby` resolves `4.0`, so this is an ordinary required
@@ -841,7 +852,7 @@ has to be a git repository with a tag).
 
 | Gate | Fixture that must make it fail |
 |---|---|
-| `cops:test` (the five original custom cops) | Twenty-four rejected sources and eight accepted ones, as one data-driven suite: five header shapes (missing SPDX, wrong licence, one-line file, transposed lines 1 and 2, no blank line 3); `Time.parse` / `Date.parse` / `DateTime.parse` / `::Time.parse`; `URI::DEFAULT_PARSER` and `URI.parse` / `.join` / `.split`; `downcase` / `upcase` / `capitalize` / `swapcase` / `downcase!` with a locale symbol and a bare `casecmp?`; `Timeout.timeout` and `raise` / `kill` / `terminate` / `exit` on a Thread. The accepted half is the sanctioned form each ban points at, so a cop that rejects everything fails too |
+| `cops:test` (the original five, plus `Dexpace/NoKeywordSplat`) | Twenty-four rejected sources and eight accepted ones for the original five, plus at least four rejected and three accepted for the keyword-splat cop, as one data-driven suite: five header shapes (missing SPDX, wrong licence, one-line file, transposed lines 1 and 2, no blank line 3); `Time.parse` / `Date.parse` / `DateTime.parse` / `::Time.parse`; `URI::DEFAULT_PARSER` and `URI.parse` / `.join` / `.split`; `downcase` / `upcase` / `capitalize` / `swapcase` / `downcase!` with a locale symbol and a bare `casecmp?`; `Timeout.timeout` and `raise` / `kill` / `terminate` / `exit` on a Thread. The accepted half is the sanctioned form each ban points at, so a cop that rejects everything fails too |
 | `gates:gemspec_audit` | A gemspec with one `add_dependency`; an adapter with two third-party dependencies; an adapter whose core constraint is `~> 0.1` while `VERSIONS` says `0.0.0` |
 | `gates:require_allowlist` | `require "base64"` (bundled at 3.4); `require "logger"` (bundled at 4.0); `require "tsort"` (bundled at 4.1, default today — the case a range-based rule misses); `require "json"` (stable and denied by `SEAM-2`); `require "timeout"` (stable and denied by §8.3); plus a `require_relative` that escapes the gem's `lib/` and one that does not |
 | `gates:clean_bundle` | A **complete** miniature workspace — the gem plus `tools/` and `VERSIONS`, because the gemspec reads both — whose core file requires `logger` with no declaration. Must fail under Bundler on **4.0**, and is the fixture that proves the 4.0 row is load-bearing. Without the two copied files the gemspec would raise first and the assertion would pass for the wrong reason |
@@ -853,17 +864,19 @@ has to be a git repository with a tag).
 | `gates:reproducible` | A fixture gem whose `spec.files` is an unsorted `Dir.glob`, built twice with no `SOURCE_DATE_EPOCH` and one file's mtime moved between the builds: the digests must differ. Paired with the same fixture built twice under the fixed epoch, which must agree — so the difference is attributable to the normalisation and not to a broken fixture |
 | `test:gems` warnings-fatal | A source triggering a method-redefinition warning at require time, proving the stderr scan catches what the `Warning.warn` override cannot |
 | SimpleCov floor | An uncovered library file written into `tmp/`, outside every `add_filter`, asserting the floor fails below 80. It cannot live under `test/fixtures/`: both `/test/` and `/fixtures/` are filtered, and SimpleCov reports an empty tracked set as 100% |
-| `yard` | A public method with no YARD block |
+| `yard` | A public method with no YARD block. And a second fixture pinning what the `NFR-13` header does to this gate: the two-line header is absorbed by YARD as a docstring for whatever declaration follows it, so the *first* declaration in every file counts as documented whether or not anyone documented it — measured on 0.9.45, `# frozen_string_literal: true` alone is skipped as a magic comment and the module reports `0.00% documented`, while adding the SPDX line reports it documented. Under `Style/ClassAndModuleChildren: nested` that first declaration is always the outer `module Dexpace`, never the type the file is about, so the gate is narrowed and not defeated — and the fixture asserts a *nested* module with no block is still refused |
 | `rbs:validate` | An `.rbs` referencing an undeclared type (`VERSION: Nonexistent::Type`), asserted to exit non-zero |
 | `bundler_audit` | **No fixture.** It resolves a live advisory database and its verdict changes when a CVE is published against a gem this repository already depends on, so a green-exit assertion would fail for a reason unrelated to the change under test. The test asserts the task is *wired* — present in `tasks/quality.rake`, carrying `--update`, and listed in `DEFAULT_GATES` — and the honest response to a real finding is a version bump in `VERSIONS`, not a test edit |
 
-**Fifty-two deliberately failing inputs**, counted from the rows above. Thirteen of the seventeen
-gates carry at least one of their own — `cops:test` (24 cop sources), `gates:gemspec_audit` (3),
+**At least fifty-six deliberately failing inputs**, counted from the rows above. Thirteen of the
+seventeen gates carry at least one of their own — `cops:test` (24 cop sources for the original
+five, plus at least 4 for the keyword-splat cop), `gates:gemspec_audit` (3),
 `gates:require_allowlist` (6 refusals, plus one positive control), `gates:clean_bundle` (1),
 `gates:rbs_surface` (5), `gates:sig_diff` (3 breaking changes, plus the no-tag and unchanged-tree
 controls), `gates:surface_snapshot` (1), `gates:versions` (3), `gates:single_instance` (1),
 `gates:reproducible` (1), `test:gems` (1 load-time warning and 1 uncovered file for the SimpleCov
-floor), `yard` (1) and `rbs:validate` (1).
+floor), `yard` (2) and `rbs:validate` (1). The keyword-splat rows are a floor rather than a fixed
+number, which is why the total is stated as one too.
 
 **Four gates carry no fixture of their own, and each has a reason.** `rubocop` is the runner for
 the custom cops `cops:test` already proves case by case. `test:gates` is the runner for the gate
