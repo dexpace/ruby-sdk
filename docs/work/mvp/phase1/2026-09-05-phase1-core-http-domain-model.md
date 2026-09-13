@@ -210,7 +210,7 @@ module Dexpace
   #
   # Design §5's suppressed-exception trail -- #suppressed, the #full_message override and
   # Dexpace.attach_suppressed -- lands in phase 4 with the recovery chain that is its first
-  # caller (DEF-24). It is deliberately absent rather than stubbed here.
+  # caller (phase 4b, Task 1). It is deliberately absent rather than stubbed here.
   module Error
   end
 end
@@ -573,7 +573,7 @@ that happens to need it.
   `.valid_outbound_value?(value) -> bool`, `.validate_outbound_value!(value, name:) -> String`,
   `.valid_inbound_value?(value) -> bool`, `.validate_inbound_value!(value, name:) -> String`, and
   `.escape(name) -> String`. Tasks 4, 5 and 9 call it; phase 8's transports call it again at the
-  wire boundary (`DEF-25`).
+  wire boundary (phase 8a, Task 16; phase 8c, Task 9).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -677,7 +677,7 @@ module Dexpace
   # The header grammar, as bytes.
   #
   # Public API on purpose: HTTP-17/HTTP-18/XCUT-18 are re-checked at the model-to-wire boundary
-  # inside every transport adapter (phase 8, DEF-25), and an adapter lives in a different gem, so
+  # inside every transport adapter (phase 8a Task 16, phase 8c Task 9), and an adapter lives in a different gem, so
   # it must be able to reach the predicate without building a model. That re-check is what makes
   # the encapsulation gap of design §10.10 a correctness-of-shape gap rather than a
   # request-splitting one.
@@ -822,7 +822,7 @@ Expected: PASS, 15 runs.
 
 ## Task 4: `Dexpace::HeaderName`
 
-**Requirement IDs:** `HTTP-21`, `HTTP-13`. **Deferred:** `HTTP-22` (`DEF-2`, no interning).
+**Requirement IDs:** `HTTP-21`, `HTTP-13`. **Deferred:** `HTTP-22` (no interning; no v1 phase — `docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` decision line).
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/http/header_name.rb`,
@@ -3035,7 +3035,7 @@ class DexpaceRequestTest < DexpaceTestCase
   # HTTP-2's residual gap, asserted rather than papered over (design §10.10, §11.6). `send`
   # bypassing `private` is a documented Ruby feature and cannot be closed; the mitigation is that
   # HTTP-17/HTTP-18 are re-validated at the model-to-wire boundary inside every transport (phase
-  # 8, DEF-25), which makes this a correctness-of-shape gap and not a request-splitting one. A
+  # 8a Task 16, phase 8c Task 9), which makes this a correctness-of-shape gap and not a request-splitting one. A
   # test asserting this path is blocked would be a lie that passes.
   test "send reaches the private constructor, and that hole is documented not closed" do
     forged = Dexpace::Request.send(:new, method: Dexpace::Method::GET,
@@ -3134,7 +3134,7 @@ end
 produces the better message — the model's is the one that cannot be bypassed.
 
 **`body` is opaque in phase 1.** The `BODY` model is phase 3's; here the member is carried, its
-presence is the only thing asked of it, and its RBS type is `untyped` (`DEF-26`).
+presence is the only thing asked of it, and its RBS type is `untyped` (narrowed by phase 3b, deviation P3-15).
 
 - [ ] **Step 5: Write both `sig/` mirrors** and add both requires.
 
@@ -3380,7 +3380,7 @@ Expected: PASS, every suite from Tasks 1–15.
 **Files:**
 - Create: `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`
 - Modify: `test/fixtures/surface/dexpace-core.txt`, `CLAUDE.md`,
-  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, `docs/deferred-items.md`
+  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`
 - Test: the full gate set, plus the housekeeping probe
 
 **Interfaces:**
@@ -3424,30 +3424,34 @@ actually built, not from this plan. **Forty-two rows**: `HTTP-1`–`HTTP-35`, `H
 halves of it: the uniform `<name> is required` message (Task 2's `Model.required!`) and the shared
 generic builder contract (Task 2's `Dexpace::Builder`). Legend, verbatim from the roadmap: ✅
 implemented and tested · 🚫 not built (permanent simplification, named reason) · ⏳ deferred
-(`DEF-<n>` with its pick-up condition) · N/A not applicable in this port. Each row names the
+(naming the plan task — phase, task number and path — that will do it, or the `docs/first-release.md`
+entry that owns it) · N/A not applicable in this port. Each row names the
 **numbered task above** that satisfies it. `HTTP-1` and `HTTP-2` are ✅ against Task 2 with "by
 construction" stated and `HTTP-2`'s residual gap named. `HTTP-22`, `HTTP-48`, `HTTP-49` and
-`HTTP-50` are ⏳ `DEF-2`, whose target is phase 6. Add the audit-group section the roadmap
+`HTTP-50` are ⏳, owned by `docs/first-release.md` § Blockers before first publish, the
+`HTTP-22`/`48`/`49`/`50` decision line — no v1 phase constructs a conditional request. Add the audit-group section the roadmap
 requires: the four groups this phase ran (*Public API surface*; *RBS / Steep typing*; *Minitest
 conventions*; *Encoding and binary strings*) and the result of each, including the four notes
 filed.
 
-- [ ] **Step 5: Verify the register rows and add any the implementation found**
+- [ ] **Step 5: Record anything the implementation postponed**
 
-Run: `grep -n '^### DEF-2[4-9]' docs/deferred-items.md`
-Expected: `DEF-24`, `DEF-25` and `DEF-26`, appended during planning, and `DEF-2` naming **phase 6**
-as its target with the four unmet SHOULDs also listed in `docs/first-release.md`'s readiness list.
-Anything the implementation defers beyond those is appended as
-`DEF-27` onward with the deferring phase, the reason, the pick-up condition and the IDs it cites,
-and the `next id:` line at the foot of the register is updated.
+The three items phase 1 postponed are recorded in the design's "Work Phase 1 Postponed, and Who Owns
+It Now" section, each with its owner: the suppressed trail (phase 4b, Task 1), wire-boundary
+re-validation (phase 8a, Task 16; phase 8c, Task 9; phase 9, Task 7) and the body member's typing
+(phase 3b, built). Confirm the `HTTP-22`/`48`/`49`/`50` decision line is still under
+`docs/first-release.md` § Blockers before first publish: `grep -n 'HTTP-48' docs/first-release.md`.
+Anything the implementation postpones beyond those is added to that design section with the reason
+and its owner — a numbered task in the plan of the phase that will do it, cited by path and task
+number, or, when no v1 phase will, an entry under the fitting `docs/first-release.md` section.
 
 - [ ] **Step 6: Append the roadmap status note**
 
 Append one dated entry to `## Phase Status Notes` in
 `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`. Never rewrite an earlier one. It states
 what landed, the two verified interpreter findings and where each is recorded, the four notes
-filed, the deferrals, and the one count that changed — the phase-directory count is unchanged at
-two, and `gems/` is still six.
+filed, the three items it postponed with their owners, and the one count that changed — the
+phase-directory count is unchanged at two, and `gems/` is still six.
 
 - [ ] **Step 7: Update `CLAUDE.md`**
 
@@ -3512,16 +3516,16 @@ checklist's forty-two rows with any ⏳ or 🚫 named, and the `CLAUDE.md` diff.
 | Entry point and the public surface | 16 |
 | Testing (the encoding table, the aliasing tests, the `HTTP-2` negative proof, the property tests) | distributed: Task 3 (encoding), Tasks 5, 11, 13, 14, 15 (aliasing), Task 14 (`HTTP-2`), Tasks 3, 6, 9, 10, 11 (property) |
 | Design §4 and §5 addenda | 1 (A3), 2 (A1), 3 (A2) |
-| Deviation Ledger, deferrals, register sweep | 17 |
+| Deviation Ledger, the work phase 1 postponed and its owners | 17 |
 
 **Requirement coverage.** All 39 in-scope IDs plus `HTTP-1`/`HTTP-2` and `SEAM-29`: `SEAM-29`'s
 two MUSTs (2 — `Model.required!` for the message form, `Dexpace::Builder` for the generic
 contract), `HTTP-1`/`HTTP-2` (2),
 `HTTP-3`/`HTTP-4`/`HTTP-5` (2, 5, 11, 13, 14, 15), `HTTP-6` (14, 15), `HTTP-7`/`HTTP-8` (14),
 `HTTP-9` (7), `HTTP-10`–`HTTP-12` (6), `HTTP-13` (3, 4, 5), `HTTP-14`–`HTTP-16` (5),
-`HTTP-17`–`HTTP-20` (3), `HTTP-21` (4), `HTTP-22` (⏳ `DEF-2`), `HTTP-23`–`HTTP-27` (9),
+`HTTP-17`–`HTTP-20` (3), `HTTP-21` (4), `HTTP-22` (⏳, `docs/first-release.md`), `HTTP-23`–`HTTP-27` (9),
 `HTTP-28`–`HTTP-32` (10, 11), `HTTP-33` (8), `HTTP-34`/`HTTP-35` (13), `HTTP-46`/`HTTP-47` (12,
-14), `HTTP-48`–`HTTP-50` (⏳ `DEF-2`), `HTTP-53` (9).
+14), `HTTP-48`–`HTTP-50` (⏳, `docs/first-release.md`), `HTTP-53` (9).
 
 **Placeholder scan.** No "TBD", no "implement later", no "add appropriate error handling", no
 "similar to Task N". Three tasks describe a file's shape in prose rather than in full code — Task 8

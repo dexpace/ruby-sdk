@@ -39,7 +39,7 @@ bodies: production, replayability, ownership, capture, close and decode.
 ## Governing documents
 
 - `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md` — the charter. It fixes 3b's 49 IDs,
-  the ten spec-forced boundaries, the `DEF-26` pick-up and risks R5–R10. R1–R4 were 3a's and are
+  the ten spec-forced boundaries, the pick-up of phase 1's postponed body-member narrowing and risks R5–R10. R1–R4 were 3a's and are
   resolved; they are not re-opened here.
 - `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md` and
   `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts.md` — what 3b stands on. The design's
@@ -64,22 +64,26 @@ bodies: production, replayability, ownership, capture, close and decode.
 `HTTP-51`, `HTTP-52`. Five are SHOULDs — `BODY-9`, `BODY-20`, `BODY-29`, `BODY-33`, `HTTP-51` — and all
 five are implemented; `BODY-9` is R9 and is answered below rather than assumed.
 
-**⏳ `DEF-3` — 2, and one of them changes.**
+**⏳ `BODY-12`/`BODY-36`, the zero-copy and mmap postponement the MVP-scope design recorded — 2, and one of them
+changes.**
 
 | ID | Level | Disposition |
 |---|---|---|
-| `BODY-12` | SHOULD | **Split, and the split is this document's to make.** Clause 1 — "stream its bytes using the platform's most efficient file-to-sink transfer (avoiding an unnecessary user-space copy)" — is **implemented** here, through `::IO.copy_stream`. Clause 2 — "the transport layer SHOULD be able to recognize a file-backed body by type to dispatch a true zero-copy kernel transfer" — stays ⏳, target **phase 8** with `DEF-10`; 3b discharges the half of it that is a body-layer obligation by making the file body a named public class exposing `#path`, `#offset` and `#count`, which is what a transport dispatches on |
+| `BODY-12` | SHOULD | **Split, and the split is this document's to make.** Clause 1 — "stream its bytes using the platform's most efficient file-to-sink transfer (avoiding an unnecessary user-space copy)" — is **implemented** here, through `::IO.copy_stream`. Clause 2 — "the transport layer SHOULD be able to recognize a file-backed body by type to dispatch a true zero-copy kernel transfer" — stays ⏳, target **phase 8** with `TRANSPORT-28`'s zero-copy clause; 3b discharges the half of it that is a body-layer obligation by making the file body a named public class exposing `#path`, `#offset` and `#count`, which is what a transport dispatches on |
 | `BODY-36` | MAY | ⏳, unchanged in substance and given the explicit pick-up condition the segmentation design named: Ruby's standard library has no `mmap`, and the only routes are a C extension or the `mmap` gem, both barred from core by `SEAM-1`/`NFR-1`, so the condition is **core's dependency budget changes**, which no phase in v1 can meet |
 
-Before this change the register row for `DEF-3` read "BODY-12 lands with an `IO.copy_stream` path
-post-MVP; BODY-36 has no named trigger". The segmentation design stated both sharpenings and did not
-perform them; this change performs them on the register, because 3b is the phase that owns both IDs.
+Before this change the recorded postponement read "BODY-12 lands with an `IO.copy_stream` path post-MVP;
+BODY-36 has no named trigger". The segmentation design stated both sharpenings and did not perform them;
+this change performs them, because 3b is the phase that owns both IDs. Where the parts now live: clause 1 is
+3b's (P3-17); clause 2 was declined by phase 8a on 2026-09-12 (its design's R5), and it and `BODY-36` are
+stated in `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry.
 
 **Also carried, without owning the ID:**
 
-- **`DEF-26`, picked up.** Its pick-up condition names phase 3 explicitly: narrow `Request#body` and
+- **The body member's type and `HTTP-46`'s by-value comparison, postponed by phase 1 — picked up.** Phase 1's
+  pick-up condition names phase 3 explicitly: narrow `Request#body` and
   `Response#body` in `sig/` from `untyped`, and add the by-value equality test against a real body
-  type. Both need a body type to exist, which is why the row is 3b's and not 3a's — 3a's `_Chunked`
+  type. Both need a body type to exist, which is why the item is 3b's and not 3a's — 3a's `_Chunked`
   duck type is deliberately not one. Resolved under R6 below.
 - **`HTTP-46` — a cross-reference row, not a re-satisfaction.** The ID stays phase 1's, whose design
   overrides `#==`/`#hash` on `Request` to compare "`URL.external_form(url)` plus method, headers and
@@ -159,10 +163,10 @@ Quoted from appendix C, because each fixes a decision below.
 | `BODY-4`/`BODY-5`'s three **call sites** — the retry stop, the auth challenge return, the redirect raise — and `Dexpace::Resilience::Resend.eligible?(request)`, the one predicate the corpus places under `resilience/` (`authentication/cdd2b5fc`) | 6. 3b ships the `#replayable?` property the three consult and the documented decline behaviours; it builds no gate and no predicate |
 | `BODY-5`'s method-idempotency gate. Phase 1 shipped `Method#idempotent?`; the gate that reads it is retry-specific | 1 built, 6 gates |
 | `BODY-30`/`HTTP-52`'s **recovery-chain step** and `BODY-31`'s **error-to-exception mapping step** — design §12 places both in §5.1 alongside `RECOV-16` | 4. R8 below draws the line |
-| `BODY-19`/`BODY-34`'s **configuration source** and the body-level-logging **enablement predicate**; `IO-9`/`BODY-32`'s ceiling as a configurable value | 5 — `DEF-34`, filed here. R5 below |
+| `BODY-19`/`BODY-34`'s **configuration source** and the body-level-logging **enablement predicate**; `IO-9`/`BODY-32`'s ceiling as a configurable value | 5 — postponed here (below, "Work Phase 3b Postpones"); built by phase 5a, Task 13 and phase 5b, Tasks 14–15. R5 below |
 | `HTTP-44`/`HTTP-45`'s **witness** — `SEAM-22`'s `.dexpace_load(parsed, ctx)` protocol and the status-aware handler that closes over it (`serde/4b78c08d`) | 7. 3b ships `TypedResponse` over a handler duck type. R7 below |
 | `SEAM-20`/`SEAM-21`/`SERDE-3`'s third ownership rule — a codec reads or writes a caller's stream fully and closes nothing | 7. Phase 3 neither implements nor weakens it (boundary 5) |
-| `BODY-12`'s transport zero-copy dispatch; `TRANSPORT-25`'s streaming response body | 8 — `DEF-10` |
+| `BODY-12`'s transport zero-copy dispatch; `TRANSPORT-25`'s streaming response body | 8 — the zero-copy clause is `TRANSPORT-28`'s, declined for v1 (`docs/first-release.md` § What v1 ships without › SHOULD/MAY) |
 | `XCUT-15`, `XCUT-18` — restated cross-cutting invariants 3b leaves satisfiable without claiming | 9 |
 
 **No segmentation design of its own.** 3b is one spec chapter, one gem, 49 IDs, under a segmentation
@@ -232,9 +236,10 @@ the claim.
   closed `ResponseBody`'s source. `BODY-24`'s *second* read is a different failure and a different
   class — nothing is closed, the tail has simply already been taken — so it raises
   `Dexpace::StreamError`, with the other stream-contract violations listed under phase 1 above.
-- **`Dexpace.close_quietly`** — **`BODY-28` is its first call site in the SDK.** `DEF-27`'s condition
-  (a suppressed trail or a diagnostic sink to route the dropped error to) is still unmet, so the
-  rescued error is still dropped; the row is strengthened, not met.
+- **`Dexpace.close_quietly`** — **`BODY-28` is its first call site in the SDK.** The condition phase 2
+  set for its two disposal routes (a suppressed trail or a diagnostic sink to route the dropped error to)
+  is still unmet, so the rescued error is still dropped; the case is strengthened, not met. Route 1 is
+  phase 4b, Task 2 and route 2 phase 5b, Task 14.
 - **`Dexpace::Hooks`, `Dexpace::Registry`, `Dexpace::Cancellation` and the async pivot** — not used by
   3b. No body notifies a hook list, and `IO-40`'s no-deadline rule reaches the body layer through the
   same argument it reaches 3a by.
@@ -296,7 +301,7 @@ same reason. Nothing either phase settled is re-opened.
 |---|---|---|
 | **Message bodies** | `--prefix BODY --section rules,conclusions,constraints,reference` | 45 + 15 + 30 entries. `message-bodies/627eaeab` ("a body over a caller-supplied `IO` or `Enumerator` never closes it, and transfer of close ownership is opted into explicitly at the factory") is the body-layer ownership rule, adopted verbatim and load-bearing for `BODY-8` |
 | **Streaming and encoding** | `--prefix IO --section rules --brief` and `--topic io-and-byte-streams,serde --section rules --grep 'encoding\|binary\|ASCII-8BIT\|force_encoding'` | `io-and-byte-streams/d2b47c89` (never trust a transport's charset tagging) adopted. **`io-and-byte-streams/fbcb4d19` is superseded** — the decode recipe. See the note below |
-| **Error handling** | `--prefix BODY --section rules` narrowed to `error-handling.md`, plus `--topic error-handling --section rules` | `error-handling/aaa8a235`, `/b732301f`, `/82145ceb`, `/ea20e887`, `/6153058c` — `BODY-30`–`BODY-34` restated from the spec side; nothing conflicts. `error-handling/d2eadac4` (the note) already fixes the error-root shape |
+| **Error handling** | `--prefix BODY --section rules` narrowed to `error-handling.md`, plus `--topic error-handling --section rules` | `error-handling/aaa8a235`, `/b732301f`, `/82145ceb`, `/ea20e887`, `/6153058c` — `BODY-30`–`BODY-34` restated from the spec side; nothing conflicts. `error-handling/e91f8733` (the note) already fixes the error-root shape |
 | **Resource lifecycle and stream ownership** | `--topic resource-management --section rules` and `--chapter 13` | The group 3a added to the skill's table. `resource-management/d1f16cad` (the note) already resolves the timeout rules against `IO-40`; `resource-management/bf5560dc` (block form for every closable resource) reaches `ResponseBody` and is adopted; `resource-management/1676974d` (never rely on finalizers) is what forbids papering over the `#each` residue |
 | **Public API surface** | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` | `api-design/1d9e6e0b` (keyword arguments) shapes every signature; `api-design/88e6bf12` (narrowest duck-typed parameter) is why `#write_to` takes `#write` and `TypedResponse` takes `#call` |
 | **Fiber scheduler, thread safety** | `--topic concurrency-and-async --section rules --brief` and `--prefix BODY --grep 'mutex\|latch\|concurren'` | `concurrency-and-async/e94924e3` (`BODY-6`/`BODY-7`'s mutex across the flag flip and never across the drain) and `/6569f2a4` (`BODY-22`'s latch is the same shape) govern; `serde/97665a9a` extends both to `HTTP-45` |
@@ -402,7 +407,7 @@ five changed a decision; the rest are recorded because the plan would otherwise 
 |---|---|---|
 | `Dexpace::IO::MAX_MATERIALIZED_BYTES` (64 MiB) | One contiguous `String` (`IO-9`), and `BODY-32`'s clamp target | 3a's constant, read directly. **3b adds no keyword** |
 | `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES` (1 MiB) | `BODY-30`/`HTTP-52`'s error-body copy | A 3b constant. The requirement fixes the number, so there is nothing to configure |
-| The body-logging preview size | `BODY-19`'s tap cap and `BODY-22`'s drain cap, which `BODY-34` requires be **one shared** value | A keyword on each wrapper. **The source is deferred — `DEF-34`** |
+| The body-logging preview size | `BODY-19`'s tap cap and `BODY-22`'s drain cap, which `BODY-34` requires be **one shared** value | A keyword on each wrapper. **The source is postponed to phase 5** (below, "Work Phase 3b Postpones"; phase 5b, Tasks 14–15) |
 
 **The ceiling gets no keyword, and that is a decision rather than an omission.** 3a shipped
 `MAX_MATERIALIZED_BYTES` with no keyword specifically to leave this to 3b, and 3b declines it for
@@ -422,8 +427,8 @@ the constant. Phase 5 changes where the constant's *value* comes from; it change
   "buffering up to a configurable byte cap" and names no default, and an unbounded default here would
   mean `BODY-24`'s over-cap regime never fires and a multi-gigabyte response is fully buffered by a
   wrapper whose whole purpose is to bound. Requiring the keyword ships the narrower signature and lets
-  phase 5 widen it, which is `DEF-28`'s precedent applied verbatim: adding a default widens and cannot
-  break `NFR-4`.
+  phase 5 widen it, which is phase 2's `deadline:` precedent (P2-5) applied verbatim: adding a default widens
+  and cannot break `NFR-4`.
 
 A reader who tidied these into one default would break one requirement or the other; the asymmetry is
 recorded as **P3-18**.
@@ -434,7 +439,8 @@ the *shared source* needs phase 5's layered chain, and the *enablement predicate
 engage only when body-level logging is enabled") has no subject in 3b, because nothing in core
 constructs a logging wrapper. That second half is satisfied **structurally** rather than by a flag: the
 wrappers are off the path unless something builds one, and the only thing that will is phase 5's
-instrumentation layer. `DEF-34` carries both.
+instrumentation layer. The postponement recorded below carries both (phase 5a, Task 13 for the ceiling;
+phase 5b, Tasks 14 and 15 for the preview size and the `BODY` gate).
 
 ## R6 — the body constants' names and namespace
 
@@ -465,7 +471,7 @@ this and not an interface or a base class:
 2. **The factory home `HTTP-38`/`BODY-35` asks for** — "Body factories MUST classify replayability by
    source" is one sentence and wants one place: `Body.bytes`, `.string`, `.file`, `.stream`,
    `.chunked`, `.form`, `.multipart`, `.buffer`.
-3. **The type `DEF-26` narrows `sig/` to.** RBS understands a module used as a type as "an instance of
+3. **The type the postponed narrowing (P3-15) takes `sig/` to.** RBS understands a module used as a type as "an instance of
    a class that includes it", so `Request#body: Dexpace::Body?` type-checks, and Steep then sees every
    variant. An RBS interface would work too and is rejected: an interface cannot carry the default
    implementations of point 1, so every variant would restate `#replayable? = false`, which is the
@@ -482,7 +488,7 @@ unnamed constants and 3a used for P3-8.
 
 | Constant | IDs | Why it exists as its own class |
 |---|---|---|
-| `Dexpace::Body` | `HTTP-36`, `BODY-1`, `BODY-35`, `HTTP-38` | The contract, the factories and `DEF-26`'s type |
+| `Dexpace::Body` | `HTTP-36`, `BODY-1`, `BODY-35`, `HTTP-38` | The contract, the factories and the type `Request#body`/`Response#body` narrow to (P3-15) |
 | `Dexpace::BytesBody` | `HTTP-38`/`BODY-35` | Byte-array and string bodies; replayable with an exact length |
 | `Dexpace::BufferBody` | `BODY-3`/`HTTP-37`, `HTTP-52`/`BODY-30` | The product of materialize-once and of the bounded error copy — a body over a `Dexpace::IO::Buffer` core owns |
 | `Dexpace::FileBody` | `HTTP-40`/`BODY-11`, `BODY-12`, `BODY-13` | `BODY-11`'s fail-fast construction and fresh-handle-per-write are a class's invariants, and `BODY-12` clause 2 needs a **type** a transport can recognise |
@@ -723,7 +729,7 @@ exists to see it.
 | `#each { \|String\| } -> nil` | §10.2 | Derived once, here, as a `#write_to` against a block-shaped sink — so every body has exactly **one** byte-producing implementation and `BODY-17`'s "the exact bytes the wrapped body's single write produces" cannot differ between the two paths |
 | `#source -> Dexpace::IO::BufferedSource` | `HTTP-41`/`BODY-14`, `HTTP-42`, `BODY-16`, `BODY-30` | **The read handle**, and the second half of the contract `Response`'s three methods are written against. `HTTP-41`'s own text names it — "its read handle (source)" — so there is one name for it, on the module, and not one name per class. The module's **default raises `Dexpace::StreamError`** with a message naming the class, because the seven request-body variants have no read handle and never occupy `Response#body`; a raising default rather than an absent method is what makes the `sig/` declaration true of every `Dexpace::Body`, which is what lets `Response#body_string` type-check against `Dexpace::Body?`. The three bodies that *can* occupy the slot override it |
 | `#close -> nil` | `HTTP-43`, `HTTP-41`/`BODY-15`, `BODY-16`, `BODY-30` | **Default: a no-op.** `HTTP-43` forwards a response's close to its body unconditionally and `Request::Builder` coerces nothing, so *every* body must answer `#close`; a body owning no transport resource has nothing to release. The default is not laziness — `BODY-30` **requires** it: the buffered error copy must survive `#body_string`'s `ensure`-close and stay "readable independently and repeatably". `Dexpace::Closeable`'s `#close` overrides it in the two classes that own something, because the include order is `include Dexpace::Body` **then** `include Dexpace::Closeable` and the later include sits nearer the class in the ancestor chain |
-| `#==` / `#eql?` / `#hash` | `HTTP-46` | Over each variant's own construction-time facts. `DEF-26` |
+| `#==` / `#eql?` / `#hash` | `HTTP-46` | Over each variant's own construction-time facts — the by-value comparison phase 1 postponed to phase 3 |
 | `.bytes`, `.string`, `.file`, `.stream`, `.chunked`, `.form`, `.multipart`, `.buffer` | `HTTP-38`, `BODY-35` | The factories, in one place, each naming the replayability it confers. Eight factories over seven classes: `.string` and `.bytes` both return a `BytesBody`, because `HTTP-38` classifies a string and a byte array identically and two classes for one behaviour is one more than the requirement asks for |
 | `.buffer_bounded(body, cap:)` | `BODY-30`, `HTTP-52` | R8 |
 | `MAX_BUFFERED_ERROR_BODY_BYTES` | `BODY-30`, `HTTP-52` | 1 MiB, fixed by the requirement |
@@ -910,7 +916,7 @@ stream.
 |---|---|---|
 | `Dexpace::Response#close` | `HTTP-43` | `body&.close` and nothing else. A `Data` instance is frozen and **cannot hold a latch**, which would be a problem if `HTTP-43` needed one — it does not: its own appendix-C text says "(Idempotency is delegated to the body's idempotent close per HTTP-41; a bodyless response close is a no-op.)" So a pure forward is the requirement stated literally, and `ResponseBody`'s `Closeable` latch is where idempotence lives |
 | `Dexpace::Response#body_string` and `#body_bytes` | `HTTP-42`, `BODY-16`, `HTTP-41` | The **one** decode boundary and its byte-array sibling, both closing the body in an `ensure` whether or not the read succeeded (`BODY-16`) |
-| `sig/` narrows `Request#body` and `Response#body` to `Dexpace::Body?` | `DEF-26`, `HTTP-46`, `NFR-4` | The lock diffs against the previous release tag and **there is none** — every gem is at `0.0.0` and nothing is published. Free now, not later, which is exactly why `DEF-26` targeted phase 3 |
+| `sig/` narrows `Request#body` and `Response#body` to `Dexpace::Body?` | `HTTP-6`, `HTTP-46`, `NFR-4` (P3-15) | The lock diffs against the previous release tag and **there is none** — every gem is at `0.0.0` and nothing is published. Free now, not later, which is exactly why phase 1 postponed the narrowing to phase 3 |
 
 **All three are written against `#source` and `#close`, which is why both are on `Dexpace::Body` and
 not on one class.** The version of this design that reviewers first saw put `#source` only on
@@ -928,15 +934,16 @@ is, it answers `#source` and `#close` or it does not go there.
 accept and store whatever it is given; it does not turn a `String` into a `BytesBody`. Coercion would
 put a second replayability-classification site next to `HTTP-38`'s one, and `HTTP-36` is explicit that a
 request body is a thing with a write operation, a media type and a length — a `String` is not one. The
-narrowing is a `sig/` change checked by Steep against `lib/`, and `DEF-23` records that no Steep target
-covers a test tree, so phase 1's suites are unaffected.
+narrowing is a `sig/` change checked by Steep against `lib/`, and phase 0 recorded that no Steep target
+covers a test tree (event-gated under `docs/first-release.md` § Post-release triggers), so phase 1's suites
+are unaffected.
 
 ## The spec-forced boundaries, honoured
 
 1. **`IO-40` — no clock, no deadline.** No method in 3b takes a timeout, a deadline or a
    `Cancellation`. The only blocking calls are the delegate's own reads and the sink's own writes, and
-   they block for exactly as long as the transport that owns the socket allows. `DEF-28`'s `deadline:`
-   stays off the pivot until phase 5.
+   they block for exactly as long as the transport that owns the socket allows. The pivot's `deadline:`
+   stays off the pivot until phase 5 (P2-5; phase 5a, Task 8).
 2. **`IO-37` with `IO-38`.** No body is thread-safe as a general contract. The **only** synchronised
    state in 3b is four flag flips — `BODY-7`'s consume-once, `BODY-9`'s replay claim (R9's `@writing`,
    a second flag under the same body-level mutex, not the same flag as `@consumed`), `BODY-22`'s drain
@@ -1063,7 +1070,7 @@ lib/dexpace/http/percent_encoding.rb              MODIFIED: .encode_form, .encod
 lib/dexpace/http/response.rb                      MODIFIED: #close, #body_string, #body_bytes
 lib/dexpace.rb                                    MODIFIED: requires for the tree above
 
-sig/dexpace/http/request.rbs                      MODIFIED: body -> Dexpace::Body?   (DEF-26)
+sig/dexpace/http/request.rbs                      MODIFIED: body -> Dexpace::Body?   (P3-15)
 sig/dexpace/http/response.rbs                     MODIFIED: body -> Dexpace::Body?, + three methods
 test/fixtures/surface/dexpace-core.txt            regenerated once, in the last task
 
@@ -1199,75 +1206,121 @@ is why each row names where it came from.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P3-14 | The public constants and methods design §3 does not name: `Dexpace::Body` with its eight factories, `.buffer_bounded` and `MAX_BUFFERED_ERROR_BODY_BYTES`; `Dexpace::BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `MultipartBody` (and `MultipartBody::Part`), `ResponseBody`, `RequestLoggingBody`, `ResponseLoggingBody`; `Response#close`, `#body_string`, `#body_bytes`; `PercentEncoding.encode_form` and `.encode_form_component`; the RBS interface `Dexpace::_ResponseHandler` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and 3a's P3-8 precedent | Each is locked at the first release tag, so a name arriving by accident is locked by accident. The constants are **flat under `lib/dexpace/http/body/`** per P1-1, and a `Dexpace::Body::` namespace is rejected rather than merely not chosen: its natural member names are `File`, `Buffer` and `Response`, three constants the body code uses constantly, and `OI-3`/P3-7 show that shadowing is silent for `is_a?` and `case/when`. `Dexpace::Body` is a **module**, not an interface and not a base class, because it must carry the default `#replayable?`, `#content_length` and `#each` implementations *and* be the type `sig/` narrows to for `DEF-26`; an RBS interface can do the second but not the first. The form encoder goes beside the RFC 3986 encoder in one file because `url-and-query-encoding/9ff11c34` asks for two distinct functions, not two modules, and adjacency is the strongest guard against interchanging them |
-| P3-15 | `sig/` narrows `Request#body` and `Response#body` from `untyped` to `Dexpace::Body?` — the **production contract**, not §10.2's `#each` duck type — and no coercion is added at the builder | `DEF-26`, `HTTP-6`, `HTTP-36`, `HTTP-46`, `NFR-4`; design §10.2 | §10.2's duck type is what a body *yields*; `HTTP-36` says what a request body *is* — a thing with a single write-to-sink operation, a media type, a length and a replayability property — and a Rack array is not one. 3a named its interface `_Chunked` and not `_Body` for exactly this reason. Coercion at the builder is rejected because it would create a second replayability-classification site next to `HTTP-38`'s one. The narrowing is free against `NFR-4` because the lock diffs against the previous release tag and there is none |
+| P3-14 | The public constants and methods design §3 does not name: `Dexpace::Body` with its eight factories, `.buffer_bounded` and `MAX_BUFFERED_ERROR_BODY_BYTES`; `Dexpace::BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `MultipartBody` (and `MultipartBody::Part`), `ResponseBody`, `RequestLoggingBody`, `ResponseLoggingBody`; `Response#close`, `#body_string`, `#body_bytes`; `PercentEncoding.encode_form` and `.encode_form_component`; the RBS interface `Dexpace::_ResponseHandler` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and 3a's P3-8 precedent | Each is locked at the first release tag, so a name arriving by accident is locked by accident. The constants are **flat under `lib/dexpace/http/body/`** per P1-1, and a `Dexpace::Body::` namespace is rejected rather than merely not chosen: its natural member names are `File`, `Buffer` and `Response`, three constants the body code uses constantly, and `OI-3`/P3-7 show that shadowing is silent for `is_a?` and `case/when`. `Dexpace::Body` is a **module**, not an interface and not a base class, because it must carry the default `#replayable?`, `#content_length` and `#each` implementations *and* be the type `sig/` narrows to under P3-15; an RBS interface can do the second but not the first. The form encoder goes beside the RFC 3986 encoder in one file because `url-and-query-encoding/9ff11c34` asks for two distinct functions, not two modules, and adjacency is the strongest guard against interchanging them |
+| P3-15 | `sig/` narrows `Request#body` and `Response#body` from `untyped` to `Dexpace::Body?` — the **production contract**, not §10.2's `#each` duck type — and no coercion is added at the builder | `HTTP-6`, `HTTP-36`, `HTTP-46`, `NFR-4`; design §10.2; phase 1's postponement of the narrowing to phase 3 | §10.2's duck type is what a body *yields*; `HTTP-36` says what a request body *is* — a thing with a single write-to-sink operation, a media type, a length and a replayability property — and a Rack array is not one. 3a named its interface `_Chunked` and not `_Body` for exactly this reason. Coercion at the builder is rejected because it would create a second replayability-classification site next to `HTTP-38`'s one. The narrowing is free against `NFR-4` because the lock diffs against the previous release tag and there is none |
 | P3-16 | `BODY-9`'s "supports mark/reset" is **seekability, probed at construction with `pos` + `seek(pos)`**, and a replayable stream body rewinds to its **construction position**, not to byte 0 | `BODY-9`, `HTTP-38`; design §3.1 | Ruby has no mark/reset and `respond_to?(:rewind)` answers `true` for a pipe, a socket, a `StringIO` and a `File` alike (verified on 3.2.11, 3.4.10, 4.0.6). A trial `#rewind` discriminates but silently moves a caller's mid-file cursor to 0; `origin = io.pos; io.seek(origin, ::IO::SEEK_SET)` discriminates and is a genuine no-op, raising `Errno::ESPIPE` — a `SystemCallError`, **not** an `IOError` — on a pipe or socket with nothing consumed and the stream still readable. Rewinding to `@origin` rather than 0 is what stops a body over a pre-positioned handle sending bytes the caller never offered. The SHOULD is implemented rather than declared vacuous |
-| P3-17 | `BODY-12`'s first clause is **implemented** via `::IO.copy_stream(handle, sink, count, offset)`, and the file body is made recognisable by exposing `#path`, `#offset` and `#count` while deliberately **not** defining `#to_path` | `BODY-12`, `BODY-11`, `BODY-13`; `DEF-3`, `DEF-10` | The segmentation design delegated this clause to 3b. `::IO.copy_stream` is core Ruby, needs no `require`, accepts a duck-typed `#write` destination, honours the `(length, offset)` window, leaves the source handle's own cursor untouched when an offset is given, and returns the byte count — which is `BODY-13`'s short-write detection for free (verified on all three). It is also the call that becomes a real kernel `sendfile`/`copy_file_range` the moment both ends are real `::IO`s, which is what clause 2 is waiting for. `#to_path` is not defined because a `copy_stream(body, sink)` with no length would then copy the **whole file**, silently ignoring the body's window (verified). Clause 2's dispatch stays `DEF-10`'s, phase 8 |
-| P3-18 | The two logging wrappers' cap defaults are **deliberately asymmetric**: `RequestLoggingBody` defaults `tap_limit:` to `::Float::INFINITY`, `ResponseLoggingBody` **requires** `preview_bytes:` | `BODY-19`, `BODY-22`, `BODY-34`; `DEF-28`'s precedent, `DEF-34` | `BODY-19` states its own default in its own text ("The unbounded default cap exists for direct wrapper use; the instrumentation layer always supplies a finite cap"), and 3a's `TeeSink` already implements it. `BODY-22` names no default, and an unbounded one would mean `BODY-24`'s over-cap regime never fires and a multi-gigabyte response is fully buffered by the wrapper whose purpose is to bound it. Requiring the keyword ships the narrower signature and lets phase 5 widen it, which cannot break `NFR-4`. A reader who unified the two defaults would break one requirement or the other, which is why the asymmetry is a row rather than a comment |
+| P3-17 | `BODY-12`'s first clause is **implemented** via `::IO.copy_stream(handle, sink, count, offset)`, and the file body is made recognisable by exposing `#path`, `#offset` and `#count` while deliberately **not** defining `#to_path` | `BODY-12`, `BODY-11`, `BODY-13`; `TRANSPORT-28` | The segmentation design delegated this clause to 3b. `::IO.copy_stream` is core Ruby, needs no `require`, accepts a duck-typed `#write` destination, honours the `(length, offset)` window, leaves the source handle's own cursor untouched when an offset is given, and returns the byte count — which is `BODY-13`'s short-write detection for free (verified on all three). It is also the call that becomes a real kernel `sendfile`/`copy_file_range` the moment both ends are real `::IO`s, which is what clause 2 is waiting for. `#to_path` is not defined because a `copy_stream(body, sink)` with no length would then copy the **whole file**, silently ignoring the body's window (verified). Clause 2's dispatch stays a transport obligation, phase 8's — declined there by 8a's R5 and stated in `docs/first-release.md` § What v1 ships without |
+| P3-18 | The two logging wrappers' cap defaults are **deliberately asymmetric**: `RequestLoggingBody` defaults `tap_limit:` to `::Float::INFINITY`, `ResponseLoggingBody` **requires** `preview_bytes:` | `BODY-19`, `BODY-22`, `BODY-34`; phase 2's `deadline:` precedent (P2-5); the configuration-source postponement below | `BODY-19` states its own default in its own text ("The unbounded default cap exists for direct wrapper use; the instrumentation layer always supplies a finite cap"), and 3a's `TeeSink` already implements it. `BODY-22` names no default, and an unbounded one would mean `BODY-24`'s over-cap regime never fires and a multi-gigabyte response is fully buffered by the wrapper whose purpose is to bound it. Requiring the keyword ships the narrower signature and lets phase 5 widen it, which cannot break `NFR-4`. A reader who unified the two defaults would break one requirement or the other, which is why the asymmetry is a row rather than a comment |
 | P3-19 | `ChunkedBody` is **unconditionally single-use**; there is no `replayable:` keyword on it or on `Body.chunked` | `BODY-1`, `HTTP-38`, `BODY-4` | `BODY-1` permits `#replayable?` to be `true` **only** when writing more than once provably yields byte-for-byte identical output. An `#each`-shaped object may or may not, and a keyword would let a caller *assert* the property — an assertion the retry, redirect and 401 paths then believe (`BODY-4`). A caller with a genuinely repeatable source uses `Body.bytes`, or calls `#to_replayable` and pays one materialisation. Recorded rather than left silent because "add a keyword" is the obvious first request |
 | P3-20 | The body layer drives its own exact-length copy through one private routine in `Dexpace::Body`, rather than calling 3a's `TypedWrites#write_all(source)` | `HTTP-39`/`BODY-10`, `BODY-13`, `BODY-25`, `IO-6`, `IO-17` | `#write_all` is a method **on a sink**, so using it would require the transport's `#write`-shaped destination to be wrapped in a `Dexpace::IO::BufferedSink` — and `IO-6` makes that wrapper own and close the socket, which is precisely what a body must never do (`BODY-8`, §10.12), with no borrowing variant available by design (3a's P3-12). One body-layer routine instead, using 3a's `StreamError.short_transfer` and `.zero_read` so `BODY-13`'s "one helper so the message form cannot diverge" holds across both layers. `IO-17`'s zero-read *rule* is therefore implemented in two places; its *message* in one, which is what the requirement actually fixes |
 | P3-21 | `Dexpace::Body#each` is **derived from `#write_to`** through a block-shaped sink, defined once in the module; and `FileBody`'s external-iteration residue is documented rather than closed | §10.2, §7.1; `BODY-11`, `BODY-17` | One byte-producing implementation per body means `BODY-17`'s "the exact bytes the wrapped body's single write produces" cannot differ between the `#write_to` path and the `#each` path. §7.1's rule is wider than the corpus states it: verified on all three interpreters that an **ordinary** `#each` method's `ensure` also fails to run when the method is driven through `to_enum(:each)` and abandoned, that `#rewind` does not run it, and that `block_given?` is `true` under that drive so a "require a block" guard is not a defence. Bodies that hold a resource hold it on the object with `#close`; `FileBody`, which `BODY-11` obliges to open a fresh handle per write, cannot, so its YARD states the leak and the corpus note widens `pagination/f57c50f6`. §10.10's precedent: an admitted hole beats a fake proof |
 | P3-23 | `Dexpace::Body` declares two members `HTTP-36` does not enumerate — `#source -> Dexpace::IO::BufferedSource`, whose module default **raises `Dexpace::StreamError`**, and `#close`, whose module default is a **no-op** — and the read handle carries one name across all three bodies that can occupy `Response#body`, so `ResponseLoggingBody`'s accessor is `#source` rather than `#read` and `BufferBody` implements both | `HTTP-36`, `HTTP-41`/`BODY-14`, `HTTP-43`, `BODY-15`, `BODY-16`, `BODY-30`/`HTTP-52`; `NFR-4`; P3-14 and P3-22's precedent | `HTTP-36` enumerates what a **request** body is; `HTTP-43`'s "forward to the body", `BODY-16`'s finally-close and `HTTP-42`'s decode are all written against a **response** body's read handle and close, and nothing declared them. Found by review, filed as `OI-10`: `BufferBody` — the body `BODY-30`/`HTTP-52` puts into a response — had neither, so `response.close` and `response.body_string` raised `NoMethodError` on the one object whose canonical text says "decode it, then snapshot it", and no phase-3 test reached it because every `Response` 3b builds carries a bare `ResponseBody`. Three sub-decisions are forced rather than chosen. **The default `#close` is a no-op**, not a raise and not a `respond_to?` guard at the caller: `Request::Builder` coerces nothing, so nothing constrains what sits in `Response#body`, and a guard is the same gap with a quieter failure; a body owning no transport resource has nothing to release, and `BODY-30` positively requires `#body_string`'s `ensure`-close to leave the buffered copy readable. **`BufferBody#source` returns a fresh `#peek` view per call**, because `BODY-30` says "readable independently and **repeatably** (decode it, then snapshot it)" and `BODY-14`'s same-handle rule governs the single-use response body, not a replayable in-memory copy. **`Closeable` wins over the default** wherever a body owns something, because the include order is `Dexpace::Body` then `Dexpace::Closeable` and the later include sits nearer the class. Consequence for the plan: `Body.buffer_bounded` closes the original unguarded, and the `respond_to?(:close)` test disappears with the guard |
 
-## Deferrals Filed by Phase 3b
+## Work Phase 3b Postpones, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; the row names an explicit pick-up condition, per the roadmap's
-execution step 7.
+One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.
+It is scheduled work: the ceiling's configured source is phase 5a, Task 13
+(`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration.md`), and the shared preview size with the
+`BODY` gate are phase 5b, Tasks 14 and 15
+(`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction.md`). The reasoning stays here in full.
 
-| ID | Deferral | Target / condition |
-|---|---|---|
-| `DEF-34` | The **configuration source** for the body-logging preview size, the body-level-logging **enablement predicate**, and `IO-9`/`BODY-32`'s ceiling as a configurable value rather than a constant. `BODY-34` requires the in-memory capture on both sides to be bounded by **one shared** preview-size configuration and body logging to engage only when body-level logging is enabled; `BODY-19` requires the tap cap to be configurable. Phase 3b ships the parameter shape on both wrappers, one number that can drive both, and the structural half of the enablement clause — nothing in core constructs a logging wrapper, so the wrappers are off the path unless something builds one. What it cannot ship is the thing that decides the value and the thing that decides "enabled" | **Phase 5** (`CFG-1`–`CFG-4`, `OBS-35`), which owns the layered configuration chain and the instrumentation facade. The condition is that chain existing. Adding a default to `ResponseLoggingBody`'s required `preview_bytes:` and reading both caps from configuration are both widenings, so `NFR-4` is not prejudiced by shipping the narrower surface now — `DEF-28`'s precedent, applied verbatim |
+**The configuration source for the body-logging caps and the enablement predicate.** `BODY-34` requires
+that "the in-memory capture on both sides MUST be bounded by one shared preview-size configuration" and
+that body logging "MUST be engaged only when body-level logging is enabled"; `BODY-19` requires the
+request-side tap to be "bounded by a configurable cap"; and design §3.1 asks for `IO-9`/`BODY-32`'s
+materialisation ceiling to be "configurable through the same layered chain as every other limit (§8.2)
+rather than a frozen constant". **There is no configuration chain until phase 5**, and there is no
+instrumentation facade to ask whether body-level logging is on. Phase 3b ships everything that does not
+need one: `Dexpace::RequestLoggingBody` takes `tap_limit:` (defaulting to `::Float::INFINITY`, which is
+`BODY-19`'s own stated default for direct wrapper use) and `Dexpace::ResponseLoggingBody` takes a
+**required** `preview_bytes:`, so one value can drive both sides the moment something has one; and the
+enablement clause is satisfied *structurally* — nothing in core constructs either wrapper, so they are off
+the path unless the instrumentation layer builds one. Phase 3a made the matching decision for the ceiling,
+shipping `Dexpace::IO::MAX_MATERIALIZED_BYTES` as a frozen constant with no keyword, and phase 3b
+deliberately adds none either: a `ceiling:` keyword on a preview operation would give one stream two
+ceilings, which is the failure the phase-3 segmentation design's boundary 8 pins. What 3b cannot ship is
+the thing that decides the value and the thing that decides "enabled".
 
-### Deferral-register sweep
+*Condition:* phase 5, when `CFG-1`–`CFG-4`'s layered chain and `OBS-35`'s body-level-logging setting
+exist. The work is then three wirings and no new mechanism: read the shared preview size from the chain
+into both wrappers, gate their construction on the enablement setting, and give `MAX_MATERIALIZED_BYTES` a
+configured source. Every one of those is a **widening** of a signature that is narrower today — adding a
+default to `preview_bytes:`, adding an optional keyword — so `NFR-4`'s API lock is not prejudiced by
+shipping the narrow surface now. This is phase 2's `deadline:` precedent (P2-5) applied verbatim: phase 2
+shipped `#value(cancellation:)` and deferred `deadline:` for the same reason. *Owners:* phase 5a, Task 13
+(ceiling) and phase 5b, Tasks 14 and 15 (preview size and `BODY` gate). As built there, the chain read is
+the caller's — `configuration.integer(Keys::LOG_PREVIEW_BYTES, default: 8 * 1024)` passed to
+`Step.build(preview_bytes:)` — and `preview_bytes:` stays required.
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every
-row. All thirty-three were read.
+### Postponed work read at planning time
 
-**Phase 3b picks up one row, amends a second, and adds a caller to a third.**
+The roadmap's execution step 1 requires the phase to read **every** piece of work an earlier phase
+postponed and disposition each. All thirty-three items outstanding on 2026-09-08 were read; each is named
+below by subject, with the place that owns it now.
 
-- **`DEF-26` — picked up.** Its pick-up condition named phase 3, and 3b is where a body type exists to
-  narrow to. `sig/` narrows `Request#body` and `Response#body` to `Dexpace::Body?` (P3-15) and the
-  by-value equality test runs against real body types, which is `HTTP-46`'s cross-reference row. Status
-  moves to `picked-up (2026-09-08, phase 3b)`.
-- **`DEF-3` — amended, and it stays deferred.** Both halves are 3b's IDs, and this is the phase the
-  segmentation design's sweep pointed at. `BODY-12`'s **first clause is now implemented** (P3-17), so
-  the row's remaining scope is the transport dispatch of clause 2, target **phase 8** alongside
-  `DEF-10`. `BODY-36`'s "no named trigger" is replaced by the explicit condition the segmentation
-  design named — **core's dependency budget changes**, since Ruby has no stdlib `mmap` and both routes
-  to one are barred by `SEAM-1`/`NFR-1`. The sharpenings were stated in the segmentation design and not
-  performed on the register; this change performs them, and `DEF-33`'s text already cross-references
-  them as though they had been.
-- **`DEF-27` — untouched, condition unmet, and 3b is its first caller.** `BODY-28`'s best-effort close
-  after a successful full capture is `Dexpace.close_quietly`'s first call site in the SDK. Neither
-  disposal route exists yet — phase 4 supplies the suppressed trail, phase 5 the diagnostic — so the
-  rescued error is still dropped and the row stands as written, strengthened rather than met.
-- **`DEF-28` — untouched, and named as a constraint.** The pivot has no `deadline:` until phase 5, and
-  `IO-40` independently forbids the body layer from owning one. `DEF-34` above follows the same
-  precedent it set.
-- **`DEF-29` — untouched, condition still unmet, row strengthened.** 3b adds `FakeBody` and
-  `FakeResponseBody` to `gems/dexpace-core/test/support/`, which is two more doubles that would move
-  into `dexpace-conformance` when the first consumer outside `dexpace-core` appears. That consumer is
-  phase 8 at the earliest.
-- **`DEF-10` — touched only as `BODY-12`'s transport half**, above. `TRANSPORT-28`'s zero-copy dispatch
-  is unchanged and post-MVP.
-- **`DEF-33` — untouched.** 3a's row; the CI matrix is still CRuby-only and 3b adds no non-CRuby row.
-- **`DEF-23` — untouched, and the condition was checked rather than assumed.** 3b's two fakes are a
-  handful of scriptable methods with no invariants a type checker would catch, so "a gem's test support
-  becomes production-quality code worth checking" is not met. Not marked UNSCHEDULED.
-- **`DEF-24`, `DEF-25` — untouched.** Targets phase 4 and phase 8. `DEF-25`'s wire-boundary
-  re-validation is a transport obligation and 3b writes no header.
-- **`DEF-30`, `DEF-31`, `DEF-32` — untouched.** Targets phase 5, phase 5 and phase 4; no body notifies
-  a hook list and nothing here emits a lifecycle event.
-- **`DEF-1`, `DEF-2` — untouched.** `SEAM-24`/`SEAM-28` target phase 5; `HTTP-22`/`HTTP-48`–`HTTP-50`
-  target phase 6.
-- **`DEF-4`–`DEF-9` — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`, `SSE` and `OBS`; other prefixes,
-  later phases. `DEF-9`'s "async body-capture skip" is an `OBS` clause over these wrappers and is phase
-  5's, not 3b's.
-- **`DEF-11`–`DEF-17` — untouched.** Post-v1 gems, out of the MVP by construction.
-- **`DEF-18` — untouched.** `ASYNC-3`/`ASYNC-4`/`PIPE-33`; do not re-open.
-- **`DEF-19`, `DEF-20` — untouched.** Release-gated; nothing is published.
-- **`DEF-21` — already picked up** by phase 2. **`DEF-22` — untouched**, phase 8's conformance
-  assertion objects.
+**Phase 3b picks up one item, amends a second, and adds a caller to a third.**
+
+- **The body member's type and `HTTP-46`'s by-value comparison (postponed by phase 1) — picked up.**
+  Phase 1's condition named phase 3, and 3b is where a body type exists to narrow to. `sig/` narrows
+  `Request#body` and `Response#body` to `Dexpace::Body?` (P3-15) and the by-value equality test runs
+  against real body types, which is `HTTP-46`'s cross-reference row. Picked up 2026-09-08, phase 3b.
+- **`BODY-12`/`BODY-36` (MVP-scope design) — amended, and it stays postponed.** Both halves are 3b's IDs,
+  and this is the phase the segmentation design pointed at. `BODY-12`'s **first clause is now
+  implemented** (P3-17), so the remaining scope is the transport dispatch of clause 2, target **phase 8**
+  alongside `TRANSPORT-28`'s zero-copy clause. `BODY-36`'s "no named trigger" is replaced by the explicit
+  condition the segmentation design named — **core's dependency budget changes**, since Ruby has no
+  stdlib `mmap` and both routes to one are barred by `SEAM-1`/`NFR-1`. The sharpenings were stated in the
+  segmentation design and not performed; this change performs them, and 3a's `IO-38` postponement already
+  cross-references them as though they had been. Where the two remaining parts now live: clause 2 was
+  declined by phase 8a on 2026-09-12 (its design's R5), and it and `BODY-36` are stated in
+  `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry.
+- **`close_quietly`'s two disposal routes (phase 2) — untouched, condition unmet, and 3b is its first
+  caller.** `BODY-28`'s best-effort close after a successful full capture is `Dexpace.close_quietly`'s
+  first call site in the SDK. Neither disposal route exists yet — phase 4b, Task 2 supplies the suppressed
+  trail, phase 5b, Task 14 the opt-in diagnostic — so the rescued error is still dropped and phase 2's
+  decision stands as written, strengthened rather than met.
+- **The pivot's `deadline:` keyword (phase 2, P2-5) — untouched, and named as a constraint.** The pivot
+  has no `deadline:` until phase 5 (5a, Task 8), and `IO-40` independently forbids the body layer from
+  owning one. The configuration-source postponement above follows the same precedent it set.
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched, condition still
+  unmet, case strengthened.** 3b adds `FakeBody` and `FakeResponseBody` to
+  `gems/dexpace-core/test/support/`, which is two more doubles that would move into `dexpace-conformance`
+  when the first consumer outside `dexpace-core` appears. That consumer is phase 8 at the earliest.
+  (Phase 8a met the condition on 2026-09-12 and declined the move on the development-dependency cycle it
+  would create; the fakes stay where they are.)
+- **`TRANSPORT-28`/`TRANSPORT-30` (MVP-scope design) — touched only as `BODY-12`'s transport half**,
+  above. `TRANSPORT-28`'s zero-copy dispatch is unchanged and post-MVP (`docs/first-release.md` § What v1
+  ships without › SHOULD/MAY).
+- **Exercising `IO-38` on a GVL-free interpreter (3a) — untouched.** 3a's postponement; the CI matrix is
+  still CRuby-only and 3b adds no non-CRuby row (`docs/first-release.md` § Post-release triggers).
+- **A Steep target over a test tree (phase 0) — untouched, and the condition was checked rather than
+  assumed.** 3b's two fakes are a handful of scriptable methods with no invariants a type checker would
+  catch, so "a gem's test support becomes production-quality code worth checking" is not met. Not marked
+  UNSCHEDULED. Event-gated: `docs/first-release.md` § Post-release triggers.
+- **The suppressed-exception trail and wire-boundary header re-validation (phase 1) — untouched.**
+  Targets phase 4 and phase 8 (now phase 4b, Task 1; phase 8a, Task 16, phase 8c, Task 9 and phase 9,
+  Task 7). The re-validation is a transport obligation and 3b writes no header.
+- **Presence-gated auto-activation, `SEAM-25`'s lifecycle event and `Hooks.notify`'s dropped later
+  failures (phase 2) — untouched.** Targets phase 5, phase 5 and phase 4 (now `docs/first-release.md`
+  § What v1 ships without › SHOULD/MAY; phase 8b, Tasks 6 and 10 with phase 9, Task 11; phase 4b, Task 2);
+  no body notifies a hook list and nothing here emits a lifecycle event.
+- **`SEAM-24`/`SEAM-28` and `HTTP-22`/`HTTP-48`–`HTTP-50` (MVP-scope design) — untouched.**
+  `SEAM-24`/`SEAM-28` target phase 5 (`SEAM-28`: phase 5c, Task 4; `SEAM-24`: `docs/first-release.md`
+  § What v1 ships without); `HTTP-22`/`HTTP-48`–`HTTP-50` targeted phase 6, which did not fire — the
+  standing decision line under `docs/first-release.md` § Blockers before first publish.
+- **`PIPE-36`, `RECOV-31`, `RETRY-29`/`RETRY-38`/`RETRY-43`, `REDIR-27`, `SSE-41` and `OBS-32`/`OBS-37`
+  (MVP-scope design) — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`, `SSE` and `OBS`; other prefixes,
+  later phases; all declined for v1 (`docs/first-release.md` § What v1 ships without › SHOULD/MAY).
+  `OBS-37`'s "async body-capture skip" is an `OBS` clause over these wrappers and is phase 5's, not 3b's.
+- **The seven post-v1 gems — untouched.** Out of the MVP by construction (`docs/first-release.md` § What
+  v1 ships without › Post-v1 gems).
+- **`ASYNC-3`/`ASYNC-4`/`PIPE-33` — untouched.** Do not re-open (`docs/first-release.md` § What v1 ships
+  without › Unsatisfied MUSTs; design §10.5).
+- **The housekeeping fence executor and the signed release path — untouched.** Release-gated; nothing
+  is published (`docs/first-release.md` § Release path).
+- **The runtime half of the version-skew guard — already built** by phase 2 (`Registry#register(key,
+  factory, core:)`, P2-7). **`dexpace-conformance`'s assertion objects (phase 0) — untouched**, phase
+  8a's, Tasks 4–8 and 20, with phase 9, Tasks 2–12a.
 
 ### The finding filed against `docs/open-items.md`
 

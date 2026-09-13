@@ -317,6 +317,7 @@ class ProbeTest < Minitest::Test
                        })
 
     assert_fires found, /carries "## Deferred Items Log"/
+    assert_fires found, %r{belongs in docs/open-items\.md, or, for postponed work, in the owning plan task or docs/first-release\.md}
     assert_equal 5, found.first.line
   end
 
@@ -340,11 +341,11 @@ class ProbeTest < Minitest::Test
 
   def test_citations_catches_a_dangling_register_id
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nSee OI-9 and DEF-2.\n"
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nSee OI-9.\n"
                        })
 
     assert_fires found, /cites OI-9, which has no entry in docs\/open-items\.md/
-    refute_includes messages(found).join, 'DEF-2'
+    assert_equal 1, found.length
   end
 
   def test_citations_is_quiet_when_every_id_resolves
@@ -352,8 +353,9 @@ class ProbeTest < Minitest::Test
   end
 
   def test_citations_resolves_both_a_heading_and_a_table_row
+    # The fixture register defines OI-1 as a heading and OI-2 as a table row.
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nOI-1 and DEF-2 both resolve.\n"
+                         'docs/README.md' => "# docs\n\nOI-1 and OI-2 both resolve.\n"
                        })
 
     assert_empty found
@@ -392,36 +394,86 @@ class ProbeTest < Minitest::Test
     assert_fires found, /cites OI-99, which has no entry in docs\/open-items\.md/
   end
 
-  def test_citations_def_resolves_against_deferred_items_only
+  def test_citations_oi_style_heading_outside_the_register_does_not_resolve_oi
+    # The file, not just the pattern, has to match: a heading shaped like a definition in a
+    # document that is not the register defines nothing.
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nSee DEF-2 for the deferral.\n"
+                         'docs/sdk-documentation/notes.md' => "# notes\n\n### OI-5 — wrong file\n",
+                         'docs/README.md' => "# docs\n\nSee OI-5.\n"
+                       })
+
+    assert_fires found, /cites OI-5, which has no entry in docs\/open-items\.md/
+    assert_includes found.map(&:path), 'docs/README.md'
+  end
+
+  # The deferral register was retired on 2026-09-13. A `DEF-<n>` citation is a leftover
+  # wherever it appears, and the check must say so even though no `docs/deferred-items.md`
+  # exists to resolve against -- a per-prefix no-op here is precisely what would hide it.
+
+  RETIRED_MESSAGE = /cites DEF-99, an ID from the deferral register, retired 2026-09-13: cite the owning plan task or the docs\/first-release\.md entry instead\./
+
+  def test_citations_reports_a_retired_def_citation_with_no_deferred_items_file
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/README.md' => "# docs\n\nSee DEF-99 for the deferral.\n"
+                       })
+
+    assert_fires found, RETIRED_MESSAGE
+    assert_equal ['docs/README.md'], found.map(&:path)
+    assert_equal [3], found.map(&:line)
+    assert_equal ['act'], found.map(&:severity)
+  end
+
+  def test_citations_reports_a_retired_def_citation_in_a_phase_document_and_in_source
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nDeferred as DEF-99.\n",
+                         'lib/dexpace/thing.rb' => "# frozen_string_literal: true\n\n# See DEF-99.\n"
+                       })
+
+    assert_equal 2, found.count { |f| RETIRED_MESSAGE.match?(f.message) }
+    assert_equal ['docs/work/mvp/phase1/2026-01-01-phase1-thing.md', 'lib/dexpace/thing.rb'], found.map(&:path).sort
+  end
+
+  def test_citations_reports_a_retired_def_citation_even_when_no_register_exists_at_all
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/open-items.md' => nil,
+                         'docs/README.md' => "# docs\n\nSee DEF-99, and OI-9 which cannot be checked.\n"
+                       })
+
+    assert_fires found, RETIRED_MESSAGE
+    refute_includes messages(found).join, 'OI-9'
+  end
+
+  def test_citations_ignores_a_retired_def_citation_inside_a_fenced_block
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/README.md' => "# docs\n\n```\nSee DEF-99 in this example.\n```\n\nSee `DEF-99` in code.\n"
                        })
 
     assert_empty found
   end
 
-  def test_citations_oi_style_heading_inside_deferred_items_does_not_resolve_oi
+  def test_citations_reports_a_lingering_deferred_items_file_once_not_per_row
     found = on_fixture(only: ['citations'], overrides: {
                          'docs/deferred-items.md' =>
-                           "# Deferred items\n\n| ID | State |\n|---|---|\n| `DEF-2` | deferred |\n\n### OI-5 — wrong file\n",
-                         'docs/README.md' => "# docs\n\nSee OI-5.\n"
+                           "# Deferred items\n\nDEF-1 was picked up. DEF-2 was picked up.\n\n### DEF-3\n"
                        })
 
-    assert_fires found, /cites OI-5, which has no entry in docs\/open-items\.md/
-  end
-
-  def test_citations_catches_a_dangling_deferred_item
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nSee DEF-99, which does not exist.\n"
-                       })
-
-    assert_fires found, /cites DEF-99, which has no entry in docs\/deferred-items\.md/
+    assert_equal 1, found.length
+    assert_equal 'docs/deferred-items.md', found.first.path
+    assert_equal 1, found.first.line
+    assert_match(/still exists, but it was the deferral register, retired 2026-09-13/, found.first.message)
   end
 
   # --- guard -----------------------------------------------------------------------------
 
   def test_guard_is_quiet_when_the_two_lists_do_not_overlap
     assert_empty on_fixture(only: ['guard'])
+  end
+
+  def test_guard_writable_surface_no_longer_lists_the_retired_deferral_register
+    surface = Housekeeping::Checks::GuardCheck::WRITABLE_SURFACE
+
+    refute_includes surface, 'docs/deferred-items.md'
+    assert_includes surface, 'docs/open-items.md'
   end
 
   def test_guard_catches_a_frozen_entry_that_became_a_symlink

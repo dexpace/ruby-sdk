@@ -16,7 +16,7 @@ Copied verbatim from the design and from `CLAUDE.md`. Every task's requirements 
 
 - **Every file opens with `# frozen_string_literal: true` on line 1, `# SPDX-License-Identifier: MIT` on line 2, blank line 3** (`NFR-13`; phase 0's `Dexpace/SpdxHeader` cop). There is no `# typed:` sigil in this repository.
 - **`dexpace-conformance` declares `dexpace-core` and nothing else.** No `require "minitest"`, no `require "rspec"`, no `require "socket"` anywhere in its `lib/`. `Gem::Specification` needs no require; RubyGems is loaded before user code.
-- **Phase 9 creates or modifies files only under `gems/dexpace-conformance/`, `tasks/`, `tools/`, `test/`, `.github/workflows/` and **each adapter gem's `test/` tree**.** No `lib/` or `sig/` file outside `gems/dexpace-conformance/` is touched, and no file in `dexpace-core` at all. The two widenings are load-bearing rather than convenient: a suite nobody drives proves nothing, and **8a's own precedent is a driver file inside the adapter gem** — `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/conformance_test.rb`, which is one `conformance(…)` call and nothing else (8a plan, Task 23). Phase 9 follows that **placement** for `dexpace-serde-json` and `dexpace-async-thread`, but each driver calls its suite's `.run` and asserts on the report, because 8a's `MinitestDriver#conformance` builds a `TransportCase` for every assertion (8a plan:2302-2306) and widening it would change an interface phase 8 owns. And phase 0's `ci_workflow_test.rb` is a **blocking** gate asserting every entry in `DEFAULT_GATES` appears in some CI job, so a phase that adds four gates and leaves `ci.yml` alone reddens a phase-0 gate. This is `R6`'s boundary as a file list: phase 9 reports, phase 10 repairs — and the list bounds *where it may write*, not *whether it may fix another gem*, which it may not.
+- **Phase 9 creates or modifies files only under `gems/dexpace-conformance/`, `tasks/`, `tools/`, `test/`, `.github/workflows/` and **each adapter gem's `test/` tree**.** No `lib/` or `sig/` file outside `gems/dexpace-conformance/` is touched, and no file in `dexpace-core` at all. The two widenings are load-bearing rather than convenient: a suite nobody drives proves nothing, and **8a's own precedent is a driver file inside the adapter gem** — `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/conformance_test.rb`, which is one `conformance(…)` call and nothing else (8a plan, Task 23). Phase 9 follows that **placement** for `dexpace-serde-json` and `dexpace-async-thread`, but each driver calls its suite's `.run` and asserts on the report, because 8a's `MinitestDriver#conformance` builds a `TransportCase` for every assertion (8a plan:2302-2306) and widening it would change an interface phase 8 owns. (One keyword with a default, `accepted_vacuous: {}`, is added to it, to `RSpecDriver` and to `TransportSuite.run` by Task 12a, forwarded to the `Report.new` each already performs and nothing else — a widening `NFR-4` permits, argued in that task's decision 3; added 2026-09-13.) And phase 0's `ci_workflow_test.rb` is a **blocking** gate asserting every entry in `DEFAULT_GATES` appears in some CI job, so a phase that adds four gates and leaves `ci.yml` alone reddens a phase-0 gate. This is `R6`'s boundary as a file list: phase 9 reports, phase 10 repairs — and the list bounds *where it may write*, not *whether it may fix another gem*, which it may not.
 - **Every task that adds a constant to `dexpace-conformance` also adds its `require_relative` to `lib/dexpace/conformance.rb`, in the same step.** A constant with no require is a `NameError` in every consumer, including this gem's own suite; the entry file is named in each such task's Files list for that reason. `rspec_driver.rb` stays the one deliberate exception (8a), because requiring it would name `::RSpec` in a Minitest-only process.
 - **`Timeout.timeout`, `Thread#raise`, `Thread#kill`, `Thread#terminate` and `Thread#exit` are banned repository-wide** (`Dexpace/NoThreadInterrupt`, §8.3). Cancellation in an assertion uses `Dexpace::Cancellation`, never a thread interrupt.
 - **`downcase`/`upcase`/`casecmp` take no locale argument** (`Dexpace/NoLocaleCaseFold`, `HTTP-13`).
@@ -44,11 +44,14 @@ Copied verbatim from the design and from `CLAUDE.md`. Every task's requirements 
 | `…/conformance/invariant_case.rb` + `invariant_suite.rb` | Appendix `B.8`; `XCUT-1`–`XCUT-24` |
 | `…/conformance/packaging_case.rb` + `packaging_suite.rb` | Appendix `B.9`; the **eight** portable `NFR`s — `NFR-1`, `NFR-2`, `NFR-3`, `NFR-10`, `NFR-11`, `NFR-13`, `NFR-14`, `NFR-15` |
 | `…/conformance/codec_case.rb` + `codec_suite.rb` | Appendix `B.3`'s seam half, lifted from 7a's named target |
-| `…/conformance/executor_case.rb` + `executor_suite.rb` | Appendix `B.7`'s lifecycle half; `DEF-31`'s harness |
+| `…/conformance/executor_case.rb` + `executor_suite.rb` | Appendix `B.7`'s lifecycle half; the harness for `SEAM-25`'s lifecycle event |
 | `…/conformance/aggregate.rb` | One report over every suite; the preamble stating what a green run does not prove; the coverage map's generated half, read off each suite's `.assertions` |
+| `…/conformance/levels.rb` *(generated, committed)* | `Levels::OF` — every requirement ID's normative level, generated from appendix C by `tools/requirement_levels.rb`; what lets a `Report` tell a MUST-level vacuity from a SHOULD-level one (the MUST-level vacuity blocker, Task 12a) |
 | `gems/dexpace-conformance/APPENDIX_B.md` | The 61-row coverage map |
 | `tools/ast_scan.rb` | The shared `RubyVM::AbstractSyntaxTree` walker |
 | `tools/invariant_gates.rb` | `cause_walk`, `bounded_map`, `drain_loop`, `seam_names` offence lists, each with its statically undecidable gap written down |
+| `tools/requirement_levels.rb` | Generates `levels.rb` from appendix C — **reads** the frozen spec, writes one file under `gems/`; `--check` exits 1 when the committed map is stale (Task 12a) |
+| `test/gates/requirement_levels_test.rb` | Regenerates the level map in memory and diffs it against the committed file; asserts every ID any suite declares is one appendix C knows (Task 12a) |
 | `tasks/gates.rake` *(modified)* | The four new gate tasks, added to `DEFAULT_GATES` |
 | `.github/workflows/ci.yml` *(modified)* | The four new gates placed in the `gates` job, because phase 0's `ci_workflow_test.rb` is blocking and asserts every `DEFAULT_GATES` entry appears in some job |
 | `test/fixtures/gates/` | One deliberately failing fixture per new gate, plus a positive control. **This is the one spelling** — `test/gates/` holds the gate *tests*, `test/fixtures/gates/` their *fixtures* |
@@ -317,7 +320,7 @@ Four suites would otherwise each carry their own status loop, and §11.12's "fou
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# The five result statuses of DEF-22's protocol, decided in one place. NFR-17, DEF-22.
+# The five result statuses of 8a's assertion protocol, decided in one place. NFR-17.
 require_relative "../../test_helper"
 
 class DexpaceConformanceRunnerTest < DexpaceConformanceTestCase
@@ -551,7 +554,7 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance/runner.rb
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# Phase 9's additions to 8a's Report: the aggregate caller DEF-22 deferred #to_h for. NFR-4.
+# Phase 9's additions to 8a's Report: the aggregate caller 8a deferred #to_h for. NFR-4.
 require_relative "../../test_helper"
 
 class DexpaceConformanceReportPhase9Test < DexpaceConformanceTestCase
@@ -597,6 +600,11 @@ class DexpaceConformanceReportPhase9Test < DexpaceConformanceTestCase
   end
 end
 ```
+
+*(`"a vacuous result does not fail the run"` is written as filed and is **replaced by Task 12a**,
+which splits it by level — a SHOULD-level vacuity still does not fail the run; an un-waived,
+un-accepted MUST-level one does. Until Task 12a lands it is the truthful statement of a `Report`
+that knows no levels; added 2026-09-13.)*
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -849,13 +857,16 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance.rb \
 
 **Interfaces:**
 - Consumes: `Assertion`, `Check`, `Failure`, `Vacuous`, `Runner`, `SharedInstance`
-- Produces: `InvariantCase.new(core:, seam: nil, mutable: [])` with `#core`, `#mutable`,
-  **`#probe!(name, promised_by, method: false)`**, `#seam?`, `#seam(**settings)`,
+- Produces: `InvariantCase.new(core:, seam: nil, mutable: [], transport: nil)` with `#core`, `#mutable`,
+  **`#probe!(name, promised_by, method: false)`**, `#seam?`, `#seam(**settings)`, `#transport?`,
+  `#transport` *(added 2026-09-13: the transport factory Task 7's forged-request assertion drives —
+  a separate keyword because `seam:` is already the pipeline-step factory `XCUT-11`'s tests
+  supply, and one keyword cannot hand two assertions two different objects)*,
   `#bounded_map(cap:)`, `#bounded_map_store(map)`, `#draw_cnonce(source)`,
   `#redirect_hop(from:, to:, headers:)`, `#with_bounded_map`, `#with_bounded_map_store`,
   `#with_cnonce`, `#with_redirect_hops`;
   `InvariantSuite.assertions -> Array[Assertion]`;
-  `InvariantSuite.run(core: ::Dexpace, seam: nil, mutable: [], bounded_map: nil, bounded_map_store: nil, cnonce: nil, redirect_hops: nil, waive: [], around: nil) -> Report`
+  `InvariantSuite.run(core: ::Dexpace, seam: nil, transport: nil, mutable: [], bounded_map: nil, bounded_map_store: nil, cnonce: nil, redirect_hops: nil, waive: [], around: nil) -> Report`
 
 **`probe!` lands here, in the first audit task, not in Task 6.** It was measured: with the probe
 introduced a task later, `XCUT-15`, `XCUT-13` and `XCUT-22` report `:error` rather than `:vacuous`
@@ -894,10 +905,11 @@ module Dexpace
     class InvariantCase
       attr_reader :core, :mutable
 
-      def initialize(core:, seam: nil, mutable: [])
+      def initialize(core:, seam: nil, mutable: [], transport: nil)
         @core = core
         @seam = seam
         @mutable = mutable
+        @transport = transport
       end
 
       # Design R3: every audit opens with an existence probe against the name the owning phase
@@ -921,6 +933,19 @@ module Dexpace
         raise Vacuous, "no seam implementation supplied to InvariantSuite.run" if @seam.nil?
 
         @seam.call(**settings)
+      end
+
+      # A transport factory, for the one assertion whose subject is an adapter's dispatch path
+      # (XCUT-18's second assertion, the wire-boundary re-validation's phase-9 clause). Kept apart from `seam` because the
+      # driver may supply both and they are different objects.
+      def transport?
+        !@transport.nil?
+      end
+
+      def transport
+        raise Vacuous, "no transport factory supplied to InvariantSuite.run" if @transport.nil?
+
+        @transport.call
       end
 
       # Dexpace::BoundedMap is a private_constant on Dexpace (4a's P4-3), bare-name reachable from
@@ -1157,10 +1182,10 @@ module Dexpace
                          only_closes_what_it_created].freeze
       end
 
-      def run(core: ::Dexpace, seam: nil, mutable: [], bounded_map: nil, bounded_map_store: nil,
-              cnonce: nil, redirect_hops: nil, waive: [], around: nil)
+      def run(core: ::Dexpace, seam: nil, transport: nil, mutable: [], bounded_map: nil,
+              bounded_map_store: nil, cnonce: nil, redirect_hops: nil, waive: [], around: nil)
         Runner.run(assertions, waive: waive, around: around) do
-          InvariantCase.new(core: core, seam: seam, mutable: mutable)
+          InvariantCase.new(core: core, seam: seam, mutable: mutable, transport: transport)
                        .with_bounded_map(bounded_map).with_bounded_map_store(bounded_map_store)
                        .with_cnonce(cnonce).with_redirect_hops(redirect_hops)
         end
@@ -1469,15 +1494,31 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance/invariant_suite.rb \
   `DEFAULT` (5b's filed name — **not** `Dexpace::Redactor`, which does not exist),
   `Dexpace::Auth::DigestHandler.new(credential, cnonce_source:)` (6c), `Dexpace::Redirect::Step`
   with `#call(request, cursor)` (6b)
-- Produces: nine more assertions over eight IDs — `XCUT-14` carries **two**, `bounded_maps` (the cap
-  clause) and `bounded_map_drains` (the drain-to-cap clause), both added to
-  `InvariantSuite.assertions` — plus `XCUT-16`, `XCUT-17`, `XCUT-18`, `XCUT-19`, `XCUT-20`,
-  `XCUT-21`, `XCUT-24`
+- Produces: ten more assertions over eight IDs — `XCUT-14` carries **two**, `bounded_maps` (the cap
+  clause) and `bounded_map_drains` (the drain-to-cap clause); `XCUT-18` carries **two**,
+  `header_syntax_validation` (the validator's own contract) and `forged_request_is_refused_at_dispatch`
+  (the **call site**: the wire-boundary re-validation's phase-9 clause, added 2026-09-13); all four added to
+  `InvariantSuite.assertions` — plus `XCUT-16`, `XCUT-17`, `XCUT-19`, `XCUT-20`, `XCUT-21`, `XCUT-24`
 
-**Five of the eight IDs are written in full below** — `XCUT-14` (as two assertions), `XCUT-17`, `XCUT-18`, `XCUT-19`,
+**Five of the eight IDs are written in full below** — `XCUT-14` (as two assertions), `XCUT-17`, `XCUT-18` (as two assertions), `XCUT-19`,
 `XCUT-21` — because each carries three, four, four, five and two clauses respectively that a single
 `Check.that` demonstrably cannot express, and because the assertions written in full in the first
 draft each contained a measured defect. `XCUT-16`, `XCUT-20` and `XCUT-24` stay specified by shape.
+
+**Why `XCUT-18` carries two, stated because the first draft carried one and it was the wrong one.**
+`header_syntax_validation` proves that `Dexpace::HeaderSyntax` rejects the splitting bytes — a
+property phase 1 already tests in core. Phase 1's postponement hands phase 9 a different clause: "phase 9's
+conformance suite is where the assertion that it happened belongs", where *it* is the adapter
+**re-running** that validation immediately before dispatch, over a `Request` that never met a
+builder. Phase 8's two per-adapter tests prove the call site in the first-party adapters; a property
+asserted only there is one a third-party adapter omits silently, and on `protocol-http2`'s path it is
+the sole barrier between a forged model and an injected header (8c design, fact 4). So
+`forged_request_is_refused_at_dispatch` takes the driver's `seam:` factory — a transport, for this
+assertion — builds a `Request` through `send(:new, …)` (the documented Ruby feature that bypasses
+`private_class_method :new`, design §10.10) carrying a CRLF in a header name, and asserts that
+`#call` raises **before any wire activity**: the seam is handed a listener that records connections,
+and one accepted connection is the failure. With no `seam:` it is `:vacuous` with that reason, never
+`:passed`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1486,8 +1527,9 @@ draft each contained a measured defect. `XCUT-16`, `XCUT-20` and `XCUT-24` stay 
 # SPDX-License-Identifier: MIT
 
 # Appendix B.8's security-by-default and bounded-memory items.
-# XCUT-14 (both clauses), XCUT-17, XCUT-18, XCUT-21. XCUT-16, XCUT-20 and XCUT-24 add their tests
-# in the step that writes their shape-specified assertions.
+# XCUT-14 (both clauses), XCUT-17, XCUT-18 (both assertions; the second is the wire-boundary
+# re-validation's phase-9 clause), XCUT-21. XCUT-16, XCUT-20 and XCUT-24 add their tests in the step that writes their
+# shape-specified assertions.
 require "securerandom"
 require_relative "../../test_helper"
 
@@ -1600,7 +1642,38 @@ class DexpaceConformanceInvariantSecurityTest < DexpaceConformanceTestCase
       end)
     end
 
-    assert_equal([:failed], statuses(S.run(core: core))["XCUT-18"])
+    assert_equal([:failed, :vacuous], statuses(S.run(core: core))["XCUT-18"],
+                 "the validator assertion fails; the call-site assertion is vacuous with no transport:")
+  end
+
+  # the wire-boundary re-validation's phase-9 clause. The transport doubles answer the seam's #call(request, options,
+  # cancellation) (phase 2's shape). A forged request is one that never met a builder: the
+  # assertion builds it, the double only receives it.
+  class RefusingTransport
+    def call(request, _options, _cancellation)
+      request.headers.each_entry { |name, value| ::Dexpace::HeaderSyntax.validate_name!(name); ::Dexpace::HeaderSyntax.validate_outbound_value!(value, name: name) }
+      raise "unreachable: the forged name must have been refused"
+    end
+  end
+
+  class DispatchingTransport
+    def call(request, _options, _cancellation)
+      ::TCPSocket.new(request.url.host, request.url.port).close # wire activity before any check
+      raise ::Dexpace::InvalidArgumentError, "too late: already on the wire"
+    end
+  end
+
+  test "a transport that re-validates before dispatch passes XCUT-18's call-site assertion" do
+    report = S.run(core: ::Dexpace, transport: -> { RefusingTransport.new })
+
+    assert_equal(%i[passed passed], statuses(report)["XCUT-18"])
+  end
+
+  test "a transport that touches the wire before re-validating fails XCUT-18's call-site assertion" do
+    report = S.run(core: ::Dexpace, transport: -> { DispatchingTransport.new })
+
+    assert_equal(%i[passed failed], statuses(report)["XCUT-18"])
+    assert_match(/accepted a connection/, report.failures.first.detail)
   end
 
   test "a handler with no injectable cnonce source fails XCUT-21" do
@@ -1645,7 +1718,7 @@ end
 
 - [ ] **Step 2: Run to verify it fails**
 
-- [ ] **Step 3: Write the eight assertions**
+- [ ] **Step 3: Write the nine assertions**
 
 ```ruby
       # XCUT-14's CAP clause. Conformance: "insert far more than the cap of distinct keys; assert
@@ -1790,6 +1863,74 @@ end
                                        expected: "rejected", actual: "accepted", ids: ["XCUT-18"])
                           end
                         end)
+      end
+
+      # XCUT-18's second assertion -- the wire-boundary re-validation's phase-9 clause: "phase 9's conformance suite is where
+      # the assertion that it happened belongs", where IT is the adapter re-running HTTP-17/HTTP-18
+      # immediately before dispatch over a Request that never met a builder. Phase 8's per-adapter
+      # tests prove the call site in two first-party adapters; this proves the PROPERTY for any
+      # adapter a third party writes, and on protocol-http2's path it is the sole barrier (8c
+      # design, fact 4). The forged request is built through the documented hole design 10.10
+      # admits -- Request.send(:new, ...) reaches the generated constructor past
+      # private_class_method :new -- and, if that constructor rejects a foreign headers object, by
+      # the duck type 8a's own forged test uses (8a plan:3739-3751); the detail says which.
+      # Wire activity is observed, not inferred: the URL points at a listener this assertion owns,
+      # and one accepted connection is the failure. Resource acquisition and release live in this
+      # block's own scope with an ensure, never in an Enumerator (design 7.1).
+      def forged_request_is_refused_at_dispatch
+        Assertion.build(ids: ["XCUT-18"],
+                        name: "an adapter refuses a forged request at dispatch, before any wire activity",
+                        body: lambda do |subject|
+                          raise Vacuous, "no transport factory supplied to InvariantSuite.run" unless subject.transport?
+
+                          subject.probe!(:Request, "phase 1's domain model")
+                          subject.probe!(:HeaderSyntax, "phase 1's HeaderSyntax")
+                          listener = ::TCPServer.new("127.0.0.1", 0)
+                          begin
+                            url = ::URI::RFC3986_PARSER.parse("http://127.0.0.1:#{listener.addr[1]}/")
+                            forged, route = forge_request(subject.core, url)
+                            transport = subject.transport
+
+                            refused = begin
+                              transport.call(forged, nil, ::Dexpace::Cancellation.none)
+                              false
+                            rescue ::StandardError
+                              true
+                            end
+                            connected = listener.accept_nonblock(exception: false) != :wait_readable
+
+                            Check.that(!connected,
+                                       "the adapter accepted a connection for a request forged via #{route} " \
+                                       "whose header name carries CRLF",
+                                       expected: "no wire activity", actual: "accepted a connection", ids: ["XCUT-18"])
+                            Check.that(refused,
+                                       "the adapter did not raise on a forged request (via #{route}) " \
+                                       "whose header name carries CRLF",
+                                       expected: "raised before dispatch", actual: "returned", ids: ["XCUT-18"])
+                          ensure
+                            listener.close
+                          end
+                        end)
+      end
+
+      # Two forged shapes, tried in order. Neither goes through Headers.build, because HTTP-17 would
+      # reject the name there -- which is exactly why a forged model is the one that must be
+      # re-validated at the wire boundary.
+      def forge_request(core, url)
+        headers = Object.new
+        headers.define_singleton_method(:each_entry) { |&blk| blk.call("X-Evil\r\nInjected", "v") }
+        method = core.const_defined?(:Method) ? core.const_get(:Method)::GET : :get
+        begin
+          [core.const_get(:Request).send(:new, method: method, url: url, headers: headers, body: nil),
+           "Request.send(:new, ...)"]
+        rescue ::StandardError
+          forged = Object.new
+          forged.define_singleton_method(:method) { method }
+          forged.define_singleton_method(:url) { url }
+          forged.define_singleton_method(:headers) { headers }
+          forged.define_singleton_method(:body) { nil }
+          [forged, "a duck-typed object answering #method/#url/#headers/#body"]
+        end
       end
 
       # XCUT-19, clauses (a), (b), (c) and (e) -- clause (d), a credential not revealing its secret
@@ -1954,7 +2095,11 @@ for what the SDK owns, and **not** extended to a foreign callback, which `OBS-20
 later consumer read still sees the whole body) stay specified by shape, each opening with `probe!`
 and quoting its clause.
 
-- [ ] **Step 4: Run on the four installed interpreters; confirm 10 runs PASS**
+- [ ] **Step 4: Run on the four installed interpreters; confirm 12 runs PASS**
+
+The two `XCUT-18` call-site tests open a real `TCPServer` on `127.0.0.1:0` for the length of one
+assertion; a sandbox that refuses loopback listeners makes them `:error`, which is a fixture fact
+about the machine and not a finding — record it, do not waive it.
 
 - [ ] **Step 5: Stage the change**
 
@@ -1980,8 +2125,10 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance/invariant_suite.rb \
   `#install(provider)`, `#resolve` and `Dexpace::SeamError` (phase 2's filed surface),
   `Dexpace::Clock` (5a)
 - Produces: the last six assertions: `XCUT-1`, `XCUT-2`, `XCUT-3`, `XCUT-11` (**two** assertions),
-  `XCUT-12`, `XCUT-23`. **After this task `InvariantSuite` carries 27 assertions across all 24
-  `XCUT` IDs** — 24 IDs, with `XCUT-11`, `XCUT-13` and `XCUT-14` each carrying two.
+  `XCUT-12`, `XCUT-23`. **After this task `InvariantSuite` carries 28 assertions across all 24
+  `XCUT` IDs** — 24 IDs, with `XCUT-11`, `XCUT-13`, `XCUT-14` and `XCUT-18` each carrying two
+  (`XCUT-18`'s second, the forged-request call-site assertion, was added 2026-09-13 for the
+  wire-boundary re-validation's phase-9 clause).
 
 Three shape decisions, each forced rather than chosen.
 
@@ -2066,12 +2213,12 @@ class DexpaceConformanceInvariantConcurrencyTest < DexpaceConformanceTestCase
     report.results.each_with_object({}) { |r, h| (h[r.assertion.ids.first] ||= []) << r.status }
   end
 
-  test "the suite covers all 24 XCUT ids, and three of them carry two assertions each" do
+  test "the suite covers all 24 XCUT ids, and four of them carry two assertions each" do
     ids = S.assertions.flat_map(&:ids).select { |id| id.start_with?("XCUT-") }
 
     assert_equal(24, ids.uniq.size)
-    assert_equal(27, ids.size, "XCUT-11, XCUT-13 and XCUT-14 each carry two clauses")
-    assert_equal(%w[XCUT-11 XCUT-13 XCUT-14], ids.tally.select { |_, n| n > 1 }.keys.sort)
+    assert_equal(28, ids.size, "XCUT-11, XCUT-13, XCUT-14 and XCUT-18 each carry two assertions")
+    assert_equal(%w[XCUT-11 XCUT-13 XCUT-14 XCUT-18], ids.tally.select { |_, n| n > 1 }.keys.sort)
   end
 
   test "a frozen stateless step passes XCUT-11" do
@@ -2257,7 +2404,8 @@ end
 quotes its clause; `XCUT-2`'s asserts the subtype-first ordering the requirement calls out
 explicitly ("even when the timeout type is a *subtype* of the cancellation type"), and `XCUT-12`'s
 races N threads on an expiring token and asserts exactly one fetch — **the fiber-scheduler form of
-the same clause is `DEF-46`**, deferred because it needs a reactor the conformance gem cannot open.
+the same clause is postponed to phase 10's `XCUT-12` judgement** (the design's *Work phase 9 postponed,
+and who owns it now*), because it needs a reactor the conformance gem cannot open.
 
 - [ ] **Step 4: Run on the four installed interpreters and confirm the ID coverage**
 
@@ -2268,18 +2416,18 @@ for v in 3.2.11 3.3.12 3.4.10 4.0.6; do
 done
 ```
 
-Expected: 6 runs, PASS, with the first test proving all 24 `XCUT` IDs are covered by 27 assertions.
+Expected: 6 runs, PASS, with the first test proving all 24 `XCUT` IDs are covered by 28 assertions.
 
 - [ ] **Step 5: Record the residue honestly in the phase's checklist**
 
-**Written in full by Tasks 5–8: 15 of the 27 assertions, over 12 IDs** — `XCUT-4`, `XCUT-9`,
-`XCUT-11` ×2, `XCUT-13` ×2, `XCUT-14` ×2, `XCUT-15`, `XCUT-17`, `XCUT-18`, `XCUT-19`, `XCUT-21`,
+**Written in full by Tasks 5–8: 16 of the 28 assertions, over 12 IDs** — `XCUT-4`, `XCUT-9`,
+`XCUT-11` ×2, `XCUT-13` ×2, `XCUT-14` ×2, `XCUT-15`, `XCUT-17`, `XCUT-18` ×2, `XCUT-19`, `XCUT-21`,
 `XCUT-22`, `XCUT-23`. **Specified by shape: 12 assertions, one per ID** —
 `XCUT-1`, `XCUT-2`, `XCUT-3`, `XCUT-5`, `XCUT-6`, `XCUT-7`, `XCUT-8`, `XCUT-10`, `XCUT-12`,
 `XCUT-16`, `XCUT-20`, `XCUT-24`. On the `NFR` side, **4 of 9 `PackagingSuite` assertions are written
 in full** and 5 by shape. **The residue is 12 `XCUT` plus 5 `NFR`** — re-derived on 2026-09-13 by
-counting the twelve IDs listed; the drafts' 14 and then 11 were both wrong, and 15 + 12 = 27 is the
-suite's own counting test above. A shape-specified assertion is a task the implementer writes
+counting the twelve IDs listed; the drafts' 14 and then 11 were both wrong, and 16 + 12 = 28 is the
+suite's own counting test above (15 + 12 = 27 before `XCUT-18`'s second assertion, 2026-09-13). A shape-specified assertion is a task the implementer writes
 under TDD with a non-conforming double, exactly as the fully-written ones were; what the residue
 records is that no measurement has yet been taken against it, and five of five first-draft
 fully-written assertions contained a defect, so the shaped ones inherit no presumption of
@@ -2909,7 +3057,7 @@ require_relative "vacuous"
 
 module Dexpace
   module Conformance
-    # Appendix B.3's seam half. SEAM-20 and SERDE-3 are genuinely portable: DEF-16's
+    # Appendix B.3's seam half. SEAM-20 and SERDE-3 are genuinely portable: the post-v1
     # dexpace-serde-oj is the second subject the lift exists for. SEAM-21 -- the explicit
     # runtime-type-token rule -- is NOT lifted: it is a property of the witness protocol
     # (section 10.14) and stays in 7a's suite, recorded as such in APPENDIX_B.md.
@@ -3012,7 +3160,7 @@ builds a `TransportCase` for every assertion (8a plan:2302-2306), which has no `
 
 require_relative "../../../test_helper"
 
-# The FIRST consumer of CodecSuite; DEF-16's dexpace-serde-oj is the second the lift exists for.
+# The FIRST consumer of CodecSuite; the post-v1 dexpace-serde-oj is the second the lift exists for.
 # CodecSuite.run is called directly: 8a's MinitestDriver#conformance builds a TransportCase per
 # assertion (8a plan:2302-2306), and widening it would change an interface phase 8 owns (R6).
 class DexpaceSerdeJsonConformanceTest < Minitest::Test
@@ -3058,7 +3206,7 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance.rb \
 git rm -- gems/dexpace-serde-json/test/support/serde_seam_assertions.rb
 ```
 
-## Task 11: `ExecutorSuite` — `DEF-31`'s harness half
+## Task 11: `ExecutorSuite` — the harness half of `SEAM-25`'s lifecycle event
 
 **Files:**
 - Create: `gems/dexpace-conformance/lib/dexpace/conformance/executor_case.rb`
@@ -3076,14 +3224,15 @@ git rm -- gems/dexpace-serde-json/test/support/serde_seam_assertions.rb
   `#borrowed(pool)`, `#functional?`, `#functional`, `#events?`, `#shutdowns`;
   `ExecutorSuite.run(build:, borrow: nil, functional: nil, events: nil, waive: [], around: nil) -> Report`
 
-**`DEF-31`'s harness half is reassigned to phase 9, and this is a CORRECTION to a committed register
-row, not a restatement of it.** The row reads: "The *harness* half of the condition — the assertion
-living in `dexpace-conformance` — is **`8a`'s**, and `8b` hands it the shape rather than writing it."
-8a wrote the protocol, the `WireServer` fixture and the transport suite, and wrote **no executor
-suite**; 8b supplied the shape as promised. So the harness half is unwritten after phase 8, phase 9
-writes it, and the row is wrong about which phase delivers it. Phase 9's checklist records the
-pick-up **against `DEF-31`** with that correction named out loud — which is the discipline phase 4b
-failed when it corrected its charter while claiming to restate it.
+**The harness half of `SEAM-25`'s lifecycle event — which phase 2 postponed and 8b emits — is
+reassigned to phase 9, and this is a CORRECTION to a committed record, not a restatement of it.** 8b's
+design read: "The *harness* half of the condition — the assertion living in `dexpace-conformance` — is
+**`8a`'s**, and `8b` hands it the shape rather than writing it." 8a wrote the protocol, the `WireServer`
+fixture and the transport suite, and wrote **no executor suite**; 8b supplied the shape as promised. So
+the harness half is unwritten after phase 8, phase 9 writes it, and the earlier record is wrong about
+which phase delivers it. Phase 9's checklist records the work **against `SEAM-25`** with that
+correction named out loud — which is the discipline phase 4b failed when it corrected its charter
+while claiming to restate it.
 
 **Five assertions, not four: `ASYNC-16` and `ASYNC-17` are added.** `B.7`'s lifecycle bullet names
 `ASYNC-15`, `ASYNC-16` and `ASYNC-17` together, and a suite covering only the first leaves two of
@@ -3094,8 +3243,27 @@ touched (`cross-cutting-invariants/8fa2c08d`) and there is nothing observable to
 `SEAM-18` is the executor *seam's* shape rather than an implementation property, which 8b's own
 suite asserts. Both are recorded in `APPENDIX_B.md` as scoped out, with those reasons.
 
+**A seventh assertion, `ASYNC-3`, written so that it genuinely fails — added 2026-09-13.** Design
+`R5` and Task 16 step 4 say `ASYNC-3` "is asserted so it genuinely fails, waived by requirement ID in
+the first-party build, and printed as `waived (would fail): ASYNC-3`"; until this revision no task
+wrote the assertion, and the only `ASYNC-3` in the plan was a hand-built `:waived` result in two
+rendering tests — a claim with no assertion behind it, which is the green-over-defect shape the fix
+round removed. `blocked_worker_is_released_on_cancel` posts, through core's own pivot
+(`Dexpace::Transport.async_over`, phase 2), a transport call that blocks on a `Queue#pop` with **no
+timeout**; once the worker is provably inside the call it cancels the token and asks whether the
+worker was released within a bound. On `dexpace-async-thread` it is not — §8.3 forbids every
+primitive that could interrupt it, which is the whole content of the unsatisfied `ASYNC-3` MUST
+(design §10.5; `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) — and on the
+inline double it
+is not either, so the assertion fails everywhere this repository can point it and the thread
+driver waives it **by ID**. That is appendix `B.7`'s "recorded as *failing* rather than vacuous"
+item given a runnable subject. The timed wait is the requirement's own shape ("within a bound"),
+not a sleep used as synchronisation: the worker's entry is observed through a queue, and the
+assertion frees the gate itself in an `ensure` so a failed run leaks no thread.
+
 **This task's code was executed during planning** on 3.2.11, 3.3.12, 3.4.10 and 4.0.6: **9 runs, 10
-assertions, 0 failures** on each. The suite was also driven end to end against a stand-in
+assertions, 0 failures** on each — before the `ASYNC-3` assertion and its test, which were not
+executed during planning and are the first thing to run red-then-green at execution. The suite was also driven end to end against a stand-in
 transcribed from 8b's filed `Pool` (8b plan:1278-1428 and 1714-1750) on the same four: green, with
 `XCUT-22` and `ASYNC-17` `:vacuous`; and red — `XCUT-13` and `SEAM-25` `:failed`, `expected 1, got
 2` — against the same class with `#close` unlatched so `#release` double-fires.
@@ -3149,7 +3317,7 @@ reason: the sink has one constructor, one reader and no meaning outside the case
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# Appendix B.7's lifecycle half, and DEF-31's harness.
+# Appendix B.7's lifecycle half, and the harness for SEAM-25's lifecycle event.
 # SEAM-12, SEAM-25, ASYNC-15, ASYNC-16, ASYNC-17, XCUT-11, XCUT-13, XCUT-22.
 require_relative "../../test_helper"
 
@@ -3248,19 +3416,34 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
   def statuses(report) = report.results.to_h { |r| [r.assertion.ids.first, r.status] }
 
   def conforming(**over)
+    # ASYNC-3 is waived by ID here for the same reason the thread driver waives it: no executor
+    # this repository can build releases a worker blocked in an uninterruptible call (section 10.5),
+    # and the suite's job is to print that as `waived (would fail)`, never as passed.
     defaults = { build: ->(events: nil, **_kw) { FakePool.new(events: events) },
                  borrow: ->(pool) { BorrowHolder.new(pool) },
                  functional: ->(**_kw) { FunctionalExecutor.new },
-                 events: -> { Dexpace::Conformance::ExecutorCase::EventRecorder.new } }
+                 events: -> { Dexpace::Conformance::ExecutorCase::EventRecorder.new },
+                 waive: ["ASYNC-3"] }
     S.run(**defaults.merge(over))
   end
 
-  test "a conforming executor passes every lifecycle assertion" do
+  test "a conforming executor passes every lifecycle assertion, with ASYNC-3 waived by id" do
     report = conforming
 
     assert_equal({ "SEAM-12" => :passed, "XCUT-13" => :passed, "XCUT-22" => :passed,
-                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :passed },
+                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :passed,
+                   "ASYNC-3" => :waived },
                  statuses(report))
+    assert_includes(report.to_s, "waived (would fail): ASYNC-3")
+  end
+
+  # ASYNC-3 (unsatisfied MUST, design section 10.5) / design R5: the assertion is real and it fails. An inline executor runs the blocked
+  # call on the posting thread, a pool runs it on a worker; neither can release it on cancel.
+  test "ASYNC-3 genuinely fails against an executor that cannot release a blocked worker" do
+    report = conforming(waive: [])
+
+    assert_equal(:failed, statuses(report)["ASYNC-3"])
+    assert_match(/still blocked/, report.failures.first.detail)
   end
 
   # The recorder is wired the way 8b wires its own: Logger.build(sink:) (8b plan:1645-1646), and
@@ -3318,7 +3501,8 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceConformanceTestCase
     report = conforming(borrow: nil, events: nil)
 
     assert_equal({ "SEAM-12" => :passed, "XCUT-13" => :passed, "XCUT-22" => :vacuous,
-                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :vacuous },
+                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :vacuous,
+                   "ASYNC-3" => :waived },
                  statuses(report))
   end
 
@@ -3439,7 +3623,7 @@ module Dexpace
         !@recorder.nil?
       end
 
-      # DEF-31's "close twice -> executor shut once, one event" needs this and nothing else: how
+      # SEAM-25's "close twice -> executor shut once, one event" needs this and nothing else: how
       # many Events::INSTRUMENTATION_SHUTDOWN payloads the recorder saw. Only the event NAME is
       # read -- 8b's two field keys ("dexpace.executor.worker_count", "dexpace.executor.drained")
       # are private_constants in the pool (8b plan:1295-1300) and deliberately absent from core's
@@ -3458,7 +3642,7 @@ module Dexpace
 end
 ```
 
-- [ ] **Step 4: Write `executor_suite.rb` with its six assertions**
+- [ ] **Step 4: Write `executor_suite.rb` with its seven assertions**
 
 ```ruby
 # frozen_string_literal: true
@@ -3473,8 +3657,8 @@ require_relative "vacuous"
 
 module Dexpace
   module Conformance
-    # Appendix B.7's lifecycle half, and DEF-31's harness half -- which the register assigns to 8a
-    # and which 8a did not write; phase 9 writes it and says so.
+    # Appendix B.7's lifecycle half, and the harness half of SEAM-25's lifecycle event -- which 8b's
+    # design assigned to 8a and which 8a did not write; phase 9 writes it and says so.
     #
     # Every lifecycle observation in this file goes through ExecutorCase#shutdowns, the count of
     # Events::INSTRUMENTATION_SHUTDOWN payloads the recorder saw. That is the ONLY channel a filed
@@ -3486,7 +3670,7 @@ module Dexpace
       def assertions
         @assertions ||= [concurrent_post, close_is_latched, borrowed_executor_survives,
                          graceful_shutdown, default_close_is_a_no_op,
-                         one_shutdown_event].freeze
+                         one_shutdown_event, blocked_worker_is_released_on_cancel].freeze
       end
 
       # `events:` is a FACTORY returning a fresh recorder, not a recorder -- one per assertion.
@@ -3644,7 +3828,8 @@ module Dexpace
                         end)
       end
 
-      # SEAM-25, via DEF-31: one lifecycle event on the FIRST close of an owned executor, and none on
+      # SEAM-25 (the event half phase 2 postponed, emitted by 8b): one lifecycle event on the FIRST
+      # close of an owned executor, and none on
       # the second. The event name is core's (Events::INSTRUMENTATION_SHUTDOWN, 5b plan:741); the
       # two field keys around it are the adapter's private constants and are never read.
       def one_shutdown_event
@@ -3663,6 +3848,81 @@ module Dexpace
                                      expected: 1, actual: shutdowns, ids: ["SEAM-25"])
                         end)
       end
+
+      # ASYNC-3 (unsatisfied MUST, design R5, section 10.5): "cancel-with-interrupt against a blocking
+      # worker". Written so it genuinely FAILS on every executor this repository can build -- the
+      # thread pool cannot interrupt a worker (section 8.3 bans Thread#raise, Thread#kill and
+      # Timeout.timeout) and an inline executor blocks the posting thread -- and the first-party
+      # drivers waive it BY ID so the report prints `waived (would fail): ASYNC-3`, never passed
+      # and never vacuous. The pivot is core's Transport.async_over (phase 2), which is how a
+      # cancellation token reaches a posted unit at all; the SPI's #post takes no token.
+      #
+      # The wait is the requirement's own shape, "within a bound", observed through queues: the
+      # worker's ENTRY is a queue push (no sleep guesses that it started), the RELEASE is a queue
+      # pop with a timeout (Ruby >= 3.2), and the ensure frees the gate so a failed run leaks no
+      # worker and no thread.
+      BLOCKED_WORKER_BOUND = 1.0
+
+      def blocked_worker_is_released_on_cancel
+        Assertion.build(ids: ["ASYNC-3"],
+                        name: "cancelling a task blocked on a worker releases the worker within a bound",
+                        body: lambda do |subject|
+                          unless defined?(::Dexpace::Transport) && ::Dexpace::Transport.respond_to?(:async_over)
+                            raise Vacuous, "Dexpace::Transport.async_over is absent; phase 2 committed to it"
+                          end
+
+                          gate = ::Thread::Queue.new
+                          entered = ::Thread::Queue.new
+                          released = ::Thread::Queue.new
+                          transport = BlockingTransport.new(gate: gate, entered: entered, released: released)
+                          pool = subject.executor
+                          source = ::Dexpace::Cancellation.source
+                          bridge = ::Dexpace::Transport.async_over(transport, executor: pool)
+                          poster = ::Thread.new do
+                            bridge.call(:request, nil, source.token).value
+                          rescue ::StandardError
+                            nil
+                          end
+                          begin
+                            entered.pop # the worker is provably inside #call and blocked
+                            source.cancel(:interrupt_requested)
+                            freed = released.pop(timeout: BLOCKED_WORKER_BOUND)
+
+                            Check.that(!freed.nil?,
+                                       "a worker blocked in an uninterruptible call was not released after cancel",
+                                       expected: "released within #{BLOCKED_WORKER_BOUND}s of cancel",
+                                       actual: "still blocked", ids: ["ASYNC-3"])
+                          ensure
+                            gate << :free
+                            poster.join(BLOCKED_WORKER_BOUND)
+                            pool.close
+                          end
+                        end)
+      end
+
+      # The blocking subject: answers the transport seam's #call, parks on a gate with NO timeout,
+      # and reports its own entry and release. Returns a closeable so the pivot's orphan-close
+      # path (SEAM-30) has something to close when the cancelled caller is refused the result.
+      class BlockingTransport
+        def initialize(gate:, entered:, released:)
+          @gate = gate
+          @entered = entered
+          @released = released
+        end
+
+        def call(_request, _options, _cancellation)
+          @entered << :in
+          @gate.pop
+          Closeable.new
+        ensure
+          @released << :out
+        end
+
+        class Closeable
+          def close = nil
+        end
+      end
+      private_constant :BlockingTransport
     end
   end
 end
@@ -3681,7 +3941,8 @@ require_relative "conformance/executor_suite"
 
 require_relative "../../../test_helper"
 
-# DEF-31's harness, driven against the first thing in this repository that actually OWNS an executor.
+# SEAM-25's lifecycle-event harness, driven against the first thing in this repository that actually
+# OWNS an executor.
 #
 # ExecutorSuite.run is called directly and its report asserted: 8a's MinitestDriver#conformance
 # builds a TransportCase per assertion (8a plan:2302-2306) and rejects functional:/events:, and
@@ -3712,10 +3973,15 @@ class DexpaceAsyncThreadConformanceTest < Minitest::Test
       end,
       borrow: nil, functional: nil,
       events: -> { Dexpace::Conformance::ExecutorCase::EventRecorder.new },
-      waive: []
+      # ASYNC-3 is waived BY ID, never removed: this pool cannot release a worker blocked in an
+      # uninterruptible call (design section 10.5, an unsatisfied MUST), the assertion genuinely fails
+      # against it,
+      # and the report prints `waived (would fail): ASYNC-3` on every run (design R5).
+      waive: ["ASYNC-3"]
     )
 
     assert(report.passed?, report.to_s)
+    assert_includes(report.to_s, "waived (would fail): ASYNC-3")
   end
 end
 ```
@@ -3726,10 +3992,14 @@ one inside the adapter**, which `R6` forbids.
 
 - [ ] **Step 6: Run on the four installed interpreters**
 
-Expected: 9 runs in the gem's own suite on each of 3.2.11, 3.3.12, 3.4.10 and 4.0.6, plus **one**
+Expected: 10 runs in the gem's own suite on each of 3.2.11, 3.3.12, 3.4.10 and 4.0.6, plus **one**
 test in the adapter driver, and **the driver is expected GREEN against 8b's real `Pool`** — four
-results, `SEAM-12`, `XCUT-13`, `ASYNC-16` and `SEAM-25` passing, with `XCUT-22` and `ASYNC-17`
-`:vacuous` for the reasons the driver's own comment gives. Measured during planning against a
+results, `SEAM-12`, `XCUT-13`, `ASYNC-16` and `SEAM-25` passing, `ASYNC-3` printed as
+`waived (would fail): ASYNC-3`, with `XCUT-22` and `ASYNC-17` `:vacuous` for the reasons the
+driver's own comment gives. (Once Task 12a lands, `XCUT-22`'s vacuity is on a **MUST** and the
+driver must name it in `accepted_vacuous:` with its citation — 8b files no borrowing entry point;
+the holder of a caller-supplied executor is `Transport.async_over`, 8b plan:2872 — or the report
+blocks, which is that task's rule doing its job.) Measured during planning against a
 stand-in transcribed from 8b's filed fence, on all four.
 
 **If it is not green, read the report before touching either gem.** A `:failed` here is a finding
@@ -3791,7 +4061,7 @@ into one `suite:` key holding the assertion name.
 # SPDX-License-Identifier: MIT
 
 # One report over every suite, and the preamble docs/first-release.md's blocker requires.
-# NFR-4, NFR-17, DEF-22, ASYNC-3, ASYNC-4.
+# NFR-4, NFR-17, ASYNC-3, ASYNC-4; 8a's assertion protocol.
 require_relative "../../test_helper"
 require "dexpace/conformance/invariant_suite"
 
@@ -3853,6 +4123,10 @@ class DexpaceConformanceAggregateTest < DexpaceConformanceTestCase
   end
 end
 ```
+
+*(`"vacuous and waived are counted apart and neither fails the run"` is written as filed and is
+**replaced by Task 12a**, which makes an un-waived, un-accepted MUST-level vacuity fail the
+aggregate; added 2026-09-13.)*
 
 - [ ] **Step 2: Run to verify it fails**
 
@@ -3933,6 +4207,494 @@ and 4.0.6 — six `test` blocks above, and `assert_includes`/`refute_includes` c
 
 ```bash
 git add -- gems/dexpace-conformance/lib/dexpace/conformance/aggregate.rb
+```
+
+---
+
+## Task 12a: `Levels` and the MUST-level vacuity blocker
+
+*(Added 2026-09-13, plan re-verification. Lettered so no existing "Task N" citation moves; it sits
+between Task 12, whose `Aggregate` it extends, and Task 13, and it MUST land before Task 15's
+disposition run — the condition the blocker was postponed under on 2026-09-13. This task is the
+blocker's owner.)*
+
+**Requirement IDs:** `NFR-17` (no gate is advisory — a run that reports green over an unbuilt MUST
+is an advisory gate wearing a green badge); the MUST-level vacuity blocker's mechanism; 8a's assertion
+protocol, extended and not changed; the unsatisfied `ASYNC-3` MUST and `ASYNC-4` as the canonical
+*sanctioned* MUST-level vacuity the mechanism must not block on; `NFR-8` as the canonical *gate-side*
+vacuity it never sees.
+**Design:** `R3` ("the aggregate report lists every un-waived `:vacuous` on a MUST-level ID
+separately, and that list is a phase-9 report blocker"); `R6` step 1; `P9-3`; `P9-6`; the MUST-level
+vacuity blocker entry under *Work phase 9 postponed, and who owns it now*.
+
+**Files:**
+- Create: `tools/requirement_levels.rb` — the generator; **reads** appendix C, never writes it
+- Create: `gems/dexpace-conformance/lib/dexpace/conformance/levels.rb` — **generated**, committed
+- Create: `gems/dexpace-conformance/sig/dexpace/conformance/levels.rbs`
+- Create: `test/gates/requirement_levels_test.rb` — regenerate-and-diff, the way the surface
+  snapshot is kept honest
+- Modify: `gems/dexpace-conformance/lib/dexpace/conformance/report.rb` and its `sig/` mirror (Task 3)
+- Modify: `gems/dexpace-conformance/lib/dexpace/conformance/runner.rb` (Task 2) and the `.run` of
+  each phase-9 suite (Tasks 5, 9, 10, 11) — one pass-through keyword each
+- Modify: `gems/dexpace-conformance/lib/dexpace/conformance/transport_suite.rb`,
+  `minitest_driver.rb`, `rspec_driver.rb` (8a's) — the **same** one keyword, see below
+- Modify: `gems/dexpace-conformance/lib/dexpace/conformance/aggregate.rb` and its `sig/` (Task 12)
+- Modify: `gems/dexpace-conformance/lib/dexpace/conformance.rb` — `require_relative "conformance/levels"`
+- Modify: `gems/dexpace-conformance/test/dexpace/conformance/report_test.rb` (Task 3's two vacuity
+  tests), `aggregate_test.rb` (Task 12's), `executor_suite_test.rb` (Task 11's full-hash tests)
+- Modify: `gems/dexpace-async-thread/test/dexpace/async/thread/conformance_test.rb` (Task 11's
+  driver) and `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/conformance_test.rb`
+  (8a's driver, Task 23 of its plan) — each names its sanctioned MUST-level vacuities with a citation
+
+**Interfaces:**
+- Consumes: `Report`, `Runner`, `Aggregate`, `Result`, appendix C
+- Produces: `Dexpace::Conformance::Levels::OF -> Hash[String, Symbol]` (frozen; `:must`, `:should`,
+  `:may`), `Levels.of(id) -> Symbol` (`:unknown` for an ID appendix C does not hold),
+  `Levels.must?(id)`, `Levels.known?(id)`; `Report.new(results, accepted_vacuous: {})`,
+  `Report.merge(reports, accepted_vacuous: {})`, `Report#blocking_vacuities -> Array[Result]`,
+  `Report#accepted_vacuities -> Array[Result]`, `Report#accepted_vacuous -> Hash[String, String]`,
+  `Report#unknown_ids -> Array[String]`; `Runner.run(assertions, waive:, around:, accepted_vacuous: {})`;
+  `accepted_vacuous: {}` on every suite's `.run` and on both drivers; `Aggregate.run(reports,
+  accepted_vacuous: {})`; two new `PREAMBLE` lines
+
+**What this task is for, in one sentence.** `R3` makes an *absent* artifact `:vacuous` rather than
+`:failed` so phase 10 can tell "not built" from "built wrong" — and that is safe only if nothing
+passes by not being built. As filed, `Report#passed?` was true over vacuous results (8a's own report
+test asserts exactly that, and Task 3's and Task 12's tests repeated it) and nothing in the gem knew
+whether an ID is a MUST or a SHOULD, so a MUST that never got built read as a green run. The design's
+postponed-work entry records that as a manager decision not to be lost; this task is the mechanism and
+the owner.
+
+**Three decisions, each forced.**
+
+1. **The level map is generated from appendix C and committed, not read at runtime.** A gem
+   cannot read `docs/` from a consumer's machine, and appendix C is normative and **frozen** —
+   `Guard::FROZEN` in `.claude/skills/housekeeping/guard.rb` makes every maintenance tool refuse to
+   write there, and this tool is held to the same rule by construction: it opens the file for
+   reading, renders `levels.rb`, and has no code path that writes anywhere else. Drift is caught the
+   way the runtime surface snapshot is caught: `test/gates/requirement_levels_test.rb` regenerates
+   in memory and diffs against the committed file, so an edit to appendix C that is not followed by
+   `ruby tools/requirement_levels.rb` is a red test naming the stale IDs. `MUST NOT` is `:must` — it
+   is a MUST with a negated predicate, and appendix C holds exactly one.
+2. **Sanctioned vacuities are accepted by ID with a mandatory citation, through a keyword distinct
+   from `waive:`.** `ASYNC-4` is a MUST and is `:vacuous` by design §10.5's own argument ("a port
+   that never interrupts has no interrupt ordering to get wrong"); `XCUT-22` is a MUST and is
+   `:vacuous` in the thread driver because 8b files no borrowing entry point; 8a's driver records
+   `TRANSPORT-18` and `TRANSPORT-12` as `:vacuous` on `Net::HTTP` (8a plan:4905-4907). None of
+   these may block a first-party run, and none may be hidden by `waive:` either — a waived assertion
+   *would have failed* and a vacuous one *could not have run*, and the report has kept those apart
+   since 8a. So a driver passes `accepted_vacuous: { "ASYNC-4" => "design §10.5: …" }`, every value
+   is a non-empty citation string or `Report.new` raises `ArgumentError`, and the report renders
+   them under their own heading, **"accepted MUST-level vacuities (design-sanctioned)"**, on every
+   run. Everything else that is un-waived, `:vacuous` and MUST-level goes under **"MUST-level
+   vacuities (report blockers)"**, and `#passed?` is false while that list is non-empty. A
+   SHOULD-level or MAY-level vacuity is recorded and does not block.
+3. **`Report#passed?` changes meaning once, for every report the gem produces — which reaches
+   8a's `TransportSuite`, and that is the one 8a surface this task widens.** The alternative — a
+   second predicate, `#blocking?`, that a CI step must remember to call alongside `#passed?` — is the
+   green-over-defect shape again, one forgotten call away. `Report` is one class; two meanings for
+   one predicate depending on which suite built it would be a hidden mode. So `TransportSuite.run`,
+   `MinitestDriver#conformance` and `RSpecDriver` each gain the same `accepted_vacuous: {}` keyword,
+   passed through to `Report.new` and nothing else — a widening `NFR-4` permits, not the refactor
+   onto `Runner` this plan declines. The Global Constraints' "widening it would change an interface
+   phase 8 owns" is about building a `TransportCase` per assertion and stands; this is one keyword
+   with a default, added so 8a's own net_http driver can keep asserting `report.passed?` truthfully.
+
+- [ ] **Step 1: Write the failing tests**
+
+`test/gates/requirement_levels_test.rb`:
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+# MUST-level vacuity blocker (Task 12a): the level map is generated from appendix C and must never
+# drift from it. Appendix C is
+# frozen; the tool under test reads it and writes only levels.rb. NFR-17.
+require "minitest/autorun"
+require_relative "../../tools/requirement_levels"
+require_relative "../../gems/dexpace-conformance/lib/dexpace/conformance/levels"
+require_relative "../../gems/dexpace-conformance/lib/dexpace/conformance"
+
+class RequirementLevelsTest < Minitest::Test
+  PREFIXES = %w[SEAM HTTP IO BODY CTX PIPE RECOV RETRY REDIR AUTH PAGE SSE SERDE OBS CFG TRANSPORT ASYNC XCUT NFR].freeze
+
+  def test_the_committed_map_equals_a_fresh_parse_of_appendix_c
+    assert_equal(RequirementLevels.parse, Dexpace::Conformance::Levels::OF,
+                 "levels.rb is stale: run `ruby tools/requirement_levels.rb`")
+  end
+
+  def test_appendix_c_yields_645_ids_over_the_19_prefixes_and_every_id_has_a_level
+    map = RequirementLevels.parse
+
+    assert_equal(645, map.size, "CLAUDE.md: 645 numbered requirements; the spec is frozen, so a change here is a human decision")
+    assert_equal(PREFIXES.sort, map.keys.map { |id| id.sub(/-\d+\z/, "") }.uniq.sort)
+    assert_equal(%i[may must should], map.values.uniq.sort)
+  end
+
+  def test_must_not_is_a_must
+    assert_equal(:must, RequirementLevels::LEVEL.fetch("MUST NOT"))
+  end
+
+  def test_the_tool_never_writes_appendix_c
+    before = RequirementLevels::SOURCE.read
+    RequirementLevels.render(RequirementLevels.parse)
+
+    assert_equal(before, RequirementLevels::SOURCE.read)
+  end
+
+  # The failing fixture: one flipped level is a diff, not a pass.
+  def test_a_map_with_one_level_flipped_does_not_equal_the_committed_file
+    stale = RequirementLevels.render(RequirementLevels.parse.merge("ASYNC-4" => :should))
+
+    refute_equal(RequirementLevels::TARGET.read, stale)
+  end
+
+  def test_every_id_any_suite_declares_is_one_appendix_c_knows
+    suites = [Dexpace::Conformance::InvariantSuite, Dexpace::Conformance::PackagingSuite,
+              Dexpace::Conformance::CodecSuite, Dexpace::Conformance::ExecutorSuite,
+              Dexpace::Conformance::TransportSuite]
+    declared = Dexpace::Conformance::Aggregate.by_requirement_id(suites).keys
+
+    assert_empty(declared.reject { |id| Dexpace::Conformance::Levels.known?(id) })
+  end
+end
+```
+
+Amend Task 3's `report_test.rb` — replace `"a vacuous result does not fail the run"` with two tests
+and add two more:
+
+```ruby
+  test "a SHOULD-level vacuity is recorded and does not fail the run" do
+    report = Dexpace::Conformance::Report.new([result(["XCUT-12"], :vacuous)])
+
+    assert(report.passed?)
+    assert_empty(report.blocking_vacuities)
+  end
+
+  # The failing fixture the MUST-level vacuity blocker exists for: an unbuilt MUST is not a green run.
+  test "an un-waived, un-accepted MUST-level vacuity is a report blocker and fails the run" do
+    report = Dexpace::Conformance::Report.new([result(["ASYNC-4"], :vacuous)])
+
+    refute(report.passed?)
+    assert_equal(["ASYNC-4"], report.blocking_vacuities.flat_map { |r| r.assertion.ids })
+    assert_includes(report.to_s, "MUST-level vacuity (report blocker): ASYNC-4")
+    assert_includes(report.to_s, "REPORT BLOCKED: 1 un-waived MUST-level vacuit")
+  end
+
+  test "an accepted MUST-level vacuity carries its citation, renders apart, and does not block" do
+    report = Dexpace::Conformance::Report.new(
+      [result(["ASYNC-4"], :vacuous)],
+      accepted_vacuous: { "ASYNC-4" => "design §10.5: a port that never interrupts has no interrupt ordering to get wrong" }
+    )
+
+    assert(report.passed?)
+    assert_equal(1, report.accepted_vacuities.size)
+    assert_includes(report.to_s, "accepted MUST-level vacuity (design-sanctioned): ASYNC-4: design §10.5")
+    assert_equal(["ASYNC-4"], report.to_h[:accepted_vacuities].map { |row| row[:ids].first })
+  end
+
+  test "an acceptance with no citation is refused at construction, not rendered as a blank" do
+    assert_raises(::ArgumentError) do
+      Dexpace::Conformance::Report.new([result(["ASYNC-4"], :vacuous)], accepted_vacuous: { "ASYNC-4" => "" })
+    end
+  end
+
+  test "a waived result is never counted as a vacuity, accepted or blocking" do
+    report = Dexpace::Conformance::Report.new([result(["ASYNC-3"], :waived)])
+
+    assert(report.passed?)
+    assert_empty(report.blocking_vacuities)
+    assert_includes(report.to_s, "waived (would fail): ASYNC-3")
+  end
+```
+
+Amend Task 12's `aggregate_test.rb` — replace `"vacuous and waived are counted apart and neither
+fails the run"` with:
+
+```ruby
+  test "vacuous and waived are counted apart; a SHOULD-level vacuity does not fail the run" do
+    merged = A.run([report([["XCUT-12"], "wait-free reads", :vacuous],
+                           [["ASYNC-3"], "two-mode cancellation", :waived])])
+
+    assert(merged.passed?)
+    assert_equal(1, merged.vacuous.size)
+    assert_equal(1, merged.waived.size)
+  end
+
+  test "an un-accepted MUST-level vacuity blocks the aggregate, and an accepted one does not" do
+    reports = [report([["ASYNC-4"], "ordered interrupt", :vacuous])]
+
+    refute(A.run(reports).passed?)
+    assert(A.run(reports, accepted_vacuous: { "ASYNC-4" => "design §10.5" }).passed?)
+  end
+
+  test "the rendered report names the blocker section and the preamble says why" do
+    rendered = A.render(A.run([report([["ASYNC-4"], "ordered interrupt", :vacuous])]))
+
+    assert_includes(rendered, "MUST-level vacuity (report blocker): ASYNC-4")
+    assert_includes(rendered, "design R3")
+  end
+```
+
+Amend Task 11's `executor_suite_test.rb`: the recorder-free full-hash test now runs
+`conforming(borrow: nil, events: nil, accepted_vacuous: { "XCUT-22" => "no borrowing entry point supplied to this run", "SEAM-25" => "no event recorder supplied to this run" })`
+and asserts `report.passed?`; add one test that the same run **without** `accepted_vacuous:` has
+`refute(report.passed?)` and lists `XCUT-22` and `SEAM-25` as blockers — both are MUSTs.
+
+- [ ] **Step 2: Run to verify it fails**
+
+Expected: `LoadError` on `tools/requirement_levels`; then, once the tool exists,
+`NameError: uninitialized constant Dexpace::Conformance::Levels`; then `ArgumentError: unknown
+keyword: :accepted_vacuous` from `Report.new`.
+
+- [ ] **Step 3: Write the generator and generate `levels.rb`**
+
+`tools/requirement_levels.rb`:
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+# Generates gems/dexpace-conformance/lib/dexpace/conformance/levels.rb from appendix C (the
+# MUST-level vacuity blocker, Task 12a).
+#
+# Appendix C is normative and FROZEN (CLAUDE.md; Guard::FROZEN). This tool READS it and writes
+# exactly one file, TARGET, which is not under docs/. There is no code path that writes SOURCE.
+#
+#   ruby tools/requirement_levels.rb          # regenerate levels.rb
+#   ruby tools/requirement_levels.rb --check  # exit 1 if levels.rb is stale
+require "pathname"
+
+module RequirementLevels
+  ROOT = Pathname(__dir__).join("..").expand_path
+  SOURCE = ROOT.join("docs/product-spec/appendix-c-consolidated-normative-requirement-index.md")
+  TARGET = ROOT.join("gems/dexpace-conformance/lib/dexpace/conformance/levels.rb")
+  # CLAUDE.md's 19 prefixes, in appendix-C order. Restricting the regex is what keeps ISO-8601 and
+  # RFC-shaped tokens out of the map (Task 14 learned the same lesson).
+  PREFIXES = %w[SEAM HTTP IO BODY CTX PIPE RECOV RETRY REDIR AUTH PAGE SSE SERDE OBS CFG
+                TRANSPORT ASYNC XCUT NFR].freeze
+  ROW = /\A\| ((?:#{PREFIXES.join("|")})-\d+) \| (MUST NOT|MUST|SHOULD|MAY) \|/
+  LEVEL = { "MUST" => :must, "MUST NOT" => :must, "SHOULD" => :should, "MAY" => :may }.freeze
+
+  module_function
+
+  def parse(source = SOURCE)
+    source.each_line.filter_map { |line| (m = ROW.match(line)) && [m[1], LEVEL.fetch(m[2])] }.to_h
+  end
+
+  def render(map)
+    rows = map.map { |id, level| "        #{id.inspect} => #{level.inspect}," }.join("\n")
+    <<~RUBY
+      # frozen_string_literal: true
+      # SPDX-License-Identifier: MIT
+
+      # GENERATED by tools/requirement_levels.rb from appendix C -- do not edit; re-run the tool.
+      # NFR-17; the MUST-level vacuity blocker (Task 12a).
+      module Dexpace
+        module Conformance
+          # The normative level of every requirement ID, so a Report can tell a MUST-level vacuity
+          # from a SHOULD-level one (design R3, Task 12a). A gem cannot read docs/ at runtime, so the
+          # map is committed here and test/gates/requirement_levels_test.rb diffs it against
+          # appendix C on every run.
+          module Levels
+            OF = {
+      #{rows}
+            }.freeze
+
+            def self.known?(id) = OF.key?(id)
+            def self.of(id) = OF.fetch(id, :unknown)
+            def self.must?(id) = of(id) == :must
+          end
+        end
+      end
+    RUBY
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  rendered = RequirementLevels.render(RequirementLevels.parse)
+  if ARGV.include?("--check")
+    exit(RequirementLevels::TARGET.exist? && RequirementLevels::TARGET.read == rendered ? 0 : 1)
+  else
+    RequirementLevels::TARGET.write(rendered)
+    puts "wrote #{RequirementLevels::TARGET} (#{RequirementLevels.parse.size} ids)"
+  end
+end
+```
+
+Run `ruby tools/requirement_levels.rb`, commit the generated file with the change, and write the
+`sig/` mirror: `OF: Hash[String, Symbol]`, `def self.known?: (String) -> bool`,
+`def self.of: (String) -> Symbol`, `def self.must?: (String) -> bool`. `Levels.of` answers
+`:unknown` rather than raising because a `Result` built in a test may carry an ID appendix C does not
+hold; an unknown ID never blocks, and `Report#unknown_ids` plus the gate test above are what make a
+typo visible instead of silent.
+
+- [ ] **Step 4: Extend `Report`**
+
+Replace Task 3's constructor, `.merge`, `#passed?`, `#to_s` and `#to_h` with:
+
+```ruby
+      # Merging Results rather than Reports keeps a single #passed? over the whole run. The
+      # acceptances merge too: a suite-level acceptance survives aggregation, and an aggregate-level
+      # one applies to every suite (Task 12a).
+      def self.merge(reports, accepted_vacuous: {})
+        inherited = reports.map(&:accepted_vacuous).reduce({}, :merge)
+        new(reports.flat_map(&:results), accepted_vacuous: inherited.merge(accepted_vacuous))
+      end
+
+      attr_reader :results, :accepted_vacuous
+
+      # `accepted_vacuous` is { "ID" => citation }. Every citation is mandatory and non-empty: an
+      # acceptance is a claim that design section 12 or 10.5 sanctions the vacuity, and a blank claim
+      # is the silent pass this mechanism exists to remove.
+      def initialize(results, accepted_vacuous: {})
+        @results = results.freeze
+        @accepted_vacuous = accepted_vacuous.transform_keys(&:to_s).freeze
+        @accepted_vacuous.each do |id, citation|
+          next if citation.is_a?(::String) && !citation.strip.empty?
+
+          raise ::ArgumentError, "accepted_vacuous[#{id.inspect}] needs a citation (design section 12 or 10.5)"
+        end
+      end
+
+      # Design R3 / Task 12a: nothing passes by not being built. An un-waived :vacuous whose IDs
+      # include a MUST that no acceptance names is a report blocker.
+      def passed?
+        failures.empty? && errors.empty? && blocking_vacuities.empty?
+      end
+
+      def blocking_vacuities
+        vacuous.reject { |r| accepted?(r) }.select { |r| r.assertion.ids.any? { |id| Levels.must?(id) } }
+      end
+
+      def accepted_vacuities
+        vacuous.select { |r| r.assertion.ids.any? { |id| Levels.must?(id) } && accepted?(r) }
+      end
+
+      def unknown_ids
+        @results.flat_map { |r| r.assertion.ids }.uniq.reject { |id| Levels.known?(id) }
+      end
+
+      def to_s
+        lines = ["#{passed.size} passed, #{failures.size} failed, #{vacuous.size} vacuous, " \
+                 "#{waived.size} waived, #{errors.size} errored"]
+        waived.each { |r| lines << "  waived (would fail): #{ids(r)} (#{r.assertion.name})" }
+        accepted_vacuities.each { |r| lines << "  accepted MUST-level vacuity (design-sanctioned): #{ids(r)}: #{citation_for(r)}" }
+        (vacuous - accepted_vacuities - blocking_vacuities).each { |r| lines << "  vacuous: #{ids(r)}: #{r.detail}" }
+        blocking_vacuities.each { |r| lines << "  MUST-level vacuity (report blocker): #{ids(r)}: #{r.detail}" }
+        failures.each { |r| lines << "  FAILED: #{ids(r)}: #{r.detail}" }
+        errors.each { |r| lines << "  ERROR: #{ids(r)}: #{r.detail}" }
+        unless blocking_vacuities.empty?
+          lines << "REPORT BLOCKED: #{blocking_vacuities.size} un-waived MUST-level vacuit#{blocking_vacuities.size == 1 ? 'y' : 'ies'} (design R3)"
+        end
+        lines.join("\n")
+      end
+
+      def to_h
+        {
+          passed: passed.size, failed: failures.size, vacuous: vacuous.size,
+          waived: waived.size, errored: errors.size,
+          blocking_vacuities: blocking_vacuities.map { |r| { ids: r.assertion.ids, detail: r.detail } },
+          accepted_vacuities: accepted_vacuities.map { |r| { ids: r.assertion.ids, citation: citation_for(r) } },
+          unknown_ids: unknown_ids,
+          results: @results.map do |r|
+            { ids: r.assertion.ids, name: r.assertion.name, status: r.status, detail: r.detail }
+          end
+        }
+      end
+
+      private
+
+      def accepted?(result)
+        result.assertion.ids.all? { |id| !Levels.must?(id) || @accepted_vacuous.key?(id) }
+      end
+
+      def citation_for(result)
+        result.assertion.ids.filter_map { |id| @accepted_vacuous[id] }.uniq.join("; ")
+      end
+
+      def ids(result) = result.assertion.ids.join(", ")
+```
+
+The first line of `#to_s` keeps 8a's shape — 8a's report test asserts it — and the blocker verdict
+is a **last** line, so a reader who sees only the tail sees the verdict. `require_relative "levels"`
+at the top of `report.rb`. Extend the `sig/` mirror with the new readers and the keyword.
+
+- [ ] **Step 5: Pass `accepted_vacuous:` through every place a `Report` is built**
+
+`Runner.run(assertions, waive: [], around: nil, accepted_vacuous: {}) { subject }` hands it to
+`Report.new`. Each phase-9 suite's `.run` (`InvariantSuite`, `PackagingSuite`, `CodecSuite`,
+`ExecutorSuite`) gains `accepted_vacuous: {}` and forwards it — a keyword with a default, so every
+existing call in Tasks 5–11 is unchanged. 8a's `TransportSuite.run`, `MinitestDriver#conformance` and
+`RSpecDriver` gain the identical keyword, forwarded to the `Report.new` each already performs, and
+**nothing else in those three files changes** (decision 3 above). Then the two first-party drivers
+name what planning already knows is sanctioned, each with its citation:
+
+- `gems/dexpace-async-thread/test/dexpace/async/thread/conformance_test.rb` (Task 11 Step 5):
+  `accepted_vacuous: { "XCUT-22" => "8b plan:2872 — the holder of a caller-supplied executor is Transport.async_over; this gem files no borrowing entry point" }`.
+- `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/conformance_test.rb` (8a's
+  driver): `"TRANSPORT-18" => "8a plan:4905-4907 — vacuous once max_retries = 0; Net::HTTP drives no re-subscribable producer"` and
+  `"TRANSPORT-12" => "design §12 TRANSPORT row — Net::HTTP has no wire grammar stricter than the model's; it drops nothing"`.
+  `TRANSPORT-13` is a SHOULD and needs no entry.
+
+**Any further MUST-level vacuity a first-party run produces is derived from the run's own output at
+execution, never typed here in advance**: if the blocker section is non-empty and the entry is
+sanctioned by §12 or §10.5, add the acceptance **with the citation**; if it is not sanctioned, it is
+a finding — `R6`'s ladder, a `docs/first-release.md` line, and no acceptance. `ASYNC-4` is not a
+suite result in any first-party run (no assertion carries it, Task 16 step 4) and needs no entry
+unless one appears; if it does, its citation is design §10.5.
+
+- [ ] **Step 6: Extend `Aggregate`**
+
+`Aggregate.run(reports, accepted_vacuous: {})` calls `Report.merge(reports, accepted_vacuous:)`.
+Add two lines to `PREAMBLE`, after the "waived or vacuous" bullet:
+
+```ruby
+        "  - a MUST-level requirement whose assertion is vacuous and that no accepted_vacuous:",
+        "    citation names: such a result is listed below as a report blocker, fails this run,",
+        "    and earns a docs/first-release.md line (design R3, Task 12a)"
+```
+
+`render` is unchanged — the sections travel in `report.to_s`. Regenerate the `sig/` mirror.
+
+- [ ] **Step 7: Run on the four installed interpreters**
+
+```bash
+ruby tools/requirement_levels.rb --check && echo levels current
+for v in 3.2.11 3.3.12 3.4.10 4.0.6; do
+  mise exec ruby@$v -- ruby -w test/gates/requirement_levels_test.rb
+  mise exec ruby@$v -- bundle exec rake test:gems
+done
+```
+
+Expected: 6 runs in `requirement_levels_test.rb`, PASS; Task 3's report tests 9 runs (5 + 4 net of
+the replaced one), Task 12's 8 runs, Task 11's 11 runs, all PASS; 8a's `report_test.rb` unchanged
+and green; both first-party drivers green **with their acceptances printed** under "accepted
+MUST-level vacuities (design-sanctioned)". If a driver is red with a non-empty blocker section, the
+mechanism has found its first real vacuity: follow Step 5's last paragraph, do not add an
+acceptance without a citation, and do not touch `Levels`.
+
+- [ ] **Step 8: Stage the change**
+
+**No commit.**
+
+```bash
+git add -- tools/requirement_levels.rb \
+        test/gates/requirement_levels_test.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/levels.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/report.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/runner.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/aggregate.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/transport_suite.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/minitest_driver.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/rspec_driver.rb \
+        gems/dexpace-conformance/lib/dexpace/conformance/*_suite.rb \
+        gems/dexpace-conformance/sig/ \
+        gems/dexpace-conformance/test/ \
+        gems/dexpace-async-thread/test/ \
+        gems/dexpace-transport-net_http/test/
 ```
 
 ---
@@ -4860,7 +5622,12 @@ file before the generator reads the hand-written rows it carries over. Every ite
 comes out `unmapped` until its row is written by hand.
 
 Then hand-write the `by reference` rows, replacing each `unmapped` one — one per `B.1`, `B.2` and `B.5` item, plus `B.3`'s
-`Tristate`/coercion items and `B.4`'s non-lifted items — naming the owning phase's test file. Do
+`Tristate`/coercion items and `B.4`'s non-lifted items — naming the owning phase's test file. The
+`B.1`/`B.2`/`B.5` rows are the disposition deviation **`P9-1`** records (design ledger, consolidated
+into design §10 and audited by `docs/deviations.md`): dispositioned **by reference** to the owning
+phase's suite rather than lifted, because each has one implementation and §9.3's case for the gem is
+portability across many; the `B.1`/`B.2`/`B.5` entry in `docs/first-release.md` § Post-release triggers
+names the event — a second implementation — that would lift them. Do
 **not** hand-edit a generated row: re-run the generator. `B.3`'s reified-helper item carries
 `restated per §9.3` (§9.3 restates `SERDE-7` as "the ergonomic decode helper routes through a
 witness or combinator"); `SEAM-21`, `SEAM-18` and `ASYNC-15`'s clause (c) carry `scoped out` with
@@ -4941,20 +5708,24 @@ require (`OI-38`).
 
 - [ ] **Step 3: Write one checklist row per `NFR`, with the evidence named**
 
-Each row: the ID, the legend mark (✅ / 🚫 / ⏳ / N/A), the disposition artifact from the design's `R2` table, and either the observed number or the finding. Six marks are **predicted ⏳** and they divide two ways — four pending an open item (`NFR-7`/`OI-6`, `NFR-10`/`OI-38`, `NFR-13`/`OI-50`, `NFR-17`/`OI-49`) and two pending a release rather than a finding (`NFR-4`, no `v*` tag to diff against, `P0-8`'s pre-release branch; `NFR-16`, no release path, `DEF-20`). **A prediction is not an observation.** If a gate passes where the design predicted ⏳, mark it ✅ **and say the design's prediction was wrong**, naming which. If it fails where ✅ was predicted, the same in the other direction.
+Each row: the ID, the legend mark (✅ / 🚫 / ⏳ / N/A), the disposition artifact from the design's `R2` table, and either the observed number or the finding. Six marks are **predicted ⏳** and they divide two ways — four pending an open item (`NFR-7`/`OI-6`, `NFR-10`/`OI-38`, `NFR-13`/`OI-50`, `NFR-17`/`OI-49`) and two pending a release rather than a finding (`NFR-4`, no `v*` tag to diff against, `P0-8`'s pre-release branch; `NFR-16`, no release path — `docs/first-release.md` § Release path). **A prediction is not an observation.** If a gate passes where the design predicted ⏳, mark it ✅ **and say the design's prediction was wrong**, naming which. If it fails where ✅ was predicted, the same in the other direction.
 
 - [ ] **Step 4: File what the pass found, and repair nothing**
 
 Per design `R6`: `:failed` stays `:failed`; the row is ⏳ or 🚫 with the reason; an `OI-<n>` is filed; a MUST additionally gains a `docs/first-release.md` blocker. **Do not lower `--fail-level`, add an `Exclude:`, relax a metric cop or make a gate report-only** — `NFR-17`'s entire content is that no gate is advisory, and relaxing one while dispositioning it falsifies the evidence.
 
-**An un-waived `:vacuous` on a MUST-level ID is a report blocker, not a pass.** **The mechanism does
-not exist yet** — `Report#passed?` is true over vacuous results and nothing in the gem knows an ID's
-level — so **`DEF-47` is picked up before this run**, not after it. `R3`'s
-absent-artifact case makes a missing artifact `:vacuous` rather than `:failed`, because at execution
-time "not built yet" and "built wrong" are different findings and phase 10 acts on the difference.
-What stops `:vacuous` becoming a way to pass by not building: the aggregate report lists every
-un-waived vacuity against a MUST **separately**, that list is a **phase-9 report blocker**, and each
-entry earns a `docs/first-release.md` line. A SHOULD-level vacuity is recorded and does not block.
+**An un-waived `:vacuous` on a MUST-level ID is a report blocker, not a pass.** The mechanism is
+**Task 12a** — `Levels::OF` generated from appendix C, `Report#blocking_vacuities`, `#passed?` false
+while that list is non-empty, and the "MUST-level vacuities (report blockers)" section on every
+render — and **the MUST-level vacuity blocker lands there, before this run**, not after it: **do not
+start this step until Task 12a is green**, because this run's verdicts are not trustworthy without it
+(the condition the blocker was postponed under). `R3`'s absent-artifact case makes a missing artifact `:vacuous` rather
+than `:failed`, because at execution time "not built yet" and "built wrong" are different findings
+and phase 10 acts on the difference. What stops `:vacuous` becoming a way to pass by not building:
+the aggregate report lists every un-waived vacuity against a MUST **separately** under its own
+heading, that list is a **phase-9 report blocker**, and each entry earns a `docs/first-release.md`
+line. A vacuity a driver names in `accepted_vacuous:` with a design §12/§10.5 citation is rendered
+apart as design-sanctioned and does not block; a SHOULD-level vacuity is recorded and does not block.
 
 - [ ] **Step 5: Stage the change**
 
@@ -4975,13 +5746,14 @@ git add -- docs/work/mvp/phase9/ \
 - Modify: `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` as findings require
 
 **Interfaces:**
-- Consumes: `InvariantSuite` (27 assertions), `TransportSuite` (8a, two drivers), `CodecSuite`, `ExecutorSuite`, the four repository gates
+- Consumes: `InvariantSuite` (28 assertions), `TransportSuite` (8a, two drivers), `CodecSuite`, `ExecutorSuite` (seven assertions, `ASYNC-3` among them), `Levels` and the MUST-level vacuity section (Task 12a), the four repository gates
 - Produces: twenty-four dispositioned rows, one aggregate report, and the four gates' offence lists
 
 - [ ] **Step 1: Run every existence probe and record the result**
 
 Each probe is `InvariantCase#probe!`'s subject, and a miss is `:vacuous` with its reason — never
-`:failed` and never `:error`. A MUST-level `:vacuous` is a report blocker (Task 15, step 4).
+`:failed` and never `:error`. A MUST-level `:vacuous` is a report blocker — Task 12a's
+`Report#blocking_vacuities` and its "MUST-level vacuities (report blockers)" section; Task 15, step 4.
 
 ```bash
 ruby -Igems/dexpace-core/lib -e 'require "dexpace"
@@ -5001,6 +5773,16 @@ ruby -e 'require "dexpace/conformance/aggregate"
   # …run each suite with its real subject, then:
   puts Dexpace::Conformance::Aggregate.render(Dexpace::Conformance::Aggregate.run(reports))'
 ```
+
+Two arguments of the first-party run are load-bearing and are stated here so the run is not
+assembled from memory *(added 2026-09-13)*. **`InvariantSuite.run(core: ::Dexpace, transport: ->
+{ Dexpace::Transport::NetHTTP.build }, …)`** — the `transport:` factory is 8a's adapter, so `XCUT-18`'s
+call-site assertion (Task 7, the wire-boundary re-validation's phase-9 clause) runs against a real dispatch path; left out,
+that assertion is `:vacuous` on a **MUST** and Task 12a's rule blocks the report, which is the rule
+doing its job and not a reason to omit the section. **`Aggregate.run(reports, accepted_vacuous: …)`**
+carries only the acceptances the drivers already name (Task 12a, Step 5) plus any the run itself
+justifies under §12/§10.5 with a citation; the "accepted MUST-level vacuities (design-sanctioned)"
+section is then the run's own list of what it did not prove, printed beside the blockers it found.
 
 - [ ] **Step 3: Run the four repository gates and file what they report**
 
@@ -5026,11 +5808,11 @@ reason if it is a false positive.
 
 - [ ] **Step 4: Record the two dispositions a reader checks first**
 
-Per design `R5`: **`ASYNC-3`** is asserted so it genuinely fails, waived by requirement ID in the first-party build, and printed as `waived (would fail): ASYNC-3` — never `passed`, never `vacuous`. **`ASYNC-4`** is `:vacuous` and is added to **no register row**; `DEF-18`'s `Cites:` line is `ASYNC-3, PIPE-33` and stays so. Neither ID gets a phase-9 checklist row — both are phase 8's.
+Per design `R5`: **`ASYNC-3`** is asserted so it genuinely fails, waived by requirement ID in the first-party build, and printed as `waived (would fail): ASYNC-3` — never `passed`, never `vacuous`. **`ASYNC-4`** is `:vacuous` and is added to **no unsatisfied-MUST entry**; that entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) covers `ASYNC-3` and `PIPE-33`'s interrupt clause and stays so. Neither ID gets a phase-9 checklist row — both are phase 8's.
 
-- [ ] **Step 5: Record the vacuities and deferrals other phases handed forward**
+- [ ] **Step 5: Record the vacuities and postponed items other phases handed forward**
 
-Four, from 4c and 7c, recorded in the aggregate report's preamble and **not** as phase-9 checklist rows: `PIPE-33` (`DEF-18`), `PIPE-36` (`DEF-4`), `PIPE-39` (`DEF-39`), `PIPE-32`'s vacuity until `DEF-39` lands, `PAGE-35`'s vacuity, and **`PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does not record** — that last one goes to `docs/deviations.md`'s "Deviations found outside a phase" holding area for phase 10 to fold in.
+Four, from 4c and 7c, recorded in the aggregate report's preamble and **not** as phase-9 checklist rows: `PIPE-33` (an unsatisfied MUST, §10.5), `PIPE-36` (declined for v1, `docs/first-release.md` § What v1 ships without), `PIPE-39` (`Pipeline.standard`, phase 6b's Task 13a), `PIPE-32`'s vacuity until `Pipeline.standard` lands, `PAGE-35`'s vacuity, and **`PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does not record** — that last one goes to `docs/deviations.md`'s "Deviations found outside a phase" holding area for phase 10 to fold in.
 
 - [ ] **Step 6: Write one checklist row per `XCUT` ID, with the audit subject named**
 
@@ -5054,7 +5836,8 @@ git add -- docs/work/mvp/phase9/ \
 **Files:**
 - Modify: `gems/dexpace-conformance/sig/**/*.rbs` — regenerated baseline
 - Modify: the runtime surface manifest
-- Modify: `docs/deferred-items.md` — the two pick-ups and the four new rows
+- Modify: this phase's checklist and the roadmap's phase status note — the marks Step 3 performs for
+  the work earlier phases postponed here and for the MUST-level vacuity blocker
 - Modify: `docs/knowledge/notes/` — the three notes
 - Modify: `CLAUDE.md`, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`
 
@@ -5093,16 +5876,40 @@ red run, its one offence, `OI-57` and the `docs/first-release.md` blocker, and s
 closing note that the gate set is green **except** that row. If the map has been bounded in the
 meantime, the run is green and `OI-57` closes naming the change that bounded it.
 
-- [ ] **Step 3: Append the register rows**
+- [ ] **Step 3: Mark the work earlier phases postponed here as landed**
 
-`docs/deferred-items.md`: move **`DEF-22`**, **`DEF-25`** and **`DEF-31`** to
-`picked-up (<date>, phase 9)`. `DEF-22`'s and `DEF-25`'s conditions name this phase in as many
-words. **`DEF-31` is a correction, not a match**: its row assigns the harness half to `8a`, 8a wrote
-no executor suite, and phase 9 writes it — so the pick-up line says that out loud rather than
-presenting itself as meeting the condition as written. Append `DEF-43` through `DEF-46` from the
-design's table, each with a target phase or an explicit condition. Mark **nothing** UNSCHEDULED: the
-one row that invites it, `DEF-23`, has an unmet condition because phase 9's suites go in `lib/`, and
-that reasoning is inherited from 8a rather than re-derived.
+*(Rewritten 2026-09-13.)* Four marks, each a ✅ on this phase's checklist row plus one dated sentence
+in the roadmap's phase status note, and one confirmation:
+
+- **The conformance assertion protocol** — phase 8a's Task 25 Step 3a has already said the protocol
+  half phase 0 postponed has landed. Say the second half — "phase 9 adds the remaining suites" — has
+  landed too: `Check`, `Runner`, `SharedInstance`, `InvariantSuite`, `PackagingSuite`, `CodecSuite`,
+  `ExecutorSuite`, `Aggregate`, `Levels` and `Report#to_h` (Tasks 2–12a). Do not restate 8a's half.
+- **The wire-boundary re-validation** — phase 8's second-landing sub-phase (8c's Task 19 Step 5a, or
+  8a's Task 25 Step 3a) has said both adapters' call sites have landed. Say the portable assertion
+  phase 1 named for this phase has landed: `InvariantSuite`'s second `XCUT-18` assertion drives a
+  forged `Request` through a transport factory and asserts refusal before any wire activity (Task 7).
+  If phase 8's sentence has not been written when this runs, do not write it here; record phase 9's
+  clause and leave phase 8's to phase 8's plan.
+- **`SEAM-25`'s lifecycle event** — 8b's Task 13 Step 5 has said the **emission** half phase 2
+  postponed has landed. Say the harness half has landed, **as a CORRECTION**: 8b's design assigned
+  that half to 8a, 8a wrote no executor suite, and phase 9 wrote `ExecutorSuite` (Task 11): close
+  twice, executor shut once, one event, matched on the event name. Two dated sentences, each naming
+  its half, is the truthful record; one that overwrote 8b's would present a correction as a
+  restatement.
+- **The MUST-level vacuity blocker** — mark Task 12a's row ✅ and say the blocker phase 9 postponed on
+  2026-09-13 has landed before Task 15's disposition run, per its own condition: `Levels::OF`
+  generated from appendix C, `Report#blocking_vacuities`, `#passed?` false over an un-waived,
+  un-accepted MUST-level vacuity, and the two report sections.
+- **Confirm, do not re-file**: the four other things phase 9 postponed still say what the design's
+  *Work phase 9 postponed, and who owns it now* says and live where it says — the require-allowlist
+  regeneration guard and the `B.1`/`B.2`/`B.5` lift under `docs/first-release.md` § Post-release
+  triggers, the `NFR-12`/`NFR-16` assertions under its § Release path, and the `XCUT-12` fiber form on
+  phase 10's inbound list in the roadmap's 2026-09-13 status note. A missing entry is a defect to
+  report, not one to re-file elsewhere.
+- Decline **nothing**: the one item that invites it, the Steep target over a `test/` tree, has an
+  unmet condition because phase 9's suites go in `lib/`, and that reasoning is inherited from 8a
+  rather than re-derived; it stays under `docs/first-release.md` § Post-release triggers.
 
 - [ ] **Step 4: File the three knowledge notes**
 
@@ -5139,11 +5946,13 @@ git add -- <the files this task created or modified>
 
 **Spec coverage.** `R1` → Tasks 5–14, with `APPENDIX_B.md` (Task 14) carrying a row for each of the
 61 items. `R2` → Task 9 builds the portable half and Task 15 records the gate half, with `NFR-10`,
-`NFR-13` and `NFR-14` in **both**. `R3` → Task 5's `probe!` and Tasks 15–16's vacuity handling.
+`NFR-13` and `NFR-14` in **both**. `R3` → Task 5's `probe!`, Task 12a's MUST-level vacuity blocker
+(`Levels`, `Report#blocking_vacuities`, the two report sections), and Tasks 15–16's
+vacuity handling.
 `R4` → Task 13. `R5` → Task 16, step 4. `R6` → the Global Constraints file-list line, Task 15's
 step 4 and Task 11's `functional: nil` fallback. `R7` → Task 14. `R8` → Task 4 and Task 8's pair of
-`XCUT-11` assertions. The 41 IDs: `XCUT-1`–`24` are covered by **27 assertions** across Tasks 5–8
-(`XCUT-11`, `XCUT-13` and `XCUT-14` carry two each), asserted by Task 8's own counting test and dispositioned in
+`XCUT-11` assertions. The 41 IDs: `XCUT-1`–`24` are covered by **28 assertions** across Tasks 5–8
+(`XCUT-11`, `XCUT-13`, `XCUT-14` and `XCUT-18` carry two each), asserted by Task 8's own counting test and dispositioned in
 Task 16; `NFR-1`–`17` split into Task 9's eight portable assertions and Task 15's twelve recorded
 gate results, with three IDs in both and `NFR-8`/`NFR-9` in neither.
 
@@ -5154,8 +5963,13 @@ Task 6; `XCUT-12` → Task 8; `XCUT-15` → Task 5; `XCUT-13`/`XCUT-22` → Task
 `XCUT-20`, `XCUT-21` → Task 7; `XCUT-18` → Task 7; `SEAM-2`, `SSE-37` → Task 13; `SEAM-20`/`-21`/
 `SERDE-3` → Task 10; `SEAM-12`, `SEAM-18` → Task 11; `OBS-21`/`OBS-25` → Task 14's map (8a already
 shipped `RecordingSpan` and `Allocations`; phase 9 adds no assertion and records them by reference);
-`NFR-11` → Task 9; `DEF-22` → Tasks 2–12; `DEF-31` → Task 11; the conformance-pass rows (4c's and
-7c's) → Task 16, step 5. **The build/run split is Tasks 1–14 and 15–17**, not the design's 1–9 /
+`NFR-11` → Task 9; the conformance assertion protocol's second half → Tasks 2–12a; the wire-boundary
+re-validation's phase-9 clause → Task 7's second `XCUT-18` assertion; `SEAM-25`'s harness half → Task
+11; the unsatisfied `ASYNC-3` MUST → Task 11's `ASYNC-3` assertion (written to fail, waived by ID) and
+Task 16 step 4; the `B.1`/`B.2`/`B.5` lift → Task 14 (`P9-1`, declined; the trigger is in
+`docs/first-release.md` § Post-release triggers); the MUST-level vacuity blocker → Task 12a; the
+conformance-pass rows
+(4c's and 7c's) → Task 16, step 5. **The build/run split is Tasks 1–14 and 15–17**, not the design's 1–9 /
 10–17, which is corrected in the design.
 
 **Placeholder scan.** No "TBD", no "add appropriate error handling", no "similar to Task N". Six

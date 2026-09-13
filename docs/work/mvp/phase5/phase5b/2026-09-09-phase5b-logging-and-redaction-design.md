@@ -16,8 +16,8 @@ declare, which the draft had assigned to `5c`; the recording tracer and meter fa
 5b's suite reuses; and `Events::INSTRUMENTATION_SHUTDOWN` was settled here rather than deferred to `5c`. One thing the
 reconciliation found that neither document had noticed: **`OBS-24` had a scope-table row in neither**, which
 *Scope* now corrects — it is 5b's, making this segment 28 IDs and `5c` 12, against a charter whose arithmetic
-and whose prose disagree. The register rows this document proposed are filed: `DEF-41`, `OI-25`, `OI-26` and
-`OI-27`.
+and whose prose disagree. The items this document proposed are recorded: the `OBS-19` header-drop policy (owner: phase 8c, Tasks
+7, 9 and 15), and `OI-25`, `OI-26` and `OI-27`.
 
 ## Purpose
 
@@ -37,7 +37,7 @@ sub-phase that a later refactor must not be able to undo quietly.
 **5b depends on `5a` and `5c` for nothing, and neither depends on 5b.** The charter's finding is that the
 `CFG`↔`OBS` edges run in both directions and that every phase-5 boundary is a convenience. 5b discharges its
 half of both without `5a`: `OBS-35`'s resolution takes a `Configuration` **as an argument** and a
-configuration-free caller passes a level directly, and `DEF-34`'s two remaining wirings are the only place 5b
+configuration-free caller passes a level directly, and the body-logging caps' two remaining wirings are the only place 5b
 touches the chain at all. **A 5b plan whose first task waits on `Dexpace::Configuration` has re-imposed a
 chain that does not exist**, and so has one that waits on a `5c` tracer.
 
@@ -120,7 +120,7 @@ value type and two pipeline steps.
   reconciliation**, and not read while this document was drafted. It is the source for every span, tracer,
   scope, meter and instrument method name this document calls, for the two slot defaults, and for
   `interface _Meter`.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ## The `5b`/`5c` line, and how each crossing was settled
@@ -174,8 +174,8 @@ to prevent, and is why the correction is made rather than carried.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `OBS-1`–`OBS-18`, `OBS-20`, `OBS-24`, `OBS-34`, `OBS-35`, `OBS-36`, `OBS-38`, `OBS-39`, `OBS-40` | 26 |
-| ⏳ deferred, **`DEF-41`**, target phase 8 — the requirement's subject is "a transport that drops a caller-set request header it cannot encode"; core has no transport, `Net::HTTP` raises rather than drops (§12's `OBS` row), and a three-mode policy object with no core caller and no core test is `OI-8`'s exact shape. `R10` | `OBS-19` (SHOULD) | 1 |
-| ⏳ deferred, `DEF-9` (pre-existing), post-v1 with the async adapters | `OBS-37` (SHOULD) | 1 |
+| ⏳ postponed to phase 8 — now phase 8c, Tasks 7, 9 and 15 (`DropPolicy`) — the requirement's subject is "a transport that drops a caller-set request header it cannot encode"; core has no transport, `Net::HTTP` raises rather than drops (§12's `OBS` row), and a three-mode policy object with no core caller and no core test is `OI-8`'s exact shape. `R10` | `OBS-19` (SHOULD) | 1 |
+| ⏳ post-v1 with the async adapters — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry | `OBS-37` (SHOULD) | 1 |
 
 **This changes one cell of the charter's own scope table**, which expects `OBS-19` as "Partially satisfied —
 the verbosity policy and its once-per-name throttle ship". The charter's `R10` explicitly leaves the choice
@@ -195,15 +195,16 @@ interface row).
 **Also shipped by 5b without owning a new ID**, per the charter:
 
 - `Dexpace.close_quietly`'s **second** disposal route — an `http.instrumentation.*` diagnostic for the
-  `onto:`-absent case — which **closes `DEF-27`**, a row open since phase 2. The phase-2 test asserting the
+  `onto:`-absent case — which **completes the pair of routes phase 2 postponed** (Task 14), open since phase 2. The phase-2 test asserting the
   rescued error is dropped is what changes, and phase 4b's interface table already says so.
-- `SEAM-25`'s lifecycle **event shape** — `DEF-31` is **half** supplied and the row stays open, because the
-  first thing in the repository that owns an executor is phase 8's `dexpace-async-thread`.
-- the optional per-dropped-failure diagnostic in `Dexpace::Hooks.notify` (`DEF-32`); 5b takes the option, and
-  the suppressed trail phase 4b built stays.
-- `DEF-34`'s two remaining wirings — the shared preview size read from the chain into
+- `SEAM-25`'s lifecycle **event shape** — the event phase 2 postponed is **half** supplied here, because the
+  first thing in the repository that owns an executor is phase 8's `dexpace-async-thread` (emission: phase 8b,
+  Tasks 6 and 10; harness: phase 9, Task 11).
+- the optional per-dropped-failure diagnostic in `Dexpace::Hooks.notify` (the option phase 2 left open beside
+  the trail phase 4b, Task 2 attaches); 5b takes the option, and the suppressed trail phase 4b built stays.
+- the body-logging caps' two remaining wirings — the shared preview size read from the chain into
   `Dexpace::RequestLoggingBody` and `Dexpace::ResponseLoggingBody`, and the gating of their construction on
-  `OBS-34`'s enablement level. `5a` supplied the third (`MAX_MATERIALIZED_BYTES`'s source) and did not edit the
+  `OBS-34`'s enablement level. `5a` supplied the third (`MAX_MATERIALIZED_BYTES`'s source) and did not mark the
   row; **5b lands second and edits it**, per the charter.
 - the HTTP instrumentation step at `Stages::LOGGING`, with two slots `5c` fills.
 
@@ -287,16 +288,16 @@ And the one sentence in design §8.1 that the whole security argument rests on:
 | `OBS-21`–`OBS-23`, `OBS-25`–`OBS-27` — the span recording flag, the scope handle, `OBS-23`'s per-key push, the no-op tracing defaults, the W3C identifiers, trace-id generation | `5c`. 5b declares the two key names `OBS-23` writes (`R11`) and nothing else about a span. **`OBS-24` is not in this range and is 5b's** — the draft wrote `OBS-21`–`OBS-27` here while owning `OBS-24` in `R12`, which is the same charter arithmetic error corrected above |
 | `OBS-28`–`OBS-30` — the HTTP-tracer vocabulary and its ordering contract, and the must-not-throw SPI clause | `5c`. 5b honours `OBS-20`'s half of the asymmetry by **not** wrapping tracer or meter calls; it does not define the callbacks |
 | `OBS-31`–`OBS-33` — the metrics SPI, the no-op meter, the counter and histogram contracts | `5c`. 5b's step takes a meter through a slot and calls it; it ships none |
-| `OBS-32`'s instrument **units**, descriptions and attribute sets | `5c`, ⏳ `DEF-9`; its conformance clause needs a recording meter, which core does not ship. **The two instrument *names* are 5b's**, reversed at reconciliation: the step is the only caller of `create_counter`/`create_histogram` in core, so the object *is* 5b's, and `OBS-34` cannot record without a name (`R11`) |
-| `CFG-1`–`CFG-38` — the layered chain, the clock, the proxy model, the five utilities | `5a`. 5b consumes `Configuration#string` and `Configuration::Keys` and adds **one** key name, `LOG_PREVIEW_BYTES`. **Corrected at the plan reconciliation: this said two.** `DEF-34`'s pick-up condition names three wirings — the shared preview size, the body-logging enablement gate, and a configured source for `MAX_MATERIALIZED_BYTES` — and only the first needs a name that does not exist. The enablement gate reads `5a`'s shipped `Keys::LOG_LEVEL` (`"LOG_LEVEL"`, `OBS-35`'s published name), which 5b must not restate, rename or revalue; `Keys::MAX_MATERIALIZED_BYTES` is `5a`'s too and `5a` supplied that third wiring |
+| `OBS-32`'s instrument **units**, descriptions and attribute sets | `5c`, ⏳ post-v1 (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry); its conformance clause needs a recording meter, which core does not ship. **The two instrument *names* are 5b's**, reversed at reconciliation: the step is the only caller of `create_counter`/`create_histogram` in core, so the object *is* 5b's, and `OBS-34` cannot record without a name (`R11`) |
+| `CFG-1`–`CFG-38` — the layered chain, the clock, the proxy model, the five utilities | `5a`. 5b consumes `Configuration#string` and `Configuration::Keys` and adds **one** key name, `LOG_PREVIEW_BYTES`. **Corrected at the plan reconciliation: this said two.** Phase 3b's deferral of the body-logging caps names three wirings — the shared preview size, the body-logging enablement gate, and a configured source for `MAX_MATERIALIZED_BYTES` — and only the first needs a name that does not exist. The enablement gate reads `5a`'s shipped `Keys::LOG_LEVEL` (`"LOG_LEVEL"`, `OBS-35`'s published name), which 5b must not restate, rename or revalue; `Keys::MAX_MATERIALIZED_BYTES` is `5a`'s too and `5a` supplied that third wiring |
 | `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a **thread hop** in an adapter | 8. 5b owns the carrier and `OBS-24`'s bridge; `dexpace-async-thread` owns the pooled-worker save/install/restore and is what `OI-13` will meet |
-| `BODY-17`–`BODY-29`, `BODY-34`, `IO-9`, `BODY-32` — the two logging body wrappers and the materialisation ceiling | 3a and 3b, built. 5b supplies the configured preview size and the enablement gate (`DEF-34`) and adds no keyword to either wrapper |
+| `BODY-17`–`BODY-29`, `BODY-34`, `IO-9`, `BODY-32` — the two logging body wrappers and the materialisation ceiling | 3a and 3b, built. 5b supplies the configured preview size and the enablement gate phase 3b postponed here (Tasks 14–15) and adds no keyword to either wrapper |
 | `HTTP-42`'s decode boundary and `Response#body_string` | 3b, built. `OBS-38`'s preview renderer follows its corrected recipe (`OI-7`) and does not replace it |
 | `XCUT-11`'s shared-instance audit, `XCUT-14`'s bounded-map audit, `XCUT-19`/`XCUT-20`'s totality audits | 9 dispositions. 5b builds the redactor and the two policies that are the audit's subject |
 | `XCUT-21`'s CSPRNG path | 6. 5b draws no random value at all |
-| `TRANSPORT-8` — header-drop reporting on a real adapter | 8, and it is what `DEF-41`, the `OBS-19` deferral, targets |
-| `SEAM-5`'s presence-gated auto-activation for instrumentation | Post-v1 (`DEF-30`, `DEF-17`). **5b adds no fourth registry**: the sink, the redactor and the level are configured values, not discovered seams, and instrumentation is not one of `SEAM-2`'s five. The row's disposition is `5c`'s to record (`R15`), and this document's reading agrees with the charter's |
-| `Pipeline.standard` and any preset that installs the instrumentation step | 6 (`DEF-39`). **5b builds the step and installs nothing**; `Builder#install_preset` is phase 4c's mechanism and phase 6's caller |
+| `TRANSPORT-8` — header-drop reporting on a real adapter | 8, and it is what the `OBS-19` postponement targets (phase 8c, Tasks 7, 9 and 15) |
+| `SEAM-5`'s presence-gated auto-activation for instrumentation | Post-v1 — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the presence-gated auto-activation entry; its only sanctioned user is `dexpace-instrumentation-otel`. **5b adds no fourth registry**: the sink, the redactor and the level are configured values, not discovered seams, and instrumentation is not one of `SEAM-2`'s five. The disposition is `5c`'s to record (`R15`), and this document's reading agrees with the charter's |
+| `Pipeline.standard` and any preset that installs the instrumentation step | 6 (phase 6b, Task 13a). **5b builds the step and installs nothing**; `Builder#install_preset` is phase 4c's mechanism and phase 6's caller |
 
 **No segmentation design of its own.** 5b is half of one spec chapter, one gem, 28 IDs, under a segmentation
 design that already exists at the `phase5/` level.
@@ -306,7 +307,7 @@ design that already exists at the `phase5/` level.
 **Stated first, because the charter requires it of every phase-5 sub-phase and because 5b is the one most
 tempting to chain.** 5b needs `5a` for exactly two things and neither is a blocker: `OBS-35`'s layered
 resolution, which takes a `Configuration` as an argument and is therefore testable against a hand-built one
-and skippable by a caller who passes a level directly; and `DEF-34`'s two wirings, which are one method call
+and skippable by a caller who passes a level directly; and the body-logging caps' two wirings, which are one method call
 each. 5b needs `5c` for two duck-typed slot arguments its own suite fills with fakes. **A 5b plan whose first
 task waits on either has re-imposed a chain that does not exist.**
 
@@ -323,8 +324,8 @@ prevents is silent on the development interpreter and loud only on the 4.0 matri
 what makes the clean-bundle isolation run load-bearing rather than ceremonial. **5b must not write
 `require "logger"` even in a test-support file under `gems/dexpace-core`**, because the require scan resolves
 relative targets and reads text. The one legitimate use — proving that a stdlib `Logger` satisfies the sink
-duck type — is therefore *not* written as a test in `dexpace-core`; it is `dexpace-conformance`'s (phase 8,
-`DEF-22`), where a declared dependency is permitted, and 5b records that rather than smuggling the require in.
+duck type — is therefore *not* written as a test in `dexpace-core`; it is `dexpace-conformance`'s (phase 8a,
+Tasks 4–8 and 20), where a declared dependency is permitted, and 5b records that rather than smuggling the require in.
 
 `Dexpace/NoUriDefaultParser` binds every URL touch in the redactor: `URI::RFC3986_PARSER` is pinned for every
 parse, and — following `5a`'s finding — `URI.decode_uri_component` / `URI.decode_www_form_component` are the
@@ -379,19 +380,20 @@ that warns.
   with phase 4b's `onto:` keyword routing the rescued error onto a primary exception's suppressed trail. The
   `onto:`-**absent** branch currently drops the error and a phase-2 test asserts that it does. **5b changes
   that test**, which 4b's interface table already anticipates: "Phase 5 adds the `http.instrumentation.*`
-  diagnostic for the `onto:`-absent case and **closes the row**; it does not replace the trail and does not
-  remove the keyword."
+  diagnostic for the `onto:`-absent case and **completes the pair of routes phase 2 postponed**; it does not
+  replace the trail and does not remove the keyword."
 - **`Dexpace::Hooks.notify(hooks, argument)`**, `private_constant` (P2-15) — runs the whole list and re-raises
-  the **first** failure. `DEF-32` reserves the failures after the first for a diagnostic once §8.1's facade
-  exists. 5b takes the option.
+  the **first** failure. Phase 2 reserved the failures after the first for a diagnostic once §8.1's facade
+  exists (the trail itself is phase 4b, Task 2). 5b takes the option.
 - **`Dexpace::Closeable`** with its latch and ownership rule — `SEAM-25`'s whole sentence except "and emits the
-  lifecycle event", which is `DEF-31`.
+  lifecycle event", which phase 2 postponed (emission: phase 8b, Tasks 6 and 10).
 - **`Dexpace::Async::Future`** — `#value(cancellation:)`, `#wait(cancellation:)`, `#cancel(reason)`,
   `#settled?`, `#outcome`, and **`#on_settle { |settlement| … }`, "invoked exactly once, on the settling
   thread-or-fiber"**. There is no `#then` and no `#map`. That single fact fixes the async step's shape and its
   one uncomfortable consequence (`R11`, and the cross-cutting section below).
 - **`Dexpace::Registry` and three seam registries, with no auto-activation hook and a test asserting its
-  absence** (`DEF-30`). 5b adds no fourth registry.
+  absence** (presence-gated auto-activation, post-v1 — `docs/first-release.md` § What v1 ships without). 5b adds
+  no fourth registry.
 - **`Dexpace/QualifiedCoreConstant`** (P2-8, extended by 3a as P3-7). 5b defines `Dexpace::Instrumentation::Logger`,
   which is deliberately *named after* a core-adjacent constant it must never become — `P5-38` and a proposed
   open item.
@@ -405,8 +407,8 @@ that warns.
 - **`Dexpace::RequestLoggingBody.new(delegate, tap_limit: ::Float::INFINITY)`** with `#snapshot -> String`
   returning the bytes mirrored so far (`BODY-20`), and
   **`Dexpace::ResponseLoggingBody.new(delegate, preview_bytes:)`** — required, no default — with `#source`,
-  `#snapshot` and `#error`, each triggering the lazy drain on first access. These are `DEF-34`'s two remaining
-  wirings and `OBS-36`'s whole mechanism: the over-cap regime already replays the captured prefix and
+  `#snapshot` and `#error`, each triggering the lazy drain on first access. These are the body-logging caps' two remaining
+  wirings (phase 3b's deferral) and `OBS-36`'s whole mechanism: the over-cap regime already replays the captured prefix and
   continues from the live tail, so **5b writes no streaming code for `OBS-36` at all** — it supplies the cap
   and the gate.
 - **`Dexpace::IO::MAX_MATERIALIZED_BYTES`**, whose configured source `5a` already supplied. 5b adds no
@@ -421,14 +423,16 @@ that warns.
 - **4a, obligatorily** — `Dexpace::Instrumentation::Bundle` with its eight stored members and derived
   `#valid?`, `Bundle::NONE`, `Bundle::INVALID_SPAN_ID`, `TraceIdFlavour`, `NO_SPAN`, `NO_TRACER_FACTORY` with
   its one method `#tracer(name = nil, version = nil)`, and the empty RBS interfaces `_Span`, `_Tracer`,
-  `_TracerFactory`. **The shape is fixed and 5b does not populate it** — that is `5c`'s, under `DEF-37`. What
+  `_TracerFactory`. **The shape is fixed and 5b does not populate it** — that is `5c`'s (Tasks 3, 4 and 5), the no-op span and
+  tracer protocols phase 4a postponed. What
   5b uses is exactly two members: `bundle.trace_id` and `bundle.span_id` are what `OBS-23`'s keys will carry
   (`5c`'s write), and `bundle.tracer_factory` is what the step's tracer slot may be fed from by a caller. 5b
   adds no member, replaces no singleton, and defines no second `NONE`.
 - **4a** — `RequestContext#operation_name` / `ExchangeContext#operation_name`, "already carried and already
   advisory". 5b's step reads it for the `tracer_factory.tracer(...)` call's name argument and for nothing else;
-  `SEAM-28`'s consumer half is `5c`'s (`DEF-1`).
-- **4a** — `ContextStore.new(cap:)` and `MAX_TRACKED_CONTEXTS`; `DEF-36` is `5a`'s and 5b does not touch it.
+  `SEAM-28`'s consumer half is `5c`'s (Task 4).
+- **4a** — `ContextStore.new(cap:)` and `MAX_TRACKED_CONTEXTS`; the cap's configured source is `5a`'s (Task 13)
+  and 5b does not touch it.
 - **4b** — `Dexpace::Error#suppressed`, `Dexpace.attach_suppressed`, `Dexpace.each_cause`, and
   `Dexpace::ProtocolError` **whose message names the status and deliberately carries no body preview**, with
   the instruction attached: "a message is what lands in a log by default, and an error body is the one payload
@@ -444,7 +448,8 @@ that warns.
   is explicit that the instrumentation step "is a pillar, so it **may** fork. **It should not**: a step that
   drives the chain exactly once drives it through `#call`". **5b's step calls once and never forks**, and
   builds against that sentence rather than rediscovering it.
-- **4c** — `Builder#install_preset(entries)` is `DEF-39`'s mechanism and phase 6's caller. 5b installs nothing
+- **4c** — `Builder#install_preset(entries)` is `Pipeline.standard`'s mechanism (phase 6b, Task 13a) and phase 6's
+  caller. 5b installs nothing
   and writes no preset.
 
 ### From phase 5a
@@ -456,7 +461,7 @@ that warns.
   `5b`'s log-level resolution takes its key as a **required** argument." 5b honours it exactly (`P5-36`).
 - **`5a` deliberately declared no key constant for the body preview size or the enablement setting**, and said
   why: "a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is `OI-8`'s shape."
-  **5b adds the two names in the change that reads them**, which is `DEF-34`'s pick-up.
+  **5b adds the two names in the change that reads them**, which is the body-logging caps' pick-up.
 - **`Dexpace::Clock` and `Clock::SYSTEM`** — `#now`, `#monotonic`, `#sleep`. `OBS-39`'s
   `http.response.duration_ms` is measured with `#monotonic` and **never** with `#now`, which is `CFG-16`'s own
   rule arriving at its first consumer. The step takes `clock:` defaulting to `Clock::SYSTEM`.
@@ -726,7 +731,7 @@ path — stated in the cross-cutting section.
 **The question.** The charter's verified fact 6 found that a chain driven with a bare `"x"` literal allocates
 one object per call unless the measuring file carries `# frozen_string_literal: true`. Every file in this
 repository carries it by rule, so the in-gem test is safe — but `OBS-1`'s conformance clause is one
-`dexpace-conformance` will restate (phase 8, `DEF-22`), **in a different gem**, and a conformance file that
+`dexpace-conformance` will restate (phase 8a, Tasks 4–8 and 20), **in a different gem**, and a conformance file that
 loses the magic comment fails a correct implementation. The charter offers two candidate answers: make the
 assertion insensitive to the caller's allocations (by measuring the delta of two loops, or by passing only
 frozen constants), or state the precondition in a comment the later gem copies.
@@ -887,7 +892,7 @@ header it cannot encode SHOULD surface the drop with a configurable verbosity po
 disposition together.
 
 1. **Core has no transport and drops no header.** `HTTP-17`/`HTTP-18`'s wire-boundary re-validation is
-   `DEF-25`, phase 8's, and it **raises** rather than drops — which is the general shape of this port, not an
+   phase 8's (phase 8a Task 16, phase 8c Task 9), and it **raises** rather than drops — which is the general shape of this port, not an
    accident: a header a caller set and the wire cannot carry is a caller bug, and phase 1 made it an error.
 2. **§12's `OBS` row already records the emission site as vacuous for the one MVP transport**: "`OBS-19`
    (SHOULD) is vacuous for `Net::HTTP`, which raises on an unencodable header rather than dropping it, and
@@ -916,9 +921,10 @@ twice.
 
 **And the checklist consequence, which is the reason this is a deferral and not a note.** §12's word is
 "vacuous". A checklist row is one row per ID with a target, and "vacuous" names no target, no gem and no event
-— it is a statement about `Net::HTTP` and not a disposition of the requirement. `⏳` requires a `DEF-<n>`, and
-none of the existing thirty-nine covers `OBS-19`: `DEF-9` covers `OBS-32` and `OBS-37` and its condition is the
-OTel and async adapters, which is not this. So a row was written and is filed as **`DEF-41`**. `P5-32`
+— it is a statement about `Net::HTTP` and not a disposition of the requirement. `⏳` requires a named owner, and
+none of the existing thirty-nine deferrals covers `OBS-19`: the `OBS-32`/`OBS-37` item's condition is the OTel
+and async adapters, which is not this. So an item was written, **the `OBS-19` header-drop policy**, now owned
+by phase 8c, Tasks 7, 9 and 15. `P5-32`
 records that this reads §12 differently from the way §12 words it, and `OI-27` records that it reads the
 charter's 5b scope table differently too.
 
@@ -963,7 +969,7 @@ Three things decide it on the merits, and the third is the one the draft could n
 1. **`CTX-14` already puts a `tracer_factory` on every context**, and `CTX-15`/`OBS-25` make
    `Bundle::NONE.tracer_factory` the published no-op. A **required** keyword makes every caller supply a
    second source of truth for an object the request's own context already carries, and makes phase 6's
-   `Pipeline.standard` (`DEF-39`) name the no-op explicitly in a preset. `5c`'s precedence is what the step
+   `Pipeline.standard` (phase 6b, Task 13a) name the no-op explicitly in a preset. `5c`'s precedence is what the step
    implements: **the request context's bundle when it is not `Bundle::NONE`, else the step's keyword, else the
    constant.** 5b's step honours that ordering and this document does not restate `5c`'s argument for it.
 2. **`OBS-34` defaults logging to `none` and `XCUT-19`(e) makes body logging off by default**, so the
@@ -1000,10 +1006,10 @@ no-op path, so a per-request `create_counter` would pay a lookup for nothing.
 expect dimensions.** `OBS-31`'s MUST is that the Meter manufacture instruments "each accepting per-measurement
 key/value attributes" — an obligation on the *instrument*, and 5c's `_Counter#add` / `_Histogram#record`
 declare it as `?attributes: Hash[String, untyped]?`. No `OBS` requirement fixes an attribute set for these two
-instruments: `OBS-32`'s semantic conventions, which would, are `5c`'s ⏳ `DEF-9`. And 5c's verified fact 1
+instruments: `OBS-32`'s semantic conventions, which would, are `5c`'s ⏳ post-v1 item. And 5c's verified fact 1
 prices the alternative — an inline hash literal at a call site allocates ~1 per call whether or not the callee
 splats — so an invented dimension set would cost one allocation per request to carry a vocabulary nothing has
-chosen. When `DEF-9` lands, the set is hoisted to a frozen constant and passed; neither signature changes.
+chosen. When `dexpace-instrumentation-otel` lands `OBS-32`, the set is hoisted to a frozen constant and passed; neither signature changes.
 
 ```
 def call(request, cursor)
@@ -1075,7 +1081,7 @@ above.
 **The names are `5c`'s and are now fixed**, not assumed: the recording tracer, span and meter fakes are `5c`'s
 files under `test/support/` (`P5-48`), and 5b's step tests **reuse them rather than adding a second set** —
 which is this document's own open question 6 answered from the other side, and avoids the double-fake drift
-`DEF-29` will otherwise have to consolidate.
+a later move of the fakes into `dexpace-conformance` would otherwise have to consolidate.
 
 ### 5b declares `trace.id` and `span.id`, as `Symbol`s — and `5c`'s counter-proposal, weighed
 
@@ -1158,7 +1164,7 @@ adopting `OBS-32`'s recommended spellings so a later OTel adapter needs no renam
 names is the units (`{request}`, `ms`), the descriptions, semantic-convention conformance and the
 method/status/error attribute sets, and its conformance clause is "run a success and a failure with a
 **recording meter**; assert the two instrument names/units and the attribute sets" — a recording meter is
-exactly what `DEF-9`'s OTel adapter supplies and core does not (`P5-48`). `OBS-32` stays ⏳ `DEF-9` in `5c`'s
+exactly what the post-v1 OTel adapter supplies and core does not (`P5-48`). `OBS-32` stays ⏳ post-v1 in `5c`'s
 scope table with the deferred half being units, descriptions and attribute sets rather than the bare names.
 
 ### No third slot for the HTTP-tracer, confirmed from 5b's side
@@ -1170,7 +1176,7 @@ operation and no attempts, so `OBS-29`'s "retries-exhausted … immediately foll
 same throwable" is a pairing this object structurally cannot honour; and an eleven-method emitter reached
 through a slot would sit *outside* `Instrumentation.contain` under `OBS-20`'s asymmetry, so a partially-wired
 vocabulary would put three throwing callbacks on the request path for three of eleven events. The wiring is
-`DEF-42`, phase 6's.
+`5c`'s postponed `OBS-29` item: the per-attempt group is phase 6a's (Task 9), the rest phase 10's inbound list.
 
 ## R12 — `OBS-24`'s whole-map snapshot against `OI-13`'s warned setter
 
@@ -1262,10 +1268,10 @@ lib/dexpace/instrumentation/emitter.rb            Dexpace::Instrumentation::Emit
 lib/dexpace/instrumentation/step.rb               Dexpace::Instrumentation::Step
 lib/dexpace/instrumentation/async_step.rb         Dexpace::Instrumentation::AsyncStep
 
-lib/dexpace/closeable.rb                          MODIFIED: close_quietly's diagnostic route (DEF-27, closes it)
-lib/dexpace/hooks.rb                              MODIFIED: the per-dropped-failure diagnostic (DEF-32)
+lib/dexpace/closeable.rb                          MODIFIED: close_quietly's diagnostic route (the second route phase 2 postponed)
+lib/dexpace/hooks.rb                              MODIFIED: the per-dropped-failure diagnostic (phase 2's option)
 lib/dexpace/proxy/resolution.rb                   MODIFIED: an event beside each Kernel#warn (P5-8, discharged)
-lib/dexpace/configuration/keys.rb                 MODIFIED: ONE key name 5b adds, LOG_PREVIEW_BYTES (DEF-34);
+lib/dexpace/configuration/keys.rb                 MODIFIED: ONE key name 5b adds, LOG_PREVIEW_BYTES (the caps' source);
                                                   LOG_LEVEL is 5a's and is read, not redeclared
 
 test/support/recording_sink.rb                    Dexpace::RecordingSink — the fake sink every emission test
@@ -1291,7 +1297,7 @@ two of those that are public surface (`hooks.rb` and `proxy/resolution.rb` are `
 moved to `5c` at reconciliation, because `5c` defines the protocols they impersonate and asserts every
 recording clause of `OBS-21`, `OBS-29`, `OBS-30` and `OBS-31` against them (`P5-48`). 5b's step tests **reuse**
 them rather than adding a second set — which is this document's own open question 6 answered from the other
-side, and which keeps one fake per idea rather than the drift `DEF-29` would otherwise have to consolidate.
+side, and which keeps one fake per idea rather than the drift a later move of the fakes would otherwise have to consolidate.
 
 **Every 5b constant in `lib/` is under `Dexpace::Instrumentation::`** — the two doubles under `test/support/`
 are flat under `Dexpace`, which is `5a`'s convention and is the point of keeping a test-only name out of the
@@ -1360,7 +1366,7 @@ promised.
 | `Keys::HTTP_REQUEST_HEADER_PREFIX`, `::HTTP_RESPONSE_HEADER_PREFIX` | `"http.request.header."`, `"http.response.header."` | `OBS-39`'s header fields, and the prefixes the reserved-key table matches for `OBS-16`/`OBS-17` redaction |
 | `Keys::ERROR_TYPE` | `"error.type"` | `OBS-39`'s failure event |
 | `Keys::CAUSE` | `"cause"` | `OBS-39`'s failure event, second half: "and the throwable cause attached". **Added at the plan reconciliation, 2026-09-09**, and it is the thirteenth rather than a thirteenth invented: `Event#emit` already wrote this key, as a bare `"cause"` literal in `event.rb`, which put an emitted field key outside the vocabulary `OBS-39` requires to be "stable and predictable" and outside the surface-snapshot coverage §8.1 asks for. `Event#cause(error)` is the only writer and `Render.render` is what shapes the value |
-| `Keys::INSTRUMENT_REQUEST_COUNT`, `::INSTRUMENT_REQUEST_DURATION` | `"http.client.request.count"`, `"http.client.request.duration"` | `OBS-34`'s two instruments, named with `OBS-32`'s recommended spellings. Added at reconciliation (`R11`); `OBS-32`'s units, descriptions and attribute sets stay `5c`'s ⏳ `DEF-9` |
+| `Keys::INSTRUMENT_REQUEST_COUNT`, `::INSTRUMENT_REQUEST_DURATION` | `"http.client.request.count"`, `"http.client.request.duration"` | `OBS-34`'s two instruments, named with `OBS-32`'s recommended spellings. Added at reconciliation (`R11`); `OBS-32`'s units, descriptions and attribute sets stay `5c`'s ⏳ post-v1 item |
 
 `Events` — eight, of which six carry `OBS-20`'s `http.instrumentation.` prefix (five diagnostics and the
 prefix constant itself):
@@ -1371,18 +1377,18 @@ prefix constant itself):
 | `Events::HTTP_RESPONSE` | `"http.response"` | `OBS-39`, success **and** failure — the requirement is explicit that "a failure emits an `http.response` event with `error.type`", not a third event name |
 | `Events::INSTRUMENTATION_PREFIX` | `"http.instrumentation."` | `OBS-20`'s family name, so the four below are derived from one string and a test can assert every diagnostic starts with it |
 | `Events::INSTRUMENTATION_LOG` | `"http.instrumentation.log"` | `OBS-20`'s own case: a log-emission site that raised |
-| `Events::INSTRUMENTATION_CLOSE` | `"http.instrumentation.close"` | `DEF-27`'s second disposal route |
-| `Events::INSTRUMENTATION_HOOK` | `"http.instrumentation.hook"` | `DEF-32`'s per-dropped-failure diagnostic |
-| `Events::INSTRUMENTATION_SHUTDOWN` | `"http.instrumentation.shutdown"` | `SEAM-25`'s lifecycle event; `DEF-31`, half supplied. A **log-event** name, not an `OBS-28` tracer callback — see the `DEF-31` wiring below |
+| `Events::INSTRUMENTATION_CLOSE` | `"http.instrumentation.close"` | `close_quietly`'s second disposal route |
+| `Events::INSTRUMENTATION_HOOK` | `"http.instrumentation.hook"` | `Hooks.notify`'s per-dropped-failure diagnostic |
+| `Events::INSTRUMENTATION_SHUTDOWN` | `"http.instrumentation.shutdown"` | `SEAM-25`'s lifecycle event, half supplied (emission: phase 8b, Tasks 6 and 10). A **log-event** name, not an `OBS-28` tracer callback — see the `SEAM-25` wiring below |
 | `Events::INSTRUMENTATION_CONFIG` | `"http.instrumentation.config"` | `CFG-24`/`CFG-25`'s warning, beside `5a`'s `Kernel#warn` (`P5-8`) |
 
 **The two instrument names were absent in the draft and are here now.** The draft left
 `http.client.request.count` and `http.client.request.duration` to `5c` on the ground that they would be
 "`NFR-4`-locked constant[s] for an object 5b does not build". `5c` left them to 5b, and `5c` is right: the step
 is the only caller of `create_counter` and `create_histogram` in core, so it *does* build them, and `OBS-34`
-requires them recorded on every request. `R11` states the reversal and why `OBS-32` stays ⏳ `DEF-9` anyway.
+requires them recorded on every request. `R11` states the reversal and why `OBS-32` stays ⏳ post-v1 anyway.
 What remains deliberately absent is everything else of `OBS-32`'s — no unit, no description and no attribute
-set is a constant here, because those are what `DEF-9`'s recording meter is needed to assert.
+set is a constant here, because those are what the OTel adapter's recording meter is needed to assert.
 
 ### `Dexpace::Instrumentation::NULL_SINK` — `OBS-1`'s default output
 
@@ -1774,7 +1780,7 @@ Both are plain classes with `private_class_method :new` and the same `.build` ke
 | `#stage -> Stage` | 4c's optional declaration, read once at install; installed with **no `stage:` argument** |
 | `Step#call(request, cursor) -> Response` | 4c's `_Step`. Calls `cursor.call` exactly once and **never forks** |
 | `AsyncStep#call(request, cursor) -> Async::Future` | 4c's `_AsyncStep`. Registers `#on_settle` and returns the **same** future |
-| `.build(logger:, redactor:, level:, tracer_factory: NO_TRACER_FACTORY, meter: NO_METER, preview_bytes: nil, clock: Clock::SYSTEM)` | `R11`; the two slots take `5c`'s constant defaults, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword. `preview_bytes:` is `DEF-34`'s cap and is required when `level` is `BODY` |
+| `.build(logger:, redactor:, level:, tracer_factory: NO_TRACER_FACTORY, meter: NO_METER, preview_bytes: nil, clock: Clock::SYSTEM)` | `R11`; the two slots take `5c`'s constant defaults, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword. `preview_bytes:` is the body-logging cap phase 3b postponed and is required when `level` is `BODY` |
 | `#call`'s tracing and metrics calls | `5c`'s protocols: `factory.tracer(name)` (4a), `tracer.start_span(name)`, `Tracing.correlate(span, bundle)` / `Scope#close`, `span.finish`, `counter.add(1, attributes:)`, `histogram.record(ms, attributes:)`. The two instruments are manufactured once in `.build` |
 
 **The events and fields the `Emitter` writes** are `OBS-39`'s, and every name is a frozen constant in
@@ -1795,7 +1801,7 @@ body in `Dexpace::ResponseLoggingBody.new(body, preview_bytes: preview_bytes)`. 
 already replays the captured prefix and continues from the live tail, which is `OBS-36`'s whole sentence, and
 `BODY-34`'s "engaged only when body-level logging is enabled" becomes true because **this is the only place in
 core that constructs either wrapper** — the structural satisfaction phase 3b described now has its subject.
-`DEF-34` is picked up here and 5b, landing second, edits the row.
+The body-logging caps' item is picked up here and 5b, landing second, marks it done.
 
 **The async step's one uncomfortable consequence, stated because nothing else states it.** Verified fact 13:
 `Future#on_settle` runs "on the settling thread-or-fiber", and phase 2's `Hooks.notify` runs the whole hook
@@ -1809,28 +1815,29 @@ have no such consequence.
 **Neither step forks.** 4c: "a step that drives the chain exactly once drives it through `#call`, and `#call`
 and `#fork` are disjoint on one cursor". Both steps call once.
 
-### The two picked-up register wirings
+### The two picked-up wirings
 
-**`Dexpace.close_quietly(resource, onto: nil)` — `DEF-27`, closed.** The `onto:`-absent branch, which today
+**`Dexpace.close_quietly(resource, onto: nil)` — the second disposal route phase 2 postponed, completed.** The `onto:`-absent branch, which today
 rescues `StandardError` and drops it, now routes through `Instrumentation.contain(logger, event:
 Events::INSTRUMENTATION_CLOSE)`. There is no process-wide logger to reach for — a logger slot beside
 `Dexpace.configuration` would be `5a`'s object and 5b may not add one — so **the logger is a keyword,
 `logger:`, defaulting to `Logger::NULL`**, and a caller who wants the diagnostic passes one. That is one more widening of a phase-2
 signature and it is what makes the route testable without a process-wide slot. **The phase-2 test asserting the
 error is dropped is what changes**, which 4b's interface table already anticipates; the `onto:` route and the
-suppressed trail are untouched. `DEF-27` moves to `picked-up`.
+suppressed trail are untouched. The checklist row is marked and the status note says the work phase 2
+postponed has landed.
 
-**`Dexpace::Hooks.notify(hooks, argument)` — `DEF-32`, option taken.** Each failure **after** the first is
+**`Dexpace::Hooks.notify(hooks, argument)` — phase 2's optional diagnostic, option taken.** Each failure **after** the first is
 emitted as `Events::INSTRUMENTATION_HOOK` through the same containment; the first is still attached to the
-trail and re-raised. `DEF-32`'s own words are honoured exactly: "it does not replace the trail". `Hooks` is a
+trail and re-raised. Phase 2's own words are honoured exactly: "it does not replace the trail". `Hooks` is a
 `private_constant` with no `sig/` mirror, so the change adds no public surface; it gains a `logger:` keyword
 with the same `Logger::NULL` default.
 
-**`SEAM-25`'s lifecycle event — `DEF-31`, half supplied, row stays open.** 5b ships
-`Events::INSTRUMENTATION_SHUTDOWN` and the field shape an owned-executor close emits. It does **not** move the
-row to `picked-up`: the first thing in this repository that owns an executor is phase 8's
+**`SEAM-25`'s lifecycle event — half supplied; emission is phase 8b's (Tasks 6 and 10).** 5b ships
+`Events::INSTRUMENTATION_SHUTDOWN` and the field shape an owned-executor close emits. It does **not** claim the
+item done: the first thing in this repository that owns an executor is phase 8's
 `dexpace-async-thread`, so phase 8 is where the emission gets a real subject and where `dexpace-conformance`
-asserts "close twice → executor shut once, one event". 5b adds a dated line to the row's `Status` and nothing
+asserts "close twice → executor shut once, one event". 5b says so, dated, in its phase status note and nothing
 more.
 
 **And it has no place in `OBS-28`'s vocabulary, which the draft left to `5c` to find.** `OBS-28` enumerates
@@ -1871,7 +1878,7 @@ end
 
 **`interface _Meter` is `5c`'s and 5b declares nothing for it.** The draft declared it empty, borrowing phase
 4a's device of stating a deferral in the type system rather than in a comment. That device was right for 4a
-because the populating phase was a *different* phase held open by `DEF-37`; here `5c` populates it in the same
+because the populating phase was a *different* phase held open by a recorded deferral; here `5c` populates it in the same
 phase, so an empty declaration would be widened before it was ever released — and two declarations of one
 interface name is an **`rbs validate` failure**, not a merge conflict. `5c`'s filled `_Meter`, `_Counter` and
 `_Histogram` are the ones that ship, and the step's `meter:` types as `Dexpace::Instrumentation::_Meter`, `5c`'s — a bare `_Meter` in `step.rbs`, which is written inside `module Instrumentation`. This is the
@@ -1925,7 +1932,7 @@ Eight of the charter's fifteen bind 5b; each is honoured by a named mechanism ra
    *non*-inheritance being wanted, which is the opposite property.
 8. **Phase 4a's five-clause handshake over the instrumentation bundle (boundary 10).** 5b **reads** two
    `Bundle` members and adds nothing: no member, no method, no second `NONE`, no replacement singleton, no
-   second no-op span or tracer, and no change to `#valid?`. `DEF-37` is `5c`'s row and 5b does not touch it.
+   second no-op span or tracer, and no change to `#valid?`. The no-op span and tracer protocols are `5c`'s (Tasks 3, 4 and 5) and 5b does not touch them.
    Named here because it is on the charter's closed list and a reader must be able to see that 5b met it by
    staying out.
 
@@ -2097,20 +2104,20 @@ a stable contract:
 |---|---|
 | **`5c`**, on `OBS-23` | `Diagnostics::TRACE_ID` and `::SPAN_ID`, **`Symbol`s**, and `Diagnostics::DEFAULT_KEYS`, from `lib/dexpace/instrumentation/diagnostics.rb`, which requires nothing else in 5b and defines no `Event`. `5c` cites them and declares no second pair (`R11`, settled) |
 | **`5c`**, on `OBS-24` | `Diagnostics.capture` / `.with`, and the decision that `Fiber#storage=` is never called in `lib/`. `OBS-23`'s per-key push and restore uses `Fiber[]=` and inherits the decision rather than re-deriving it (`R12`) |
-| **`5c`**, on `OBS-34` | `Instrumentation::Step` and `::AsyncStep` with `tracer_factory:` and `meter:` as keywords defaulting to `NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence `5c` fixed. **`5c` ships no second step and no third slot** (boundary 15, `R11`, `DEF-42`) |
+| **`5c`**, on `OBS-34` | `Instrumentation::Step` and `::AsyncStep` with `tracer_factory:` and `meter:` as keywords defaulting to `NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence `5c` fixed. **`5c` ships no second step and no third slot** (boundary 15, `R11`, the postponed `OBS-29` wiring) |
 | **`5c`**, on `OBS-31` | Nothing. `interface _Meter` is `5c`'s, declared filled, together with `_Counter` and `_Histogram`; 5b's empty declaration was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. 5b **consumes** them: `meter:` types as `Dexpace::Instrumentation::_Meter`, reached by bare name from inside `module Instrumentation` |
 | **`5c`**, on `OBS-20` | `Instrumentation.contain`. **`5c` may not wrap a tracer or meter call in it**, and 5b may not stop wrapping its own emissions (boundary 3). 5b's step calls `5c`'s tracer, scope, span and instrument methods **outside** `contain`, in the `ensure`, which is the same rule seen from the caller's side |
-| **`5c`**, on `OBS-32` | `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`, the two names the step's instruments are created under. `5c` declares no instrument name, unit or attribute set, and `OBS-32` stays ⏳ `DEF-9` for the units, descriptions and attribute sets (`R11`) |
+| **`5c`**, on `OBS-32` | `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`, the two names the step's instruments are created under. `5c` declares no instrument name, unit or attribute set, and `OBS-32` stays ⏳ post-v1 for the units, descriptions and attribute sets (`R11`) |
 | **`5c`**, on test doubles | Nothing 5b ships. 5b's suite **consumes** `5c`'s `RecordingTracer`, `RecordingSpan` and `RecordingMeter` under `test/support/` and adds no second set (`P5-48`) |
-| **`5c`**, on `DEF-31` | Nothing. `Events::INSTRUMENTATION_SHUTDOWN` is a **log-event name** in 5b's `Events` and has no place in `OBS-28`'s vocabulary to find: `OBS-28` enumerates eleven methods across three groups — operation, per-attempt, transport — and none is a shutdown or close milestone, so a twelfth would be vocabulary `OBS-28` does not name. Settled here; `5c` adds no method for it |
+| **`5c`**, on `SEAM-25`'s lifecycle event | Nothing. `Events::INSTRUMENTATION_SHUTDOWN` is a **log-event name** in 5b's `Events` and has no place in `OBS-28`'s vocabulary to find: `OBS-28` enumerates eleven methods across three groups — operation, per-attempt, transport — and none is a shutdown or close milestone, so a twelfth would be vocabulary `OBS-28` does not name. Settled here; `5c` adds no method for it |
 | **`5a`** | Nothing. 5b consumes `Configuration#string` and adds two `Configuration::Keys` constants; it changes no `5a` signature |
 | **Phase 6**, on the retry and redirect steps | `Instrumentation::Logger#event`, `Severity`, `Instrumentation.contain` and `Keys`/`Events`. **Every log emission in phase 6 goes through `contain`**, because `OBS-20`'s "every log-emission site" is not scoped to phase 5's sites |
-| **Phase 6**, on `DEF-39` | The two steps are two of the three families `Pipeline.standard` installs. Phase 6 writes the constructor **over** `Builder#install_preset` and 5b installs nothing |
+| **Phase 6**, on `Pipeline.standard` (phase 6b, Task 13a) | The two steps are two of the three families `Pipeline.standard` installs. Phase 6 writes the constructor **over** `Builder#install_preset` and 5b installs nothing |
 | **Phase 6**, on `AUTH` | `RedactionPolicy#with`, for a phase that may need a header name allow-listed or a credential type kept out of a rendering. **The userinfo redaction has no member to change**, deliberately (boundary 4) |
-| **Phase 8**, on `TRANSPORT-12`/`TRANSPORT-13` | `Severity` and the once-per-key throttle, which is what `DEF-41` targets. Phase 8 writes the three-mode policy at the call site that actually drops a header. (**Requirement ID corrected in place 2026-09-12**, with `DEF-41`'s own row: this cell read `TRANSPORT-8`, whose subject is a cancellation originating inside the native client. The subject here is *dropping* a caller-set header, which is `TRANSPORT-12`, with `TRANSPORT-13` the transport-side twin of `OBS-19`'s three-mode policy over that drop) |
+| **Phase 8**, on `TRANSPORT-12`/`TRANSPORT-13` | `Severity` and the once-per-key throttle, which is what the postponed `OBS-19` policy targets (phase 8c, Tasks 7, 9 and 15). Phase 8 writes the three-mode policy at the call site that actually drops a header. (**Requirement ID corrected in place 2026-09-12**, together with the `OBS-19` item's own text: this cell read `TRANSPORT-8`, whose subject is a cancellation originating inside the native client. The subject here is *dropping* a caller-set header, which is `TRANSPORT-12`, with `TRANSPORT-13` the transport-side twin of `OBS-19`'s three-mode policy over that drop) |
 | **Phase 8**, on `ASYNC-8`–`ASYNC-12` | `Diagnostics.capture` and `.with`, and `R12`'s decision. `dexpace-async-thread`'s pooled-worker save/install/restore is the case `Diagnostics.with` was shaped for, and `OI-13`'s warned setter is the call it does not have to make |
-| **Phase 8**, on `DEF-31` | `Events::INSTRUMENTATION_SHUTDOWN`, and the row still open with phase 8 named |
-| **Phase 8**, on `DEF-22` | `OBS-1`'s allocation assertion in the form `dexpace-conformance` restates, and the reason its argument types rather than its file's magic comment are what make it portable (`R8`) |
+| **Phase 8**, on `SEAM-25`'s lifecycle event | `Events::INSTRUMENTATION_SHUTDOWN`; the emission is phase 8b's (Tasks 6 and 10) and the harness phase 9's (Task 11) |
+| **Phase 8**, on `dexpace-conformance`'s assertion protocol | `OBS-1`'s allocation assertion in the form `dexpace-conformance` restates, and the reason its argument types rather than its file's magic comment are what make it portable (`R8`) |
 | **Phase 9**, on `XCUT-19` | `RedactionPolicy::DEFAULT`'s three sets and `HTTPLogging::DEFAULT`, as the five clauses' audited subjects — (a) `OBS-11`, (b) `OBS-12`/`OBS-13`, (c) `OBS-18`, (e) `OBS-34` |
 | **Phase 9**, on `XCUT-20` | `Instrumentation.contain`, `Redactor#url`'s sentinel and `Preview.render`'s never-throw decode as the three totality paths |
 | **Phase 9**, on `XCUT-11` | `Redactor` and `RedactionPolicy` — frozen, no per-call state — as the audited shared instances |
@@ -2164,117 +2171,162 @@ deliberate.
 | P5-37 | `Instrumentation.contain(logger, event:)` is a **module function**, not a method on `Logger` or on `Event` | `OBS-20`, `XCUT-20`; §8.1 | A `logger.contain { }` reads as "the logger contains", which invites the containment to move to the sink — the placement §8.1 rejects for redaction, and for the identical reason: it can be bypassed by installing a different sink. A module function has no receiver to reimplement. It returns `nil` and swallows the block's value, so no call site can branch on whether logging worked, which is what `OBS-20` forbids; and its secondary rescue does nothing at all, because a swallow path with its own failure mode is a third failure mode |
 | P5-38 | `Dexpace::Instrumentation::Logger` keeps §8.1's name despite shadowing the stdlib `Logger` for a bare reference inside `module Dexpace`, and the shadow is **not** covered by `Dexpace/QualifiedCoreConstant` | §8.1; `Dexpace/QualifiedCoreConstant` (P2-8, P3-7); `5a`'s P5-3; `SEAM-1` | `5a` met the same hazard for `ENV` and chose a different name. That escape is unavailable here: §8.1 names the facade `Logger`, and the sink duck type is deliberately the stdlib `Logger` surface as a structural subset, so the word is load-bearing. The cop cannot carry it either — adding `Logger` to `SHADOWED` would flag every legitimate bare reference in an adapter gem that declares the dependency, which is the budget `NFR-2` exists to permit. Mitigated in the two places it can be: the default sink is `NULL_SINK` and not §8.1's `NullLogger`, so exactly one `Logger`-shaped name exists in the namespace (`P5-19`), and every reference to either constant in 5b's own code is fully qualified. Recorded as a deviation because a reader checking §8.1 against the code will see a name the repository's own cop set would normally forbid, and `OI-26` carries the cop-coverage gap |
 
-## Deferrals filed by phase 5b
+## Work phase 5b postponed, and who owns it now
 
-**One, filed as `DEF-41`** by the pass that reconciled this design with `5c`'s, on 2026-09-09. The draft
-stated the row in the register's own item format rather than appending it, because `5b` and `5c` were being
-written concurrently and both would have taken the same next id. The row is now in
-`docs/deferred-items.md` and is cited rather than duplicated here.
+**One item**, recorded by the pass that reconciled this design with `5c`'s, on 2026-09-09. The draft stated
+it in a standalone item format rather than inline, because `5b` and `5c` were being written concurrently; it
+is now owned by the phase-8c plan task named below, and this section carries the reasoning.
 
-**`DEF-41` — `OBS-19`'s header-drop verbosity policy.** Phase 5b ships **no** policy object, no mode constants
-and no reporting method; the requirement's subject is a transport that drops a caller-set header it cannot
-encode, core has none, and `HTTP-17`/`HTTP-18`'s wire-boundary re-validation (`DEF-25`, phase 8) **raises**
-rather than drops. What is *not* deferred is both halves the policy is built from: `Severity` supplies the two
-levels the three modes are expressed in and the once-per-key latch supplies the throttle, with `OBS-40`'s
-collision diagnostic as its exercising caller. Pick-up is phase 8, at the first adapter that drops rather than
-raises (`TRANSPORT-8`), and the row carries the fallback of naming the **event** rather than a phase if no v1
-adapter drops. `R10` is the argument, `P5-32` is the ledger row, and `OI-27` records that the charter's 5b
-scope table words the same disposition as shipping.
+**`OBS-19`'s header-drop verbosity policy — owner: phase 8c, Tasks 7, 9 and 15 (`AsyncHTTP::DropPolicy`,
+`docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport.md`).** Phase 5b ships **no** policy object, no mode constants and no reporting method; the
+requirement's subject is a transport that drops a caller-set header it cannot encode, core has none, and
+`HTTP-17`/`HTTP-18`'s wire-boundary re-validation (phase 8a Task 16, phase 8c Task 9) **raises** rather than
+drops. A public, `NFR-4`-locked three-mode policy with no core caller and no core test is `OI-8`'s exact
+shape, and the charter's `R10` forbids it. What is *not* postponed is both halves the policy is built from:
+`Severity` supplies the two levels the three modes are expressed in and the once-per-key latch supplies the
+throttle, with `OBS-40`'s collision diagnostic as its exercising caller. The pick-up condition was phase 8, at
+the first adapter that drops rather than raises — `TRANSPORT-12`'s subject, with `TRANSPORT-13` the
+transport-side twin of `OBS-19`'s three-mode policy (requirement ID corrected in place 2026-09-12 by the phase
+8 segmentation design; this section read `TRANSPORT-8`, whose subject is a cancellation originating inside the
+native client) — with the fallback of naming the **event** rather than a phase if no v1 adapter dropped. The
+condition was met on 2026-09-12: `protocol-http1` rejects a header name `HTTP-17` accepts, after the request
+line is on the socket, so `dexpace-transport-async_http` drops that header and logs the drop under the
+three-mode policy, bounded at 64 distinct folded names per adapter instance. `R10` is the argument, `P5-32` is
+the ledger row, and `OI-27` records that the charter's 5b scope table words the same disposition as shipping.
 
-## Deferral-register sweep
+## What 5b picks up and leaves alone, and who owns each item now
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row.
-All forty were read — thirty-nine plus `5a`'s `DEF-40`; the register now holds forty-two, `DEF-41` being this
-sub-phase's own row and `DEF-42` `5c`'s, both appended by the reconciliation pass. The charter's own sweep
-covered the phase-5-wide dispositions and is not repeated, so what follows is the **5b-specific delta**. As
-with phases 3, 4 and `5a`, this document **states** each disposition and 5b's **plan performs** the register
-edit — the two *new* rows excepted, which are filed, because a proposed row nobody appends is a row nobody
-can cite.
+The roadmap's execution step 1 requires the phase to read every deferral an earlier phase recorded and
+disposition each one. All forty then open were read — thirty-nine plus `5a`'s `CFG-35` throwable half; the
+reconciliation pass added this sub-phase's `OBS-19` item and `5c`'s `OBS-29` wiring item. The charter's own
+disposition list covered the phase-5-wide dispositions and is not repeated, so what follows is the
+**5b-specific delta**. As with phases 3, 4 and `5a`, this document **states** each disposition and 5b's **plan
+performs** it — Task 16 marks the checklist rows and says in the phase status note which postponed work has
+landed. Each entry names the item by subject, keeps the reason it was postponed, and names its owner
+(rewritten in that form in place on 2026-09-13).
 
-- **`DEF-27` — picked up and CLOSED.** The row's second disposal route is "an `http.instrumentation.*`
-  diagnostic through §8.1's facade when there is not [a primary exception in flight]", and its pick-up
-  condition names phase 5 explicitly: "**phase 5 supplies the second with §8.1's facade and closes this row**."
-  5b adds a `logger:` keyword to `Dexpace.close_quietly` defaulting to `Logger::NULL` and routes the
-  `onto:`-absent branch through `Instrumentation.contain`. **The phase-2 test asserting the rescued error is
-  dropped is what changes**, which 4b's interface table already anticipates. The `onto:` keyword stays, the
-  suppressed trail is not replaced, and `CFG-21`'s null-safety is untouched. `Status` moves to `picked-up`.
-- **`DEF-32` — the optional half is taken; the row stays as phase 4b left it.** Its text reserves the trail for
-  phase 4 and adds: "Phase 5 **may** additionally emit an `http.instrumentation.*` diagnostic per dropped
-  failure once §8.1's facade exists; **it does not replace the trail**." 5b emits
-  `Events::INSTRUMENTATION_HOOK` for each failure after the first and leaves the first attached and re-raised.
-  `Hooks` is a `private_constant`, so no public surface changes.
-- **`DEF-34` — picked up, and 5b lands second and edits the row.** Its condition names "phase 5, when
-  `CFG-1`–`CFG-4`'s layered chain and `OBS-35`'s body-level-logging setting exist" and states the work as
-  "three wirings and no new mechanism". `5a` supplied the third (`MAX_MATERIALIZED_BYTES`'s configured source)
-  and deliberately did not edit the row. 5b supplies the other two — the shared preview size read into both
-  wrappers, and the gating of their construction on `HTTPLogging::BODY` — and adds the two
-  `Configuration::Keys` names **in the change that reads them**, which is `5a`'s stated reason for not
-  pre-declaring them. All three are widenings, so `NFR-4` is not prejudiced. `Status` moves to `picked-up`.
-- **`DEF-41` — filed by 5b.** `OBS-19`'s header-drop verbosity policy, target phase 8. See *Deferrals filed
-  by phase 5b* above; the row's own text carries what is and is not deferred.
-- **`DEF-42` — `5c`'s, filed at the same time and untouched by 5b.** `OBS-29`'s HTTP-tracer lifecycle wiring.
-  It reaches 5b only as a negative: **no third slot on the step**, which `R11` confirms from this side.
-- **`DEF-31` — half supplied, row stays open, and 5b must not close it.** Its condition names phase 5 "with
-  §8.1's facade — that is where the event can be emitted", and then names phase 8: "The first thing in this
-  repository that actually **owns** an executor is phase 8's `dexpace-async-thread`, so phase 8 is where the
-  emission gets a real subject and where `dexpace-conformance` asserts 'close twice → executor shut once, one
-  event'." 5b supplies `Events::INSTRUMENTATION_SHUTDOWN` and the field shape and adds a dated line to the
-  row's `Status`. It does **not** move to `picked-up`.
-- **`DEF-9` — untouched, and cited by one 5b ⏳ row.** `OBS-37` (async body-capture skip) is 5b's; `OBS-32`
-  (OTel metric conventions) is `5c`'s. The condition — the OTel adapter (`DEF-17`) and the async adapters
-  (`DEF-11`, `DEF-12`) — is post-v1 and 5b cannot meet it. **Worth stating precisely, because 5b ships an
-  async step:** `OBS-37` is the *skip*, not the path. 5b's `AsyncStep` captures a body preview the same way the
-  sync one does; what is deferred is the optimisation of not capturing for an unknown-length body, and it
-  needs an async adapter to be an optimisation of anything. Not UNSCHEDULED.
-- **`DEF-30` — untouched, and 5b strengthens the charter's reading without acting on it.** Its condition is "an
-  instrumentation seam exists to activate". **5b adds no fourth registry**: the sink, the redactor, the level
-  and the two step slots are configured or injected values, not discovered seams, and `SEAM-2` enumerates five
-  core interface seams of which instrumentation is none. The row's disposition is `5c`'s to record, as the
-  charter's `R15` says, and this document's reading agrees with the charter's recommendation.
-- **`DEF-22` — untouched, and it is `R8`'s subject.** `OBS-1`'s allocation and identity assertions are two of
-  the assertions `dexpace-conformance` will hold, in a different gem written in a later phase. `R8`'s whole
-  point is that they are written here in the form that survives the copy — non-allocating argument types and a
+- **`Dexpace.close_quietly`'s second disposal route — picked up and COMPLETED (Task 14).** Phase 2
+  (2026-09-07) fixed two disposal routes for the rescued error — attached to the primary exception's
+  suppressed trail when there is one in flight, and emitted as an `http.instrumentation.*` diagnostic
+  through §8.1's facade when there is not — and shipped neither, because building either would fix an
+  interface a later phase must be free to shape; a close failure swallowed with no diagnostic is a leaked
+  connection nobody can diagnose. Its pick-up condition named phase 5 explicitly: "**phase 5 supplies the
+  second with §8.1's facade**." Phase 4b supplied the first (Task 2, `onto:`). 5b adds a `logger:` keyword to
+  `Dexpace.close_quietly` defaulting to `Logger::NULL` and routes the `onto:`-absent branch through
+  `Instrumentation.contain`. **The phase-2 test asserting the rescued error is dropped is what changes**,
+  which 4b's interface table already anticipates. The `onto:` keyword stays, the suppressed trail is not
+  replaced, and `CFG-21`'s null-safety is untouched. The checklist row is marked and the status note says the
+  work phase 2 postponed has landed.
+- **The handler failures `Hooks.notify` drops after the first — the optional half is taken; the trail stays
+  as phase 4b left it.** Phase 2 (2026-09-08) reserved the trail for phase 4 — phase 4b, Task 2 — and added:
+  "Phase 5 **may** additionally emit an `http.instrumentation.*` diagnostic per dropped failure once §8.1's
+  facade exists; **it does not replace the trail**." 5b emits `Events::INSTRUMENTATION_HOOK` for each failure
+  after the first and leaves the first attached and re-raised. `Hooks` is a `private_constant`, so no public
+  surface changes.
+- **The body-logging caps' configuration source and enablement predicate — picked up; 5b lands second and
+  marks it done (Tasks 14 and 15).** Phase 3b (2026-09-08) shipped the two logging wrappers narrow and
+  constructed neither, because there was no configuration chain and no facade to ask whether body-level
+  logging is on. Its condition named "phase 5, when `CFG-1`–`CFG-4`'s layered chain and `OBS-35`'s
+  body-level-logging setting exist" and stated the work as "three wirings and no new mechanism". `5a`
+  supplied the third (`MAX_MATERIALIZED_BYTES`'s configured source, its Task 13) and deliberately did not mark
+  the item done. 5b supplies the other two — the shared preview size read into both wrappers, and the gating
+  of their construction on `HTTPLogging::BODY` — and adds **one** `Configuration::Keys` name,
+  `LOG_PREVIEW_BYTES`, **in the change that reads it** (corrected in place 2026-09-13: `LOG_LEVEL` is `5a`'s
+  and already exists, so 5b adds one key and not two, matching the plan's Task 14), which is `5a`'s stated
+  reason for not pre-declaring it. **The chain read is the caller's, not core's (corrected in place
+  2026-09-13):** the caller resolves `configuration.integer(Keys::LOG_PREVIEW_BYTES, default: 8 * 1024)` and
+  passes it to `Step.build(preview_bytes:)`; `preview_bytes:` stays required at `HTTPLogging::BODY` and
+  `ResponseLoggingBody#preview_bytes:` gains no default, so phase 3b's "adding a default to `preview_bytes:`"
+  describes an option not taken. All three are widenings, so `NFR-4` is not prejudiced.
+- **`OBS-19`'s header-drop verbosity policy — postponed by 5b.** Target phase 8; now phase 8c, Tasks 7, 9
+  and 15. See *Work phase 5b postponed, and who owns it now* above, which carries what is and is not
+  postponed.
+- **`OBS-29`'s HTTP-tracer lifecycle wiring — `5c`'s, postponed at the same time and untouched by 5b.** The
+  per-attempt group is phase 6a, Task 9; the operation-lifecycle triple (`OI-32`) and the transport
+  milestones (`OI-36`) are on phase 10's inbound list. It reaches 5b only as a negative: **no third slot on
+  the step**, which `R11` confirms from this side.
+- **`SEAM-25`'s lifecycle event on the first close of an owned executor — half supplied; 5b must not claim
+  it done.** Phase 2 postponed the event because there was nothing to emit it through. Its condition named
+  phase 5 "with §8.1's facade — that is where the event can be emitted", and then named phase 8: "The first
+  thing in this repository that actually **owns** an executor is phase 8's `dexpace-async-thread`, so phase 8
+  is where the emission gets a real subject and where `dexpace-conformance` asserts 'close twice → executor
+  shut once, one event'." 5b supplies `Events::INSTRUMENTATION_SHUTDOWN` and the field shape and says so in
+  its phase status note. The emission is phase 8b's (Tasks 6 and 10 of
+  `docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter.md`) and the harness is phase 9's
+  `ExecutorSuite` (Task 11 of
+  `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`).
+- **`OBS-32` and `OBS-37` — untouched, and carried by one 5b ⏳ row.** `OBS-37` (async body-capture skip) is
+  5b's; `OBS-32` (OTel metric conventions) is `5c`'s. Both SHOULD-level and both presupposing infrastructure
+  the MVP does not ship; the condition — the OTel adapter `dexpace-instrumentation-otel` and the async
+  adapters `dexpace-async-async` and `dexpace-async-concurrent_ruby` — is post-v1 and 5b cannot meet it. Both
+  are stated in `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry. **Worth stating precisely, because 5b ships
+  an async step:** `OBS-37` is the *skip*, not the path. 5b's `AsyncStep` captures a body preview the same way
+  the sync one does; what is postponed is the optimisation of not capturing for an unknown-length body, and it
+  needs an async adapter to be an optimisation of anything. Not met-and-declined.
+- **Presence-gated auto-activation for instrumentation — untouched, and 5b strengthens the charter's reading
+  without acting on it.** Its condition is "an instrumentation seam exists to activate". **5b adds no fourth
+  registry**: the sink, the redactor, the level and the two step slots are configured or injected values, not
+  discovered seams, and `SEAM-2` enumerates five core interface seams of which instrumentation is none. The
+  disposition is `5c`'s to record, as the charter's `R15` says, and this document's reading agrees with the
+  charter's recommendation; the item is post-v1 and lives in `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the presence-gated
+  auto-activation entry.
+- **`dexpace-conformance`'s assertion protocol — untouched, and it is `R8`'s subject.** `OBS-1`'s allocation
+  and identity assertions are two of the assertions `dexpace-conformance` will hold, in a different gem written
+  in a later phase (phase 8a, Tasks 4–8 and 20 of `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`; phase 9, Tasks 2–12a). `R8`'s whole point
+  is that they are written here in the form that survives the copy — non-allocating argument types and a
   two-loop delta — and that the file-level `frozen_string_literal` precondition is documented as *not* what
-  makes them correct. The row's condition (phase 8, which owns the gem) is not met by 5b.
-- **`DEF-29` — untouched, and 5b adds two doubles under `gems/dexpace-core/test/support/`.** `RecordingSink`
-  and `DiagnosticContext`, following phases 2, 3, 4 and `5a`. The condition — a consumer outside
-  `dexpace-core` — is not met. **The draft added four**, and `RecordingTracer` and `RecordingMeter` moved to
-  `5c` at reconciliation, because their method names belong to `5c`'s protocols and `5c` asserts every
-  recording clause against them (`P5-48`); 5b's step tests reuse them. That is `DEF-29`'s own concern —
-  one double per idea — met rather than deferred, and if `dexpace-conformance` ever restates `OBS-34` it
-  will need `5c`'s two and 5b's `RecordingSink`.
-- **`DEF-37` — untouched.** `5c`'s, with `OBS-25`. 5b reads two `Bundle` members and adds nothing.
-- **`DEF-1`'s `SEAM-28` half — untouched.** `5c`'s. 5b's step reads `RequestContext#operation_name` for the
-  `tracer_factory.tracer(...)` name argument, which is a *use* and not the consumer half `DEF-1` names.
-- **`DEF-36` — untouched.** `5a`'s, and already picked up there.
-- **`DEF-28` — untouched.** `5a`'s. Neither step calls a blocking wait, so `deadline:` reaches nothing here;
-  4c's own note applies unchanged.
-- **`DEF-38`, `DEF-40` — untouched.** Both are the `CFG-35`/`XCUT-5` classifier, phase 6's and `5a`'s. 5b
-  classifies nothing.
-- **`DEF-39` — untouched, and 5b supplies one of the three families it names.** `PIPE-24`/`PIPE-39`'s
-  standard-resilience constructors target phase 6 as "the first phase in which all three families exist"; the
-  instrumentation step is the family 5b builds. **5b writes neither constructor and installs no preset.**
-- **`DEF-25` — untouched, and it is what makes `OBS-19`'s deferral coherent.** Wire-boundary re-validation is
-  phase 8's and it **raises** on an unencodable header rather than dropping it, which is why `OBS-19`'s
+  makes them correct. The condition (phase 8, which owns the gem) is not met by 5b.
+- **Moving core's test fakes into `dexpace-conformance` — untouched, and 5b adds two doubles under
+  `gems/dexpace-core/test/support/`.** `RecordingSink` and `DiagnosticContext`, following phases 2, 3, 4 and
+  `5a`. The condition — a consumer outside `dexpace-core` — is not met (phase 8a later declined the move on
+  the development-dependency cycle; the fakes stay). **The draft added four**, and `RecordingTracer` and
+  `RecordingMeter` moved to `5c` at reconciliation, because their method names belong to `5c`'s protocols and
+  `5c` asserts every recording clause against them (`P5-48`); 5b's step tests reuse them. That is the item's
+  own concern — one double per idea — met rather than deferred, and if `dexpace-conformance` ever restates
+  `OBS-34` it will need `5c`'s two and 5b's `RecordingSink`.
+- **The no-op span and tracer protocols — untouched.** `5c`'s (Tasks 3, 4 and 5), with `OBS-25`. 5b reads
+  two `Bundle` members and adds nothing.
+- **`SEAM-28`'s consumer — untouched.** `5c`'s (Task 4). 5b's step reads `RequestContext#operation_name` for
+  the `tracer_factory.tracer(...)` name argument, which is a *use* and not the consumer half the deferral
+  names. The `SEAM-24` half is post-v1 (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `SEAM-24` entry).
+- **The context store's configured cap — untouched.** `5a`'s (Task 13), and already picked up there.
+- **The pivot's `deadline:` keyword — untouched.** `5a`'s (Task 8). Neither step calls a blocking wait, so
+  `deadline:` reaches nothing here; 4c's own note applies unchanged.
+- **`ProtocolError#retryable?` and `CFG-35`'s throwable half — untouched.** Both are the `CFG-35`/`XCUT-5`
+  classifier, phase 6a's (Tasks 6 and 3) from `5a`'s built status half. 5b classifies nothing.
+- **`Pipeline.standard` — untouched, and 5b supplies one of the three families it names.** `PIPE-24`/
+  `PIPE-39`'s standard-resilience constructors target phase 6 as "the first phase in which all three families
+  exist" (phase 6b, Task 13a); the instrumentation step is the family 5b builds. **5b writes neither
+  constructor and installs no preset.**
+- **Wire-boundary header re-validation — untouched, and it is what makes `OBS-19`'s postponement coherent.**
+  Re-validation in every adapter is phase 8's (phase 8a Task 16, phase 8c Task 9; phase 9 Task 7's portable
+  assertion) and it **raises** on an unencodable header rather than dropping it, which is why `OBS-19`'s
   antecedent is unmet in core.
-- **`DEF-33` — untouched, and its value has grown again.** 5b is the fourth phase whose concurrency guarantee
-  rests on a `Thread::Mutex` the GVL would hide the absence of: `OBS-8`'s emit-once latch passes with the mutex
-  and passes without it on every row of the CI matrix.
-- **`DEF-3` — untouched.** `BODY-36`'s condition is core's dependency budget changing, which 5b explicitly does
-  not do: it adds nothing to the require allowlist and requires only `uri` and `set`.
-- **`DEF-23` — untouched.** A Steep target over a test tree; 5b's two fakes do not meet the
-  "production-quality test support" condition, and `5c`'s `RecordingTracer` and `RecordingMeter` — the two
-  most likely to be promoted when phase 8 restates `OBS-34` — are `5c`'s to promote.
-- **`DEF-24`, `DEF-26`, `DEF-21` — already picked up** by phases 4b, 3b and 2.
-- **`DEF-18` — untouched.** Phase 5b neither meets nor re-opens it; `CFG-20` is `5a`'s row.
-- **`DEF-35` — untouched.** `RECOV-27`'s wait is `CFG-15`'s object, `5a`'s.
-- **`DEF-2`, `DEF-4`–`DEF-8`, `DEF-10`–`DEF-17`, `DEF-19`, `DEF-20` — untouched.** Other prefixes, later
-  phases, post-v1 gems, or release-gated.
+- **`IO-38` on a Ruby without a GVL — untouched, and its value has grown again.** 5b is the fourth phase
+  whose concurrency guarantee rests on a `Thread::Mutex` the GVL would hide the absence of: `OBS-8`'s
+  emit-once latch passes with the mutex and passes without it on every row of the CI matrix
+  (`docs/first-release.md` § Post-release triggers).
+- **`BODY-36` mmap — untouched.** Its condition is core's dependency budget changing, which 5b explicitly
+  does not do: it adds nothing to the require allowlist and requires only `uri` and `set` (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1,
+  the `BODY-36`/`BODY-12` entry).
+- **A Steep target over a `test/` tree — untouched.** 5b's two fakes do not meet the "production-quality
+  test support" condition, and `5c`'s `RecordingTracer` and `RecordingMeter` — the two most likely to be
+  promoted when phase 8 restates `OBS-34` — are `5c`'s to promote (`docs/first-release.md` § Post-release
+  triggers).
+- **The suppressed trail, the body member type and the runtime version-skew guard — already built** by
+  phases 4b (Task 1), 3b (deviation P3-15) and 2 (deviation P2-7).
+- **`ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause — untouched.** Phase 5b neither meets nor
+  re-opens them (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs); `CFG-20` is `5a`'s row.
+- **The recovery-stack retry engine — untouched.** `RECOV-27`'s wait is `CFG-15`'s object, `5a`'s; the
+  engine is phase 6a's (Tasks 3, 4, 5, 7 and 11).
+- **Everything else earlier phases postponed — untouched.** Other prefixes, later phases, the seven post-v1
+  gems, or release-gated items; each lives under `docs/first-release.md` § What v1 ships without or
+  § Release path.
 
 ## Open items filed by phase 5b
 
 **Three, filed as `OI-25`, `OI-26` and `OI-27`** by the reconciliation pass on 2026-09-09, for the reason the
-deferral above was: `5b` and `5c` were written concurrently and both would have taken the same next id. All
+postponed item above was: `5b` and `5c` were written concurrently and both would have taken the same next id. All
 three are in `docs/open-items.md`; none is acted on by this document.
 
 - **`OI-25` — design §8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does.** Four of the
@@ -2337,7 +2389,7 @@ Six, each bounded, none reopening a decision above.
    description of it, and if the `Settlement` does not distinguish cancelled from failed, the `AsyncStep`'s
    failure event needs a third branch and `OBS-39`'s `error.type` needs a value for it.
 5. **Decide where `preview_bytes:`'s default comes from when a caller builds a step at `HTTPLogging::BODY`
-   without one.** `OBS-36` names a "reference default 8 KiB" and `DEF-34` says the cap is read "from the
+   without one.** `OBS-36` names a "reference default 8 KiB" and phase 3b's deferral says the cap is read "from the
    chain". This document makes `preview_bytes:` a keyword defaulting to `nil` and required in effect at
    `BODY`. Recommendation: `Step.build` raises `Dexpace::InvalidArgumentError` naming the field when `level`
    is `BODY` and `preview_bytes:` is `nil`, rather than silently defaulting to 8 KiB — a silent default is a
@@ -2346,4 +2398,5 @@ Six, each bounded, none reopening a decision above.
 6. **Confirm whether `dexpace-core`'s existing `test/support/` fakes already have a recording-sink shape.**
    Phases 2, 3 and 4 each added doubles and `5a` adds three more. Recommendation: read the directory on the
    first task; if a recording collaborator already exists with the right shape, extend it rather than adding a
-   fifth pattern for the same idea, which is the drift `DEF-29` will eventually have to consolidate.
+   fifth pattern for the same idea, which is the drift a move of the fakes into `dexpace-conformance` would
+   eventually have to consolidate.

@@ -3896,7 +3896,7 @@ task and add it, do not remove the name.
 **Files:**
 - Create: `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`
 - Modify: `CLAUDE.md`, `README.md`, `docs/README.md`,
-  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, `docs/deferred-items.md`
+  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`
 - Test: the full gate set, plus the housekeeping probe
 
 **Interfaces:**
@@ -3935,13 +3935,13 @@ the first time, so "unchanged" here means *unchanged since the manifests were ge
 
 Create `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`, one row
 per requirement ID in scope, with the roadmap's legend: ✅ implemented and tested · 🚫 not built
-(permanent simplification, named reason) · ⏳ deferred (`DEF-<n>` with its pick-up condition) ·
-N/A not applicable in this port.
+(permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase, task number and
+path — that will do it, or the `docs/first-release.md` entry that owns it) · N/A not applicable in this port.
 
 Nineteen rows: `NFR-1` … `NFR-17`, `SEAM-1`, `SEAM-2`. Each names the **numbered task above** that
 satisfies it. `NFR-8` and `NFR-9` are 🚫 with design §10 item 19's reason (Ruby has no
 whole-program shrinker; `NFR-8` exempts itself by its own text) and name Tasks 9 and 10 as the
-retarget. `NFR-16` is ⏳ `DEF-20`. `NFR-2`'s row records that the budget is *enforced* here and
+retarget. `NFR-16` is ⏳, owned by `docs/first-release.md` § Release path, the signed-publication entry. `NFR-2`'s row records that the budget is *enforced* here and
 *spent* later: no adapter gemspec declares a third-party dependency in phase 0, and the audit's
 `two_third_party` fixture is what proves the budget is real.
 
@@ -3952,20 +3952,24 @@ Add the audit-group section the roadmap's execution rules require: the four grou
 (*Gem layout, zero-dependency core*; *RuboCop and formatting*; *RBS / Steep typing*; *Minitest
 conventions*), and the result of each, including the five notes filed.
 
-- [ ] **Step 5: Verify the deferral rows are present, and add any the implementation found**
+- [ ] **Step 5: Record anything the implementation postponed**
 
-Run: `grep -n '^### DEF-2' docs/deferred-items.md`
-Expected: `DEF-20`, `DEF-21`, `DEF-22` and `DEF-23`, appended during planning. If the
-implementation deferred anything else, append it as `DEF-24` onward with the deferring phase, the
-reason, the pick-up condition and the IDs it cites — and update the `next id:` line at the foot of
-the register.
+The four items phase 0 postponed are recorded in the design's "Work Phase 0 Postponed, and Who Owns
+It Now" section, each with its owner: the version-skew guard's runtime half (phase 2, built), the
+conformance assertion objects (phase 8a, Tasks 4–8 and 20; phase 9, Tasks 2–12a), and two
+`docs/first-release.md` entries — signed publication under § Release path and the Steep target over
+a `test/` tree under § Post-release triggers. Confirm both entries are still there:
+`grep -n 'NFR-16\|Steep target' docs/first-release.md`. If the implementation postpones anything
+else, add it to that design section with the reason and its owner — a numbered task in the plan of
+the phase that will do it, cited by path and task number, or, when no v1 phase will, an entry under
+the fitting `docs/first-release.md` section.
 
 - [ ] **Step 6: Append the roadmap status note**
 
 Append one dated entry to `## Phase Status Notes` in
 `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`. Never rewrite an earlier one. It states
-what landed, the gate count, the Rubies it was verified on, and the two counts that changed —
-six gems, one phase directory.
+what landed, the gate count, the Rubies it was verified on, the four items it postponed with their
+owners, and the two counts that changed — six gems, one phase directory.
 
 - [ ] **Step 7: Rewrite `CLAUDE.md`'s command block**
 
@@ -4075,7 +4079,7 @@ each gate was verified on, the `DEF-` rows appended, and the `CLAUDE.md` diff.
 | Design §9 Addendum A3 (the denylist) | 9 |
 | Testing: a deliberately failing input per gate | every gate task's Step 1 |
 | Single-instance guarantee (§2.4) | 11 |
-| Deferrals `DEF-20`–`DEF-23` | filed during planning; verified in Task 20, Step 5 |
+| The four items phase 0 postponed, and their owners | recorded during planning; re-checked in Task 20, Step 5 |
 | The checklist, the registers and `CLAUDE.md` | 20 |
 
 One design element deliberately has no task of its own: the five knowledge notes were written

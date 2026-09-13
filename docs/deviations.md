@@ -50,10 +50,12 @@ and does not know what is inside it, which is also what lets the same object ser
 `Dexpace::Page::_Executor` — so on the thread path the mitigation reduces to check-after-resume alone, and
 the "shorten" half belongs entirely to the transport that owns the socket
 (`dexpace-transport-net_http`, phase 8a). **The sentence is not wrong; it is unattributed**, and the cost
-of leaving it so is concrete: a phase-9 audit reading `DEF-18` will look for the hook in the gem whose
-name appears two sentences earlier and will not find it. The addition owed is one clause naming the
-**transport** rather than "an adapter". Recorded here as the as-built audit of item 5 until §10 is
-deliberately amended by a human. Touches `ASYNC-3`, `ASYNC-6`, `PIPE-33`, `TRANSPORT-3`, `DEF-18`.
+of leaving it so is concrete: a phase-9 audit reading the `ASYNC-3`/`PIPE-33` entry under
+`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs will look for the hook in the gem
+whose name appears two sentences earlier and will not find it. The addition owed is one clause naming
+the **transport** rather than "an adapter". Recorded here as the as-built audit of item 5 until §10 is
+deliberately amended by a human. Touches `ASYNC-3`, `ASYNC-6`, `PIPE-33`, `TRANSPORT-3`, and that
+first-release entry.
 
 **2026-09-12 — a completeness note against design §12's `PAGE` row. Proposed by phase 9's design; it is
 not a `P9-<n>` deviation and carries no `OI-<n>`.** §12's three kinds of entry are *not satisfied*,

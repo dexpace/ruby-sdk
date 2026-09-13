@@ -109,8 +109,10 @@ module Housekeeping
         'README.md' => "# fixture\n\n#{CLEAN_CLAIMS}\n",
         'CLAUDE.md' => "# CLAUDE.md\n\n#{CLEAN_CLAIMS}\n\nSee [docs](docs/README.md).\n",
         'docs/README.md' => docs_readme,
-        'docs/open-items.md' => "# Open items\n\n### OI-1 — a real item\n\nBody.\n",
-        'docs/deferred-items.md' => "# Deferred items\n\n| ID | State |\n|---|---|\n| `DEF-2` | deferred |\n",
+        # The one register. An invented one, with both definition shapes the check accepts: a
+        # heading and a table row. `DEF-<n>` is deliberately absent -- that register is
+        # retired, and the clean tree must cite nothing from it.
+        'docs/open-items.md' => "# Open items\n\n### OI-1 — a real item\n\nBody.\n\n| ID | State |\n|---|---|\n| `OI-2` | open |\n",
         'docs/superpowers/README.md' => "# the inbox\n\nNew documents land here and do not stay.\n",
         'docs/superpowers/specs/.gitkeep' => '',
         'docs/superpowers/plans/.gitkeep' => '',
@@ -131,7 +133,7 @@ module Housekeeping
         # `docs/`
 
         #{CLEAN_CLAIMS}
-        The index. See [the inbox](superpowers/README.md) and [DEF-2](deferred-items.md).
+        The index. See [the inbox](superpowers/README.md) and [OI-2](open-items.md).
       TEXT
     end
   end

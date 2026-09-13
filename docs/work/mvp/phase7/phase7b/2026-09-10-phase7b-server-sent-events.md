@@ -7,8 +7,8 @@
 **Goal:** Ship `dexpace-core`'s Server-Sent Events subsystem in full — the WHATWG line and field state
 machine (`Dexpace::SSE::LineReader`, `::Reader`), the immutable five-field event value
 (`::Event`), the resource-owning single-pass streaming facade (`::Stream`) and the typed adapter
-(`::TypedStream`) — satisfying `SSE-1`–`SSE-40` and carrying `SSE-41` as a ⏳ row under the
-pre-existing `DEF-8`; resolving `OI-5` with the corrected requirement ID and a documented line cap;
+(`::TypedStream`) — satisfying `SSE-1`–`SSE-40` and carrying `SSE-41` as a ⏳ row as a v1 decline
+(`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level); resolving `OI-5` with the corrected requirement ID and a documented line cap;
 and building the `SSE-37` require-and-constant audit that spec-forced boundary 5 extends over core's
 pagination layer.
 
@@ -142,7 +142,7 @@ The following were confirmed by reading the shipped source rather than re-derivi
   in `#initialize_closeable` rather than lazily.
 - **`Dexpace::ResponseBody#source` returns the same underlying handle every time, never a fresh
   replay** (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md:828-840`), and
-  `Response#body` is typed `Dexpace::ResponseBody?` after `DEF-26`'s narrowing. Task 8's `SSE-32`
+  `Response#body` is typed `Dexpace::ResponseBody?` after phase 3b's narrowing (deviation P3-15). Task 8's `SSE-32`
   convenience is written against exactly those two facts.
 - **`Model.own(collection)` is `Ractor.make_shareable(collection, copy: true)`**, a deep-frozen copy
   (`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md:347`).
@@ -1898,7 +1898,7 @@ together can renumber safely in one change if they prefer contiguous numbers.
 It maps one row per requirement ID onto a task number above: `SSE-1`→7, `SSE-2`→3, `SSE-3`–`SSE-10`→5,
 `SSE-11`→6, `SSE-12`→5, `SSE-13`–`SSE-18`→7, `SSE-19`→2/3/7 (three rows' worth of evidence in one row,
 naming all three), `SSE-20`–`SSE-22`→4, `SSE-23`–`SSE-32`→8, `SSE-33`–`SSE-36`→9, `SSE-37`→10 and 11,
-`SSE-38`→10, `SSE-39`→8, `SSE-40`→8, and `SSE-41`→ ⏳ `DEF-8`, no task.
+`SSE-38`→10, `SSE-39`→8, `SSE-40`→8, and `SSE-41`→ ⏳ declined for v1 (`docs/first-release.md` § What v1 ships without), no task.
 
 ---
 

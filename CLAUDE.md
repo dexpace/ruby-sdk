@@ -147,9 +147,8 @@ remembers.
 | `docs/work/<delivery>/phaseN[/phaseNx]/` | Process records: per-(sub)phase design, plan and checklist | The phase that produced them; **collected** by `housekeeping` | yes — `git mv` only |
 | `docs/superpowers/` | Nothing, for long. The **inbox** the Superpowers skills write into; never a citation target | `brainstorming`, `writing-plans` | yes — it drains it |
 | `docs/open-items.md` | **Register.** The running find-list: permanent `OI-<n>` IDs, cited from anywhere in the repository | Whoever finds the item | yes — appends |
-| `docs/deferred-items.md` | **Register.** Deferrals: `DEF-<n>`, each naming the phase that deferred it and the condition for picking it up | The phase that defers | yes — appends |
 | `docs/deviations.md` | **Register.** The as-built audit of design §10, and where a deviation with no owning phase lands | A human, following a phase or review | no — judgment, not a mechanical append |
-| `docs/first-release.md` | **Register.** Release readiness. Nothing is published; every gem is at 0.0.0 | A human, as blockers close | no |
+| `docs/first-release.md` | **Register.** Release readiness, plus what v1 ships without and the post-release triggers. Nothing is published; every gem is at 0.0.0 | A human, as blockers close | no |
 | `docs/assets/` | Vendored wordmark SVGs the root `README.md` renders | Copied from `dexpace/morphic` | yes |
 | `docs/README.md` | The index above | A human | yes |
 
@@ -159,16 +158,18 @@ ways a naive `start_with?` fails: a sibling directory whose name merely starts w
 that lands inside after normalisation, an absolute path, and a symlink whose target is inside a frozen tree.
 
 **Which register.** A finding you are not acting on now → `docs/open-items.md`, `OI-<n>`. Something consciously
-postponed while building the SDK → `docs/deferred-items.md`, `DEF-<n>`, with the deferring phase and the
-condition that picks it up. A place this port deliberately differs from the reference contract → the owning
+postponed while building the SDK has no register: it is either a numbered task in the plan of the phase that
+will do it, cited by path and task number, or an entry in `docs/first-release.md` under what v1 ships without,
+the release path or the post-release triggers — and the postponing document says which, with the reason and
+the pick-up condition. A place this port deliberately differs from the reference contract → the owning
 phase document's own `## Deviation Ledger`, consolidated into design §10, audited by `docs/deviations.md`. A
 release blocker → `docs/first-release.md`. **Never leave an aggregate register section inside a spec, design or
 plan document** — the probe's `registers` check reports it, because a concern only a specification remembers is
 a concern nothing acted on.
 
 **Never renumber an item ID, and never reuse one.** They are cited from source comments, tests and the `docs/`
-tree. `OI-<n>` and `DEF-<n>` are the registers' namespace; requirement IDs are a different one and the probe
-does not confuse them. Do not write the *number* of items into any document; derive it:
+tree. `OI-<n>` is the register namespace; requirement IDs are a different one and the probe does not confuse
+them. Do not write the *number* of items into any document; derive it:
 
 ```bash
 ruby .claude/skills/housekeeping/probe.rb --only citations
@@ -216,7 +217,8 @@ The 19 prefixes, in appendix-C order: `SEAM`, `HTTP`, `IO`, `BODY`, `CTX`, `PIPE
   matches HTTP-10 through HTTP-19. `ruby scripts/knowledge.rb --prefix-info HTTP` names the owning chapter.
 - **A checklist maps IDs to tasks, one row per ID.** Every (sub)phase ships `…-checklist.md` alongside its design
   and plan, and it names, for each requirement ID in scope, the numbered plan task that satisfies it — or records
-  it as a deferral (`DEF-<n>`) or a deviation. A requirement in scope with no row is the failure mode this
+  it as postponed, naming the other phase's plan task or the `docs/first-release.md` entry that now owns it, or
+  as a deviation. A requirement in scope with no row is the failure mode this
   project is structured to prevent.
 - **The roll-up hazard.** A `--req` hit is not proof the corpus knows anything: appendix B rolls several IDs into
   one "the suite verifies X, Y, Z" sentence that states none of them, the CLI tags these `[appendix-B roll-up]`
@@ -337,10 +339,13 @@ all three read the corpus first.
 5. **Implement against the plan's numbered tasks**, TDD: write the failing test, confirm it fails, implement,
    confirm it passes. Read design, plan and checklist before touching code.
 6. **Record what the phase decided, in the right place.** A deviation goes in the phase document's own
-   `## Deviation Ledger`, is consolidated into design §10, and is audited by `docs/deviations.md`. A deferral
-   goes to `docs/deferred-items.md` as `DEF-<n>` with the deferring phase and the pick-up condition. A finding
-   nobody is acting on yet goes to `docs/open-items.md` as `OI-<n>`. A release blocker goes to
-   `docs/first-release.md`. **Never leave an aggregate register section inside the spec or the plan.**
+   `## Deviation Ledger`, is consolidated into design §10, and is audited by `docs/deviations.md`. Work the
+   phase postpones goes to no register: either the plan of the phase that will do it gains a numbered task,
+   cited by path and task, or `docs/first-release.md` gains an entry under what v1 ships without, the release
+   path or the post-release triggers — and the phase document records the reason and the pick-up condition
+   beside that pointer. A finding nobody is acting on yet goes to `docs/open-items.md` as `OI-<n>`. A release
+   blocker goes to `docs/first-release.md`. **Never leave an aggregate register section inside the spec or the
+   plan.**
 7. **Housekeeping before handover.** Run the probe, fix what it reports, then apply.
 
 Agents do not commit, push, or touch the remote unless the user asks for that specific action in that message.
@@ -394,7 +399,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
   (authentication); each holds a design and a plan. Phase 6 is the largest phase in the roadmap:
-  111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus `DEF-35`'s fifteen `RECOV` IDs
+  111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus the fifteen `RECOV` IDs phase 4 handed it
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
   their phase-4 rows stay ⏳. Its three sub-phases are independent — phase 4c already fixed the
   `REDIR-11`/`AUTH-29` cross-origin contract the roadmap left open — so their order is convenience.

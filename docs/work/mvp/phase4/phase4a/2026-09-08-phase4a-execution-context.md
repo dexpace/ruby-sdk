@@ -264,7 +264,7 @@ test invokes it.
    plus `CTX-9`'s trap added to Task 3's `context_store_test.rb`. Needs Tasks 2, 3 and 6.
 8. `Dexpace/NoWeakReferences`, the seventh cop, plus its `.rubocop.yml` wiring.
 9. Wiring: `lib/dexpace.rb`'s final require order, the two regenerated artifacts (surface snapshot,
-   RBS baseline), the checklist file, register updates, `CLAUDE.md`'s claims sentence.
+   RBS baseline), the checklist file, the roadmap's phase status note, `CLAUDE.md`'s claims sentence.
 
 Renumbered from the "12 lib files in dependency order" reading of the design's module-layout table
 because that table lists files by directory, not by buildable order — this plan's order is the one
@@ -800,8 +800,8 @@ class DexpaceContextStoreTest < DexpaceTestCase
   end
 
   # P4-9's number, asserted rather than assumed: AUTH-19's stated default for a store of this
-  # shape is the one number the specification supplies, and DEF-36 attaches a configuration
-  # source to it without changing a signature.
+  # shape is the one number the specification supplies, and phase 5a (Task 13) attaches a
+  # configuration source to it without changing a signature.
   test "CTX-11: MAX_TRACKED_CONTEXTS is 1024 and is the cap a default-constructed store uses" do
     assert_equal(1024, Dexpace::ContextStore::MAX_TRACKED_CONTEXTS)
 
@@ -1219,7 +1219,7 @@ Expected: PASS, 8 runs. Verified: 8 runs, 83 assertions on 3.2.11 and 3.4.10, id
 **Requirement IDs:** `CTX-14`'s "an active span" and "a per-operation tracer factory" slots;
 `CTX-15`'s "a no-op span and no-op tracer factory"; `CTX-20`'s embedded MUST ("its factory method
 MUST be safe to invoke concurrently"); `OBS-25`'s "MUST NOT allocate per call" (the shape this
-phase gives it to make it assertable — the protocol itself is `DEF-37`, phase 5's). **Design:**
+phase gives it to make it assertable — the protocol itself is postponed to phase 5c, Tasks 3–5). **Design:**
 "The two no-op singletons, and the exact line phase 5 may not cross."
 
 **Files:**
@@ -1325,9 +1325,9 @@ module Dexpace
   module Instrumentation
     # CTX-15's no-op span. Responds to nothing beyond Object's own surface: phase 4 fixes the
     # slot and the identity of the object filling it; OBS-21/OBS-25 fix the protocol, and that is
-    # phase 5's (DEF-37). One frozen instance, so OBS-25's "MUST NOT allocate per call" is
+    # phase 5's (5c, Tasks 3-5). One frozen instance, so OBS-25's "MUST NOT allocate per call" is
     # assertable by reference identity.
-    # rubocop:disable-next Lint/EmptyClass -- DEF-37: phase 5 adds the protocol.
+    # rubocop:disable-next Lint/EmptyClass -- postponed protocol: phase 5c adds it.
     class NoSpan; end
     private_constant :NoSpan
 
@@ -1345,7 +1345,7 @@ end
 module Dexpace
   module Instrumentation
     # CTX-20's no-op tracer, returned by NO_TRACER_FACTORY#tracer. One frozen instance.
-    # rubocop:disable-next Lint/EmptyClass -- DEF-37: phase 5 adds the protocol.
+    # rubocop:disable-next Lint/EmptyClass -- postponed protocol: phase 5c adds it.
     class NoTracer; end
     private_constant :NoTracer
 
@@ -1418,7 +1418,7 @@ end
 ```
 
 `_Span` and `_Tracer` are declared **empty** on purpose: phase 4 fixes the slots, phase 5 fixes
-the protocols (`DEF-37`). Declaring them as RBS interfaces rather than typing the two slots
+the protocols (postponed to phase 5c, Tasks 3–5). Declaring them as RBS interfaces rather than typing the two slots
 `untyped` keeps `NFR-11` mechanical — no constant outside `Dexpace::` appears in any public
 signature.
 
@@ -2797,8 +2797,10 @@ This step is where the row-by-row table is actually written — not here, per th
   resolution (the richer five-parameter `#tracer` signature) is the concrete instance `P4-8`
   already anticipated ("The exact arity is confirmed against the gem in 4a's plan"), not a new
   departure from it.
-- **Deferrals.** `DEF-36` and `DEF-37` were filed by the design; this plan files no new row. The
-  register was read in full at the design stage and its sweep is not repeated here.
+- **Postponed work.** The design postponed two items — the store cap's configuration source (phase
+  5a, Task 13) and the no-op span and tracer protocols (phase 5c, Tasks 3–5); this plan postpones
+  nothing further. Every item earlier phases postponed was read at the design stage and that reading
+  is not repeated here.
 - **Open items.** `OI-13`, `OI-15`, `OI-16` were filed by the design and stay open; none is this
   plan's to close. This plan files **two** new items. `OI-20` (`docs/open-items.md`, and open
   question 5 above): the design's second discriminating drain measurement — "the maximum size ever
@@ -2853,9 +2855,10 @@ two the plan opened for itself are resolved beside them.
 
 **Boundaries.** No task builds a pipeline stage, a recovery-chain outcome, a transport or a
 socket. No task gives `Bundle` a tenth member, a stored `valid` field, or a second `NONE`. No task
-adds `#sampled?` to `Bundle` or a `deadline:`/clock/cancellation anywhere — `DEF-28`/`DEF-36`
-stay phase 5's. No task builds `OBS-21`–`OBS-25`'s span/tracer protocols beyond the one method
-`CTX-20` forces — `DEF-37` stays phase 5's. No task touches `Fiber[:key]` as a write target — only
+adds `#sampled?` to `Bundle` or a `deadline:`/clock/cancellation anywhere — the pivot's `deadline:`
+and the store cap's configured source stay phase 5's (5a, Tasks 8 and 13). No task builds
+`OBS-21`–`OBS-25`'s span/tracer protocols beyond the one method `CTX-20` forces — the protocols stay
+phase 5's (5c, Tasks 3–5). No task touches `Fiber[:key]` as a write target — only
 as a read-side boundary test (Task 3). No fourth registry, no `close_quietly` call site (a
 context's `#close` cannot raise, per `CTX-18`), no `Dexpace::Closeable` inclusion anywhere.
 

@@ -27,7 +27,8 @@ not a checklist; it names no numbered task and writes no code.
    true only of non-pillar steps (P4-28, P4-29).
 3. **The standard-resilience preset ships as a mechanism with no step set.** `PIPE-24`'s all-or-nothing
    installation is a general `Builder` operation, real and tested today against probe steps; the redirect / retry /
-   instrumentation *set* it would install does not exist until phases 5 and 6 and is deferred as **`DEF-39`**.
+   instrumentation *set* it would install does not exist until phases 5 and 6 and is **postponed to phase 6**
+   (below, "Work Phase 4c Postpones"; built by phase 6b, Task 13a).
    Nothing in this phase claims to install defaults while installing nothing (R14, P4-34).
 
 ## Governing documents
@@ -66,20 +67,21 @@ Taken from the charter's scope table and not re-derived.
 | Disposition | IDs | Count |
 |---|---|---|
 | ✅ Implemented | `PIPE-1`–`PIPE-32`, `PIPE-34`, `PIPE-35`, `PIPE-37`, `PIPE-38`, `PIPE-40` | 37 |
-| ⏳ partially unsatisfied — `DEF-18`, §10.5 | `PIPE-33` (the interrupt clause only) | 1 |
-| ⏳ deferred — `DEF-4` (pre-existing), post-MVP | `PIPE-36` (SHOULD, pillar-step stage locking) | 1 |
-| ⏳ deferred — **`DEF-39`** (new), phase 6 | `PIPE-39` (SHOULD, the standard-resilience constructor half) | 1 |
+| ⏳ partially unsatisfied — §10.5 (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) | `PIPE-33` (the interrupt clause only) | 1 |
+| ⏳ declined post-MVP by the MVP-scope design (`docs/first-release.md` § What v1 ships without › SHOULD/MAY) | `PIPE-36` (SHOULD, pillar-step stage locking) | 1 |
+| ⏳ **postponed by this document** to phase 6 (6b, Task 13a) | `PIPE-39` (SHOULD, the standard-resilience constructor half) | 1 |
 
 **The charter's table and this one differ by one row, and the difference is stated rather than absorbed.** The
-charter puts `PIPE-39` under ✅. This document moves it to ⏳ against `DEF-39`, because R14's resolution ships one
+charter puts `PIPE-39` under ✅. This document moves it to ⏳ against its own postponement, because R14's resolution
+ships one
 of `PIPE-39`'s two named constructors and defers the other. The charter reserved that call for 4c in as many
 words — "`4c` decides whether the preset ships empty and validating …, ships as a deferral, or ships with a
-phase-6 pick-up condition" — and names the expected register row: "`4c`'s disposition of `PIPE-24`'s
-standard-resilience preset before any pillar family exists (R14)". So this is the row the charter predicted, not a
-scope change. `PIPE-24` stays ✅ because its subject is the *installation semantics*, which ship in full; see R14.
+phase-6 pick-up condition" — and names the expected postponement: "`4c`'s disposition of `PIPE-24`'s
+standard-resilience preset before any pillar family exists (R14)". So this is the postponement the charter
+predicted, not a scope change. `PIPE-24` stays ✅ because its subject is the *installation semantics*, which ship in full; see R14.
 
 `PIPE-32` is ✅ **and its content is split**: its documentation clause is discharged here, and the clause about the
-async standard pipeline's behaviour holds vacuously until `DEF-39`'s constructor exists to create one. That is
+async standard pipeline's behaviour holds vacuously until the postponed constructor exists to create one. That is
 recorded in R14 rather than as a fourth ⏳ row, because the requirement's own antecedent — an async standard
 pipeline — is not something this phase declines to build so much as something no phase-4 object is.
 
@@ -150,7 +152,8 @@ Quoted from appendix C, because a paraphrase is what a design gets wrong.
 
 ### `PIPE-33`'s five clauses, enumerated
 
-The charter did this accounting; it is reproduced because a checklist row citing `DEF-18` must not be read as a
+The charter did this accounting; it is reproduced because a checklist row citing §10.5's unsatisfied clause must
+not be read as a
 wholly unbuilt requirement, and **the trade §10.5 settled is not re-opened here or anywhere in this phase**.
 
 | # | Clause | Status in phase 4c |
@@ -159,7 +162,7 @@ wholly unbuilt requirement, and **the trade §10.5 settled is not re-opened here
 | 2 | "MUST run the wrapped synchronous pipeline as a single opaque unit on that executor (… its own steps stay synchronous on the worker/dispatch thread and do NOT gain per-step concurrency)" | **Met structurally.** A built pipeline *is* a transport (`PIPE-26`), so `Transport.async_over(pipeline, executor:)` posts one `#call` and the steps never see the executor. Asserted here with a counting fake executor: exactly one `#post` for a multi-step pipeline |
 | 3 | "MUST thread the caller's per-call options into the wrapped synchronous send" | **Met.** Phase 2 asserts the exact object arrives at the wrapped transport; 4c re-asserts it through a pipeline with steps in between |
 | 4 | "cancelling without interruption MUST complete as cancelled without interrupting the worker" | **Met** exactly by `Future#cancel` |
-| 5 | "Cancelling the returned future with interruption MUST interrupt the worker running the in-flight send" | **Not met.** Interrupt-mode cancellation is the mechanism design §8.3 forbids repository-wide, so every cancellation on this bridge behaves as the non-interrupting mode. §10.5 states the residual gap and the mitigation and is not re-argued here. `DEF-18` |
+| 5 | "Cancelling the returned future with interruption MUST interrupt the worker running the in-flight send" | **Not met.** Interrupt-mode cancellation is the mechanism design §8.3 forbids repository-wide, so every cancellation on this bridge behaves as the non-interrupting mode. §10.5 states the residual gap and the mitigation and is not re-argued here (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) |
 
 **Two constraints follow and bind this design.** They are the charter's and are restated because both are load-bearing:
 
@@ -174,12 +177,12 @@ wholly unbuilt requirement, and **the trade §10.5 settled is not re-opened here
 |---|---|
 | The redirect, retry, auth and instrumentation **pillar step families** | 5 and 6. 4c ships the slots they occupy, the fork they use, and the cursor state they write |
 | `REDIR-11`'s cross-origin marker, `AUTH-29`'s reading of it | 6. 4c ships the two cursor-state rules the marker rests on and nothing of the marker itself (R11) |
-| `RETRY-1`–`RETRY-45` — both retry stacks, the shared backoff calculator, the pacing parser | 6, and `DEF-35`'s fifteen `RECOV` rows with them |
+| `RETRY-1`–`RETRY-45` — both retry stacks, the shared backoff calculator, the pacing parser | 6, and the fifteen `RECOV` rows the charter postponed to it (6a, Tasks 3, 4, 5, 7 and 11) |
 | `Dexpace::Outcome`, the two chains, the orchestrator, the three shipped transforms | **4b.** 4c consumes `Dexpace::Recovery::Transform` and ships one adapter over it; it ships **no** second implementation of an idempotency key, a client-identity line or a status mapping, and does not subclass the three |
 | `Dexpace::Transport.async_over`, `AsyncTransport.sync_over`, the executor duck type, `SEAM-30`'s orphan close, the pivot's normalisation | **2, built.** Charter boundary 15; P4-35 |
 | `CTX`'s promotion chain, `ContextStore`, `Instrumentation::Bundle` | **4a.** Nothing in `PIPE` consumes any of it — the charter's central finding, re-confirmed below |
-| `deadline:` on any blocking wait, the clock behind it | 5 (`DEF-28`) |
-| `ASYNC-3`, `ASYNC-4` | 8 marks them (`DEF-18`, §10.5) |
+| `deadline:` on any blocking wait, the clock behind it | 5 (phase 2's P2-5; phase 5a, Task 8) |
+| `ASYNC-3`, `ASYNC-4` | 8 marks them (§10.5; `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) |
 | `TRANSPORT-1`, `TRANSPORT-2` — disabling a native client's own redirect and retry | 8. They presuppose `PIPE` as the single authority, which is what this sub-phase makes true |
 | `SERDE`'s behaviour | Nobody in v1. `PIPE-2` says outright that SERDE "is a reserved slot in the ordering with no shipped behavior yet"; 4c ships the slot and nothing in it |
 
@@ -302,8 +305,8 @@ than its first.
   acquired inside any block 4c yields from.
 - `resource-management/d1f16cad` — the styleguide's per-call I/O timeout rules do not reach the streaming layer.
   They do not reach 4c either, for a second reason: §8.3 forbids `Timeout.timeout` outright and the deadline is
-  phase 5's (`DEF-28`).
-- `pipeline/f02559b9` — 4b's `RECOV-10` re-raise finding. It reaches 4c in one place: the async runtime's
+  phase 5's (P2-5; phase 5a, Task 8).
+- `pipeline/7ce4431d` — 4b's `RECOV-10` re-raise finding. It reaches 4c in one place: the async runtime's
   `PIPE-30` normalisation re-raises the fatal family with a **bare** `raise`, and verified fact 7 below confirms
   a bare re-raise assigns no cause and returns the identical object, so the finding's hazard (`raise error`
   acquiring the caller's `$!` as a cause) is not reachable at 4c's call site.
@@ -316,7 +319,7 @@ Recorded so the run is repeatable, per the roadmap's first retrospective rule.
 |---|---|---|
 | **Pipeline composition and execution context** | `--topic pipeline,execution-context,cancellation-and-timeouts --section rules --brief` (109 entries across 3 files) and `--prefix PIPE --section rules` (50 entries across 2 files) | The whole `PIPE` rule set, spec-role and design-role side by side. Two entries decided text in this document: `pipeline/da4007e4` ("an empty pipeline dispatches straight to the transport **without allocating a cursor**", design role) is what makes R12 a reconciliation rather than a choice, and `pipeline/2728824f` places `PIPE-40` on the re-driving step rather than the runtime, which is what makes 4c's `PIPE-40` obligation a rule-plus-probe rather than an implementation |
 | **Fiber scheduler, thread safety** | `--prefix ASYNC --section rules --brief`, `--topic concurrency-and-async --section rules --brief`, `--chapter 9 --section rules --brief` | Four rules with no note recommend `concurrent-ruby` primitives over hand-rolled `Mutex` work; they are resolved by `notes/concurrency-and-async.md` and do not re-open — core cannot depend on `concurrent-ruby` (`SEAM-1`). Adopted and load-bearing here: `concurrency-and-async/c0fab747` (smallest critical section — which is why 4c has *no* critical section), `/54d8bb89` and `/2c743901` (immutable `Data` at every concurrency boundary — `PIPE-10`), `/b9d20c94` (never `Timeout.timeout`), `/611b9392` (check-after-resume). `concurrency-and-async/08a0e08d`, the executor's `#post` duck type, is phase 2's and 4c adds nothing to it |
-| **Error handling** | `--chapter 8 --section rules --brief` and `--topic error-handling --section rules --brief` | `error-handling/3bfdf6f0`'s "never demote a programmer error to a handled operational error" is what settles `PIPE-30`'s boundary: a step's `NoMethodError` is a caller bug and becomes a failed future (the requirement says "ANY synchronous exception"), while a `ScriptError` propagates. `error-handling/d2eadac4` — `Dexpace::Error` is a module and `Dexpace::ArgumentError` is never defined — is why `Dexpace::PipelineError` includes the module and subclasses `::StandardError` |
+| **Error handling** | `--chapter 8 --section rules --brief` and `--topic error-handling --section rules --brief` | `error-handling/3bfdf6f0`'s "never demote a programmer error to a handled operational error" is what settles `PIPE-30`'s boundary: a step's `NoMethodError` is a caller bug and becomes a failed future (the requirement says "ANY synchronous exception"), while a `ScriptError` propagates. `error-handling/e91f8733` — `Dexpace::Error` is a module and `Dexpace::ArgumentError` is never defined — is why `Dexpace::PipelineError` includes the module and subclasses `::StandardError` |
 
 The remaining seven rows of the skill's table are audits of built code and belong to 4c's plan, not to this
 design; the *Testing strategy* section names which of them the plan must run.
@@ -397,8 +400,8 @@ fact that is true and licenses nothing is how the last three reviews found a wro
    `#stage`-only mechanism cannot satisfy §5.1's lambda clause and an install-time argument is the only mechanism
    that covers both. It does **not** license using `Method#owner` to detect a `PIPE-36` stage relocation: an
    inherited `#stage` reports the *base* class as its owner, so a subclass that does not override it is
-   indistinguishable from one that does at the owner level — which is one reason `PIPE-36` stays deferred under
-   `DEF-4` rather than being quietly implemented here.
+   indistinguishable from one that does at the owner level — which is one reason `PIPE-36` stays declined for v1
+   rather than being quietly implemented here.
 7. **A bare `raise` inside a `rescue` re-raises the identical object and assigns no `#cause`, even when an
    unrelated exception was in flight in an enclosing `rescue`.** Verified with an error constructed and raised
    with `cause: nil`: the object that emerges is `equal?` to the original and its `#cause` is `nil`. By contrast
@@ -443,7 +446,8 @@ fact that is true and licenses nothing is how the last three reviews found a wro
     in force**, delta exactly 5 for five allocations, on all three.
     **Licenses:** R12's empty-pipeline branch is testable as a *non-allocation* rather than only as a behaviour —
     the assertion `PIPE-9`'s SHOULD actually makes. It does **not** license the technique outside CRuby;
-    `DEF-33` already records that no v1 matrix row is non-CRuby, and the test's comment says so.
+    phase 3a's `IO-38` postponement already records that no v1 matrix row is non-CRuby, and the test's comment
+    says so.
 12. **A module supplying `def call(value) = apply(value)` as a default, included into a class defining `#phase`
     and `#apply`, forwards correctly; a class that overrides `#call` to raise still has a working `#apply`.**
     On all three.
@@ -482,7 +486,7 @@ The charter names three mechanisms. Two fail outright on §5.1's own requirement
 ### The hybrid, and why `#stage` survives at all
 
 `PIPE-18` and `PIPE-19` say "the inserted step MUST **declare** the same stage as the matched anchor", and
-`PIPE-36` (deferred, `DEF-4`) speaks of pillar families "**locking** their stage assignment". Both presuppose a
+`PIPE-36` (declined for v1) speaks of pillar families "**locking** their stage assignment". Both presuppose a
 step that can carry a stage. So `#stage` is admitted as an **optional declaration** with a fixed precedence rule:
 
 | The step | The `stage:` argument | Effective stage |
@@ -661,7 +665,7 @@ behaviour** (verified fact 11):
   response is the fake's own object by identity.
 - *Empty, allocation.* Under `GC.disable`, `ObjectSpace.each_object(Dexpace::Pipeline::Cursor).count` before and
   after one send: **delta zero**. Its comment names `PIPE-9`'s SHOULD, names CRuby as the assumption, and cites
-  `DEF-33`.
+  phase 3a's `IO-38` postponement (a non-CRuby CI row is the event that reopens it).
 - *Non-empty, allocation.* The same measurement over a one-step pipeline: **delta at least one**. This is the
   assertion that would fail if someone "optimised" the empty branch into the general one and then removed the
   cursor everywhere.
@@ -676,11 +680,11 @@ behaviour** (verified fact 11):
 
 ## R13 — `PIPE-34`'s blocking wait
 
-**Resolved: there is no 4c signature to widen, because 4c ships no wait, no bridge and no new deferral.
-`DEF-28` is cited and phase 2's P2-5 is the deviation that already carries it.**
+**Resolved: there is no 4c signature to widen, because 4c ships no wait, no bridge and no new postponement.
+Phase 2's `deadline:` postponement is cited and its P2-5 is the deviation that already carries it.**
 
-The charter offered two answers — "a deferral row or a signature phase 5 widens" — and named the `DEF-28`
-precedent for the second. The right answer turns out to be neither, and the reason is spec-forced boundary 15:
+The charter offered two answers — "a recorded postponement or a signature phase 5 widens" — and named the
+`deadline:` precedent for the second. The right answer turns out to be neither, and the reason is spec-forced boundary 15:
 
 > "`PIPE-33`/`PIPE-34` reuse phase 2's two bridges rather than building a second pair … `4c` may not ship a second
 > executor duck type, a second orphan-close path or a second synchronous-raise normalisation."
@@ -695,12 +699,12 @@ layer, with no new object, no new method and no new signature.
 
 - **The "no deadline-less unconditional block" constraint is met in its strongest form.** 4c writes no wait, so
   there is no place a bare `Thread::Queue#pop`, a `Kernel#sleep` or a `Timeout.timeout` could appear. The wait is
-  phase 2's `Future#value(cancellation:)`, whose narrowing to `cancellation:` is P2-5 and `DEF-28`.
-- **No new register row.** `DEF-28`'s scope is "the pivot's `deadline:` keyword and the clock behind it", its
-  pick-up is phase 5 with `CFG-15`–`CFG-21`, and its `NFR-4` argument — "adding a keyword later **widens** a
-  signature, and the lock fails when a public signature disappears or narrows" — is unchanged by 4c using the
-  method. Filing a second row for the same missing keyword on the same method would be a duplicate, and the
-  register's own rule is that an ID is never reused and never restated.
+  phase 2's `Future#value(cancellation:)`, whose narrowing to `cancellation:` is P2-5.
+- **No new postponement.** Phase 2's scope for it is "the pivot's `deadline:` keyword and the clock behind it",
+  its pick-up is phase 5 with `CFG-15`–`CFG-21` (5a, Task 8), and its `NFR-4` argument — "adding a keyword later
+  **widens** a signature, and the lock fails when a public signature disappears or narrows" — is unchanged by 4c
+  using the method. Recording a second postponement for the same missing keyword on the same method would be a
+  duplicate, and a decision is never restated under a second name.
 - **`PIPE-34`'s remaining clauses are already discharged and are re-asserted rather than re-implemented.**
   "Unwrap execution-wrapper exceptions" holds structurally because the pivot never wraps (`Completer#fail` stores
   the error and `#value` re-raises *that object*); "restore the interrupt flag" is vacuous for the reason
@@ -722,7 +726,7 @@ ledger row precisely because a reader looking for the object will otherwise conc
 
 **Resolved: `PIPE-24`'s all-or-nothing installation ships in full as a general `Builder` mechanism; the standard
 step *set* — and with it `PIPE-39`'s second constructor and `PIPE-32`'s `redirect: :unsupported` argument — is
-deferred as `DEF-39` to phase 6.**
+postponed to phase 6 (6b, Task 13a).**
 
 ### The split, and why it is the requirement's own
 
@@ -759,7 +763,7 @@ and gain defaults in phases 5 and 6. It is rejected on two counts. First, it is 
 constructor whose three steps the caller must supply is `#install_preset` with three fixed parameter names, a
 second name for a mechanism that already has one. Second, and decisively, it locks three public keyword names
 under `NFR-4` at the first release tag *before the objects they name exist*, which is the same objection phase 2
-raised in declining to build `deadline:` (`DEF-28`, P2-5) and phase 0 raised against defining `Dexpace.register`
+raised in declining to build `deadline:` (P2-5) and phase 0 raised against defining `Dexpace.register`
 early.
 
 ### What ships now, so the row is not empty
@@ -782,15 +786,15 @@ the port put the constructors. One of the requirement's two shapes is absent, so
 recorded rather than silent because a later reader diffing this ⏳ against §12's note will otherwise read a
 contradiction where there is a narrower reading.
 
-`DEF-39` therefore defers the *standard-resilience constructor pair* — sync and async — and nothing else. Its
-pick-up condition names **phase 6**, because that is the first phase in which all three of the step families
+The postponement therefore covers the *standard-resilience constructor pair* — sync and async — and nothing
+else. Its pick-up condition names **phase 6**, because that is the first phase in which all three of the step families
 `PIPE-39` enumerates exist (redirect and retry are phase 6's; the instrumentation step is phase 5's), and it names
 `#install_preset` as the mechanism already built and waiting so phase 6 writes a constructor and not a mechanism.
 
 ### `PIPE-32`, from the other side
 
 `PIPE-32`'s substantive clause — "the async standard pipeline MUST NOT follow HTTP redirects at the pipeline
-layer" — is about an object `DEF-39` defers, so it **holds vacuously in phase 4**: there is no async standard
+layer" — is about an object this phase postpones, so it **holds vacuously in phase 4**: there is no async standard
 pipeline to follow a redirect. What does not defer is the requirement's last clause, "a port MUST document this
 asymmetry with the sync standard pipeline", which is discharged here and in the YARD on `Dexpace::AsyncPipeline`.
 
@@ -799,7 +803,8 @@ asymmetry with the sync standard pipeline", which is discharged here and in the 
 identities and staging policy" in both runtimes and forbids the two re-deriving anything independently; a builder
 that rejected a REDIRECT step for the async build and accepted it for the sync one would be two staging policies.
 `PIPE-32` constrains the *preset*, not the runtime, and 4c keeps that line. The `redirect: :unsupported` argument
-§5.3 specifies is an argument on the deferred async standard-pipeline factory, and it travels with `DEF-39`.
+§5.3 specifies is an argument on the postponed async standard-pipeline factory, and it travels with it to
+phase 6b, Task 13a.
 
 ---
 
@@ -1270,8 +1275,8 @@ Each of the charter's sixteen that reaches 4c, with what honouring it costs.
    `Dexpace/NoThreadInterrupt`. In 4c the constraint is met by an absence: **4c writes no wait, no sleep and no
    interrupt of any kind.** The only blocking call in reach is phase 2's `Future#value(cancellation:)`, and 4c
    does not call it either — a caller composing `AsyncTransport.sync_over` does.
-2. **Deadlines are explicit values, not ambient interrupts.** `DEF-28` keeps `deadline:` off the pivot until
-   phase 5; 4c ships the narrower composition and fabricates no deadline (R13).
+2. **Deadlines are explicit values, not ambient interrupts.** Phase 2's P2-5 keeps `deadline:` off the pivot
+   until phase 5 (5a, Task 8); 4c ships the narrower composition and fabricates no deadline (R13).
 3. **`Fiber[:key]` is the diagnostic-context carrier and `PIPE` is not it.** Per-call state lives on the cursor
    and is passed as an argument, never read from ambient storage. That is `PIPE-11` in as many words — "per-request
    mutable state MUST live in the per-call cursor … never on the step" — and it also means a step that spawns a
@@ -1428,16 +1433,16 @@ Stated as a contract, so a later phase cites rather than re-derives.
 | Consumer | What it gets, and the obligation |
 |---|---|
 | **Phase 5**, on the instrumentation step | `Stages::LOGGING` as the pillar, and `Stages::PRE_LOGGING`/`POST_LOGGING` as its slots. The step declares `#stage` and is installed with no `stage:` argument (R10). It is a pillar, so it **may** fork. It should not: a step that drives the chain exactly once drives it through `#call`, and `#call` and `#fork` are disjoint on one cursor (R11) — a step either calls once and never forks, or forks for every drive and never calls |
-| **Phase 5**, on `DEF-28` | Nothing new. 4c calls no blocking wait; when `deadline:` lands on `Future#value`, `AsyncTransport.sync_over` gains it and no pipeline signature changes |
+| **Phase 5**, on the pivot's `deadline:` keyword (5a, Task 8) | Nothing new. 4c calls no blocking wait; when `deadline:` lands on `Future#value`, `AsyncTransport.sync_over` gains it and no pipeline signature changes |
 | **Phase 6**, on `REDIR-11`/`AUTH-29` | **`Cursor#fork(state:)` and `Cursor#state(stage)`.** The redirect step forks per hop from its own cursor with `state: { cross_origin: … }`, landing in `Stages::REDIRECT`'s slot; the auth step reads `cursor.state(Dexpace::Pipeline::Stages::REDIRECT)`. **Phase 6 adds no marker to the request and strips nothing**, which is §10.15's whole claim. The five negative assertions in R11 are the tests that fail if the mechanism is changed |
 | **Phase 6**, on `RETRY`/`REDIR` pillar steps | `Stages::REDIRECT` and `Stages::RETRY`, `Cursor#fork`, `Cursor#may_fork?`, and **`PIPE-40`'s rule as stated in `#fork`'s YARD**: close every superseded intermediate before the next drive, never close the one handed back, return the in-flight response unclosed on an abandoned re-drive. `ForkingProbe` in `test/support/` is the worked example and its test is the requirement's own conformance clause. **Two limits travel with the handle and are part of this contract, not footnotes to it.** A driving pillar step **forks for every drive including the first** and never calls its own `#call` — the rule stated under R11, which is what makes hop 1 and hop *n* the same shape and what `#fork`'s YARD says. And `#call`'s reuse guard is **sequential-only** (P4-33): a second sequential call always raises, a second *concurrent* call sometimes does not, so a pillar step must not treat the raise as a concurrency guard |
-| **Phase 6**, on `PIPE-24`/`PIPE-39` (`DEF-39`) | `Builder#install_preset(entries)` — the all-or-nothing mechanism, built and tested. Phase 6 writes `Pipeline.standard` and `AsyncPipeline.standard` **over** it, with `PIPE-32`'s explicit `redirect: :unsupported` argument on the async one, and writes no second installation path |
-| **Phase 6**, on `PIPE-36` (`DEF-4`) | If the deferral is ever picked up, `#stage`'s precedence table in R10 is where the lock goes: a family locks by defining `#stage` and rejecting a `stage:` argument. Verified fact 6 records why `Method#owner` is **not** a usable detector for a subclass that inherits `#stage` |
+| **Phase 6**, on `PIPE-24`/`PIPE-39` (the constructor postponement; 6b, Task 13a) | `Builder#install_preset(entries)` — the all-or-nothing mechanism, built and tested. Phase 6 writes `Pipeline.standard` and `AsyncPipeline.standard` **over** it, with `PIPE-32`'s explicit `redirect: :unsupported` argument on the async one, and writes no second installation path |
+| **Phase 6**, on `PIPE-36` (declined for v1) | If it is ever picked up, `#stage`'s precedence table in R10 is where the lock goes: a family locks by defining `#stage` and rejecting a `stage:` argument. Verified fact 6 records why `Method#owner` is **not** a usable detector for a subclass that inherits `#stage` |
 | **Phase 7**, on `PAGE`/`SSE` | `PIPE-26`: a built pipeline is a transport, so a paginator takes one with no declaration. `Pipeline#close` is a no-op on the transport (`PIPE-27`), so a paginator wrapping one owns nothing |
 | **Phase 8**, on `TRANSPORT-1`/`TRANSPORT-2` | The premise those two requirements presuppose: `PIPE` is the single authority on redirect and retry, so an adapter disables its native client's own. `Stages::REDIRECT` and `Stages::RETRY` are where that authority lives |
-| **Phase 8**, on `PIPE-33` (`DEF-18`) | `Dexpace::Pipeline` as the object `Transport.async_over` wraps. Phase 8's `dexpace-async-thread` is what makes `PIPE-33`'s interrupt clause's antecedent real; its disposition is a re-assertion at the point the requirement starts applying, not a second decision |
+| **Phase 8**, on `PIPE-33` (the interrupt clause, §10.5) | `Dexpace::Pipeline` as the object `Transport.async_over` wraps. Phase 8's `dexpace-async-thread` is what makes `PIPE-33`'s interrupt clause's antecedent real; its disposition is a re-assertion at the point the requirement starts applying, not a second decision |
 | **Phase 9**, on `XCUT-11` | `Dexpace::Pipeline` and `AsyncPipeline` as audited shared-instance state: immutable after construction, no lock, no per-call state on the instance. `Dexpace::Pipeline::Cursor` is the per-call state, and the audit target is that nothing else is |
-| **Phase 9**, on the conformance pass | The ⏳ rows and their reasons: `PIPE-33` (`DEF-18`, four of five clauses met), `PIPE-36` (`DEF-4`), `PIPE-39` (`DEF-39`, one of two constructors shipped), and `PIPE-32`'s vacuity until `DEF-39` lands |
+| **Phase 9**, on the conformance pass | The ⏳ rows and their reasons: `PIPE-33` (§10.5, four of five clauses met), `PIPE-36` (declined for v1), `PIPE-39` (postponed to 6b, Task 13a; one of two constructors shipped), and `PIPE-32`'s vacuity until that constructor lands |
 
 ---
 
@@ -1456,8 +1461,8 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`. N
 | P4-31 | **Sixteen stages**, taking `PIPE-3`'s "a 'pre' slot before and a 'post' slot after" each pillar literally, with `PRE_REDIRECT` doubling as REDIRECT's pre-slot and as `PIPE-2`'s named outermost slot | `PIPE-2`, `PIPE-3`; `NFR-4` | `PIPE-3` is a SHOULD with a concrete clause, and the port ships the feature, so §11.11's rule applies: "the feature is optional, its behaviour is not". Ten interleaved slots plus five pillars plus SEND is what the clause describes. `POST_REDIRECT` and `PRE_RETRY` are adjacent and order-equivalent and are kept as two constants because they name two different intents; collapsing them would honour `PIPE-3` for one pillar boundary and not the other four. Sparse numbering by 100 is the requirement's other clause. Recorded because sixteen public constants is the largest single block of `NFR-4` surface in phase 4 and it arrives from a SHOULD |
 | P4-32 | **`Stage` is `private_class_method :new` with no public factory**; `Stages.of(name)` is the only lookup and the stage set is closed at sixteen | `PIPE-2`; `type-system/545949a5`; P1-1's closed-set shape | `PIPE-2` fixes the pillar chain and the charter's boundary 2 says 4c "may not reorder it and may not add a pillar". A `Stage` a caller could construct would make both statements policy rather than structure. It is also `type-system/545949a5`'s shape for a closed domain set — a frozen `Data` over a frozen table with a parse-constructor — applied where the table is the entire population. The departure from phase 1's pattern is that there is no public `.build` at all, because there is no raw input a caller could legitimately supply |
 | P4-33 | **The cursor's single-use latch is an unsynchronised instance variable**; `PIPE-15`'s reuse detection is sequential-only | `PIPE-15`; `concurrency-and-async/f414b864`, `/c0fab747` | A cursor is created per step invocation, handed to one step, and never published, so a mutex would cost an allocation per step per call and would put a per-fiber-owned, non-reentrant lock in the hot path for a case that is already a caller defect. Measured on 2026-09-08: eight threads through one unsynchronised latch let more than one caller past on **29 of 2000 runs on 3.2.11** and **0 of 2000 on 3.4.10 and 4.0.6**; a mutex gave 0 of 50 everywhere. So the requirement's "MUST be treated as a defect" is honoured — the runtime raises — while detection under a concurrent double-call is not guaranteed, which `Cursor#call`'s YARD, `#fork`'s YARD and the interface-surface table all state. **No test asserts the race, and the rate is the reason rather than the platform**: 29 in 2000 is 1.5 %, so the single-shot form fails ~98 times in 100 on the floor as well as 100 in 100 above it, and the 2000-run aggregate form is green on one column and red on three. The measurement is not what licenses the missing lock — a demonstrated race is evidence *for* a mutex — it is what prices the argument in this cell |
-| P4-34 | **`PIPE-24`'s all-or-nothing preset ships as a general `Builder` mechanism with no standard step set**; the set, and `PIPE-39`'s standard constructor, defer under `DEF-39` | `PIPE-24`, `PIPE-39`, `PIPE-32`; the charter's R14 | `PIPE-24` is about installation semantics and names no step; `PIPE-39` names the steps and is a SHOULD. Separating them lets `PIPE-24` ship as a real, tested MUST today against probe steps, and stops 4c shipping a constructor named for defaults it cannot install — which the charter forbids in as many words. A middle option, `Pipeline.standard(transport, redirect:, retry:, instrumentation:)` with three required keywords, was rejected: it is `#install_preset` under a second name, and it locks three public keyword names under `NFR-4` before the objects they name exist — phase 2's objection to building `deadline:` early (`DEF-28`, P2-5) |
-| P4-35 | **4c ships no bridge.** `PIPE-33` and `PIPE-34` are satisfied by composing phase 2's `Transport.async_over` and `AsyncTransport.sync_over` with a pipeline; 4c adds no pipeline-layer wrapper, no wait and no new signature, and files no deferral for the missing `deadline:` | `PIPE-26`, `PIPE-33`, `PIPE-34`; the charter's boundary 15 and R13; `DEF-28`; 4b's P4-17 precedent | A built pipeline responds to `#call(request, options, cancellation)` (verified fact 2), so it is already what both bridges take. Shipping a `Pipeline.async_over`-shaped convenience would be a second name for one function and the first step toward a second executor contract, which boundary 15 forbids. `DEF-28` already covers the missing `deadline:` on `Future#value` with the same `NFR-4` argument, so a second row would be a duplicate. Recorded because a reader looking for phase 4's `PIPE-33` object will find none and must not conclude it was forgotten — the same reason 4b filed P4-17 for a requirement it satisfied by shipping nothing |
+| P4-34 | **`PIPE-24`'s all-or-nothing preset ships as a general `Builder` mechanism with no standard step set**; the set, and `PIPE-39`'s standard constructor, are postponed to phase 6 (6b, Task 13a) | `PIPE-24`, `PIPE-39`, `PIPE-32`; the charter's R14 | `PIPE-24` is about installation semantics and names no step; `PIPE-39` names the steps and is a SHOULD. Separating them lets `PIPE-24` ship as a real, tested MUST today against probe steps, and stops 4c shipping a constructor named for defaults it cannot install — which the charter forbids in as many words. A middle option, `Pipeline.standard(transport, redirect:, retry:, instrumentation:)` with three required keywords, was rejected: it is `#install_preset` under a second name, and it locks three public keyword names under `NFR-4` before the objects they name exist — phase 2's objection to building `deadline:` early (P2-5) |
+| P4-35 | **4c ships no bridge.** `PIPE-33` and `PIPE-34` are satisfied by composing phase 2's `Transport.async_over` and `AsyncTransport.sync_over` with a pipeline; 4c adds no pipeline-layer wrapper, no wait and no new signature, and records no postponement for the missing `deadline:` | `PIPE-26`, `PIPE-33`, `PIPE-34`; the charter's boundary 15 and R13; phase 2's `deadline:` postponement (P2-5); 4b's P4-17 precedent | A built pipeline responds to `#call(request, options, cancellation)` (verified fact 2), so it is already what both bridges take. Shipping a `Pipeline.async_over`-shaped convenience would be a second name for one function and the first step toward a second executor contract, which boundary 15 forbids. Phase 2's postponement already covers the missing `deadline:` on `Future#value` with the same `NFR-4` argument, so a second record would be a duplicate. Recorded because a reader looking for phase 4's `PIPE-33` object will find none and must not conclude it was forgotten — the same reason 4b filed P4-17 for a requirement it satisfied by shipping nothing |
 | P4-36 | `Dexpace::AsyncPipeline` is a **separate flat constant**, not `Dexpace::Pipeline::Async` | `PIPE-28`; P2-1's precedent for `Dexpace::AsyncTransport` | `Dexpace::Pipeline::Async` would sit inside the namespace that also holds `Stages`, `Cursor` and `Builder` — three things the async runtime *shares* rather than mirrors — and would read as a variant of the sync runtime when `PIPE-28` makes them two users of one staging policy. It is also the shape phase 2 already chose for the seam pair, for the reason `SEAM-2` gives: a seam beside its own implementations is a confusion |
 | P4-37 | **One `Dexpace::PipelineError` for nine distinct conditions, carrying no fields** | §5.1 (which names the constant for cursor reuse); `PIPE-5`, `PIPE-8`, `PIPE-15`, `PIPE-18`, `PIPE-19`, `PIPE-21`, `PIPE-23`, `PIPE-24`; 4a's `ContextConflictError`; 4b's P4-20 | Every condition is a composition-time or defect condition a caller fixes by editing code, so no caller branches on the reason and a carried field would be `NFR-4`-locked surface with no reader. The contrast is deliberate: 4a's `ContextConflictError` carries `#call_key` because `CTX-8`'s caller *lost a race* and may retry, which is a runtime condition. `PIPE-5`'s "naming both step types" and `PIPE-21`'s "identifying the missing type" are message requirements and are met in the message, whose exact forms this design fixes so the plan tests them. **One phrase in `PIPE-5` deserves an answer rather than a silence**: its parenthesis says a cross-stage replace "fails with a **distinct** cross-stage error instead" of the collision error. Here that distinction is a distinct *message*, not a distinct class, and it is enough — the sentence exists so a caller can tell the two failures apart when reading one, which a message that names both stages does, and the alternative reading (a second exception class so a caller can `rescue` one and not the other) is the runtime-branching this row exists to refuse. If a phase ever finds a caller that must branch, that is a new `P4`-numbered deviation and a subclass, not a field |
 | P4-38 | **`PIPE-31`'s terminal response-mapping operator is `AsyncPipeline.map_response(future, &handler)`**, a class method over the pivot, rather than a `#send_async(request, handler)` overload of the runtime | `PIPE-31`; `PIPE-26`; phase 2's `Async::Completer` | A handler overload would add a fourth parameter shape to `#call`, and `PIPE-26` requires `#call` to be exactly the transport SPI's three positional parameters so a pipeline stands in wherever a transport is expected. A class method over a `Future` is also testable against a bare `Completer` with no pipeline, transport or fake involved, which is what makes the four clauses — close on success, close on handler failure, no unwrap needed, cancellation propagated — four small deterministic tests instead of four integration tests |
@@ -1465,14 +1470,13 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`. N
 
 ---
 
-## Deferrals Filed by Phase 4c
+## Work Phase 4c Postpones, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; the row named there, not this summary, is the authority. (The heading
-avoids the literal words the housekeeping probe's `registers` check reserves for the aggregate register.)
+One item. This section is the authority for it; the owner that performs the work is named at the end.
 
-### `DEF-39` — `PIPE-39`'s standard-resilience constructors, and `PIPE-32`'s `redirect: :unsupported` argument
+### `PIPE-39`'s standard-resilience constructors, and `PIPE-32`'s `redirect: :unsupported` argument
 
-- **Deferred by:** phase 4c, 2026-09-08.
+- **Postponed by:** phase 4c, 2026-09-08.
 - **What defers:** `Dexpace::Pipeline.standard(transport, …)` and `Dexpace::AsyncPipeline.standard(transport, …)`
   — the second of the two convenience constructors `PIPE-39` names — together with the explicit
   `redirect: :unsupported` argument design §5.3 specifies on the async one for `PIPE-32`.
@@ -1483,41 +1487,53 @@ avoids the literal words the housekeeping probe's `registers` check reserves for
   phases 5 and 6. A constructor named for the defaults it installs while installing nothing is worse than its
   absence, and the phase-4 segmentation design forbids it directly. The alternative of three required keyword
   arguments was considered and rejected in R14: it locks three public keyword names under `NFR-4` before the
-  objects they name exist, which is phase 2's own objection to building `deadline:` early (`DEF-28`, P2-5).
+  objects they name exist, which is phase 2's own objection to building `deadline:` early (P2-5).
 - **Pick-up condition:** **phase 6**, the first phase in which all three families exist (redirect and retry are
   phase 6's; the instrumentation step is phase 5's). Phase 6 writes the two constructors **over**
   `Builder#install_preset` and writes no second installation path. `PIPE-32`'s asymmetry documentation is already
   discharged in phase 4; what phase 6 adds is the argument that makes it visible at the call site.
 - **Cites:** `PIPE-24`, `PIPE-32`, `PIPE-39`, `NFR-4`.
-- **Consequence for the checklist:** `PIPE-39` is ⏳ citing this row with its met half named; `PIPE-24` is ✅;
-  `PIPE-32` is ✅ with its substantive clause holding vacuously until this row is picked up.
+- **Consequence for the checklist:** `PIPE-39` is ⏳ citing this postponement with its met half named; `PIPE-24`
+  is ✅; `PIPE-32` is ✅ with its substantive clause holding vacuously until the constructors land.
+- **Owner:** phase 6b, Task 13a (`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`). No phase-6 plan
+  carried the two constructors when phase 6 was planned, so that task was inserted on 2026-09-13 as a
+  phase-level task; it moves verbatim to `6a` if `6a` lands second. Phase 6b, Task 14 Step 5 records in its
+  checklist row and the phase status note that the work 4c postponed here has landed.
 
-### Deferral-register sweep
+### Postponed work read at planning time
 
-The charter performed the full sweep of all rows for phase 4 and its dispositions stand. 4c adds the following and
+The charter read every item earlier phases had postponed and its dispositions stand. 4c adds the following and
 re-derives nothing.
 
-- **`DEF-4` — untouched, and carried as 4c's one pre-existing ⏳ row.** `PIPE-36` (SHOULD, pillar-step stage
-  locking) is post-MVP per design §12's own `PIPE` row; the condition "post-MVP; no narrower trigger named yet" is
-  not met. R10's precedence table is where a future lock would go, and verified fact 6 records why `Method#owner`
-  is not a usable detector for it.
-- **`DEF-18` — untouched, and cited by 4c's `PIPE-33` row.** Phase 4 neither meets nor re-opens it; the four met
-  clauses are enumerated above so the row is not read as a wholly unbuilt requirement.
-- **`DEF-28` — untouched, and named as a constraint rather than a deferral.** 4c ships no wait at all, so the
-  narrowing costs this phase nothing and no second row is filed (R13, P4-35).
-- **`DEF-29` — untouched.** 4c adds three test doubles under `gems/dexpace-core/test/support/`, following phase
-  2's, phase 3's, 4a's and 4b's precedent. The condition — a consumer outside `dexpace-core` — stays unmet; this
-  strengthens the row without meeting it.
-- **`DEF-35` — untouched, and 4c is one of the two substrates it names.** The recovery-stack retry engine installs
-  into 4b's chain; the stage-based retry step occupies `Stages::RETRY` and uses `Cursor#fork`. Phase 6 gets both.
-- **`DEF-1` — untouched.** `SEAM-28` targets phase 5; 4c supplies nothing toward it.
-- **`DEF-22`, `DEF-23` — untouched.** `dexpace-conformance`'s assertion objects and a Steep target over a test
-  tree; 4c's fakes do not meet the "production-quality test support" condition. `PIPE-1`'s and `PIPE-2`'s
-  conformance clauses are exercised here in `dexpace-core`'s own suite, which is where they will be lifted from
-  when `DEF-22` is picked up.
-- **`DEF-33` — untouched, and named once.** R12's `ObjectSpace` allocation assertions are CRuby-specific; no v1
-  matrix row is non-CRuby, and the tests' comments cite this row rather than asserting portability.
-- **`DEF-36`, `DEF-37`, `DEF-38` — untouched.** 4a's and 4b's, targeting phases 5 and 6.
+- **`PIPE-36`, pillar-step stage locking (declined post-MVP by the MVP-scope design) — untouched, and carried
+  as 4c's one pre-existing ⏳ row.** `PIPE-36` (SHOULD) is post-MVP per design §12's own `PIPE` row; the
+  condition "post-MVP; no narrower trigger named yet" is not met (`docs/first-release.md` § What v1 ships
+  without › SHOULD/MAY). R10's precedence table is where a future lock would go, and verified fact 6 records why
+  `Method#owner` is not a usable detector for it.
+- **`ASYNC-3` and `PIPE-33`'s interrupt clause — untouched, and cited by 4c's `PIPE-33` row.** Phase 4 neither
+  meets nor re-opens it; the four met clauses are enumerated above so the row is not read as a wholly unbuilt
+  requirement (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs; design §10.5).
+- **The pivot's `deadline:` keyword (phase 2, P2-5; phase 5a, Task 8) — untouched, and named as a constraint
+  rather than a postponement.** 4c ships no wait at all, so the narrowing costs this phase nothing and no second
+  postponement is recorded (R13, P4-35).
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched.** 4c adds three test doubles
+  under `gems/dexpace-core/test/support/`, following phase 2's, phase 3's, 4a's and 4b's precedent. The
+  condition — a consumer outside `dexpace-core` — stays unmet; this strengthens the case without meeting it.
+- **The recovery-stack retry engine (the charter's postponement; 6a, Tasks 3, 4, 5, 7 and 11) — untouched, and
+  4c is one of the two substrates it names.** The recovery-stack retry engine installs into 4b's chain; the
+  stage-based retry step occupies `Stages::RETRY` and uses `Cursor#fork`. Phase 6 gets both.
+- **`SEAM-24`/`SEAM-28` (MVP-scope design) — untouched.** `SEAM-28` targets phase 5 (5c, Task 4); 4c supplies
+  nothing toward it.
+- **`dexpace-conformance`'s assertion objects and a Steep target over a test tree (phase 0) — untouched.** 4c's
+  fakes do not meet the "production-quality test support" condition (`docs/first-release.md` § Post-release
+  triggers). `PIPE-1`'s and `PIPE-2`'s conformance clauses are exercised here in `dexpace-core`'s own suite,
+  which is where they will be lifted from when the assertion objects are built (phase 8a, Tasks 4–8 and 20;
+  phase 9, Tasks 2–12a).
+- **Exercising `IO-38` on a GVL-free interpreter (phase 3a) — untouched, and named once.** R12's `ObjectSpace`
+  allocation assertions are CRuby-specific; no v1 matrix row is non-CRuby, and the tests' comments cite that
+  postponement rather than asserting portability (`docs/first-release.md` § Post-release triggers).
+- **The store cap's configuration source and the no-op protocols (4a), the retryability flag (4b) — untouched.**
+  Targeting phases 5 and 6 (5a, Task 13; 5c, Tasks 3–5; 6a, Task 6).
 
 ### The findings filed against `docs/open-items.md`
 

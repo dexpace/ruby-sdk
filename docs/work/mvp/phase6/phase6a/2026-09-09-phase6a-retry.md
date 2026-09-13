@@ -8,8 +8,9 @@
 (`Dexpace::Resilience::Policy`, `::Resend`, `::RetrySettings`) and the two stacks it feeds
 (`Dexpace::Resilience::RecoveryRetry` installed beneath phase 4b's `Recovery::Orchestrator`, and
 `Dexpace::Resilience::RetryStep`/`::AsyncRetryStep` at `Dexpace::Pipeline::Stages::RETRY`) —
-satisfying all 45 `RETRY-1`–`RETRY-45` requirements and, under `DEF-35`, all fifteen `RECOV-17`–
-`RECOV-30`/`RECOV-34` requirements; picking up and closing `DEF-38`, `DEF-40` and half of `DEF-42`;
+satisfying all 45 `RETRY-1`–`RETRY-45` requirements and, as the recovery-stack engine phase 4 postponed here, all
+fifteen `RECOV-17`–`RECOV-30`/`RECOV-34` requirements; picking up and closing `ProtocolError#retryable?` (phase 4b's
+deferral), `CFG-35`'s throwable half (phase 5a's) and the per-attempt half of `OBS-29`'s wiring (phase 5c's);
 and executing `OI-31`'s cursor widening.
 
 **Architecture:** One frozen policy module (`Policy`) exposing the backoff calculator, the pacing
@@ -70,7 +71,7 @@ carry the canonical text of the fifteen `RECOV` IDs, which appear in no prose ch
   pillar step that may drive more than once forks for *every* drive, the first included, and never
   calls its own `#call` at all." Both `RetryStep` and `AsyncRetryStep` honour this exactly; no task
   below writes the mixed shape.
-- **`pipeline/f02559b9`**: every re-raise of an error the engine is *carrying* (never one it just
+- **`pipeline/7ce4431d`**: every re-raise of an error the engine is *carrying* (never one it just
   rescued) is `raise error, cause: nil`. `RecoveryRetry`'s terminal raise and both drivers'
   `Dexpace.attach_suppressed` calls follow this.
 
@@ -143,7 +144,7 @@ The design's four open questions are resolved below with a concrete decision eac
    constructed with the predicate's own raised error as `#cause` via a genuine `raise
    Dexpace::Resilience::RetryPredicateError.new("…"), cause: e` — this is a **new** exception the
    step itself raises, carrying the predicate's failure as its cause, and is therefore not a
-   re-raise of a carried error, so `pipeline/f02559b9`'s `cause: nil` rule does not apply to it (that
+   re-raise of a carried error, so `pipeline/7ce4431d`'s `cause: nil` rule does not apply to it (that
    rule is about re-raising an object the engine is *carrying* unchanged, not about wrapping a fresh
    failure). Task 9 ships it beside `RetryStep`.
 2. **Where `Policy`'s per-form pacing parsers live.** *Decision:* a `private_constant` sibling
@@ -183,7 +184,7 @@ before Task 9 (`RetryStep`), Task 10 (`AsyncRetryStep`) or Task 11 (`RecoveryRet
 4. `Dexpace::Resilience::Policy`'s pacing parser (`RETRY-15`–`RETRY-22`, `RECOV-22`–`RECOV-26`,
    `RECOV-29`) — needs Task 2's widened `HTTPDate.parse`.
 5. `Dexpace::Resilience::Resend` (`RETRY-5`–`RETRY-8`, `RECOV-18`) — standalone.
-6. `Dexpace::ProtocolError#retryable?` (`DEF-38`, `XCUT-5`) — standalone, needs 5a's `Retryability`
+6. `Dexpace::ProtocolError#retryable?` (`XCUT-5`'s baked flag, phase 4b's deferral) — standalone, needs 5a's `Retryability`
    only.
 7. `Dexpace::Resilience::RetrySettings` (`RECOV-34`) — needs Task 3's constants.
 8. `OI-31`'s cursor widening — `Cursor#bundle`, `Pipeline#call`'s and `AsyncPipeline#call`'s
@@ -202,8 +203,8 @@ before Task 9 (`RetryStep`), Task 10 (`AsyncRetryStep`) or Task 11 (`RecoveryRet
     and phase 4b's `Recovery::Orchestrator`/`Recovery.buffer_error_body`/`ProtocolError.for_or_nil`.
 12. The `RETRY-14` convergence test, spanning Tasks 9 and 11 — needs both to exist.
 13. Final wiring: the require additions to `lib/dexpace.rb`, the surface snapshot regeneration, the
-    RBS baseline diff, and the three register-edit texts this plan's design already drafted for a
-    human to apply. The checklist is written at execution time, per `CLAUDE.md`, and is not a task
+    RBS baseline diff, the checklist rows and phase status note that record the postponed work as landed, and the
+    two register-edit texts this plan's design already drafted for a human to apply. The checklist is written at execution time, per `CLAUDE.md`, and is not a task
     this plan performs.
 
 ---
@@ -306,7 +307,7 @@ module Dexpace
   module Resilience
     module Test
       # Records every HTTPTracer call in order, for asserting OBS-29's per-attempt event group
-      # (DEF-42's half 6a wires) and the adjacency clause the retry drivers must honour.
+      # (the half of phase 5c's postponed wiring 6a wires) and the adjacency clause the retry drivers must honour.
       class ProbeHTTPTracer
         include Dexpace::Instrumentation::HTTPTracer
 
@@ -333,7 +334,9 @@ module Dexpace
 end
 ```
 
-Both files are test support and ship no `sig/` mirror, per `DEF-29`'s standing precedent.
+Both files are test support and ship no `sig/` mirror, per the standing precedent for core's test fakes (they stay in
+`gems/dexpace-core/test/support/`; phase 8a's design confirmed it when it declined moving them into
+`dexpace-conformance`).
 
 ---
 
@@ -402,8 +405,11 @@ which `Time.utc` still rejects).
 
 **Requirement IDs:** `RETRY-1`, `RETRY-2`, `RETRY-9`–`RETRY-14`, `RETRY-37`, `RETRY-41`, `RETRY-42`,
 `RECOV-21`, `RECOV-26` (duration ceiling constant only; the arithmetic clamp itself is Task 4's and
-`RetrySettings`'s), `RECOV-28`, `RECOV-30`.
-**Design:** "`R4`", "`R5`", "`R6`", "The object model `6a` ships — `Dexpace::Resilience::Policy`".
+`RetrySettings`'s), `RECOV-28`, `RECOV-30`; **`CFG-35`** (its throwable half — the inherited 5a row,
+which 5a postponed to this phase — is `Policy.throwable_retryable?` in Step 3 below; added to this header
+2026-09-13 so the checklist's `CFG-35` row points at this task, not Task 6).
+**Design:** "`R4`", "`R5`", "`R6`", "`CFG-35`'s throwable half: picked up and closed here", "The object model `6a`
+ships — `Dexpace::Resilience::Policy`".
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/resilience/policy.rb`
@@ -932,8 +938,8 @@ Expected: PASS, 4 runs, 0 failures, 0 errors.
 
 ## Task 6: `Dexpace::ProtocolError#retryable?`
 
-**Requirement IDs:** none new (`DEF-38`, `XCUT-5`).
-**Design:** "`DEF-40`: picked up and closed here" (adjacent), "The object model `6a` ships —
+**Requirement IDs:** none new (`XCUT-5`'s baked flag, which phase 4b postponed to this phase).
+**Design:** "`CFG-35`'s throwable half: picked up and closed here" (adjacent), "The object model `6a` ships —
 `Dexpace::ProtocolError#retryable?`".
 
 **Files:**
@@ -948,14 +954,14 @@ Expected: PASS, 4 runs, 0 failures, 0 errors.
 
 ```ruby
 class DexpaceProtocolErrorRetryableTest < DexpaceTestCase
-  test "DEF-38/XCUT-5: retryable? is computed once at construction from Dexpace::Retryability" do
+  test "XCUT-5: retryable? is computed once at construction from Dexpace::Retryability" do
     response = fake_response(status: 503)
     error = Dexpace::ProtocolError.for(response)
     assert(error.retryable?)
     assert_equal(Dexpace::Retryability.retryable_status?(503), error.retryable?)
   end
 
-  test "DEF-38: retryable? agrees with Dexpace::Retryability for a non-retryable status" do
+  test "XCUT-5: retryable? agrees with Dexpace::Retryability for a non-retryable status" do
     error = Dexpace::ProtocolError.for(fake_response(status: 501))
     refute(error.retryable?)
   end
@@ -1371,7 +1377,7 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
     assert_equal([200] * 8, results)
   end
 
-  test "OBS-29/DEF-42: emits attempt_started/attempt_failed/retries_exhausted through the factory" do
+  test "OBS-29: emits attempt_started/attempt_failed/retries_exhausted through the factory" do
     tracer = Dexpace::Resilience::Test::ProbeHTTPTracer.new
     settings = Dexpace::Resilience::RetrySettings.build(max_retries: 1, initial_delay: 0.0)
     step = Dexpace::Resilience::RetryStep.build(settings: settings, http_tracer_factory: ->(_) { tracer })
@@ -1407,7 +1413,7 @@ require_relative "../model"
 module Dexpace
   # RETRY-40: raised when a caller-supplied should_retry: predicate itself throws. Wraps the
   # predicate's own error as #cause (a genuine wrap, not a re-raise of a carried error, so
-  # pipeline/f02559b9's `cause: nil` rule does not apply here).
+  # pipeline/7ce4431d's `cause: nil` rule does not apply here).
   class RetryPredicateError < ::StandardError
     include Dexpace::Error
   end
@@ -2122,25 +2128,35 @@ Expected: PASS.
 
 ## Task 13: Final wiring
 
-**Requirement IDs:** none new — this task closes the register rows and regenerates the two
-mechanised snapshots, per the roadmap's own execution steps.
+**Requirement IDs:** none new — this task records the postponed work as landed, applies the two register edits, and
+regenerates the two mechanised snapshots, per the roadmap's own execution steps.
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace.rb` (confirm every `require_relative` from Tasks 2–11 is
   present, in dependency order)
 - Regenerate: `test/fixtures/surface/dexpace-core.txt` (the runtime surface snapshot)
 - Regenerate: the RBS baseline diffed against the previous release tag
-- Apply, by hand, the three register-edit texts the design document already drafted:
-  - `docs/deferred-items.md`: `DEF-35` → closed, `DEF-38` → closed, `DEF-40` → closed, `DEF-42` →
-    picked-up (not closed) with the correction to its stated route applied.
-  - `docs/open-items.md`: `OI-31` → resolved (candidate (a) adopted, as drafted); `OI-21` → closed.
-  - `docs/first-release.md`: the phase-8 line on wrapping stdlib I/O/timeout errors, as drafted.
+- Record, in this phase's checklist and its status note, that the work earlier phases postponed here has landed:
+  - the checklist rows for `RECOV-17`–`RECOV-30` and `RECOV-34` (the recovery-stack engine phase 4's segmentation
+    postponed; Tasks 3, 4, 5, 7 and 11), for `XCUT-5`'s baked `ProtocolError#retryable?` (phase 4b's deferral; Task 6),
+    for `CFG-35`'s throwable half (phase 5a's deferral; Task 3) and for `OBS-29`'s per-attempt group (the half of phase
+    5c's postponed wiring `6a` reaches; Task 9) are ✅ and name those tasks; the phase status note in the roadmap says
+    the four have landed, and that `OBS-29`'s operation-lifecycle triple stays unwired (`OI-32`), together with the
+    transport-milestone group (`OI-36`), on phase 10's inbound list.
+  - Apply, by hand, the two register-edit texts the design document already drafted:
+    `docs/open-items.md`: `OI-31` → resolved (candidate (a) adopted, as drafted); `OI-21` → closed.
+    `docs/first-release.md`: the phase-8 line on wrapping stdlib I/O/timeout errors, as drafted.
+  - **Not `6a`'s: the `standard` constructors.** `Pipeline.standard`/`AsyncPipeline.standard` (phase 4c's deferral) is
+    `6b`'s **Task 13a** (phase-level, `docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`), and marking
+    that work as landed travels with it. It becomes `6a`'s only if `6a` lands *after* `6b`, in which case
+    Task 13a moves verbatim into this plan and its checklist row and status-note sentence join this list (added
+    2026-09-13).
 - The checklist, `2026-09-09-phase6a-retry-checklist.md`, is **not** written by this task —
   `CLAUDE.md` fixes it as written at execution time, and this plan does not pre-empt that.
 
 **Needs:** every prior task.
 **Produces:** a gem whose whole suite is green, whose surface snapshot and RBS baseline are current,
-and three register edits ready to commit alongside the checklist a human writes next.
+and two register edits ready to commit alongside the checklist a human writes next.
 
 - [ ] **Step 1: Run the gem's whole suite**
 
@@ -2161,10 +2177,12 @@ Run: `bundle exec rake surface:regenerate` and the RBS-baseline-diff task; revie
 against the Deviation Ledger's `P6-1`/`P6-2` rows (every new public name and signature should appear
 there and nowhere else unexpected).
 
-- [ ] **Step 4: Apply the three register edits**
+- [ ] **Step 4: Record the landed deferrals and apply the two register edits**
 
-Edit `docs/deferred-items.md`, `docs/open-items.md` and `docs/first-release.md` with the exact text
-the design document's *findings proposed for the registers* section drafts, verbatim.
+Mark the checklist rows named under **Files** above ✅ against their tasks, and write the phase status note sentence
+saying the work phases 4, 4b, 5a and 5c postponed here has landed (with the `OBS-29` residuals named). Then edit
+`docs/open-items.md` and `docs/first-release.md` with the exact text the design document's *findings proposed for the
+registers* section drafts, verbatim.
 
 - [ ] **Step 5: Run `housekeeping`'s probe**
 

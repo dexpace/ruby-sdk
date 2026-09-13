@@ -114,8 +114,11 @@ three inverts a premise the charter had to reason around:
 - `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-design.md` and
   `docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md` as the two closest worked
   examples of this document's form.
-- `docs/deferred-items.md` (`DEF-16`, `DEF-22`, `DEF-26`, `DEF-29`), `docs/open-items.md` (`OI-7`,
-  `OI-10`, `OI-12`), `docs/deviations.md`, `docs/first-release.md`.
+- The deferrals that bear on this sub-phase — the post-v1 gem `dexpace-serde-oj` (`docs/first-release.md` § What v1 ships
+  without › Post-v1 gems), `dexpace-conformance`'s assertion objects (phase 8a Tasks 4–8 and 20; phase 9 Tasks 2–12a),
+  the body member type (built by phase 3b, deviation P3-15) and the move of core's test fakes into
+  `dexpace-conformance` (declined by phase 8a's design; the fakes stay in `gems/dexpace-core/test/support/`);
+  `docs/open-items.md` (`OI-7`, `OI-10`, `OI-12`), `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -386,7 +389,7 @@ antecedent — never on `7a`'s convenience.
 | `SSE-1`–`SSE-41` | `7b`. `SSE-37` forbids core's SSE layer from holding a serialization dependency, and `7a` reaches into `lib/dexpace/sse/**` not at all |
 | `PAGE-1`–`PAGE-36` | `7c`. §12's engine is serde-agnostic; `7a` ships no pagination-flavoured witness and `dexpace-serde-json` receives no pagination code |
 | `TRANSPORT-18` — the re-subscribable body producer | 8, and near-vacuous for `Net::HTTP` (§11.18, the same item that names `SERDE-26`) |
-| `HTTP-48` — the ETag helper | Still deferred (`DEF-2`). `SERDE-28`'s "preserves conditional/redirect context (e.g. ETag / Location)" is satisfied by **copying the raw header value**, never by parsing it — the charter's own argument, honoured here |
+| `HTTP-48` — the ETag helper | Unbuilt, and a release decision (`docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` line). `SERDE-28`'s "preserves conditional/redirect context (e.g. ETag / Location)" is satisfied by **copying the raw header value**, never by parsing it — the charter's own argument, honoured here |
 | `XCUT-12`, `XCUT-15` | 9 dispositions. `7a` satisfies each by construction: `XCUT-12` through `SERDE-29`'s absent cache and frozen codec, `XCUT-15` through `Data`-frozen values and `Model.own`'d collections |
 | `NFR-1`–`NFR-4`, `NFR-11` | 0 built the machinery, 9 dispositions it. `7a` **spends** `dexpace-serde-json`'s `NFR-2` budget and asserts nothing about the gate |
 | `dexpace-conformance` | 8 owns the gem, 9 adds the suites. `7a` writes its assertions in `gems/dexpace-serde-json/test/` — charter boundary 8 |
@@ -533,7 +536,7 @@ constant). `Dexpace::ResponseBody` — `#source` returns **the same underlying h
 `#source` returns a **fresh `#peek` view per call**, `#close` is the module's no-op, so `BODY-30`'s
 "decode it, then snapshot it" both work after the live response is gone. `Response#close`,
 `#body_string`, `#body_bytes`. `sig/` narrows `Request#body` and `Response#body` to
-`Dexpace::Body?` (`DEF-26`, picked up).
+`Dexpace::Body?` (phase 3b's narrowing, deviation P3-15).
 
 **`Dexpace::TypedResponse.new(response:, handler:)`** over **`Dexpace::_ResponseHandler` — `def
 call: (Dexpace::Response) -> untyped`** — validated by `respond_to?(:call)` and never by a nominal
@@ -558,7 +561,7 @@ precedent `7a`'s `StatusAwareHandler` copies for its own `factory:` keyword.
 **frozen-primary** no-op), `Dexpace.suppressed`, `Dexpace.each_cause` (cycle-safe by reference
 identity, **block form**), `Dexpace.close_quietly(resource, onto:)`, `Dexpace::Outcome` with
 `Success`/`Failure`. The re-raise spelling for an error core is **carrying** is
-`raise error, cause: nil` (`pipeline/f02559b9`).
+`raise error, cause: nil` (`pipeline/7ce4431d`).
 
 ### From phase 4c
 
@@ -677,7 +680,7 @@ them, both are given.
     `rescue`.** Verified: raised from within `rescue RuntimeError`, `e.cause` is `nil`; without
     `cause: nil` it is the in-flight `RuntimeError`. That is `SERDE-4`'s "not chaining one" made
     structural rather than dependent on where `#dump_into` happens to be called from, and it is
-    `pipeline/f02559b9`'s spelling reused.
+    `pipeline/7ce4431d`'s spelling reused.
 12. **`String#[]= ` with an in-range offset and an over-long payload silently GROWS the string.**
     `buf = ("\0"*4).b; buf[2,3] = "abcd".b` leaves a **six**-byte string. An out-of-range offset
     raises `IndexError` ("index 9 out of string", "index -9 out of string"); a frozen target raises
@@ -754,10 +757,10 @@ source**, so an adapter whose library has a pull parser satisfies `SERDE-27`'s p
 with **no change to core, to the handler, or to the seam** — it simply does not drain. Two named
 targets inherit the obligation:
 
-- **`dexpace-serde-oj` (`DEF-16`)** — `oj` has a genuine streaming API. The row's pick-up condition
-  ("when JSON throughput is identified as a bottleneck the stdlib `json` gem cannot meet") is
-  unchanged by this, but `7a` adds a second reason the row exists, and a finding below proposes
-  saying so in the register rather than leaving it to be rediscovered.
+- **`dexpace-serde-oj`** (a post-v1 gem, `docs/first-release.md` § What v1 ships without › Post-v1 gems) — `oj` has a
+  genuine streaming API. Its trigger ("when JSON throughput is identified as a bottleneck the stdlib `json` gem
+  cannot meet") is unchanged by this, but `7a` adds a second reason the gem is worth building, and a finding below
+  states it so it is not rediscovered.
 - **Any adapter phase 8 or later ships whose library has a pull parser.** The obligation is recorded
   in `docs/first-release.md` as a finding below, because it is the kind of gap that is invisible until
   someone streams a 200 MB response through a typed handler and meets a `Dexpace::StreamError`.
@@ -1011,7 +1014,7 @@ anything else (1xx, 3xx, 304)    -> response.close; raise DeserializationError, 
 - **The third branch is where `SERDE-28` is easiest to get half-right.** Its message "leads with the
   status code and preserves conditional/redirect context (ETag / Location)", so the handler copies
   the **raw** `ETag` and `Location` header values into the message and parses neither — the charter's
-  own `DEF-2` argument, honoured: running a malformed server `ETag` through `HTTP-48`'s validating
+  own argument about the four unbuilt HTTP helpers, honoured: running a malformed server `ETag` through `HTTP-48`'s validating
   helper inside an error path would turn a diagnostic into a second failure. The chapter's
   conformance clause also names "**a non-canonical 599**", which is a 5xx and therefore the *second*
   branch — it is called out here because a reader skimming "non-canonical" will file it under the
@@ -1058,15 +1061,17 @@ What `7a` writes, and the line between the two halves:
 
 | Artifact | Where | Why there |
 |---|---|---|
-| `CloseCountingSource` / `CloseCountingSink` | `gems/dexpace-serde-json/test/support/` | `SERDE-3`'s conformance clause names a "close-counting tracker" in as many words. They are **new** — phase 2's `FakeCodec` is a codec, not a stream tracker — so `DEF-29`'s "the first consumer outside `dexpace-core`" condition is genuinely not met by reusing anything |
+| `CloseCountingSource` / `CloseCountingSink` | `gems/dexpace-serde-json/test/support/` | `SERDE-3`'s conformance clause names a "close-counting tracker" in as many words. They are **new** — phase 2's `FakeCodec` is a codec, not a stream tracker — so the condition phase 3a set for moving core's fakes into `dexpace-conformance` — "the first consumer outside `dexpace-core`" — is genuinely not met by reusing anything |
 | `SerdeSeamAssertions` — a plain module of assertion **methods** over a `codec` the includer supplies | `gems/dexpace-serde-json/test/support/` | The lift target. Phase 9 moves this file and re-points its `Dexpace::Conformance::Failure` raises; the *content* — `SERDE-3`'s close count, `SERDE-4`'s four-part offset matrix, `SERDE-9`'s type-escape assertions, `SERDE-12`'s I/O-error pass-through — is written once and against the seam, never against `Dexpace::Serde::JSON` by name |
 | Everything else — witness protocol, `Tristate`, `Native`, both handlers, `Body.serialized` | `gems/dexpace-core/test/` | Core code, core tests |
 
-**`SerdeSeamAssertions` is a Minitest-flavoured module and does not pre-empt `DEF-22`.** Design §9.3
+**`SerdeSeamAssertions` is a Minitest-flavoured module and does not pre-empt `dexpace-conformance`'s assertion
+protocol (phase 8a Tasks 4–8 and 20).** Design §9.3
 fixes the conformance gem's shape as "a callable that returns cleanly or raises a
 `Dexpace::Conformance::Failure` carrying the expected and actual values, with thin Minitest and RSpec
 drivers over it", and building that here would fix an interface before the gem that serves it exists
-— which is `DEF-22`'s own argument. `7a` writes ordinary `assert_*` calls and leaves the callable
+— which is the argument phase 2 gave when it postponed that protocol to the conformance gem. `7a` writes ordinary
+`assert_*` calls and leaves the callable
 shape to phase 8; what it buys phase 9 is that the **assertions themselves** are in one file with one
 name, rather than spread across a suite and reconstructed from prose. The checklist names the file so
 phase 9 inherits a target rather than a search.
@@ -1307,7 +1312,7 @@ end
 
 Four measured decisions in nine lines. The **explicit fit check** is mandatory because verified fact
 12 shows `String#[]=` silently *grows* the target on an over-long payload rather than raising — the
-one behaviour `SERDE-4` exists to forbid. **`cause: nil`** is `pipeline/f02559b9`'s spelling and makes
+one behaviour `SERDE-4` exists to forbid. **`cause: nil`** is `pipeline/7ce4431d`'s spelling and makes
 "not chaining one" a property of the raise rather than of where the method happens to be called from
 (verified fact 11). The **frozen/non-BINARY rejection** is `Dexpace::InvalidArgumentError` and not
 `IndexError`, because a wrong *kind* of argument is not a wrong *range* and 3a already set that
@@ -1628,47 +1633,51 @@ is consolidated into design §10 and audited by `docs/deviations.md`.
 
 ---
 
-## Deferrals filed by phase 7a
+## Work phase 7a postpones, and who owns it now
 
 **None.** Every one of `7a`'s 30 IDs is implemented here, three of them with a deviation row and six
 with a stated clause. No ID cluster moves out of `7a`'s scope to a later phase, and design §12's
 `SERDE` row — "*Deferred:* none" — is unchanged by this document.
 
-### Deferral-register sweep
+### Items earlier phases postponed or declined that touch `7a`
 
-`7a`'s delta against the charter's whole-register sweep, which covered every row once and is not
+`7a`'s delta against the charter's whole sweep, which covered every outstanding deferral once and is not
 repeated here. As with phases 3, 4, 5 and 6, this document **states** each disposition and `7a`'s
-**plan performs** the register edit.
+**plan performs** it. Each entry names the item, why it stands as it does, and who owns it now.
 
-- **`DEF-16` — untouched, and `7a` adds a second reason the row exists.** `dexpace-serde-oj` waits
+- **`dexpace-serde-oj`, a post-v1 gem (`docs/first-release.md` § What v1 ships without › Post-v1 gems; design §2.2 is the
+  authority) — untouched, and `7a` adds a second reason it is worth building.** It waits
   for "when JSON throughput is identified as a bottleneck the stdlib `json` gem cannot meet". `7a`
   ships the first codec against which such a measurement could be taken, and `P7-1` adds a
   *correctness* motive beside the throughput one: `oj` has a genuine streaming API, so an `oj`
-  adapter would satisfy `SERDE-27`'s no-materialization clause outright. The condition is not met and
-  the status does not change; a finding below proposes recording the second motive so it is not
-  rediscovered.
-- **`DEF-22` — untouched, and `7a` is careful not to pre-empt it.** `dexpace-conformance`'s
-  framework-agnostic assertion objects are phase 8's. `7a` writes ordinary Minitest assertions in one
+  adapter would satisfy `SERDE-27`'s no-materialization clause outright. The trigger is not met; a finding below
+  records the second motive so it is not rediscovered.
+- **`dexpace-conformance`'s assertion protocol, postponed by phase 2 until the gem exists — untouched, and `7a` is
+  careful not to pre-empt it.** The framework-agnostic assertion objects are phase 8a's (Tasks 4–8 and 20), with
+  phase 9's suites (Tasks 2–12a) over them. `7a` writes ordinary Minitest assertions in one
   named module and leaves the callable-plus-`Failure` shape alone — `R12`.
-- **`DEF-29` — untouched, and its condition is still not met.** "The first consumer outside
-  `dexpace-core`. Phase 8 at the earliest." `7a`'s adapter suite needs a **close-counting stream
-  tracker**, which is not one of the three fakes the row covers (`FakeTransport`, `FakeAsyncTransport`,
+- **Moving core's test fakes into `dexpace-conformance`, postponed by phase 3a — untouched, and its condition is
+  still not met.** "The first consumer outside `dexpace-core`. Phase 8 at the earliest." (Phase 8a's design later
+  declined the move on the development-dependency cycle; the fakes stay in `gems/dexpace-core/test/support/`.) `7a`'s adapter suite needs a **close-counting stream
+  tracker**, which is not one of the three fakes that deferral covers (`FakeTransport`, `FakeAsyncTransport`,
   `FakeCodec`), so it writes its own in that gem's `test/support/` and consumes none of core's. The
   same disposition phase 3a gave.
-- **`DEF-26` — closed in 3b, and named because `7a` is what it was closed *for*.** The `sig/`
+- **The body member type — built by phase 3b (deviation P3-15), and named because `7a` is what it was built
+  *for*.** The `sig/`
   narrowing of `Request#body`/`Response#body` to `Dexpace::Body?` is the type `Body.serialized`
   returns into and the type `DecodingHandler` reads. No action.
-- **`DEF-2` — untouched, and `7a` is the near-miss the charter identified.** `SERDE-28` is the first
+- **`HTTP-22` and `HTTP-48`–`HTTP-50`, the four unbuilt HTTP helpers (a release decision: `docs/first-release.md`
+  § Blockers before first publish) — untouched, and `7a` is the near-miss the charter identified.** `SERDE-28` is the first
   requirement anywhere in the specification naming an entity-tag in an executable clause, and it is
   satisfied by **copying the raw header value**, not by `HTTP-48`'s validating helper. `7a` confirms
   the charter's reading from inside the implementation: running a malformed server `ETag` through a
-  validating parser inside an error path would turn a diagnostic into a second failure. The row's
-  status does not change.
-- **`DEF-1`, `DEF-3`–`DEF-15`, `DEF-17`–`DEF-21`, `DEF-23`–`DEF-28`, `DEF-30`–`DEF-43` — untouched**,
-  all either closed by an earlier phase, targeted at `7b`/`7c`/phase 8, or riding on a post-v1 gem.
-  Two are worth naming because a reader will wonder: **`DEF-8`** (`SSE-41`) is `7b`'s ⏳ row and
-  appears nowhere in `7a`'s budget; and **`DEF-25`** (wire-boundary re-validation of header names and
-  outbound values) is phase 8's, and `SERDE-2`'s stamped `Content-Type` is among the values it will
+  validating parser inside an error path would turn a diagnostic into a second failure. The decision line
+  stands as it is.
+- **Everything else outstanding on 2026-09-10 — untouched**, all either closed by an earlier phase, targeted at
+  `7b`/`7c`/phase 8, declined for v1, or riding on a post-v1 gem (`docs/first-release.md` § What v1 ships without).
+  Two are worth naming because a reader will wonder: **`SSE-41`** (declined for v1) is `7b`'s ⏳ row and
+  appears nowhere in `7a`'s budget; and **wire-boundary re-validation** of header names and
+  outbound values is phase 8's (phase 8a Task 16, phase 8c Task 9), and `SERDE-2`'s stamped `Content-Type` is among the values it will
   re-validate — which is stated here so phase 8 has a named source for that value.
 
 ---
@@ -1739,17 +1748,18 @@ release, the documented behaviour of a typed response handler on a body above
 adapters must be checked for whether any of their libraries offers a pull parser that would satisfy
 the clause** — because the seam already takes the source, so the repair is per adapter and costs core
 nothing, and because a caller streaming a large JSON response through `Dexpace::TypedResponse` today
-meets an `::IOError` rather than a documented limit. `dexpace-serde-oj` (`DEF-16`) is the named
-candidate. Cites: `SERDE-27`, `IO-9`, `BODY-32`, `SEAM-21`, `DEF-16`.
+meets an `::IOError` rather than a documented limit. `dexpace-serde-oj` (post-v1, `docs/first-release.md` § What v1 ships
+without › Post-v1 gems) is the named candidate. Cites: `SERDE-27`, `IO-9`, `BODY-32`, `SEAM-21`.
 
-**Target register: `docs/deferred-items.md`, as an amendment to `DEF-16`'s `Why` and `Cites`.**
+**Finding on `dexpace-serde-oj` — belongs with its entry under `docs/first-release.md` § What v1 ships without › Post-v1
+gems.**
 **`dexpace-serde-oj` has a second reason to exist beyond throughput, and `7a` is what makes it
-visible.** The row's current reason is "`oj` would be a faster codec over an already-proven seam, not
-a new property"; `P7-1` shows that is now half the picture — `oj` has a genuine streaming parser, so
+visible.** The entry's stated reason is "a faster codec over a seam `dexpace-serde-json` already proves"; `P7-1`
+shows that is now half the picture — `oj` has a genuine streaming parser, so
 an `oj` adapter would satisfy `SERDE-27`'s "without first materializing the whole body" clause that
 `dexpace-serde-json` measurably cannot, at the gemspec floor. That **is** a new property, and it does
-not change the pick-up condition (throughput is still the trigger a user will feel first) but it does
-change what the row is worth. Cites: `SERDE-27`, `SEAM-21`, `IO-9`.
+not change the trigger (throughput is still the one a user will feel first) but it does
+change what the gem is worth. Cites: `SERDE-27`, `SEAM-21`, `IO-9`.
 
 **One existing row explicitly does not close.** `OI-7`'s subject is a sentence in the frozen §3.1 and
 `7a` consumes the corrected retag-then-transcode recipe without touching the mechanism — it adds a

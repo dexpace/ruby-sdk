@@ -14,7 +14,7 @@ Sub-phase 7b builds the Server-Sent Events subsystem in full: the WHATWG line an
 the immutable five-field event value, the resource-owning single-pass streaming facade with its four
 termination paths, and the typed adapter with its three caller-supplied mapper outcomes. Forty-one
 requirement IDs, `SSE-1`–`SSE-41`, of which forty are implemented and one (`SSE-41`) is carried as a
-⏳ row under the pre-existing `DEF-8`. It is the second-largest sub-phase in the roadmap after `6a`'s
+⏳ row as a v1 decline (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry). It is the second-largest sub-phase in the roadmap after `6a`'s
 sixty and phase 3b's forty-nine.
 
 It also owns the resolution of **`OI-5`**, the register row phase 3a opened against `#read_line_utf8`,
@@ -70,8 +70,9 @@ document:
   `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` as the two worked
   examples of this document's form; 3b is the closer analogue, being the other streaming,
   lifetime-sensitive sub-phase.
-- `docs/open-items.md` (`OI-5` at `:224-268`, `OI-7`, `OI-10`, `OI-12`), `docs/deferred-items.md`
-  (`DEF-8` at `:157-164`, `DEF-33`), `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md` (`OI-5` at `:224-268`, `OI-7`, `OI-10`, `OI-12`); the two deferrals that bear on this
+  sub-phase — `SSE-41`'s v1 decline (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry) and `IO-38` on a Ruby without a GVL (its § Post-release
+  triggers entry); `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -198,20 +199,20 @@ nothing else, and the note a human should file for this is drafted in the findin
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `SSE-1`–`SSE-40` | 40 |
-| ⏳ deferred, `DEF-8` (pre-existing, no phase trigger) | `SSE-41` (MAY, reactive-adapter error and lifecycle latitude) | 1 |
+| ⏳ declined for v1, no phase trigger (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry) | `SSE-41` (MAY, reactive-adapter error and lifecycle latitude) | 1 |
 | **Total in budget** | | **41** |
 
 Level split, from appendix C: **36 MUST, 3 SHOULD (`SSE-21`, `SSE-22`, `SSE-40`), 2 MAY (`SSE-19`,
 `SSE-41`)** — 36 + 3 + 2 = 41, matching `--prefix-info SSE` and the charter's reconciliation table.
 No `MUST NOT` row appears in the prefix.
 
-**`SSE-41` is confirmed correctly deferred and is carried, not implemented.** `DEF-8`
-(`docs/deferred-items.md:157-164`) was read in full: deferred by the MVP scope design on 2026-09-05,
+**`SSE-41` is confirmed correctly declined and is carried, not implemented.** Its decline (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry)
+was read in full: declined by the MVP scope design on 2026-09-05,
 because `SSE-41` is "MAY-level, and scoped to a reactive (e.g. RxJS-analogue) adapter; the MVP ships
 only the pull-based SSE view and no reactive adapter", with the pick-up condition "revisit if a
-reactive SSE adapter is ever built". Phase 7 builds none, so the condition is not met and the row's
-status does not change. Design §12's `SSE` row and §11.21 record the same disposition. **`7b` carries
-`SSE-41` as a ⏳ checklist row inside its 41**, exactly as phase 6a counted its three `DEF-6` rows
+reactive SSE adapter is ever built". Phase 7 builds none, so the condition is not met and the decline
+stands. Design §12's `SSE` row and §11.21 record the same disposition. **`7b` carries
+`SSE-41` as a ⏳ checklist row inside its 41**, exactly as phase 6a counted its three declined `RETRY` rows
 inside `6a`'s 60. **`7b` carries no `ASYNC-21` row**: §11.21 lists that MUST as
 adapter-scoped-and-vacuous, it is phase 8's, and the backpressure property it protects is implemented
 here anyway on the pull-based path (`SSE-39`).
@@ -289,7 +290,7 @@ behaviour". Recording them here is what stops a ✅ from being reconstructed lat
 | `HTTP-41`, `HTTP-42`, `BODY-14`, `BODY-15` — `Dexpace::ResponseBody`, `#source`, the charset decode, `#close` | 3b, built. `SSE-32`'s convenience consumes them |
 | `HTTP-44`, `HTTP-45` — the lazy typed-response wrapper and its mutex | 3b. `7b` writes no second memo and no second lock; the facade's lock is `SSE-31`'s and guards a different thing |
 | `RECOV-1`–`RECOV-16` — `Outcome`, `Success`, `Failure`, the chains, the orchestrator | 4b, built. `7b` adds a variant in **its own** namespace and adds no member to any of them (`P7-23` states what that costs) |
-| `RECOV-12`, `SEAM-30`, `DEF-27` — `Dexpace.close_quietly(resource, onto:)` | 2, 4b and 5b between them. `SSE-30`'s swallow route is a call site; `7b` writes no second quiet-close path |
+| `RECOV-12`, `SEAM-30` — `Dexpace.close_quietly(resource, onto:)` and its two disposal routes | 2, 4b (Task 2) and 5b (Task 14) between them. `SSE-30`'s swallow route is a call site; `7b` writes no second quiet-close path |
 | `XCUT-9` — the cycle-safe cause walk | 4b, built as `Dexpace.each_cause`. `7b` walks no `#cause` chain by hand |
 | `SERDE-1`–`SERDE-30` | `7a`. `SSE-37` positively forbids `7b` from naming any of it |
 | `PAGE-1`–`PAGE-36` | `7c`. The one thing shared is the close-once discipline, whose mechanism is phase 2's `Dexpace::Closeable` |
@@ -403,7 +404,7 @@ reuse.
 `BufferedSource` the transport built with `.wrapping`, and answers `#source` with **the same
 underlying handle every time** (`HTTP-41`/`BODY-14`), never a fresh replay
 (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md:828-846`). `Response#body`
-returns `Dexpace::ResponseBody?` — narrowed by `DEF-26` — and `Response#close` releases it. `SSE-32`'s
+returns `Dexpace::ResponseBody?` — phase 3b's narrowing, deviation P3-15 — and `Response#close` releases it. `SSE-32`'s
 convenience is built on exactly those three facts and adds nothing to `Response`.
 
 ### From phase 4b
@@ -417,7 +418,7 @@ convenience is built on exactly those three facts and adds nothing to `Response`
   at both sites; there is no second mechanism to reach for.
 - `Dexpace.close_quietly(resource, onto: nil)`, the **one** quiet-close route (`SSE-30`'s automatic
   path, `SSE-24`'s auto-release), with 5b's `http.instrumentation.*` diagnostic behind the
-  `onto:`-absent case (`DEF-27`, closed in 5b).
+  `onto:`-absent case (the second disposal route, phase 5b Task 14).
 - `Dexpace.each_cause`, cycle-safe by reference identity through `#compare_by_identity`. `7b` uses the
   **block** form; the block-less form returns an `Enumerator`, and boundary 14 is why that matters.
 - `Dexpace::Outcome`, `Outcome::Success = Data.define(:response)` and `Outcome::Failure =
@@ -425,7 +426,7 @@ convenience is built on exactly those three facts and adds nothing to `Response`
   (`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives.md:1527`). **That signature is
   why `R5` decides against reusing them** — see below.
 - The re-raise spelling `raise error, cause: nil` wherever core re-raises an error it is **carrying**
-  rather than one it has just rescued (`pipeline/f02559b9`).
+  rather than one it has just rescued (`pipeline/7ce4431d`).
 
 ### From phase 4c
 
@@ -640,12 +641,13 @@ cannot relate to the cause — and §10.18's own sanction is "fails or **ignores
 facade's mid-stream-failure path (`SSE-29`), so the resource is released before it surfaces and a
 release failure is attached as suppressed — the cap does not get its own lifecycle.
 
-**Configurable — as two constructor keywords, and this is not `DEF-28`'s shape.** `SSE-19`'s sanction
+**Configurable — as two constructor keywords, and this is not the shape of the `deadline:` keyword phase 2
+declined.** `SSE-19`'s sanction
 says "a **configurable** cap", and `OI-5` explicitly rules out one route: "Adding a `max_line_bytes:`
 keyword to `#read_line_utf8` would not [resolve it]: phase 5 owns the configuration chain,
 `IO-40`-adjacent limits reaching this layer is what `docs/knowledge/notes/resource-management.md`
-already declines for timeouts, and a keyword with no configuration source behind it is `DEF-28`'s shape
-without `DEF-28`'s pick-up condition."
+already declines for timeouts, and a keyword with no configuration source behind it is the `deadline:` keyword's
+shape without the pick-up condition phase 2 gave it."
 
 Every clause of that objection is about the **I/O layer**. At the SSE layer the objection does not
 hold, and the distinction is exactly the one `OI-5` itself draws:
@@ -660,7 +662,8 @@ hold, and the distinction is exactly the one `OI-5` itself draws:
   directly, so the caller is the source. No `CFG` key is added, phase 5's chain is untouched, and the
   charter's "no phase-7 requirement names a configuration key" stays true.
 - `NFR-4` locks a public signature and fails when one "disappears or narrows". A keyword with a default
-  **widens**, which is `DEF-28`'s own stated precedent for adding one later — so shipping the keyword
+  **widens**, which is the precedent phase 2 stated when it postponed `deadline:` (built by phase 5a, Task 8)
+  for adding one later — so shipping the keyword
   now and shipping it never are both safe, and shipping it now is what `SSE-19` asks for.
 
 Recorded as **`P7-21`**.
@@ -768,11 +771,11 @@ instead raises `EOFError`. So the test is writable, it is not flaky, and it asse
 `7b`'s facade turns that into a `Dexpace::StreamError` at the `BufferedSource` boundary, which is 3a's
 `::IOError` subclass, so "an I/O-style error" is satisfied by ancestry rather than by discipline.
 
-**What neither shape proves, stated so a ✅ is not read as more than it is.** `DEF-33`
-(`docs/deferred-items.md`) records that the *mechanism* behind a cross-thread flag — reading and
+**What neither shape proves, stated so a ✅ is not read as more than it is.** Phase 3a's deferral of `IO-38` on a
+Ruby without a GVL (`docs/first-release.md` § Post-release triggers) records that the *mechanism* behind a cross-thread flag — reading and
 writing it under a `Thread::Mutex` rather than relying on the GVL — cannot be exercised on any row of a
 CRuby-only matrix: the test passes with the mutex and passes without it. `7b` inherits that latch from
-phase 2's `Dexpace::Closeable` and adds no second one, so **`SSE-31` inherits `DEF-33`'s limitation
+phase 2's `Dexpace::Closeable` and adds no second one, so **`SSE-31` inherits that limitation
 along with the latch**, and `7b`'s checklist row says so rather than claiming a guarantee the matrix
 cannot show. This is `P4-33`'s precedent — do not write a test that passes on the floor and would fail
 to reproduce elsewhere — applied from the other direction: the test is right, the *mechanism* claim is
@@ -1219,7 +1222,7 @@ Stated as a contract, so a later phase cites rather than re-derives.
 | Consumer | What it gets, and the obligation |
 |---|---|
 | **`7c`**, optionally | `tools/serde_boundary.rb` and `gates:serde_boundary`, if `7b` lands first. `7c` moves the `page/**` row from `PENDING` to `GUARDED` — **one line** — and writes no second tool and no second rake task. If `7c` lands first, `7b` does the mirror-image one-line change |
-| **Phase 8**, on `SSE-41` / `DEF-8` | `Dexpace::SSE::Reader` and `Dexpace::SSE::Stream` are what a reactive adapter would wrap. `SSE-39`'s pull-based, no-read-ahead property is implemented on the pull path, so `ASYNC-21`'s backpressure obligation is inherited rather than rebuilt (§11.21) |
+| **Phase 8**, on `SSE-41` (declined for v1) | `Dexpace::SSE::Reader` and `Dexpace::SSE::Stream` are what a reactive adapter would wrap. `SSE-39`'s pull-based, no-read-ahead property is implemented on the pull path, so `ASYNC-21`'s backpressure obligation is inherited rather than rebuilt (§11.21) |
 | **Phase 8**, on transports | A transport hands back a `Dexpace::Response`; `Dexpace::SSE::Stream.open(response)` is the whole integration. `7b` requires nothing of a transport beyond `Response#body` answering `#source`, which is 3b's contract |
 | **Phase 9**, on `SSE-37` | The audit target: `gates:serde_boundary`'s `GUARDED` list, and the repository-wide check that its `PENDING` list is empty by the end of phase 7 |
 | **Phase 9**, on `XCUT-12`/`XCUT-15` | `SSE-20`/`SSE-21`'s frozen `Data` values satisfy `XCUT-15` by construction; `7b` claims neither ID and carries no row for either |
@@ -1242,7 +1245,7 @@ change that files all three.
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P7-20 | `7b`'s line machine is built over `Dexpace::IO::BufferedSource#getbyte`, **not** over phase 3a's `#read_line_utf8`, and design §7.2's sentence naming that method as the SSE machine's primitive is wrong on the clause that matters | `SSE-2`; `IO-14`; design §7.2 (`:50-53`, `sse-streaming/8c25db7d`); `OI-5`; charter boundary 15 | `IO-14` requires a lone `\r` be **kept as content** and `SSE-2` requires it **terminate a line** — contradictory grammars over the same bytes, and phase 3a implemented `IO-14` (`…phase3a…-design.md:659`, plan `:2201`). Post-processing a `#read_line_utf8` result reproduces `SSE-2`'s lines but breaks `SSE-39`: a conforming CR-only stream contains no `\n`, so the method would buffer the whole stream before returning, which is both the read-ahead `SSE-39` forbids and the unbounded allocation `OI-5` exists to prevent. The correction is one clause in §7.2 and one premise in `OI-5`; nothing about `IO-14` or `P3-4` changes |
-| P7-21 | `SSE-19`'s MAY is taken as **two** documented bounds — `MAX_LINE_BYTES` 1 MiB and `MAX_EVENT_BYTES` 8 MiB — with an over-long line or event **rejected loudly and never truncated**, and both settable per reader through a constructor keyword | `SSE-19` (chapter `:33` and `…appendix-c…:428`); design §7.2, §10.18; `OI-5` | The chapter sanctions capping "oversized lines"; appendix C states the open surface as "no maximum line **or event** size". A line cap alone leaves 2^20 one-byte `data:` lines unbounded, so the MAY's inverse is taken over the whole of the subject the requirement names and no further — there is no cap on events per stream. Truncation silently corrupts a payload; §10.18's own sanction is "fails or ignores loudly". The keyword is not `DEF-28`'s shape because the caller constructs the reader and is therefore the configuration source, which is exactly the distinction `OI-5` draws when it rules the same keyword out one layer down |
+| P7-21 | `SSE-19`'s MAY is taken as **two** documented bounds — `MAX_LINE_BYTES` 1 MiB and `MAX_EVENT_BYTES` 8 MiB — with an over-long line or event **rejected loudly and never truncated**, and both settable per reader through a constructor keyword | `SSE-19` (chapter `:33` and `…appendix-c…:428`); design §7.2, §10.18; `OI-5` | The chapter sanctions capping "oversized lines"; appendix C states the open surface as "no maximum line **or event** size". A line cap alone leaves 2^20 one-byte `data:` lines unbounded, so the MAY's inverse is taken over the whole of the subject the requirement names and no further — there is no cap on events per stream. Truncation silently corrupts a payload; §10.18's own sanction is "fails or ignores loudly". The keyword is not the declined `deadline:` keyword's shape because the caller constructs the reader and is therefore the configuration source, which is exactly the distinction `OI-5` draws when it rules the same keyword out one layer down |
 | P7-22 | `SSE-15`'s end-of-stream sentinel is Ruby's `nil`, not a distinguished object | `SSE-15`; `api-design/6ea28c9c` | A stream terminator is the documented exception to never-`nil`-for-absent: `#gets`, `#getbyte` and `IO-14`'s own `#read_line_utf8` all use it, an `Event` is never `nil` so the sentinel is stable and distinct, and the facade — which is what nearly every caller uses — turns it into `Enumerator` termination and never surfaces it. Recorded because `RECOV-1`'s `#response_or_nil` set the precedent that this needs a row rather than a shrug |
 | P7-23 | `SSE-34`'s three outcomes are the mapper's decoded value returned **bare**, plus two frozen `Dexpace::SSE::Signal` singletons `SKIP` and `DONE`; `Dexpace::Outcome::Success`/`Failure` are **not** reused | `SSE-33`, `SSE-34`, `SSE-35`; `RECOV-1`; charter boundary 10; phase 4b's forward table (`…phase4b…-design.md:1528`) | `Outcome::Success = Data.define(:response)` with `build: (response: Dexpace::Response)` — a decoded model is not a response, and putting one there fails `steep check` and pulls toward widening a phase-4b type, which boundary 10 forbids. `Outcome`'s five derived methods answer success-versus-failure and Skip and Done are both successful. Returning the value bare also satisfies `SSE-33`'s "MUST yield the mapper's decoded value" literally, allocates nothing per event on a long-lived stream, and lets a mapper decode an explicit null. Boundary 10's two binding clauses are both honoured; only its "reused" framing is declined |
 | P7-24 | `SSE-7`'s field-name comparison is **case-sensitive**, so `7b` calls `downcase` nowhere and the charter's spec-forced boundary 19 has no site in this sub-phase | `SSE-7`; `HTTP-13`; charter boundary 19 | WHATWG compares SSE field names exactly, and `SSE-7` names four lowercase tokens and requires that "any other field name MUST be silently discarded". A fold would make `DATA:` an interpreted data field, which WHATWG discards and `SSE-7` requires be discarded. The boundary is honoured vacuously rather than at a site, and the charter's sentence naming `SSE-7` as one of three fold sites is corrected |
@@ -1252,44 +1255,47 @@ change that files all three.
 
 ---
 
-## Deferrals filed by `7b`
+## Work `7b` postpones, and who owns it now
 
-**None.** Every one of `7b`'s 41 IDs is implemented here or carries the pre-existing `DEF-8` row. No
+**None.** Every one of `7b`'s 41 IDs is implemented here or is `SSE-41`, declined for v1. No
 `7b` decision postpones an interface: `R4`'s cap ships with a value, `R5`'s sentinels ship, `R6`'s two
 tests are both written, and `R11`'s audit is built rather than described.
 
-### Deferral-register sweep
+### Items earlier phases postponed or declined that touch `7b`
 
-The roadmap's execution step 1 requires the phase to read the whole register and disposition every row.
-All forty-two were read. The charter stated each disposition and this document **performs** the one that
-belongs to `7b`, which is a ⏳ row and not a register edit.
+The roadmap's execution step 1 requires the phase to read every outstanding deferral and disposition each.
+All forty-two outstanding on 2026-09-10 were read. The charter stated each disposition and this document **performs**
+the one that belongs to `7b`, which is a ⏳ row. Each entry names the item, why it stands as it does, and who owns it
+now.
 
-- **`DEF-8` — carried as a ⏳ row inside `7b`'s 41; not picked up; its condition is not met.** Verified
-  against the row itself (`docs/deferred-items.md:157-164`) rather than the charter's summary: the
-  reason ("scoped to a reactive adapter; the MVP ships only the pull-based SSE view"), the pick-up
-  condition ("revisit if a reactive SSE adapter is ever built") and the `Cites:` line (`SSE-41`) are all
+- **`SSE-41`, declined for v1 by the MVP scope design on 2026-09-05 — carried as a ⏳ row inside `7b`'s 41; not picked
+  up; its condition is not met.** Verified against the decline itself (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry) rather than the charter's
+  summary: the reason ("scoped to a reactive adapter; the MVP ships only the pull-based SSE view"), the pick-up
+  condition ("revisit if a reactive SSE adapter is ever built") and the requirement it cites (`SSE-41`) are all
   still correctly stated and none needs an amendment. `7b` builds no reactive adapter. **`7b` carries no
   `ASYNC-21` row** — §11.21 makes it adapter-scoped-and-vacuous and phase 8's, and the property it
   protects is `SSE-39`'s, implemented here.
-- **`DEF-24` — untouched, and phase 4 is where it closes.** Its `Cites:` line names `SSE-29` and
-  `SSE-36` — two `7b` IDs — but its pick-up condition is phase 4, and phase 4b's design ships
-  `Dexpace::Suppressible`, `Dexpace.attach_suppressed` and `Dexpace.suppressed`. **`7b` is a consumer of
-  the row's subject, not its owner**; it writes no second trail and no second skip.
-- **`DEF-27` — untouched; closed in 5b.** `Dexpace.close_quietly`'s `onto:`-absent diagnostic is what
-  `SSE-30`'s "reported out-of-band" resolves to, and `7b` calls it rather than supplying it.
-- **`DEF-33` — untouched, and `7b` inherits its limitation rather than meeting or closing it.** `R6`.
+- **The suppressed-exception trail, postponed by phase 3b to phase 4 — untouched, and phase 4b is where it lands
+  (Task 1).** Its citations name `SSE-29` and `SSE-36` — two `7b` IDs — but its pick-up condition is phase 4, and
+  phase 4b's plan builds `Dexpace::Suppressible`, `Dexpace.attach_suppressed` and `Dexpace.suppressed`. **`7b` is a
+  consumer of the trail, not its owner**; it writes no second trail and no second skip.
+- **`close_quietly`'s second disposal route, postponed by phase 2 — untouched; built by phase 5b (Task 14).**
+  `Dexpace.close_quietly`'s `onto:`-absent diagnostic is what `SSE-30`'s "reported out-of-band" resolves to, and
+  `7b` calls it rather than supplying it.
+- **`IO-38` on a Ruby without a GVL, deferred by phase 3a to the event of a non-CRuby CI row (`docs/first-release.md`
+  § Post-release triggers) — untouched, and `7b` inherits its limitation rather than meeting or closing it.** `R6`.
   `SSE-31` rides on phase 2's mutex-guarded latch, whose *mechanism* no CRuby matrix row can exercise;
   `7b`'s checklist row says so.
-- **`DEF-2` — untouched by `7b`.** The charter argued phase 7's decline in full and named `SSE-38` as
-  half the argument: `SSE-38` positively **forbids** the SSE layer from setting a request header, so `7b`
-  constructs no conditional request and cannot fire `HTTP-50`'s condition. The register edit is the
-  charter's finding, not `7b`'s.
-- **`DEF-16`, `DEF-22`, `DEF-26`, `DEF-28`, `DEF-29`, `DEF-31`, `DEF-32`, `DEF-34`, `DEF-35`, `DEF-38`,
-  `DEF-40`, `DEF-42` and the remainder — untouched**, all `7a`'s, `7c`'s, an earlier phase's or a later
-  one's. Two are worth naming because a reader will wonder: **`DEF-28`** is cited by `P7-21` as a
-  *precedent* about widening a signature with a defaulted keyword, not as a row `7b` acts on; and
-  **`DEF-26`**, picked up in phase 3b, narrowed `Response#body` in `sig/` to `Dexpace::ResponseBody?`,
-  which is the type `SSE-32`'s nil check is written against.
+- **`HTTP-22` and `HTTP-48`–`HTTP-50`, the four unbuilt HTTP helpers — untouched by `7b`.** The charter argued phase
+  7's decline in full and named `SSE-38` as half the argument: `SSE-38` positively **forbids** the SSE layer from
+  setting a request header, so `7b` constructs no conditional request and cannot fire `HTTP-50`'s condition. The
+  verdict is the charter's finding, not `7b`'s, and it lives on the standing decision line under `docs/first-release.md`
+  § Blockers before first publish.
+- **Everything else outstanding on 2026-09-10 — untouched**, all `7a`'s, `7c`'s, an earlier phase's or a later
+  one's. Two are worth naming because a reader will wonder: the **`deadline:` keyword phase 2 declined** (built by
+  phase 5a, Task 8) is cited by `P7-21` as a *precedent* about widening a signature with a defaulted keyword, not as
+  an item `7b` acts on; and the **body member type**, built by phase 3b (deviation P3-15), narrowed `Response#body`
+  in `sig/` to `Dexpace::ResponseBody?`, which is the type `SSE-32`'s nil check is written against.
 
 ---
 

@@ -179,11 +179,11 @@ Two IDs outside `CTX` fix values 4a must carry, and are quoted because 4a is whe
 |---|---|
 | `RECOV-1`–`RECOV-34` — the recovery chain, its outcome type and its error primitives | 4b |
 | `PIPE-1`–`PIPE-40` — the stage pipeline, the per-call cursor and the two bridges | 4c |
-| `OBS-25`'s no-op tracer and span **protocols**, `OBS-26`'s sentinel definitions as tracing API, `OBS-27`'s trace-id **generation** | 5. 4a fixes the bundle's members, their names and the identity of the two no-op singletons; phase 5 populates and may not redefine (roadmap obligation 1, `DEF-37`) |
+| `OBS-25`'s no-op tracer and span **protocols**, `OBS-26`'s sentinel definitions as tracing API, `OBS-27`'s trace-id **generation** | 5. 4a fixes the bundle's members, their names and the identity of the two no-op singletons; phase 5 populates and may not redefine (roadmap obligation 1; the protocols are postponed below to phase 5c, Tasks 3, 4 and 5) |
 | `OBS-10`, `OBS-23`, `OBS-24`, `ASYNC-8`–`ASYNC-12` — the **diagnostic context** carried in `Fiber[:key]` | 5 and 8. This is not `CTX`; `docs/knowledge/notes/observability.md` draws the line and 4a asserts it in one test rather than restating it |
-| `SEAM-28` — a stable operation identifier attached to the context chain | 5 (`DEF-1`). 4a supplies the chain half — `CTX-16`'s operation name is the carrier — and does not act on the rest |
-| `CFG-15`–`CFG-21` — the clock, the **elapsed-time** monotonic counter, the interruptible sleep | 5 (`DEF-28`). `CTX-4`'s counter is a sequence counter and shares nothing with it but the adjective (`OI-15`) |
-| A configuration source for the store's cap | 5 (`DEF-36`). 4a owns the constant and the `cap:` keyword that reaches it |
+| `SEAM-28` — a stable operation identifier attached to the context chain | 5 (the MVP-scope design's `SEAM-28` postponement; consumer phase 5c, Task 4). 4a supplies the chain half — `CTX-16`'s operation name is the carrier — and does not act on the rest |
+| `CFG-15`–`CFG-21` — the clock, the **elapsed-time** monotonic counter, the interruptible sleep | 5 (phase 2's `deadline:` postponement, P2-5; phase 5a, Task 8). `CTX-4`'s counter is a sequence counter and shares nothing with it but the adjective (`OI-15`) |
+| A configuration source for the store's cap | 5 (postponed below; phase 5a, Task 13). 4a owns the constant and the `cap:` keyword that reaches it |
 | `XCUT-14`'s audit of every bounded map, and `XCUT-11`'s audit of shared-instance state | 9. 4a builds the map `XCUT-14` audits |
 | `AUTH-19`'s per-nonce counter store | 6. It reuses 4a's map and adds one operation to it (R4) |
 | Any `Ractor` shareability claim for a context | none. `data-modeling/5bc538ba` already narrows it and a context transitively holds a body holding an `IO` |
@@ -726,7 +726,8 @@ signature is locked.
    `private_constant`, so they are not `NFR-4`-locked at all, and the *objects* phase 4 published by identity
    keep their identity. `OBS-25`'s "a no-op Tracer returning a shared no-op Span, a no-op Span whose
    current-scope is a cached singleton" is implemented by giving these two classes their methods, not by
-   introducing a third pair. `DEF-37` records this so a phase-5 planner meets it in the register.
+   introducing a third pair. The postponement below records this so a phase-5 planner meets it (phase 5c,
+   Tasks 3, 4 and 5 build the protocols).
 4. **Phase 5 may not** rename a member, remove one, change `#valid?` from derived to stored, change the
    sentinels, replace `TraceIdFlavour` with a `Symbol`, or hand `Bundle` a second `NONE`. Roadmap obligation
    1's second half is the whole of that list. **The question the list does not answer, answered here because
@@ -741,7 +742,8 @@ signature is locked.
    later requirement does need one, it is a new `P4`-numbered deviation and a roadmap amendment, not a
    phase-5 decision.
 5. **`SEAM-28`'s operation identifier is not the bundle's.** It is `CTX-16`'s `operation_name` on the
-   `RequestContext`, already shipped, and `DEF-1` names phase 5 as the phase that has both halves.
+   `RequestContext`, already shipped, and the MVP-scope design's `SEAM-28` postponement names phase 5 as the phase
+   that has both halves (phase 5c, Task 4 is the consumer).
 
 ## R4 — `CTX-11`'s bounded map, resolved
 
@@ -804,7 +806,7 @@ comment.
 no number; `AUTH-19` names 1024 as the default for a store of exactly this shape, and it is the only number
 the specification gives for one. Using a second would make the "one implementation" claim visibly
 two-valued (P4-9). `ContextStore.new(cap: MAX_TRACKED_CONTEXTS)` is how a test gets a cap of 3 and how phase
-5 will later reach it from configuration (`DEF-36`).
+5 will later reach it from configuration (phase 5a, Task 13; postponed below).
 
 The drain is `@h.shift while @h.size > @cap`, inside the same `synchronize` as the insert. It is written as a
 loop because **`XCUT-14` makes it a MUST** — "MUST drain back under the cap after each insert using a loop
@@ -972,7 +974,7 @@ are not part of it.
 |---|---|
 | `MAX_TRACKED_CONTEXTS = 1024` | `CTX-11`, and `AUTH-19`'s stated default for the same shape (P4-9) |
 | `.default` | the one process-wide instance, assigned at file load into a class-level ivar. **Not** a constant: `data-modeling/6accaff9` requires a mutable constant to be frozen at assignment, and a live store cannot be |
-| `.new(cap: MAX_TRACKED_CONTEXTS)` | what gives every test a fresh, small store (`testing/4ef070df`) and what phase 5's configuration will reach (`DEF-36`) |
+| `.new(cap: MAX_TRACKED_CONTEXTS)` | what gives every test a fresh, small store (`testing/4ef070df`) and what phase 5's configuration will reach (phase 5a, Task 13) |
 | `#set(context) -> context` | `CTX-8`'s unconditional overwrite. Never raises. Used by both promotions and by nothing else |
 | `#put(context) -> context` | `CTX-8`'s reject-on-duplicate insert. Raises `Dexpace::ContextConflictError` naming the key. **The conflict is detected under the map's mutex and the error is raised after it is released**, per `concurrency-and-async/f261a143` |
 | `#[](call_key) -> Context?` | `CTX-18`'s explicit absent result. `nil` is legitimate here because the requirement demands it and forbids raising, which is the documented case `api-design/6ea28c9c` reserves |
@@ -1039,7 +1041,7 @@ Six of the charter's sixteen bind 4a; each is honoured by a named mechanism rath
 3. **`CTX-19`'s prohibition on weak references** — R1's cop plus R1's reachability test. 4a decides the
    lint's shape; it does not decide whether the prohibition holds.
 4. **`CTX-14`/`CTX-15`'s bundle shape is fixed in phase 4 and only in phase 4** — R3, with the five-clause
-   handshake and `DEF-37`. The boundary's own words are "Nine members, a frozen `NONE` singleton, `OBS-26`'s
+   handshake and the no-op-protocol postponement below. The boundary's own words are "Nine members, a frozen `NONE` singleton, `OBS-26`'s
    reserved sentinels as its values, `CTX-20`'s no-op tracer factory", and **4a departs from the first of the
    four**: nine things are exposed, eight are stored, and validity is derived. That is `P4-6`, which names
    this boundary as well as design §8.1. The other three are honoured verbatim.
@@ -1101,8 +1103,9 @@ nothing else, and driving them through a real chain would mean building a `Bundl
 `Response` per case and would couple the store's suite to three other types' constructors. It gets `#close`
 free from the module, which is what makes the `CTX-9`/`CTX-10` cases readable. It is named `Fake*` and not
 `Mock*` per `testing/630ba094`, and it is a fake by `testing/7ecef8e8`'s definition: a real in-memory
-implementation of an owned interface, not a recorder of calls. `DEF-29`'s condition — a consumer outside
-`dexpace-core` — stays unmet; this strengthens the row without meeting it.
+implementation of an owned interface, not a recorder of calls. The condition phase 2 set for moving core's
+fakes into `dexpace-conformance` — a consumer outside `dexpace-core` — stays unmet; this strengthens the case
+without meeting it.
 
 The promotion rules — `CTX-1`–`CTX-3`, `CTX-16`, `CTX-17` — are tested against **real** contexts with a
 `ContextStore.new(cap: …)` passed explicitly, never `ContextStore.default`. No test in 4a touches the
@@ -1199,9 +1202,9 @@ What 4a nonetheless ships as a stable contract, so that a later phase cites rath
 |---|---|
 | **4b**, optionally | `Dexpace::ContextConflictError` as the fourth member of the phase-2 error shape, if 4b wants a precedent for a conflict-class error. Nothing else. `RECOV-11`'s "current context" is phase 2's `Dexpace::Cancellation`, not this |
 | **4c**, optionally | `Dexpace::BoundedMap` — if `PIPE`'s per-call cursor ever needs a bounded keyed map, it uses this one and declares no second. `PIPE-11`'s cursor-scoped state is not a `CTX` artefact and 4c owns its shape |
-| **Phase 5**, obligatorily | `Dexpace::Instrumentation::Bundle` with its eight members, `Bundle::NONE`, `Bundle::INVALID_SPAN_ID`, `TraceIdFlavour` with its three constants and `.of`, `NO_SPAN`, `NO_TRACER_FACTORY` and `#tracer`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory`. The five-clause handshake in R3 is the contract; `DEF-37` is its register row |
-| **Phase 5**, obligatorily | `RequestContext#operation_name` and `ExchangeContext#operation_name` — `DEF-1`'s first half for `SEAM-28`, already carried and already advisory |
-| **Phase 5**, on `DEF-36` | `ContextStore.new(cap:)` and `ContextStore::MAX_TRACKED_CONTEXTS`, which is where a configuration source attaches |
+| **Phase 5**, obligatorily | `Dexpace::Instrumentation::Bundle` with its eight members, `Bundle::NONE`, `Bundle::INVALID_SPAN_ID`, `TraceIdFlavour` with its three constants and `.of`, `NO_SPAN`, `NO_TRACER_FACTORY` and `#tracer`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory`. The five-clause handshake in R3 is the contract; the no-op-protocol postponement below is its record, and phase 5c, Tasks 3, 4 and 5 perform it |
+| **Phase 5**, obligatorily | `RequestContext#operation_name` and `ExchangeContext#operation_name` — the chain half of `SEAM-28`'s postponed identifier, already carried and already advisory; phase 5c, Task 4 consumes it |
+| **Phase 5**, on the cap's postponed configuration source (5a, Task 13) | `ContextStore.new(cap:)` and `ContextStore::MAX_TRACKED_CONTEXTS`, which is where a configuration source attaches |
 | **Phase 6**, on `AUTH-19` | `Dexpace::BoundedMap`, reached by a bare unqualified name from `module Dexpace; module …` in the full nesting form, with `#update` added to it rather than a second map written |
 | **Phase 9**, on `XCUT-14` | The same map, as the single implementation the audit checks; and `ContextStore` as the one `CTX-11` instance of it |
 | **Phase 9**, on `XCUT-11` | `ContextStore` as the audited shared-instance state: one `Thread::Mutex`, no per-call state on the instance |
@@ -1221,46 +1224,93 @@ the phase-4 segmentation design left the ledger empty.
 | P4-6 | `Bundle` stores **eight** members and exposes `CTX-14`'s ninth, validity, as a derived `#valid?` | `CTX-14`, `OBS-26`; design §8.1's "all nine members"; **the charter's spec-forced boundary 14 and its `R3`, both of which say "nine members"** | `OBS-26` makes it a MUST that an all-zero trace/span id is treated as invalid, so validity is a function of two members already present. Storing it makes `Bundle.build(trace_id: <real>, span_id: <real>, valid: false)` representable and no requirement says what it would mean. `CTX-14`'s verb is "exposing", which the predicate satisfies, and §8.1's own enumeration already writes the item as the predicate `valid? == false` alongside `remote? == false` — so the deviation is from the word "members" in three documents, not from the requirement any of them is restating. Named against the charter as well as the design because boundary 14 is on the list the charter declares "not open to `4a`, `4b` or `4c`", and a departure from a closed list has to be visible in the ledger rather than only in a section heading. Roadmap obligation 1, which is what boundary 14 is enforcing, fixes that phase 4 ships the shape and phase 5 may not redefine it, and states no count. `#remote?` is a predicate over the stored `remote` for symmetry of reading |
 | P4-7 | The reserved invalid **trace id** is a property of `TraceIdFlavour` and not a single constant; the invalid **span id** is a single constant | `OBS-26`, `OBS-27`; `CTX-15` | The two requirements are only consistent if the sentinel varies with the flavour: `OBS-26` fixes it as 32 hex zeros while `OBS-27`'s Datadog flavour renders a trace id as a decimal string, in which 32 hex zeros is not expressible and `"0"` is the zero draw `OBS-27` forbids generating. `TraceIdFlavour::NONE`'s sentinel is `OBS-26`'s exact value, so `Bundle::NONE` carries the pair `CTX-15` names verbatim. The span id needs no such split: `OBS-26` states its rule unqualified and `OBS-27`'s scope is trace ids |
 | P4-8 | `NO_TRACER_FACTORY#tracer(name = nil, version = nil)` is **positional**, against the keywords-everywhere rule | `CTX-20`; design §8.1; `api-design/1d9e6e0b`; phase 3a's P3-9 precedent | §8.1 fixes core's tracing as a structural subset of `opentelemetry-api`'s shape so "an application already running OpenTelemetry gets spans with no adapter code" — which is only true if `OpenTelemetry.tracer_provider` can be passed straight into `Bundle.build(tracer_factory:)`, and that requires call compatibility with a foreign object's positional signature. The same exception phase 3a made for the host-native `IO` bridge, for the same reason: being call-compatible is the method's entire purpose. The exact arity is confirmed against the gem in 4a's plan |
-| P4-9 | `ContextStore::MAX_TRACKED_CONTEXTS = 1024`, a number no `CTX` requirement gives | `CTX-11`, `XCUT-14`, `AUTH-19`; design §10.18's substituted-constant precedent | Neither `CTX-11` nor `XCUT-14` names a cap. `AUTH-19` names 1024 as the default for a bounded store of exactly this shape, and it is the only number the specification supplies for one; §5.4 requires the two to share one implementation, and giving one shared implementation two different default bounds would make the claim visibly two-valued. The value is a keyword with a documented default, not a hard-coded literal, so `DEF-36` can attach a configuration source without changing a signature |
+| P4-9 | `ContextStore::MAX_TRACKED_CONTEXTS = 1024`, a number no `CTX` requirement gives | `CTX-11`, `XCUT-14`, `AUTH-19`; design §10.18's substituted-constant precedent | Neither `CTX-11` nor `XCUT-14` names a cap. `AUTH-19` names 1024 as the default for a bounded store of exactly this shape, and it is the only number the specification supplies for one; §5.4 requires the two to share one implementation, and giving one shared implementation two different default bounds would make the claim visibly two-valued. The value is a keyword with a documented default, not a hard-coded literal, so phase 5a, Task 13 can attach a configuration source without changing a signature |
 | P4-10 | A seventh custom cop, `Dexpace/NoWeakReferences` | `CTX-19`; design §5.4's "forbidden by lint"; phase 0's P0-3 and phase 2's P2-8 precedent | §5.4 makes `CTX-19` a lint rule and does not say which. Extending `Dexpace/QualifiedCoreConstant` would put a prohibition inside a shadowing cop whose message ("write `::Foo`") is the wrong fix; extending `Dexpace/NoThreadInterrupt` would put an unrelated hazard behind a name that states a different one. Every cop in this repository mechanises one named rule and is named after it. It scopes to `gems/*/lib/**/*.rb` because `gates:require_allowlist` covers core alone and an adapter can hold a context too |
 | P4-11 | Public **methods** neither design §5.4 nor §8.1 names: `Context#close`; `DispatchContext#promote_to_request` and `RequestContext#promote_to_exchange`; `ContextStore.default`, `#set`, `#put`, `#[]`, `#release` and `#size`; `ContextConflictError#call_key`; `Bundle#valid?` and `#remote?`; `TraceIdFlavour.of`, `#valid_trace_id?` and `#renders?`; and `NO_TRACER_FACTORY#tracer` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and phase 3a's P3-8, both of which cover methods as well as constants | `NFR-4` locks a public *signature*, not only a public name, and §5.4 describes the whole promotion chain and the store without naming a single Ruby method — so every verb above is 4a's invention and is locked at the first release tag. `P4-2` covers the constants; this row is its other half, filed separately because the precedents it stands on filed both. Each name is chosen for a stated reason in the object-model section, and two deserve naming here because they are the ones a later reader will question. **`#put` and `#[]` have no caller anywhere in core** — `CTX-8` requires the reject-on-duplicate insert as "a separate strict-register affordance" and `CTX-18` requires the explicit absent lookup, so both are surface a requirement forces and only the suite exercises; deleting them later would be an `NFR-4` break for a method core never used, which is exactly the kind of accident this row exists to make deliberate. **`#promote_to_request`/`#promote_to_exchange` name the target stage rather than the source**, so `CTX-1`'s one-way chain reads off the call site. The `Data`-generated readers on all five value types — the three contexts, `Bundle` and `TraceIdFlavour` — are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, which is the pairing `CLAUDE.md` requires and the phase's last task regenerates |
 
-## Deferrals Filed by Phase 4a
+## Work Phase 4a Postpones, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; each row names an explicit target or pick-up condition, per the
-roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's `registers` check
-reserves for the aggregate register, which is where the rows live.)
+Two items, recorded on 2026-09-08 with an explicit target, per the roadmap's execution step 7. Both are
+scheduled work in phase 5 — the first in phase 5a, Task 13
+(`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration.md`), the second in phase 5c, Tasks 3, 4 and 5
+(`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`) — and each phase records in its
+checklist rows and the phase status note that the work 4a postponed has landed. The reasoning stays here in full.
 
-| ID | Deferral | Target / condition |
-|---|---|---|
-| `DEF-36` | A configuration source for `Dexpace::ContextStore`'s cap. 4a ships `MAX_TRACKED_CONTEXTS = 1024`, the `cap:` keyword that reaches it, and one process-wide store built with the default; what it does not ship is any way for an application to change the process-wide store's bound, because the configuration chain does not exist. `CTX-11` requires a bound and names no number, so a fixed 1024 is conforming; an application running many thousands of concurrent calls would nonetheless want to raise it | Phase 5, with `CFG-1`–`CFG-38`. The attachment point already exists — `ContextStore.new(cap:)` — so this widens nothing and breaks no signature. The same shape as `DEF-34`, which defers the configuration source for phase 3b's body-logging caps |
-| `DEF-37` | The no-op span and tracer protocols behind `Dexpace::Instrumentation::NO_SPAN`, `NO_TRACER` and `NO_TRACER_FACTORY`. 4a ships three frozen singletons and exactly one method — `#tracer(name = nil, version = nil)`, which `CTX-20`'s embedded MUST forces — because `OBS-21`–`OBS-25` are phase 5's. `NO_SPAN` responds to nothing beyond `Object`'s surface, and the RBS interfaces `_Span` and `_Tracer` are declared empty on purpose | Phase 5, with `OBS-25`. The classes behind all three singletons are `private_constant` and therefore not `NFR-4`-locked, so phase 5 adds methods to them and the objects keep the identity phase 4 published. Phase 5 may **not** introduce a second no-op span or tracer, replace either singleton, or give `Bundle` a second `NONE` — roadmap obligation 1 |
+**1. The configuration source for `Dexpace::ContextStore`'s cap.** `CTX-11` requires the context store to
+"enforce a maximum number of tracked entries" and names no number; `XCUT-14` states the same general rule for
+every bounded map and names none either. 4a ships `Dexpace::ContextStore::MAX_TRACKED_CONTEXTS = 1024`, a
+`ContextStore.new(cap:)` keyword that reaches it, and one process-wide store built with the default. What it
+cannot ship is any way for an application to change the **process-wide** store's bound, because the
+configuration chain does not exist until phase 5. A fixed 1024 is conforming — `CTX-11` asks for a bound, not
+for a tunable one, and `CTX-19` makes that bound "the leak backstop" rather than the primary cleanup mechanism
+— but an application running many thousands of concurrent calls would legitimately want to raise it, and an
+application with a tight memory budget to lower it. The value 1024 is `AUTH-19`'s stated default for a
+bounded store of exactly this shape and is the only number the specification supplies for one; P4-9 argues
+it. *Condition:* phase 5, with `CFG-1`–`CFG-4`'s layered chain. The attachment point already exists and the
+work is one wiring: read the cap from the chain when constructing the process-wide store. **No signature
+changes** — `ContextStore.new(cap:)` is already keyword-shaped with a documented default — so `NFR-4`'s API
+lock is not prejudiced. The same shape as phase 3b's postponement of the body-logging caps' configuration
+source, and as phase 2's `deadline:` postponement before it. *Owner:* phase 5a, Task 13.
 
-### Deferral-register sweep
+**2. The no-op span and tracer protocols behind the three instrumentation singletons.** `CTX-14` requires the
+correlation bundle to expose "an active span, and a per-operation tracer factory", and `CTX-15` requires the
+disabled-tracing default to carry "a no-op span and no-op tracer factory". Roadmap cross-phase obligation 1
+makes the bundle's **shape** phase 4's and forbids deferring it — "Phase 4 fixes the shape and ships the
+bundle in core; phase 5 implements the sentinels and populates rather than replaces it. Phase 4 cannot defer
+the decision to phase 5, and phase 5 cannot redefine it." The *protocols* of a span and a tracer are a
+different matter: they are `OBS-21`–`OBS-25`, phase 5's, and fixing them in phase 4 would be the same error
+in the other direction. So 4a ships three frozen singletons — `Dexpace::Instrumentation::NO_SPAN`,
+`NO_TRACER_FACTORY` and the `private_constant` `NO_TRACER` — and exactly **one** method between them,
+`NO_TRACER_FACTORY#tracer(name = nil, version = nil)`, which `CTX-20`'s embedded MUST ("Its factory method
+MUST be safe to invoke concurrently from multiple threads") forces into existence: a factory with no factory
+method cannot satisfy a MUST about that method. `NO_SPAN` responds to nothing beyond `Object`'s own surface,
+and the RBS interfaces `_Span` and `_Tracer` are declared **empty** on purpose, so the type system states the
+postponement rather than a comment doing it. *Condition:* phase 5, with `OBS-25` ("a no-op Tracer returning
+a shared no-op Span, a no-op Span whose current-scope is a cached singleton … Selecting a no-op path MUST NOT
+allocate per call"). The classes behind all three singletons are `private_constant` and therefore **not**
+`NFR-4`-locked, so phase 5 gives them their methods and widens `_Span`/`_Tracer`, and the three objects keep
+the identity phase 4 published — which is what makes `OBS-25`'s allocation clause assertable by reference
+identity from `dexpace-conformance`, and why those two constants are public where 4a's other new internals
+are not. **What phase 5 may not do**, per obligation 1: introduce a second no-op span or tracer, replace
+either published singleton, rename or remove a `Bundle` member, change `Bundle#valid?` from derived to
+stored, replace `TraceIdFlavour` with a bare `Symbol`, or give `Bundle` a second `NONE`. P4-6, P4-7 and P4-8
+record the three shape decisions phase 5 inherits. *Owner:* phase 5c, Tasks 3, 4 and 5.
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row.
-All thirty-five were read; the charter's own sweep covered the phase-4-wide dispositions and is not repeated,
-so what follows is the 4a-specific delta.
+### Postponed work read at planning time
 
-- **`DEF-1` — untouched, and 4a supplies the half it names.** "`SEAM-28` targets phase 5 … the request's
-  context chain (`CTX`, phase 4) for 'attached to the request's context chain' … and phase 5 is the first
-  phase that has both." 4a ships `RequestContext#operation_name` and `ExchangeContext#operation_name`, which
-  is the chain half. The row is not edited: its condition names phase 5 and 4a cannot meet it.
-- **`DEF-24`, `DEF-27`, `DEF-32`, `DEF-5` — 4b's, not 4a's.** The charter assigns all four to 4b and 4b
-  performs the register edits. 4a touches none of them: it raises no error that carries a suppressed trail,
-  and `close_quietly` gains no call site here.
-- **`DEF-28` — untouched, and named as a constraint.** 4a has no clock, no deadline and no wait. Recorded
-  because its text names "the monotonic counter", which is not `CTX-4`'s (`OI-15`).
-- **`DEF-29` — untouched.** `FakeContext` lands under `gems/dexpace-core/test/support/`, following phase 2's
-  and phase 3's precedent. The condition — a consumer outside `dexpace-core` — is not met.
-- **`DEF-30`, `DEF-31`, `DEF-34` — untouched.** All three target phase 5's instrumentation facade and
-  configuration chain. `DEF-36` is filed beside `DEF-34` and for the same reason.
-- **`DEF-33` — untouched, and worth one sentence.** Its condition is a non-CRuby matrix row, and 4a is a
-  second phase whose concurrency guarantees rest on a `Thread::Mutex` that the GVL would hide the absence of
-  (verified fact 9). The row is not widened; it is noted that its value has grown.
-- **`DEF-35` — untouched.** Filed by the charter; `RECOV`, phase 6.
-- **`DEF-2`, `DEF-3`, `DEF-4`, `DEF-6`–`DEF-23`, `DEF-25`, `DEF-26` — untouched.** Other prefixes, other
-  phases, or already picked up. None names phase 4 or a condition 4a can meet.
+The roadmap's execution step 1 requires the phase to read **every** piece of work an earlier phase postponed
+and disposition each. All thirty-five items outstanding on 2026-09-08 were read; the charter's own reading
+covered the phase-4-wide dispositions and is not repeated, so what follows is the 4a-specific delta.
+
+- **`SEAM-24`/`SEAM-28` (MVP-scope design) — untouched, and 4a supplies the half it names.** "`SEAM-28`
+  targets phase 5 … the request's context chain (`CTX`, phase 4) for 'attached to the request's context
+  chain' … and phase 5 is the first phase that has both." 4a ships `RequestContext#operation_name` and
+  `ExchangeContext#operation_name`, which is the chain half. The disposition is not changed: its condition
+  names phase 5 and 4a cannot meet it. Phase 5c, Task 4 is the consumer; `SEAM-24`'s cancellation bridge is
+  post-v1 (`docs/first-release.md` § What v1 ships without).
+- **The suppressed-exception trail, `close_quietly`'s first disposal route, `Hooks.notify`'s dropped
+  failures and `RECOV-31` — 4b's, not 4a's.** The charter assigns all four to 4b (Tasks 1 and 2, and the
+  `RECOV-31` checklist row) and 4b records them. 4a touches none of them: it raises no error that carries a
+  suppressed trail, and `close_quietly` gains no call site here.
+- **The pivot's `deadline:` keyword (phase 2, P2-5; phase 5a, Task 8) — untouched, and named as a
+  constraint.** 4a has no clock, no deadline and no wait. Recorded because phase 2's text names "the
+  monotonic counter", which is not `CTX-4`'s (`OI-15`).
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched.** `FakeContext` lands
+  under `gems/dexpace-core/test/support/`, following phase 2's and phase 3's precedent. The condition — a
+  consumer outside `dexpace-core` — is not met.
+- **Presence-gated auto-activation, `SEAM-25`'s lifecycle event (phase 2) and the body-logging
+  configuration source (phase 3b) — untouched.** All three target phase 5's instrumentation facade and
+  configuration chain (now `docs/first-release.md` § What v1 ships without › SHOULD/MAY; phase 8b, Tasks 6
+  and 10 with phase 9, Task 11; and phase 5a, Task 13 with phase 5b, Tasks 14–15). The store-cap source
+  above is postponed beside the body-logging one and for the same reason.
+- **Exercising `IO-38` on a GVL-free interpreter (phase 3a) — untouched, and worth one sentence.** Its
+  condition is a non-CRuby matrix row, and 4a is a second phase whose concurrency guarantees rest on a
+  `Thread::Mutex` that the GVL would hide the absence of (verified fact 9). The item is not widened; it is
+  noted that its value has grown (`docs/first-release.md` § Post-release triggers).
+- **The recovery-stack retry engine (`RECOV-17`–`RECOV-30`, `RECOV-34`) — untouched.** Postponed by the
+  charter; `RECOV`, phase 6 (6a, Tasks 3, 4, 5, 7 and 11).
+- **Everything else — untouched.** Other prefixes, other phases, or already built (the version-skew guard,
+  phase 2; the body-member narrowing, phase 3b). None names phase 4 or a condition 4a can meet.
 
 ### The findings filed against `docs/open-items.md`
 
@@ -1268,8 +1318,9 @@ so what follows is the 4a-specific delta.
 phase-4 segmentation design's exclusions table assigns the phrase to phase 5.** `CTX-4` requires "a
 process-wide, monotonically increasing counter" appended to the key rendering — an integer sequence, phase
 4's, with no notion of time. `CFG-16` requires "a monotonic elapsed-time counter" on the time seam — phase
-5's, deferred by `DEF-28`. The charter's exclusions table reads "`CFG-15`–`CFG-21` — the clock, the
-monotonic counter, the interruptible sleep, `future.value(deadline:)` — 5 (`DEF-28`)", and a 4a reader who
+5's, postponed with the pivot's `deadline:` keyword (P2-5). The charter's exclusions table reads
+"`CFG-15`–`CFG-21` — the clock, the monotonic counter, the interruptible sleep, `future.value(deadline:)` —
+5", citing that postponement, and a 4a reader who
 takes that row at face value concludes the counter `CTX-4` needs is not theirs to build. It is. Filed rather
 than fixed because the charter is committed and reviewed and a finding against a committed phase is a
 register row, not an edit. It is the same family as `OI-14`: a cross-reference that reads correctly and

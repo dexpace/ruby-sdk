@@ -10,9 +10,9 @@ scoped state, unified sync and async builder with surgical edits, sync `Pipeline
 `AsyncPipeline` runtimes conforming to the transport SPI without allocation on empty pipelines, the
 4b `TransformStep` adapter, and `AsyncPipeline.map_response` — satisfying 37 requirement IDs in full
 (`PIPE-1`–`PIPE-32`, `PIPE-34`, `PIPE-35`, `PIPE-37`, `PIPE-38`, `PIPE-40`), the non-interrupting
-half of `PIPE-33` (with the interrupt clause deferred under `DEF-18`), `PIPE-36` deferred under
-`DEF-4`, and the step-less half of `PIPE-39` (with the standard-resilience constructors deferred under
-`DEF-39`).
+half of `PIPE-33` (with the interrupt clause an unsatisfied MUST under design §10.5), `PIPE-36` declined
+for v1 by the MVP-scope design, and the step-less half of `PIPE-39` (with the standard-resilience
+constructors postponed by 4c's design to phase 6b, Task 13a).
 
 **Architecture:** One module of sixteen stages (`Dexpace::Pipeline::Stages`) built on immutable
 `Stage` values; a step protocol (`Dexpace::Pipeline::Step`) and entry value (`Dexpace::Pipeline::Entry`);
@@ -54,8 +54,8 @@ carries the canonical `PIPE` text quoted below.
   (`Dexpace/NoThreadInterrupt`). In 4c the constraint is met by an absence: **4c writes no wait, no sleep
   and no interrupt of any kind.** The only blocking call in reach is phase 2's `Future#value(cancellation:)`,
   and 4c does not call it either — a caller composing `AsyncTransport.sync_over` does.
-- **Deadlines are explicit values, not ambient interrupts.** `DEF-28` keeps `deadline:` off the pivot until
-  phase 5; 4c ships the narrower composition and fabricates no deadline (R13, P4-35).
+- **Deadlines are explicit values, not ambient interrupts.** Phase 2's P2-5 keeps `deadline:` off the pivot
+  until phase 5 (5a, Task 8); 4c ships the narrower composition and fabricates no deadline (R13, P4-35).
 - **`Thread::Mutex` ownership is per-fiber and non-reentrant.** 4c holds no mutex anywhere. The built
   runtime is immutable, so concurrent sends read frozen data with no lock (`PIPE-10`); the cursor is
   per-invocation and unshared (P4-33); the builder is single-threaded by construction and says so in its
@@ -226,7 +226,8 @@ bundle exec rake surface:regenerate                                 # deliberate
     async pipeline feature set.
 11. **Task 11: Wiring, Runtime Surface Snapshot, RBS Baseline, the Checklist, and Documentation Upkeep** — fixes
     `lib/dexpace.rb`'s require order, updates `sig/dexpace.rbs`, regenerates the runtime surface snapshot,
-    **verifies** the register rows the design already filed (`DEF-39`, `OI-17`, `OI-18` — none is re-filed),
+    **verifies** what the design already recorded (the `PIPE-39` postponement, `OI-17`, `OI-18` — none is
+    re-filed),
     writes the phase checklist, runs the whole gate set and the floor, and runs the housekeeping probe.
 
 **One ordering wrinkle, stated so nobody reads it as a defect.** Tasks 2 and 4–7 each open
@@ -353,7 +354,8 @@ Expected: PASS, 4 runs, 0 failures, 0 errors.
 ## Task 2: `Dexpace::Pipeline::Stage` and `Dexpace::Pipeline::Stages`
 
 **Requirement IDs:** `PIPE-1`, `PIPE-2`, `PIPE-3`, `PIPE-4`, `PIPE-8`, `PIPE-25`, `PIPE-28`. `PIPE-36`
-is **not** implemented here and no part of it is — `DEF-4` is unmet and post-MVP; R10's precedence
+is **not** implemented here and no part of it is — the MVP-scope design declined it post-MVP and that
+condition is unmet; R10's precedence
 table is named as where a future lock would go, and verified fact 6 as why `Method#owner` cannot
 detect an inherited `#stage`.
 **Design:** "`Dexpace::Pipeline::Stage` — `PIPE-1`, `PIPE-2`, `PIPE-3`, `PIPE-4`, `PIPE-8`" and "`Dexpace::Pipeline::Stages` — `PIPE-1`, `PIPE-2`, `PIPE-3`, `PIPE-25`, `PIPE-28`."
@@ -1787,9 +1789,10 @@ Expected: PASS, 11 runs, 0 failures, 0 errors.
 `PIPE-21`, `PIPE-22`, `PIPE-23`, `PIPE-24`, `PIPE-28` (one deriver, not two), `PIPE-38`, and R10's
 precedence table. `PIPE-25` and `PIPE-35` are *implemented* here — `#build`/`#build_async` and
 `.flattening`/`.nesting` — and *asserted* in Task 8, which is where a built runtime exists to assert
-them on. `DEF-39` is the deferral `#install_preset` is built under.
+them on. The `PIPE-39` constructor postponement (4c's design; phase 6b, Task 13a) is what `#install_preset`
+is built under.
 **Design:** "`Dexpace::Pipeline::Builder` — `PIPE-4`–`PIPE-8`, `PIPE-18`–`PIPE-25`, `PIPE-35`, `PIPE-38`", R10, R14.
-**Deviations:** P4-27 (public builder methods), P4-30 (one Builder class for both runtimes), P4-34 (`PIPE-24` all-or-nothing preset mechanism with step set deferred under `DEF-39`).
+**Deviations:** P4-27 (public builder methods), P4-30 (one Builder class for both runtimes), P4-34 (`PIPE-24` all-or-nothing preset mechanism with step set postponed to phase 6b, Task 13a).
 **Open Items:** `OI-17` (surgical edits keyed by type; YARD documentation).
 
 **Files:**
@@ -2191,8 +2194,8 @@ module Dexpace
       #
       # R14/P4-34: this is the mechanism and there is no standard step SET behind it. The redirect
       # and retry families are phase 6's and the instrumentation step is phase 5's, so
-      # Pipeline.standard defers under DEF-39 rather than shipping a constructor named for defaults
-      # it cannot install. Phase 6 writes that constructor OVER this method.
+      # Pipeline.standard is postponed to phase 6 (6b, Task 13a) rather than shipping a constructor
+      # named for defaults it cannot install. Phase 6 writes that constructor OVER this method.
       def install_preset(entries)
         validated = validate_reload_entries(entries)
         occupied = validated.filter_map do |entry|
@@ -2388,10 +2391,12 @@ Expected: PASS, 14 runs, 0 failures, 0 errors.
 ## Task 8: `Dexpace::Pipeline` Sync Runtime
 
 **Requirement IDs:** `PIPE-1`, `PIPE-2`, `PIPE-9`, `PIPE-10`, `PIPE-11` (the concurrency clause),
-`PIPE-25`, `PIPE-26`, `PIPE-27`, `PIPE-33` (clauses 1–4; clause 5 is `DEF-18`), `PIPE-34`, `PIPE-35`,
+`PIPE-25`, `PIPE-26`, `PIPE-27`, `PIPE-33` (clauses 1–4; clause 5 is the unsatisfied MUST of design §10.5),
+`PIPE-34`, `PIPE-35`,
 `PIPE-39` (the `direct` half).
 **Design:** "`Dexpace::Pipeline` — `PIPE-9`, `PIPE-10`, `PIPE-25`, `PIPE-26`, `PIPE-27`, `PIPE-39`", R12, R13.
-**Deviations:** P4-27 (public Pipeline methods), P4-35 (4c ships no bridge; reuses phase 2 bridges under `DEF-28`).
+**Deviations:** P4-27 (public Pipeline methods), P4-35 (4c ships no bridge; reuses phase 2 bridges, whose
+`deadline:` is still phase 5a's, Task 8).
 **Verified Facts:** Fact 2 (transport conformance of Pipeline), Fact 8 (frozen Array returns), Fact 11 (`ObjectSpace` count with `GC.disable`).
 
 **Files:**
@@ -2492,7 +2497,8 @@ class DexpacePipelineTest < DexpaceTestCase
   # R12, the two allocation deltas. PIPE-9's trailing SHOULD is testable as a NON-allocation rather
   # than only as a behaviour (verified fact 11), and the non-empty delta is the assertion that would
   # fail if someone "optimised" the empty branch into the general one and removed the cursor
-  # everywhere. ObjectSpace counting is CRuby-specific; no v1 matrix row is non-CRuby (DEF-33).
+  # everywhere. ObjectSpace counting is CRuby-specific; no v1 matrix row is non-CRuby (phase 3a's
+  # IO-38 postponement, reopened only by a non-CRuby CI row).
   test "PIPE-9 & PIPE-10: empty pipeline allocates no cursor; a one-step pipeline allocates one" do
     empty_pipe = Dexpace::Pipeline.direct(@transport)
 
@@ -2513,7 +2519,7 @@ class DexpacePipelineTest < DexpaceTestCase
       GC.enable
     end
 
-    assert_equal(0, after_empty - before_empty, "empty pipeline must not allocate a cursor (PIPE-9, DEF-33)")
+    assert_equal(0, after_empty - before_empty, "empty pipeline must not allocate a cursor (PIPE-9; CRuby-only measurement)")
     assert_operator(after_stepped - before_stepped, :>=, 1, "a non-empty pipeline MUST allocate a cursor (PIPE-10)")
   end
 
@@ -2608,7 +2614,7 @@ class DexpacePipelineTest < DexpaceTestCase
     assert_equal(1, executor.posts, "a five-step pipeline is one #post (PIPE-33)")
     assert_equal("response_from_wire", future.value)
     # Clause 1 is met by an absence: core ships no executor and this phase adds no default. Clause 5,
-    # interrupt-mode cancellation, is the unsatisfied one -- DEF-18 and design section 10.5 -- and
+    # interrupt-mode cancellation, is the unsatisfied one -- design section 10.5 -- and
     # there is no test of it because there is no interrupt mode to test.
   end
 
@@ -2627,7 +2633,7 @@ class DexpacePipelineTest < DexpaceTestCase
     # A cancelled token raises rather than blocking. The future must still be IN FLIGHT for the
     # token to be observed at all -- Future#await returns immediately on a settled one -- which is
     # what the fake's defer: mode is for. There is no interrupt-mode case here because there is no
-    # interrupt mode: DEF-18 and design section 10.5.
+    # interrupt mode: design section 10.5.
     deferred = FakeAsyncTransport.new(defer: true)
     deferred_pipeline = Dexpace::Pipeline::Builder.new(transport: deferred).build_async
     source = Dexpace::Cancellation::Source.new
@@ -2705,7 +2711,8 @@ module Dexpace
     end
 
     # PIPE-39's first named shape: a step-less pipeline that forwards directly to a transport. The
-    # second, Pipeline.standard, defers under DEF-39 -- the redirect and retry families are phase
+    # second, Pipeline.standard, is postponed to phase 6 (6b, Task 13a) -- the redirect and retry
+    # families are phase
     # 6's and the instrumentation step is phase 5's, and a constructor named for defaults it cannot
     # install is worse than its absence. Builder#install_preset is the mechanism it will be written
     # over.
@@ -3209,7 +3216,8 @@ module Dexpace
   # asymmetry: Pipeline.standard will install redirect + retry + instrumentation, while
   # AsyncPipeline.standard installs retry + instrumentation only and takes an explicit
   # redirect: :unsupported argument so the absence is visible at the call site. Neither constructor
-  # exists yet (DEF-39), so PIPE-32's substantive clause holds vacuously in phase 4 -- there is no
+  # exists yet (postponed to phase 6b, Task 13a), so PIPE-32's substantive clause holds vacuously in
+  # phase 4 -- there is no
   # async standard pipeline to follow a redirect.
   #
   # What this phase deliberately does NOT do is make Stages::REDIRECT un-installable on the async
@@ -3223,7 +3231,7 @@ module Dexpace
 
     private_class_method :new
 
-    # PIPE-39's step-less shape, async form. AsyncPipeline.standard defers under DEF-39 with its
+    # PIPE-39's step-less shape, async form. AsyncPipeline.standard is postponed to phase 6 with its
     # redirect: :unsupported argument; Builder#install_preset is the mechanism it will be written
     # over. PIPE-34's bridge is phase 2's AsyncTransport.sync_over(this), not a method here (R13).
     def self.direct(transport)
@@ -3373,8 +3381,9 @@ Expected: PASS, 7 runs, 0 failures, 0 errors.
 - Modify: `gems/dexpace-core/sig/dexpace.rbs`
 - Regenerate: `gems/dexpace-core/test/fixtures/surface/dexpace-core.txt`
 - Create: `docs/work/mvp/phase4/phase4c/<date>-phase4c-stage-pipeline-checklist.md`
-- Verify (do **not** re-file): `docs/deferred-items.md`'s `DEF-39`, `docs/open-items.md`'s `OI-17`
-  and `OI-18` — all three were filed by the design on 2026-09-08 and an ID is never reused
+- Verify (do **not** re-record): the `PIPE-39` constructor postponement in the design's "Work Phase 4c
+  Postpones" section, and `docs/open-items.md`'s `OI-17` and `OI-18` — all three were recorded by the
+  design on 2026-09-08 and an ID is never reused
 - Verify: `CLAUDE.md` claims sentence and housekeeping probe
 
 - [ ] **Step 1: Verify the require order in `gems/dexpace-core/lib/dexpace.rb`**
@@ -3414,30 +3423,33 @@ Confirm that `git diff test/fixtures/surface/dexpace-core.txt` adds only the pub
 by design §10 and deviations P4-26 and P4-27. In particular, verify that `Cursor` exposes no state-setting
 writer method and that private drivers are not exposed.
 
-- [ ] **Step 4: Verify the register rows this phase's design already filed**
+- [ ] **Step 4: Verify what this phase's design already recorded**
 
-**Nothing is appended here.** `DEF-39`, `OI-17` and `OI-18` were filed by
-`2026-09-08-phase4c-stage-pipeline-design.md` and are live rows today — `docs/deferred-items.md`
-carries `DEF-39` and reads `next id: DEF-40`; `docs/open-items.md` carries `OI-17` and `OI-18` and
-reads `next id: OI-21`. Re-filing any of them would duplicate an ID that is already cited from this
-plan, from the design and from `docs/knowledge/notes/pipeline.md`, and `CLAUDE.md`'s rule is that an
-item ID is never renumbered and never reused.
+**Nothing is appended here.** The `PIPE-39` constructor postponement, `OI-17` and `OI-18` were recorded by
+`2026-09-08-phase4c-stage-pipeline-design.md` — the postponement in its "Work Phase 4c Postpones" section,
+owned by phase 6b, Task 13a; the two findings in `docs/open-items.md`, which reads `next id: OI-21`.
+Re-filing either finding would duplicate an ID that is already cited from this plan, from the design and
+from `docs/knowledge/notes/pipeline.md`, and `CLAUDE.md`'s rule is that an item ID is never renumbered
+and never reused.
 
-What this step does is confirm each row still describes what shipped:
+What this step does is confirm each record still describes what shipped:
 
-1. `DEF-39` — its "what is not deferred" clause names `Builder#install_preset`, `Pipeline.direct` /
-   `AsyncPipeline.direct` and `Builder.flattening` / `.nesting`. All five ship (Tasks 7, 8, 10).
+1. The `PIPE-39` postponement — its "what does not" clause names `Builder#install_preset`,
+   `Pipeline.direct` / `AsyncPipeline.direct` and `Builder.flattening` / `.nesting`. All five ship
+   (Tasks 7, 8, 10). The `PIPE-39` checklist row (Step 5) says so and names phase 6b, Task 13a as the
+   owner of the other half.
 2. `OI-17` — its mitigation is documentation, and the YARD on `#insert_after` states it (Task 7).
 3. `OI-18` — 4c neither introduces nor widens it; the repair it recommends is phase 2's to make.
 
 Run: `ruby .claude/skills/housekeeping/probe.rb --only citations`
-Expected: every `DEF-`/`OI-` citation in this plan resolves; no dangling item.
+Expected: every `OI-` citation in this plan resolves; no dangling item.
 
 - [ ] **Step 5: Write the checklist**
 
 `docs/work/mvp/phase4/phase4c/<date>-phase4c-stage-pipeline-checklist.md`, one row per requirement
-ID in scope — all 40 `PIPE` — naming the numbered task that satisfies it, or the deferral
-(`DEF-4`, `DEF-18`, `DEF-39`) or deviation that dispositions it. The self-review table below is the
+ID in scope — all 40 `PIPE` — naming the numbered task that satisfies it, or the disposition that
+carries it (`PIPE-36` declined for v1, `PIPE-33`'s clause 5 unsatisfied under §10.5, `PIPE-39`'s
+constructors postponed to phase 6b, Task 13a) or the deviation that dispositions it. The self-review table below is the
 source; the checklist is the artefact `CLAUDE.md` requires every sub-phase to ship beside its design
 and plan, and a requirement in scope with no row is the failure this project is structured to
 prevent.
@@ -3461,7 +3473,7 @@ Expected: exit code 0, "no drift found."
 
 ### The 40 Requirement IDs Accounted For
 
-| Requirement ID | Disposition | Owning Task / Register | Notes / Evidence |
+| Requirement ID | Disposition | Owning Task / Disposition | Notes / Evidence |
 |---|---|---|---|
 | `PIPE-1` | ✅ Implemented | Task 2, Task 8 | Total stage ordering; 15 probes in shuffled order under pinned seed 42 in Task 8 |
 | `PIPE-2` | ✅ Implemented | Task 2, Task 8 | Pillar precedence chain; PRE_REDIRECT runs once while AUTH runs twice under forking REDIRECT |
@@ -3471,7 +3483,7 @@ Expected: exit code 0, "no drift found."
 | `PIPE-6` | ✅ Implemented | Task 3, Task 7 | Re-installing the same object is a no-op; fixture is two `Data` probes over one **shared** `log` |
 | `PIPE-7` | ✅ Implemented | Task 7 | `#append` to the tail, `#prepend` to the head, and flattening derived from the stage table |
 | `PIPE-8` | ✅ Implemented | Task 2, Task 5, Task 7 | SEND is terminal, holds no user step, rejects installation, and flattening skips it |
-| `PIPE-9` | ✅ Implemented | Task 8 | Direct dispatch threading the caller's arguments, plus a zero-cursor `ObjectSpace` delta (`DEF-33`) |
+| `PIPE-9` | ✅ Implemented | Task 8 | Direct dispatch threading the caller's arguments, plus a zero-cursor `ObjectSpace` delta (CRuby-only, per phase 3a's `IO-38` postponement) |
 | `PIPE-10` | ✅ Implemented | Task 6, Task 8 | Per-call cursor, delta ≥ 1 on a one-step pipeline, 16 concurrent calls → 16 distinct cursors |
 | `PIPE-11` | ✅ Implemented | Task 4, Task 6, Task 8 | The step protocol takes the cursor as its second argument; the 16-thread test is the concurrency half |
 | `PIPE-12` | ✅ Implemented | Task 4, Task 6 | Bidirectional step contract; a short-circuiting step returns without advancing downstream |
@@ -3494,14 +3506,14 @@ Expected: exit code 0, "no drift found."
 | `PIPE-29` | ✅ Implemented | Task 6, Task 10 | The runtime's obligation is unconditional; `PIPE-29`'s permission is about what a step author may do |
 | `PIPE-30` | ✅ Implemented | Task 6, Task 10 | `StandardError` → failed future; `ScriptError` propagates through a **bare** `raise` (verified fact 7) |
 | `PIPE-31` | ✅ Implemented | Task 10 | Four tests: close on success, close on handler failure with the identical error, tolerated double close, cancel carrying its reason (P4-38) |
-| `PIPE-32` | ✅ Implemented | Task 10 | The documentation clause is discharged in `AsyncPipeline`'s YARD; the substantive clause holds vacuously until `DEF-39` |
-| `PIPE-33` | ⏳ Partially unsatisfied | Task 8 (`DEF-18`) | Clauses 1–4 met through `Transport.async_over` — one `#post` for a five-step pipeline; clause 5's interrupt mode is `DEF-18` and design §10.5 |
+| `PIPE-32` | ✅ Implemented | Task 10 | The documentation clause is discharged in `AsyncPipeline`'s YARD; the substantive clause holds vacuously until the postponed constructors land (phase 6b, Task 13a) |
+| `PIPE-33` | ⏳ Partially unsatisfied | Task 8 (design §10.5) | Clauses 1–4 met through `Transport.async_over` — one `#post` for a five-step pipeline; clause 5's interrupt mode is design §10.5's unsatisfied MUST (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) |
 | `PIPE-34` | ✅ Implemented | Task 8 | `AsyncTransport.sync_over` over a built async pipeline: options by identity, and a cancelled token raising `CancelledError` rather than blocking (P4-35) |
 | `PIPE-35` | ✅ Implemented | Task 7, Task 8 | FLATTEN runs the new probe **twice**, NEST **once** — the only assertion that distinguishes the two constructors |
-| `PIPE-36` | ⏳ Deferred | `DEF-4` | Post-MVP, pre-existing; nothing here implements any part of it. R10's table is where a lock would go |
+| `PIPE-36` | ⏳ Declined for v1 | MVP-scope design (`docs/first-release.md` § What v1 ships without › SHOULD/MAY) | Post-MVP, pre-existing; nothing here implements any part of it. R10's table is where a lock would go |
 | `PIPE-37` | ✅ Implemented | Task 9 | Asserted **through** the pipeline under a twice-forking REDIRECT: one invocation, identity return, `#source` never called, response unclosed |
 | `PIPE-38` | ✅ Implemented | Task 7 | `append_all` preserves order, `prepend_all` reverses it; the asymmetry is in `#prepend_all`'s YARD, as the requirement demands |
-| `PIPE-39` | ⏳ Deferred in half | Task 8, Task 10 (`DEF-39`) | `Pipeline.direct` / `AsyncPipeline.direct` ship; `Pipeline.standard` / `AsyncPipeline.standard` defer to phase 6 over `#install_preset` |
+| `PIPE-39` | ⏳ Postponed in half | Task 8, Task 10 (design's postponement; phase 6b, Task 13a) | `Pipeline.direct` / `AsyncPipeline.direct` ship; `Pipeline.standard` / `AsyncPipeline.standard` are phase 6's, written over `#install_preset` |
 | `PIPE-40` | ✅ Implemented | Task 3, Task 6 | `ForkingProbe` is the conformance fixture; three drives, the first two responses closed, the returned one not |
 
 ### Deviations P4-26 through P4-39 Mapped to Tasks
@@ -3516,7 +3528,7 @@ Expected: exit code 0, "no drift found."
 | P4-31 | Sixteen stages | Task 2 |
 | P4-32 | `Stage` is `private_class_method :new` with no public factory | Task 2 |
 | P4-33 | Cursor single-use latch is unsynchronised ivar; sequential-only detection | Task 6 |
-| P4-34 | `PIPE-24` all-or-nothing preset mechanism with step set deferred under `DEF-39` | Task 7 |
+| P4-34 | `PIPE-24` all-or-nothing preset mechanism with step set postponed to phase 6b, Task 13a | Task 7 |
 | P4-35 | 4c ships no bridge; reuses phase 2 bridges | Task 8 |
 | P4-36 | `AsyncPipeline` is flat constant | Task 10 |
 | P4-37 | One `PipelineError`, carrying no fields (nine conditions in the row, eleven message forms once R10's table is counted) | Tasks 1, 5, 6, 7 |
@@ -3525,8 +3537,9 @@ Expected: exit code 0, "no drift found."
 
 ### Design Section Review
 
-- **Purpose & Scope:** all 40 `PIPE` IDs dispositioned above — 37 ✅, `PIPE-33` ⏳ (`DEF-18`, four of
-  five clauses), `PIPE-36` ⏳ (`DEF-4`), `PIPE-39` ⏳ (`DEF-39`, one of two constructors).
+- **Purpose & Scope:** all 40 `PIPE` IDs dispositioned above — 37 ✅, `PIPE-33` ⏳ (§10.5, four of
+  five clauses), `PIPE-36` ⏳ (declined for v1), `PIPE-39` ⏳ (postponed to 6b, Task 13a; one of two
+  constructors).
 - **Prerequisites & independence:** nothing here waits on 4a, and the only thing consumed from 4b is
   the `Transform` value type (Task 9). No allowlist entry, no `add_dependency`, no `require` beyond
   `require_relative`.
@@ -3542,11 +3555,11 @@ Expected: exit code 0, "no drift found."
 - **R11:** `(stage, key)` state, the only write an argument to `#fork`, landing in the owner's own
   slot from the frozen entry table. All five assertions in Task 6, the last two negatives included.
 - **R12:** one `if` in `Pipeline#call`; all four assertions in Task 8, both `ObjectSpace` deltas under
-  `GC.disable` with `DEF-33` named in the comment.
+  `GC.disable` with the CRuby-only caveat (phase 3a's `IO-38` postponement) named in the comment.
 - **R13:** no bridge, no executor, no wait, no new signature. Tasks 8's `PIPE-33` and `PIPE-34` tests
   compose phase 2's two bridges over a real built pipeline and nothing else.
 - **R14:** `#install_preset` ships as a general mechanism with no standard step set;
-  `Pipeline.direct` / `AsyncPipeline.direct` ship; `DEF-39` carries the rest.
+  `Pipeline.direct` / `AsyncPipeline.direct` ship; phase 6b, Task 13a carries the rest.
 - **Generic adapter:** `TransformStep` reads `#phase` at build, calls `#apply` and never `#call`, and
   declares no `#stage` — all three asserted in Task 9.
 - **Module layout:** twelve `lib/` files, ten `sig/` mirrors, ten `test/` mirrors and three
@@ -3556,14 +3569,14 @@ Expected: exit code 0, "no drift found."
 - **Testing strategy:** every case the design's *Testing strategy* enumerates has a home; the mapping
   is the disposition table above, task by task.
 - **Deviation ledger:** all fourteen rows `P4-26`–`P4-39` assigned to tasks.
-- **Deferrals & open items:** `DEF-39`, `OI-17` and `OI-18` were filed by the **design**; Task 11
-  verifies them and files nothing new.
+- **Postponed work and open items:** the `PIPE-39` constructor postponement, `OI-17` and `OI-18` were
+  recorded by the **design**; Task 11 verifies them and records nothing new.
 
 ### What this plan does not carry, said plainly
 
-- **`PIPE-36` is not implemented and no part of it is.** `DEF-4`'s condition — post-MVP, no narrower
-  trigger — is unmet, and R10's precedence table is where a future lock would go. Verified fact 6
-  records why `Method#owner` cannot detect an inherited `#stage`, so the deferral is not a
+- **`PIPE-36` is not implemented and no part of it is.** The MVP-scope design's condition — post-MVP, no
+  narrower trigger — is unmet, and R10's precedence table is where a future lock would go. Verified fact
+  6 records why `Method#owner` cannot detect an inherited `#stage`, so leaving it out is not a
   convenience.
 - **`PIPE-33`'s interrupt clause has no test, because there is no interrupt mode.** §10.5 settled the
   trade and nothing here re-opens it.

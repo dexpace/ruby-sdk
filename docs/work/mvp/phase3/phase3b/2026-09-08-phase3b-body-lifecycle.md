@@ -39,7 +39,8 @@ design and the governing documents.
   `::Thread::ConditionVariable` are core Ruby and need none. `stringio` and `tempfile` are used in
   `test/` only.
 - **`IO-40` forbids a clock.** No method in 3b takes a timeout, a deadline or a `Cancellation`, and
-  no task reaches for `DEF-28`'s `deadline:` keyword. The only blocking calls are the delegate's own
+  no task reaches for the pivot's `deadline:` keyword (kept off the pivot by phase 2, P2-5, until phase 5a,
+  Task 8). The only blocking calls are the delegate's own
   reads and the sink's own writes.
 - **Every `.rb` file** opens with `# frozen_string_literal: true` on line 1,
   `# SPDX-License-Identifier: MIT` on line 2, then a blank line (`NFR-13`;
@@ -715,7 +716,7 @@ module Dexpace
   # A module and not a base class: MultipartBody and ResponseLoggingBody each compose with
   # something else (Closeable, and later a codec's own mixin), and Ruby has single inheritance. A
   # module and not an RBS interface: an interface can be the type sig/ narrows Request#body and
-  # Response#body to (DEF-26), but it cannot carry the default #replayable?, #content_length and
+  # Response#body to (P3-15), but it cannot carry the default #replayable?, #content_length and
   # #each implementations, and restating those in eleven classes is the drift this exists to stop.
   #
   # Public, not private_constant, for TypedReads' reason (P3-8): the runtime surface snapshot walks
@@ -796,7 +797,7 @@ module Dexpace
     # which is exactly what BODY-30/HTTP-52's BufferBody was.
     #
     # The default RAISES rather than being absent, and that is what makes the sig/ declaration true
-    # of every Dexpace::Body: DEF-26 narrows Response#body to Dexpace::Body?, and
+    # of every Dexpace::Body: P3-15 narrows Response#body to Dexpace::Body?, and
     # Response#body_string reads through this, so a declared-but-undefined member would make the
     # signature a lie. The
     # three bodies that can occupy Response#body -- ResponseBody, ResponseLoggingBody and
@@ -2954,7 +2955,8 @@ module Dexpace
   # (length, offset) window, leaves the handle's own cursor untouched when an offset is given, and
   # returns the byte count -- which is BODY-13's short-write detection for free. It is also the call
   # that becomes a real kernel sendfile/copy_file_range the moment both ends are real ::IOs, which
-  # is what clause 2 is waiting for (DEF-3, DEF-10, phase 8).
+  # is what clause 2 is waiting for (a transport obligation, TRANSPORT-28's, phase 8; declined there
+  # by 8a's R5 and stated in docs/first-release.md under "What v1 ships without").
   #
   # #to_path IS DELIBERATELY NOT DEFINED, and that is the whole of BODY-12's clause-2 answer from
   # this side. Verified on 3.2.11, 3.4.10 and 4.0.6: ::IO.copy_stream checks respond_to?(:to_path)
@@ -4351,7 +4353,7 @@ Merged into `sig/dexpace/http/response.rbs`, quoted standalone here so the addit
 validated on its own:
 
 ```rbs
-# The three methods phase 3b adds to phase 1's Response, and the DEF-26 narrowing of #body. In the
+# The three methods phase 3b adds to phase 1's Response, and the P3-15 narrowing of #body. In the
 # repository these are merged into sig/dexpace/http/response.rbs; they stand alone here so the
 # addition can be validated on its own.
 module Dexpace
@@ -4590,7 +4592,7 @@ Immediately after `private_class_method :clamp_cap` and before the `private` key
     # BODY-30/HTTP-52 fix this number in their own text ("a fixed cap (1 MiB)"), so there is nothing
     # to configure and it takes no keyword. Distinct from Dexpace::IO::MAX_MATERIALIZED_BYTES, which
     # bounds one contiguous String, and from the body-logging preview size, which IS a parameter
-    # (DEF-34). Collapsing any two of the three breaks a requirement.
+    # (its source is phase 5b's, Tasks 14-15). Collapsing any two of the three breaks a requirement.
     MAX_BUFFERED_ERROR_BODY_BYTES = 1024 * 1024
 
     # ---- BODY-30/HTTP-52's bounded replayable copy -----------------------------------------
@@ -4900,7 +4902,7 @@ class DexpaceRequestLoggingBodyTest < DexpaceTestCase
 
   # BODY-34's enablement clause is satisfied STRUCTURALLY in phase 3b: nothing in core constructs a
   # logging wrapper, so the wrappers are off the path unless something builds one. Phase 5's
-  # instrumentation layer is the thing that will (DEF-34).
+  # instrumentation layer is the thing that will (phase 5b, Tasks 14-15).
   test "nothing in the core library constructs a logging wrapper" do
     root = File.expand_path("../../../../lib", __dir__)
     sources = Dir.glob("#{root}/**/*.rb").grep_v(/request_logging_body\.rb\z/)
@@ -4962,7 +4964,7 @@ module Dexpace
   # Nothing in core constructs one of these. That is how BODY-34's enablement clause ("body
   # logging MUST be engaged only when body-level logging is enabled") is satisfied in phase 3b --
   # STRUCTURALLY, not by a flag: the wrapper is off the path unless something builds it, and the
-  # only thing that will is phase 5's instrumentation layer (DEF-34).
+  # only thing that will is phase 5's instrumentation layer (phase 5b, Tasks 14-15).
   class RequestLoggingBody
     include Dexpace::Body
 
@@ -5663,8 +5665,9 @@ Expected: FAIL — `uninitialized constant Dexpace::ResponseLoggingBody`.
 `Dexpace.close_quietly(self)` on the fits-cap path is `BODY-28`'s "best-effort" **and**
 `BODY-27`'s close-once guard at once: it routes through this wrapper's own `#close`, so the latch
 flips before `#release` runs and a delegate whose close raises is still marked closed, while the
-failure is dropped rather than reported as a drain error. `DEF-27`'s condition is still unmet, so
-the rescued error is still dropped; the row is strengthened, not met.
+failure is dropped rather than reported as a drain error. The condition phase 2 set for
+`close_quietly`'s two disposal routes is still unmet (phase 4b, Task 2 supplies the first, phase 5b, Task 14
+the second), so the rescued error is still dropped; the case is strengthened, not met.
 
 ```ruby
 # frozen_string_literal: true
@@ -5694,7 +5697,8 @@ module Dexpace
     # default would mean BODY-24's over-cap regime never fires and a multi-gigabyte response is
     # fully buffered by the wrapper whose whole purpose is to bound it. Required, therefore --
     # deliberately asymmetric with RequestLoggingBody (P3-18). Adding a default in phase 5 widens
-    # the signature and cannot break NFR-4 (DEF-28's precedent, DEF-34).
+    # the signature and cannot break NFR-4 (phase 2's deadline: precedent, P2-5; the source is
+    # phase 5b's, Tasks 14-15).
     def initialize(delegate, preview_bytes:)
       unless delegate.respond_to?(:source)
         raise Dexpace::InvalidArgumentError,
@@ -5887,8 +5891,8 @@ module Dexpace
       taken = fill_prefix
       @complete = probe_complete(taken)
       # BODY-28: on the fits-cap path the delegate close is BEST EFFORT. Dexpace.close_quietly's
-      # first call site in this SDK (DEF-27's condition is still unmet, so the rescued error is
-      # still dropped). It routes through this wrapper's own #close, so BODY-27's close-once guard
+      # first call site in this SDK (neither of phase 2's two disposal routes exists yet -- phase 4b,
+      # Task 2 and phase 5b, Task 14 -- so the rescued error is still dropped). It routes through this wrapper's own #close, so BODY-27's close-once guard
       # still owns the only close path, and a delegate whose close raises is still marked closed.
       Dexpace.close_quietly(self) if @complete
       nil
@@ -6604,11 +6608,12 @@ Expected: exit 0, and the only changed files are `tools/measure_view_retention.r
 
 ---
 
-## Task 14: Wiring, `DEF-26`'s narrowing, the two regenerated artifacts, and the checklist
+## Task 14: Wiring, the body-member narrowing, the two regenerated artifacts, and the checklist
 
 **Requirement IDs:** `HTTP-46` as a **cross-reference** row — the ID is phase 1's, and the body half
 of its by-value equality was untestable there because no body type existed; `NFR-3`, `NFR-4`,
-`NFR-11`; `DEF-26`, **picked up**. Deviations **P3-14**, **P3-15**, **P3-22**.
+`NFR-11`; the body-member narrowing phase 1 postponed to phase 3, **picked up**. Deviations **P3-14**,
+**P3-15**, **P3-22**.
 **Design:** "The three additions to phase-1 types", third row; R6's constant table.
 
 **Files:**
@@ -6617,7 +6622,8 @@ of its by-value equality was untestable there because no body type existed; `NFR
   `gems/dexpace-core/test/dexpace/http/request_test.rb` (append two tests),
   repository-root `test/fixtures/surface/dexpace-core.txt`
 - Create: `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`
-- Modify: `docs/deferred-items.md` — `DEF-3` amended, `DEF-26` marked picked up
+- Modify: `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` — the phase-3b status note records that
+  `BODY-12`'s first clause and the body-member narrowing have landed (Step 7)
 
 **Interfaces:**
 - Consumes: every constant Tasks 1–12 produced.
@@ -6660,9 +6666,9 @@ Run: `bundle exec rake gates:require_allowlist gates:gemspec_audit`
 Expected: clean. Phase 3b adds exactly one `require` — `securerandom` in `multipart_body.rb`, on
 phase 0's twelve-name list — and zero `add_dependency` lines.
 
-- [ ] **Step 3: Narrow `Request#body` and `Response#body` in `sig/` — `DEF-26`, picked up**
+- [ ] **Step 3: Narrow `Request#body` and `Response#body` in `sig/` — phase 1's postponed narrowing, picked up**
 
-`DEF-26`'s pick-up condition named phase 3 explicitly, and 3b is where a body type exists to narrow
+Phase 1 postponed this narrowing to phase 3 by name, and 3b is where a body type exists to narrow
 to. In `sig/dexpace/http/request.rbs` and `sig/dexpace/http/response.rbs`:
 
 ```rbs
@@ -6677,8 +6683,9 @@ so every variant type-checks and Steep sees all eleven.
 
 **No coercion is added at `Request::Builder`.** `#body=` continues to accept and store whatever it
 is given; it does not turn a `String` into a `BytesBody`. Coercion would put a second
-replayability-classification site next to `HTTP-38`'s one. `DEF-23` records that no Steep target
-covers a test tree, so phase 1's suites are unaffected by the narrowing.
+replayability-classification site next to `HTTP-38`'s one. Phase 0 recorded that no Steep target
+covers a test tree (event-gated under `docs/first-release.md` § Post-release triggers), so phase 1's
+suites are unaffected by the narrowing.
 
 - [ ] **Step 4: Append `HTTP-46`'s body-half tests to `test/dexpace/http/request_test.rb`**
 
@@ -6742,30 +6749,34 @@ no constant outside `Dexpace::` and the fixed stdlib allowlist appears in any pu
 whole point.
 
 The lock diffs against the previous release tag and **there is none**: every gem is at `0.0.0` and
-nothing is published (`docs/first-release.md`). `DEF-26`'s narrowing is therefore free now and would
-not be later, which is exactly why the row targeted phase 3.
+nothing is published (`docs/first-release.md`). The narrowing is therefore free now and would not be
+later, which is exactly why phase 1 targeted it at phase 3.
 
-- [ ] **Step 7: Verify the two register rows the design already amended still describe the code**
+- [ ] **Step 7: Verify the two postponements the design already dispositioned still describe the code, and record that they landed**
 
-**This step edits nothing unless the code disagrees with the register.** Phase 3b's design already
-performed both amendments in `docs/deferred-items.md`, and this step is the check that the shipped
-code matches what they now claim — a register row amended by a design and falsified by the
-implementation is worse than one never touched.
+**This step changes no code.** Phase 3b's design already recorded both dispositions (its "Work Phase 3b
+Postpones" section and the `BODY-12`/`BODY-36` table), and this step is the check that the shipped code
+matches what they claim — a disposition written by a design and falsified by the implementation is worse
+than one never recorded.
 
-- **`DEF-3`** reads "BODY-12, clause 1 — met and discharged by phase 3b", naming
+- **`BODY-12`, clause 1 — met and discharged by phase 3b.** The design names
   `::IO.copy_stream(handle, sink, count, offset)`, the four verified properties, `#path`/`#offset`/
-  `#count`, the deliberate absence of `#to_path`, clause 2 targeting phase 8 with `DEF-10`, and
-  `BODY-36`'s condition as "core's dependency budget changes". Confirm Task 6 shipped exactly that;
-  its status line reads `deferred (BODY-12 clause 1 discharged 2026-09-08, phase 3b)`.
-- **`DEF-26`** reads `picked-up (2026-09-08, phase 3b)`, citing the `sig/` narrowing to
-  `Dexpace::Body?` and `HTTP-46`'s by-value body comparison against real body types. Confirm Steps 3
-  and 4 shipped exactly that.
+  `#count`, the deliberate absence of `#to_path`, clause 2 staying a phase-8 transport obligation beside
+  `TRANSPORT-28`'s zero-copy clause, and `BODY-36`'s condition as "core's dependency budget changes".
+  Confirm Task 6 shipped exactly that.
+- **The body-member narrowing phase 1 postponed to phase 3 — picked up (2026-09-08, phase 3b).** The
+  `sig/` narrowing to `Dexpace::Body?` and `HTTP-46`'s by-value body comparison against real body types.
+  Confirm Steps 3 and 4 shipped exactly that.
 
-`DEF-34` was filed by the design and needs no change. `DEF-27`, `DEF-28`, `DEF-29` and `DEF-33` are
-strengthened rather than met and their text stands: `BODY-28` is `close_quietly`'s first call site
-and neither disposal route exists yet; `FakeBody` and `FakeResponseBody` are two more doubles that
-would move into `dexpace-conformance` when a consumer outside `dexpace-core` appears, which is phase
-8 at the earliest.
+Then record both where they now live: mark the `BODY-12` and `HTTP-46` rows in this phase's checklist
+(Step 8) with the clause discharged and the narrowing picked up, and say in the roadmap's phase-3b status
+note that the narrowing phase 1 postponed to phase 3 has landed and that `BODY-12`'s first clause is
+discharged. The body-logging configuration source the design postponed to phase 5 needs no change:
+phase 5a, Task 13 and phase 5b, Tasks 14–15 own it. `close_quietly`'s disposal routes, the pivot's
+`deadline:` keyword, the fakes' home and the GVL-free `IO-38` run are strengthened rather than met and
+their reasoning stands: `BODY-28` is `close_quietly`'s first call site and neither disposal route exists
+yet; `FakeBody` and `FakeResponseBody` are two more doubles that would move into `dexpace-conformance`
+when a consumer outside `dexpace-core` appears, which is phase 8 at the earliest.
 
 - [ ] **Step 8: Write the checklist**
 
@@ -6787,7 +6798,7 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `BODY-9` | 4 | P3-16 |
 | `BODY-10` | 1 | `copy_exactly` |
 | `BODY-11` | 6 | six clauses, six tests |
-| `BODY-12` | 6 (clause 1) | clause 2 ⏳ `DEF-3`/`DEF-10`, phase 8; P3-17 |
+| `BODY-12` | 6 (clause 1) | clause 2 ⏳ phase 8's transport obligation with `TRANSPORT-28` (declined by 8a's R5; `docs/first-release.md` § What v1 ships without); P3-17 |
 | `BODY-13` | 1 and 6 | one message form across both copy routines |
 | `BODY-14` | 8 | |
 | `BODY-15` | 8 | |
@@ -6803,15 +6814,15 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `BODY-25` | 1 and 11 | `FakeSource` |
 | `BODY-26` | 11 | three behaviours, three tests |
 | `BODY-27` | 11 | `FakeResponseBody` |
-| `BODY-28` | 11 | `close_quietly`'s first call site; `DEF-27` strengthened |
+| `BODY-28` | 11 | `close_quietly`'s first call site; the case for phase 2's two disposal routes (phase 4b, Task 2; phase 5b, Task 14) strengthened |
 | `BODY-29` | 11 | |
 | `BODY-30` | 9 | body half; the step and the no-body clause are phase 4's |
 | `BODY-31` | 9 | cross-reference: the predicate is phase 1's `Status#error?`, the step is phase 4's; 3b's contribution is the status-blind guarantee and its two tests |
 | `BODY-32` | 1 and 8 | `clamp_cap`, and `#preview(cap:)` |
 | `BODY-33` | 8 | the "null when there is no body" clause is the caller's `nil` check, phase 4's |
-| `BODY-34` | 10 and 11 | parameter half only; the shared source and the enablement predicate are `DEF-34`, phase 5 |
+| `BODY-34` | 10 and 11 | parameter half only; the shared source and the enablement predicate are postponed to phase 5 (5a, Task 13; 5b, Tasks 14–15) |
 | `BODY-35` | 1 | |
-| `BODY-36` | — | ⏳ `DEF-3`; condition: core's dependency budget changes |
+| `BODY-36` | — | ⏳ post-v1; condition: core's dependency budget changes (`docs/first-release.md` § What v1 ships without) |
 | `BODY-37` | 10 | one mechanism with `IO-28`, not two |
 | `HTTP-36` | 1 | |
 | `HTTP-37` | 1, 2, 4 | materialize-once in 1/2, the second-write guard in 4 |
@@ -6986,13 +6997,14 @@ Task 8 without being closed as an item, because what would resolve it is one sen
 design chapter. `OI-10` is the design review's and is **resolved** by the contract widening
 `P3-23` records, which Tasks 1, 2, 8, 9 and 11 implement.
 
-## Deferrals Filed by Phase 3b
+## Work Phase 3b Postpones
 
-**None new.** `DEF-34` was filed by the design and its text needs no change: phase 3b ships the
-parameter shape on both wrappers, one number that can drive both, and the structural half of
-`BODY-34`'s enablement clause, and what it cannot ship is the thing that decides the value and the
-thing that decides "enabled". Task 14 Step 7 **amends `DEF-3`** and marks **`DEF-26` picked up**;
-neither is a new deferral.
+**None new.** The design postponed the body-logging configuration source to phase 5 (its "Work Phase 3b
+Postpones" section; owners phase 5a, Task 13 and phase 5b, Tasks 14–15) and its text needs no change:
+phase 3b ships the parameter shape on both wrappers, one number that can drive both, and the structural
+half of `BODY-34`'s enablement clause, and what it cannot ship is the thing that decides the value and the
+thing that decides "enabled". Task 14 Step 7 confirms **`BODY-12`'s first clause discharged** and **the
+body-member narrowing picked up**; neither is a new postponement.
 
 ## Deviation Ledger
 
@@ -7033,10 +7045,11 @@ length equals the bytes written, and Task 13's measurement is a task rather than
 
 **Boundaries, checked one at a time.** No task writes `Dexpace::Recovery.buffer_error_body`, a status
 check in the body layer, or "a response with no body is returned unchanged" — phase 4. No task adds a
-`ceiling:` keyword, a default preview size, or an "enabled?" predicate — phase 5, `DEF-34`. No task
+`ceiling:` keyword, a default preview size, or an "enabled?" predicate — phase 5 (5a, Task 13; 5b, Tasks
+14–15). No task
 writes `Resilience::Resend.eligible?` or any retry, redirect or auth gate — phase 6. No task writes a
 witness, a codec or a status-aware handler, and nothing here generalises 3b's ownership rule over
-`SEAM-20`/`SEAM-21`/`SERDE-3` — phase 7. No task implements zero-copy dispatch — phase 8, `DEF-10`.
+`SEAM-20`/`SEAM-21`/`SERDE-3` — phase 7. No task implements zero-copy dispatch — phase 8's transport obligation, `TRANSPORT-28`.
 
 **What must ship complete because a later phase depends on it, and does.** `#replayable?` on every
 variant, for phase 6's three gates. `Body.buffer_bounded` plus the constant, for phase 4's step and

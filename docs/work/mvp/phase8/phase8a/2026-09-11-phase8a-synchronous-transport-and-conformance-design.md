@@ -80,7 +80,7 @@ charter had to reason around:
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` §2.1 (`:16-25`), §2.3 (`:41-70`, the layout and
   the `Dexpace::VERSION` registration-time skew assertion) and §2.4 (`:71-105`).
 - `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md` items **4** (`:23-29`),
-  **7** (`:63-67`), **10** (`:77-81`, the wire-boundary re-validation that is `DEF-25`), **11**
+  **7** (`:63-67`), **10** (`:77-81`, the wire-boundary re-validation phase 1 postponed to the adapters), **11**
   (`:82-86`) and **12** (`:87-91`, the stream-ownership rule).
 - `docs/sdk-design-ruby/11-appendix-reference-spec-ambiguities-and-how-this-port-resolves-them.md` item
   **18** (`:59-62`, `TRANSPORT-18` presuming a re-subscribable body producer) and item **21** (`:73-78`,
@@ -122,7 +122,7 @@ charter had to reason around:
   (`8a`'s).
 - `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md` as the closest worked
   example of this document's form.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -154,7 +154,7 @@ task named.
 | Audit group | Query run | What it found for `8a` |
 |---|---|---|
 | *Transport and async-runtime adapters* (the charter's owed row) | `--prefix TRANSPORT --section rules` (30, one per ID, **zero roll-up-tagged**) and `--topic transport-adapter --role design` (8) | The eight design-role entries are the whole of what the corpus says about the Ruby mapping, and **two of them are the sentences `OI-34` and `OI-35` record as false**: `transport-adapter/7e8e2c60` (`TRANSPORT-1`/`TRANSPORT-2` vacuous for this adapter) and `transport-adapter/d16c7444` (the block-scoped `read_body` construction). The other six are adopted: `/e25582ce` and `/938e4c9a` (the duck type), `/52b448e8` (per-call `Net::HTTP`, never a shared client), `/deccd514` (`TRANSPORT-6`'s clamp implemented anyway), `/2985bb74` (the no-op close unless a client was supplied), `/c3d2d69c` (`SEAM-2`) |
-| *Public API surface* | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` (150) | No rule with no note bites `8a`. Load-bearing and adopted: `api-design/88e6bf12` (accept the narrowest duck type, return a concrete frozen value — which is the seam contract), `module-organization/1828a984` (one public constant per file). Already resolved by note and applied unchanged: `module-organization/2a4cc61d` (explicit requires, no Zeitwerk), `/6e69ad04` (flat public constants), `/5c33e5ce` (require-time registration is the one permitted load-time side effect — which is how this adapter registers), `error-handling/d2eadac4` (the module error root) |
+| *Public API surface* | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` (150) | No rule with no note bites `8a`. Load-bearing and adopted: `api-design/88e6bf12` (accept the narrowest duck type, return a concrete frozen value — which is the seam contract), `module-organization/1828a984` (one public constant per file). Already resolved by note and applied unchanged: `module-organization/2a4cc61d` (explicit requires, no Zeitwerk), `/6e69ad04` (flat public constants), `/5c33e5ce` (require-time registration is the one permitted load-time side effect — which is how this adapter registers), `error-handling/e91f8733` (the module error root) |
 | *Gem layout, zero-dependency core* | `--topic package-and-dependency-layout --section rules,constraints --brief` (14) and `--prefix SEAM --section rules --brief` (38) | `package-and-dependency-layout/c41c6c3d` is the entry that licenses this sub-phase's two gemspecs: "adapter gems are exempt from `dexpace-core`'s require restriction — an adapter that wants `logger` declares it, fitting within `NFR-2`'s budget". `/92c1d6c8` fixes the registration-time skew assertion; `/d18d0e25` fixes the gem-name-to-constant mapping; `/72199b8b` makes explicit requires an adapter rule too |
 | *RBS / Steep typing* | `--topic type-system,data-modeling --section rules --brief` (86) | `data-modeling/83610619` (`Model#with` routes through `.build`) and `/5bc538ba` are notes already applied; nothing new. The binding one for `8a` is the `NFR-11` scan, which is a gate rather than a corpus rule |
 | *Minitest conventions* | `--topic testing,assertions --section rules --brief` (29) | `testing/4ef070df` (every test runs alone in any order) is what forces a **fresh wire server and fresh transports per assertion** in the conformance harness rather than one shared server. `testing/f8994c72` is the Sorbet-sigil note, already resolved. `assertions/e8c05720` is the note that says the production assertion primitive is the domain model's helper — which is why `Dexpace::Conformance::Failure` is **not** an `Assert` facade and not a `Dexpace::Error` |
@@ -211,7 +211,7 @@ sentence:
   is guaranteed to run, since a thread with no reference to join can never be recovered." `8a` spawns
   one thread per in-flight response and the object holding it is the one with `#close`.
   <sub>styleguide · `styleguide/ruby/13-resource-management.md:310-314` · high · sha:9abc7f90733b</sub>
-- **`pipeline/f02559b9`** — `raise error, cause: nil` is the spelling for re-raising an error a component
+- **`pipeline/7ce4431d`** — `raise error, cause: nil` is the spelling for re-raising an error a component
   is *carrying* rather than one it just rescued. `8a`'s pump carries the producer's failure across a
   queue and re-raises it on the consumer's thread, which is exactly that shape.
   <sub>review · `docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md` · high · sha:manual-phase4b-reraise-cause</sub>
@@ -256,8 +256,8 @@ Verified Ruby facts section is for.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `TRANSPORT-1`–`6`, `10`, `11`, `14`–`20`, `22`, `24`–`27`, `29` | 20 |
-| Partially satisfied, one clause ⏳ | `TRANSPORT-28` (`DEF-10`) | 1 |
-| ⏳ deferred whole | `TRANSPORT-30` (`DEF-10`) | 1 |
+| Partially satisfied, one clause ⏳ (declined for v1) | `TRANSPORT-28` | 1 |
+| ⏳ whole, declined for v1 | `TRANSPORT-30` | 1 |
 | Vacuous with a stated reason | `TRANSPORT-18` (once `max_retries = 0`) | 1 |
 | **Total in budget** | | **23** |
 
@@ -338,10 +338,12 @@ appendix — never on `8a`'s convenience.
   body as replayable so it can be re-sent" — and its "honoring start position and byte count" clause are
   **satisfied with no transport-specific code**, because `Dexpace::FileBody#replayable?` is `true` and
   `#write_to` is `::IO.copy_stream(handle, sink, count, offset)` (3b), reached through
-  `BufferedSource.over(body)`. The "zero-copy path where supported" clause is **⏳ `DEF-10`**, measured:
+  `BufferedSource.over(body)`. The "zero-copy path where supported" clause is **⏳, declined for v1**
+  (`docs/first-release.md` § What v1 ships without, the `TRANSPORT-28`/`TRANSPORT-30` entry), measured:
   `send_request_with_body_stream` writes to a `Net::BufferedIO`, whose `is_a?(::IO)` is **false**
   (verified fact 12), so the kernel path is unreachable without bypassing the library's own write path.
-- **`TRANSPORT-30` is ⏳ `DEF-10` whole, and the row states which of its clauses are *already* true.**
+- **`TRANSPORT-30` is ⏳ whole under the same `docs/first-release.md` entry, and the row states which of its
+  clauses are *already* true.**
   Its embedded MUSTs — proxy credentials never logged, never answered to an origin 401 — hold vacuously
   because `8a` configures no proxy at all and therefore never holds a credential: the adapter passes no
   `p_addr`/`p_user`/`p_pass` and sets `proxy_from_env = false` explicitly, so `Net::HTTP`'s own
@@ -355,10 +357,11 @@ appendix — never on `8a`'s convenience.
   lands this line **before** the first `require "net/http"` in that gem's `lib/`, because phase 0's
   adapter-extended require-allowlist audit permits "the single third-party gem that adapter's gemspec
   declares" and the reverse order is a red build, not a style preference.
-- **`DEF-25`'s call site in this adapter** — `Dexpace::HeaderSyntax.validate_name!` and
+- **The wire-boundary re-validation call site in this adapter** — `Dexpace::HeaderSyntax.validate_name!` and
   `.validate_outbound_value!` run again over every outbound header immediately before dispatch. Phase 1
   shipped the module as public API for exactly this.
-- **`dexpace-conformance`'s whole content**: `DEF-22`'s `Failure`, the callable assertion protocol, the
+- **`dexpace-conformance`'s whole content**: the `Failure` and callable assertion protocol phase 0 postponed
+  to this phase, the
   `Vacuous` and waiver mechanisms §9.3 and §12 between them require, §9.3's `TCPServer` fixture, the
   transport suite, and the two thin drivers.
 - **`7c`'s `PAGE-36` per-call-options conformance test** — the same transport driven **twice in
@@ -425,13 +428,13 @@ appendix — never on `8a`'s convenience.
 | `SEAM-16`, `SEAM-17`, `SEAM-18`, `SEAM-25`, `SEAM-30` — the async seam, the pivot, the bridges, the orphan close | 2, built. `8a` ships no async transport, posts nothing, and owns no executor |
 | `TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23` | `8c`. Five have an **async-only antecedent**; `TRANSPORT-12`/`13`'s antecedent is a native wire grammar stricter than the SDK model's, which `Net::HTTP` does not have (verified fact 5) |
 | `ASYNC-1`–`ASYNC-22` | `8b` and `8c`. `8a` names no `ASYNC` ID and adds no `ASYNC` row |
-| `HTTP-17`, `HTTP-18`, `XCUT-18` — the validators | 1, built as `Dexpace::HeaderSyntax`. `DEF-25` is the call site and is picked up here; the rows stay phase 1's |
+| `HTTP-17`, `HTTP-18`, `XCUT-18` — the validators | 1, built as `Dexpace::HeaderSyntax`. The wire-boundary re-validation phase 1 postponed to the adapters is the call site and lands here; the rows stay phase 1's |
 | `HTTP-13` — case-insensitive folding | 1. Relevant because `Net::HTTP` normalises name case on the wire (verified fact 11) and the SDK model's folding is unaffected |
 | `HTTP-36`–`HTTP-46`, `BODY-1`–`BODY-37` — the body model | 3b, built. `8a` consumes `Body#each`, `#content_length`, `#media_type`, `#replayable?`, `FileBody`'s window, and `ResponseBody`; it adds no body type |
 | `IO-1`–`IO-42` | 3a, built. `IO-40` is the boundary that keeps deadlines out of them and puts them here |
 | `PIPE-1`–`PIPE-40` | 4c. `8a` installs no step; `PIPE-26`'s "a pipeline is a transport" is why the seam is a duck type |
 | `RETRY`, `REDIR`, `AUTH` | 6. `8a` disables the native equivalents and installs nothing |
-| `OBS-19`, `OBS-28`, `OBS-29` | 5b/5c, with `DEF-41` `8c`'s and `DEF-42` still open. `R6` decides what `8a` wires |
+| `OBS-19`, `OBS-28`, `OBS-29` | 5b/5c, with `OBS-19`'s drop policy `8c`'s (its Tasks 7, 9 and 15) and `OBS-29`'s transport-milestone wiring still open (`OI-36`). `R6` decides what `8a` wires |
 | `SERDE`, `PAGE`, `SSE` | 7. `8a` consumes none of them; `PAGE-36`'s conformance test is a test, not a pagination feature |
 | `NFR-1`–`NFR-17` | 0 built the machinery, 9 dispositions it. `8a` **spends** `dexpace-transport-net_http`'s `NFR-2` budget and asserts nothing about the gate |
 | `Dexpace::TransportError` itself | The **phase-level task**. `8a` raises it and does not define it; whichever sub-phase lands first writes it in `dexpace-core` |
@@ -453,7 +456,7 @@ because the charter requires exactly that of each sub-phase design:
   business, and phase 2's `FakeTransport` is a sufficient driver for every `ASYNC` clause `8b` owns.
   Nothing in `8b` needs a socket, a wire fixture or a real adapter.
 - **`8a` → `8c` is absent, and it is the edge a reader is most likely to invent.** `8c` consumes two
-  artifacts this document **assigns to `8a`** — §9.3's `TCPServer` fixture and `DEF-22`'s assertion
+  artifacts this document **assigns to `8a`** — §9.3's `TCPServer` fixture and the conformance assertion
   protocol — but neither is a *design* dependency: `8c`'s design can be written in full before `8a`
   lands, and `8c`'s obligation is to add a driver rather than to wait. `R16` states which side `8a` is
   on and what `8c` inherits.
@@ -547,7 +550,8 @@ is what makes `Dexpace::TransportError < ::IOError` possible at all.
 
 `Dexpace::Transport`'s duck type and `.conforms?(object)` (`Registry.callable?(object, arity: 3)`);
 `Dexpace::Transport.register(key, factory, core:)` with its **required** skew keyword and
-`Dexpace::SeamError` on mismatch (`DEF-21`, `P2-7`); `Dexpace::Transport.install` and `.swap` for tests;
+`Dexpace::SeamError` on mismatch (the version-skew guard's runtime half, built by phase 2 as `P2-7`);
+`Dexpace::Transport.install` and `.swap` for tests;
 `Dexpace::Closeable` with `#initialize_closeable(owned:)`, `#owned?`, `#closed?`, `#close` and the
 private `#release`, the latch mutex held across the flip and nothing else; `Dexpace.close_quietly`,
 null-safe and rescuing `StandardError`; `Dexpace::Cancellation` with `#cancelled?`, the typed `#reason`,
@@ -630,7 +634,7 @@ Verified fact 7 is the list that obligation has to cover, and none of the famili
 
 ### From phase 7
 
-`7a` leaves `DEF-22`'s callable-plus-`Failure` shape alone for this phase deliberately, and records
+`7a` leaves the conformance protocol's callable-plus-`Failure` shape alone for this phase deliberately, and records
 `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb` as **phase 9's** lift target, not
 phase 8's — so `8a` writes a transport suite and no serde suite. `7b` requires nothing of a transport
 beyond `Response#body` answering `#source`, which is 3b's contract. `7c` hands forward `PAGE-36`'s
@@ -843,8 +847,8 @@ prescribes and `8a` ships — written to
     `IO.copy_stream(f, sock)` on one path and `IO.copy_stream(f, Chunker.new(sock))` on the other, and
     which raises `ArgumentError` unless a `Content-Length` or `chunked?` is set. Instrumenting
     `IO.copy_stream` showed **`dst=Net::BufferedIO`, `is_IO=false`** — so the kernel `sendfile` path is
-    unreachable, which is `TRANSPORT-28`'s zero-copy clause and `DEF-3`'s `BODY-12` clause 2, measured
-    rather than inferred.
+    unreachable, which is `TRANSPORT-28`'s zero-copy clause and `BODY-12` clause 2 (the kernel path phase 3b
+    targeted at phase 8), measured rather than inferred.
     *Commands:* `ruby bstream.rb`, `ruby final.rb`, `ruby cl.rb`.
 
 15. **`Net::HTTP` releases the connection when adaptation raises inside the block, and it uses
@@ -943,7 +947,7 @@ the surface `BufferedSource.wrapping` needs plus `#close`.
    `Net::HTTP.start(host, port, …) { |c| … }`, sets `c.max_retries = 0`, and calls
    `c.request(native) { |res| queue.push([:head, res]); res.read_body { |chunk| queue.push([:chunk, chunk]) } }`.
    The first `pop` yields `[:head, res]` **or** `[:error, e]`; a failure before the head is re-raised on
-   the caller's thread with `raise error, cause: nil` (`pipeline/f02559b9`), because the pump is
+   the caller's thread with `raise error, cause: nil` (`pipeline/7ce4431d`), because the pump is
    *carrying* an error rather than rescuing one, and `$!` on the consumer's thread may be the caller's.
 2. **The head is adapted on the caller's thread**, not the producer's, so every `Dexpace::` object in
    the returned graph is built where the caller can see the failure. If adaptation raises, `TRANSPORT-22`
@@ -1034,7 +1038,7 @@ construction-time stamps, copies exactly the caller's headers minus a named mana
 
 The dispatch path, in order, is the whole answer:
 
-1. **Wire-boundary re-validation (`DEF-25`).** Every outbound name through
+1. **Wire-boundary re-validation (the mitigation phase 1 postponed to the adapters).** Every outbound name through
    `Dexpace::HeaderSyntax.validate_name!` and every outbound value through `.validate_outbound_value!`,
    **before anything is copied**. A violation raises `Dexpace::InvalidArgumentError` naming the header —
    it is not a drop, and charter boundary 11 forbids merging it with `TRANSPORT-12`'s per-header drop.
@@ -1265,11 +1269,12 @@ later will otherwise re-introduce it.
 
 ---
 
-## `R5` — `TRANSPORT-28`'s reachable half, and what that does to `DEF-3`
+## `R5` — `TRANSPORT-28`'s reachable half, and what that does to `BODY-12` clause 2
 
 **Decision: the reachable halves are implemented, cost no adapter code at all, and the row is
-*partially satisfied* rather than ⏳ whole. `DEF-3`'s `BODY-12` clause 2 is marked UNSCHEDULED with phase
-8a named.**
+*partially satisfied* rather than ⏳ whole. `BODY-12` clause 2 — the kernel zero-copy path phase 3b targeted
+at phase 8 — is declined by `8a`, with the phase named; *Work phase 8a postponed, and who owns it now* below is the owning record of
+that decline.**
 
 `TRANSPORT-28` is one SHOULD with an embedded MUST and three separable claims:
 
@@ -1277,7 +1282,7 @@ later will otherwise re-introduce it.
 |---|---|---|
 | "MUST treat a file body as replayable so it can be re-sent" | **satisfied** | `Dexpace::FileBody#replayable?` is `true` (3b) and `#write_to` opens a **fresh** handle per write, so a retry or a redirect re-sends identical bytes. The adapter asks `#replayable?` and never caches |
 | "honoring start position and byte count" | **satisfied** | `FileBody#write_to(sink)` is `::IO.copy_stream(handle, sink, count, offset)` (3b, verified there on all three interpreters). Reached through `BufferedSource.over(body)` → `body.each` → `#write_to`, so the window is honoured by phase 3b's code and the adapter contributes nothing |
-| "on a zero-copy path where supported" | **⏳ `DEF-10`** | Measured (verified fact 14): `send_request_with_body_stream` writes to a `Net::BufferedIO`, and instrumenting `IO.copy_stream` reports `is_IO=false` for the destination. The kernel `sendfile` path requires two real `::IO`s, so it is unreachable without bypassing the library's own write path — which would mean writing the request framing by hand and giving up `Chunker`, `wait_for_continue` and every future `net-http` fix |
+| "on a zero-copy path where supported" | **⏳, declined for v1** (`docs/first-release.md` § What v1 ships without) | Measured (verified fact 14): `send_request_with_body_stream` writes to a `Net::BufferedIO`, and instrumenting `IO.copy_stream` reports `is_IO=false` for the destination. The kernel `sendfile` path requires two real `::IO`s, so it is unreachable without bypassing the library's own write path — which would mean writing the request framing by hand and giving up `Chunker`, `wait_for_continue` and every future `net-http` fix |
 
 **Marking the whole ID ⏳ would defer a met MUST**, which is the one outcome the checklist legend exists
 to prevent. The charter's own `R5` invites the split ("decide whether to implement the reachable half and
@@ -1287,18 +1292,21 @@ option with the measurement attached. The conformance assertion `TRANSPORT-28`'s
 the wire" — is written and passes; the zero-copy clause has no assertion because it has no observable
 behaviour to assert, which is itself the reason it is a SHOULD.
 
-**`DEF-3`'s `BODY-12` clause 2**, whose own text says it "targets phase 8", has its condition met and its
-action declined, on the measurement above. Per the roadmap's retirement rule that is **UNSCHEDULED with
-the phase named**, not `picked-up` and not silently carried. `BODY-36`'s half is untouched — its condition
-is core's dependency budget changing, which phase 8 does not do.
+**`BODY-12` clause 2**, which phase 3b's disposition says "targets phase 8", has its condition met and its
+action declined, on the measurement above. Per the roadmap's retirement rule that is **a decline with the
+phase named**, not work done and not silently carried; `docs/first-release.md` § What v1 ships without, the
+`BODY-36`/`BODY-12` entry, states it for the release notes. `BODY-36`'s memory-mapped view is untouched — its
+condition is core's dependency budget changing, which phase 8 does not do.
 
-**`DEF-10` is not marked.** Its condition is "revisit when a transport adapter **beyond the two MVP
-transports** ships", and phase 8 ships exactly those two. `TRANSPORT-30` stays ⏳ against it whole, and
-`TRANSPORT-28`'s third clause stays ⏳ against it as a clause.
+**`TRANSPORT-28`'s zero-copy clause and `TRANSPORT-30` are a different case and are not declined *by `8a`*.**
+The MVP scope design declined both for v1 on the condition "revisit when a transport adapter **beyond the two
+MVP transports** ships", and phase 8 ships exactly those two. `TRANSPORT-30` stays ⏳ whole and
+`TRANSPORT-28`'s third clause stays ⏳ as a clause, both under `docs/first-release.md` § What v1 ships without,
+the `TRANSPORT-28`/`TRANSPORT-30` entry.
 
 ---
 
-## `R6` — whether `DEF-42`'s transport-milestone group is wired
+## `R6` — whether `OBS-29`'s transport-milestone group is wired
 
 **Decision: the tracer is NOT wired and the row stays open; the *logger* is wired, through a constructor
 keyword, and the two are different for a stated reason.** `P8-7`.
@@ -1328,8 +1336,9 @@ three routes it names each fail:
   options MUST behave identically to the no-options call" is the spirit of. And it would publish a third
   core-owned `Fiber[]` key where 5b deliberately published two.
 
-So `8a` emits none of `OBS-28`'s five transport milestones, **`DEF-42` stays open on this half as well as
-on `OI-32`'s**, and `OBS-29`'s transport group is not marked emitted on the strength of a method nothing
+So `8a` emits none of `OBS-28`'s five transport milestones, **`OBS-29`'s wiring stays open on this half
+(`OI-36`) as well as on the operation-lifecycle triple (`OI-32`) — both on phase 10's inbound list in the
+roadmap's 2026-09-13 status note** — and `OBS-29`'s transport group is not marked emitted on the strength of a method nothing
 calls. `8c` inherits the same answer and the same reason.
 
 **The logger is a different object and it is wired.** `TRANSPORT-11` ("SHOULD additionally log each drop
@@ -1358,9 +1367,10 @@ stub cannot express plus "the *same* assertions could not run unchanged against
 
 **`lib/`, not `test/`.** §9.3's whole argument is that a third-party adapter author runs these
 assertions, which means they ship in the gem; phase 0 already gave that `lib/` its own Steep target. The
-consequence is that **`DEF-23` stays unmet**: its condition is "a Steep target over a `test/` tree", and
-nothing `8a` writes under `test/` is production-quality code worth checking. `8a` confirms the row rather
-than picking it up.
+consequence is that **the Steep-target-over-`test/` condition phase 0 postponed stays unmet**: it is "a Steep
+target over a `test/` tree", and nothing `8a` writes under `test/` is production-quality code worth checking.
+`8a` confirms the decision rather than acting on it; the trigger now lives in `docs/first-release.md` § Post-release
+triggers, the Steep-over-`test/` entry.
 
 **A factory, not a mixin.** The two shapes are a module included into the adapter author's own test
 class, and a driver taking a callable that builds a transport. The factory wins on three counts, and the
@@ -1431,7 +1441,7 @@ so a third-party adapter author is not misled about what a green run proves. `P8
 
 ## `R16` — who writes the conformance harness
 
-**`8a` writes it.** The charter assigns §9.3's `TCPServer` fixture and `DEF-22`'s assertion protocol to
+**`8a` writes it.** The charter assigns §9.3's `TCPServer` fixture and the conformance assertion protocol to
 `8a`, `8a` is the recommended first sub-phase, and this document accepts both artifacts without
 qualification. There is no branch here to leave open: if `8c` lands first it will find nothing to consume
 and will have to write them, at which point `8a`'s design records that it consumed rather than wrote them
@@ -1503,7 +1513,7 @@ which is the half `8c` supplied and which an `8a`-only reading would have left u
 9. **Every assertion body is invoked by the driver, so the driver may wrap it.** `TransportSuite.run`
    takes an optional `around:` callable that receives each assertion's invocation as a block; the async
    driver passes `->(&blk) { Sync { blk.call } }`, because `8c`'s transport fails its future outside a
-   reactor by design (`P8-39`). This is already `DEF-22`'s shape — "each one a callable that either
+   reactor by design (`P8-39`). This is already the protocol's shape as phase 0 recorded it — "each one a callable that either
    returns cleanly or raises a `Dexpace::Conformance::Failure`" — made explicit: an assertion that
    reached out to a Minitest method body directly could not be wrapped. **A body streamed under a fiber
    scheduler is the case this exists for**: `TRANSPORT-25`'s multi-megabyte round trip and
@@ -1647,7 +1657,8 @@ arriving.
 The file ends with
 `Dexpace::Transport.register(REGISTRY_KEY, method(:default), core: "~> #{…}")` — the one load-time side
 effect this repository permits (`module-organization/5c33e5ce`), with the **required** skew keyword that
-raises `Dexpace::SeamError` on a `Dexpace::VERSION` mismatch (§2.3, `DEF-21`, `P2-7`).
+raises `Dexpace::SeamError` on a `Dexpace::VERSION` mismatch (§2.3; the version-skew guard's runtime half,
+phase 2's `P2-7`).
 
 **`Dexpace::Transport::NetHTTP::Adapter`** — the transport. `private_class_method :new`; includes
 `Dexpace::Closeable`, calling `initialize_closeable(owned:)` with the construction-time fact; frozen
@@ -1728,7 +1739,7 @@ and it is the whole of `TRANSPORT-3`, `TRANSPORT-4` and `TRANSPORT-20`. Its rule
 
 | Constant | Role |
 |---|---|
-| `Dexpace::Conformance::Failure < ::StandardError` | `DEF-22`'s failure, carrying `#expected`, `#actual` and `#requirement_ids`. **Not** a `Dexpace::Error` (`P8-8`) |
+| `Dexpace::Conformance::Failure < ::StandardError` | The assertion protocol's failure, carrying `#expected`, `#actual` and `#requirement_ids`. **Not** a `Dexpace::Error` (`P8-8`) |
 | `Dexpace::Conformance::Vacuous < ::StandardError` | Raised from inside an assertion that has established its antecedent is absent, carrying `#reason`. §12's distinction, made a result rather than a claim |
 | `Dexpace::Conformance::Assertion` | `Data.define(:ids, :name, :body)`; `#call(subject)`. `ids` is a frozen array of requirement-ID strings, which is what makes a waiver by ID possible |
 | `Dexpace::Conformance::Result` | `Data.define(:assertion, :status, :detail)`; status in `:passed`, `:failed`, `:vacuous`, `:waived`, `:error` |
@@ -1813,7 +1824,7 @@ Each of the charter's twenty boundaries is honoured by name, not re-argued. The 
    `Timeout.timeout` for the connect phase, which is outside both the cop's scan and the hazard, and
    which is proposed as a register finding rather than accepted silently.
 4. **§10.5's three MUSTs (boundary 4).** `8b`'s and `8c`'s. `8a` names no `ASYNC` ID and adds no ⏳ row
-   against `DEF-18`.
+   for the unsatisfied `ASYNC-3` MUST (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs).
 5. **The pivot is core-owned (boundary 5).** `8a` ships no async transport and constructs no
    `Completer`. Stated because `Transport.async_over` will wrap this adapter and a reader may expect it
    to know.
@@ -1832,7 +1843,7 @@ Each of the charter's twenty boundaries is honoured by name, not re-argued. The 
     the mutex across the release, which for the pump is a queue close, a socket close and a join — every
     one of them a suspension point.
 11. **Wire-boundary re-validation raises; `TRANSPORT-12`'s drop is a different rule (boundary 11).**
-    `DEF-25`'s call site raises `Dexpace::InvalidArgumentError`; `MANAGED_HEADERS` drops. The two sets are
+    The wire-boundary re-validation call site raises `Dexpace::InvalidArgumentError`; `MANAGED_HEADERS` drops. The two sets are
     disjoint by construction — a managed header is dropped whether or not it is valid, and an invalid
     header raises whether or not it is managed — and `8a` merges them nowhere.
 12. **A pipeline is a transport and closing it is a no-op on the transport (boundary 12).** `8a` makes no
@@ -1860,7 +1871,8 @@ Each of the charter's twenty boundaries is honoured by name, not re-argued. The 
     yields a `URI::HTTP` whose `#request_uri` is `"/a/b?c=1"`, and that the `https` form defaults its
     `#port` to 443. `Dexpace/NoUriDefaultParser` has nothing to bite, and that is
     because phase 1 did the parse, not because `8a` avoided one.
-20. **`OBS-19` rides on `TRANSPORT-13` (boundary 20).** `8c`'s, via `DEF-41`. `8a` drops headers under
+20. **`OBS-19` rides on `TRANSPORT-13` (boundary 20).** `8c`'s, as the `DropPolicy` its Tasks 7, 9 and 15
+    build — the work phase 5b postponed to phase 8's first dropping adapter. `8a` drops headers under
     `TRANSPORT-11` and logs each at verbose, which is a *different* rule over a *different* set — the
     headers the transport manages, not the headers the native grammar rejects — and `8a` ships no
     three-mode policy object.
@@ -1916,7 +1928,7 @@ bug.
    `Content-Length` and `Host` plus a pass-through header — with the assertion that the pass-through
    *survived* written as a separate test from the assertion that the framing headers were recomputed,
    because one passing while the other fails is the interesting outcome. The three auto-stamps asserted
-   **absent**. `DEF-25`'s re-validation asserted by constructing a forged request through
+   **absent**. The wire-boundary re-validation asserted by constructing a forged request through
    `Request.send(:new, …)` carrying a CRLF header name — the exact hole §10.10 admits — and asserting the
    adapter raises before any byte reaches the socket.
 2. **`ResponseMapper` unit tests.** `TRANSPORT-24`'s clause with a `520` and a body, plus a `499`;
@@ -1933,7 +1945,7 @@ bug.
    on a queue push. Double close. Close before any read. A producer failure after the head, asserting it
    surfaces on the consumer's thread as a `Dexpace::TransportError` whose `#cause` is the stdlib error
    **and whose `#cause` was not acquired from the consumer's in-flight exception** — the `raise error,
-   cause: nil` assertion `pipeline/f02559b9` describes, written with an unrelated exception deliberately
+   cause: nil` assertion `pipeline/7ce4431d` describes, written with an unrelated exception deliberately
    in flight, which is the only way it can fail.
 4. **`Failures` tests.** Each family in the wrap list mapped to `Dexpace::TransportError` with
    `#retryable?` true and the original as `#cause`; `TRANSPORT-4`'s clause — a short timeout against a
@@ -1952,8 +1964,8 @@ bug.
    that raises something else, and a waived one, each landing in the right `Result` status; a `Report`
    whose `#to_s` names a waived ID; the `WireServer`'s counters; and — the test that matters — a
    **deliberately non-conforming** fake transport that fails a named assertion, proving the suite detects
-   rather than merely runs. `DEF-29` is not picked up, so the fake is the gem's own and phase 2's stay
-   where they are.
+   rather than merely runs. Core's three test fakes stay in core (*Work phase 8a postponed, and who owns it now* owns that
+   decision), so the fake is the gem's own and phase 2's stay where they are.
 7. **`gems/dexpace-transport-net_http/test/` runs the conformance suite** through `MinitestDriver`, with
    one waiver (`TRANSPORT-28`'s zero-copy clause) and the three vacuity expectations (`TRANSPORT-18`, and
    the two cross-references to `TRANSPORT-12`/`TRANSPORT-13`) asserted as `:vacuous` rather than allowed
@@ -1989,12 +2001,12 @@ and a sleep-based test is order-dependent on machine load.
 | **`8c`**, on `Configuration::Keys::REQUEST_TIMEOUT` | The same key, read the same way. A second spelling would make one caller setting govern one transport |
 | **`8c`**, on `TRANSPORT-18` | The row stays `8a`'s. `8c` **reports** whether the re-subscribable-producer antecedent is live on `async-http` (its own `R14`); if it is, `8a`'s row gains a sentence rather than `8c` gaining a row |
 | **`8c`**, on `OI-36` | `R6`'s answer and its four rejected routes, so `8c` does not re-derive them. The tracer is unwired on both adapters for the same reason; the **logger** is a constructor keyword on both |
-| **`8c`**, on `TRANSPORT-12`/`TRANSPORT-13` | `8a`'s two cross-reference rows, stating that both are vacuous on `Net::HTTP` — it rejects no model-valid name — so `8c`'s rows are the only ones and `DEF-41` is picked up there |
-| **Phase 9**, on `DEF-22` | The assertion protocol as the shape every later suite extends: `Assertion` carrying its IDs as data, five `Result` statuses with `:vacuous` among them, and waivers by requirement ID. Phase 9 adds suites; it owns neither the gemspec nor the release |
+| **`8c`**, on `TRANSPORT-12`/`TRANSPORT-13` | `8a`'s two cross-reference rows, stating that both are vacuous on `Net::HTTP` — it rejects no model-valid name — so `8c`'s rows are the only ones and `OBS-19`'s drop policy lands there (its Tasks 7, 9 and 15) |
+| **Phase 9**, on the conformance assertion protocol | The protocol as the shape every later suite extends: `Assertion` carrying its IDs as data, five `Result` statuses with `:vacuous` among them, and waivers by requirement ID. Phase 9 adds suites; it owns neither the gemspec nor the release |
 | **Phase 9**, on `SEAM-12`, `SEAM-14`, `SEAM-15` | The three lifecycle assertions §9.3 names, already written and already driven by an adapter — so the phase-2 rows that are ⏳ "because this phase ships none" have an implementation to point at |
 | **Phase 9**, on `OBS-21` and `OBS-25` | `RecordingSpan` and `Allocations`, with `5b`'s `R8` rule encoded in `.delta`'s signature |
 | **Phase 9**, on `XCUT-11` | `Adapter` as a frozen, effectively-immutable shared instance whose only mutable state is `Closeable`'s latch, and the measurement (verified fact 9) that shows what the alternative costs |
-| **Phase 10**, on `DEF-10` | `TRANSPORT-28`'s third clause and `TRANSPORT-30`, both ⏳ with their reasons measured rather than assumed |
+| **Phase 10**, on the two `TRANSPORT` SHOULDs declined for v1 | `TRANSPORT-28`'s third clause and `TRANSPORT-30`, both ⏳ with their reasons measured rather than assumed, stated in `docs/first-release.md` § What v1 ships without |
 | **A downstream adapter author** | `Dexpace::Conformance::TransportSuite` as the thing to run, and `R16`'s **suite contract** — twelve clauses, merged 2026-09-12 from `8a`'s five and `8c`'s nine — as the contract to meet. That is the whole reason the gem is published from day one (§9.3) |
 
 ---
@@ -2024,8 +2036,8 @@ audited by `docs/deviations.md`.
 | P8-4 | **A `Content-Type` is set on every body-permitted method, body or not**, defaulting to `Dexpace::Transport::NetHTTP::DEFAULT_CONTENT_TYPE` = `application/octet-stream` | `TRANSPORT-10`, `TRANSPORT-26`; `NFR-7`; phase 0's two warnings-fatal mechanisms; verified fact 5 | Two reasons, and either alone suffices. `Net::HTTPGenericRequest#supply_default_content_type` warns through `Warning.warn` under `$VERBOSE`, phase 0's shared test case overrides `Warning.warn` to **raise**, and `#set_body_internal` gives every body-permitted method a body — so a body-less `POST` would fail this repository's own build. And what it stamps is `application/x-www-form-urlencoded`, a claim about the payload that a server will act on; `application/octet-stream` is RFC 9110's own default for an unknown body and the one value that claims nothing. Two escapes were available and both are rejected: suppressing the warning process-globally, for the reason the port refuses `Regexp.timeout` — a library must not mutate a host global — and phase 0's `NFR-7` warning allowlist, whose starting state is **zero entries** and whose purpose is a warning the port cannot prevent, not one it can stop emitting by setting a header. The allowlist would not even work: phase 0's second mechanism appends `-w -W:deprecated` to `RUBYOPT` in a subprocess and scans stderr for `warning:`, which the `Warning.warn` override does not reach |
 | P8-5 | **`RequestOptions#timeout` is a *total per-call budget*** carried as a monotonic deadline and refreshed into `open_timeout`, `write_timeout` and — after every chunk — `read_timeout`, rather than one value assigned to three per-operation knobs | `TRANSPORT-5`, `TRANSPORT-6`; `IO-40`; design §8.3; `resource-management/d1f16cad`, `/ed29d0f5`; verified fact 8 | `TRANSPORT-5`'s own conformance clause is "assert each is bounded by **its own value**", which is a statement about the call. Assigned per-operation, a call with `timeout: 5` is bounded by nothing: `read_timeout` is consulted per read, so a trickling body multiplies it by the chunk count — the exact failure `ed29d0f5` describes. The refresh is possible because `Net::HTTP#read_timeout=` does `@socket.read_timeout = sec if @socket`, measured to take effect on the next read from inside a `read_body` block. An expired budget raises before touching the socket, because `0` means *poll once* on this client and not *no timeout*. **The configured tier reads `Dexpace.configuration.duration(Keys::REQUEST_TIMEOUT, default: DEFAULT_TIMEOUT_SECONDS)`** — 5a ships no `#float` — so `CFG-7`'s bare-number-is-milliseconds grammar governs that tier and `REQUEST_TIMEOUT=30` is thirty *milliseconds*, documented in `Adapter`'s YARD (`R3`) |
 | P8-6 | **A non-`nil` per-call `timeout` against a *borrowing* transport raises `Dexpace::InvalidArgumentError`** rather than being applied or ignored | `TRANSPORT-5`, `XCUT-22`, `SEAM-11`, `PAGE-36` | `TRANSPORT-5` requires the override to apply "leaving the shared native client untouched"; on a caller-supplied `Net::HTTP` those two clauses are contradictory, because the knobs are instance state. `SEAM-11` sanctions a transport that *ignores* options — but a transport that honours them on one construction and drops them on another is a silent wrong answer in exactly the place `PAGE-36` exists to prevent ("a caller's timeout/retry policy silently fails to govern pages 2..N"). Raising names the conflict and the fix; ignoring hides both |
-| P8-7 | **No `OBS-28` transport milestone is emitted, and `DEF-42` stays open on this half**; the `Instrumentation::Logger`, by contrast, is wired through a constructor keyword | `OBS-28`, `OBS-29`, `TRANSPORT-11`, `TRANSPORT-14`; `DEF-42`, `OI-31`, `OI-32`, `OI-36`; `PIPE-11`; `NFR-4` | `OBS-29` requires one tracer per logical **operation**; the seam is three arguments, `NFR-4`-locked, and an adapter in another gem has no operation boundary to key on. A constructor keyword gives one tracer per adapter lifetime; widening `RequestOptions` is a phase-1 surface `P5-33` states as settled; and carrying it in `Fiber[]` puts a live mutable object into a slot `observability/65191069` measured to be **shared across every descended thread and fiber** — `XCUT-11` with no synchronisation — while making the transport's behaviour depend on whether a step ran. A logger has none of those problems: no per-operation identity requirement, no ambient carriage, and `Logger::NULL` as the value a caller with none holds. The asymmetry *is* `OI-36` |
-| P8-8 | **`Dexpace::Conformance::Failure` is a `::StandardError` and does not include `Dexpace::Error`** | `DEF-22`; design §9.3; phase 1's `P1-2`; `error-handling/d2eadac4` | Phase 1 made `Dexpace::Error` a module every SDK error includes so a caller can `rescue Dexpace::Error` broadly. A conformance failure is a **test result**, not an SDK error; including it would make that rescue catch one, and an adapter author's `rescue Dexpace::Error` around a send would swallow the assertion that the send was wrong. §9.3 names the class and says nothing about its ancestry, which is why this is a decision rather than a reading |
+| P8-7 | **No `OBS-28` transport milestone is emitted, and `OBS-29`'s wiring stays open on this half (`OI-36`, on phase 10's inbound list)**; the `Instrumentation::Logger`, by contrast, is wired through a constructor keyword | `OBS-28`, `OBS-29`, `TRANSPORT-11`, `TRANSPORT-14`; `OI-31`, `OI-32`, `OI-36`; `PIPE-11`; `NFR-4` | `OBS-29` requires one tracer per logical **operation**; the seam is three arguments, `NFR-4`-locked, and an adapter in another gem has no operation boundary to key on. A constructor keyword gives one tracer per adapter lifetime; widening `RequestOptions` is a phase-1 surface `P5-33` states as settled; and carrying it in `Fiber[]` puts a live mutable object into a slot `observability/65191069` measured to be **shared across every descended thread and fiber** — `XCUT-11` with no synchronisation — while making the transport's behaviour depend on whether a step ran. A logger has none of those problems: no per-operation identity requirement, no ambient carriage, and `Logger::NULL` as the value a caller with none holds. The asymmetry *is* `OI-36` |
+| P8-8 | **`Dexpace::Conformance::Failure` is a `::StandardError` and does not include `Dexpace::Error`** | the conformance assertion protocol phase 0 postponed to this phase; design §9.3; phase 1's `P1-2`; `error-handling/e91f8733` | Phase 1 made `Dexpace::Error` a module every SDK error includes so a caller can `rescue Dexpace::Error` broadly. A conformance failure is a **test result**, not an SDK error; including it would make that rescue catch one, and an adapter author's `rescue Dexpace::Error` around a send would swallow the assertion that the send was wrong. §9.3 names the class and says nothing about its ancestry, which is why this is a decision rather than a reading |
 | P8-9 | **The conformance wire fixture speaks plaintext only and exercises no connect timeout**, and the report says so | `TRANSPORT-4`, `TRANSPORT-20`; design §9.3; verified facts 7 and 16 | A self-signed TLS fixture is portable in principle and brittle across three interpreters and two OpenSSL majors; the property that matters — the adapter assigns no `verify_mode`, so `SSLContext#set_params` supplies `VERIFY_PEER` and `verify_hostname` — is a structural assertion in the adapter's own suite and needs no socket. A connect timeout has no portable local fixture at all (a listener that accepts slowly is not expressible), so `TRANSPORT-4`'s read half and `TRANSPORT-20`'s refused half are scripted and the open half is a unit test. Both omissions are printed in the report's preamble, because a third-party author who reads a green run as "fully conformant" is the failure this gem exists to prevent |
 | P8-10 | **The borrowing construction *asserts* `client.max_retries.zero?` at construction rather than setting it** | `TRANSPORT-1`, `TRANSPORT-2`, `XCUT-22`; verified facts 2 and 3; `OI-34` | `TRANSPORT-2` scopes the disable to an "SDK-managed" transport, and `XCUT-22` forbids mutating a caller's client — so on a borrowed client the adapter may neither set the knob nor leave the hole. Refusing the construction closes it loudly, mutates nothing, and names the requirement in the message. The hole is not hypothetical: measured, a default `max_retries` turns a cancelled call into a completed `200` |
 | P8-11 | Public **constants** design §3.2 and §9.3 do not name: `Dexpace::Transport::NetHTTP::Adapter`, `::MANAGED_HEADERS`, `::DEFAULT_CONTENT_TYPE`, `::DEFAULT_TIMEOUT_SECONDS`, `::MIN_TIMEOUT_SECONDS`, `::JOIN_DEADLINE_SECONDS`, `::REGISTRY_KEY`; `Dexpace::Conformance::Failure`, `::Vacuous`, `::Assertion`, `::Result`, `::Report`, `::WireServer`, `::Scripts`, `::TransportCase`, `::TransportSuite`, `::MinitestDriver`, `::RSpecDriver`, `::RecordingSpan`, `::Allocations`; `Dexpace::Configuration::Keys::REQUEST_TIMEOUT`; and the RBS interface `Dexpace::Conformance::_Transport` | `NFR-4`; `NFR-11`; `api-design/b0e18938`; `P1-1`, `P2-11`, `P3-14`, `P4-24`, `P5-1`, `P5-40`, `P6-1`, `P7-2` precedent | `NFR-4` locks a name before it locks a signature. §3.2 names exactly one Ruby identifier for this gem (`dexpace-transport-net_http` itself) and §9.3 names one (`Dexpace::Conformance::Failure`). Each name above is chosen for a stated reason in the object model. Two deserve naming here: **`MinitestDriver`/`RSpecDriver`** carry the suffix deliberately, because inside `module Dexpace::Conformance` a constant named `Minitest` shadows `::Minitest` for the whole namespace — 5a's `P5-3` reasoning applied to a second case; and **`Keys::REQUEST_TIMEOUT` is a `dexpace-core` constant added by an adapter sub-phase**, whose precedent is `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` in the same module, read by no core file |
@@ -2049,88 +2061,175 @@ dependency, fixed by `8a`'s plan for all five adapter rows.
 
 ---
 
-## Deferrals filed by phase 8a
+## Work phase 8a postponed, and who owns it now
 
-**None new.** Every one of `8a`'s 23 IDs is implemented here, one with a clause ⏳ against an existing
-row (`TRANSPORT-28`) and one ⏳ whole against the same row (`TRANSPORT-30`). No ID cluster moves out of
-`8a`'s scope to a later phase.
+**None new.** Every one of `8a`'s 23 IDs is implemented here, one with a clause ⏳ (`TRANSPORT-28`'s
+zero-copy clause) and one ⏳ whole (`TRANSPORT-30`) — both declined for v1 by the MVP scope design and
+stated in `docs/first-release.md` § What v1 ships without, the `TRANSPORT-28`/`TRANSPORT-30` entry. No ID
+cluster moves out of `8a`'s scope to a later phase.
 
-### Deferral-register sweep
+### What earlier phases postponed to `8a`, and what `8a` decided about each
 
-`8a`'s delta against the charter's whole-register sweep, which covered every row once and is not repeated
-here. As with every predecessor, this document **states** each disposition and `8a`'s **plan performs**
-the register edit.
+`8a`'s delta against the charter's sweep of everything an earlier phase postponed, which covered each item
+once and is not repeated here. As with every predecessor, this document **states** each disposition and
+`8a`'s **plan performs** the mark (Task 25, Step 3a). Two entries below — the fakes staying in core and
+`BODY-12` clause 2 — are the **owning record** of a decision `8a` made, and other documents point here rather
+than restating them, so each is written out in full.
 
-- **`DEF-22` — picked up and closed by `8a`.** Its condition names this phase in as many words: "phase 8,
-  which owns this gem's gemspec, its version and its first release; phase 9 adds the remaining suites."
-  `8a` writes `Dexpace::Conformance::Failure`, the callable assertion protocol with its five result
-  statuses and its ID-keyed waivers, the §9.3 `TCPServer` fixture, the transport suite, and both thin
-  drivers (`R7`). `Status` moves to `picked-up (<date>, phase 8a)`. The row's `Cites:` line is currently
-  `none` and should become `NFR-2`, `NFR-4`, `SEAM-12`, `SEAM-14`, `SEAM-15`, `TRANSPORT-1`–`30`,
-  `OBS-21`, `OBS-25`, `PAGE-36`.
-- **`DEF-25` — picked up by `8a` for this adapter's half.** Its condition: "phase 8 … **in each adapter's
-  dispatch path**". `8a` calls `Dexpace::HeaderSyntax.validate_name!` and `.validate_outbound_value!` over
-  every outbound header immediately before the native request is built, and the forged-request test
-  proves the call site rather than asserting the module. The row's `Status` moves at the **phase-level
-  PR**, once `8c`'s call site exists too; `8a`'s checklist carries its own row.
-- **`DEF-29` — condition met, action declined; `8a` marks it UNSCHEDULED with phase 8a named.** Its
-  condition — "the first consumer outside `dexpace-core`" — is met three times over in phase 8. Its
-  *action* is the literal move named in its title, and `8a` declines it on the charter's argument, which
-  this document confirms from inside the implementation: moving
-  `gems/dexpace-core/test/support/`'s three fakes into `dexpace-conformance` would make `dexpace-core`'s
-  own suite depend on a gem that depends on `dexpace-core` — a development-dependency cycle between the
-  workspace's two most load-bearing gems — for no gain core's suite can see. Per the roadmap's retirement
-  rule a met-but-declined condition is **UNSCHEDULED with the phase named**, not `picked-up`. The row's
-  *purpose* is met by a different route and the UNSCHEDULED note says so: `dexpace-conformance` publishes
-  its **own** doubles (`RecordingSpan`, `Allocations`, `WireServer`, and the non-conforming transport its
-  own suite drives), which is what a third-party adapter author actually needs, and core keeps the three
-  it already has.
-- **`DEF-23` — untouched, and the condition was checked rather than assumed.** "When a gem's test support
-  becomes production-quality code worth checking — phase 8's conformance helpers at the earliest."
-  `8a` places the assertion objects and the `TCPServer` fixture in **`lib/`** (`R7`), where phase 0
-  already gave `dexpace-conformance` its own Steep target, so they are checked as production code
-  already. Nothing `8a` writes under `test/` is production-quality code worth a seventh target. The
-  condition is still not met and the row stays `deferred`.
-- **`DEF-3` — `BODY-12` clause 2 is dispositioned and `8a` marks it UNSCHEDULED with phase 8a named.**
-  The row targets phase 8 explicitly. Verified fact 14: `send_request_with_body_stream` writes to a
-  `Net::BufferedIO`, whose `is_a?(::IO)` is `false`, so the kernel path is unreachable without bypassing
-  the library's write path — which would mean writing the request framing, the chunked encoder and the
-  `100-continue` handshake by hand. Condition met, action declined, phase named. **`BODY-36`'s half is
-  untouched.**
-- **`DEF-10` — untouched.** Its condition is "revisit when a transport adapter **beyond the two MVP
-  transports** ships"; phase 8 ships exactly those two, so it is **not** UNSCHEDULED. `TRANSPORT-30` is
-  carried ⏳ whole against it and `TRANSPORT-28`'s zero-copy clause ⏳ as a clause (`R5`).
-- **`DEF-41` — untouched by `8a`, and `8a` supplies the cross-reference the row's correction needs.**
-  The row is `8c`'s: `TRANSPORT-12`'s and `TRANSPORT-13`'s antecedent is a native wire grammar stricter
-  than the SDK model's, and `Net::HTTP` has none — it wrote `Bad name: v` to the wire rather than
-  rejecting it. `8a`'s checklist carries both IDs as **stated cross-references** rather than silent
-  absences, which is what the charter's amendment to the row (`TRANSPORT-12`, not `TRANSPORT-8`) needs on
-  this side.
-- **`DEF-42` — `8a`'s half is declined with a reason and the row stays open.** `R6`. The row's own text
-  is "the transport-milestone group follows in phase 8 with the first adapter"; `8a` is that adapter and
-  finds no route by which it can reach a per-operation `HTTPTracer`. The row does not close and does not
-  become UNSCHEDULED — `OI-36` is the finding, and a route could exist after a deliberate `RequestOptions`
-  widening, which is a phase-1 surface decision no sub-phase should take alone.
-- **`DEF-31` — untouched by `8a`.** `SEAM-25`'s lifecycle event is `8b`'s; `8a` owns no executor and emits
-  no `Events::INSTRUMENTATION_SHUTDOWN`. `8a`'s contribution is the harness in which `8b`'s "close twice
-  → executor shut once, one event" assertion is written.
-- **`DEF-18`, `DEF-30`–`DEF-40` — untouched.** `DEF-30` is worth one sentence because `8a` must not meet
-  it by accident: presence-gated auto-activation is permitted "for instrumentation only" and "no transport
-  or codec adapter may ever use it". `dexpace-transport-net_http` registers **explicitly** through phase
-  2's `Registry#register` and activates on nothing; `dexpace-conformance` registers into no seam at all.
-- **`DEF-2` — untouched, and the charter asked `8a` to check.** Its floated target is "the first consumer
-  that constructs a conditional request … a `dexpace-conformance` fixture" is one of three candidates.
-  `8a` builds that gem and the answer is **no**: the `WireServer` *answers* requests rather than making
-  them, and the suite's own requests carry no `If-None-Match` or `If-Modified-Since` — `TRANSPORT-24`'s
-  `304` script returns the status without the client having conditioned on anything, which is the
-  correct shape for a transport assertion and would be the wrong shape for an `HTTP-48` one. The charter
-  expected this and the check confirms it.
-- **`DEF-1`, `DEF-4`–`DEF-9`, `DEF-11`–`DEF-17`, `DEF-19`–`DEF-21`, `DEF-24`, `DEF-26`–`DEF-28`,
-  `DEF-32`–`DEF-38` — untouched**, all either closed by an earlier phase, targeted at `8b`/`8c`, or
-  riding on a post-v1 gem. Two are worth naming because a reader will wonder: **`DEF-19`/`DEF-20`** are
-  release-gated and phase 8 performs the workspace's first gem release, which `8a`'s gem is the subject
-  of — neither is met by `8a` alone and neither is marked; and **`DEF-21`** is the version-skew guard
-  whose first real adapter registration lands here.
+- **The conformance assertion protocol — postponed by phase 0 (2026-09-05), landed by `8a`.** Why phase 0
+  postponed it: design §9.3 fixes the shape — each assertion a callable that returns cleanly or raises a
+  `Dexpace::Conformance::Failure` carrying the expected and actual values, with thin Minitest and RSpec
+  drivers over it, so Minitest never becomes a runtime constraint on a consumer — but an assertion object
+  with no transport contract to assert against would have fixed an interface before the contract it serves
+  existed, so phase 0 created the gem skeleton and nothing else. Its condition names this phase in as many
+  words: "phase 8, which owns this gem's gemspec, its version and its first release; phase 9 adds the
+  remaining suites." `8a` writes `Dexpace::Conformance::Failure`, the callable assertion protocol with its
+  five result statuses and its ID-keyed waivers, the §9.3 `TCPServer` fixture, the transport suite, and
+  both thin drivers (`R7`) — the plan's Tasks 4–8 and 20. The IDs it touches are `NFR-2`, `NFR-4`,
+  `SEAM-12`, `SEAM-14`, `SEAM-15`, `TRANSPORT-1`–`30`, `OBS-21`, `OBS-25` and `PAGE-36`. The second half
+  of the condition is phase 9's: its Tasks 2–12a add `InvariantSuite`, `PackagingSuite`, `CodecSuite`,
+  `ExecutorSuite`, `Runner` and `Report#to_h`, and phase 9 records that half itself (its Task 17, Step 3).
+- **Wire-boundary re-validation — postponed by phase 1 (2026-09-05); `8a` lands this adapter's half.** Why
+  phase 1 postponed it: design §4 and §10.10 admit that `HTTP-2`/`SEAM-29`'s constructor privacy cannot be
+  closed in Ruby — `send` reaches a private `new` by design, and duck typing admits impersonation — and name
+  the one mitigation that matters: header-name and outbound-value validation (`HTTP-17`, `HTTP-18`,
+  `XCUT-18`) runs **again** inside every transport adapter, immediately before dispatch, so a forged model
+  cannot smuggle a CRLF into a header name even if it never met a builder. Phase 1 shipped the predicate as
+  public API — `Dexpace::HeaderSyntax` — precisely so an adapter in another gem could call it, and shipped no
+  transport to call it from. Its condition: "phase 8 … **in each adapter's dispatch path**; phase 9's
+  conformance suite is where the assertion that it happened belongs." `8a` calls
+  `Dexpace::HeaderSyntax.validate_name!` and `.validate_outbound_value!` over every outbound header
+  immediately before the native request is built (Task 16), and the forged-request test proves the call
+  site rather than asserting the module. `8c`'s call site is its Task 9; the portable forged-`Request`
+  `XCUT-18` assertion is phase 9's Task 7. The work is complete only once **both** adapters' call sites
+  exist, and the sub-phase that lands second says so in the phase status note — `8c`'s Task 19 Step 5a
+  under the recommended order, mirrored in `8a`'s Task 25 Step 3a. `8a`'s checklist carries its own row.
+- **Moving core's in-memory fakes into `dexpace-conformance` — postponed by phase 2 (2026-09-07); condition
+  met, action declined by `8a` (2026-09-12). This entry owns that decision.** Why phase 2 put the fakes
+  where they are: the roadmap's cross-cutting constraint 4 has phases 1 through 7 test against an in-memory
+  fake transport implementing only the `SEAM-11`/`SEAM-16` seams, and phase 2 was the first phase that
+  needed one. It chose `gems/dexpace-core/test/support/` — `FakeTransport`, `FakeAsyncTransport` and
+  `FakeCodec`, **not public API** — for four reasons: `NFR-11`'s scan is over `sig/`, so a fake in `test/`
+  is invisible to it, which is the correct outcome; a published fake would need a YARD block, an RBS mirror
+  and a row in the runtime surface manifest, after which changing its shape is a public API change diffed
+  against a release tag (`NFR-4`) — a real cost paid forever for a convenience; `dexpace-conformance` is the
+  gem chartered to publish adapter test doubles (design §9.3) and is phase 8's, so publishing a competing
+  fake from core would give a third-party adapter author two answers to one question; and phases 3 through
+  7 all ship `dexpace-core`, so a core test-support file is reachable by every phase the constraint names,
+  with nothing published. The condition phase 2 set — "the first consumer outside `dexpace-core`; phase 8
+  at the earliest, alongside the conformance assertion protocol" — is met three times over in phase 8.
+  The *action*, and the item's whole content, is the literal move, and `8a` declines it on the charter's
+  argument, which this document confirms from inside the implementation: **moving
+  `gems/dexpace-core/test/support/`'s three fakes into `dexpace-conformance` would make `dexpace-core`'s own
+  suite depend on a gem that depends on `dexpace-core` — a development-dependency cycle between the
+  workspace's two most load-bearing gems — for no gain core's suite can see.** Per the roadmap's retirement
+  rule a met-but-declined condition is **a decline with the phase named**, not work done and not silently
+  carried. The item's *purpose* is met by a different route, stated here rather than used to pretend the
+  move happened: `dexpace-conformance` publishes its **own** doubles (`RecordingSpan`, `Allocations`,
+  `WireServer`, and the non-conforming transport its own suite drives), which is what a third-party adapter
+  author actually needs, and core keeps the three it already has. `8b` corrects one premise of the argument
+  and strengthens it: the charter said `8b` drives phase 2's `FakeTransport` from a suite outside core, and
+  it does not — phase 0's `test_helper.rb` puts only that gem's own `lib` on the load path, and a
+  `require_relative` into another gem's `test/support/` is the cross-gem reach styleguide 12.6 forbids — so
+  `8b` writes its own ten-line doubles, as 3a, 4c, 5b and 7a each did. The first consumer outside core found
+  a local double cheaper than a shared fake, which is evidence the three fakes are not in fact shared. The
+  plan's Task 25 Step 3a re-confirms this decision at execution against the **built** gemspecs and appends
+  one dated sentence here; it reverses the decision only if it finds a route past the cycle — a
+  development-only dependency, a third gem, or a load-path arrangement phase 0's `test_helper.rb` permits
+  — and then says what it did about the cycle. Phase 2 also noted that "the moment they move is also the
+  moment the Steep-over-`test/` condition is worth re-reading"; that re-reading is the next entry.
+- **A Steep target over a `test/` tree — postponed by phase 0 (2026-09-05); the condition was checked by
+  `8a` rather than assumed, and is still not met.** Why phase 0 postponed it: the styleguide holds test
+  helpers to the same type discipline as `lib/`, which this port answers in
+  `docs/knowledge/notes/testing.md` — a test tree gets RBS coverage only where the `Steepfile` names a
+  test target — and phase 0's only test code was a shared base class and six smoke suites. Its condition:
+  "when a gem's test support becomes production-quality code worth checking — phase 8's conformance
+  helpers at the earliest." `8a` places the assertion objects and the `TCPServer` fixture in **`lib/`**
+  (`R7`), where phase 0 already gave `dexpace-conformance` its own Steep target, so they are checked as
+  production code already; nothing `8a` writes under `test/` is production-quality code worth a seventh
+  target. Not met, and not declined by `8a` either. The trigger is now event-gated and lives in
+  `docs/first-release.md` § Post-release triggers, the Steep-over-`test/` entry; if `8a` instead places the
+  fixture under `test/` when it executes, it acts on the item and says so.
+- **`BODY-12` clause 2 — the transport recognising a file-backed body by type and dispatching a true
+  zero-copy kernel path — targeted at phase 8 by phase 3b (2026-09-08), declined by `8a` (2026-09-12). This
+  entry owns that decline.** The MVP scope design (2026-09-05) postponed `BODY-12` (SHOULD) as an
+  optimisation over a file-backed body the MVP already ships correctly, just not zero-copy. Phase 3b
+  discharged **clause 1** — the file-backed body's write is `::IO.copy_stream(handle, sink, count,
+  offset)`, verified on 3.2.11, 3.4.10 and 4.0.6 to honour the `(length, offset)` window and return the
+  byte count `BODY-13` needs — made `Dexpace::FileBody` a named public class exposing `#path`, `#offset`
+  and `#count` (and deliberately *not* `#to_path`), and targeted clause 2 at phase 8 as the same feature
+  `TRANSPORT-28`'s zero-copy clause names from the transport side. Phase 8 has now planned the adapter the
+  clause names, and verified fact 14 measures the answer on `net-http` 0.6.0 under Ruby 3.4.10:
+  `Net::HTTP#send_request_with_body_stream` copies through `::IO.copy_stream` to a `Net::BufferedIO`,
+  whose `is_a?(::IO)` is `false`, so the kernel path is unreachable without bypassing the library's own
+  write path — which would mean writing the request framing, the chunked encoder and the `100-continue`
+  handshake by hand, inside an adapter whose whole design is to be thin over one library. `8c` reports
+  from the other side that `Protocol::HTTP::Body::File` makes the *reachable* half of `TRANSPORT-28` more
+  reachable on `dexpace-transport-async_http` — a report to `R5`, not a route to a kernel transfer.
+  Condition met, action declined, phase named, per the roadmap's retirement rule. Where it lives now:
+  `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry, states the decline for
+  the release notes; **`BODY-36`'s memory-mapped view (MAY) sits in the same entry on its own condition** —
+  Ruby's standard library has no `mmap`, the only routes are a C extension or the `mmap` gem, both barred
+  from `dexpace-core` by `SEAM-1`/`NFR-1`, so core's dependency budget would have to change and no v1
+  phase does that; and clause 1 is phase 3b's, done. The plan's Task 25 Step 3a re-confirms the decline at
+  execution against the `net-http` version actually bundled and appends one dated sentence here and to
+  the `docs/first-release.md` entry; it reverses the decline only if execution finds a route the planning
+  pass did not, and then names it.
+- **`TRANSPORT-28`'s zero-copy clause and `TRANSPORT-30` — declined for v1 by the MVP scope design
+  (2026-09-05); `8a` leaves that standing, and the distinction from the `BODY-12` decline is the point.**
+  Why: both are SHOULD-level and per-adapter, and the MVP's two transports do not need either to satisfy
+  the transport contract. The condition — "revisit when a transport adapter **beyond** the two MVP
+  transports ships" — is **not met** by phase 8, which ships exactly those two, so this is not a decline by
+  `8a` where `BODY-12` clause 2 is: that clause named phase 8 itself. `TRANSPORT-30` is carried ⏳ whole
+  and `TRANSPORT-28`'s zero-copy clause ⏳ as a clause (`R5`); `TRANSPORT-28` is narrowed from ⏳-whole to
+  partially satisfied, the two-rows-one-obligation treatment phase 2 gave `SEAM-29`. Owner:
+  `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1,
+  the `TRANSPORT-28`/`TRANSPORT-30` entry.
+- **`OBS-19`'s header-drop verbosity policy — postponed by phase 5b (2026-09-09) to phase 8's first
+  adapter that drops rather than raises; that adapter is `8c`'s, and `8a` supplies the cross-reference the
+  correction needs.** `TRANSPORT-12`'s and `TRANSPORT-13`'s antecedent is a native wire grammar stricter
+  than the SDK model's, and `Net::HTTP` has none — it wrote `Bad name: v` to the wire rather than rejecting
+  it. `8a`'s checklist carries both IDs as **stated cross-references** rather than silent absences, which is
+  what the charter's correction of the item's requirement ID (`TRANSPORT-12`, not `TRANSPORT-8`) needs on
+  this side. Owner: `8c`'s Tasks 7, 9 and 15 (`Dexpace::Transport::AsyncHTTP::DropPolicy`).
+- **`OBS-29`'s transport-milestone group — postponed by phase 5c (2026-09-09) "to phase 8 with the first
+  adapter"; `8a`'s half is declined with a reason.** `R6`. `8a` is that adapter and finds no route by which
+  it can reach a per-operation `HTTPTracer`: the seam is three arguments and `NFR-4`-locked, a constructor
+  keyword gives one tracer per adapter lifetime, and a `RequestOptions` widening is a phase-1 surface
+  decision no sub-phase should take alone. The per-attempt group is phase 6a's Task 9 and done there; the
+  operation-lifecycle triple is `OI-32` and the transport-milestone group is `OI-36`, and both residuals
+  are one surface decision on phase 10's inbound list (the roadmap's 2026-09-13 status note).
+- **`SEAM-25`'s lifecycle event on the first close of an owned executor — postponed by phase 2
+  (2026-09-07); `8b`'s, not `8a`'s.** `8a` owns no executor and emits no `Events::INSTRUMENTATION_SHUTDOWN`.
+  The emission is `8b`'s Tasks 6 and 10; the harness that asserts "close twice → executor shut once, one
+  event" is phase 9's Task 11 (`Dexpace::Conformance::ExecutorSuite`), written in the assertion protocol
+  `8a` ships.
+- **The unsatisfied `ASYNC-3` MUST, and presence-gated auto-activation — untouched.** `ASYNC-3` and
+  `PIPE-33`'s interrupt clause are the port's unsatisfied MUSTs (design §10.5), stated in
+  `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs; `8a` names no `ASYNC` ID and adds
+  no row. Presence-gated auto-activation for instrumentation (phase 2's decision, post-v1 under
+  `docs/first-release.md` § What v1 ships without › SHOULD/MAY) is worth one sentence because `8a` must
+  not meet it by accident: it is permitted "for instrumentation only" and "no transport or codec adapter
+  may ever use it". `dexpace-transport-net_http` registers **explicitly** through phase 2's
+  `Registry#register` and activates on nothing; `dexpace-conformance` registers into no seam at all.
+- **`HTTP-22` and the `HTTP-48`–`HTTP-50` helpers — untouched, and the charter asked `8a` to check.** The
+  event that would reopen them is "the first consumer that constructs a conditional request", and "a
+  `dexpace-conformance` fixture" is one of three candidates. `8a` builds that gem and the answer is **no**:
+  the `WireServer` *answers* requests rather than making them, and the suite's own requests carry no
+  `If-None-Match` or `If-Modified-Since` — `TRANSPORT-24`'s `304` script returns the status without the
+  client having conditioned on anything, which is the correct shape for a transport assertion and would be
+  the wrong shape for an `HTTP-48` one. The charter expected this and the check confirms it. Owner:
+  `docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` decision line.
+- **Everything else earlier phases postponed — untouched**, either built by an earlier phase (the
+  suppressed trail, `close_quietly`'s routes, the `deadline:` keyword, the configuration sources, the
+  recovery-stack retry engine, `ProtocolError#retryable?`, `Pipeline.standard`), targeted at `8b`/`8c`, or
+  declined for v1 under `docs/first-release.md` § What v1 ships without (the SHOULD/MAY entries and the
+  seven post-v1 gems). Two are worth naming because a reader will wonder: **the fence executor for
+  `.claude/skills/housekeeping/` and the signed release path** are release-gated
+  (`docs/first-release.md` § Release path) and phase 8 performs the workspace's first gem release, which
+  `8a`'s gem is the subject of — neither is met by `8a` alone and neither is marked; and **the version-skew
+  guard's runtime half** (built by phase 2 as `Dexpace::Registry#register(key, factory, core:)`, deviation
+  `P2-7`) gets its first real adapter registration here.
 
 ---
 
@@ -2165,7 +2264,7 @@ body, and a `**Resolution:**` line — so filing is a paste rather than a re-der
 >
 > - **Opened:** 2026-09-11, phase 8a design
 > - **Status:** open
-> - **Cites:** ASYNC-3, PIPE-33, XCUT-13, TRANSPORT-4, NFR-2, DEF-18
+> - **Cites:** ASYNC-3, PIPE-33, XCUT-13, TRANSPORT-4, NFR-2; the unsatisfied `ASYNC-3` MUST, `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs
 
 **`net-http`'s connect phase uses `Timeout.timeout`, the primitive design §8.3 bans, and the cop that
 enforces the ban cannot see it.** `/usr/lib/ruby/3.4.0/net/http.rb:1657` is
@@ -2190,7 +2289,7 @@ next time §8 is deliberately amended by a human. Nothing is broken today becaus
 >
 > - **Opened:** 2026-09-11, phase 8a design
 > - **Status:** open
-> - **Cites:** NFR-2, NFR-17, SEAM-1, DEF-22
+> - **Cites:** NFR-2, NFR-17, SEAM-1; the conformance assertion protocol (phase 8a, Tasks 4–8 and 20)
 
 **Design §9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that
 distinction.** §9.3's argument for choosing Minitest over RSpec is that "**it ships with the interpreter
@@ -2214,7 +2313,7 @@ today because nothing is implemented.
 >
 > - **Opened:** 2026-09-11, phase 8a design
 > - **Status:** open
-> - **Cites:** SEAM-1, SEAM-2, NFR-1, NFR-2, DEF-22
+> - **Cites:** SEAM-1, SEAM-2, NFR-1, NFR-2; the conformance assertion protocol (phase 8a, Tasks 4–8 and 20)
 
 **The require-allowlist's denylist has no per-gem scope, so a denial written for core's reason reaches a
 gem the reason does not describe.** Phase 0's denylist denies `socket` with the reason "`SEAM-1`/`SEAM-2`:
@@ -2267,7 +2366,8 @@ connect timeout, so `TRANSPORT-4`'s open-timeout half and every TLS property are
 `docs/sdk-documentation/` must state what a green conformance run does and does not prove, and the
 report's preamble must name the same omissions** — because a third-party adapter author whose adapter
 passes is entitled to know that TLS verification and connect-timeout classification were not among the
-things it passed. Cites: `TRANSPORT-4`, `TRANSPORT-20`, `DEF-22`, `NFR-2`.
+things it passed. Cites: `TRANSPORT-4`, `TRANSPORT-20`, `NFR-2`; the conformance assertion protocol
+(phase 8a, Tasks 4–8 and 20).
 
 **Two amendments this document proposes to findings the charter has already written out.**
 
@@ -2430,7 +2530,7 @@ Paths and identifiers a plan or a later phase will need, in one place.
 | The four register rows this design proposes | `OI-42`–`OI-45`, plus one `docs/first-release.md` line with no `OI-<n>`. `8b`'s three follow at `OI-46`–`OI-48` |
 | The deviation block | `P8-1`–`P8-19`, of which `P8-1`–`P8-14` are used. The charter fixes the phase-wide allocation (`8b` `P8-20`–`P8-35`, `8c` `P8-36`–`P8-50`) |
 | The shared transport contracts `8a` and `8c` both implement | the charter's *Shared transport contracts* subsection — the ten-name drop set, `Events::TRANSPORT_HEADER_DROPPED`, `TRANSPORT-13`'s `8c`-only policy, and `Keys::REQUEST_TIMEOUT` |
-| Corpus keys cited | `transport-adapter/7e8e2c60`, `/d16c7444`, `/52b448e8`, `/deccd514`, `/2985bb74`, `/e25582ce`, `/0921e946`; `cancellation-and-timeouts/b7cde725`, `/c8ff4730`, `/128ecb55`, `/40c2fd15`; `concurrency-and-async/611b9392`, `/c0fab747`, `/ee54cb68`, `/f261a143`; `resource-management/4aca52f9`, `/346deaec`, `/b7587eb7`, `/d1f16cad`; `io-and-byte-streams/a005249e`, `/a44b4de6`; `pipeline/f02559b9`; `module-organization/1828a984`, `/5c33e5ce`; `api-design/88e6bf12`; `testing/4ef070df`; `observability/65191069` |
+| Corpus keys cited | `transport-adapter/7e8e2c60`, `/d16c7444`, `/52b448e8`, `/deccd514`, `/2985bb74`, `/e25582ce`, `/0921e946`; `cancellation-and-timeouts/b7cde725`, `/c8ff4730`, `/128ecb55`, `/40c2fd15`; `concurrency-and-async/611b9392`, `/c0fab747`, `/ee54cb68`, `/f261a143`; `resource-management/4aca52f9`, `/346deaec`, `/b7587eb7`, `/d1f16cad`; `io-and-byte-streams/a005249e`, `/a44b4de6`; `pipeline/7ce4431d`; `module-organization/1828a984`, `/5c33e5ce`; `api-design/88e6bf12`; `testing/4ef070df`; `observability/65191069` |
 | The audit-group row this sub-phase ran | *Transport and async-runtime adapters* — `--topic transport-adapter,cancellation-and-timeouts,concurrency-and-async --section rules --brief` and `--prefix TRANSPORT,ASYNC --section rules --brief`. **Still owed** to `.claude/skills/knowledge-lookup/SKILL.md`, together with phase 7's |
 | Probe scripts, for re-running the facts | `<scratchpad>/p8a/{fixture,pump,teardown,fiber,wire,verbose,inbound,ae,retry,conc,proto,cl,cl2,to,bstream,hdrs,final}.rb` |
 

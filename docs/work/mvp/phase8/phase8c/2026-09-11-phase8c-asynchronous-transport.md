@@ -11,13 +11,19 @@
 floor collides with (`VERSIONS`, `tools/versions.rb`, the root `Gemfile`, `VersionsGate`,
 `test:gems`). Ten requirement IDs — `TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23`, `ASYNC-6`,
 `21`, `22` — nine MUST and one SHOULD, with `ASYNC-21` **N/A** per the design's §11.21 reading and
-`TRANSPORT-8` **satisfied here** where §12 records it vacuous (`R14`, `OI-41`). No deferral is
-filed; four existing deferred-items rows are picked up or reported against, named in each task.
+`TRANSPORT-8` **satisfied here** where §12 records it vacuous (`R14`, `OI-41`). Nothing is postponed
+by this plan; four items earlier phases postponed are landed or reported against, named in each task:
+`OBS-19`'s header-drop policy (phase 5b postponed it; Tasks 7, 9 and 15 land it), the wire-boundary
+re-validation (phase 1 postponed it to the adapters; Task 9 is this adapter's half, `8a`'s Task 16 the
+other), `OBS-29`'s transport-milestone group (phase 5c postponed it; not wired, `OI-36`, on phase 10's
+inbound list) and `SEAM-24`'s caller-facing cancellation bridge (post-v1, `docs/first-release.md` § What
+v1 ships without, the `SEAM-24` entry; confirmed rather than met).
 
 **Architecture:** One dispatch path, eighteen steps, all inside one method
 (`Adapter#call(request, options, cancellation)`), returning a `Dexpace::Async::Future` before
 anything fallible runs (`TRANSPORT-21`). Steps 1–10 run on the caller's own fiber — mint the
-pivot, check closed, check for a reactor, re-validate headers (`DEF-25`), drop framing headers
+pivot, check closed, check for a reactor, re-validate headers (the wire-boundary re-validation phase 1
+postponed to the adapters), drop framing headers
 (`TRANSPORT-11`), drop wire-grammar violations (`TRANSPORT-12`/`13`), build the endpoint, fetch or
 build the per-origin client — and route every raise through `rescue StandardError` to
 `completer.fail`, which excludes `Async::Cancel`, `NoMemoryError`, `SystemExit`,
@@ -296,8 +302,8 @@ it is not one of the design's eight and this plan does not pretend the design as
    above; this plan states in advance what changes if one fails (see Task 1's own step 4) rather
    than leaving the reader to guess.
 
-**A ninth, not the design's own, found while writing Task 7.** `DEF-41`'s row says "phase 8
-writes a small `Data` over both [ingredients]," which if read as "`DropPolicy` itself is a
+**A ninth, not the design's own, found while writing Task 7.** Phase 5b's hand-forward for the
+`OBS-19` policy says "phase 8 writes a small `Data` over both [ingredients]," which if read as "`DropPolicy` itself is a
 `Data.define` value" collides with `Data`'s own automatic freeze-on-construction: a frozen
 top-level object cannot later reassign an ivar to a new snapshot, which `DropPolicy`'s bounded
 per-name latch must do on every distinct new header name. *Decision:* `DropPolicy` is a plain
@@ -336,9 +342,9 @@ contract a failing test gives, expressed through the gate that already exists.
 4. `Dexpace::TransportError < ::IOError` in `dexpace-core` — the phase-level type.
 5. `Endpoints` — `URI::Generic` → `Async::HTTP::Endpoint`, TLS defaults, the origin key.
 6. `Errors.wrap` and its table.
-7. `DropPolicy` — `TRANSPORT-13`, `OBS-19`, `DEF-41`.
+7. `DropPolicy` — `TRANSPORT-13`, `OBS-19` (the policy phase 5b postponed to phase 8).
 8. `Clients` — the per-origin map, `Configuration` reads, `#close` over `pool.close` (`P8-37`).
-9. `RequestMapper` and `RequestBody` — `DEF-25`'s raise, `TRANSPORT-10`/`11`/`12`/`26`'s drops.
+9. `RequestMapper` and `RequestBody` — the wire-boundary re-validation's raise, `TRANSPORT-10`/`11`/`12`/`26`'s drops.
 10. `ResponseMapper` and `ResponseBody` — `TRANSPORT-14`/`24`/`27`, the pull-per-demand body.
 11. `Adapter` — construction, the eighteen-step dispatch path, the `R13` ensure discipline.
 12. `TRANSPORT-7`/`9` and `ASYNC-6` direction two — the orphan-close conformance tests.
@@ -1306,11 +1312,12 @@ Expected: PASS, 4 runs. Then `bundle exec rake gates:require_allowlist` — the 
 that `require "async/http"` in this gem's `lib/` is permitted.
 
 ---
-## Task 7: `DropPolicy` — `TRANSPORT-13`, `OBS-19`, `DEF-41`
+## Task 7: `DropPolicy` — `TRANSPORT-13`, `OBS-19`
 
 **Requirement IDs:** `TRANSPORT-13`.
-**Design:** "`Dexpace::Transport::AsyncHTTP::DropPolicy`"; `DEF-41`'s row; this plan's own ninth
-open question above.
+**Design:** "`Dexpace::Transport::AsyncHTTP::DropPolicy`"; the `OBS-19` entry under *Work phase 8c
+postponed, and who owns what it inherited* (the policy phase 5b postponed to phase 8); this plan's own
+ninth open question above.
 
 **Files:**
 - Create: `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/drop_policy.rb`,
@@ -1415,7 +1422,8 @@ Expected: FAIL — `uninitialized constant Dexpace::Transport::AsyncHTTP::DropPo
 - [ ] **Step 3: Add one `Events` constant to `dexpace-core`**
 
 ```ruby
-      # TRANSPORT-13/DEF-41, phase 8c: the drop-logging call site, the first in the repository
+      # TRANSPORT-13/OBS-19 (phase 5b postponed the policy here), phase 8c: the drop-logging call
+      # site, the first in the repository
       # where an adapter drops a header rather than raising on it.
       TRANSPORT_HEADER_DROPPED = "http.transport.header_dropped"
 ```
@@ -1436,7 +1444,7 @@ module Dexpace
     module AsyncHTTP
       # TRANSPORT-13 (SHOULD): a configurable policy for how a dropped header is logged, with
       # the per-name dedup mode bounded so an attacker synthesising unbounded distinct names
-      # cannot grow it without limit. DEF-41's own row predicts this shape almost exactly:
+      # cannot grow it without limit. Phase 5b's hand-forward predicts this shape almost exactly:
       # "phase 8 writes a small Data over both [5b's Severity and its once-per-key latch idea],
       # at the one call site that actually drops a header."
       #
@@ -1788,7 +1796,7 @@ Expected: PASS, 6 runs. Then
 keys.
 
 ---
-## Task 9: `RequestMapper` and `RequestBody` — `DEF-25`, `TRANSPORT-10`/`11`/`12`/`13`/`26`
+## Task 9: `RequestMapper` and `RequestBody` — the wire-boundary re-validation, `TRANSPORT-10`/`11`/`12`/`13`/`26`
 
 **Requirement IDs:** `TRANSPORT-12` (implementation half; the dispatched-over-both-protocols test
 is Task 15), `TRANSPORT-13` (implementation half; the test is Task 15).
@@ -1810,7 +1818,8 @@ deviation `P8-40`.
 
 require_relative "../../../test_helper"
 
-# DEF-25: HeaderSyntax re-run immediately before dispatch, on every name and outbound value.
+# Wire-boundary re-validation (phase 1 postponed it to the adapters): HeaderSyntax re-run
+# immediately before dispatch, on every name and outbound value.
 # TRANSPORT-11: the framing-header drop set, larger than the requirement's minimum because
 # verified fact 5 makes each entry a smuggling vector (a caller-set host/content-length is
 # APPENDED, not recomputed, on this adapter). TRANSPORT-12/13, P8-40: the RFC 7230 token
@@ -1835,7 +1844,7 @@ class DexpaceTransportAsyncHTTPRequestMapperTest < DexpaceTestCase
     [Dexpace::Instrumentation::Logger.build(sink: sink), sink]
   end
 
-  test "DEF-25: a header name HeaderSyntax rejects raises before anything is dispatched" do
+  test "HTTP-17: a header name HeaderSyntax rejects raises before anything is dispatched" do
     logger, = logger_and_sink
     bad = request(headers: { "Bad Name" => "v" })
 
@@ -1846,7 +1855,7 @@ class DexpaceTransportAsyncHTTPRequestMapperTest < DexpaceTestCase
     assert_match(/HTTP-17/, error.message)
   end
 
-  test "DEF-25: an outbound value HeaderSyntax rejects raises before anything is dispatched" do
+  test "HTTP-18: an outbound value HeaderSyntax rejects raises before anything is dispatched" do
     logger, = logger_and_sink
     bad = request(headers: { "X-Trace" => "a\x01b" })
 
@@ -2084,7 +2093,7 @@ module Dexpace
         TOKEN = ::Regexp.new(/\A[!#$%&'*+\-.^_`|~0-9A-Za-z]+\z/.source, timeout: 1.0)
 
         def call(request, _options, drop_policy:, logger:)
-          validate!(request.headers) # DEF-25: raises, uncaught here, on purpose (step 4)
+          validate!(request.headers) # wire-boundary re-validation: raises, uncaught here, on purpose (step 4)
 
           fields = []
           seen_content_type = false
@@ -2599,7 +2608,7 @@ class DexpaceTransportAsyncHTTPAdapterSyncTest < DexpaceTestCase
     assert_match(/Async reactor/, error.message)
   end
 
-  test "TRANSPORT-21: a header HeaderSyntax rejects settles through the future (DEF-25)" do
+  test "TRANSPORT-21: a header HeaderSyntax rejects settles through the future (wire-boundary re-validation)" do
     adapter = Adapter.new
     bad = request(headers: { "Bad Name" => "v" })
 
@@ -2722,7 +2731,7 @@ module Dexpace
             return completer.future
           end
 
-          # Steps 4-10: DEF-25's re-validation, the two header drops, endpoint/client
+          # Steps 4-10: the wire-boundary re-validation, the two header drops, endpoint/client
           # resolution -- all on the caller's own fiber, no suspension point, so a failure here
           # is delivered through the future without ever creating a task.
           begin
@@ -3824,7 +3833,7 @@ the charter's one-row-per-ID convention — no second row for any of them here).
 one twelve-clause **suite contract** in
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`
 (`R16` → *The suite contract*); "The knowledge note `8c` files"; "The findings proposed for the
-registers"; "Deferrals and the register sweep."
+registers"; "Work phase 8c postponed, and who owns what it inherited."
 
 - [ ] **Step 1: Run 8a's suite as a second driver — written to run when it exists, and to be a
   no-op today**
@@ -3953,8 +3962,10 @@ already drafted them, for a human to paste:
 
 - Four `docs/open-items.md` rows, `OI-38` through `OI-41` (the design's own text, quoted in
   full in "The findings proposed for the registers").
-- The one-sentence addition to `DEF-41`'s row (the design's own text, under "Deferrals and the
-  register sweep").
+- ~~The one-sentence addition on `OBS-19`'s drop policy~~ — **already applied** (corrected
+  2026-09-13): the design's *Work phase 8c postponed* entry for the policy carries the
+  HTTP/1.1-specific sentence verbatim, so nothing is handed over for it. Marking the work as landed is
+  this plan's own and is Step 5a's, below.
 - Task 18's two `docs/first-release.md` lines.
 - `docs/deviations.md`'s consolidation of **`P8-36`–`P8-40`** — all five, carried unchanged from
   the design, since this plan judged none of them differently. **No sixth row.** An earlier
@@ -3964,6 +3975,31 @@ already drafted them, for a human to paste:
   deliberate nor a difference from the contract — it is the design being wrong about its own gate,
   and it is now corrected in the design itself. Nothing cites `P8-41` and no row was ever written,
   so no id is reused and `P8-41`–`P8-50` stay unallocated inside 8c's band.
+
+- [ ] **Step 5a: Mark the two items earlier phases postponed here as landed**
+      *(added 2026-09-13, plan re-verification)*
+
+The design's *Work phase 8c postponed, and who owns what it inherited* states two dispositions that
+only this plan can turn into marks, and an earlier revision of this task handed over a sentence that
+was already recorded while leaving the marks to nobody. Two items:
+
+- **`OBS-19`'s header-drop policy (phase 5b postponed it to phase 8)** — mark this sub-phase's
+  `TRANSPORT-13` checklist row ✅ and say in the roadmap's phase status note that the policy phase 5b
+  postponed has landed: `Dexpace::Transport::AsyncHTTP::DropPolicy` (Task 7), the drop predicate at
+  dispatch step 5 (Task 9) and the both-protocols dispatch test (Task 15). Record the measured
+  `protocol-http1` version the antecedent was confirmed on, since the whole condition is that
+  library's grammar.
+- **The wire-boundary re-validation (phase 1 postponed it to the adapters)** — the work is complete
+  when **both** adapters' call sites exist: `8a`'s Task 16 and this plan's Task 9. **The sub-phase
+  that lands second says so**, and under the charter's recommended order that is this one. If `8a`'s
+  call site is already on the branch when this step runs, say in the phase status note that the
+  re-validation phase 1 postponed has landed in both adapters — `dexpace-transport-net_http` (8a
+  plan, Task 16) and `dexpace-transport-async_http` (8c plan, Task 9) — and that phase 9's Task 7
+  adds the portable assertion. If it is not, leave it — `8a`'s Task 25 Step 3a carries the mirror
+  of this sentence and does it when it lands second.
+
+Then run `ruby .claude/skills/housekeeping/probe.rb --only citations,registers` and fix what it
+reports **without rewriting prose to satisfy a check**.
 
 - [ ] **Step 6: Run housekeeping's probe**
 
@@ -3997,8 +4033,13 @@ reason.
 | `ASYNC-21` | MUST | **N/A** — §11.21, adapter-scoped, no reactive adapter ships; property held anyway | Task 10 (`ResponseBody#each`) | Task 16 |
 | `ASYNC-22` | MUST | ✅ satisfied — no per-call state outside the exchange task and its `Completer` | Task 11 (construction) | Tasks 11, 16 |
 
-No `DEF-<n>` row applies to any of the ten — none is deferred, dispositioned as ⏳, or moved in
-or out of this sub-phase's budget by a register entry.
+No ID above is deferred, dispositioned as ⏳, or moved in or out of this sub-phase's budget by an
+earlier phase's postponement. Two postponed items nonetheless **close or half-close on this table**
+and an earlier revision of this sentence denied it *(corrected in place 2026-09-13)*:
+`TRANSPORT-13`'s row is where **`OBS-19`'s header-drop policy** (phase 5b postponed it) lands and
+closes (Task 7; Task 19 Step 5a performs the mark), and `TRANSPORT-12`'s dispatch-step re-validation
+is `8c`'s half of **the wire-boundary re-validation** phase 1 postponed to the adapters (Task 9;
+marked when the second adapter lands, Task 19 Step 5a).
 
 ---
 
@@ -4199,7 +4240,7 @@ wrote `#request_cancel`; the two design sentences are corrected.
 ## Handoff to follow-through
 
 Things this sub-phase cannot write itself, recorded here so they are not rediscovered. **None is a
-register edit performed by this plan**, and this section is new as of the cross-sub-phase
+mark this plan performs itself**, and this section is new as of the cross-sub-phase
 reconciliation pass on 2026-09-12 — this plan was the only one of the three without one.
 
 1. **`Dexpace::TransportError` is `8a`'s Task 2 to land, not this plan's.** The charter's phase-level

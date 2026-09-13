@@ -505,27 +505,44 @@ module Housekeeping
           next if match.nil? || STUB.match?(text[match.begin(0), 600].to_s)
 
           act(file, Prose.line_at(text, match.begin(0)),
-              "carries \"#{match[0].strip}\". An aggregate register belongs in #{REGISTER}. " \
+              "carries \"#{match[0].strip}\". An aggregate register belongs in #{REGISTER}, or, " \
+              'for postponed work, in the owning plan task or docs/first-release.md. ' \
               "A phase's own dated section stays with the phase; the aggregate does not.")
         end
       end
     end
 
-    # 7. Every register item ID cited anywhere resolves to an item in ITS OWN register.
+    # 7. Every register item ID cited anywhere resolves to an item in ITS OWN register, and
+    #    no ID from a RETIRED register is cited at all.
     #
-    # There are two registers, not one: `OI-<n>` resolves only against `docs/open-items.md`,
-    # `DEF-<n>` only against `docs/deferred-items.md`. A prefix's definitions are scanned
-    # from its own file only, so a heading or table row with the wrong prefix's shape sitting
-    # in the wrong file (an `OI-5` heading accidentally left in `deferred-items.md`, say)
-    # resolves nothing -- the file, not just the pattern, has to match.
+    # Two namespaces. The LIVE one, `OI-<n>`, resolves only against `docs/open-items.md`: a
+    # prefix's definitions are scanned from its own file only, so a heading or table row with
+    # the right shape sitting in any other file resolves nothing -- the file, not just the
+    # pattern, has to match. A live prefix whose register file does not exist is a no-op, so
+    # a tree that has not grown a register yet is not reported as dangling.
+    #
+    # The RETIRED one, `DEF-<n>`, was the deferral register `docs/deferred-items.md` until
+    # 2026-09-13, when every row was resolved and the file removed; a deferral now lives with
+    # its owner -- the plan task that picks it up, or a `docs/first-release.md` entry. Every
+    # `DEF-<n>` citation is therefore a leftover and is reported as one, whether or not the
+    # old file is still on disk. A retired prefix deliberately does NOT no-op when its file
+    # is missing: that is the one behaviour that would hide the leftovers this check exists
+    # to find. The file itself, if it lingers, is one finding rather than one per row.
     #
     # The ID namespace is a declared list of prefixes rather than `[A-Z]+-\d+`, which would
     # swallow every requirement ID in the spec (`HTTP-7`, `SEAM-1`, `NFR-5`) and report the
-    # entire corpus as dangling. Adding a register prefix is one entry in REGISTERS.
+    # entire corpus as dangling. Adding a register prefix is one entry in REGISTERS; retiring
+    # one is moving it to RETIRED with the sentence that says where its items went.
     class Citations < Check
       NAME = 'citations'
-      REGISTERS = { 'OI' => 'docs/open-items.md', 'DEF' => 'docs/deferred-items.md' }.freeze
-      ID = "(?:#{REGISTERS.keys.join('|')})-\\d+"
+      REGISTERS = { 'OI' => 'docs/open-items.md' }.freeze
+      RETIRED = {
+        'DEF' => 'the deferral register, retired 2026-09-13: cite the owning plan task or the ' \
+                 'docs/first-release.md entry instead'
+      }.freeze
+      # Where a retired register used to live. Its presence is drift in itself.
+      RETIRED_FILES = { 'DEF' => 'docs/deferred-items.md' }.freeze
+      ID = "(?:#{(REGISTERS.keys + RETIRED.keys).join('|')})-\\d+"
       CITATION = Regexp.new('\b(' + ID + ')\b')
       TREES = ['docs', '*.md', 'gems', 'lib', 'scripts', '.claude'].freeze
       READABLE = /\.(?:md|rb|rake)\z/
@@ -535,13 +552,21 @@ module Housekeeping
 
       def run(repo)
         active = REGISTERS.select { |_prefix, file| repo.exist?(file) }
-        return [] if active.empty?
-
         known = known_ids(repo, active)
-        cited_files(repo).flat_map { |file| check_file(repo, file, known, active) }
+        lingering(repo) + cited_files(repo).flat_map { |file| check_file(repo, file, known, active) }
       end
 
       private
+
+      # A retired register's file still on disk: one finding for the file, not one per row.
+      def lingering(repo)
+        RETIRED_FILES.filter_map do |prefix, file|
+          next unless repo.exist?(file)
+
+          act(file, 1, "still exists, but it was #{RETIRED.fetch(prefix)}. Delete it once no " \
+                       "#{prefix}-<n> citation remains.")
+        end
+      end
 
       # `### OI-12`, or a table row whose first cell is the ID, backticked or not. Both
       # shapes, so a register can be a list of sections or a table of rows without this
@@ -559,24 +584,32 @@ module Housekeeping
       end
 
       def cited_files(repo)
-        (repo.present(*TREES).select { |file| READABLE.match?(file) && !EXCLUDED.match?(file) }) - REGISTERS.values
+        (repo.present(*TREES).select { |file| READABLE.match?(file) && !EXCLUDED.match?(file) }) -
+          REGISTERS.values - RETIRED_FILES.values
       end
 
       def check_file(repo, file, known, active)
         findings = []
         Prose.unfenced(repo.read(file)).each_line.with_index(1) do |line, number|
           line.scan(CITATION) do |(id)|
-            prefix = id.split('-', 2).first
-            register = active[prefix]
-            next if register.nil? # that prefix's register does not exist yet: no-op, as before
-            next if known.include?(id)
-
-            findings << act(file, number,
-                            "cites #{id}, which has no entry in #{register}. Item IDs are " \
-                            'permanent; a dangling one means the citation, not the register, is wrong.')
+            finding = finding_for(id, known, active)
+            findings << act(file, number, finding) unless finding.nil?
           end
         end
         findings
+      end
+
+      # The message for citing `id`, or `nil` when the citation is fine.
+      def finding_for(id, known, active)
+        prefix = id.split('-', 2).first
+        return "cites #{id}, an ID from #{RETIRED.fetch(prefix)}." if RETIRED.key?(prefix)
+
+        register = active[prefix]
+        return nil if register.nil? # that prefix's register does not exist yet: no-op, as before
+        return nil if known.include?(id)
+
+        "cites #{id}, which has no entry in #{register}. Item IDs are permanent; a dangling " \
+          'one means the citation, not the register, is wrong.'
       end
     end
 
@@ -586,7 +619,7 @@ module Housekeeping
       NAME = 'guard'
       # Every surface this skill, or a routine edit, is allowed to write.
       WRITABLE_SURFACE = %w[
-        docs/README.md docs/open-items.md docs/deferred-items.md docs/sdk-documentation docs/work
+        docs/README.md docs/open-items.md docs/sdk-documentation docs/work
         docs/superpowers docs/assets CLAUDE.md README.md
       ].freeze
       # Paths the guard must refuse, whether or not they exist yet. A guard that has

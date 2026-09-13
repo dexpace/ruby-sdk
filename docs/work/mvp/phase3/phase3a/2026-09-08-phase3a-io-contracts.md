@@ -34,7 +34,8 @@ and the governing documents.
   `::Float` are core Ruby. `stringio` is already on phase 0's twelve-name allowlist and this phase
   uses it in `test/` only.
 - **`IO-40` forbids a clock.** No method in 3a takes a timeout, a deadline or a `Cancellation`, and
-  no task reaches for `DEF-28`'s `deadline:` keyword. The only blocking call in the sub-phase is the
+  no task reaches for the pivot's `deadline:` keyword (kept off the pivot by phase 2, deviation P2-5, until
+  phase 5a, Task 8). The only blocking call in the sub-phase is the
   upstream's own `#readpartial`/`#read` inside `#fill`.
 - **Every `.rb` file** opens with `# frozen_string_literal: true` on line 1,
   `# SPDX-License-Identifier: MIT` on line 2, then a blank line (`NFR-13`;
@@ -715,8 +716,8 @@ class DexpaceCloseableTest < DexpaceTestCase
   #
   # IO-38 is the requirement that forces this. Design §3.1 fixes the mechanism -- the flag is
   # "written and read through a Thread::Mutex rather than relying on the GVL, so the guarantee
-  # survives JRuby and TruffleRuby" -- and DEF-33 records that no such interpreter is in the
-  # matrix, which is precisely why this assertion carries the weight the behavioural IO-38 test
+  # survives JRuby and TruffleRuby" -- and 3a's design records ("Work Phase 3a Postpones") that no
+  # such interpreter is in the matrix, which is precisely why this assertion carries the weight the behavioural IO-38 test
   # cannot.
   test "closed? acquires the close mutex" do
     subject = Spy.new
@@ -764,8 +765,9 @@ end
 
 The first of the three is the only assertion that distinguishes the synchronised reader from phase
 2's on CRuby. Everything else about `IO-38` passes with or without the lock on every row of a CRuby
-matrix, which is exactly what `DEF-33` records: the interpreter on which the mechanism is
-load-bearing is not one this project runs.
+matrix, which is exactly what the design's `IO-38` postponement records (event-gated under
+`docs/first-release.md` § Post-release triggers): the interpreter on which the mechanism is load-bearing is
+not one this project runs.
 
 - [ ] **Step 2: Run the suite to confirm the new test fails**
 
@@ -784,7 +786,7 @@ Replace `#closed?`'s body with:
     # the GVL, so the guarantee survives JRuby and TruffleRuby" -- and phase 2's unsynchronised
     # read relied on exactly the GVL that sentence declines to rely on. Measured at ~40 ns per
     # call on 3.2.11, 3.4.10 and 4.0.6, paid once per public entry point and never per byte.
-    # DEF-33 records that no GVL-free interpreter is in the matrix, so on every CI row this read
+    # No GVL-free interpreter is in the matrix (3a's design, "Work Phase 3a Postpones"), so on every CI row this read
     # passes with or without the lock: the assertion that distinguishes them is the fiber-held
     # mutex test in closeable_test.rb.
     def closed?
@@ -1091,7 +1093,7 @@ class DexpaceIOTest < DexpaceTestCase
   end
 
   # R5 is 3b's and phase 5 owns the configuration source. Nothing in 3a reads the ceiling from a
-  # keyword, so this asserts the absence that DEF-28's precedent depends on: adding an optional
+  # keyword, so this asserts the absence that phase 2's deadline: precedent (P2-5) depends on: adding an optional
   # keyword later widens a signature, and NFR-4 is not prejudiced.
   test "no 3a operation takes a max_materialized_bytes keyword" do
     keywords = [Dexpace::IO::Buffer.instance_method(:snapshot),
@@ -1144,7 +1146,7 @@ module Dexpace
     # IO-9's ceiling. Design §10.18 substitutes it for a host maximum single-array allocation Ruby
     # does not have, and §3.1 fixes the default at 64 MiB -- "chosen, not derived". Every
     # operation that produces one contiguous String reads this constant directly; nothing takes it
-    # as a keyword. Phase 5 owns the configuration source (R5, DEF-28's precedent): adding an
+    # as a keyword. Phase 5 owns the configuration source (R5; phase 2's deadline: precedent, P2-5): adding an
     # optional keyword later widens a signature rather than narrowing one, so NFR-4 is not
     # prejudiced.
     MAX_MATERIALIZED_BYTES = 64 * 1024 * 1024
@@ -3346,8 +3348,8 @@ class DexpaceBufferedSourceTest < DexpaceTestCase
   # another (no torn or stale reads)."
   #
   # Sequenced through a Thread::Queue handshake, never raced: phase 2's cancellation-stamp work is
-  # the precedent for how a free-running race produces a flake nobody can reproduce. DEF-33 records
-  # that this passes with or without the lock on every CRuby row -- the assertion that
+  # the precedent for how a free-running race produces a flake nobody can reproduce. 3a's design
+  # records that this passes with or without the lock on every CRuby row -- the assertion that
   # distinguishes mechanism from behaviour is the fiber-held-mutex test in closeable_test.rb.
   test "a close on one thread invalidates a read blocked on another" do
     pipe do |reader, writer|
@@ -5884,7 +5886,7 @@ ID, using the roadmap's ✅ / 🚫 / ⏳ / N/A legend verbatim. Every one of `IO
 | `IO-19`–`IO-24` | ✅ Task 9, green in Task 10; `IO-22`'s invalidation also Task 12 |
 | `IO-25`–`IO-29` | ✅ Task 14 |
 | `IO-30`, `IO-31`, `IO-32`, `IO-33`, `IO-34`, `IO-35`, `IO-36`, `IO-39` | 🚫 permanent simplification, `docs/sdk-design-ruby/10-…md` item 1 and §12's `IO` row. **`IO-30`'s behavioural clause survives as a property of `.of_bytes`** (Task 10) even though the ID is 🚫, because it is a behaviour and not apparatus |
-| `IO-37`, `IO-38` | ✅ Tasks 2 and 10, with `DEF-33` cited at `IO-38` |
+| `IO-37`, `IO-38` | ✅ Tasks 2 and 10, with the GVL-free-interpreter postponement (design, "Work Phase 3a Postpones"; `docs/first-release.md` § Post-release triggers) cited at `IO-38` |
 | `IO-40` | ✅ by construction — no method in 3a takes a timeout, a deadline or a `Cancellation`; Task 14 carries the mirroring clause |
 | `IO-41` | ✅ Tasks 10, 12, 13, 14 |
 | `IO-42` | ✅ Tasks 10, 12, 13, 14 — both directions, two tests that fail in opposite ways |
@@ -5894,12 +5896,15 @@ ID, using the roadmap's ✅ / 🚫 / ⏳ / N/A legend verbatim. Every one of `IO
 - **Deviations.** The design filed P3-1 through P3-12; Task 8 adds **P3-13**. All thirteen go in the
   phase document's `## Deviation Ledger`, are consolidated into design §10, and are audited by
   `docs/deviations.md`.
-- **Deferrals.** `DEF-33` was filed by the design and is cited at `IO-38`'s row. **This plan files
-  none.** The register was read in full and no row is picked up: `DEF-26` and `DEF-3` are 3b's and
-  phase 8's, `DEF-27` gains no `close_quietly` caller here (every close in 3a is either a caller's
+- **Postponed work.** The design postponed one item — exercising `IO-38` on a GVL-free interpreter,
+  event-gated under `docs/first-release.md` § Post-release triggers — and it is cited at `IO-38`'s row.
+  **This plan postpones nothing further.** Every item earlier phases postponed was read and none is
+  picked up here: the body-member narrowing and `BODY-12`/`BODY-36` are 3b's and phase 8's,
+  `close_quietly`'s disposal routes gain no caller here (every close in 3a is either a caller's
   explicit `#close`, which propagates, or a `#release`, which propagates once — §3.7's two loud
-  exceptions), `DEF-28` is named as a constraint rather than a deferral, `DEF-29`'s condition stays
-  unmet while its row is strengthened by three more doubles, and `DEF-32` has no notifier here.
+  exceptions), the pivot's `deadline:` keyword is named as a constraint rather than a postponement,
+  the condition for moving core's fakes into `dexpace-conformance` stays unmet while the case is
+  strengthened by three more doubles, and `Hooks.notify` has no notifier here.
 - **Open items.** This plan files **`OI-4`** and **`OI-6`** (below). `OI-2`, `OI-3` and `OI-5` stay
   open and none is 3a's to close.
 - **Release blockers.** None. Nothing is published and every gem stays at `0.0.0`.
@@ -5974,7 +5979,7 @@ R2 by Task 5, R3 by Task 10, R4 by Tasks 8 and 10. Its three open questions are 
 
 **Boundaries.** No task builds a body variant, `#replayable?`, a media type or a content length; no
 second decode site is added and `#read_string`/`#read_utf8` retag without a replacement policy;
-`Request#body` and `Response#body` are not narrowed in `sig/` (`DEF-26` stays 3b's); nothing adds
+`Request#body` and `Response#body` are not narrowed in `sig/` (the narrowing stays 3b's, P3-15); nothing adds
 `#body_string` or `#close` to `Dexpace::Response`; no logging wrapper is built. No recovery-chain
 step, error-to-exception mapping or new `close_quietly` caller. No configuration, clock, deadline,
 `deadline:` keyword, `max_materialized_bytes:` keyword or instrumentation event. No SSE line machine

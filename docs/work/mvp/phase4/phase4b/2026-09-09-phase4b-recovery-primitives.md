@@ -8,10 +8,11 @@
 two folds over frozen step lists (`RequestChain` and `ResponseChain`), one unified orchestrator
 (`Orchestrator`) that lets no throwable past it, the three pure transforms (`IdempotencyKeyStep`,
 `ClientIdentityStep`, `ErrorMappingStep`), the bounded error-body buffer (`Recovery.buffer_error_body`),
-and the error primitives four register rows and five later phases have been waiting on
+and the error primitives four earlier postponements and five later phases have been waiting on
 (`Suppressible`, `attach_suppressed`, `each_cause`, `OutcomeError`, `ProtocolError`) — satisfying
-all 18 implemented `RECOV` IDs (`RECOV-1`–`RECOV-16`, `RECOV-32`, `RECOV-33`), carrying 15 ⏳ rows under
-`DEF-35` to phase 6, and carrying 1 ⏳ row under `DEF-5` post-MVP.
+all 18 implemented `RECOV` IDs (`RECOV-1`–`RECOV-16`, `RECOV-32`, `RECOV-33`), carrying 15 ⏳ rows for the
+recovery-stack retry engine the charter postponed to phase 6 (6a, Tasks 3, 4, 5, 7 and 11), and carrying
+1 ⏳ row for `RECOV-31`, declined post-MVP by the MVP-scope design.
 
 **Architecture:** One closed sum type (`Dexpace::Outcome`) with exactly two variants (`Success` and
 `Failure`) defined via `Data.define` + `Model` + validating `.build`; one pure transform contract
@@ -56,7 +57,7 @@ carries the canonical `RECOV`, `XCUT`, `BODY` and `PIPE` text quoted below.
 - **No mutex is held in this phase, because 4b owns no mutable shared state.** Built chains hold
   frozen arrays of callables; an orchestrator holds three frozen references; per-call state lives in
   the value being transformed (`RECOV-14`). The suppressed trail relies on the single-writer
-  discipline by construction at every call site (`RECOV-12`, `DEF-32`, `RETRY-34`).
+  discipline by construction at every call site (`RECOV-12`, `Hooks.notify`, `RETRY-34`).
 - **`private_class_method :new` plus a validating `.build`**, on every `Data` this phase ships that
   is public API: `Dexpace::Outcome::Success` and `Dexpace::Outcome::Failure`. Validation lives in
   `initialize` and is invoked through `super` from `.build` via `new`. `Dexpace::Recovery::Ownership`
@@ -130,7 +131,7 @@ stated here:
    **Reason:** A classification walk (such as retryability or error inspection) must never be the thing
    that raises or crashes an application when inspecting an ill-behaved third-party exception. A fourth
    fixture class (`RaisingCauseError`) is added to `cyclic_errors.rb` to assert this behavior.
-4. **Whether `DEF-32`'s fourth `Hooks.notify` test goes at one site or all three.**
+4. **Whether the `Hooks.notify` fix's fourth test goes at one site or all three.**
    **Decision:** One site, in `test/dexpace/cancellation_test.rb` at `Cancellation::Source#cancel`.
    **Reason:** All three call sites invoke the same private helper `Dexpace::Hooks.notify`, and phase 2
    already proves each site delegates to `Hooks.notify`. Replicating the multi-raising handler test
@@ -151,15 +152,17 @@ before that task is executed.
 
 1. `Dexpace::Suppressible` (module, `attach_suppressed`, `suppressed`) + `Dexpace::Error` inclusion
    — foundational trail module needed by Tasks 2, 13, 14. Load-bearing require order: `suppressible`
-   must precede `error`. Satisfies `DEF-24`, `RETRY-34`, `P4-12`, `P4-13`, `P4-14`, `P4-15`.
-2. `DEF-32` (`Hooks.notify` trail update) and `DEF-27` (`close_quietly(onto:)`) — modifies phase-2
+   must precede `error`. Satisfies the suppressed-trail postponement phase 1 made to phase 4, `RETRY-34`,
+   `P4-12`, `P4-13`, `P4-14`, `P4-15`.
+2. The `Hooks.notify` trail update and `close_quietly(onto:)` — the two phase-2 postponements (dropped
+   later handler failures; the first of `close_quietly`'s two disposal routes) — modifies phase-2
    infrastructure to utilize `Dexpace.attach_suppressed`. Needs Task 1.
 3. `Dexpace.each_cause` + `CyclicErrorFixtures` test support — cycle-safe cause traversal (`XCUT-9`,
    `P4-16`). Needs Task 1.
 4. `Dexpace::OutcomeError` — named internal error for exhaustiveness failures (`R6`, `P4-19`).
    Needs Task 1 (`Dexpace::Error`).
 5. `Dexpace::ProtocolError` — status-to-typed-exception model carrying `#response` and `#status`
-   (`XCUT-4`, `XCUT-8`, `RECOV-15`, `P4-20`, `DEF-38`). Needs Task 1.
+   (`XCUT-4`, `XCUT-8`, `RECOV-15`, `P4-20`; the retryability flag is postponed to phase 6a, Task 6). Needs Task 1.
 6. `Dexpace::Outcome`, `Outcome::Success`, `Outcome::Failure` — closed sum type (`RECOV-1`,
    `P4-21`, `P4-24`). Needed by Tasks 11, 13, 14.
 7. `Dexpace::Recovery` module and `Recovery.buffer_error_body` — bounded error-body buffering
@@ -177,15 +180,18 @@ before that task is executed.
     `RECOV-12`–`RECOV-14`, `P4-18`, `P4-19`, `P4-22`). Needs Tasks 1, 4, 6.
 14. `Dexpace::Recovery::Orchestrator` — transport wrapper and unwrap orchestrator (`RECOV-2`,
     `RECOV-10`, `RECOV-11`, `P4-17`, `P4-19`). Needs Tasks 12, 13.
-15. Wiring, Surface Snapshot, RBS Baseline, Checklist, and Register Updates — require ordering,
-    manifest regeneration, test matrix execution, checklist generation, register updates (`DEF-24`,
-    `DEF-32`, `DEF-27`, `DEF-38`, `DEF-35`, `DEF-5`), and `CLAUDE.md` claims sentence.
+15. Wiring, Surface Snapshot, RBS Baseline, Checklist, and Phase Status Note — require ordering,
+    manifest regeneration, test matrix execution, checklist generation, the record of which postponed
+    work landed here (the trail, the `Hooks.notify` fix, `close_quietly`'s first route) and which stays
+    postponed (the retryability flag, the recovery-stack engine, `RECOV-31`), and `CLAUDE.md` claims
+    sentence.
 
 ---
 
 ## Task 1: `Dexpace::Suppressible` and `Dexpace::Error`
 
-**Requirement IDs:** `DEF-24`, `RETRY-34` (the skip-self guard), `RECOV-12` (suppressed error attachment).
+**Requirement IDs:** the suppressed-exception trail phase 1 postponed to phase 4 (picked up here), `RETRY-34`
+(the skip-self guard), `RECOV-12` (suppressed error attachment).
 **Design:** "The trail cannot live on `Dexpace::Error`, because every primary it will ever be handed
 is a caller's exception... So the trail is a **separate** module, `Dexpace::Suppressible`, that
 `Dexpace::Error` includes and `Dexpace.attach_suppressed` `extend`s onto anything else — and it has to
@@ -215,7 +221,7 @@ errors the SDK never raised (P4-12, P4-13)."
 require_relative "../test_helper"
 require "dexpace"
 
-# DEF-24, RETRY-34, RECOV-12.
+# The suppressed trail phase 1 postponed to phase 4; RETRY-34, RECOV-12.
 class DexpaceSuppressibleTest < DexpaceTestCase
   test "empty suppressed trail returns frozen empty array" do
     err = ::StandardError.new("boom")
@@ -418,7 +424,8 @@ require_relative "suppressible"
 
 module Dexpace
   # Root module for all exceptions raised by the dexpace SDK (P1-2).
-  # Includes Dexpace::Suppressible so all SDK errors carry a suppressed trail (DEF-24).
+  # Includes Dexpace::Suppressible so all SDK errors carry a suppressed trail (the trail phase 1
+  # postponed to phase 4, built here).
   module Error
     include Dexpace::Suppressible
   end
@@ -475,12 +482,13 @@ Expected: PASS — 10 runs, 0 failures, 0 errors.
 
 ---
 
-## Task 2: Phase-2 Error Trail Integration: `DEF-32` (`Hooks.notify`) and `DEF-27` (`close_quietly(onto:)`)
+## Task 2: Phase-2 Error Trail Integration: the `Hooks.notify` fix and `close_quietly(onto:)`
 
-**Requirement IDs:** none of its own — this task is two **register pick-ups**, `DEF-32` and
-`DEF-27`'s first disposal route, against phase-2 code. `RECOV-12` is the rule the trail exists for
+**Requirement IDs:** none of its own — this task picks up two **phase-2 postponements**, the handler
+failures `Hooks.notify` drops after the first and the first of `close_quietly`'s two disposal routes,
+against phase-2 code. `RECOV-12` is the rule the trail exists for
 and `SEAM-18` is what `Hooks.notify` was built against; neither is re-satisfied here.
-**Design:** "`DEF-32`'s pick-up condition is exact: 'the change is confined to `Hooks.notify`:
+**Design:** "Phase 2's pick-up condition for it is exact: 'the change is confined to `Hooks.notify`:
 attach each later failure to the first through `Dexpace.attach_suppressed`, then re-raise as now.'...
 `Dexpace.close_quietly` gains one optional keyword, `onto:`, defaulting to `nil`. With `onto:` absent
 the behaviour is byte-for-byte today's... With `onto:` supplied, the rescued error is attached to it
@@ -503,7 +511,7 @@ through `Dexpace.attach_suppressed` and `close_quietly` still returns `nil` and 
 In `gems/dexpace-core/test/dexpace/cancellation_test.rb`, add the fourth `Hooks.notify` test:
 
 ```ruby
-  # DEF-32, P4-12, P4-13.
+  # The Hooks.notify fix (phase 2's postponement), P4-12, P4-13.
   test "multiple raising handlers attach later failures to first via Dexpace.attach_suppressed" do
     source = Dexpace::Cancellation::Source.new
     first_err = ::IOError.new("first handler failed")
@@ -529,7 +537,7 @@ In `gems/dexpace-core/test/dexpace/cancellation_test.rb`, add the fourth `Hooks.
 In `gems/dexpace-core/test/dexpace/closeable_test.rb`, add tests for `close_quietly(onto:)`:
 
 ```ruby
-  # DEF-27.
+  # close_quietly's first disposal route (phase 2's postponement).
   test "close_quietly with onto: absent drops error and returns nil" do
     bad_resource = Object.new
     def bad_resource.close; raise ::StandardError, "boom"; end
@@ -581,8 +589,9 @@ require_relative "suppressible"
 ```
 
 ```ruby
-    # DEF-32: every hook runs, and the failures AFTER the first are no longer dropped -- each is
-    # attached to the first through Dexpace.attach_suppressed, which is the row's own wording.
+    # Phase 2's postponement, picked up here: every hook runs, and the failures AFTER the first are
+    # no longer dropped -- each is attached to the first through Dexpace.attach_suppressed, which is
+    # phase 2's own wording.
     # The re-raise carries `cause: nil` because this site re-raises an error it has been CARRYING
     # since an earlier iteration rather than one it just rescued, and a bare `raise` would hand it
     # the caller's in-flight $! as a #cause (verified fact 5). "Re-raise as now" is honoured: the
@@ -612,7 +621,8 @@ require_relative "error/invalid_argument_error"
 ```
 
 ```ruby
-  # DEF-27, first disposal route. With `onto:` absent -- every existing call site -- the behaviour
+  # close_quietly's first disposal route (phase 2 postponed both routes; the second is phase 5b,
+  # Task 14). With `onto:` absent -- every existing call site -- the behaviour
   # is byte-for-byte phase 2's: rescue StandardError, drop it, return nil. With `onto:` supplied
   # the rescued error lands on that error's suppressed trail, and close_quietly still returns nil
   # and still does not raise. §8.1's diagnostic is the SECOND route and is phase 5's; this method
@@ -634,7 +644,7 @@ require_relative "error/invalid_argument_error"
     begin
       resource.close
     rescue ::StandardError => error
-      Dexpace.attach_suppressed(onto, error) if onto # DEF-27
+      Dexpace.attach_suppressed(onto, error) if onto # first disposal route
     end
     nil
   end
@@ -1001,7 +1011,7 @@ Expected: PASS — 3 runs, 0 failures, 0 errors.
 `#response` and `#status`, with a message naming the status code and its canonical name... There is
 no per-status subclass tree, and that is P4-20... `ProtocolError.for(response)` raises
 `Dexpace::InvalidArgumentError` for a non-error status (`XCUT-8`)... `ProtocolError.for_or_nil(response)`
-returns `nil` instead... No `#retryable?` (DEF-38)."
+returns `nil` instead... No `#retryable?` (postponed to phase 6a, Task 6)."
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/error/protocol_error.rb`,
@@ -1082,7 +1092,7 @@ class DexpaceProtocolErrorTest < DexpaceTestCase
     assert_equal(500, err.status.code)
   end
 
-  test "ProtocolError does not define retryable? (DEF-38)" do
+  test "ProtocolError does not define retryable? (postponed to phase 6a, Task 6)" do
     err = Dexpace::ProtocolError.new(build_response(503))
     refute_respond_to(err, :retryable?)
   end
@@ -3521,19 +3531,20 @@ Expected: PASS — 7 runs, 0 failures, 0 errors.
 
 ---
 
-## Task 15: Final Wiring, Surface Snapshot, RBS Baseline, Checklist, and Register Updates
+## Task 15: Final Wiring, Surface Snapshot, RBS Baseline, Checklist, and Phase Status Note
 
 **Requirement IDs:** `NFR-1`, `NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`, `NFR-14`.
 **Design:** "The final wiring task — `lib/dexpace.rb`'s require order, the regenerated runtime
-surface snapshot and RBS baseline, the register moves the design commits to (`DEF-24` and `DEF-32`
-to `picked-up`, `DEF-27` gaining a dated `Status` line and not moving, the new `DEF-38` row), and the
-`CLAUDE.md` claims sentence."
+surface snapshot and RBS baseline, the record of the postponed work the design commits to picking up
+(the suppressed trail and the `Hooks.notify` fix, complete; `close_quietly`'s first route, with the
+second still phase 5's; the retryability flag postponed onward to phase 6), and the `CLAUDE.md` claims
+sentence."
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace.rb`,
   `gems/dexpace-core/sig/dexpace.rbs`,
   `test/fixtures/surface/dexpace-core.txt`,
-  `docs/deferred-items.md`,
+  `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` (the phase-4b status note),
   `CLAUDE.md`
 - Create: `docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`
 
@@ -3657,33 +3668,37 @@ Account for all 34 `RECOV` requirements:
   - `RECOV-16` -> Tasks 7, 11
   - `RECOV-32` -> Task 9
   - `RECOV-33` -> Task 10
-- 15 Deferred rows under `DEF-35` (⏳): `RECOV-17`–`RECOV-30`, `RECOV-34` (target phase 6)
-- 1 Deferred row under `DEF-5` (⏳): `RECOV-31` (post-MVP)
+- 15 ⏳ rows for the recovery-stack retry engine the charter postponed to phase 6 (6a, Tasks 3, 4, 5, 7
+  and 11): `RECOV-17`–`RECOV-30`, `RECOV-34`
+- 1 ⏳ row for `RECOV-31`, declined post-MVP by the MVP-scope design (`docs/first-release.md` § What v1
+  ships without › SHOULD/MAY)
 
 - [ ] **Step 8: Record what the phase decided, in the right place**
 
-`docs/deferred-items.md` is append-only in its rows and its item format is
-`### DEF-<n> — <title>` with bullet fields; a picked-up row is **never moved or deleted**, its
-`Status` line changes and the row stays where it is, so a `DEF-<n>` citation written while the work
-was deferred still resolves. There is no `picked-up` section to move anything into.
+The postponed work this phase picks up is recorded in two places and nowhere else: the checklist rows
+written in Step 7, and the roadmap's phase-4b status note
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, `## Phase Status Notes`), which says in one
+dated sentence per item that the work an earlier phase postponed here has landed.
 
-- **Deferrals.**
-  - `DEF-24`: `- **Status:** picked-up (2026-09-09, phase 4b)`, naming `Dexpace::Suppressible`,
-    `Dexpace.attach_suppressed` and the `#detailed_message` rendering. Its `Why` names
-    `Dexpace::Error#suppressed` as the carrier and `#full_message` as the override; both are
-    corrected to `Dexpace::Suppressible` and `#detailed_message` in the same edit (P4-12, R5).
-  - `DEF-32`: `- **Status:** picked-up (2026-09-09, phase 4b)`, naming the fourth test,
+- **Postponed work picked up.**
+  - The suppressed-exception trail phase 1 postponed to phase 4: landed 2026-09-09, phase 4b, as
+    `Dexpace::Suppressible`, `Dexpace.attach_suppressed` and the `#detailed_message` rendering. Phase 1
+    named `Dexpace::Error#suppressed` as the carrier and `#full_message` as the override; the status note
+    says both became `Dexpace::Suppressible` and `#detailed_message` (P4-12, R5).
+  - The handler failures `Hooks.notify` dropped after the first (phase 2): landed 2026-09-09, phase 4b,
+    naming the fourth test,
     `"multiple raising handlers attach later failures to first via Dexpace.attach_suppressed"` in
-    `test/dexpace/cancellation_test.rb`, and correcting its `Dexpace::Error#suppressed` clause to
-    `Dexpace::Suppressible` — the primary at that site is a bare `::IOError` (P4-12).
-  - `DEF-27`: a dated `Status` line recording the **first** disposal route only —
-    `Dexpace.close_quietly(resource, onto:)` — and stating that the row stays **deferred** for
-    phase 5's second route, §8.1's diagnostic. It does **not** become `picked-up`. Its `Why`'s
-    `Dexpace::Error#suppressed` clause is corrected in the same edit.
-  - `DEF-38`: **already filed**, by this sub-phase's design on 2026-09-08, and the register's
-    `next id` is `DEF-40`. This plan files **no** new deferral and must not append a second
-    `DEF-38`; the step is to confirm the existing row still reads true of what Task 5 shipped —
-    the class with `#response`, `#status`, `.for` and `.for_or_nil`, and no `#retryable?`.
+    `test/dexpace/cancellation_test.rb`, and saying the carrier is `Dexpace::Suppressible`, not
+    `Dexpace::Error#suppressed` — the primary at that site is a bare `::IOError` (P4-12).
+  - `close_quietly`'s two disposal routes (phase 2): the **first** route only —
+    `Dexpace.close_quietly(resource, onto:)` — landed 2026-09-09, phase 4b; the note states that the
+    second route, §8.1's diagnostic, stays phase 5's (5b, Task 14, the opt-in `logger:`), so the item is
+    **not** complete. The same carrier correction applies.
+  - The retryability flag on `Dexpace::ProtocolError`: **postponed onward** by this sub-phase's design on
+    2026-09-08 to phase 6a, Task 6, and this plan postpones nothing further. The step is to confirm the
+    design's postponement still reads true of what Task 5 shipped — the class with `#response`,
+    `#status`, `.for` and `.for_or_nil`, and no `#retryable?` — and that the `RECOV-15` checklist row
+    says so.
 - **Deviations.** The design filed `P4-12` through `P4-25` and this plan adds none; the plan's five
   open-question answers are decisions the design asked it to make, not new departures. Consolidating
   them into design §10 is **not this task's edit** — `docs/sdk-design-ruby/` is frozen to this plan
@@ -3713,15 +3728,17 @@ Expected: PASS.
   `RECOV-9` (Task 13), `RECOV-10` (Task 14), `RECOV-11` (Task 14), `RECOV-12` (Task 13),
   `RECOV-13` (Task 13), `RECOV-14` (Tasks 12, 13), `RECOV-15` (Task 11), `RECOV-16` (Tasks 7, 11),
   `RECOV-32` (Task 9), `RECOV-33` (Task 10).
-- 15 deferred under `DEF-35` to phase 6: `RECOV-17` through `RECOV-30`, and `RECOV-34`.
-- 1 deferred under `DEF-5` post-MVP: `RECOV-31`.
+- 15 postponed by the charter to phase 6 (6a, Tasks 3, 4, 5, 7 and 11): `RECOV-17` through `RECOV-30`,
+  and `RECOV-34`.
+- 1 declined post-MVP by the MVP-scope design: `RECOV-31`.
 - Non-`RECOV` requirement IDs 4b owns a share of: `XCUT-4` branch (a) (Task 5), `XCUT-8` (Task 5),
   `XCUT-9` (Task 3), `BODY-30` (Task 7), `PIPE-37`'s honourability (Task 11), `RETRY-34`'s skip-self
   guard (Task 1), `RETRY-25`'s fatal-family passthrough as `RECOV-2`'s rule (Task 14). `HTTP-52` and
   `BODY-31` are **not** claimed: the design's out-of-scope table assigns both to phases 3b and 1,
   and 4b ships only the step that calls them.
-- Register pick-ups (deferral IDs, not requirement IDs): `DEF-24` (Task 1), `DEF-32` (Task 2), and
-  `DEF-27`'s first disposal route only (Task 2, row stays open).
+- Postponed work picked up (not requirement IDs): the suppressed trail (Task 1), the `Hooks.notify`
+  fix (Task 2), and `close_quietly`'s first disposal route only (Task 2; the second stays phase 5b's,
+  Task 14).
 
 **Deviation ledger coverage.** Every deviation row `P4-12` through `P4-25` lands in a named task:
 - `P4-12` (separate `Suppressible` module) -> Task 1

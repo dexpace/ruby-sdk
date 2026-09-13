@@ -14,9 +14,11 @@ retryability classifier and the build/runtime descriptor. Thirty-eight `CFG` IDs
 one gem.
 
 **It is the sub-phase the most downstream work waits on**, and that is the whole of the charter's reason for
-putting it first. Four register rows name it — `DEF-28`, `DEF-34`, `DEF-36`, and, once `R1` below is
-resolved, `DEF-38`'s source — and two objects phase 6 cannot start without are built here: `CFG-15`'s
-cancellable wait, which is why `RECOV-27` was moved to phase 6 under `DEF-35`, and `CFG-14`'s well-known key
+putting it first. Four postponed items land in it — the pivot's `deadline:` keyword (Task 8), the body-logging
+caps' configuration source and the context store's cap (Task 13), and, once `R1` below is resolved, the source
+of `ProtocolError#retryable?` (phase 6a, Task 6) — and two objects phase 6 cannot start without are built
+here: `CFG-15`'s cancellable wait, which is why `RECOV-27` was moved to phase 6 with the recovery-stack retry
+engine (phase 6a, Tasks 3, 4, 5, 7 and 11), and `CFG-14`'s well-known key
 for the retry-attempt cap, which is where `RETRY-12`'s defaults come from. None of that makes 5a a
 dependency of `5b` or `5c`; the charter is explicit that every phase-5 boundary is a convenience, and this
 document states that independence rather than inheriting a chain by habit.
@@ -88,10 +90,10 @@ process-wide slot behind a mutex, one bounded wait, and six parsers.
   its denylist; `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md` for `Dexpace::Model`,
   the builder split and `Dexpace::InvalidArgumentError`;
   `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md` with its plan for the async pivot,
-  `Cancellation`, `Closeable`, `Registry`, `Hooks` and `DEF-28`'s declined `deadline:`; the phase-3a and
+  `Cancellation`, `Closeable`, `Registry`, `Hooks` and the declined `deadline:` keyword; the phase-3a and
   phase-3b designs for `MAX_MATERIALIZED_BYTES` and the two logging bodies; and all three phase-4 sub-phase
   designs for their *interface surface later phases may cite* tables.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ## Scope
@@ -106,19 +108,19 @@ Thirty-eight IDs: **29 MUST, 8 SHOULD (`CFG-12`, `CFG-13`, `CFG-14`, `CFG-18`, `
 | Implemented | `CFG-1`–`CFG-18`, `CFG-21`–`CFG-33`, `CFG-36`–`CFG-38` | 34 |
 | Implemented, satisfied **by construction** — this port's async pivot delivers the caller's own exception, so there is no completion/execution wrapper to unwrap and "a non-wrapper throwable MUST be returned unchanged" holds for every input. No `unwrap` method ships (`P5-11`) | `CFG-19` (SHOULD) | 1 |
 | Partially satisfied — the NaN and signed-zero halves implemented; `CFG-34`'s boxed-versus-primitive **container-kind** clause recorded inapplicable per §11.15, and the inapplicability is not extended (`R4`) | `CFG-34` | 1 |
-| Partially satisfied — `CFG-20`'s cancel-with-interrupt clause is `ASYNC-3`'s mechanism under a second ID and is unsatisfiable under §8.3; its other three clauses are met. ⏳ citing `DEF-18` **and** `OI-22`, with the unmet clause named in the row (`R7`) | `CFG-20` (SHOULD) | 1 |
-| Partially satisfied — the **status** classifier ships here as `XCUT-5`'s single shared object; the **throwable** half is deferred as `DEF-40`, because core cannot name the error classes the clause is about (`R1`) | `CFG-35` (SHOULD) | 1 |
+| Partially satisfied — `CFG-20`'s cancel-with-interrupt clause is `ASYNC-3`'s mechanism under a second ID and is unsatisfiable under §8.3; its other three clauses are met. ⏳ citing the unsatisfied-MUSTs entry in `docs/first-release.md` **and** `OI-22`, with the unmet clause named in the row (`R7`) | `CFG-20` (SHOULD) | 1 |
+| Partially satisfied — the **status** classifier ships here as `XCUT-5`'s single shared object; the **throwable** half is postponed to phase 6a, Task 3, because core cannot name the error classes the clause is about (`R1`) | `CFG-35` (SHOULD) | 1 |
 
 **Nothing in `CFG` is deferred outright**, which design §12's `CFG` row confirms. One clause of one SHOULD is,
-and `DEF-40` is filed for it below rather than left in prose.
+and it is recorded below with its owner rather than left in prose.
 
 **Also shipped by 5a without owning a new ID**, per the charter:
 
-- the `deadline:` keyword on `Dexpace::Async::Future#value` and `#wait` and the monotonic clock behind it
-  (`DEF-28`);
-- the configuration source `DEF-36` names for `Dexpace::ContextStore`'s cap, and the source `DEF-34` names
-  for `Dexpace::IO::MAX_MATERIALIZED_BYTES` — `DEF-34`'s other two wirings need `5b`'s enablement setting and
-  are `5b`'s;
+- the `deadline:` keyword on `Dexpace::Async::Future#value` and `#wait` and the monotonic clock behind it,
+  which phase 2 postponed to phase 5 (Task 8);
+- the configuration source phase 4a postponed for `Dexpace::ContextStore`'s cap, and the source phase 3b
+  postponed for `Dexpace::IO::MAX_MATERIALIZED_BYTES` (Task 13) — the body-logging caps' other two wirings need
+  `5b`'s enablement setting and are `5b`'s (Tasks 14–15);
 - `CFG-14`'s well-known key constants, which `RETRY-12` and `OBS-35` both reference by name without either
   owning them.
 
@@ -239,18 +241,18 @@ its key as a required argument.
 |---|---|
 | `OBS-1`–`OBS-20`, `OBS-34`–`OBS-40` — the event object, the duck-typed sink, redaction, the diagnostic-context fold, `OBS-34`'s HTTP instrumentation step | `5b`. 5a emits `CFG-24`/`CFG-25`'s warning through `Kernel#warn` and `5b` adds the event beside it (`P5-8`) |
 | `OBS-21`–`OBS-33` — the span, scope, tracer and meter protocols | `5c` |
-| `CFG-35`'s **throwable** half — "retryable iff it or any throwable in its cause chain is an IO/timeout error" | 6, `DEF-40` filed below. Needs `XCUT-6`'s capability (phase 6) and `Dexpace::TransportError` (phase 8) |
-| `XCUT-5`'s baked `#retryable?` on `Dexpace::ProtocolError` | 6 (`DEF-38`). 5a builds the classifier it computes from; phase 4b shipped the class without the predicate on purpose |
+| `CFG-35`'s **throwable** half — "retryable iff it or any throwable in its cause chain is an IO/timeout error" | 6 — phase 6a, Task 3, recorded below. Needs `XCUT-6`'s capability (phase 6) and `Dexpace::TransportError` (phase 8) |
+| `XCUT-5`'s baked `#retryable?` on `Dexpace::ProtocolError` | 6 (phase 4b's deferral; phase 6a, Task 6). 5a builds the classifier it computes from; phase 4b shipped the class without the predicate on purpose |
 | `XCUT-7`'s **configurable** retryable-status set, default `{408, 429, 500, 502, 503, 504}` | 6. It is a different object from `CFG-35`'s built-in classifier and must not be conflated with it — `XCUT-5`'s own closing NOTE is the sentence a reader must not lose |
 | `RETRY-12`'s default tuning constants — 200 ms base, ×2, 8 s cap, 0.2 jitter, 3 sends | 6. 5a ships the **key name** `Keys::MAX_RETRY_ATTEMPTS` and no value |
-| `RECOV-27`'s cancellable inter-attempt wait | 6 (`DEF-35`). It is `CFG-15`'s object, which 5a builds; the retry engine that calls it is not 5a's |
-| `ASYNC-3`, `ASYNC-4`, `PIPE-33`'s interrupt clause | 8 marks all three (`DEF-18`, §10.5). 5a meets the same prohibition at `CFG-20` and dispositions it rather than adding a fourth (`R7`) |
+| `RECOV-27`'s cancellable inter-attempt wait | 6 (the recovery-stack retry engine, phase 6a Tasks 3, 4, 5, 7 and 11). It is `CFG-15`'s object, which 5a builds; the retry engine that calls it is not 5a's |
+| `ASYNC-3`, `ASYNC-4`, `PIPE-33`'s interrupt clause | 8 marks all three (§10.5; `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs). 5a meets the same prohibition at `CFG-20` and dispositions it rather than adding a fourth (`R7`) |
 | `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a thread hop | 8. Not `CFG`; and `Thread.current[]`'s **non**-inheritance, which `R3` relies on, is exactly why it is the wrong carrier there |
 | Propagating a deadline to `open_timeout`/`read_timeout`/`write_timeout` | 8. 5a's deadline bounds a wait; no socket exists in core |
 | `XCUT-21`'s CSPRNG path, `AUTH-20`'s cryptographic nonces | 6. `CFG-32` and `XCUT-21` stay two code paths (boundary 8); 5a writes no `require "securerandom"` |
 | `XCUT-11`'s shared-instance audit, `XCUT-14`'s bounded-map audit, `XCUT-19`/`XCUT-20`'s totality audits | 9. 5a builds two of the audited objects (`Configuration`, `Clock::SYSTEM`) |
 | `TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real adapter | 8. 5a ships `CFG-22`–`CFG-28`'s proxy **model and resolver**; nothing in core opens a socket |
-| `Pipeline.standard` and any preset that installs an instrumentation step | 6 (`DEF-39`). 5a installs nothing |
+| `Pipeline.standard` and any preset that installs an instrumentation step | 6 (phase 6b, Task 13a). 5a installs nothing |
 
 **No segmentation design of its own.** 5a is one spec chapter, one gem, 38 IDs, under a segmentation design
 that already exists at the `phase5/` level.
@@ -331,19 +333,21 @@ in Ruby, `Dexpace.configure` and `Dexpace.reset_config!`.
   downstream handler observes is the token's own `cancelled?`, which was set before the wait woke, and
   `Cancellation#check!` is what propagates it.
 - **`Dexpace::Async::Future#value(cancellation: nil)` / `#wait(cancellation: nil)` and
-  `Async::Completer#await(cancellation)`, with no `deadline:`** (P2-5, `DEF-28`). 5a adds the keyword, which
+  `Async::Completer#await(cancellation)`, with no `deadline:`** (P2-5, postponed to phase 5). 5a adds the keyword
+  (Task 8), which
   widens; `NFR-4` fails only when a signature "disappears or narrows", and 4c confirms no pipeline signature
   changes.
 - **`Dexpace::Async::Settlement`** and `Completer#fulfil`'s lost-race close through `Dexpace.close_quietly` —
   which is already `CFG-21`'s discard-path close, shipped, and which `SEAM-30` and design §10.4 argue.
 - **`Dexpace.close_quietly(resource, onto: nil)`**, null-safe (`CFG-21`'s last clause) with phase 4b's `onto:`
-  keyword and its suppressed-trail route. 5a adds no call site and no route; `5b` adds the diagnostic and
-  closes `DEF-27`.
+  keyword and its suppressed-trail route. 5a adds no call site and no route; `5b` adds the diagnostic route
+  phase 2 postponed (Task 14).
 - **`Dexpace::Hooks.notify(hooks, argument)`**, `private_constant` (P2-15) — the one fan-out loop. 5a starts
   no new fan-out, and says so because a configuration-change listener would be the obvious place to invent
   one: **`CFG-13` is last-write-wins with safe publication and nothing else, and 5a ships no observer.**
 - **`Dexpace::Registry` and three seam registries, with no auto-activation hook and a test asserting its
-  absence** (`DEF-30`). **5a adds no fourth registry**; the clock is an injected object, not a discovered
+  absence** (presence-gated auto-activation, post-v1 — `docs/first-release.md` § What v1 ships without). **5a adds
+  no fourth registry**; the clock is an injected object, not a discovered
   seam, because `SEAM-2` enumerates five seams and the clock is not one.
 - **The error-class shape** — `class X < ::StandardError; include Dexpace::Error; end`. 5a defines **no new
   error class**; every failure it raises is `Dexpace::InvalidArgumentError`, `Dexpace::CancelledError` or
@@ -362,18 +366,20 @@ in Ruby, `Dexpace.configure` and `Dexpace.reset_config!`.
   §3.1 asks for it to become "configurable through the same layered chain as every other limit (§8.2)". 5a
   gives it that source and adds no keyword, which is why the phase-3 boundary survives.
 - **`Dexpace::RequestLoggingBody.new(delegate, tap_limit: ::Float::INFINITY)`** and
-  **`Dexpace::ResponseLoggingBody.new(delegate, preview_bytes:)`** — required, no default. Both are `DEF-34`'s
-  other two wirings and both need the body-level-logging enablement predicate, which is `5b`'s. 5a does not
-  touch them and does not edit `DEF-34`.
+  **`Dexpace::ResponseLoggingBody.new(delegate, preview_bytes:)`** — required, no default. Both are the body-logging
+  caps' other two wirings and both need the body-level-logging enablement predicate, which is `5b`'s (Tasks
+  14–15). 5a does not touch them and does not mark that item done.
 - **`Dexpace::StreamError < ::IOError`**, which is exactly why `is_a?(::IOError)` is the wrong spelling for
   `CFG-35`'s throwable half (`R1`).
 
 ### From phase 4
 
 - **4a** — `ContextStore.new(cap:)` with `MAX_TRACKED_CONTEXTS = 1024` and `ContextStore.default`, the
-  attachment point `DEF-36` names. Picking it up is one wiring and **no signature change**.
+  attachment point phase 4a's deferral of the cap's configuration source names. Picking it up (Task 13) is one
+  wiring and **no signature change**.
 - **4a** — `Dexpace::Instrumentation::Bundle`, `TraceIdFlavour`, `NO_SPAN`, `NO_TRACER_FACTORY` and the empty
-  RBS interfaces. **None of it is 5a's**; the five-clause handshake and `DEF-37` are `5c`'s, and 5a neither
+  RBS interfaces. **None of it is 5a's**; the five-clause handshake and the no-op span and tracer protocols phase 4a
+  postponed are `5c`'s (Tasks 3, 4 and 5), and 5a neither
   populates nor extends the bundle.
 - **4a** — `Dexpace::BoundedMap`, `private_constant`, reachable by a bare name only from the full nesting
   form. **5a is not one of its named consumers and does not become one**: nothing in `CFG` is a keyed map with
@@ -382,15 +388,16 @@ in Ruby, `Dexpace.configure` and `Dexpace.reset_config!`.
   yielding the error first and stopping rather than propagating when `#cause` raises. It is the walk `CFG-19`
   and `CFG-35`'s throwable half would both use, **and 5a writes no second walk** — nor a first one, because
   `CFG-19` needs none and `CFG-35`'s throwable half defers.
-- **4b** — `Dexpace::ProtocolError` **without** `#retryable?`, and `DEF-38` reserving the predicate for phase
-  6. `R1` decides where its classifier comes from.
+- **4b** — `Dexpace::ProtocolError` **without** `#retryable?`, phase 4b having reserved the predicate for phase
+  6 (phase 6a, Task 6). `R1` decides where its classifier comes from.
 - **4c** — `Stages::LOGGING` with `PRE_LOGGING`/`POST_LOGGING` as its slots, and `Builder#install_preset`.
-  Both are `5b`'s and `DEF-39`'s. 4c's own note on `DEF-28` is 5a's licence: "when `deadline:` lands on
+  Both are `5b`'s and `Pipeline.standard`'s (phase 6b, Task 13a). 4c's own note on the `deadline:` keyword is
+  5a's licence: "when `deadline:` lands on
   `Future#value`, `AsyncTransport.sync_over` gains it and **no pipeline signature changes**."
 
 **Three open items land in 5a's window and none is 5a's to close.** `OI-15` is met by `CFG-16` and mitigated
-by writing "elapsed-time counter" in full. `OI-21` is `R1`'s subject and is what `DEF-40` cross-references at
-the phase-5 end. `OI-22` is `R7`'s subject and is what 5a's `CFG-20` checklist row cites.
+by writing "elapsed-time counter" in full. `OI-21` is `R1`'s subject and is what the `CFG-35` throwable-half entry
+below cross-references at the phase-5 end. `OI-22` is `R7`'s subject and is what 5a's `CFG-20` checklist row cites.
 
 ## Corpus reading, and what it settled
 
@@ -425,7 +432,7 @@ entry was located beside the roll-up in every case.
 | **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix CFG,OBS --section rules --brief` | 92 + (37 `CFG` / 51 `OBS`) entries. The `CFG` half is a faithful restatement of chapter 16 and adds nothing chapter 16 does not say — which is itself the result: **no harvested rule contradicts a decision here, so no note is filed.** The half of the group that changed something is the discovery that `--section rules` omits two of the 38 IDs — `OI-24`, below |
 | **Fiber scheduler, thread safety** | `--topic concurrency-and-async --section rules --brief` (75 entries), narrowed by grep on `mutex\|thread\|fiber\|monotonic\|sleep\|scheduler` | `concurrency-and-async/f414b864` (the note) governs `CFG-8`/`CFG-13`'s process-wide slot exactly as the charter said: one frozen snapshot swapped under a `Thread::Mutex`, read without a lock. `/241fb067`, `/fd3b2e2f`, `/05274309`, `/fcd96ee7`, `/b4489c39`, `/10579527`, `/ed7b9454` are `CFG-15`–`CFG-21` restated and are cited rather than repeated. `/08f1c7be` (`ASYNC-12`) is phase 8's and is what `R3`'s carrier choice must not be confused with |
 | **Resource lifecycle and stream ownership** | `--topic resource-management --section rules --brief` | 27 entries. `resource-management/d1f16cad`'s note already records that the styleguide's per-call I/O timeout rules do not reach the streaming layer; they do not reach the clock either, for the second reason the charter gives — §8.3 forbids `Timeout.timeout` outright and `CFG-15`'s wait is a cancellable queue wait, not a timeout. `resource-management/bf5560dc`'s block-form rule reaches nothing 5a builds: the only resource 5a acquires is a per-call `Thread::Queue`, released in an `ensure` in the same method scope |
-| **Public API surface** | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` | 150 entries. `api-design/1d9e6e0b` (keywords everywhere) shapes every accessor signature and takes no exception here; `api-design/6ea28c9c` (never `nil` for absent) is **overruled by requirement** for the lookup family, because `CFG-1` makes an absent value resolve to the caller's default and `CFG-37` documents that default as nullable — the case `6ea28c9c` itself reserves; `api-design/c15b29ce` (every returned collection frozen) is adopted through `Model.own`; `module-organization/64e84d64`'s full-nesting rule is what `R4`'s `private_constant` depends on; `api-design/1d9e6e0b`, `/a9943041` and `/634ccc4b` together make adding an optional keyword non-breaking and changing an existing default a MAJOR change, which is the rule `DEF-28`, `DEF-34` and `DEF-36` are all picked up under |
+| **Public API surface** | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` | 150 entries. `api-design/1d9e6e0b` (keywords everywhere) shapes every accessor signature and takes no exception here; `api-design/6ea28c9c` (never `nil` for absent) is **overruled by requirement** for the lookup family, because `CFG-1` makes an absent value resolve to the caller's default and `CFG-37` documents that default as nullable — the case `6ea28c9c` itself reserves; `api-design/c15b29ce` (every returned collection frozen) is adopted through `Model.own`; `module-organization/64e84d64`'s full-nesting rule is what `R4`'s `private_constant` depends on; `api-design/1d9e6e0b`, `/a9943041` and `/634ccc4b` together make adding an optional keyword non-breaking and changing an existing default a MAJOR change, which is the rule the `deadline:` keyword, the body-logging caps' source and the context store's cap are all picked up under |
 | **RBS / Steep typing** | `--topic type-system,data-modeling --section rules --brief` | 86 entries. `type-system/545949a5` fixes `Proxy::Type`'s three members as a frozen `Data` over a frozen table with an `.of` factory and never a `T::Enum`; `data-modeling/3e37c086` puts `Clock` in a class because it is an implementation of a duck type; `data-modeling/b74a2869` and `/ec0f41cb` put `Retryability`, `UUID`, `HTTPDate` and `BuildInfo` in modules because they own no state; `data-modeling/6accaff9` (a mutable constant must be frozen at assignment) is why `Configuration::EMPTY` is a frozen `Data` and `Dexpace.configuration` is **not** a constant; `data-modeling/5bc538ba` already narrows the Ractor claim and `P5-6` narrows it once more |
 | **Minitest conventions** | `--topic testing,assertions --section rules --brief` | 29 entries. `testing/4ef070df` (every test runs alone, in any order, fresh fixtures) is what forbids a suite that mutates the process-wide slot without restoring it and what forces `Dexpace.reset_config!` to be public; `testing/7ecef8e8` and `/630ba094` name the three doubles 5a builds **fakes**; `testing/26b866e1` forbids `assert_nothing_raised`, which matters for `CFG-24`'s never-throw clause; `assertions/e8c05720` routes every `CFG-37` guard through `Model.required!` |
 | **RuboCop and formatting** | `--topic tooling-and-quality-gates --section rules --brief` | Clean. 5a adds no cop: every rule it needs — `NoTimeParse`, `NoUriDefaultParser`, `NoLocaleCaseFold`, `NoThreadInterrupt`, `QualifiedCoreConstant` — already exists and already binds |
@@ -654,16 +661,17 @@ in the fact itself. Nothing here is claimed across a range that was not run.
 ## R1 — `CFG-35`'s classifier: the status half lands here, the throwable half is deferred
 
 **The decision: alternative (c) — build `CFG-35`'s status classifier in 5a as `XCUT-5`'s single shared object,
-and defer the throwable half to phase 6 as `DEF-40`.**
+and postpone the throwable half to phase 6 (phase 6a, Task 3, `Policy.throwable_retryable?`).**
 
-**Why the status half belongs here, against `DEF-38`'s argument.** `DEF-38` declined to build a classifier in
+**Why the status half belongs here, against phase 4b's argument.** Phase 4b, postponing `ProtocolError#retryable?`
+to phase 6, declined to build a classifier in
 phase 4 because "building one in phase 4 would fix a phase-6 seam a phase early and give the SDK two places a
 status classification could live, which is the drift the word SINGLE is in the requirement to prevent." That
 argument had force against phase 4, **which owned no requirement defining a classifier**. It has none against
 phase 5, which owns `CFG-35` — the only requirement in the corpus that states the built-in status set at
 requirement level, in a chapter titled "Configuration and utilities" whose subsystem line names "a shared
 retryability classifier" among its utilities. Building it here gives `XCUT-5`'s SINGLE exactly one home, and
-turns `DEF-38`'s phase-6 work from "build a classifier" into "compute from the classifier phase 5 built",
+turns phase 6's `#retryable?` work (phase 6a, Task 6) from "build a classifier" into "compute from the classifier phase 5 built",
 which is one method rather than a second object. That is precisely the cross-reference `OI-21` records as
 missing, supplied from the phase-5 end.
 
@@ -696,10 +704,10 @@ worse under an `NFR-4` lock than an absent one, because the absent one can be ad
 one can only be changed by breaking.
 
 **What it costs.** `CFG-35` becomes a partially-satisfied SHOULD in 5a's checklist and phase 6 must close it,
-so two register rows now point at one requirement: `DEF-38` for the baked flag and `DEF-40` for the throwable
-half. That is the two-rows-one-feature shape §11.20 warns about, accepted deliberately and mitigated by
-`DEF-40` citing `DEF-38` and `OI-21` in its own text — which is more cross-referencing than exists today, not
-less. The alternative costs were worse: **(a)** building both halves here would put a knowingly wrong
+so two postponed items now point at one requirement: the baked flag (phase 6a, Task 6) and the throwable
+half (phase 6a, Task 3). That is the two-items-one-feature shape §11.20 warns about, accepted deliberately and
+mitigated by the throwable-half entry naming the baked-flag item and `OI-21` in its own text — which is more
+cross-referencing than exists today, not less. The alternative costs were worse: **(a)** building both halves here would put a knowingly wrong
 IO-classification in core under a "hard contract"; **(b)** deferring both would leave `XCUT-5`'s SINGLE
 homeless for another phase and leave `OI-21`'s hole exactly as it is.
 
@@ -899,7 +907,7 @@ which is what `BuildInfo::IDENTITY_TOKENS` is.
 
 **The decision: `CFG-18` ships as a scheduler-conditional implementation that raises `Dexpace::SeamError` when
 no `Fiber.scheduler` is registered. It is not deferred, and it carries a deviation row (`P5-9`) rather than a
-register row.**
+deferral.**
 
 **The fact the decision rests on is now measured, not argued.** Verified fact 8: under a registered
 `Fiber::Scheduler`, `Thread::Queue#pop(timeout:)` calls the scheduler's `#block` hook exactly once and
@@ -972,34 +980,37 @@ never a shared pool thread. The two operations are different requirements with d
 
 ## R7 — the citation `CFG-20`'s checklist row carries
 
-**The decision: ⏳, citing `DEF-18` **and** `OI-22`, with the unmet clause named in the row's own words.**
+**The decision: ⏳, citing the unsatisfied-MUSTs entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) **and** `OI-22`, with the unmet clause
+named in the row's own words.**
 
 The row 5a's checklist will carry:
 
-> `| CFG-20 | SHOULD | ⏳ | DEF-18, OI-22 | Three of four clauses met: the non-interrupting cancel is
+> `| CFG-20 | SHOULD | ⏳ | first-release.md § Unsatisfied MUSTs, OI-22 | Three of four clauses met: the non-interrupting cancel is
 > Future#cancel (phase 2); the queued-or-finished clause holds because no interrupt is ever delivered; the
 > rejected-submission clause is Completer#fail's routing. The fourth — cancel-with-interrupt — is ASYNC-3's
-> mechanism under a second ID and is forbidden by §8.3; DEF-18 carries the mechanism and does not cite
-> CFG-20, which is what OI-22 records. |`
+> mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry carries the mechanism and
+> does not cite CFG-20, which is what OI-22 records. |`
 
 **Why not ✅-with-clauses.** A ✅ with an unstated missing clause is the failure the roadmap's one-row-per-ID
 convention exists to prevent. Phase 2's `SEAM-25` row is ✅-with-a-named-gap only because that gap had a
-register row of its own (`DEF-31`). `CFG-20`'s does not — `DEF-18` cites `ASYNC-3` and `PIPE-33` and stops —
+deferral of its own (the lifecycle event, now phase 8b's Tasks 6 and 10). `CFG-20`'s does not — the
+unsatisfied-MUSTs entry cites `ASYNC-3` and `PIPE-33` and stops —
 which is exactly `OI-22`'s content.
 
 **Why not a marker of 5a's own.** The legend is fixed by the roadmap and used verbatim by every phase; a fifth
 symbol invented for one row costs more than a ⏳ whose reason column carries the clause.
 
-**Why 5a files no deferral for it.** `DEF-18` already carries the mechanism and its pick-up condition — "if an
-interruptible transport path is ever adopted" — covers `CFG-20` exactly. A second row for the same mechanism
+**Why 5a files no deferral for it.** The unsatisfied-MUSTs entry already carries the mechanism and its pick-up
+condition — "if an
+interruptible transport path is ever adopted" — covers `CFG-20` exactly. A second deferral for the same mechanism
 under a second ID is the `RECOV-31`/`RETRY-38` duplication §11.20 warns about, and filing one would make the
 port's unsatisfied-clause arithmetic look larger than it is. `CFG-20` is a **SHOULD**, so its unmet clause is
 an unmet SHOULD clause and **phase 5 adds no fourth unsatisfied MUST** — the charter's arithmetic, unchanged.
 
-**5a does not edit `DEF-18` and does not close `OI-22`.** `DEF-18`'s `Cites:` line is a committed,
-adversarially reviewed row and the register's rules permit only a `Status` edit. `OI-22`'s own stated
-resolution is "a citation that names the unmet clause"; the row above **is** that citation, so 5a landing is
-what would let a human close it — a judgement about the register, made by whoever owns it.
+**5a does not rewrite the unsatisfied-MUSTs entry and does not close `OI-22`.** That entry's ID list is a
+committed, adversarially reviewed statement and 5a adds nothing to it. `OI-22`'s own stated resolution is "a
+citation that names the unmet clause"; the row above **is** that citation, so 5a landing is what would let a
+human close it — a judgement about `docs/first-release.md`, made by whoever owns it.
 
 ## Module layout
 
@@ -1027,8 +1038,8 @@ lib/dexpace/build_info.rb                        Dexpace::BuildInfo
 
 lib/dexpace/async/future.rb                      MODIFIED: deadline: and clock: on #value and #wait
 lib/dexpace/async/completer.rb                   MODIFIED: #await gains deadline: and clock:
-lib/dexpace/context_store.rb                     MODIFIED: .default reads its cap from the chain (DEF-36)
-lib/dexpace/io.rb                                MODIFIED: a configured source for the ceiling (DEF-34, part)
+lib/dexpace/context_store.rb                     MODIFIED: .default reads its cap from the chain (the cap phase 4a postponed)
+lib/dexpace/io.rb                                MODIFIED: a configured source for the ceiling (phase 3b's caps, part)
 
 test/support/fake_clock.rb                       the deterministic clock
 test/support/fake_source.rb                      the hermetic env / property source
@@ -1129,8 +1140,8 @@ Frozen `String` constants. Five are `CFG-14`'s own; two are the names 5a's own w
 | `MAX_RETRY_ATTEMPTS` | `"MAX_RETRY_ATTEMPTS"` | `CFG-14`; `RETRY-12`'s **values** are phase 6's |
 | `LOG_LEVEL` | `"LOG_LEVEL"` | `CFG-14`. **A published name a caller may pass, never a default any resolver falls back to** — `OBS-35`'s embedded MUST |
 | `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | the three environment names | `CFG-14`, `CFG-24`, `CFG-26` |
-| `MAX_MATERIALIZED_BYTES` | `"MAX_MATERIALIZED_BYTES"` | `DEF-34`'s ceiling half |
-| `MAX_TRACKED_CONTEXTS` | `"MAX_TRACKED_CONTEXTS"` | `DEF-36` |
+| `MAX_MATERIALIZED_BYTES` | `"MAX_MATERIALIZED_BYTES"` | the ceiling half of the body-logging caps phase 3b postponed |
+| `MAX_TRACKED_CONTEXTS` | `"MAX_TRACKED_CONTEXTS"` | the context store's cap phase 4a postponed |
 
 `5b` adds the body-preview and body-logging-enablement key names **in the change that reads them**, and 5a
 does not pre-declare them: a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is
@@ -1226,7 +1237,7 @@ closed queue also pops `nil`. That sentence goes in the code, not only here.
 
 `R6` in full.
 
-### `Dexpace::Async::Future#value` and `#wait` — modified, `DEF-28`
+### `Dexpace::Async::Future#value` and `#wait` — modified, the `deadline:` keyword phase 2 postponed
 
 ```
 #value(cancellation: nil, deadline: nil, clock: Dexpace::Clock::SYSTEM) -> Object
@@ -1362,7 +1373,7 @@ configuration and phase 6's; publishing `CFG-35`'s built-in classification as a 
 beside it is how the two get confused, which `XCUT-5`'s closing NOTE exists to prevent. The classifier is a
 rule; the configurable set is data; only the second is a collection.
 
-**No method for the throwable half** — `R1`, `DEF-40`.
+**No method for the throwable half** — `R1`; phase 6a, Task 3.
 
 ### `Dexpace::BuildInfo` — `CFG-36`
 
@@ -1373,8 +1384,8 @@ token — every element non-blank by construction.
 ### The two picked-up wirings
 
 - **`Dexpace::ContextStore.default`** reads `Keys::MAX_TRACKED_CONTEXTS` from `Dexpace.configuration` at first
-  construction, falling back to `MAX_TRACKED_CONTEXTS = 1024`. No signature changes, which is `DEF-36`'s own
-  claim. **The consequence is stated because it is not obvious:** the store is memoised, so a
+  construction, falling back to `MAX_TRACKED_CONTEXTS = 1024`. No signature changes, which is phase 4a's own
+  claim when it postponed the cap's source. **The consequence is stated because it is not obvious:** the store is memoised, so a
   `Dexpace.configure` after the first promotion does not resize it, and neither does `Dexpace.reset_config!`.
   A cap is a process-lifetime property here, and a test that needs a different one builds its own
   `ContextStore.new(cap:)` — which is what phase 4a made the keyword for.
@@ -1382,8 +1393,8 @@ token — every element non-blank by construction.
   with the frozen constant as the default. **No `ceiling:` keyword is added anywhere**, so phase 3's boundary
   8 — "a `ceiling:` keyword on a preview operation would give one stream two ceilings" — is untouched, and
   §3.1's "configurable through the same layered chain as every other limit" is satisfied by the source rather
-  than by a parameter. `DEF-34`'s other two wirings need `5b`'s enablement setting; **5a does not edit the
-  `DEF-34` row**, because the charter puts that on whichever of `5a`/`5b` lands second.
+  than by a parameter. The body-logging caps' other two wirings need `5b`'s enablement setting; **5a does not
+  mark that item done**, because the charter puts that on whichever of `5a`/`5b` lands second.
 
 ### The RBS interfaces
 
@@ -1447,7 +1458,7 @@ Eight of the charter's fifteen bind 5a; each is honoured by a named mechanism ra
    why `CFG-15`'s wait is a queue wait and the only reason `CFG-20`'s fourth clause cannot be built. It is
    also why `Clock#sleep`'s cancellation path raises **at the caller's own next instruction** after the wait
    returns, rather than at an arbitrary bytecode.
-2. **Deadlines are explicit values, never ambient interrupts.** `DEF-28`'s `deadline:` is a monotonic instant
+2. **Deadlines are explicit values, never ambient interrupts.** The pivot's `deadline:` is a monotonic instant
    that bounds a wait and cancels a future; it starts no timer, installs no signal handler, and does nothing
    when nobody is waiting. Propagation to `open_timeout`/`read_timeout`/`write_timeout` is phase 8's.
 3. **`Thread::Mutex` is per-fiber-owned and non-reentrant.** Two mutexes exist in 5a: `Dexpace.configure`'s
@@ -1600,15 +1611,15 @@ that does not exist. What 5a ships as a stable contract:
 | Consumer | What it gets, and when |
 |---|---|
 | **`5b`**, on `OBS-35` | `Configuration#string(name, default:)` and `Configuration::Keys::LOG_LEVEL`. **`LOG_LEVEL` is a published name a caller may pass, not a default any resolver falls back to** — `OBS-35`'s embedded MUST is "The SDK MUST NOT bake in a default config key name", so `5b`'s log-level resolution takes its key as a **required** argument |
-| **`5b`**, on `DEF-34` | The chain, plus `Keys`. `5b` adds the body-preview and enablement key names in the change that reads them, wires `RequestLoggingBody`/`ResponseLoggingBody`, and — landing second — edits the `DEF-34` row. 5a has already given `MAX_MATERIALIZED_BYTES` its source |
+| **`5b`**, on the body-logging caps | The chain, plus `Keys`. `5b` adds the body-preview and enablement key names in the change that reads them, wires `RequestLoggingBody`/`ResponseLoggingBody`, and — landing second — marks the item phase 3b postponed as done. 5a has already given `MAX_MATERIALIZED_BYTES` its source |
 | **`5b`**, on `CFG-24`/`CFG-25` | `Dexpace::ProxyResolution`'s `Kernel#warn` call sites. `5b` adds an `http.instrumentation.*` event **beside** each and removes neither, which is P2-6's shape (`P5-8`) |
 | **`5b`**, on `CFG-22` | `Proxy#to_s`/`#inspect` already mask credentials, so a proxy reaching a log line is not a redaction case `OBS-11`–`OBS-19` has to catch. `5b` may not rely on that for any other type |
 | **`5c`** | Nothing. 5a touches `Dexpace::Instrumentation` not at all |
-| **Phase 6**, on `RETRY-1`/`XCUT-5` | `Dexpace::Retryability.retryable_status?`. Phase 6 computes `DEF-38`'s baked flag **from it** and builds no second status classifier; `XCUT-7`'s configurable set is a different object and its default `{408, 429, 500, 502, 503, 504}` is a subset of this one |
-| **Phase 6**, on `CFG-35`'s throwable half | `DEF-40`. Phase 6 adds the classification through `XCUT-6`'s capability, not through a concrete-type match, and `Dexpace.each_cause` is the walk it uses |
-| **Phase 6**, on `RECOV-27` / `DEF-35` | `Dexpace::Clock#sleep(duration, cancellation:)` and `Clock::SYSTEM`. This is the object `DEF-35` moved fifteen `RECOV` IDs to phase 6 to reach |
+| **Phase 6**, on `RETRY-1`/`XCUT-5` | `Dexpace::Retryability.retryable_status?`. Phase 6 computes the baked flag (phase 6a, Task 6) **from it** and builds no second status classifier; `XCUT-7`'s configurable set is a different object and its default `{408, 429, 500, 502, 503, 504}` is a subset of this one |
+| **Phase 6**, on `CFG-35`'s throwable half | Phase 6a, Task 3 (`Policy.throwable_retryable?`). Phase 6 adds the classification through `XCUT-6`'s capability, not through a concrete-type match, and `Dexpace.each_cause` is the walk it uses |
+| **Phase 6**, on `RECOV-27` and the recovery-stack retry engine | `Dexpace::Clock#sleep(duration, cancellation:)` and `Clock::SYSTEM`. This is the object phase 4 moved fifteen `RECOV` IDs to phase 6 (phase 6a, Tasks 3, 4, 5, 7 and 11) to reach |
 | **Phase 6**, on `RETRY-12` | `Keys::MAX_RETRY_ATTEMPTS`. The **name** only; the 200 ms / ×2 / 8 s / 0.2 / 3-sends values are phase 6's |
-| **Phase 6 and 8**, on `DEF-28` | `Future#value(cancellation:, deadline:, clock:)` and `#wait(...)`, and `Clock.deadline_in`. A deadline **bounds a wait**; it aborts nothing in the background |
+| **Phase 6 and 8**, on the `deadline:` keyword | `Future#value(cancellation:, deadline:, clock:)` and `#wait(...)`, and `Clock.deadline_in`. A deadline **bounds a wait**; it aborts nothing in the background |
 | **Phase 8**, on `TRANSPORT-3` | `Dexpace::Proxy` with `#bypass?`, and `Dexpace::Proxy.resolve(configuration)`. Core opens no socket; the adapter decides how to use the model |
 | **Phase 8**, on `CFG-15` | `_Clock`. Every phase-8 adapter takes `clock:` rather than calling `Time.now`, which is `CFG-15`'s "Time-dependent logic … SHOULD route through this seam" |
 | **Phase 9**, on `XCUT-11` | `Configuration` (frozen, no per-call state) and `Clock::SYSTEM` (stateless) as the audited shared instances |
@@ -1637,71 +1648,96 @@ phase-5 segmentation design left the ledger empty, and no `P5-<n>` exists anywhe
 | P5-14 | `CFG-34`'s "distinct array kinds" is implemented as **element**-kind distinctness (`[1]` ≠ `[1.0]`) while the **container**-kind clause stays inapplicable per §11.15 | `CFG-34`; §11.15 | Ruby has one `Array`, so there is no second container to be unequal to — that is §11.15's clause and it is not extended. What Ruby does have is `[1] == [1.0]` true with `[1].eql?([1.0])` false and `1.hash != 1.0.hash` (verified), so an `Integer` array and a `Float` array of the same numeric values are the nearest true reading of the requirement's sentence, and `eql?` semantics for numeric leaves is also what keeps the helper's hash consistent with its equality, which `CFG-33` makes a MUST |
 | P5-15 | `Dexpace::DeepValue` carries an identity-keyed visited set, which no `CFG` ID requires | `CFG-33`; `XCUT-9`'s mechanism; verified fact 7 | A naive recursive comparison of two self-referential arrays raises `SystemStackError` where `Array#==` survives through Ruby's own recursion guard. A hand-written helper that is less robust than the language on the one input the language handles is a regression, so the guard is `{}.compare_by_identity` — the same mechanism `Dexpace.each_cause` uses — and no second walk is written |
 
-## Deferrals Filed by Phase 5a
+## Work phase 5a postponed, and who owns it now
 
-Filed against `docs/deferred-items.md`; the row names an explicit target and pick-up condition, per the
-roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's `registers` check
-reserves for the aggregate register, which is where the row lives.)
+One item, recorded here with its target and pick-up condition per the roadmap's execution step 7. (The
+heading avoids the literal words the housekeeping probe's `registers` check reserves for an aggregate
+register; the item's owner is the phase-6a plan task named in the last column.)
 
-| ID | Deferral | Target / condition |
+| Item | What is postponed, and why | Owner now |
 |---|---|---|
-| `DEF-40` | `CFG-35`'s **throwable** half — "SHOULD treat a throwable as retryable iff it or any throwable in its cause chain is an IO/timeout error", with cycle-safe traversal. 5a ships the status half as `Dexpace::Retryability.retryable_status?` and **no** method for the throwable half, not a stub and not a predicate returning `false` | Phase 6, with `XCUT-6`'s retryability capability and `RETRY-1`. Verified: `::SocketError`, `::Timeout::Error` and `::OpenSSL::SSL::SSLError` are undefined in a bare interpreter; `socket`, `timeout` and `net/http` are denylisted, and `openssl` is allowlisted but buys one class of four at the cost of loading it at core's require time; and of the classes core *can* name, none of `SocketError`, `Errno::ETIMEDOUT` or `Timeout::Error` is an `IOError`, while `Dexpace::StreamError` is. `XCUT-6`'s capability is what lets an adapter declare its own errors retryable without core naming them, and `Dexpace::TransportError` (phase 8) is the other half |
+| `CFG-35`'s **throwable** half | "SHOULD treat a throwable as retryable iff it or any throwable in its cause chain is an IO/timeout error", with cycle-safe traversal. 5a ships the status half as `Dexpace::Retryability.retryable_status?` and **no** method for the throwable half, not a stub and not a predicate returning `false`, because core cannot name the classes the clause is about. Verified: `::SocketError`, `::Timeout::Error` and `::OpenSSL::SSL::SSLError` are undefined in a bare interpreter; `socket`, `timeout` and `net/http` are denylisted, and `openssl` is allowlisted but buys one class of four at the cost of loading it at core's require time; and of the classes core *can* name, none of `SocketError`, `Errno::ETIMEDOUT` or `Timeout::Error` is an `IOError`, while `Dexpace::StreamError` is. `XCUT-6`'s capability is what lets an adapter declare its own errors retryable without core naming them, and `Dexpace::TransportError` (phase 8) is the other half | Phase 6a, Task 3 (`Policy.throwable_retryable?`, `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`), with `XCUT-6`'s retryability capability and `RETRY-1`; `ProtocolError#retryable?` — the baked flag phase 4b postponed — is Task 6 of the same plan |
 
-## Deferral-register sweep
+## What 5a picks up and leaves alone, and who owns each item now
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row.
-All thirty-nine were read; the charter's own sweep covered the phase-5-wide dispositions and is not repeated,
-so what follows is the **5a-specific delta**. As with phases 3 and 4, this document **states** each
-disposition and 5a's **plan performs** the register edit.
+The roadmap's execution step 1 requires the phase to read every deferral an earlier phase recorded and
+disposition each one. All thirty-nine then open were read; the charter's own disposition list covered the
+phase-5-wide dispositions and is not repeated, so what follows is the **5a-specific delta**. As with phases 3
+and 4, this document **states** each disposition and 5a's **plan performs** it — Task 16 marks the checklist
+rows and says in the phase status note which postponed work has landed. Each entry names the item by subject,
+keeps the reason it was postponed, and names its owner (rewritten in that form in place on 2026-09-13).
 
-- **`DEF-28` — picked up, and the row moves to `picked-up` when 5a's plan lands.** Its condition names phase 5
-  "with `CFG-15`–`CFG-21`'s clock and interruptible-delay primitives" and names the composition point:
-  "`Dexpace::Cancellation.any` is the composition point a deadline-derived token plugs into, and
-  `Cancellation.over` is public for exactly that." 5a adds `deadline:` and `clock:` to `Future#value`,
-  `#wait` and `Completer#await`. `NFR-4` is not prejudiced — adding a keyword widens — and 4c confirms no
-  pipeline signature changes.
-- **`DEF-36` — picked up.** `ContextStore.default` reads its cap from the chain at first construction. One
-  wiring, no signature change, exactly as the row promises. The memoisation consequence is stated in the
-  object model rather than left for a later reader.
-- **`DEF-34` — half supplied, row **not** edited by 5a.** 5a ships the chain and gives
-  `MAX_MATERIALIZED_BYTES` its configured source; the two logging-body wirings need `5b`'s enablement
-  setting. The charter fixes that the row is edited by whichever of `5a`/`5b` lands second, and 5a leads.
-- **`DEF-38` — untouched, and 5a changes its *source* rather than its content.** The row targets phase 6 and
-  `#retryable?` on `Dexpace::ProtocolError` stays there. What changes is that phase 6 computes the flag from
-  `Dexpace::Retryability`, which 5a built, instead of building a classifier — `R1`. The row's `Cites:` line is
-  committed and 5a does not edit it; `DEF-40` and `OI-21` are where the cross-reference now lives.
-- **`DEF-18` — untouched, and cited by 5a's `CFG-20` row.** 5a neither meets nor re-opens it; `R7`.
-- **`DEF-35` — untouched, and 5a is what unblocks it.** Its forcing argument was that `RECOV-27`'s conforming
-  wait "is the object `CFG-15` defines, which is phase 5's". 5a builds that object; the fifteen `RECOV` IDs
-  stay in phase 6.
-- **`DEF-27` — untouched, and 5a is deliberately not its second route.** The row's second disposal route is an
-  `http.instrumentation.*` diagnostic through §8.1's facade, which is `5b`'s. 5a adds no `close_quietly` call
-  site. `CFG-21`'s null-safety clause — the part of the row that is already shipped — is asserted by a 5a test
-  and by nothing new.
-- **`DEF-30` — untouched, and 5a strengthens the charter's reading without acting on it.** Its condition is
-  "an instrumentation seam exists to activate". **5a adds no fourth registry**: the clock is an injected
-  object with a shared default, not a discovered seam, and `SEAM-2` enumerates five seams of which the clock
-  is none. The row's disposition is `5c`'s to record, as the charter's `R15` says.
-- **`DEF-31`, `DEF-32` — untouched.** Both need §8.1's facade; `5b`'s.
-- **`DEF-37`, `DEF-1`'s `SEAM-28` half — untouched.** Both are `5c`'s. 5a touches `Dexpace::Instrumentation`
-  not at all.
-- **`DEF-29` — untouched, and 5a adds three doubles under `gems/dexpace-core/test/support/`.** `FakeClock`,
-  `FakeSource` and `ProbeScheduler`, following phases 2, 3 and 4. `CFG-11` makes the env and property seams
-  injectable **by requirement** and `CFG-15` does the same for the clock, so a hermetic test never touches
-  real `ENV` and never waits on a real interval it could fake. The row's condition — a consumer outside
-  `dexpace-core` — is not met. `ProbeScheduler` is worth naming beside `DEF-22`: it is the only double in the
+- **The pivot's `deadline:` keyword and the clock behind it — picked up, Task 8.** Phase 2 (2026-09-07)
+  shipped `#value(cancellation:)` and `#wait(cancellation:)` and no `deadline:` (deviation P2-5), because a
+  deadline needs a clock, a monotonic time source and an interruptible delay, all `CFG-15`–`CFG-21` and
+  phase 5's, and building one early would fix their shape ahead of the requirements that define them. Its
+  condition named phase 5 "with `CFG-15`–`CFG-21`'s clock and interruptible-delay primitives" and named the
+  composition point: "`Dexpace::Cancellation.any` is the composition point a deadline-derived token plugs
+  into, and `Cancellation.over` is public for exactly that." 5a adds `deadline:` and `clock:` to
+  `Future#value`, `#wait` and `Completer#await`. `NFR-4` is not prejudiced — adding a keyword widens — and 4c
+  confirms no pipeline signature changes. **The mechanism is not the one that sentence anticipates (corrected
+  in place 2026-09-13):** 5a implements the deadline as a timed gate pop inside `Completer#await` —
+  `remaining` recomputed from `clock.monotonic` on every iteration, `@gate.pop(timeout: remaining)`, and on
+  expiry `request_cancel(:deadline_expired)` — not as a deadline-derived token composed through
+  `Dexpace::Cancellation.any`; the composition-point sentence describes an option not taken, and the phase
+  status note should say so rather than let the deferral read as a claim about what shipped.
+- **The execution-context store's configured cap — picked up, Task 13.** Phase 4a (2026-09-08) shipped
+  `ContextStore::MAX_TRACKED_CONTEXTS = 1024` and `ContextStore.new(cap:)` with no way for an application to
+  change the process-wide store's bound, because the chain did not exist. `ContextStore.default` now reads
+  its cap from the chain at first construction. One wiring, no signature change, exactly as the deferral
+  promised. The memoisation consequence is stated in the object model rather than left for a later reader.
+- **The body-logging caps' configuration source — half supplied; the other half is `5b`'s (Tasks 14–15).**
+  Phase 3b (2026-09-08) postponed three wirings to phase 5: the shared preview size, the enablement gate, and
+  a configured source for `MAX_MATERIALIZED_BYTES`. 5a ships the chain and gives `MAX_MATERIALIZED_BYTES` its
+  configured source (Task 13); the two logging-body wirings need `5b`'s enablement setting. The charter fixes
+  that the item is marked done by whichever of `5a`/`5b` lands second, and 5a leads.
+- **`ProtocolError#retryable?` — untouched, and 5a changes its *source* rather than its content.** Phase 4b
+  postponed the predicate to phase 6, where it is Task 6 of `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`, and it stays there. What changes
+  is that phase 6 computes the flag from `Dexpace::Retryability`, which 5a built, instead of building a
+  classifier — `R1`. Phase 4b's argument is committed and 5a does not rewrite it; the `CFG-35` throwable-half
+  entry above and `OI-21` are where the cross-reference now lives.
+- **`ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause — untouched, and cited by 5a's `CFG-20` row.** The
+  three unsatisfied MUSTs are stated in `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs (and design §10.5). 5a neither meets nor re-opens
+  them; `R7`.
+- **The recovery-stack retry engine (`RECOV-17`–`RECOV-30`, `RECOV-34`) — untouched, and 5a is what unblocks
+  it.** Phase 4's forcing argument for moving it to phase 6 (phase 6a, Tasks 3, 4, 5, 7 and 11) was that
+  `RECOV-27`'s conforming wait "is the object `CFG-15` defines, which is phase 5's". 5a builds that object;
+  the fifteen `RECOV` IDs stay in phase 6.
+- **`Dexpace.close_quietly`'s second disposal route — untouched, and 5a is deliberately not it.** Phase 2
+  postponed two disposal routes for the rescued error; the second is an `http.instrumentation.*` diagnostic
+  through §8.1's facade, which is `5b`'s (Task 14). 5a adds no `close_quietly` call site. `CFG-21`'s
+  null-safety clause — the part already shipped — is asserted by a 5a test and by nothing new.
+- **Presence-gated auto-activation for instrumentation — untouched, and 5a strengthens the charter's reading
+  without acting on it.** Its condition is "an instrumentation seam exists to activate". **5a adds no fourth
+  registry**: the clock is an injected object with a shared default, not a discovered seam, and `SEAM-2`
+  enumerates five seams of which the clock is none. The disposition is `5c`'s to record, as the charter's
+  `R15` says; the item is post-v1 and lives in `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the presence-gated auto-activation entry.
+- **`SEAM-25`'s lifecycle event and `Hooks.notify`'s dropped failures — untouched.** Both need §8.1's
+  facade; `5b`'s. The event's emission is phase 8b's (Tasks 6 and 10) and the trail is phase 4b's (Task 2).
+- **The no-op span and tracer protocols, and `SEAM-28`'s consumer — untouched.** Both are `5c`'s (Tasks 3–5
+  and Task 4). 5a touches `Dexpace::Instrumentation` not at all.
+- **Moving core's test fakes into `dexpace-conformance` — untouched, and 5a adds three doubles under
+  `gems/dexpace-core/test/support/`.** `FakeClock`, `FakeSource` and `ProbeScheduler`, following phases 2, 3
+  and 4. `CFG-11` makes the env and property seams injectable **by requirement** and `CFG-15` does the same
+  for the clock, so a hermetic test never touches real `ENV` and never waits on a real interval it could
+  fake. The condition — a consumer outside `dexpace-core` — is not met (phase 8a later declined the move on
+  the development-dependency cycle; the fakes stay). `ProbeScheduler` is worth naming beside
+  `dexpace-conformance`'s assertion protocol (phase 8a, Tasks 4–8 and 20): it is the only double in the
   repository that implements a *host* protocol rather than an owned one, and if `dexpace-conformance` ever
   restates `CFG-18` it will need one too.
-- **`DEF-33` — untouched, and its value has grown again.** 5a is the third phase whose concurrency guarantee
-  rests on a `Thread::Mutex` the GVL would hide the absence of, and the first whose PRNG isolation rests on
-  `Thread.current[]`'s fiber-locality — a property no non-CRuby row currently exercises.
-- **`DEF-39` — untouched.** 5a installs no step and writes no preset.
-- **`DEF-3` — untouched, and one clause is worth naming.** `BODY-36`'s condition is core's dependency budget
-  changing, which 5a explicitly does not do: `R5` is where the allowlist would have grown and did not.
-- **`DEF-9` — untouched.** `OBS-32` and `OBS-37` are `5c`'s and `5b`'s ⏳ rows.
-- **`DEF-2`, `DEF-4`–`DEF-8`, `DEF-10`–`DEF-17`, `DEF-19`, `DEF-20`, `DEF-22`, `DEF-23`, `DEF-25` —
-  untouched.** Other prefixes, later phases, post-v1 gems, or release-gated.
-- **`DEF-21` — already picked up** by phase 2. **`DEF-24`, `DEF-26` — already picked up** by phases 4b and 3b.
+- **`IO-38` on a Ruby without a GVL — untouched, and its value has grown again.** 5a is the third phase whose
+  concurrency guarantee rests on a `Thread::Mutex` the GVL would hide the absence of, and the first whose
+  PRNG isolation rests on `Thread.current[]`'s fiber-locality — a property no non-CRuby row currently
+  exercises (`docs/first-release.md` § Post-release triggers).
+- **`Pipeline.standard` — untouched.** 5a installs no step and writes no preset (phase 6b, Task 13a).
+- **`BODY-36` mmap — untouched, and one clause is worth naming.** Its condition is core's dependency budget
+  changing, which 5a explicitly does not do: `R5` is where the allowlist would have grown and did not
+  (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `BODY-36`/`BODY-12` entry).
+- **`OBS-32` and `OBS-37` — untouched.** `5c`'s and `5b`'s ⏳ rows; post-v1 under the same FR section.
+- **Everything else earlier phases postponed — untouched.** Other prefixes, later phases, the seven post-v1
+  gems, or release-gated items; each lives under `docs/first-release.md` § What v1 ships without or
+  § Release path. The runtime version-skew guard (phase 2), the suppressed trail (phase 4b, Task 1) and the
+  body member type (phase 3b) were already built.
 
 ## The findings filed against `docs/open-items.md`
 
@@ -1762,10 +1798,10 @@ Five, each bounded, none reopening a decision above.
    Recommendation: a frozen hash keyed by the layer (`:https`, `:http`) so `CFG-24`'s "the port MUST be taken
    from the SAME layer as the chosen host" is a lookup rather than a branch — the clause most likely to be
    implemented as two independent reads and most likely to pass a test that sets both layers.
-5. **Where `Dexpace::IO`'s configured ceiling is read.** `DEF-34` says "give `MAX_MATERIALIZED_BYTES` a
-   configured source" and phase 3a reads the constant at its call sites. Recommendation: a module function
+5. **Where `Dexpace::IO`'s configured ceiling is read.** Phase 3b's deferral says "give `MAX_MATERIALIZED_BYTES`
+   a configured source" and phase 3a reads the constant at its call sites. Recommendation: a module function
    `Dexpace::IO.max_materialized_bytes(configuration = Dexpace.configuration)` that 3a's call sites call,
    rather than a memoised value — a memoised ceiling would make `Dexpace.configure` ineffective after the
-   first materialisation, which is the `DEF-36` consequence repeated where it is avoidable. Confirm the call
+   first materialisation, which is the context-store-cap consequence repeated where it is avoidable. Confirm the call
    sites on the first task; if there is exactly one, inline the read there and add no module function, which
    is one fewer `NFR-4`-locked name.

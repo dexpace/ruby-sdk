@@ -82,8 +82,9 @@ sub-phase's to consume and not to edit.
   `Severity` — the machinery `R8` reuses.
 - `docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md` and `.../phase5b` as the worked
   precedent for this document's shape, depth and section naming.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` (read, not
-  edited — findings are described below for a human to file).
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` (read, not
+  edited — findings are described below for a human to file); the two deferrals that reach this sub-phase — `REDIR-27`'s
+  v1 decline (`docs/first-release.md` § What v1 ships without) and phase 4c's postponed `standard` constructors (Task 13a).
 - `CLAUDE.md` and `docs/README.md`.
 
 ## Corpus reading, and what it settled
@@ -166,7 +167,7 @@ charter's reconciliation against appendix C exactly.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `REDIR-1`–`REDIR-26`, `REDIR-28` | 27 |
-| ⏳ deferred, `DEF-7` (pre-existing), no named trigger — the configurable target-header MAY | `REDIR-27` | 1 |
+| ⏳ declined for v1, no named trigger — the configurable target-header MAY (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `REDIR-27` entry) | `REDIR-27` | 1 |
 | **Total** | | **28** |
 
 Three rows carry a clause the checklist must state rather than tick, named by the charter and confirmed here:
@@ -178,8 +179,9 @@ Three rows carry a clause the checklist must state rather than tick, named by th
   because nothing is ever added to the request, so nothing needs removing before dispatch.
 - **`REDIR-25`** — satisfied by shipping no async redirect step at all. `Dexpace::AsyncPipeline` gains no
   `Redirect::AsyncStep`, and `Stages::REDIRECT` stays installable-but-unused on the async path exactly as 4c
-  left it (`PIPE-28`). The substantive clause stays vacuous until `DEF-39`'s async standard pipeline exists,
-  which is a phase-level task this sub-phase does not own — see *Prerequisites*.
+  left it (`PIPE-28`). The substantive clause stays vacuous until the async standard pipeline phase 4c postponed exists
+  (`AsyncPipeline.standard`, Task 13a), which is a phase-level task this sub-phase does not own as a sub-phase — see
+  *Prerequisites*.
 - **`REDIR-8`** — the triple is `[scheme.downcase, host.downcase, effective_port]`, compared against the
   **seed** request's URL, never the previous hop's, and never `URI#==`. Verified fact 3 below is why the
   `downcase` calls are not optional and why the port half is free.
@@ -661,8 +663,8 @@ Three exist phase-wide (charter, *Convergence points*); `6b` is party to two.
    a real `AUTH` step, an assertion that no `Authorization` reaches a second fake transport — is `6c`'s to write**,
    under the recommended order, and this document does not build it and does not assume `6c` has. `6b`'s own
    suite proves its half completely against the probe.
-2. **`DEF-39`'s `Pipeline.standard`.** A phase-level task, executed by whichever of `6a`/`6b` lands second — see
-   the charter. `6b` does not build it and states here, as the charter requires, that landing this sub-phase
+2. **`Pipeline.standard`, which phase 4c postponed to phase 6.** A phase-level task, executed by whichever of `6a`/`6b`
+   lands second (under the recommended order, this plan's Task 13a) — see the charter. `6b` does not build it and states here, as the charter requires, that landing this sub-phase
    first does **not** make `Pipeline.standard` `6b`'s task; it becomes the task of whichever of `6a`/`6b` is
    still open when the other lands.
 3. `RETRY-14`'s budget-equivalence test is internal to `6a` and `6b` is not party to it.

@@ -83,7 +83,8 @@ each problem but not the interpreter's answer to it:
 - `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` — the phase-7 row (`:92`), the ordering rationale
   (`:115-118`), and cross-cutting constraint 4 (`:52-53`), which is the only one of the nine that binds `7c`
   directly.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`; and the deferrals earlier phases left outstanding,
+  read for the sweep below.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -297,7 +298,7 @@ that makes the second of them a gate rather than a convention (`R11`).
 | `HTTP-41`–`HTTP-45`, `BODY-14`–`BODY-16`, `BODY-30`, `HTTP-52` — the response body, `#source`, the decode, the bounded error copy | 3b, built. `7c` reads no response body itself |
 | `IO-9`, `BODY-32` — `MAX_MATERIALIZED_BYTES` | 3a, one ceiling. `7c` introduces no second materialisation constant and reads no stream |
 | `RECOV-1`–`RECOV-16` — `Outcome`, the two chains, the orchestrator | 4b, built. No `Outcome` crosses into `7c`; a page is not an outcome |
-| `RECOV-12`, `SEAM-30`, `DEF-27` — `Dexpace.close_quietly(resource, onto:)` | 2, 4b and 5b between them. `PAGE-26` and `PAGE-32`'s swallow clauses are call sites and `7c` writes no second quiet-close path |
+| `RECOV-12`, `SEAM-30` — `Dexpace.close_quietly(resource, onto:)` and its two disposal routes | 2, 4b (Task 2) and 5b (Task 14) between them. `PAGE-26` and `PAGE-32`'s swallow clauses are call sites and `7c` writes no second quiet-close path |
 | `XCUT-9` — the cycle-safe cause walk | 4b, built as `Dexpace.each_cause`. `7c` walks no `#cause` chain at all, which is what boundary 13 requires of it |
 | `PIPE-1`–`PIPE-40` — the stage runtime, the cursor, the fork primitive | 4c, built. `7c` installs no step and forks no cursor |
 | `PIPE-26`, `PIPE-27` — a pipeline is a transport; `#close` is a no-op on it | 4c, built, and written into 4c's forward table **for this phase** |
@@ -305,8 +306,8 @@ that makes the second of them a gate rather than a convention (`R11`).
 | `CFG-1`–`CFG-38`, `OBS-1`–`OBS-40` | 5. `PAGE-10`'s documentation clause is a YARD obligation, **not** a configuration key, and `7c` adds none |
 | `RETRY-30` — the iterative retry pump | 6a. `PAGE-31`'s trampoline is the same *pattern* over a different object; the specification's own latitude covers both and `7c` shares no code with `6a` |
 | `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28`, `AUTH-1`–`AUTH-38` | 6. Phase 6 cites no phase-7 ID and `7c` cites none of phase 6's |
-| `ASYNC-13` — the original-cause-unwrapped rule `PAGE-28` restates | 8. `PAGE-28` is `7c`'s and its realisation is "do not wrap", plus `raise error, cause: nil` where an error is re-raised (`pipeline/f02559b9`) |
-| `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — interning, ETag, Range, the conditional-request aggregator | Still deferred (`DEF-2`). **The charter declined the phase-7 target and `7c` does not re-open it** — `PAGE-23` preserves the template's headers and the SDK never originates a request |
+| `ASYNC-13` — the original-cause-unwrapped rule `PAGE-28` restates | 8. `PAGE-28` is `7c`'s and its realisation is "do not wrap", plus `raise error, cause: nil` where an error is re-raised (`pipeline/7ce4431d`) |
+| `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — interning, ETag, Range, the conditional-request aggregator | Unbuilt, and a release decision (`docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` line). **The charter declined the phase-7 target and `7c` does not re-open it** — `PAGE-23` preserves the template's headers and the SDK never originates a request |
 | `XCUT-11`, `XCUT-12`, `XCUT-15` | 9 dispositions. `7c` satisfies each by construction: `XCUT-11` through a frozen `Paginator` with all per-walk state on the `Walk`, `XCUT-12`/`XCUT-15` through `Data`-frozen collections |
 | `NFR-1`–`NFR-4`, `NFR-11` | 0 built the machinery, 9 dispositions it. `7c` adds no `require` to core's allowlist |
 
@@ -416,7 +417,7 @@ it); **a frozen primary is silently not** (`P4-13`: the `FrozenError` rescue is 
 swallow). That caveat travels with the helper and `7c` states it in the YARD of both call sites rather than
 rediscovering it. `PAGE-13` and `PAGE-15` are two of design §10 item 6's four named consumers.
 `Dexpace.each_cause` exists and `7c` calls it nowhere — boundary 13 forbids hand-walking a `#cause` chain; it
-does not require walking one. The re-raise spelling `raise error, cause: nil` (`pipeline/f02559b9`) wherever
+does not require walking one. The re-raise spelling `raise error, cause: nil` (`pipeline/7ce4431d`) wherever
 core re-raises an error it is **carrying**.
 
 ### From phase 4c
@@ -1350,39 +1351,44 @@ design §10 item 6's, already argued and consolidated, and `7c` consumes it; the
 
 ---
 
-## Deferrals filed by phase 7c
+## Work phase 7c postpones, and who owns it now
 
 **None.** Every one of `7c`'s 36 IDs is implemented — 35 outright and `PAGE-35` as vacuous-by-construction on
 design §12's own authority — and design §12's `PAGE` row reads "*Deferred:* none", which this sub-phase
-confirms rather than changes. **`7c` adds no ⏳ row anywhere and no `DEF-<n>`.**
+confirms rather than changes. **`7c` adds no ⏳ row anywhere and postpones nothing.**
 
-### Deferral-register sweep
+### Items earlier phases postponed or declined that touch `7c`
 
-`7c`'s delta against the charter's whole-register sweep, which covered every row once and is not repeated
-here. As with phases 3 through 6, this document **states** each disposition and `7c`'s **plan performs** the
-register edit.
+`7c`'s delta against the charter's whole sweep, which covered every outstanding deferral once and is not repeated
+here. As with phases 3 through 6, this document **states** each disposition and `7c`'s **plan performs** it. Each
+entry names the item, why it stands as it does, and who owns it now.
 
-- **`DEF-2` — untouched, and the charter's decline is not re-opened.** The charter declined phase 7 as
-  `DEF-2`'s target and proposed the event shape instead. `7c` confirms the pagination half of that argument
+- **`HTTP-22` and `HTTP-48`–`HTTP-50`, the four unbuilt HTTP helpers — untouched, and the charter's decline is not
+  re-opened.** The charter declined phase 7 as their target and proposed the event shape instead (the verdict lives on
+  the standing decision line under `docs/first-release.md` § Blockers before first publish). `7c` confirms the pagination half of that argument
   from inside the subsystem: `PAGE-23` requires that following an absolute next URL "swap only the request's
   URL, **preserving the template's method, headers, and body**", `PAGE-21`–`PAGE-24` change only the query,
   and `PAGE-24` requires every non-query component to survive exactly. **`7c` constructs no header at all.**
-  No `PAGE` requirement mentions `Range`, `Content-Range` or `206`. The row stays deferred and still not
-  `UNSCHEDULED`.
-- **`DEF-24` — untouched; `7c` is a consumer of the row's subject, not its owner.** The row's `Cites:` line
-  names `PAGE-13` and `PAGE-15` among four phase-7 IDs, and its pick-up condition is phase 4's. Phase 4b
-  ships `Dexpace::Suppressible`, `Dexpace.attach_suppressed` and `Dexpace.suppressed`; `7c` writes no second
+  No `PAGE` requirement mentions `Range`, `Content-Range` or `206`. The four stay unbuilt and this is not a
+  met-and-declined condition.
+- **The suppressed-exception trail, postponed by phase 3b to phase 4 — untouched; `7c` is a consumer of the trail, not
+  its owner.** Its citations name `PAGE-13` and `PAGE-15` among four phase-7 IDs, and its pick-up condition is phase
+  4's. Phase 4b's plan (Task 1) builds `Dexpace::Suppressible`, `Dexpace.attach_suppressed` and `Dexpace.suppressed`; `7c` writes no second
   trail and no second skip, and carries the frozen-primary caveat forward in its YARD.
-- **`DEF-27` — untouched; closed in 5b.** `Dexpace.close_quietly(resource, onto:)` is `PAGE-26`'s and
-  `PAGE-32`'s swallow route and `7c` writes no second quiet close.
-- **`DEF-8`, `DEF-16`, `DEF-29` — untouched, and all three are `7a`'s or `7b`'s to disposition.** `SSE-41`,
-  `dexpace-serde-oj` and the first consumer outside `dexpace-core` respectively; none has a pagination side.
-- **`DEF-18` — untouched.** `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause are phase 8's. `7c` meets
-  the same §8.3 prohibition — its async abort is cooperative — and **adds no fourth unsatisfied MUST**.
-- **`DEF-4`, `DEF-39`, `DEF-42` — untouched.** `7c` installs no pipeline step, ships no preset and emits no
-  instrumentation event required by any of its 36 IDs.
-- **Every other row — untouched**, all either closed by an earlier phase, targeted at phase 8 or 9, or riding
-  on a post-v1 gem.
+- **`close_quietly`'s second disposal route, postponed by phase 2 — untouched; built by phase 5b (Task 14).**
+  `Dexpace.close_quietly(resource, onto:)` is `PAGE-26`'s and `PAGE-32`'s swallow route and `7c` writes no second
+  quiet close.
+- **`SSE-41`'s v1 decline, the post-v1 gem `dexpace-serde-oj` (both `docs/first-release.md` § What v1 ships without) and
+  the move of core's test fakes into `dexpace-conformance` (declined by phase 8a's design) — untouched, and all
+  three are `7a`'s or `7b`'s to disposition.** None has a pagination side.
+- **The unsatisfied MUSTs `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause (`docs/first-release.md` § What v1 ships
+  without › Unsatisfied MUSTs) — untouched.** They are phase 8's. `7c` meets the same §8.3 prohibition — its async
+  abort is cooperative — and **adds no fourth unsatisfied MUST**.
+- **`PIPE-36`'s stage locking (declined for v1), the `standard` presets (phase 4c's deferral, phase 6b Task 13a) and
+  `OBS-29`'s wiring (phase 5c's deferral, phase 6a Task 9 and `OI-32`/`OI-36`) — untouched.** `7c` installs no
+  pipeline step, ships no preset and emits no instrumentation event required by any of its 36 IDs.
+- **Every other outstanding item — untouched**, all either closed by an earlier phase, targeted at phase 8 or 9, or
+  riding on a post-v1 gem.
 
 ---
 

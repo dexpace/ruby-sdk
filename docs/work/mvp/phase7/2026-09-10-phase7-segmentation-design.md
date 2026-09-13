@@ -31,9 +31,10 @@ document extends the mechanism to close that asymmetry; and the second gem's bou
 rather than *at* a sub-phase boundary, which is why shipping it does not change the cut the way the roadmap
 says four gems will change phase 8's.
 
-Phase 7 adds **no new unsatisfied MUST**, files **no deferral**, picks up **one** register row (`DEF-8`,
-which stays deferred as a ⏳ line) and **resolves `OI-5`** — with a correction to the requirement ID `OI-5`'s
-own resolution text names. It **declines `DEF-2`'s floated phase-7 target**, with the argument below.
+Phase 7 adds **no new unsatisfied MUST**, postpones **nothing**, carries **one** v1 decline (`SSE-41`, declined for v1
+and staying so) as a ⏳ line and **resolves `OI-5`** — with a correction to the requirement ID `OI-5`'s
+own resolution text names. It **declines the phase-7 target floated for the four unbuilt HTTP helpers** (`HTTP-22`,
+`HTTP-48`–`HTTP-50`), with the argument below.
 Its spec-reading budget is **zero**: `ruby scripts/knowledge.rb --gaps SERDE,SSE,PAGE` reports 0 of 107 with
 no substantive corpus entry.
 
@@ -78,7 +79,8 @@ no substantive corpus entry.
   `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`,
   `docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md`,
   `docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`; and the deferrals earlier phases left outstanding,
+  read in full for the sweep below.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -543,9 +545,10 @@ decide. Item 5 is the one exception and is labelled as such.
    phase 8's gem, owning neither its gemspec nor its release" (`:94`). So §3.4's "asserted per adapter in
    `dexpace-conformance` rather than left to adapter discipline" and phase 2's "asserted per adapter in phase
    7 and phase 8" are satisfied *in phase 9*, and `7a` writes its assertions in
-   `gems/dexpace-serde-json/test/`. `DEF-29`'s condition — the first consumer outside `dexpace-core` — is not
-   met by phase 7 either, since `7a`'s assertions have exactly one adapter to run against and
-   `dexpace-serde-oj` is `DEF-16`, post-v1. `7a` records the obligation in its checklist so phase 9 inherits
+   `gems/dexpace-serde-json/test/`. The condition phase 3a set for moving core's test fakes into `dexpace-conformance`
+   — the first consumer outside `dexpace-core` — is not met by phase 7 either, since `7a`'s assertions have exactly
+   one adapter to run against and `dexpace-serde-oj` is a post-v1 gem (`docs/first-release.md` § What v1 ships without ›
+   Post-v1 gems). `7a` records the obligation in its checklist so phase 9 inherits
    a named target rather than reconstructing one.
 9. **A pipeline is a transport, and a paginator wrapping one owns nothing.** Phase 4c's forward table, in the
    row written for this phase: "`PIPE-26`: a built pipeline is a transport, so a paginator takes one with no
@@ -570,7 +573,8 @@ decide. Item 5 is the one exception and is labelled as such.
     propagates its failure (`SSE-30`) and a `#release` raising during the latched close propagates once
     (`BODY-27`); these are the two required-to-be-loud exceptions to `close_quietly`'s otherwise quiet closing
     behaviour." The quiet route is `Dexpace.close_quietly(resource, onto:)` — phase 2's file, given `onto:`
-    by 4b, given its `http.instrumentation.*` diagnostic by 5b, closing `DEF-27` there. `7b` and `7c` call it;
+    by 4b, given its `http.instrumentation.*` diagnostic by 5b (Task 14), which completes the second disposal route phase 2
+    postponed. `7b` and `7c` call it;
     neither writes a second quiet-close path, and `PAGE-26`'s and `PAGE-32`'s swallow clauses are the same
     call.
 13. **Every cause walk goes through `Dexpace.each_cause`.** Phase 4b's forward table names phases 6 and 7
@@ -706,7 +710,7 @@ the typed adapter with its three caller-supplied mapper outcomes.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `SSE-1`–`SSE-40` | 40 |
-| ⏳ deferred, `DEF-8` (pre-existing, no phase trigger) | `SSE-41` (MAY, reactive-adapter error and lifecycle latitude) | 1 |
+| ⏳ declined for v1, no phase trigger (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry) | `SSE-41` (MAY, reactive-adapter error and lifecycle latitude) | 1 |
 | **Total in budget** | | **41** |
 
 Four rows carry a clause the checklist must state rather than tick:
@@ -791,7 +795,7 @@ Four rows carry a clause the checklist must state rather than tick:
 | `IO-6`, `BODY-8` — the two ownership rules | 3a and 3b. The **third** rule — a codec closes nothing — is `7a`'s and phase 3 declined to touch it |
 | `RECOV-1`–`RECOV-16` — `Outcome`, `Success`, `Failure`, the two chains, the orchestrator | 4b, built. `7b` adds a third variant in its own namespace |
 | `XCUT-9` — the cycle-safe cause walk | 4b, built as `Dexpace.each_cause`. Phase 9 audits the general rule |
-| `SEAM-30`, `RECOV-12`, `DEF-27` — `Dexpace.close_quietly(resource, onto:)` | 2, 4b and 5b between them; the row closes in 5b. `SSE-30`, `PAGE-26` and `PAGE-32` are call sites |
+| `SEAM-30`, `RECOV-12` — `Dexpace.close_quietly(resource, onto:)` and its two disposal routes | 2, 4b (Task 2, the `onto:` route) and 5b (Task 14, the opt-in `logger:` route) between them. `SSE-30`, `PAGE-26` and `PAGE-32` are call sites |
 | `PIPE-1`–`PIPE-40` — the stage runtime, the cursor, the fork primitive | 4c, built. Phase 7 installs no step and writes no second installation path |
 | `PIPE-26`, `PIPE-27` — a pipeline is a transport; `#close` is a no-op on it | 4c, built, and written into 4c's forward table *for this phase* |
 | `SEAM-11`, `SEAM-16`, `SEAM-17` — the transport and async seams and the pivot | 2 and 8. `7c`'s async engine consumes `Dexpace::Async::Future#on_settle`, phase 2's, and replaces nothing |
@@ -799,10 +803,10 @@ Four rows carry a clause the checklist must state rather than tick:
 | `CFG-29`–`CFG-31` — RFC 1123 date formatting and parsing (`Dexpace::HTTPDate`) | 5a. `SERDE-24` is ISO-8601 and a different grammar; `7a` does not consume `HTTPDate` |
 | `RETRY-30` — the iterative retry pump | 6a. `PAGE-31`'s trampoline is the same *pattern* over a different object and the specification's own latitude covers both |
 | `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28`, `AUTH-1`–`AUTH-38` | 6. Phase 6 cites no phase-7 ID and phase 7 cites no phase-6 one; the two are independent in both directions |
-| `ASYNC-13` — the original-cause-unwrapped rule `PAGE-28` restates | 8. `PAGE-28` is `7c`'s and its Ruby realisation is `raise error, cause: nil` per `pipeline/f02559b9` |
+| `ASYNC-13` — the original-cause-unwrapped rule `PAGE-28` restates | 8. `PAGE-28` is `7c`'s and its Ruby realisation is `raise error, cause: nil` per `pipeline/7ce4431d` |
 | `ASYNC-21` — reactive-stream backpressure over an SSE source | 8, and **adapter-scoped and vacuous** (§11.21): no reactive adapter ships, and the property it protects is implemented anyway on the pull-based path (`SSE-39`). Not a phase-7 row |
 | `TRANSPORT-18` — the re-subscribable body producer | 8, and near-vacuous for `Net::HTTP` (§11.18) |
-| `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — interning, ETag, Range, the conditional-request aggregator | Still deferred (`DEF-2`). Phase 6's correction floated phase 7 as the next target; **phase 7 declines it** — see the `DEF-2` section |
+| `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — interning, ETag, Range, the conditional-request aggregator | Unbuilt, and a release decision (`docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` line). Phase 6's correction floated phase 7 as the next target; **phase 7 declines it** — see the section on the four helpers below |
 | `XCUT-12`, `XCUT-15`, `XCUT-19` | 9 dispositions. Phase 7 satisfies each by construction: `XCUT-12` through `SERDE-29`'s publication-safe caches, `XCUT-15` through `Data`-frozen collections, `XCUT-19` through 5b's redactor, which no phase-7 requirement calls |
 | `NFR-1`, `NFR-2`, `NFR-3`, `NFR-4`, `NFR-11` | 0 built the machinery, 9 dispositions it. `7a` spends `dexpace-serde-json`'s `NFR-2` budget and asserts nothing about the gate |
 | `docs/sdk-documentation/architecture.md` — "which gem to install, worked cross-gem examples" | A human, or a skill on request (`docs/README.md`). Phase 7 is the first phase after which the question has a second answer, and it is **not** a phase deliverable. Recorded here so the absence is a decision |
@@ -877,7 +881,8 @@ three and is the strongest single piece of evidence for the three-way cut.
 ## Phase-level tasks owned by no sub-phase
 
 **None, and that is worth stating rather than leaving to inference.** Phase 6 had three, each because it
-installed steps into a shared runtime (`DEF-39`'s presets), emitted into a shared vocabulary (`DEF-42`) or
+installed steps into a shared runtime (the `standard` presets), emitted into a shared vocabulary (`OBS-29`'s
+per-attempt group) or
 widened a shared type (`OI-31`). Phase 7 installs nothing into the pipeline, ships no preset, emits no
 instrumentation event required by any of its 107 IDs, and widens no phase-4 type. Every task it has belongs to
 exactly one of its three segments.
@@ -959,19 +964,21 @@ matching one to `P3-4`'s row, in the findings below. Neither is acted on by this
 
 ---
 
-## `DEF-2`: the phase-7 target is declined, and what the row actually needs
+## The four unbuilt HTTP helpers: the phase-7 target is declined, and what they actually need
 
-**Decision: phase 7 declines `DEF-2`'s floated target, and what the row needs is not a fourth phase but the
-event shape.**
+**Decision: phase 7 declines the floated target for `HTTP-22` and `HTTP-48`–`HTTP-50`, and what they need is not a
+fourth phase but the event shape.**
 
-Phase 6's register sweep left the row here (`docs/deferred-items.md:79-88`):
+Phase 6's sweep of the outstanding deferrals left the item here (its 2026-09-09 correction, now carried by the
+standing decision line under `docs/first-release.md` § Blockers before first publish — paraphrased, with the item's
+subjects named in place of the register's own vocabulary):
 
-> **Correction, 2026-09-09 (phase 6 segmentation design): the phase-6 target does not fire.** … The row stays
-> **deferred and is still not UNSCHEDULED** … **What is owed is a new target or the event shape** — phase 7's
+> **Correction, 2026-09-09 (phase 6 segmentation design): the phase-6 target does not fire.** … The item stays
+> open and phase 6 has not met-and-declined it … **What is owed is a new target or the event shape** — phase 7's
 > pagination and conditional-request interplay is the next candidate, and the alternative is the event shape
-> `DEF-33` and `DEF-3`'s `BODY-36` half were given.
+> `IO-38`'s non-CRuby row and `BODY-36`'s mmap view were given.
 
-`DEF-2` covers `HTTP-22` (MAY, header-name interning), `HTTP-48` (SHOULD, an ETag helper modelling the three
+The item covers `HTTP-22` (MAY, header-name interning), `HTTP-48` (SHOULD, an ETag helper modelling the three
 RFC 7232 forms with `etagc` validation and raw-form round-tripping), `HTTP-49` (SHOULD, a Range helper) and
 `HTTP-50` (SHOULD, a conditional-requests aggregator emitting `If-Match`/`If-None-Match` and
 `If-Modified-Since`/`If-Unmodified-Since`). Four checks, each against the canonical text:
@@ -995,7 +1002,7 @@ RFC 7232 forms with `etagc` validation and raw-form round-tripping), `HTTP-49` (
    second failure. `7a` reads the header string and copies it. `HTTP-48` remains a helper for the SDK's
    consumers, unbuilt.
 
-**The pattern behind all of this, stated once so the row stops being re-targeted phase by phase.** The SDK
+**The pattern behind all of this, stated once so the item stops being re-targeted phase by phase.** The SDK
 never *originates* a request. Every request in the system either comes from the caller or is a derivation of
 one — the redirect re-issue (`REDIR-3`/`REDIR-4`/`REDIR-5`), the retry resend, the auth replay
 (`AUTH-30`), and now the pagination next page (`PAGE-23`) — and **every one of those four derivations is
@@ -1004,21 +1011,21 @@ constructing a conditional request, and the only such caller is an SDK author ou
 no remaining build phase will fire the condition either: phase 8's transports dispatch what they are given,
 phase 9 audits, phase 10 reconciles.
 
-**Therefore the alternative phase 6 already named is the right one: give `DEF-2` the event shape.** The
+**Therefore the alternative phase 6 already named is the right one: give the four helpers the event shape.** The
 proposed pick-up event, stated so a human can file it verbatim: *the first consumer that constructs a
 conditional request — a worked example in `docs/sdk-documentation/`, a `dexpace-conformance` fixture, or a
-downstream SDK's `SEAM-26` operation projection asking for one.* That is the shape `DEF-33` has ("a non-CRuby
-row is added to the CI matrix. No phase in v1 plans one") and `DEF-3`'s `BODY-36` half has, and it is honest
+downstream SDK's `SEAM-26` operation projection asking for one.* That is the shape `IO-38`'s non-CRuby row has ("a non-CRuby
+row is added to the CI matrix. No phase in v1 plans one") and `BODY-36`'s mmap view has (both under
+`docs/first-release.md` § Post-release triggers and § What v1 ships without respectively), and it is honest
 in a way a fifth phase target would not be.
 
-**The row's status does not change and `UNSCHEDULED` still does not apply**, by the register's own definition
-and by phase 6's reading of it: that status is for a row whose pick-up condition a phase *met and declined to
-act on*, and phase 7 does not meet the condition — it merely, like phase 6, fails to fire it. Filed as a
-finding below.
+**This is not a met-and-declined condition**, by phase 6's reading of it: phase 7 does not meet the condition —
+it merely, like phase 6, fails to fire it. Stated as a finding below.
 
-**One consequence outside `docs/deferred-items.md`.** `docs/first-release.md:32-33` carries `HTTP-48`,
-`HTTP-49`, `HTTP-50` and `HTTP-22` in its readiness list on the same reasoning phase 6 found stale. That line
-needs the same amendment, and it is named in the findings so the two registers do not diverge.
+**Where the verdict lives.** `docs/first-release.md` § Blockers before first publish carries `HTTP-48`, `HTTP-49`, `HTTP-50`
+and `HTTP-22` on one standing decision line; it once named phase 6 on the reasoning phase 6 found stale, and it now
+carries phase 6's verdict, this one, and the reopening event above — so there is one place a release decision reads
+and nothing to diverge from it.
 
 ---
 
@@ -1094,7 +1101,7 @@ self-suppression skip, and `Dexpace.suppressed`, with the **frozen-primary** cav
 `Dexpace::ProtocolError` with `.for` and `.for_or_nil`; `Recovery.buffer_error_body(response)` as the **one**
 buffering call site; and the `RECOV-2` fatal-family split — `rescue ::StandardError` converts,
 `rescue ::Exception` re-raises unchanged. The re-raise spelling is `raise error, cause: nil` wherever core
-re-raises an error it is *carrying* (`pipeline/f02559b9`), which `PAGE-28`'s "surfacing the *original*
+re-raises an error it is *carrying* (`pipeline/7ce4431d`), which `PAGE-28`'s "surfacing the *original*
 underlying cause (unwrapping any future-composition wrapper)" is a call site for.
 
 **From phase 4c** — `Dexpace::Pipeline` (`.builder`, `.direct`, `#call`, `#steps`, `#entries`, `#transport`,
@@ -1213,62 +1220,69 @@ assumed**; the sub-phase designs run the three-interpreter check this document c
 
 ---
 
-## Deferrals filed by phase 7
+## Work phase 7 postpones, and who owns it now
 
 **None, and that is deliberate.** A segmentation design decides a cut; it does not decide the interfaces whose
-absence a deferral records. Phase 4 filed `DEF-35` only because it was a **scope disposition** — an entire ID
-cluster moving to another phase. Phase 7 has no such candidate: every one of its 107 IDs is implemented here
-or already carries a pre-existing row (`DEF-8`).
+absence a deferral records. Phase 4 postponed the recovery-stack engine only because it was a **scope disposition** —
+an entire ID cluster moving to another phase. Phase 7 has no such candidate: every one of its 107 IDs is implemented
+here or is already declined for v1 (`SSE-41`, `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level).
 
 **Two rows are expected of the sub-phases** and are named in the risks so their absence later is visible:
 `7a`'s disposition of `SERDE-27`'s no-materialization clause against verified fact 1 (`R1`), and `7b`'s
 disposition of the `SSE-19` line cap's value and its documented divergence (`R4`).
 
-### Deferral-register sweep
+### Items earlier phases postponed or declined, and what phase 7 does with each
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row.
-All forty-two were read. As with phases 3, 4, 5 and 6, this document **states** each disposition and the
-sub-phase **performs** the register edit.
+The roadmap's execution step 1 requires the phase to read **every** outstanding deferral and disposition each.
+All forty-two outstanding on 2026-09-10 were read. As with phases 3, 4, 5 and 6, this document **states** each
+disposition and the sub-phase **performs** it. Each entry names the item, why it was postponed or declined, and who
+owns it now.
 
-**Phase 7 touches four rows: it carries one as a ⏳ line, declines one target, and leaves two whose
-conditions its own work bears on. It closes none outright and files none.**
+**Phase 7 touches four items: it carries one as a ⏳ line, declines one target, and leaves two whose
+conditions its own work bears on. It closes none outright and postpones nothing.**
 
-- **`DEF-8` — carried as a ⏳ row in `7b`, not picked up, and its condition is not met.** `SSE-41` (MAY) is
-  "scoped to a reactive (e.g. RxJS-analogue) adapter; the MVP ships only the pull-based SSE view and no
-  reactive adapter", with pick-up "revisit if a reactive SSE adapter is ever built"
-  (`docs/deferred-items.md:158-165`). Phase 7 builds none. The row is a ⏳ **inside** `7b`'s 41, exactly as
-  phase 6 counted its three `DEF-6` rows inside `6a`'s 60. Design §11.21 and §12's `SSE` row both record the
+- **`SSE-41`, declined for v1 by the MVP scope design on 2026-09-05 — carried as a ⏳ row in `7b`, not picked up, and
+  its condition is not met.** `SSE-41` (MAY) is "scoped to a reactive (e.g. RxJS-analogue) adapter; the MVP ships
+  only the pull-based SSE view and no reactive adapter", with pick-up "revisit if a reactive SSE adapter is ever
+  built" (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry). Phase 7 builds
+  none. The row is a ⏳ **inside** `7b`'s 41, exactly as phase 6 counted its three declined `RETRY` rows inside
+  `6a`'s 60. Design §11.21 and §12's `SSE` row both record the
   same disposition, and §11.21 adds the part a checklist would otherwise miss: `ASYNC-21`, the MUST that
   presupposes the same adapter, "is listed as adapter-scoped-and-vacuous rather than as either satisfied or
   deferred", and "the backpressure property it protects is implemented anyway on the pull-based path
   (**SSE-39**)". `7b` does **not** carry an `ASYNC-21` row; it is phase 8's.
-- **`DEF-2` — stays deferred, the phase-7 target is declined, and the row needs the event shape.** Argued in
-  full above. Filed as a finding.
-- **`DEF-24` — untouched by phase 7, and phase 4 is where it closes.** The row defers "the suppressed-exception
-  trail on the error root" and its `Cites:` line names `PAGE-13`, `PAGE-15`, `SSE-29` and `SSE-36` — four
-  phase-7 IDs — but its pick-up condition is "phase 4 … with the recovery chain that is its first caller"
-  (`docs/deferred-items.md:377-378`), and phase 4b's design ships `Dexpace::Suppressible`,
-  `Dexpace.attach_suppressed` and `Dexpace.suppressed`. **Phase 7 is a consumer of the row's subject, not its
-  owner**, and it writes no second trail and no second skip. The row's status moves when phase 4 executes,
-  not when phase 7 does.
-- **`DEF-16` — untouched, and phase 7 is what makes its condition checkable rather than what meets it.**
-  `dexpace-serde-oj` waits for "when JSON throughput is identified as a bottleneck the stdlib `json` gem
+- **`HTTP-22`, `HTTP-48`–`HTTP-50` — still unbuilt, the phase-7 target is declined, and the four need the event
+  shape.** Argued in full above; the verdict lives on the standing decision line under `docs/first-release.md` § Blockers
+  before first publish.
+- **The suppressed-exception trail, postponed by phase 3b to phase 4 — untouched by phase 7, and phase 4 is where it
+  lands.** Phase 3b postponed "the suppressed-exception trail on the error root" and its citations name `PAGE-13`,
+  `PAGE-15`, `SSE-29` and `SSE-36` — four phase-7 IDs — but its pick-up condition is "phase 4 … with the recovery
+  chain that is its first caller", and phase 4b's plan builds it as Task 1 (`Dexpace::Suppressible`,
+  `Dexpace.attach_suppressed` and `Dexpace.suppressed`). **Phase 7 is a consumer of the trail, not its owner**, and
+  it writes no second trail and no second skip. The obligation is discharged when phase 4b executes, not when phase 7
+  does.
+- **`dexpace-serde-oj`, a post-v1 gem (`docs/first-release.md` § What v1 ships without › Post-v1 gems) — untouched, and phase 7
+  is what makes its trigger checkable rather than what meets it.** It waits for "when JSON throughput is identified as a bottleneck the stdlib `json` gem
   cannot clear". `7a` ships the first codec against which such a measurement could be taken, and design §3.4's
   "it keeps the door open for `dexpace-serde-oj` without a second code path in core" (`serde/66ebd950`) is a
   constraint on how `7a` writes the adapter — one code path, all policy at the seam — rather than a task.
-- **`DEF-29` — untouched, and its condition is still not met.** "The first consumer outside `dexpace-core`.
-  Phase 8 at the earliest." `7a`'s codec assertions have exactly one adapter to run against and live in that
-  gem's own suite (spec-forced boundary 8), so they strengthen the row without meeting it — the same
-  disposition phase 3a gave its three fakes.
-- **`DEF-3`, `DEF-23`, `DEF-26`, `DEF-33`, `DEF-34` — untouched**, all phase-3-or-earlier subjects or
-  matrix-gated. `DEF-26` is worth naming: it was picked up in phase 3b and narrowed `Request#body` and
-  `Response#body` in `sig/`, which is the type `7a`'s `SERDE-2` factory returns into.
-- **`DEF-1`, `DEF-4`–`DEF-7`, `DEF-9`–`DEF-15`, `DEF-17`–`DEF-22`, `DEF-25`, `DEF-27`, `DEF-28`, `DEF-30`,
-  `DEF-31`, `DEF-32`, `DEF-35`–`DEF-42` — untouched**, all either closed by an earlier phase, targeted at
-  phase 6 or 8, or riding on a post-v1 gem. Two are worth naming because a reader will wonder: `DEF-25`
-  (wire-boundary re-validation of header names and outbound values) is phase 8's, and `SERDE-2`'s stamped
-  `Content-Type` is among the values it will re-validate; `DEF-18`'s three unsatisfied MUSTs are phase 8's and
-  **phase 7 adds no fourth**.
+- **Moving core's test fakes into `dexpace-conformance`, postponed by phase 3a — untouched, and its condition is still
+  not met.** "The first consumer outside `dexpace-core`. Phase 8 at the earliest." `7a`'s codec assertions have
+  exactly one adapter to run against and live in that gem's own suite (spec-forced boundary 8), so they strengthen
+  the case without meeting it — the same disposition phase 3a gave its three fakes. (Phase 8a's design later declined
+  the move on the development-dependency cycle; the fakes stay in `gems/dexpace-core/test/support/`.)
+- **The phase-3-or-earlier and matrix-gated items — untouched**: `BODY-36`'s mmap view and `BODY-12`'s zero-copy
+  clause (`docs/first-release.md` § What v1 ships without), a Steep target over a `test/` tree and `IO-38` on a Ruby without a
+  GVL (both § Post-release triggers), the body member type (built by phase 3b, deviation P3-15) and the body-logging
+  caps (phase 5a Task 13, phase 5b Tasks 14–15). The body member type is worth naming: phase 3b narrowed
+  `Request#body` and `Response#body` in `sig/` to `Dexpace::Body?`, which is the type `7a`'s `SERDE-2` factory
+  returns into.
+- **Everything else outstanding on 2026-09-10 — untouched**, all either closed by an earlier phase, targeted at
+  phase 6 or 8, declined for v1, or riding on a post-v1 gem (`docs/first-release.md` § What v1 ships without). Two are worth
+  naming because a reader will wonder: wire-boundary re-validation of header names and outbound values is phase 8's
+  (phase 8a Task 16, phase 8c Task 9), and `SERDE-2`'s stamped `Content-Type` is among the values it will
+  re-validate; the unsatisfied MUSTs `ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause (§ Unsatisfied MUSTs)
+  are phase 8's and **phase 7 adds no fourth**.
 
 ### The findings proposed for the registers
 
@@ -1296,10 +1310,10 @@ and unaffected — only the ID it hands forward. Recorded separately from the `O
 edit to a phase document rather than to a register, and because a corrected register row pointing at an
 uncorrected deviation row is how a correction gets lost.
 
-**Target register: `docs/deferred-items.md`, as a second amendment to `DEF-2`'s pick-up condition; and
-`docs/first-release.md`, on the same reasoning.**
-**`DEF-2`'s phase-7 target does not fire either, and what the row needs is the event shape rather than a
-fifth phase target.** Phase 7 carries conditional headers and constructs none: `PAGE-23` preserves the
+**Finding on the four unbuilt HTTP helpers — now carried by the standing decision line under `docs/first-release.md`
+§ Blockers before first publish.**
+**The phase-7 target floated for `HTTP-22` and `HTTP-48`–`HTTP-50` does not fire either, and what the four need is
+the event shape rather than a fifth phase target.** Phase 7 carries conditional headers and constructs none: `PAGE-23` preserves the
 template's method, headers and body and changes only the URL; `SSE-38` forbids the SSE layer from setting a
 request header at all; no `PAGE` requirement mentions `Range`. `SERDE-28` is the nearest miss anywhere in the
 specification — it requires a 304's exception message to preserve "conditional/redirect context (e.g. ETag /
@@ -1309,10 +1323,11 @@ rather than accidental: the SDK never originates a request, and all four derivat
 re-issue, retry resend, auth replay, pagination next page) are spec-required to preserve headers rather than
 add them — so no remaining build phase fires the condition. The proposed event: *the first consumer that
 constructs a conditional request — a worked example in `docs/sdk-documentation/`, a `dexpace-conformance`
-fixture, or a downstream SDK's `SEAM-26` operation projection asking for one*, which is the shape `DEF-33`
-and `DEF-3`'s `BODY-36` half already have. The row stays **deferred and still not UNSCHEDULED**, by the
-register's own definition. `docs/first-release.md:32-33` carries the same four IDs on the same stale
-reasoning and needs the matching amendment. Cites: `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50`, `PAGE-23`,
+fixture, or a downstream SDK's `SEAM-26` operation projection asking for one*, which is the shape `IO-38`'s
+non-CRuby row and `BODY-36`'s mmap view already have. The four stay unbuilt and this is not a met-and-declined
+condition. **Where it lives:** `docs/first-release.md` § Blockers before first publish once carried the same four IDs on
+the stale phase-6 reasoning; its decision line now states phase 6's verdict, this one, and the reopening event, and
+is the one place that owns the decision. Cites: `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50`, `PAGE-23`,
 `SSE-38`, `SERDE-28`.
 
 **Target register: `docs/open-items.md`.**
@@ -1364,8 +1379,8 @@ deliberately left the naming open. `7a` decides, and states how `SERDE-28`'s 4xx
 
 **R4 — `7b`: the value of `SSE-19`'s line cap, its configurability, and its documented divergence.** No
 document fixes it, unlike §10.18's other three constants. `7b` picks a number, decides whether `SSE-19`'s
-"configurable" is taken (which raises `DEF-34`'s shape — a cap with no configuration source behind it is
-`DEF-28` without `DEF-28`'s pick-up condition, and `OI-5` says so explicitly about a keyword on
+"configurable" is taken (which raises the body-logging caps' shape — a cap with no configuration source behind it is
+the `deadline:` keyword phase 2 declined without the pick-up condition phase 2 gave it, and `OI-5` says so explicitly about a keyword on
 `#read_line_utf8`), decides whether an oversized line rejects or truncates, and decides whether the divergence
 joins §10.18's list or takes a `P7-<n>` row. It also writes the YARD sentence that makes the relationship to
 3a's ceiling visible from the code.
@@ -1380,7 +1395,8 @@ whether `Dexpace::Outcome#fold` extends to three arms or the SSE adapter folds s
 requirement's own conformance clause asks for both: "park a reader thread inside a blocking read, close from
 another thread, and assert an I/O-style error plus one release; separately close between pulls and assert a
 clean end." Phase 3a proved the second shape is writable with `IO.pipe` (`IO-38`'s cross-thread close), and
-`DEF-33` records that the guarantee's *interesting* half is not reproducible on CRuby. `7b` states which of
+phase 3a's own deferral of `IO-38` on a Ruby without a GVL (`docs/first-release.md` § Post-release triggers) records that the
+guarantee's *interesting* half is not reproducible on CRuby. `7b` states which of
 its assertions distinguish a correct implementation from an incorrect one on the matrix as it stands, and
 writes no test that passes on the floor and fails to reproduce elsewhere — phase 4c's `P4-33` is the
 precedent for why that matters.
@@ -1425,8 +1441,8 @@ name.
 boundary 8 keeps phase 7 out of `dexpace-conformance`. `7a` decides how much of `SERDE-3`'s close-counting
 tracker, `SERDE-4`'s offset/overflow matrix and `SERDE-9`'s type-escape assertions are written as
 adapter-local tests versus as objects shaped so phase 9 can lift them, and it names the target in its
-checklist so phase 9 inherits one rather than reconstructing it. `DEF-22`'s framework-agnostic assertion
-objects are the shape phase 8 will build; `7a` should not pre-empt them and should not ignore them either.
+checklist so phase 9 inherits one rather than reconstructing it. `dexpace-conformance`'s framework-agnostic
+assertion objects (phase 8a Tasks 4–8 and 20; phase 9 Tasks 2–12a) are the shape phase 8 will build; `7a` should not pre-empt them and should not ignore them either.
 
 ---
 

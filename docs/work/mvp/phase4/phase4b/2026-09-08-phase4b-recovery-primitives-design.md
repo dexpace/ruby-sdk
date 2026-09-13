@@ -6,21 +6,22 @@
 ## Purpose
 
 Sub-phase 4b builds §8.2's resilience layer: one closed two-variant outcome, two folds over frozen
-step lists, one orchestrator that lets no throwable past it, and the error primitives four register
-rows and five later phases have been waiting on. Eighteen `RECOV` IDs built, sixteen carried as ⏳,
+step lists, one orchestrator that lets no throwable past it, and the error primitives four earlier
+postponements and five later phases have been waiting on. Eighteen `RECOV` IDs built, sixteen carried as ⏳,
 one specification section, one gem.
 
 **It is also the phase that gives the whole SDK its suppressed-exception trail**, which is why three
-of its four register pick-ups are error primitives rather than chain machinery: `DEF-24` ships the
-trail, `DEF-32` makes phase 2's `Hooks.notify` use it, and `DEF-27` gets the first of its two
-disposal routes.
+of its four pick-ups are error primitives rather than chain machinery: the suppressed-exception trail
+phase 1 postponed to phase 4 ships (Task 1), phase 2's `Hooks.notify` is made to use it for the handler
+failures it dropped after the first (Task 2), and `close_quietly` gets the first of the two disposal
+routes phase 2 postponed (Task 2).
 
 Six decisions reshape what a plan can write. **Five** were forced by a fact run on a real interpreter
 rather than by taste; the sixth — `RECOV-12`'s "exactly once" — was forced by phase 3b's committed
 design and is listed last so the distinction is visible rather than absorbed.
 
 - **The trail cannot live on `Dexpace::Error`, because every primary it will ever be handed is a
-  caller's exception.** `RECOV-12`'s primary is whatever a caller-supplied step raised; `DEF-32`'s
+  caller's exception.** `RECOV-12`'s primary is whatever a caller-supplied step raised; `Hooks.notify`'s
   is whatever a caller's hook raised — phase 2's own tests raise a bare `::IOError`. A `#suppressed`
   defined only on `Dexpace::Error` raises `NoMethodError` at the first such call, which is the
   ordinary case and not an edge one. So the trail is a **separate** module, `Dexpace::Suppressible`,
@@ -94,7 +95,7 @@ value objects, folds over lambdas, and one fake transport that returns what it w
   disposal routes) and §3.1 (stream ownership);
   `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` §6.1 for what the deferred cluster
   becomes; `docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 (the diagnostic that
-  is `DEF-27`'s *second* route and not 4b's) and §8.3 (the prohibition);
+  is `close_quietly`'s *second* disposal route — phase 5b, Task 14 — and not 4b's) and §8.3 (the prohibition);
   `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md` items 6, 12 and 18;
   `docs/sdk-design-ruby/11-appendix-reference-spec-ambiguities-and-how-this-port-resolves-them.md`
   items 12 and 20; and §12's `RECOV` row.
@@ -102,8 +103,8 @@ value objects, folds over lambdas, and one fake transport that returns what it w
   3, and the ✅ / 🚫 / ⏳ / N/A legend 4b's checklist uses verbatim.
 - `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md`,
   `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md` with
-  `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md` (whose Task 4 is the code `DEF-32`
-  changes), `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` (whose API
+  `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md` (whose Task 4 is the code the
+  `Hooks.notify` fix changes), `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` (whose API
   table fixes two phase-4 mechanisms outright), and
   `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`.
 - `CLAUDE.md` and `docs/README.md`.
@@ -117,16 +118,16 @@ Taken from the charter's scope table rather than re-derived, and checked against
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `RECOV-1`–`RECOV-16`, `RECOV-32`, `RECOV-33` | 18 |
-| ⏳ deferred, `DEF-35`, target phase 6 | `RECOV-17`–`RECOV-30`, `RECOV-34` | 15 |
-| ⏳ deferred, `DEF-5` (pre-existing), post-MVP | `RECOV-31` | 1 |
+| ⏳ postponed to phase 6 by the charter — the recovery-stack retry engine, phase 6a, Tasks 3, 4, 5, 7 and 11 | `RECOV-17`–`RECOV-30`, `RECOV-34` | 15 |
+| ⏳ declined post-MVP by the MVP-scope design (`docs/first-release.md` § What v1 ships without › SHOULD/MAY) | `RECOV-31` | 1 |
 
-**The sixteen ⏳ rows are rows and not work.** `DEF-35` — filed by the charter, not by this document
-— carries `RECOV-17`–`RECOV-30` and `RECOV-34` to phase 6 with a twin-by-twin `RECOV`→`RETRY` table,
-and its two forcing arguments are `RECOV-27`'s wait being the object `CFG-15` defines and `RETRY-13`
-forbidding a second backoff calculator. **`RECOV-31` is not in `DEF-35`**: `DEF-5` defers it post-MVP
-together with `RETRY-38`, and `DEF-6` defers that twin with no named trigger, so it is the cluster's
-sixteenth ID and not phase 6's fifteenth. 4b writes both kinds of row, cites the right deferral in
-each, and **builds no backoff calculator, no pacing-header parser and no retry engine.** The one
+**The sixteen ⏳ rows are rows and not work.** The recovery-stack engine postponement — the charter's, not
+this document's — carries `RECOV-17`–`RECOV-30` and `RECOV-34` to phase 6 with a twin-by-twin
+`RECOV`→`RETRY` table, and its two forcing arguments are `RECOV-27`'s wait being the object `CFG-15`
+defines and `RETRY-13` forbidding a second backoff calculator. **`RECOV-31` is not in it**: the MVP-scope
+design declined it post-MVP together with `RETRY-38`, and declined that twin with no named trigger, so it
+is the cluster's sixteenth ID and not phase 6's fifteenth. 4b writes both kinds of row, cites the right
+decision in each, and **builds no backoff calculator, no pacing-header parser and no retry engine.** The one
 place a plan could drift into one is `RECOV-19`'s re-classification of a re-sent response, which
 reads like the error-mapping step: it is not, it is the retry loop's re-entry into that step, and
 `RETRY-36` is its twin.
@@ -144,16 +145,16 @@ stack is the first phase with a recovery step of its own and is where the SHOULD
 **Also shipped by 4b without owning a new ID**, per the charter and per phase 3b's API table:
 
 - `Dexpace::Suppressible`, `Dexpace::Error#suppressed`, `Dexpace.attach_suppressed`,
-  `Dexpace.suppressed` and the trail's rendering (`DEF-24`, `RETRY-34`, `PAGE-13`, `PAGE-15`,
-  `SSE-29`, `SSE-36`).
+  `Dexpace.suppressed` and the trail's rendering (the trail phase 1 postponed to phase 4; `RETRY-34`,
+  `PAGE-13`, `PAGE-15`, `SSE-29`, `SSE-36`).
 - `Dexpace.each_cause` (`XCUT-9`, phase 9's ID; design §5.2 puts the enumerator in core here).
 - `Dexpace::Recovery.buffer_error_body(response)`, whose contract phase 3b fixed and 4b implements.
 - **`XCUT-8`'s status-to-exception factory and `XCUT-4`'s protocol-error branch** — phase 3b's own
   API table assigns "the error-mapping step, `RECOV-15`/`XCUT-8`'s exception factory" to phase 4 in
   as many words, and `RECOV-15` cannot be built without something to map *to*. What 4b ships and
-  what it does not is P4-20 and `DEF-38`.
-- The `DEF-32` change to `Dexpace::Hooks.notify` and the `DEF-27` change to
-  `Dexpace.close_quietly`, both phase-2 files.
+  what it does not is P4-20 and the retryability-flag postponement below (phase 6a, Task 6).
+- The `Hooks.notify` change (the handler failures it drops after the first) and the `close_quietly(onto:)`
+  change (the first of its two disposal routes), both phase-2 files and both phase-2 postponements.
 
 ### The canonical text the design turns on
 
@@ -232,13 +233,13 @@ become real:
 |---|---|
 | `CTX-1`–`CTX-20` — the context chain, the store, the instrumentation bundle | 4a, built. 4b consumes **none** of it; `RECOV-11`'s "current context" is phase 2's `Dexpace::Cancellation` |
 | `PIPE-1`–`PIPE-40` — stages, the per-call cursor, `#fork`, both bridges | 4c. 4b names no stage and no cursor anywhere, which is spec-forced boundary 1 |
-| `RECOV-17`–`RECOV-30`, `RECOV-34` — the recovery-stack retry engine | 6 (`DEF-35`). The recovery-aware retry stack installs **into** what 4b ships |
-| `RECOV-31` — the per-attempt ordinal header (MAY) | post-MVP (`DEF-5`, with `RETRY-38` under `DEF-6`) |
-| `XCUT-5`'s baked retryability flag and the single shared status classifier; `XCUT-6`'s capability; `XCUT-7`'s configurable retryable-status set | 6 (`DEF-38`). 4b ships the protocol-error class the flag would sit on, and no flag |
+| `RECOV-17`–`RECOV-30`, `RECOV-34` — the recovery-stack retry engine | 6 (the charter's postponement; phase 6a, Tasks 3, 4, 5, 7 and 11). The recovery-aware retry stack installs **into** what 4b ships |
+| `RECOV-31` — the per-attempt ordinal header (MAY) | post-MVP (declined by the MVP-scope design together with `RETRY-38`; `docs/first-release.md` § What v1 ships without › SHOULD/MAY) |
+| `XCUT-5`'s baked retryability flag and the single shared status classifier; `XCUT-6`'s capability; `XCUT-7`'s configurable retryable-status set | 6 (postponed below; phase 6a, Task 6). 4b ships the protocol-error class the flag would sit on, and no flag |
 | `XCUT-4`'s branch (b), `Dexpace::TransportError < ::IOError` | 8. It is a transport's error and no transport exists |
 | `RETRY-34`'s failed-attempt trail and `RETRY-25`'s fatal-family rule as *retry* behaviour | 6. 4b ships `attach_suppressed` with the skip-self guard `RETRY-34` names, and the fatal-family passthrough `RETRY-25` requires, as `RECOV-2`'s rule |
 | `PAGE-13`, `PAGE-15`, `SSE-29`, `SSE-36` — the other consumers of the trail; `SSE-33`–`SSE-36`'s third `Outcome` variant | 7 |
-| `DEF-27`'s **second** disposal route, the `http.instrumentation.*` diagnostic | 5, with §8.1's facade. It is what closes that row and 4b must not |
+| `close_quietly`'s **second** disposal route, the `http.instrumentation.*` diagnostic | 5, with §8.1's facade (5b, Task 14). It is what completes phase 2's postponement and 4b must not |
 | A configuration source for the idempotency-key and client-identity steps' settings | 5. 4b ships keyword arguments with documented defaults and no configuration chain |
 | `BODY-30`/`HTTP-52`'s bounded copy, `BODY-31`'s predicate, `Status#error?` | 3b and 1, built. 4b ships only the step that calls them |
 
@@ -310,9 +311,10 @@ nothing to bite on, because 4b starts no thread, interrupts none, and has no wai
   raises.
 - **`Dexpace::Closeable`** with its latch and `#closed?` read under the close mutex (P3-6) — what
   makes `RECOV-12`'s "exactly once" structural rather than bookkept.
-- **`Dexpace.close_quietly(resource)`** — `DEF-27`'s subject. 4b changes it; see below.
-- **`Dexpace::Hooks`** (`private_constant`) with `notify(hooks, argument)` — `DEF-32`'s subject. 4b
-  changes it; see below.
+- **`Dexpace.close_quietly(resource)`** — the subject of phase 2's two-routes postponement. 4b changes it;
+  see below.
+- **`Dexpace::Hooks`** (`private_constant`) with `notify(hooks, argument)` — the subject of phase 2's
+  dropped-failures postponement. 4b changes it; see below.
 - **The error-class shape** — `class X < ::StandardError; include Dexpace::Error; end`, as
   `SeamError`, `ClosedError`, `CancelledError` and 4a's `ContextConflictError` all are.
 - **The private-snapshot rule (P2-9)**: a `Data` that is public API follows phase 1's construction
@@ -358,10 +360,10 @@ does not fire for this prefix at all** — not one `--req` hit across the eighte
 and was read in full anyway, plus the eighteen appendix-C rows the charter's disposition pass already
 covered.
 
-`--phase 2 --brief` and `--phase 3 --brief` were run. Phase 2 cites `RECOV-12` (through `DEF-27`) and
-nothing else in the prefix; phase 3 cites `RECOV-15` and `RECOV-16` and fixes two 4b mechanisms
-outright. Phase 1 cites `RECOV-12` and `RETRY-34` without owning them, pointing here — which
-`DEF-24`'s row already said and which is now met.
+`--phase 2 --brief` and `--phase 3 --brief` were run. Phase 2 cites `RECOV-12` (through its `close_quietly` postponement)
+and nothing else in the prefix; phase 3 cites `RECOV-15` and `RECOV-16` and fixes two 4b mechanisms
+outright. Phase 1 cites `RECOV-12` and `RETRY-34` without owning them, pointing here — which its
+postponement of the trail already said and which is now met.
 
 **The `CTX-9` cross-filing was met, exactly as the charter predicted.** `--req CTX-9` returns
 `error-handling/1f635244` and `error-handling/5a7d53ab`, both about `Dexpace.each_cause`, because
@@ -410,7 +412,7 @@ whoever reads the corpus next. `docs/knowledge/notes/pipeline.md` is a new file;
   *container* makes the tracking true — with the three measurements that separate them.
 - **`## Superseded`, superseding `error-handling/5a8298f6`** — `attach_suppressed`'s self-guard
   stands verbatim; its silence about the primary's **type** is what needed answering, because every
-  primary `RECOV-12`, `DEF-27` and `DEF-32` hand it is a caller's exception and a trail defined only
+  primary `RECOV-12`, `close_quietly` and `Hooks.notify` hand it is a caller's exception and a trail defined only
   on `Dexpace::Error` raises `NoMethodError` on the first one. The note records the `extend`
   mechanism, its cost, its `FrozenError` boundary, and the reason the trail module must not be the
   rescue root.
@@ -553,7 +555,7 @@ reviews caught.
     `NoMatchingPatternError`. All three. **What it licenses:** §5.2's `case/in` fold verbatim, and
     the `else` arm having something real to convert.
 
-## R5 — the suppressed trail's exact rendering, and what `DEF-32` costs phase 2's suite
+## R5 — the suppressed trail's exact rendering, and what the `Hooks.notify` fix costs phase 2's suite
 
 Four sub-questions, four answers.
 
@@ -564,8 +566,8 @@ two ways to drift. `NFR-4` permits adding one later; nothing needs it.
 
 **The trail lives on `Dexpace::Suppressible`, not on `Dexpace::Error`, and that is forced.** Verified
 fact 2: `rescue M` matches a module reached through a singleton class. Every primary
-`RECOV-12`, `DEF-27` and `DEF-32` hand the helper is a caller's exception, so the helper must be able
-to give a trail to an object whose class it does not control — and the only Ruby mechanism for that
+`RECOV-12`, `close_quietly` and `Hooks.notify` hand the helper is a caller's exception, so the helper must be
+able to give a trail to an object whose class it does not control — and the only Ruby mechanism for that
 is `Object#extend`. If the extended module were `Dexpace::Error`, a third-party `IOError` that
 happened to be closed over during a failed close would start matching `rescue Dexpace::Error`, which
 is phase 1's rescue root and a promise about *what the SDK raised*. Two modules, one relationship:
@@ -596,9 +598,9 @@ earlier holds a stable frozen snapshot, `<<` on a returned trail raises `FrozenE
 per-read `dup`. **P4-14** records the departure from §5.2's wording, which suggests one array
 transitioning from mutable to frozen.
 
-### What `DEF-32` costs phase 2's suite
+### What the `Hooks.notify` fix costs phase 2's suite
 
-`DEF-32`'s pick-up condition is exact: "the change is confined to `Hooks.notify`: attach each later
+Phase 2's pick-up condition for it is exact: "the change is confined to `Hooks.notify`: attach each later
 failure to the first through `Dexpace.attach_suppressed`, then re-raise as now." 4b implements it as
 written, and **phase 2's plan is unexecuted**, so what changes is text in committed documents rather
 than a passing test — which is why this section names the tests anyway: the phase-2 plan is what will
@@ -616,8 +618,8 @@ Phase 2 names **three** `Hooks.notify` tests, one per call site:
 finding."** Every one of phase 2's three cases raises from exactly **one** handler, so
 `#suppressed` is empty and the observable behaviour is identical before and after. A design that
 reported "test X changes" without checking would have been wrong, and a plan that assumed the three
-would fail and then found them passing would have no signal that `DEF-32` had landed at all. What
-`DEF-32` actually costs is:
+would fail and then found them passing would have no signal that the fix had landed at all. What
+it actually costs is:
 
 1. **A fourth test, at one site**, asserting the new behaviour: three handlers, **two** of which
    raise, and the raised object carries the second failure on `Dexpace.suppressed(error)` in
@@ -632,22 +634,23 @@ would fail and then found them passing would have no signal that `DEF-32` had la
 3. **Five prose corrections in committed phase-2 documents**, which 4b does **not** edit. Three say
    the failures after the first are dropped and become false the moment 4b lands: the YARD block in
    the plan's Task 4 step 3 ("The failures after the first are dropped until `#suppressed` exists to
-   carry them; `DEF-32` records that"), the design's `Every handler runs, whatever an earlier one
+   carry them; the postponement records that"), the design's `Every handler runs, whatever an earlier one
    did` paragraph, and the plan's edge-case bullet "`Hooks.notify` re-raises the **first** handler
    failure and drops the rest." Two more name the wrong **carrier**, which is P4-12's finding rather
-   than `DEF-32`'s and is therefore not anticipated anywhere: the phase-2 design's own `DEF-32`
-   deferral row ("Phase 4, with `DEF-24`'s `Dexpace::Error#suppressed` — the first carrier a second
+   than the fix's and is therefore not anticipated anywhere: the phase-2 design's own postponement
+   paragraph for it ("Phase 4, with the trail's `Dexpace::Error#suppressed` — the first carrier a second
    failure can attach to") and the same clause in the plan's edge-case bullet, both of which name the
-   one carrier that cannot work here, because the primary at this site is a bare `::IOError`. The
-   register's own `DEF-32` and `DEF-27` rows carry the same clause and are the manager's to correct
-   with the `picked-up` move. They are phase 2's documents, committed and reviewed, so 4b's **plan**
+   one carrier that cannot work here, because the primary at this site is a bare `::IOError`. Phase 2's
+   `close_quietly` postponement carries the same clause. They are phase 2's documents, committed and
+   reviewed, so 4b's **plan**
    carries a task that updates the shipped `hooks.rb` and `closeable.rb` comments it rewrites, and
    this finding goes to the manager rather than into an edit.
 4. **No change to `Hooks`'s privacy, signature or call sites, and one change the row does not
    mention.** It stays a `private_constant` with `notify(hooks, argument)` and three callers. The
    body gains one line — `failure ? attach_suppressed(failure, error) : (failure = error)` — and its
    trailing `raise failure if failure` becomes **`raise failure, cause: nil if failure`**. This edit
-   is not `DEF-32`'s, and its effect is **narrow — stated narrowly rather than sold as a bug fix**.
+   is not part of what phase 2 postponed, and its effect is **narrow — stated narrowly rather than sold as
+   a bug fix**.
    `Hooks.notify` re-raises an error it has been *carrying* since an earlier iteration rather than
    one it just rescued, which is the shape verified fact 5 is about, and `$!` at that line is
    measurably the *caller's* in-flight exception whenever a hook list is drained from inside a
@@ -661,11 +664,12 @@ would fail and then found them passing would have no signal that `DEF-32` had la
    that this design's own `pipeline` note claims a scope — "every `RECOV-10` unwrap **and every place
    core re-raises an error it is carrying rather than one it just rescued**" — that phase 2's site
    falls inside. It is the only such site outside 4b's own, and leaving it would make the note false
-   on the day it was filed. `DEF-32`'s pick-up condition says "re-raise as now", which this honours:
+   on the day it was filed. Phase 2's pick-up condition says "re-raise as now", which this honours:
    the object surfaced is the same object, and the only thing suppressed is an assignment `notify`
    would itself have been making.
 
-`DEF-32`'s register row moves to `picked-up` with the date and the naming of the fourth test.
+The pick-up is recorded, with the date and the naming of the fourth test, in 4b's checklist rows and in the
+roadmap's phase-4b status note (Task 15).
 
 ## R6 — where `RECOV-2`'s conversion boundary sits relative to the fold's own defects
 
@@ -968,8 +972,8 @@ lib/dexpace/recovery/orchestrator.rb              Dexpace::Recovery::Orchestrato
 lib/dexpace/recovery/idempotency_key_step.rb      Dexpace::Recovery::IdempotencyKeyStep
 lib/dexpace/recovery/client_identity_step.rb      Dexpace::Recovery::ClientIdentityStep
 lib/dexpace/recovery/error_mapping_step.rb        Dexpace::Recovery::ErrorMappingStep
-lib/dexpace/hooks.rb                              MODIFIED: DEF-32, two lines plus their comment
-lib/dexpace/closeable.rb                          MODIFIED: DEF-27, Dexpace.close_quietly(onto:)
+lib/dexpace/hooks.rb                              MODIFIED: the dropped-failures fix, two lines plus their comment
+lib/dexpace/closeable.rb                          MODIFIED: first disposal route, Dexpace.close_quietly(onto:)
 
 test/support/fake_transport.rb                    the two fakes, required explicitly
 test/support/cyclic_errors.rb                     R7's three fixture classes
@@ -982,7 +986,8 @@ asserted at its call sites, which is the treatment phase 2 gave `Dexpace::Hooks`
 than described: `lib/dexpace.rb` and `sig/dexpace.rbs` (requires and declarations for the tree);
 `lib/dexpace/error.rb` (one `include` line) and `sig/dexpace/error.rbs` (the same); the
 repository-root `test/fixtures/surface/dexpace-core.txt`; and the two behaviour changes,
-`lib/dexpace/hooks.rb` (`DEF-32`) and `lib/dexpace/closeable.rb` (`DEF-27`), each with its own
+`lib/dexpace/hooks.rb` (the `Hooks.notify` fix) and `lib/dexpace/closeable.rb` (`close_quietly(onto:)`), each with
+its own
 test-file delta — `test/dexpace/cancellation_test.rb` and `test/dexpace/closeable_test.rb`.
 
 **`lib/dexpace.rb`'s require order is load-bearing here for the first time.** `Dexpace::Error`
@@ -1009,7 +1014,7 @@ its only relationship to `Suppressible` is that the trail is walked with it.
 
 Every public constant, its surface, and the IDs forcing that shape.
 
-### `Dexpace::Suppressible` — the trail (`DEF-24`, `RECOV-12`, `RETRY-34`)
+### `Dexpace::Suppressible` — the trail (phase 1's postponement to phase 4; `RECOV-12`, `RETRY-34`)
 
 A module. Two public methods and no state of its own beyond one namespaced ivar,
 `@dexpace_suppressed`, following `Closeable`'s `@dexpace_closed` precedent — the ivar lands on a
@@ -1130,8 +1135,8 @@ otherwise write a status check its own `RECOV-15` predicate already performed.
 
 **No `#retryable?`.** `XCUT-5` requires the baked flag to come from "a SINGLE shared status
 classifier", and that classifier is `RETRY-1`'s and phase 6's; building one here would fix a phase-6
-seam a phase early, which is the charter's own test and the reason `RECOV-27` moved. `DEF-38`. Adding
-a predicate later widens a signature, which `NFR-4` permits.
+seam a phase early, which is the charter's own test and the reason `RECOV-27` moved. Postponed below to
+phase 6a, Task 6. Adding a predicate later widens a signature, which `NFR-4` permits.
 
 ### `Dexpace::Recovery.buffer_error_body(response) -> Response` — `RECOV-16`, `BODY-30`
 
@@ -1372,10 +1377,11 @@ Boundaries 2, 3, 4, 11, 12, 13, 14, 15 and 16 are 4a's or 4c's and 4b touches no
 1. **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden**, enforced by phase 0's
    `Dexpace/NoThreadInterrupt`. 4b has no wait, no timer and no thread, so the cop has nothing to
    bite on — and it is named because `RECOV-27`'s cancellable inter-attempt wait is the one place in
-   the `RECOV` prefix where a phase in a hurry would reach for one. That ID is `DEF-35`'s and phase
-   6's, and 4b builds no wait of any kind, cancellable or otherwise.
+   the `RECOV` prefix where a phase in a hurry would reach for one. That ID is in the charter's
+   recovery-stack engine postponement and phase 6a's (Task 5), and 4b builds no wait of any kind,
+   cancellable or otherwise.
 2. **Deadlines are explicit values, never ambient interrupts.** 4b has no deadline and no clock;
-   `RECOV-20`'s total-timeout budget travels with `DEF-35`.
+   `RECOV-20`'s total-timeout budget travels with the same postponement.
 3. **`Thread::Mutex` is per-fiber-owned and non-reentrant.** 4b holds no mutex, because it owns no
    mutable shared state: a built chain is frozen lists, an orchestrator is three frozen references,
    and per-call state lives in the value being transformed, which is `RECOV-14`'s own instruction.
@@ -1435,8 +1441,8 @@ Nothing in 4b performs I/O, which is what makes every case here deterministic.
   instances are **never raised** in the third test: a `raise`-built pair is not `==` on 3.2.11 and
   the assertion stops discriminating there (verified fact 7).
 
-`DEF-29`'s condition — a consumer outside `dexpace-core` — stays unmet; these strengthen the row
-without meeting it.
+The condition phase 2 set for moving core's fakes into `dexpace-conformance` — a consumer outside
+`dexpace-core` — stays unmet; these strengthen the case without meeting it.
 
 **Steps are lambdas wherever a lambda is honest, and there are three lambda shapes, not two.** Every
 `RECOV-3` through `RECOV-8` case drives the folds with `->(request) { … }` for a request step,
@@ -1492,8 +1498,8 @@ suite that tested the fold through `IdempotencyKeyStep` would fail for two reaso
 - **R6's `LoadError` case**, above: a request step raising `LoadError` surfaces as a `LoadError` and
   no recovery step is invoked.
 - **R7's three cause-walk cases**, above.
-- **`DEF-32`'s fourth `Hooks.notify` case**, above, at the `Cancellation::Source#cancel` site.
-- **`DEF-27`'s two `close_quietly` cases**: with `onto:` absent the rescued error is still dropped
+- **The `Hooks.notify` fix's fourth case**, above, at the `Cancellation::Source#cancel` site.
+- **`close_quietly(onto:)`'s two cases**: with `onto:` absent the rescued error is still dropped
   and the existing phase-2 test is unchanged; with `onto:` supplied the rescued error lands on that
   error's trail and `close_quietly` still returns `nil` and still does not raise.
 - **The truncation boundary through the constant.** `Recovery.buffer_error_body` over a body of
@@ -1518,12 +1524,12 @@ Stated as a contract, so a later phase cites rather than re-derives.
 |---|---|
 | **4c**, obligatorily | `Dexpace::Recovery::Transform` — `#phase`, `#apply(value)` and the forwarding `#call(value)` default — and the three transforms. 4c ships **one generic adapter** that reads `#phase` and produces `#call(request, cursor)`, calling `#apply` and not `#call` so a future default cannot change what the pipeline does; it ships **no** second implementation of an idempotency key, a client-identity line or a status mapping, and does not subclass the three. A `:response` transform is `Response -> Response` and **raises** on an error status — no `Outcome` crosses into the `PIPE` layer, which is what the charter's `response -> outcome` would have implied and `RECOV-4`/`RECOV-15` do not. `PIPE-37`'s outermost placement is `ErrorMappingStep`'s and its non-error identity return is already guaranteed. R8 above is the whole contract |
 | **4c**, optionally | Nothing else. `Dexpace::Outcome` is not a `PIPE` type, `Dexpace::PipelineError` is 4c's own to name, and a `PIPE` step must not return an `Outcome` |
-| **Phase 5**, on `DEF-27` | `Dexpace.close_quietly(resource, onto: nil)`. Phase 5 adds the `http.instrumentation.*` diagnostic for the `onto:`-absent case and **closes the row**; it does not replace the trail and does not remove the keyword |
-| **Phase 5**, on `DEF-32` | `Dexpace::Hooks.notify`'s trail. Phase 5 may emit a diagnostic per attached failure; it does not replace the trail |
+| **Phase 5**, on `close_quietly`'s second disposal route (5b, Task 14) | `Dexpace.close_quietly(resource, onto: nil)`. Phase 5 adds the `http.instrumentation.*` diagnostic for the `onto:`-absent case and **completes phase 2's postponement**; it does not replace the trail and does not remove the keyword |
+| **Phase 5**, on the `Hooks.notify` fix's optional diagnostic half (5b, Task 14) | `Dexpace::Hooks.notify`'s trail. Phase 5 may emit a diagnostic per attached failure; it does not replace the trail |
 | **Phase 6**, on `RETRY-34` | `Dexpace.attach_suppressed` with the skip-self guard, applied to **both** retry stacks through this one helper — §5.2's resolution of the third reference asymmetry. Phase 6 writes no second helper |
 | **Phase 6**, on `RETRY-25` | `RECOV-2`'s fatal-family passthrough, already implemented: a non-`StandardError` is surfaced unchanged with no trail attached |
-| **Phase 6**, on `DEF-35` | `Dexpace::Recovery::ResponseChain` and `Orchestrator` are what the recovery-aware retry stack installs into, and `Dexpace::ProtocolError` is the error `RECOV-19`/`RETRY-36` re-classifies. `Recovery.buffer_error_body` is the one buffering call site and phase 6 adds no second |
-| **Phase 6**, on `DEF-38` | `Dexpace::ProtocolError` gains `#retryable?` from `XCUT-5`'s single shared classifier, added to **this** class rather than a second one. Adding a method widens; `NFR-4` permits |
+| **Phase 6**, on the recovery-stack engine postponement (6a, Tasks 3, 4, 5, 7 and 11) | `Dexpace::Recovery::ResponseChain` and `Orchestrator` are what the recovery-aware retry stack installs into, and `Dexpace::ProtocolError` is the error `RECOV-19`/`RETRY-36` re-classifies. `Recovery.buffer_error_body` is the one buffering call site and phase 6 adds no second |
+| **Phase 6**, on the retryability-flag postponement (6a, Task 6) | `Dexpace::ProtocolError` gains `#retryable?` from `XCUT-5`'s single shared classifier, added to **this** class rather than a second one. Adding a method widens; `NFR-4` permits |
 | **Phase 6 and 7**, on `XCUT-9` | `Dexpace.each_cause`, which yields the error first and tracks by reference identity through `#compare_by_identity`. Every classification uses it; none walks `#cause` by hand |
 | **Phase 7**, on `SSE-33`–`SSE-36` | `Dexpace::Outcome`, reused with a third variant **in the SSE namespace** and never by adding one here (`RECOV-1`, spec-forced boundary 6) |
 | **Phase 7**, on `PAGE-13`/`PAGE-15`/`SSE-29`/`SSE-36` | `Dexpace.attach_suppressed` and `Dexpace.suppressed`. A primary that is not a `Dexpace::Error` is handled; a **frozen** primary is silently not, which is stated |
@@ -1538,7 +1544,7 @@ from 4a's `P4-11`; `P4-24` and `P4-25` were added by this document's review.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P4-12 | The suppressed trail lives on a **separate** module, `Dexpace::Suppressible`, which `Dexpace::Error` includes — not on `Dexpace::Error` itself as design §5.2 and `error-handling/34f54b5e` both write it | design §5.2 **and design §10 item 6** ("`Dexpace::Error#suppressed` supplies the list"); `DEF-24`; `RECOV-12`; P1-2 | Every primary `RECOV-12`, `DEF-27` and `DEF-32` hand the helper is a **caller's** exception, so the helper must be able to give a trail to a class core does not control, and `Object#extend` is Ruby's only mechanism for that. Verified on all three that `rescue M` matches a module reached through a singleton class, so extending a third-party error with the rescue root would make `rescue Dexpace::Error` catch errors the SDK never raised — the one promise P1-2 made. Two modules keeps both properties; one module cannot. **`Dexpace::Error` still carries `#suppressed`**, by inclusion, so §10 item 6's sentence stays true of an SDK error and is wrong only about where the method is defined and about what else can carry a trail — which is what the consolidation into §10 has to correct, and why item 6 is named in the column beside §5.2 |
+| P4-12 | The suppressed trail lives on a **separate** module, `Dexpace::Suppressible`, which `Dexpace::Error` includes — not on `Dexpace::Error` itself as design §5.2 and `error-handling/34f54b5e` both write it | design §5.2 **and design §10 item 6** ("`Dexpace::Error#suppressed` supplies the list"); phase 1's postponement of the trail; `RECOV-12`; P1-2 | Every primary `RECOV-12`, `close_quietly` and `Hooks.notify` hand the helper is a **caller's** exception, so the helper must be able to give a trail to a class core does not control, and `Object#extend` is Ruby's only mechanism for that. Verified on all three that `rescue M` matches a module reached through a singleton class, so extending a third-party error with the rescue root would make `rescue Dexpace::Error` catch errors the SDK never raised — the one promise P1-2 made. Two modules keeps both properties; one module cannot. **`Dexpace::Error` still carries `#suppressed`**, by inclusion, so §10 item 6's sentence stays true of an SDK error and is wrong only about where the method is defined and about what else can carry a trail — which is what the consolidation into §10 has to correct, and why item 6 is named in the column beside §5.2 |
 | P4-13 | `Dexpace.attach_suppressed` **`extend`s** its primary, mutating an object core did not create, and silently no-ops on a frozen one | `RECOV-12`; `RETRY-34`; `error-handling/a86bc536` | Attaching a trail is a visible side effect on the primary by definition — the requirement asks for exactly that. `extend` and the ivar write both raise `FrozenError` on a frozen exception (verified, all three), and a helper that raises while attaching a *close* error would mask the primary, which is the single failure `RECOV-12` exists to prevent. So the `FrozenError` rescue is the one-class deliberate swallow the styleguide sanctions, with its why-comment, and the loss is stated in the YARD and asserted in a test rather than hidden. Cost measured at roughly 4× a bare exception allocation, on an error path only |
 | P4-14 | `#suppressed` is a **frozen array replaced on every attach**, rather than one array frozen at a stated moment | design §5.2's "frozen once populated"; `api-design/c15b29ce` | "At first read" and "at first raise" are both lifecycles nothing in Ruby enforces, and `RETRY-34` attaches after an error may already have been inspected. Replace-on-append makes "frozen once populated" literally true at every moment (verified: `<<` on a returned trail raises), gives a caller who took a handle a stable snapshot, and needs no per-read `dup` |
 | P4-15 | Two module functions design §5.2 does not name: `Dexpace.suppressed(error)` and the `Suppressible` module itself as a public constant | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14 and P4-2 precedent | `RECOV-10` rethrows a caller's error unchanged, so a consumer reading a trail off a surfaced error cannot know whether it is `Suppressible` and would otherwise write `respond_to?` at every read site. It is also the only route for a logger that formats an exception itself rather than calling `#full_message` — a real limit of the `#detailed_message` mechanism, verified and stated rather than assumed away. **The module is public rather than a `private_constant`** — phase 2's treatment of `Dexpace::Hooks` — because `extend`ing a caller's exception with it is an observable change to that object: `e.is_a?(Dexpace::Suppressible)` becomes true and `rescue Dexpace::Suppressible` starts matching, on all three (verified fact 2), and a constant a consumer can observe but cannot name is worse than one it can. The cost is that `rescue Dexpace::Suppressible` is a second, broader rescue point beside `rescue Dexpace::Error`, which the YARD states rather than leaves to be discovered |
@@ -1549,35 +1555,61 @@ from 4a's `P4-11`; `P4-24` and `P4-25` were added by this document's review.
 | P4-20 | `Dexpace::ProtocolError` is **one class carrying `#status`**, with no per-status subclass tree | `XCUT-4`, `XCUT-7`, `XCUT-8`, `RECOV-15`; `error-handling/5da8cb17`, `/61ab4fb6` | `XCUT-4` requires exactly two top-level branches and describes no third level; `XCUT-7` decides retry eligibility from a configured status set and never from a class; a subclass is admitted only when callers must distinguish it for different handling, and a caller distinguishes a 404 from a 429 by reading `#status`. A generated SDK that wants its own typed errors passes `factory:` to `ErrorMappingStep` rather than subclassing. Recorded because "the matching typed exception" reads like a tree |
 | P4-21 | `Outcome#response_or_nil` and `#error_or_nil` return `nil` for the absent case | `RECOV-1`; `api-design/6ea28c9c` | `RECOV-1` names "response-or-null, error-or-null" as part of the derivable surface, so the `nil` is the requirement's and not a choice — the same documented case `CTX-18` reserved for 4a. `#success?`/`#failure?` and `#fold` are the non-`nil` routes and are what core itself uses; neither accessor has a caller in `lib/` |
 | P4-22 | Both chains `dup` and `freeze` their step lists rather than routing them through `Model.own` | `RECOV-14`; `XCUT-15`; phase 1's `Model.own` | `Model.own` is `Ractor.make_shareable(collection, copy: true)`, which deep-copies, and a step is a caller-supplied callable whose closure cannot be copied. `RECOV-14`'s requirement is that later mutation of the caller's **list** cannot alter chain behaviour, which a shallow copy satisfies exactly. Recorded because a reader who knows `Model.own` will ask why it is not used, and because it means **no shareability claim is made for a chain** |
-| P4-23 | Public **methods** neither design §5.1 nor §5.2 names: `Suppressible#suppressed` and `#detailed_message`; `Dexpace.attach_suppressed`, `.suppressed`, `.each_cause`; `Outcome::Success`/`Failure`'s `.build`, `#success?`, `#failure?`, `#response_or_nil`, `#error_or_nil`, `#fold`; `OutcomeError#offending_class`; `ProtocolError.for`, `.for_or_nil`, `#response`, `#status`; `Transform#phase`, `#apply` and `#call` (the module's one default implementation, R8 clause 4); `RequestChain.build`, `#apply`, `#steps`; `ResponseChain.build`, `#apply`, `#response_steps`, `#recovery_steps`; `Orchestrator.build`, `#call`; the three steps' `.build` and `#apply`; and `Dexpace.close_quietly`'s new `onto:` keyword | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14 and P4-11 precedent | `NFR-4` locks a public *signature*, not only a public name, and §5.2 describes the whole subsystem while naming three Ruby constants and no method at all. Two deserve naming here. **`#response_or_nil` and `#error_or_nil` have no caller anywhere in core** — `RECOV-1` requires them as derivable accessors and only the suite exercises them, so deleting them later would be an `NFR-4` break for methods core never used, which is exactly what this row exists to make deliberate. And **`close_quietly` gains a keyword rather than a second helper**, which widens and therefore passes the lock in the one direction that matters, on `DEF-28`'s stated precedent. The `Data`-generated readers on both `Outcome` variants are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, and the phase's last task regenerates both |
+| P4-23 | Public **methods** neither design §5.1 nor §5.2 names: `Suppressible#suppressed` and `#detailed_message`; `Dexpace.attach_suppressed`, `.suppressed`, `.each_cause`; `Outcome::Success`/`Failure`'s `.build`, `#success?`, `#failure?`, `#response_or_nil`, `#error_or_nil`, `#fold`; `OutcomeError#offending_class`; `ProtocolError.for`, `.for_or_nil`, `#response`, `#status`; `Transform#phase`, `#apply` and `#call` (the module's one default implementation, R8 clause 4); `RequestChain.build`, `#apply`, `#steps`; `ResponseChain.build`, `#apply`, `#response_steps`, `#recovery_steps`; `Orchestrator.build`, `#call`; the three steps' `.build` and `#apply`; and `Dexpace.close_quietly`'s new `onto:` keyword | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14 and P4-11 precedent | `NFR-4` locks a public *signature*, not only a public name, and §5.2 describes the whole subsystem while naming three Ruby constants and no method at all. Two deserve naming here. **`#response_or_nil` and `#error_or_nil` have no caller anywhere in core** — `RECOV-1` requires them as derivable accessors and only the suite exercises them, so deleting them later would be an `NFR-4` break for methods core never used, which is exactly what this row exists to make deliberate. And **`close_quietly` gains a keyword rather than a second helper**, which widens and therefore passes the lock in the one direction that matters, on phase 2's stated `deadline:` precedent (P2-5). The `Data`-generated readers on both `Outcome` variants are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, and the phase's last task regenerates both |
 | P4-24 | Public **constants** neither design §5.1 nor §5.2 names as Ruby constants: `Dexpace::Outcome` (the shared module), `Dexpace::Recovery::Transform`, `::RequestChain`, `::ResponseChain`, `::Orchestrator`, `::IdempotencyKeyStep`, `::ClientIdentityStep` and `::ErrorMappingStep` | `NFR-4`; `NFR-11`; P1-1; P2-11, P3-14 and P4-2 precedent | The methods are P4-23's and the two module functions are P4-15's; **the constants had no row and `NFR-4` locks a name before it locks a signature**, which is the whole reason P2-11 and P3-14 exist. §5.2 names `Dexpace::Outcome::Success` and `::Failure` and never the `Outcome` module they share; §5.1 names the three steps only in prose ("the idempotency-key step") and names `Dexpace::Recovery.buffer_error_body` but no other member of `Recovery`. Each is deliberate: `Outcome` is the module both variants include so `outcome.is_a?(Dexpace::Outcome)` is one type test and the RBS union has a name (4a's P4-1 reading of "sharing a module"); the three chains-and-orchestrator classes own state (`data-modeling/3e37c086`); `Transform` is R8's crossing contract and must be nameable in the public signature 4c writes (`NFR-11`); the three steps are the objects §5.1 describes. Placement follows P1-1 unchanged — `Recovery` and `Outcome` are namespaces the design itself wrote, everything else is flat |
 | P4-25 | `Dexpace::Recovery::Transform` carries **one default implementation**, `#call(value) = apply(value)`, where 4a's `Dexpace::Context` and phase 1's `Dexpace::Error` only declare | R8; §5.1's "a lambda qualifies as a step"; `api-design/88e6bf12` | The two chains invoke a step as `step.call(value)`, because §5.1 requires a bare lambda to be a step and every fold fixture in this phase is one. Without the default, installing a transform into a chain would need either an adapter class — which §5.1's "written once against the step protocol both layers share" and this phase's own "4b writes no adapter" both forbid — or a `Method` object, which is not a `Proc` and would not type-check against the proc types `sig/` declares for the three step lists. One forwarding method buys clause 4 of R8 outright. It is recorded because "a module that only declares" is the shape every other contract module in this repository has, and a reader who knows that will read the exception as an accident |
 
-## Deferrals Filed by Phase 4b
+## Work Phase 4b Postpones, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; each row names an explicit target or pick-up condition, per
-the roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's
-`registers` check reserves for the aggregate register, which is where the rows live.)
+One item, recorded on 2026-09-08 with an explicit target, per the roadmap's execution step 7. It is
+scheduled work: phase 6a, Task 6 (`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`), and phase
+6a, Task 13 records in its checklist row and the phase status note that the work 4b postponed has landed.
+The reasoning stays here in full.
 
-| ID | Deferral | Target / condition |
-|---|---|---|
-| `DEF-38` | `XCUT-5`'s baked retryability flag on `Dexpace::ProtocolError`, and the single shared status classifier it must be computed from. 4b ships the class `RECOV-15` needs and gives it no `#retryable?`, because `XCUT-5` requires the flag to come from "a SINGLE shared status classifier" treating 408, 429 and all 5xx except 501 and 505 as retryable — which is `RETRY-1`'s classifier, phase 6's, and the same object `XCUT-6`'s capability path and `XCUT-7`'s configurable set are defined against. Building one here would fix a phase-6 seam a phase early, which is the charter's own argument for moving `RECOV-27` and phase 2's for declining `deadline:` (`DEF-28`) | Phase 6, with `RETRY-1`–`RETRY-45`. The attachment point already exists — a method added to `Dexpace::ProtocolError` **widens** a signature, which `NFR-4`'s "disappears or narrows" lock permits — so phase 6 adds `#retryable?` to this class and writes no second protocol-error type. `DEF-35` lands in the same phase and the two should be read together |
+**`XCUT-5`'s baked retryability flag on `Dexpace::ProtocolError`, and the single shared status classifier
+it must be computed from.** `RECOV-15` requires the error-mapping step to map a 400..599 response to "the
+matching typed exception", and phase 3b's own API table assigns that step and `XCUT-8`'s exception factory
+to phase 4, so 4b must ship something to map **to**: `Dexpace::ProtocolError`, `XCUT-4`'s branch (a),
+carrying `#response` and `#status`, with `ProtocolError.for(response)` raising for a non-error status and
+`.for_or_nil(response)` returning `nil` — `XCUT-8`'s two forms verbatim. What 4b does **not** ship is the
+error's retryability flag. `XCUT-5` fixes both the flag and its source in one sentence: "The baked
+retryability flag of a protocol (status-carrying) error MUST be computed ONCE at construction from a SINGLE
+shared status classifier, never hardcoded per status subclass. That classifier MUST treat 408, 429, and all
+5xx EXCEPT 501 and 505 as retryable" — and that classifier is `RETRY-1`'s, the same object `XCUT-6`'s
+open-capability path and `XCUT-7`'s configurable retryable-status set are defined against, all three of
+them phase 6's. Building one in phase 4 would fix a phase-6 seam a phase early and give the SDK two places
+a status classification could live, which is the drift the word SINGLE is in the requirement to prevent.
+It is the same objection the charter used to move `RECOV-27` into the recovery-stack engine postponement
+(its wait is `CFG-15`'s object, phase 5's) and that phase 2 used to decline `deadline:` (P2-5).
 
-### Deferral-register sweep
+*Condition:* phase 6, with `RETRY-1`–`RETRY-45`. The attachment point already exists and the work is one
+method: add `#retryable?` to `Dexpace::ProtocolError`, computed once at construction from the shared
+classifier, and add **no** second protocol-error type. Adding a method **widens** a signature, which
+`NFR-4`'s "disappears or narrows" lock permits, so shipping the class without the predicate now prejudices
+nothing. The recovery-stack engine lands in the same phase and the two are read together: its `RECOV-17`
+is the eligibility rule that consults `XCUT-7`'s configured set rather than this flag, and getting that
+relationship backwards is what `XCUT-5`'s own closing NOTE warns against. *Owner:* phase 6a, Task 6. As
+built, the classifier is phase 5a's `Dexpace::Retryability` — the status half of `CFG-35`, which 5a's R1
+settled — rather than one phase 6 builds as the paragraph above anticipated; 6a's Task 6 computes
+`#retryable?` from it once at construction.
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition
-every row. All thirty-seven were read; the charter's sweep covered the phase-4-wide dispositions and
-is not repeated, so what follows is the 4b-specific delta.
+### Postponed work read at planning time
 
-- **`DEF-24` — picked up and discharged.** Its condition names phase 4 explicitly, "with the recovery
-  chain that is its first caller", and `RECOV-12` is that caller exactly as the row predicted. 4b
+The roadmap's execution step 1 requires the phase to read **every** piece of work an earlier phase
+postponed and disposition each. All thirty-seven items outstanding on 2026-09-08 were read; the charter's
+reading covered the phase-4-wide dispositions and is not repeated, so what follows is the 4b-specific delta.
+
+- **The suppressed-exception trail on the error root (postponed by phase 1) — picked up and discharged,
+  Task 1.** Phase 1's condition names phase 4 explicitly, "with the recovery
+  chain that is its first caller", and `RECOV-12` is that caller exactly as phase 1 predicted. 4b
   ships `#suppressed` (frozen from construction, P4-14), `Dexpace.attach_suppressed` with
   `RETRY-34`'s skip-self guard, and the rendering **through `#detailed_message`** per the charter's
   verified fact 1 — with the two corrections this design adds: the trail lives on
   `Dexpace::Suppressible` rather than on `Dexpace::Error` (P4-12), and `#full_message` is not
-  overridden (R5). Row moves to `picked-up`. `NFR-4` is not a concern: the lock diffs against a
-  release tag that does not exist.
-- **`DEF-32` — picked up and discharged.** Implemented exactly as the row words it: "attach each
+  overridden (R5). Picked up 2026-09-09, phase 4b; recorded in the checklist and the phase status note
+  (Task 15). `NFR-4` is not a concern: the lock diffs against a release tag that does not exist.
+- **The handler failures `Hooks.notify` drops after the first (postponed by phase 2) — picked up and
+  discharged, Task 2.** Implemented exactly as phase 2 worded it: "attach each
   later failure to the first through `Dexpace.attach_suppressed`, then re-raise as now." Two lines in
   `Hooks.notify` and their comment: the attach, and `raise failure` becoming
   `raise failure, cause: nil` (verified fact 5 — the site re-raises an error it has been carrying, so
@@ -1585,13 +1617,13 @@ is not repeated, so what follows is the 4b-specific delta.
   honoured because the object surfaced is the same object). **None of phase 2's three tests changes
   its assertions** — each raises from one handler, so the trail is empty — and a fourth test is added
   at the `Cancellation::Source#cancel` site with two raising handlers, which is the only case that
-  distinguishes the two behaviours. Row moves to `picked-up`, naming the fourth test; its
-  `Dexpace::Error#suppressed` clause is corrected to `Dexpace::Suppressible` in the same edit,
+  distinguishes the two behaviours. Picked up 2026-09-09, phase 4b, naming the fourth test; phase 2's
+  `Dexpace::Error#suppressed` clause is corrected to `Dexpace::Suppressible` where 4b records it,
   because the primary at this site is a bare `::IOError` (P4-12).
-- **`DEF-27` — half supplied, row stays open, and 4b must not close it.** The row fixes two disposal
-  routes and reserves closure for phase 5: "phase 4 supplies the first route with `DEF-24`'s
-  `#suppressed` and `Dexpace.attach_suppressed`; **phase 5 supplies the second with §8.1's facade and
-  closes this row**." **4b's half, stated precisely:** `Dexpace.close_quietly` gains one optional
+- **`close_quietly`'s two disposal routes (postponed by phase 2) — half supplied, and 4b must not close
+  it.** Phase 2 fixed two disposal routes and reserved closure for phase 5: "phase 4 supplies the first
+  route with the trail's `#suppressed` and `Dexpace.attach_suppressed`; **phase 5 supplies the second
+  with §8.1's facade and closes it**." **4b's half, stated precisely:** `Dexpace.close_quietly` gains one optional
   keyword, `onto:`, defaulting to `nil`. With `onto:` absent — every existing call site — the
   behaviour is byte-for-byte today's: rescue `StandardError`, drop it, return `nil`, and phase 2's
   own test that pins that is unchanged. With `onto:` supplied, the rescued error is attached to it
@@ -1603,67 +1635,75 @@ is not repeated, so what follows is the 4b-specific delta.
   from inside the rescue where it would replace the close failure it was passed to carry. A `nil`
   `onto:` stays the documented no-attach default and is not a caller mistake. That is a widening
   (`NFR-4` permits) and adds no second helper, which is what keeps §3.7's "two ways and never a
-  third" true. The row gains a dated `Status` line recording the first route and does **not** move to
-  `picked-up`; its `Why` names `Dexpace::Error#suppressed` as the trail and 4b's plan corrects that
-  clause to `Dexpace::Suppressible` in the same edit, for the same reason `DEF-32`'s does (P4-12).
-  `closeable.rb`'s own YARD carries the same sentence and is rewritten with the code.
-- **`DEF-5` — picked up as a disposition, not as work.** `RECOV-31` is 4b's only pre-existing ⏳ row.
-  Its condition is post-MVP and phase 4 cannot meet it; the row is **not** UNSCHEDULED. 4b's
-  checklist carries the row citing `DEF-5` and §11.20 and moves on.
-- **`DEF-35` — untouched, and cited by fifteen of 4b's checklist rows.** Filed by the charter. 4b
-  neither meets nor widens it, and in particular builds no backoff calculator, no pacing parser and
-  no wait.
-- **`DEF-1` — untouched.** `SEAM-28` targets phase 5; 4b supplies neither half.
-- **`DEF-18` — untouched.** `PIPE-33`'s interrupt clause is 4c's ⏳ row.
-- **`DEF-28` — untouched, and named as a constraint.** 4b has no clock, no deadline and no wait.
-  `RECOV-20`'s and `RECOV-27`'s dependence on it travels with `DEF-35`.
-- **`DEF-29` — untouched.** `FakeTransport`, `RecordingBody` and the three cyclic-error fixtures land
-  under `gems/dexpace-core/test/support/`, following phase 2's and phase 3's precedent. The condition
-  — a consumer outside `dexpace-core` — is not met.
-- **`DEF-30`, `DEF-31`, `DEF-34`, `DEF-36`, `DEF-37` — untouched.** All five target phase 5's
-  instrumentation facade or configuration chain. `DEF-27`'s second route is the one of the five 4b's
-  work most directly enables.
-- **`DEF-2`, `DEF-3`, `DEF-4`, `DEF-6`–`DEF-17`, `DEF-19`–`DEF-23`, `DEF-25`, `DEF-26`, `DEF-33` —
-  untouched.** Other prefixes, other phases, release-gated, or already picked up. **`DEF-6` is worth
-  one sentence**: it defers `RETRY-38`, `DEF-5`'s twin, so a phase-6 planner meeting `DEF-35` will
-  meet all three at once, and the charter already says the cluster's sixteenth ID is not phase 6's
-  budget.
+  third" true. The first route is recorded in 4b's checklist row and the phase status note, and the item
+  is **not** marked complete; phase 2's wording names `Dexpace::Error#suppressed` as the trail and 4b
+  corrects that clause to `Dexpace::Suppressible` where it records the route, for the same reason the
+  `Hooks.notify` entry does (P4-12). `closeable.rb`'s own YARD carries the same sentence and is rewritten
+  with the code. The second route is phase 5b, Task 14 (the opt-in `logger:`).
+- **`RECOV-31` (declined post-MVP by the MVP-scope design) — picked up as a disposition, not as work.**
+  `RECOV-31` is 4b's only pre-existing ⏳ row. Its condition is post-MVP and phase 4 cannot meet it; the
+  item is **not** UNSCHEDULED. 4b's checklist carries the row citing that decision (`docs/first-release.md`
+  § What v1 ships without › SHOULD/MAY) and §11.20 and moves on.
+- **The recovery-stack retry engine — untouched, and cited by fifteen of 4b's checklist rows.** Postponed
+  by the charter to phase 6a, Tasks 3, 4, 5, 7 and 11. 4b neither meets nor widens it, and in particular
+  builds no backoff calculator, no pacing parser and no wait.
+- **`SEAM-24`/`SEAM-28` (MVP-scope design) — untouched.** `SEAM-28` targets phase 5 (5c, Task 4); 4b
+  supplies neither half.
+- **`ASYNC-3`/`PIPE-33`'s interrupt clause — untouched.** `PIPE-33`'s interrupt clause is 4c's ⏳ row
+  (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs).
+- **The pivot's `deadline:` keyword (phase 2, P2-5) — untouched, and named as a constraint.** 4b has no
+  clock, no deadline and no wait. `RECOV-20`'s and `RECOV-27`'s dependence on it travels with the
+  recovery-stack engine postponement; the keyword itself is phase 5a, Task 8.
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched.** `FakeTransport`,
+  `RecordingBody` and the three cyclic-error fixtures land under `gems/dexpace-core/test/support/`,
+  following phase 2's and phase 3's precedent. The condition — a consumer outside `dexpace-core` — is
+  not met.
+- **Presence-gated auto-activation, `SEAM-25`'s lifecycle event (phase 2), the body-logging
+  configuration source (3b), the store cap's source and the no-op protocols (4a) — untouched.** All
+  five target phase 5's instrumentation facade or configuration chain (now `docs/first-release.md` § What
+  v1 ships without › SHOULD/MAY; phase 8b, Tasks 6 and 10 with phase 9, Task 11; phase 5a, Task 13 with
+  phase 5b, Tasks 14–15; phase 5a, Task 13; phase 5c, Tasks 3–5). `close_quietly`'s second route (5b,
+  Task 14) is the phase-5 item 4b's work most directly enables.
+- **Everything else — untouched.** Other prefixes, other phases, release-gated, or already built. **The
+  MVP-scope design's post-MVP decision on `RETRY-29`/`RETRY-38`/`RETRY-43` is worth one sentence**: it
+  declines `RETRY-38`, `RECOV-31`'s twin, so a phase-6 planner meeting the recovery-stack engine will meet
+  all three at once, and the charter already says the cluster's sixteenth ID is not phase 6's budget.
 
 ### The findings filed against `docs/open-items.md`
 
 **None.** Everything 4b found is either a decision it owns (R5–R9, in the ledger above), a corpus
 correction (the three notes), or a finding against a **committed** document that belongs to the
-manager rather than to a register.
+manager rather than to the open-items list.
 
 That last category has **two** members and both are named here rather than filed, because each is a
 statement in a committed phase-2 document that 4b's own change makes false rather than a gap anyone
 needs to track.
 
-**The first is anticipated and is `DEF-32`'s.** Phase 2's design paragraph "Every handler runs,
-whatever an earlier one did", its plan's edge-case bullet "`Hooks.notify` re-raises the **first**
+**The first is anticipated and is the `Hooks.notify` fix's.** Phase 2's design paragraph "Every handler
+runs, whatever an earlier one did", its plan's edge-case bullet "`Hooks.notify` re-raises the **first**
 handler failure and drops the rest", and the YARD block the plan's Task 4 step 3 writes into
-`lib/dexpace/hooks.rb` all describe the pre-`DEF-32` behaviour. `DEF-32`'s register row already
-anticipates the change and is the durable record; the shipped comment is 4b's plan to update, and the
-two committed documents are the manager's call. An `OI-` row would duplicate `DEF-32` rather than add
-to it.
+`lib/dexpace/hooks.rb` all describe the behaviour before the fix. Phase 2's own postponement of the fix
+already anticipates the change, and this design is the durable record; the shipped comment is 4b's plan
+to update, and the two committed documents are the manager's call. An `OI-` row would duplicate the
+postponement rather than add to it.
 
-**The second is not anticipated anywhere, because it is P4-12's finding and not `DEF-32`'s.** Four
+**The second is not anticipated anywhere, because it is P4-12's finding and not the fix's.** Four
 committed places name **`Dexpace::Error#suppressed`** as the carrier a handler failure or a
-`close_quietly` failure attaches to — phase 2's design `DEF-32` row, the same clause in its plan's
-edge-case bullet, `closeable.rb`'s shipped YARD ("the suppressed trail is `Dexpace::Error#suppressed`,
-deferred to phase 4"), and the register's own `DEF-32` and `DEF-27` rows. That carrier cannot work at
-either site: both primaries are caller-supplied exceptions and phase 2's own tests raise a bare
-`::IOError`. The two files 4b edits carry their correction with the edit; the four documents are the
-manager's, and the register rows travel with the `picked-up` and `Status` moves 4b's plan makes. It
-is still not an `OI-` row — every one of them is a sentence a named change rewrites, not a finding
-nobody owns.
+`close_quietly` failure attaches to — phase 2's design paragraph postponing the `Hooks.notify` fix, the
+same clause in its plan's edge-case bullet, `closeable.rb`'s shipped YARD ("the suppressed trail is
+`Dexpace::Error#suppressed`, deferred to phase 4"), and phase 2's `close_quietly` postponement. That
+carrier cannot work at either site: both primaries are caller-supplied exceptions and phase 2's own tests
+raise a bare `::IOError`. The two files 4b edits carry their correction with the edit; the committed
+documents are the manager's, and 4b's plan records the corrected carrier where it records the pick-ups
+(Task 15). It is still not an `OI-` row — every one of them is a sentence a named change rewrites, not a
+finding nobody owns.
 
 `OI-8`, `OI-9`, `OI-12`, `OI-13`, `OI-14`, `OI-15` and `OI-16` are read and untouched. **`OI-14` is
-the one a reader would expect 4b to close and 4b cannot**: its prompting instance is `DEF-32`'s own
-*Why*, citing a design chapter filename that has never existed, and `DEF-32` is the row this phase
-moves to `picked-up`. The row's `Status` line is the only part append-only convention lets a
-pick-up touch, so the filename stays wrong and `OI-14` stays open — which is the item's own point,
-that nothing mechanically checks the class. `OI-16` is obeyed
+the one a reader would expect 4b to close and 4b cannot**: its prompting instance is the wording of
+phase 2's postponement of the `Hooks.notify` fix, which cites a design chapter filename that has never
+existed, and that postponement is the one this phase picks up. Picking it up does not rewrite phase 2's
+committed wording, so the filename stays wrong there and `OI-14` stays open — which is the item's own
+point, that nothing mechanically checks the class. `OI-16` is obeyed
 rather than merely noted: every `[overridden by notes/…]` marker met while reading this phase's
 corpus was resolved by reading the note, and two of them — `error-handling/c1fa7ee8` and
 `error-handling/71ef8cb1` — are marked overridden by a note whose own text says it adopts them
@@ -1691,7 +1731,7 @@ Five, each bounded, none reopening a decision above.
    Recommendation: keep it, and add the case to the R7 fixture file as a fourth class — a `#cause`
    that raises is as reachable as one that cycles, from the same source, and the walk's YARD should
    name both. It is one more test and no more code.
-4. **Whether the `DEF-32` fourth test belongs at one site or all three.** The design puts it at
+4. **Whether the `Hooks.notify` fix's fourth test belongs at one site or all three.** The design puts it at
    `Cancellation::Source#cancel`.
    Recommendation: one site. All three call the same `Hooks.notify` and phase 2 already proves each
    site reaches it; a second and third copy would assert the helper three times and the sites zero

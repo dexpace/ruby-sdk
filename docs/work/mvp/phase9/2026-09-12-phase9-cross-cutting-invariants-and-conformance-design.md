@@ -304,7 +304,7 @@ committed to produce it, and is the existence probe's target.
 | `XCUT-2` | MUST | 4b's classification, 6a's retry gate, 8a's `Failures` mapping | `TransportSuite` (exists) + `InvariantSuite` |
 | `XCUT-3` | MUST | 5a's interruptible clock wait (§10.17's cancellable queue wait), 6a's inter-attempt delay | `InvariantSuite` |
 | `XCUT-4` | MUST | phase 1's `Dexpace::Error` **module**, 4b's `Dexpace::ProtocolError`, 8a's phase-level `Dexpace::TransportError < ::IOError` | `InvariantSuite` |
-| `XCUT-5` | MUST | 5a's `Dexpace::Retryability.retryable_status?`; 6a's baked `#retryable?` via `DEF-38` | `InvariantSuite` |
+| `XCUT-5` | MUST | 5a's `Dexpace::Retryability.retryable_status?`; 6a's baked `#retryable?` (its Task 6, the flag phase 4b postponed) | `InvariantSuite` |
 | `XCUT-6` | MUST | 6a's `Policy.throwable_retryable?` — the capability query | `InvariantSuite` |
 | `XCUT-7` | MUST | 6a's `RetrySettings#retryable_statuses` — the configurable set | `InvariantSuite` |
 | `XCUT-8` | MUST | 4b's `ProtocolError.for` (raises) and `.for_or_nil` (returns `nil`) | `InvariantSuite` |
@@ -317,7 +317,7 @@ committed to produce it, and is the existence probe's target.
 | `XCUT-15` | MUST | phase 1's whole domain model; 7a's `Tristate`/`DecodeContext`; 7b's `SSE::Event` | `InvariantSuite` |
 | `XCUT-16` | MUST | 6c's HTTPS guard on the credential-attaching path | `InvariantSuite` |
 | `XCUT-17` | MUST | 6b's four redirect-hygiene clauses, against the **seed** origin | `InvariantSuite` |
-| `XCUT-18` | MUST | phase 1's `HeaderSyntax`, **plus** `DEF-25`'s wire-boundary re-validation in 8a and 8c | `InvariantSuite` + `TransportSuite` |
+| `XCUT-18` | MUST | phase 1's `HeaderSyntax`, **plus** the wire-boundary re-validation in 8a and 8c (the mitigation phase 1 postponed to the adapters) | `InvariantSuite` + `TransportSuite` |
 | `XCUT-19` | MUST | 5b's `RedactionPolicy::DEFAULT` and `HTTPLogging::DEFAULT`; 5a's `Proxy` masking and `UUID` | `InvariantSuite` |
 | `XCUT-20` | MUST | 5b's `Instrumentation.contain`, `Redactor#url`'s sentinel, `Preview.render`; 5c's scoped claim | `InvariantSuite` |
 | `XCUT-21` | MUST | 6c's Digest cnonce ≥ 128 bits from a CSPRNG | `InvariantSuite` |
@@ -347,14 +347,15 @@ as an artifact**, which is the question this phase exists to answer and which `R
 | `NFR-13` | SHOULD | `Dexpace/SpdxHeader`, a RuboCop cop | **Both kinds.** The cop's result, plus a `PackagingSuite` assertion recorded **`:vacuous` carrying its reason** — a RuboCop cop cannot reach `sig/**/*.rbs`, which ships inside every gem. A vacuity and never a positive assertion that the gap persists: an assertion asserting the header's *absence* would turn red the day `OI-50` is repaired | ⏳, `OI-50` |
 | `NFR-14` | SHOULD | `gates:versions` over the root `VERSIONS` | **Both kinds.** The gate's result, plus a `PackagingSuite` assertion that each unit's version equals its `VERSIONS` entry | ✅ |
 | `NFR-15` | SHOULD | `Dexpace::VERSION` sourced from the gemspec | `PackagingSuite` reading the version at runtime from an installed gem and **comparing it to the resolved gemspec's version**, which is what the requirement names. A not-a-placeholder check alone passes at `0.0.0` — the version every gem here currently carries — and so would be green on a tree where `NFR-15` has never been satisfied | ✅ |
-| `NFR-16` | SHOULD | none — no release path exists | Release-gated; `DEF-20` | ⏳ |
+| `NFR-16` | SHOULD | none — no release path exists | Release-gated; `docs/first-release.md` § Release path, the signed-publication entry | ⏳ |
 | `NFR-17` | MUST | the default `rake` task | **The meta-audit**: every gate in phase 0's seventeen is blocking, on every matrix row it is listed for. `OI-49` is the counterexample this phase found | ⏳ pending `OI-49` |
 
 Seven plain ✅, two ✅-with-a-citation, two N/A and six ⏳ — seventeen — is the *prediction*, and the
 ⏳ marks divide two ways. **Four are pending an open item**: `NFR-7` (`OI-6`), `NFR-10` (`OI-38`),
 `NFR-13` (`OI-50`) and `NFR-17` (`OI-49`), the last two filed by this design. **Two are pending a
 release**, not a finding: `NFR-4` has no baseline until a `v*` tag exists, which is `P0-8`'s
-pre-release branch, and `NFR-16` has no release path to enforce signing on, which is `DEF-20`.
+pre-release branch, and `NFR-16` has no release path to enforce signing on, which is the
+signed-publication entry in `docs/first-release.md` § Release path.
 **None is pending a decision phase 9 gets to make**, which is the shape `R6` argues the
 phase-9/phase-10 boundary into.
 
@@ -403,13 +404,13 @@ Applying that criterion:
 
 | Section | Items | Owning phase | Phase 9's obligation |
 |---|---|---|---|
-| **B.1** Pagination | 10 | 7c | **By reference.** `Dexpace::Page::Paginator` and `AsyncPaginator` are core's single implementation; `PAGE-8` makes the engine stateless and shareable and there is no second engine to be portable across. Coverage map rows cite 7c's suite. `DEF-45` records what would change that |
+| **B.1** Pagination | 10 | 7c | **By reference.** `Dexpace::Page::Paginator` and `AsyncPaginator` are core's single implementation; `PAGE-8` makes the engine stateless and shareable and there is no second engine to be portable across. Coverage map rows cite 7c's suite. The `B.1`/`B.2`/`B.5` entry in `docs/first-release.md` § Post-release triggers records what would change that |
 | **B.2** SSE | 6 | 7b | **By reference**, same argument. One addition that is *not* by reference: `SSE-37`'s audit target is `gates:serde_boundary`'s `GUARDED` list plus "the repository-wide check that its `PENDING` list is empty", which 7b handed forward explicitly and which is a repository gate, not a suite assertion (`R4`) |
-| **B.3** Serialization | 7 | 7a | **Lift, and the target is named.** 7a wrote `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb` as "the named lift target for the conformance suite, written against the seam and never against `Dexpace::Serde::JSON` by name", and recorded the path in its checklist so "phase 9 inherits a target rather than a search". It becomes `Dexpace::Conformance::CodecSuite`, covering `SEAM-20`, `SERDE-3` and `SERDE-9` — `DEF-16`'s `dexpace-serde-oj` is the second subject the lift is for. **`SEAM-21` is NOT lifted**: it is the explicit-runtime-type-token rule, a property of the witness protocol (§10.14), and it stays in 7a's suite, recorded `scoped out` with that reason. `SERDE-4`'s offset matrix and `SERDE-12`'s I/O-error pass-through stay `by reference`, because 7a wrote them against a shape `CodecCase` does not carry. The reified-helper item is `restated per §9.3`. The `Tristate` and coercion items (`SERDE-14`–`SERDE-26`) stay with 7a — core's protocol, not the seam's |
+| **B.3** Serialization | 7 | 7a | **Lift, and the target is named.** 7a wrote `gems/dexpace-serde-json/test/support/serde_seam_assertions.rb` as "the named lift target for the conformance suite, written against the seam and never against `Dexpace::Serde::JSON` by name", and recorded the path in its checklist so "phase 9 inherits a target rather than a search". It becomes `Dexpace::Conformance::CodecSuite`, covering `SEAM-20`, `SERDE-3` and `SERDE-9` — the post-v1 `dexpace-serde-oj` is the second subject the lift is for. **`SEAM-21` is NOT lifted**: it is the explicit-runtime-type-token rule, a property of the witness protocol (§10.14), and it stays in 7a's suite, recorded `scoped out` with that reason. `SERDE-4`'s offset matrix and `SERDE-12`'s I/O-error pass-through stay `by reference`, because 7a wrote them against a shape `CodecCase` does not carry. The reified-helper item is `restated per §9.3`. The `Tristate` and coercion items (`SERDE-14`–`SERDE-26`) stay with 7a — core's protocol, not the seam's |
 | **B.4** Instrumentation | 8 | 5b, 5c | **Partial lift, already begun.** 8a placed `RecordingSpan` (5c's `OBS-21` obligation) and `Allocations` (5b's `R8`/`OBS-25` obligation) in `dexpace-conformance` already. §9.3 restates the allocation-freeness items as allocation-count assertions and keeps `OBS-1`'s shared-inert-event **identity** assertion exactly as written; both become `InvariantSuite`/`CoreSuite` assertions because they are the two `B.4` items §9.3 names by hand. The redaction items are `XCUT-19`'s subjects and are in `B.8` anyway. The rest: by reference to 5b/5c |
 | **B.5** Configuration | 6 | 5a | **By reference.** The four-layer chain is one implementation; §9.3 restates one item (the `configure` tier as layer three) and that restatement is recorded in the coverage map, not re-litigated |
 | **B.6** Transport | 5 | 8a, 8c | **Already written; phase 9 drives and aggregates.** `TransportSuite` exists with two drivers. Phase 9 adds no assertion and forks nothing (8a's `R16` forbids it) — it aggregates the two reports and audits the waivers, of which 8c's `TRANSPORT-14` is the one named |
-| **B.7** Async runtime | 6 | 8b, 8c | **One new suite plus reference.** `DEF-31`'s harness half — "`dexpace-conformance` asserts 'close twice → executor shut once, one event'" — is unwritten after phase 8 and is phase 9's; it becomes `Dexpace::Conformance::ExecutorSuite`, covering `SEAM-12`, `SEAM-25` and `ASYNC-15`–`ASYNC-17` against a factory, with a **resource-free implementation supplied separately** for `ASYNC-17`, whose subject is by definition not a pool that owns a thread. **`SEAM-18` and `ASYNC-15`'s clause (c) are `scoped out` with reasons** — the first is the seam's shape rather than an implementation property and 8b asserts it; the second needs a pending interrupt, which §8.3 bans every primitive for. `ASYNC-3`'s and `ASYNC-4`'s dispositions are `R5`'s |
+| **B.7** Async runtime | 6 | 8b, 8c | **One new suite plus reference.** The harness half of `SEAM-25`'s lifecycle event (phase 2 postponed the event; 8b emits it) — "`dexpace-conformance` asserts 'close twice → executor shut once, one event'" — is unwritten after phase 8 and is phase 9's; it becomes `Dexpace::Conformance::ExecutorSuite`, covering `SEAM-12`, `SEAM-25` and `ASYNC-15`–`ASYNC-17` against a factory, with a **resource-free implementation supplied separately** for `ASYNC-17`, whose subject is by definition not a pool that owns a thread. **`SEAM-18` and `ASYNC-15`'s clause (c) are `scoped out` with reasons** — the first is the seam's shape rather than an implementation property and 8b asserts it; the second needs a pending interrupt, which §8.3 bans every primitive for. `ASYNC-3`'s and `ASYNC-4`'s dispositions are `R5`'s |
 | **B.8** Cross-cutting | 6 | **phase 9** | **Written here** as `Dexpace::Conformance::InvariantSuite`. §9.3 restates one item — the seam-resolution item names require-time registration as the discovery substrate (`XCUT-23`) — and that restatement is honoured |
 | **B.9** Non-functional | 7 | **phase 9** | **Written here** as `Dexpace::Conformance::PackagingSuite`. §9.3: "B.9 is exercised as §9's table, with NFR-8/NFR-9 inapplicable by their own text and replaced by §9.2" |
 
@@ -475,7 +476,8 @@ its declared minimum runtime" is the CI matrix and travels nowhere. Each such ID
 checklist row naming both artifacts, never two rows.
 3. **A recorded vacuity**, with the sentence that makes it vacuous quoted. `NFR-8` and `NFR-9`.
 4. **A recorded absence of subject**, with the condition that would supply one. `NFR-4` (no `v*`
-   tag) and `NFR-16` (no release path), both already carried by `P0-8` and `DEF-20`.
+   tag) and `NFR-16` (no release path), both already carried by `P0-8` and `docs/first-release.md`
+   § Release path.
 
 **Why `PackagingSuite` reads published metadata and not the source gemspec, when phase 0's
 `gates:gemspec_audit` already reads the source.** `NFR-1`'s own conformance clause says "the core
@@ -614,9 +616,10 @@ have run. The report prints them in separate sections with separate counts, and 
 standing blocker — "a green conformance run's omissions must be written down before the gem is
 published" — is what carries it to a reader who never runs the suite.
 
-**`ASYNC-4`** is `:vacuous` and is on **no register row**, which is deliberate and which the roadmap
-corrected in place on 2026-09-11: `DEF-18`'s `Cites:` line is `ASYNC-3, PIPE-33` and "`ASYNC-4` is
-deliberately absent from it and should stay absent". Phase 9 does not add it.
+**`ASYNC-4`** is `:vacuous` and is on **no unsatisfied-MUST entry**, which is deliberate and which the
+roadmap corrected in place on 2026-09-11: that entry (`docs/first-release.md` § What v1 ships without ›
+Unsatisfied MUSTs) covers `ASYNC-3` and `PIPE-33`'s interrupt clause, and "`ASYNC-4` is deliberately
+absent from it and should stay absent". Phase 9 does not add it.
 
 **`NFR-8`.** §12 counts it among the eight MUSTs that hold vacuously. Phase 9 marks it **N/A**, not
 ✅ and not 🚫, and the retargeted checks (`gates:require_allowlist`, `gates:clean_bundle`) are
@@ -761,7 +764,7 @@ prescribed grep does not return them.)
 | 7 | 6a | `XCUT-5`/`XCUT-6`/`XCUT-7` | Three distinct objects, audited as three: `Retryability.retryable_status?`, `Policy.throwable_retryable?`, `RetrySettings#retryable_statuses`. Task 6 |
 | 8 | 6a | `XCUT-11` | `Policy` and `RetrySettings`. Tasks 4, 8 |
 | 9 | 4c | `XCUT-11` | `Pipeline`/`AsyncPipeline`, with `Cursor` as the permitted per-call state. Tasks 4, 8 |
-| 10 | 4c | the conformance pass | `PIPE-33` (`DEF-18`), `PIPE-36` (`DEF-4`), `PIPE-39` (`DEF-39`), `PIPE-32`'s vacuity. **Recorded in the aggregate report's preamble; no phase-9 checklist row** — those IDs are 4c's. Task 16 |
+| 10 | 4c | the conformance pass | `PIPE-33` (an unsatisfied MUST, §10.5), `PIPE-36` (declined for v1, `docs/first-release.md` § What v1 ships without), `PIPE-39` (`Pipeline.standard`, phase 6b's Task 13a), `PIPE-32`'s vacuity. **Recorded in the aggregate report's preamble; no phase-9 checklist row** — those IDs are 4c's. Task 16 |
 | 11 | 5b | `XCUT-19` | `RedactionPolicy::DEFAULT` and `HTTPLogging::DEFAULT` as clauses (a)/(b)/(c)/(e), **written in full**. Task 7 |
 | 12 | 5b | `XCUT-20` | `Instrumentation.contain`, `Redactor#url`'s sentinel, `Preview.render` — three totality paths. Task 7 |
 | 13 | 5b | `XCUT-11` | `Dexpace::Instrumentation::Redactor` and `RedactionPolicy` — **the filed name, not `Dexpace::Redactor`**. Tasks 4, 8 |
@@ -781,7 +784,7 @@ prescribed grep does not return them.)
 | 27 | 7c | `XCUT-11` | `Paginator`/`AsyncPaginator`, `Walk` as per-call state. Tasks 4, 8 |
 | 28 | 7c | `XCUT-13`/`XCUT-22` | `Page` as `Closeable`'s second consumer where the resource is a whole `Response`. Tasks 5, 11 |
 | 29 | 7c | the conformance pass | `PAGE-35`'s vacuity (design §12's) **and `PAGE-15`'s wrapping clause (`P7-1`), which §12's `PAGE` row does not record** — the second goes to `docs/deviations.md`'s holding area for phase 10. Task 16 |
-| 30 | 8a | `DEF-22` | The protocol every later suite extends. Consumed and unchanged — with one addition stated rather than hidden: `Runner` is **new shared infrastructure** in a gem phase 8 owns (see the object-model section). Tasks 2–12 |
+| 30 | 8a | the conformance assertion protocol | The protocol every later suite extends. Consumed and unchanged — with one addition stated rather than hidden: `Runner` is **new shared infrastructure** in a gem phase 8 owns (see the object-model section). Tasks 2–12 |
 | 31 | 8a | `SEAM-12`, `SEAM-14`, `SEAM-15` | §9.3's three lifecycle assertions, already written and adapter-driven, so phase 2's ⏳ rows have an implementation to point at. Task 16 |
 | 32 | 8a | `OBS-21` and `OBS-25` | `RecordingSpan` and `Allocations`, already in the gem. Phase 9 adds **no assertion**: `B.4`'s two §9.3-named items — the allocation-count restatement and `OBS-1`'s shared-inert-event identity — are recorded in `APPENDIX_B.md` `by reference` to 5b's and 5c's suites, which own those IDs. Task 14 |
 | 33 | 8a | `XCUT-11` | `Adapter` as frozen-except-the-latch, with 8a's verified fact 9 as the measurement. Tasks 4, 8 |
@@ -793,9 +796,9 @@ claim "no row is dropped and none is added" while having done both.
 | Source | On | Resolution |
 |---|---|---|
 | 8a's plan (line 1044) | `Report#to_h` | 8a deferred the structured renderer as "`NFR-4`-locked surface with no caller until phase 9 aggregates". **Phase 9 is the caller**, so it ships `#to_h` with a `sig/` mirror. Task 3. (8a records this **once** in its plan; the second mention is its design's own open question 6, which is a different thing) |
-| `DEF-25`'s register row | `XCUT-18` | "phase 9's conformance suite is where the assertion that it happened belongs" — the wire-boundary re-validation assertion, driven through a forged `Dexpace::Request`. Task 7 |
-| `DEF-31`'s register row | `SEAM-25` | The harness half, which the row assigns to `8a` and 8a did not write. **Phase 9 writes it and records the correction as a correction.** Task 11 |
-| phase 0's design (line 93) | `DEF-22` | "phase 9 adds the remaining suites" — the second half of the pick-up condition. Tasks 2–12 |
+| phase 1's postponement of the wire-boundary re-validation | `XCUT-18` | "phase 9's conformance suite is where the assertion that it happened belongs" — the wire-boundary re-validation assertion, driven through a forged `Dexpace::Request`. Task 7 |
+| phase 2's postponement of `SEAM-25`'s lifecycle event | `SEAM-25` | The harness half, which 8b's design assigned to `8a` and 8a did not write. **Phase 9 writes it and records the correction as a correction.** Task 11 |
+| phase 0's design (line 93) | the conformance assertion protocol | "phase 9 adds the remaining suites" — the second half of the pick-up condition. Tasks 2–12 |
 
 ## Design §9 Addendum — gates this phase adds to §9's table
 
@@ -861,7 +864,7 @@ gems/dexpace-conformance/
   lib/dexpace/conformance/codec_case.rb       Dexpace::Conformance::CodecCase
   lib/dexpace/conformance/codec_suite.rb      Dexpace::Conformance::CodecSuite     B.3, lifted from 7a
   lib/dexpace/conformance/executor_case.rb    Dexpace::Conformance::ExecutorCase
-  lib/dexpace/conformance/executor_suite.rb   Dexpace::Conformance::ExecutorSuite  B.7, DEF-31
+  lib/dexpace/conformance/executor_suite.rb   Dexpace::Conformance::ExecutorSuite  B.7, SEAM-25's harness
   lib/dexpace/conformance/shared_instance.rb  Dexpace::Conformance::SharedInstance R8's predicate
   lib/dexpace/conformance/aggregate.rb        Dexpace::Conformance::Aggregate      the one report
   lib/dexpace/conformance/report.rb           MODIFIED: #results, #to_h, .merge, the two sections
@@ -931,10 +934,10 @@ twice. Recorded as `P9-10` rather than left as a consequence a reader has to not
 |---|---|---|
 | `Check` | `.that(condition, message, expected:, actual:, ids:)` | The one assertion primitive, in its own file because phase 9's own code is inside the `NFR-3` assertion phase 9 ships |
 | `Runner` | `.run(assertions, waive: [], around: nil) { subject }` | The five statuses, decided once. `.one` and `.invoke` are `private_class_method` |
-| `InvariantSuite` | `.run(core: ::Dexpace, seam: nil, mutable: [], bounded_map: nil, bounded_map_store: nil, cnonce: nil, redirect_hops: nil, waive: [], around: nil)` — the loaded core, plus the driver's declarations and factories for the objects the suite cannot reach itself | `B.8`; 27 assertions across `XCUT-1`–`XCUT-24` (`XCUT-11`, `XCUT-13` and `XCUT-14` carry two each) |
+| `InvariantSuite` | `.run(core: ::Dexpace, seam: nil, mutable: [], bounded_map: nil, bounded_map_store: nil, cnonce: nil, redirect_hops: nil, transport: nil, waive: [], around: nil)` — the loaded core, plus the driver's declarations and factories for the objects the suite cannot reach itself | `B.8`; 28 assertions across `XCUT-1`–`XCUT-24` (`XCUT-11`, `XCUT-13`, `XCUT-14` and `XCUT-18` carry two each — corrected in place 2026-09-13 from 27 and three: the plan's Task 7 gained `XCUT-18`'s forged-`Request` dispatch assertion behind a `transport:` factory — the wire-boundary re-validation's portable clause phase 1 named for this phase) |
 | `PackagingSuite` | `.run(core: "dexpace-core", adapters: [], resolve:, constants: {}, waive: [], around: nil)` — gem **names**, resolved through `Gem::Specification.find_by_name` | `B.9`; `NFR-1`, `NFR-2`, `NFR-3`, `NFR-10`, `NFR-11`, `NFR-13`, `NFR-14`, `NFR-15` |
 | `CodecSuite` | `.run(build:, witness:, source:, waive: [], around: nil)` — a codec factory, plus the driver's witness and source factory, because phase 2's contract is `load(source, witness)` with no witness-less overload | `B.3`'s seam half; `SEAM-20`, `SERDE-3`, `SERDE-9`. **`SEAM-21` is not lifted** — it is the type-token rule, a witness-protocol property, and stays in 7a's suite |
-| `ExecutorSuite` | `.run(build:, borrow: nil, functional: nil, events: nil, waive: [], around: nil)` — the executor factory, the borrowing entry point, a **resource-free** implementation for `ASYNC-17`, and an event-recorder **factory** whose recorder is a **sink** — the adapter's `build:` lambda wires it into its own logger, because 8b's `Pool` exposes its shutdown only as `Events::INSTRUMENTATION_SHUTDOWN` through the injected logger and no filed executor has a shutdown counter | `B.7`'s lifecycle half; `SEAM-12`, `SEAM-25`, `ASYNC-15`–`ASYNC-17`, `XCUT-11`, `XCUT-13`, `XCUT-22`, `DEF-31`. `SEAM-18` and `ASYNC-15`'s clause (c) are **scoped out with a reason** |
+| `ExecutorSuite` | `.run(build:, borrow: nil, functional: nil, events: nil, waive: [], around: nil)` — the executor factory, the borrowing entry point, a **resource-free** implementation for `ASYNC-17`, and an event-recorder **factory** whose recorder is a **sink** — the adapter's `build:` lambda wires it into its own logger, because 8b's `Pool` exposes its shutdown only as `Events::INSTRUMENTATION_SHUTDOWN` through the injected logger and no filed executor has a shutdown counter | `B.7`'s lifecycle half; `SEAM-12`, `SEAM-25`, `ASYNC-15`–`ASYNC-17`, `XCUT-11`, `XCUT-13`, `XCUT-22`; `SEAM-25`'s harness half, which phase 2's postponement left to be written; and, added 2026-09-13 by the plan's Task 11, `ASYNC-3` — an assertion written so it genuinely fails on a worker-thread executor and is waived by ID by the first-party drivers, so the report prints `waived (would fail): ASYNC-3` rather than a green (the unsatisfied MUST, design §10.5). `SEAM-18` and `ASYNC-15`'s clause (c) are **scoped out with a reason** |
 | `SharedInstance` | `.audit(object, mutable: [], ids: ["XCUT-11"])` — `mutable:` from the **driver**, never the audited object | `R8`'s structural half |
 | `Aggregate` | `.run(Array[Report]) -> Report`, `.render(Report) -> String`, `.by_requirement_id(Array[suite], statuses: Report?)` | The one report; merges results, prints waived and vacuous separately, and builds the coverage map's generated half from each suite's **`.assertions`** rather than from a Report |
 
@@ -1020,7 +1023,7 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P9-1 | Appendix B's `B.1`, `B.2` and `B.5` are dispositioned **by reference** to the owning phase's suite, not re-implemented in `dexpace-conformance` | design §9.3; appendix B | §9.3's argument for the gem is portability across implementations of one seam. Pagination, SSE and the configuration chain have one implementation each; a lifted assertion would be a second copy of a test with one subject, in a package whose purpose is many. `DEF-45` records the condition that changes this |
+| P9-1 | Appendix B's `B.1`, `B.2` and `B.5` are dispositioned **by reference** to the owning phase's suite, not re-implemented in `dexpace-conformance` | design §9.3; appendix B | §9.3's argument for the gem is portability across implementations of one seam. Pagination, SSE and the configuration chain have one implementation each; a lifted assertion would be a second copy of a test with one subject, in a package whose purpose is many. `docs/first-release.md` § Post-release triggers (the `B.1`/`B.2`/`B.5` entry) records the condition that changes this |
 | P9-2 | `NFR-1`/`NFR-2` are asserted **twice against two subjects**: phase 0's `gates:gemspec_audit` over source gemspecs, and `PackagingSuite` over published `Gem::Specification` metadata | `NFR-1`, `NFR-2`; design §9.2 | `NFR-1`'s conformance clause names "the core artifact's **published** dependency metadata". A source gemspec and a published one can differ, and only the second is what a consumer resolves. The first is the CI shape, the second is the claim's shape |
 | P9-3 | Every audit task is an **existence probe plus a property assertion**, and a failed probe files an item rather than improvising a subject | `R3`; the whole `XCUT` table | Phase 9 is planned before any code exists. The alternative — writing audits against whatever arrives — makes the audit unfalsifiable, which is the failure this register exists to catch |
 | P9-4 | Four repository-wide invariant checks are **Rake gates using `RubyVM::AbstractSyntaxTree`**, not conformance assertions | `XCUT-9`, `XCUT-14`, `SEAM-2`, `SSE-37`; design §9 table | A scan of `gems/*/lib/` is meaningless in a consumer's process. The AST rather than a regex because a regex matches comments, strings and requirement IDs; verified on all three interpreters; the parser itself is warning-free under `-w`, but a **scanned file's** own diagnostics reach `Warning.warn`, which phase 0's test case raises on — so `AstScan.parse` opens a `$VERBOSE = nil` window (verified fact 1b). Addenda A4–A7 |
@@ -1029,76 +1032,80 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 | P9-7 | The appendix-B coverage map's `by reference` rows prove **an ID is claimed and a file exists**, not that the behaviour is tested, and the map says so | `R7`; design §9.3 | Nothing mechanical can check that another gem's test asserts a described behaviour short of re-implementing it. Stating the limit in the map and in the report's preamble is the honest form; a map that implied more would be worse than none |
 | P9-8 | **One `Result` per assertion; assertions are keyed by requirement ID, and an appendix-B item is a view over the assertions for its IDs, whose status is the worst among them** | design §9.3's "a failing item"; appendix B | `B.7`'s second item names `ASYNC-3` and `ASYNC-4`, which §9.3 itself requires to end failing and vacuous respectively. One `Result` carries one status, so item-granularity is unrepresentable. The wording matters beyond pedantry: "one assertion per ID" — the first draft's phrasing — **forbids** `XCUT-11`'s two clauses and `XCUT-13`'s two clauses from each having a check, which is exactly what `R8` and the design's own `XCUT-13` row require. Keying by ID while allowing several assertions per ID is what the worst-status mapping actually needs |
 | P9-9 | `XCUT-11`'s audit predicate permits two named kinds of mutable state on a shared instance — a `Thread::Mutex` with the state it guards, and `Closeable`'s `@closed` latch — and **the driver declares them, never the audited object** | `XCUT-11`; `cross-cutting-invariants/89eb6533` | A *frozen and no ivars* predicate would condemn every closeable component in the SDK and the exact latch shape the corpus prescribes. Reading the declaration off the subject inverts the requirement in both directions — measured: a conforming latch-plus-mutex object **fails**, because no phase committed to such a method and `R6` forbids adding one, while the identical per-call-state bug **passes** by declaring its own ivar exempt. The driver is `dexpace-core`'s own suite and knows which ivar is which |
-| P9-10 | `Runner` is **new shared infrastructure inside a gem phase 8 owns**, and `TransportSuite` is deliberately not moved onto it | design §9.3; `DEF-22`; `R6` | Four suites would otherwise carry four copies of one status loop, which is §11.12's "four reference sync/async drifts" reappearing inside the port's own suite. Not moving `TransportSuite` leaves **two status-deciding paths in one gem**, and that is the price of `R6`: phase 8 owns that file, and a phase that refactors another phase's shipped code while claiming only to report is the boundary failing quietly. The residue is real — a future change to the five statuses must be made twice — and is stated rather than left to be noticed |
+| P9-10 | `Runner` is **new shared infrastructure inside a gem phase 8 owns**, and `TransportSuite` is deliberately not moved onto it | design §9.3; the conformance assertion protocol; `R6` | Four suites would otherwise carry four copies of one status loop, which is §11.12's "four reference sync/async drifts" reappearing inside the port's own suite. Not moving `TransportSuite` leaves **two status-deciding paths in one gem**, and that is the price of `R6`: phase 8 owns that file, and a phase that refactors another phase's shipped code while claiming only to report is the boundary failing quietly. The residue is real — a future change to the five statuses must be made twice — and is stated rather than left to be noticed |
 
 ---
 
-## Deferrals Filed by Phase 9
+## Work phase 9 postponed, and who owns it now
 
-Filed against `docs/deferred-items.md`; each names a target phase or an explicit pick-up condition,
-per the roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's
-`registers` check reserves for the aggregate register, which is where these rows live.)
+Phase 9 postpones five things, each with a named owner, and inherits three. Every entry is
+self-contained — what was postponed, why, the condition that would take it up, and where the obligation
+lives now — because the reasoning survives here and nowhere else. (The heading avoids the literal words
+the housekeeping probe's `registers` check reserves for an aggregate register.)
 
-| ID | Deferral | Target / condition |
+| Subject | What is postponed, and why | Condition, and where it lives now |
 |---|---|---|
-| `DEF-43` | A regeneration guard over the require-allowlist itself — the piece of `NFR-9`'s content the §10.19 retarget does not cover. §9.2's allowlist is a name list derived from a specific set of interpreters, and `package-and-dependency-layout/70fbcaee` records that the list has already moved once | Names the **event**, in the shape `DEF-33` and `DEF-3`'s `BODY-36` half were given: a new Ruby minor version entering the CI matrix. No phase in v1 adds one |
-| `DEF-44` | `PackagingSuite`'s `NFR-12` and `NFR-16` assertions against a **released** artifact — `NFR-15`'s is **not** deferred: the plan's Task 9 ships it against a locally built `.gem`, comparing the loaded `VERSION` to the resolved gemspec, which is what the requirement names. The two deferred ones are **not shipped at all**: no phase-9 task writes an `NFR-12` or `NFR-16` assertion, and both are written at the pick-up | The first `v*` tag and first `gem push`, alongside `DEF-20`. Release-gated; no phase owns it |
-| `DEF-45` | Lifting `B.1`, `B.2` and `B.5`'s assertions into `dexpace-conformance`, which `P9-1` declines today | A **second implementation** of the pagination engine, the SSE reader or the configuration chain exists. None is planned in v1; the condition names the event |
-| `DEF-46` | `XCUT-12`'s single-flight assertion under a **fiber scheduler** rather than threads. The thread form is written here; the fiber form needs a reactor to be meaningful and `dexpace-transport-async_http`'s credential path is the subject | Phase 10, if its audit of `XCUT-12` finds the thread-only form insufficient; otherwise the condition is `DEF-11`'s reactor-native async adapter |
-| `DEF-47` | The **MUST-level vacuity report blocker** — a requirement-level map derived from appendix C, and an aggregate section listing every un-waived `:vacuous` result against a MUST. Today it exists **only in prose**: `Report#passed?` is true over vacuous results and nothing in the gem knows an ID's level. A manager decision, filed so it is not lost: `R3`'s absent-artifact `:vacuous` rule is safe only because this blocker exists | Phase 9 execution, **before Task 15's disposition run** |
+| **A regeneration guard over the require-allowlist itself** — the piece of `NFR-9`'s content the §10.19 retarget does not cover (`NFR-8`, `NFR-9`, `NFR-1`, `NFR-10`, `SEAM-1`) | Design §10.19 retargets `NFR-8`/`NFR-9` at the require-allowlist audit and the clean-bundle isolation run, and both check that **today's** allowlist holds; neither checks that the allowlist is still the right list. `NFR-9`'s content is a guard over shipped **keep-configuration** — "drop a shipped keep-rule … → the guard fails the ordinary build" — and the Ruby analogue is an interpreter where a name the allowlist permits has become a bundled gem. That is not hypothetical: `package-and-dependency-layout/70fbcaee` records the allowlist's basis moving once already, from the six names the corpus held to the 23 a real 4.0.6 interpreter reports, with `tsort` leaving the default set at 4.1 and `Gem::BUNDLED_GEMS::SINCE` undefined on the 3.2 floor. Phase 0 filtered against the whole `SINCE` table rather than the supported range, which is the right shape and is still a snapshot | Names the **event**, in the shape the `IO-38` and `BODY-36` triggers were given: **a new Ruby minor version entering the CI matrix**. No phase in v1 adds one — the matrix is fixed at 3.2 / 3.3 / 3.4 / 4.0. The work when it fires is one gate, not new code: re-derive the name list on the new interpreter and diff it against the committed allowlist. **Owner: `docs/first-release.md` § Post-release triggers, the require-allowlist entry** |
+| **`PackagingSuite`'s `NFR-12` and `NFR-16` assertions against a released artifact** (`NFR-12`, `NFR-15`, `NFR-16`, `NFR-4`). `NFR-15`'s is **not** postponed: the plan's Task 9 ships it against a locally built `.gem`, comparing the loaded `VERSION` to the resolved gemspec, which is what the requirement names. The two postponed ones are **not shipped at all** — no phase-9 task writes an `NFR-12` or `NFR-16` assertion, and both are written at the pick-up. (As first recorded on 2026-09-12 this entry named all three and said phase 9 shipped them as `Vacuous` placeholders; no task does, so it was narrowed on 2026-09-13 rather than left to mislead whoever picks it up) | `NFR-16`'s signing is "enforced on the release/CI path" and there is no release path (`docs/first-release.md`'s "Release path: not yet defined"); `NFR-12`'s cross-toolchain half is explicitly out of scope by phase 0's `P0-7`, which reads `NFR-12` as byte-identity for one gem built twice on one interpreter | The first `v*` tag and the first `gem push`, alongside the signed-publication work phase 0 postponed to the release, whose own condition is "the RubyGems-ownership and trusted-publishing blockers in `docs/first-release.md` close". Release-gated; no phase owns it; the fence executor for `.claude/skills/housekeeping/` is the third item in the same family. **Owner: `docs/first-release.md` § Release path, the `NFR-12`/`NFR-16` entry** |
+| **Lifting `B.1`, `B.2` and `B.5`'s assertions into `dexpace-conformance`** — the pagination (`B.1`, 10 items), SSE (`B.2`, 6 items) and configuration (`B.5`, 6 items) checklist items, which `P9-1` declines today and dispositions **by reference** (`PAGE-8`, `SSE-37`, `CFG-1`, `NFR-2`) | §9.3's argument for shipping `dexpace-conformance` as a gem is portability across *implementations of one seam*: "the *same* assertions could not run unchanged against `dexpace-transport-async_http` or a future `httpx` adapter — which is the whole point." Pagination, SSE and the configuration chain each have exactly one implementation, and `PAGE-8` makes the pagination engine stateless and shareable rather than pluggable. A lifted assertion over a single subject is not more true for having moved gems; it is a test with one subject living in a package whose purpose is many, and it costs a second file to keep in step. What phase 9 keeps from the lift is the part that carries information — the 61-row map (Task 14's `APPENDIX_B.md`), which says for every item where its evidence is | Names the **event**: a **second implementation** of the pagination engine, the SSE reader or the configuration chain exists. None is planned in v1 and none is on the post-v1 gem list — those are transports, async runtimes, a codec and an instrumentation adapter, not a second paginator — so this is a genuinely open-ended condition, recorded so a later reader does not read `P9-1` as an oversight. **Owner: `docs/first-release.md` § Post-release triggers, the `B.1`/`B.2`/`B.5` entry; Task 14's `APPENDIX_B.md` (`P9-1`) stands** |
+| **`XCUT-12`'s single-flight assertion under a fiber scheduler rather than threads** (`XCUT-12`, `XCUT-11`, `AUTH-35`, `AUTH-36`, `ASYNC-9`). Phase 9 ships the **thread** form in `InvariantSuite` (Tasks 7–8) | `Thread::Mutex` ownership in Ruby is **per-fiber, not per-thread, and non-reentrant** (`CLAUDE.md`'s constraints that will bite; design §3.1/§3.7/§7.2), so a lock held across a suspension point deadlocks two fibers of one thread and a thread-only race cannot see it. `8b`'s design handed forward exactly this shape for `XCUT-11` — "the **two-fibers-on-one-thread** test" — and phase 9 adopts it there. For `XCUT-12` it needs a *credential* path running under a reactor, which means `dexpace-transport-async_http` driving `6c`'s bearer or digest cache: a composition no first-party suite assembles today, because `dexpace-conformance` declares `dexpace-core` and nothing else and so cannot open a reactor itself. The suite contract's clause 9 `around:` wrapper is the route — an async driver passes `->(&blk) { Sync { blk.call } }` — and supplying such a driver for a credential assertion is a piece of work, not a line | **Phase 10**, if its audit of `XCUT-12` finds the thread-only form insufficient — a judgement phase 10 is entitled to make and phase 9 is not, since phase 9 reports and phase 10 repairs (`P9-6`). Failing that, the condition is the post-v1 reactor-native `dexpace-async-async`, the first artifact that would make a second fiber-scheduler subject available. **Owner: phase 10's inbound list in the roadmap's 2026-09-13 status note; fallback `docs/first-release.md` § Post-release triggers, the `XCUT-12` entry** |
+| **The MUST-level vacuity report blocker** (`NFR-17`) — the mechanism behind this design's rule that an un-waived `:vacuous` result on a MUST-level ID is a **phase-9 report blocker** and earns a `docs/first-release.md` line (`R3`; plan Task 15, step 4) | As first planned the rule was prose and nothing enforced it: `Report#passed?` is true when results are vacuous (8a's own report test asserts exactly that), and nothing in `dexpace-conformance` knows whether an ID is MUST or SHOULD, so no run could list MUST-level vacuities separately. Building it needs a requirement-level map derived from appendix C plus an aggregate section over it — machinery the 2026-09-13 fix round was not scoped to add, so it was postponed rather than dropped. **This is a manager decision and must not be lost**: `R3`'s absent-artifact `:vacuous` rule is safe only because this blocker exists, and without it an unbuilt MUST reads as a green run | Phase 9 execution, **before Task 15's disposition run** — that run's verdicts are not trustworthy without it. **Owner: the plan's Task 12a** (inserted 2026-09-13: `Levels::OF` derived from appendix C, `Report#blocking_vacuities`, and `accepted_vacuous:` with mandatory citations); Task 17 Step 3 marks it landed |
 
-### Deferral-register sweep
+### What earlier phases postponed to phase 9, and what phase 9 decided
 
-The roadmap's execution step 1 requires every phase to read the whole register and disposition every
-row, not to scan for its own name. **All forty-two rows were read.** Two were already `picked-up`
-before this phase (`DEF-21`, phase 2; `DEF-26`, phase 3b) and one was already **UNSCHEDULED**
-(`DEF-29`, phase 8a); phase 9 does not revisit a retired row. That leaves **thirty-nine** live rows,
-and each appears exactly once below. (The first draft of this section enumerated 36 distinct rows,
-double-counted `DEF-26`, and omitted `DEF-31` and `DEF-33` — which is how `DEF-31`'s reassignment
-came to be made silently.)
+The roadmap's execution step 1 requires every phase to read everything earlier phases postponed and
+disposition each item, not to scan for its own name. **All of it was read** on 2026-09-12. Two items were
+already built before this phase (the version-skew guard's runtime half, phase 2; the body member's type
+and `HTTP-46`, phase 3b) and one was already declined (moving core's fakes into `dexpace-conformance`,
+phase 8a); phase 9 does not revisit a retired item. Every live item appears exactly once below. (The
+first draft of this section enumerated the items wrongly — one counted twice, and `SEAM-25`'s harness
+and the `IO-38` trigger omitted — which is how the harness reassignment came to be made silently.)
 
-**Three rows are picked up.**
+**Three items are taken up.**
 
-- **`DEF-22`** — "phase 8, which owns this gem's gemspec, its version and its first release; **phase
-  9 adds the remaining suites**." Phase 8a met the first half and wrote the protocol; phase 9 meets
-  the second and adds `Check`, `Runner`, `SharedInstance`, `InvariantSuite`, `PackagingSuite`,
-  `CodecSuite`, `ExecutorSuite` and `Aggregate`, plus `Report#to_h`.
-- **`DEF-25`** — its condition reads "phase 8 …; **phase 9's conformance suite is where the assertion
-  that it happened belongs**." Phase 8 took the first clause; phase 9 takes the second, as
-  `InvariantSuite`'s `XCUT-18` assertion driven through a forged `Dexpace::Request`.
-- **`DEF-31`** — and **this one is a CORRECTION to the row, stated as a correction.** The row says
-  "The *harness* half of the condition — the assertion living in `dexpace-conformance` — is
-  **`8a`'s**, and `8b` hands it the shape rather than writing it." 8a wrote the protocol, the
-  `WireServer` fixture and the transport suite, and wrote **no executor suite**; 8b supplied the
-  shape as promised. So the harness half is unwritten after phase 8 and phase 9 writes it as
-  `ExecutorSuite`, which means the row is wrong about *which phase delivers it*. Phase 9 records the
-  pick-up with that correction named rather than presenting itself as meeting the condition as
-  written — which is the discipline phase 4b failed when it corrected its charter while claiming to
-  restate it.
+- **The conformance assertion protocol** — phase 0 postponed it to "phase 8, which owns this gem's
+  gemspec, its version and its first release; **phase 9 adds the remaining suites**." Phase 8a met the
+  first half and wrote the protocol (its Tasks 4–8 and 20); phase 9 meets the second and adds `Check`,
+  `Runner`, `SharedInstance`, `InvariantSuite`, `PackagingSuite`, `CodecSuite`, `ExecutorSuite` and
+  `Aggregate`, plus `Report#to_h` (Tasks 2–12a).
+- **The wire-boundary re-validation** — phase 1 postponed it to "phase 8 …; **phase 9's conformance suite
+  is where the assertion that it happened belongs**." Phase 8 took the first clause (8a's Task 16, 8c's
+  Task 9); phase 9 takes the second, as `InvariantSuite`'s `XCUT-18` assertion driven through a forged
+  `Dexpace::Request` (Task 7).
+- **`SEAM-25`'s lifecycle event, the harness half** — and **this one is a CORRECTION to a committed
+  record, stated as a correction.** Phase 2 postponed the event; 8b's design said "The *harness* half of
+  the condition — the assertion living in `dexpace-conformance` — is **`8a`'s**, and `8b` hands it the
+  shape rather than writing it." 8a wrote the protocol, the `WireServer` fixture and the transport suite,
+  and wrote **no executor suite**; 8b supplied the shape as promised and emits the event (its Tasks 6 and
+  10). So the harness half is unwritten after phase 8 and phase 9 writes it as `ExecutorSuite` (Task 11),
+  which means the earlier record is wrong about *which phase delivers it*. Phase 9 records the work with
+  that correction named rather than presenting itself as meeting the condition as written — which is the
+  discipline phase 4b failed when it corrected its charter while claiming to restate it.
 
-**None is marked UNSCHEDULED.** The one row that invites the status is **`DEF-23`** — "a Steep target
-over a `test/` tree", conditioned on "a gem's test support becomes production-quality code worth
-checking — phase 8's conformance helpers at the earliest". Phase 9 adds eight constants and a report,
-and every one goes in **`lib/`** for 8a's reason (§9.3's argument is that a third-party author *runs*
-them), where phase 0 already gave that tree its own Steep target. Nothing phase 9 writes under
-`test/` is production-quality code worth a seventh target. **The condition is not met, so the row is
-left untouched**, and this phase inherits 8a's reasoning rather than re-deriving it.
+**None is declined by phase 9.** The one item that invites it is **the Steep target over a `test/` tree**
+(phase 0's), conditioned on "a gem's test support becomes production-quality code worth checking — phase
+8's conformance helpers at the earliest". Phase 9 adds eight constants and a report, and every one goes in
+**`lib/`** for 8a's reason (§9.3's argument is that a third-party author *runs* them), where phase 0
+already gave that tree its own Steep target. Nothing phase 9 writes under `test/` is production-quality
+code worth a seventh target. **The condition is not met, so the item is left where it is** —
+`docs/first-release.md` § Post-release triggers, the Steep-over-`test/` entry — and this phase inherits
+8a's reasoning rather than re-deriving it.
 
-**The remaining thirty-five, each read and left untouched, grouped by why phase 9 cannot meet the
-condition.**
+**The remaining items, each read and left untouched, grouped by why phase 9 cannot meet the condition.**
 
-| Rows | Why phase 9 does not meet the condition |
+| Items | Why phase 9 does not meet the condition, and where each lives |
 |---|---|
-| `DEF-1`, `DEF-2`, `DEF-4`, `DEF-5`, `DEF-6`, `DEF-7`, `DEF-8`, `DEF-9` | Requirement-level deferrals of SHOULDs and MAYs whose conditions name an earlier phase, a post-v1 gem or no trigger. Phase 9 ships no domain code in any gem but the conformance one |
-| `DEF-3` | `BODY-12` clause 2 is already UNSCHEDULED (phase 8a); `BODY-36`'s condition is core's dependency budget changing, which phase 9 does not do |
-| `DEF-10` | An adapter **beyond** the two MVP transports; phase 9 ships none |
-| `DEF-11`, `DEF-12`, `DEF-13`, `DEF-14`, `DEF-15`, `DEF-16`, `DEF-17` | Post-v1 gems, out of the MVP's scope by construction |
-| `DEF-18` | "If an interruptible transport path is ever adopted" — §8.3 forbids one and phase 9 adopts nothing, so the condition is **not met** and the row is not UNSCHEDULED. What phase 9 adds is the *disposition in the report*: `ASYNC-3` printed as `waived (would fail)` citing this row, which `R5` settles and which changes no register line |
-| `DEF-19`, `DEF-20` | Release-gated; phase 9 publishes nothing |
-| `DEF-24`, `DEF-27`, `DEF-28`, `DEF-30`, `DEF-32`, `DEF-34`, `DEF-35`, `DEF-36`, `DEF-37`, `DEF-38`, `DEF-39`, `DEF-40` | Conditions naming phases 4, 5 or 6 and behavioural work phase 9 does not do |
-| `DEF-33` | Names the **event** "a non-CRuby row is added to the CI matrix"; phase 9 adds no matrix row |
-| `DEF-41` | Phase 8's target, which phase 8 picked up |
-| `DEF-42` | The route is unreachable as stated (`OI-36`), and phase 9 opens none: the emitter needs a `RequestOptions` widening, which is core surface and outside `R6`'s file list |
+| `SEAM-24`'s cancellation bridge; `PIPE-36`; `RECOV-31`, `RETRY-29`, `RETRY-38`, `RETRY-43`; `REDIR-27`; `SSE-41`; `OBS-32`, `OBS-37`; presence-gated auto-activation | SHOULDs and MAYs declined for v1 — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1. Phase 9 ships no domain code in any gem but the conformance one |
+| `HTTP-22`, `HTTP-48`–`HTTP-50` | The standing decision line under `docs/first-release.md` § Blockers before first publish; the reopening event is the first consumer that constructs a conditional request, and phase 9 constructs none |
+| `BODY-12` clause 2, `BODY-36` | Clause 2 is declined by phase 8a (its design's *Work phase 8a postponed*); `BODY-36`'s condition is core's dependency budget changing, which phase 9 does not do — `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry |
+| `TRANSPORT-28`'s zero-copy clause, `TRANSPORT-30` | An adapter **beyond** the two MVP transports; phase 9 ships none — `docs/first-release.md` § What v1 ships without |
+| The seven post-v1 gems | Out of the MVP's scope by construction — `docs/first-release.md` § What v1 ships without › Post-v1 gems; design §2.2 is the authority |
+| `ASYNC-3` and `PIPE-33`'s interrupt clause — the unsatisfied MUSTs | "If an interruptible transport path is ever adopted" — §8.3 forbids one and phase 9 adopts nothing, so the condition is **not met** and phase 9 declines nothing. What phase 9 adds is the *disposition in the report*: `ASYNC-3` printed as `waived (would fail)` citing `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs and design §10.5, which `R5` settles; phase 10 audits the §10.5 ledger |
+| The fence executor for `.claude/skills/housekeeping/`; signed publication and `NFR-12`'s release half | Release-gated — `docs/first-release.md` § Release path; phase 9 publishes nothing |
+| The suppressed-exception trail (phase 4b, Task 1); `close_quietly`'s two routes (4b Task 2, 5b Task 14); the pivot's `deadline:` (5a Task 8); `Hooks.notify`'s dropped failures (4b Task 2); the body-logging caps (5a Task 13, 5b Tasks 14–15); the recovery-stack retry engine (6a Tasks 3, 4, 5, 7, 11); the context-store cap (5a Task 13); the no-op span and tracer protocols (5c Tasks 3–5); `ProtocolError#retryable?` (6a Task 6); `Pipeline.standard` (6b Task 13a); `CFG-35`'s throwable half (6a Task 3) | Built by the phase whose task is named — behavioural work phase 9 does not do |
+| `IO-38` on a Ruby without a GVL | Names the **event** "a non-CRuby row is added to the CI matrix"; phase 9 adds no matrix row — `docs/first-release.md` § Post-release triggers |
+| `OBS-19`'s header-drop policy | Phase 8's target, landed by 8c (Tasks 7, 9 and 15, `DropPolicy`) |
+| `OBS-29`'s operation-lifecycle triple and transport-milestone group | The route is unreachable as stated (`OI-36`), and phase 9 opens none: the emitter needs a `RequestOptions` widening, which is core surface and outside `R6`'s file list. Both residuals (`OI-32`, `OI-36`) are on phase 10's inbound list |
 
 ## The findings proposed for the registers
 
@@ -1123,7 +1130,7 @@ the other three. A suite that cannot load makes the 4.0 row **red**, not advisor
 `NFR-17` gap; its home is `docs/first-release.md`'s range blocker — "the `dexpace-conformance` suite
 passing across the full supported Ruby range, 3.2 through 4.0" — which is false on that row as phase
 8a's fences are written. Cites `NFR-6`, `NFR-7`, `NFR-17`,
-`NFR-2`, `OI-43`, `DEF-22`.
+`NFR-2`, `OI-43`; the conformance assertion protocol (8a's Tasks 4–8 and 20).
 
 **`OI-50` — `NFR-13`'s SPDX gate is a RuboCop cop, so it cannot reach `sig/**/*.rbs`, which ships
 inside every gem.** `Dexpace/SpdxHeader` is a custom RuboCop cop over Ruby source; `.rbs` is not Ruby
@@ -1146,7 +1153,8 @@ one status. `P9-8` resolves it for this port — one `Result` per assertion, ass
 item a view over them with the worst status winning — but a porter reading §9.3 alone will build the
 wrong granularity, and the 61-row map is the only place the real mapping is written down. What would
 resolve it: one clause naming the requirement ID as the report's unit too, folded in the next time §9
-is deliberately amended. Cites `NFR-17`, `ASYNC-3`, `ASYNC-4`, `DEF-18`, `DEF-22`.
+is deliberately amended. Cites `NFR-17`, `ASYNC-3`, `ASYNC-4`; the unsatisfied-MUST entry in
+`docs/first-release.md` § What v1 ships without and the conformance assertion protocol.
 
 **`OI-52` — a Symbol literal is a `:LIT` AST node on Ruby 3.2 and a `:SYM` node on 3.4 and 4.0, so a
 source scan naming one is blind on the other rows.** Measured on 2026-09-12, parsing
@@ -1175,7 +1183,8 @@ matching the specification, and every row naming at least one requirement ID fro
 prefixes plus an evidence path that exists — with the ID scanner restricted to those prefixes because
 a bare `[A-Z]+-\d+` matches `ISO-8601`, which appears in `B.3`'s real text. What is therefore not
 established is exactly this row's content, and a reader of a green run is entitled to know it. Cites
-`NFR-17`, `DEF-22`, `DEF-45`.
+`NFR-17`; the conformance assertion protocol and the `B.1`/`B.2`/`B.5` trigger in `docs/first-release.md`
+§ Post-release triggers.
 
 **Three further items were filed directly on 2026-09-13**, from the re-verification review of this
 design's plan, and live in the register rather than being restated here: **`OI-54`** (`XCUT-9`'s
@@ -1183,7 +1192,8 @@ residue — a collect-then-yield walk hangs the suite, and a depth cap equal to 
 passes), **`OI-55`** (phase 9's own `module_function` factories are public with no `sig/` mirror, and
 `CodecCase::CountingSink` is a second public class in one file — `ExecutorCase::EventRecorder` is the
 same shape, filed as **`OI-59`**) and **`OI-56`** (the four gates' remaining measured decidable
-misses). `DEF-47` is the deferral table's row for the MUST-level vacuity blocker.
+misses). The MUST-level vacuity blocker is the plan's Task 12a; its entry under *Work phase 9 postponed,
+and who owns it now* carries the reasoning.
 
 **One entry proposed for `docs/deviations.md`'s "Deviations found outside a phase" holding area**, not
 an `OI-<n>`: 7c handed forward that **`PAGE-15`'s wrapping clause (`P7-1`) is not recorded in §12's

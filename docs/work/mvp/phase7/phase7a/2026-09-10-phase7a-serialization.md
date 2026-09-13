@@ -74,7 +74,7 @@ of them appears in it, so appendix C is used for the modal level and not for the
   ASCII-only `String` to a BINARY one leaves it BINARY, so an ASCII-only fixture passes under exactly
   the bug.
 - **`raise Klass, "msg", cause: nil`** wherever an error must not chain the caller's in-flight one —
-  `pipeline/f02559b9`'s spelling, and `SERDE-4`'s "not chaining one" made structural.
+  `pipeline/7ce4431d`'s spelling, and `SERDE-4`'s "not chaining one" made structural.
 - **Formatting:** double quotes, 2-space indentation, 100 columns, `consistent_comma` trailing
   commas.
 
@@ -1550,7 +1550,7 @@ class DexpaceSerdeStatusAwareHandlerTest < DexpaceTestCase
   # The third branch. Its message MUST lead with the status code and preserve conditional/redirect
   # context -- by COPYING the raw header values, never by parsing them: running a malformed server
   # ETag through HTTP-48's validating helper inside an error path turns a diagnostic into a second
-  # failure (the charter's DEF-2 argument, honoured).
+  # failure (the charter's argument about the unbuilt HTTP-48 helper, honoured).
   test "SERDE-28: a 304 closes and raises a serde exception leading with the code" do
     response = CountingResponse.with_body("", status: 304,
                                           headers: { "etag" => '"abc"', "location" => "/x" })
@@ -2222,8 +2222,8 @@ seam** and naming `Dexpace::Serde::JSON` nowhere:
 module SerdeSeamAssertions
   # SEAM-20/SEAM-21/SERDE-3: a codec closes nothing. Phase 9 lifts this file into
   # dexpace-conformance and re-points the raises at Dexpace::Conformance::Failure; the ASSERTIONS
-  # are written once, here, and against the seam rather than against any adapter (DEF-22 fixes the
-  # callable shape and is phase 8's, so this stays plain Minitest).
+  # are written once, here, and against the seam rather than against any adapter (the callable shape
+  # is dexpace-conformance's assertion protocol, phase 8a's, so this stays plain Minitest).
   def assert_closes_nothing(codec) = …
   def assert_buffer_profile(codec) = …          # SERDE-4's four parts
   def assert_failure_model(codec) = …           # SERDE-9, SERDE-10, and the non-null cause
@@ -2259,8 +2259,9 @@ is in the packaging and the assertion is wrong, not the codec.**
 - [ ] **Step 4: Record the phase-9 target**
 
 The file path goes into `7a`'s checklist, so phase 9 inherits a named target rather than
-reconstructing assertions from prose. `DEF-29`'s condition is still **not** met — these doubles are
-new and consume none of core's three fakes — and `DEF-22`'s callable shape is **not** pre-empted.
+reconstructing assertions from prose. The condition phase 3a set for moving core's fakes into `dexpace-conformance`
+is still **not** met — these doubles are new and consume none of core's three fakes — and the conformance gem's
+callable assertion shape (phase 8a Tasks 4–8 and 20) is **not** pre-empted.
 
 ---
 
@@ -2300,7 +2301,8 @@ reference. Then run `ruby scripts/verify_knowledge_structure.rb` (the gate) and
 
 The design drafts all four verbatim and **this plan does not file them**: the unwritten `_Codec`
 interface and the `SERDE`-audit-group narrowness (`docs/open-items.md`), the `SERDE-27` release
-blocker (`docs/first-release.md`), and `DEF-16`'s second motive (`docs/deferred-items.md`). Also hand
+blocker (`docs/first-release.md`), and `dexpace-serde-oj`'s second motive (its entry under `docs/first-release.md` § What v1
+ships without › Post-v1 gems). Also hand
 over the nine `P7-<n>` ledger rows for consolidation into design §10 and audit by
 `docs/deviations.md`.
 

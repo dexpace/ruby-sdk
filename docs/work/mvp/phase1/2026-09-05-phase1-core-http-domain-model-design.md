@@ -87,7 +87,7 @@ them; it leaves them satisfiable.
 | `CFG-*` and the `Configuration` builder design §4 lists beside `Request` and `Response` | 5 |
 | `RETRY-*`'s consumption of `HTTP-9`'s idempotency set, and `REDIR`/`AUTH` | 6 |
 | The transport-side re-validation of header names and outbound values (`XCUT-18`) — phase 1 ships the validator functions, phase 8 calls them | 8 |
-| `HTTP-22` (MAY, name interning) and `HTTP-48`–`HTTP-50` (SHOULD; ETag, HTTP range, conditional-request aggregator) | 6 — `DEF-2`, given that target by this phase's register sweep; see below |
+| `HTTP-22` (MAY, name interning) and `HTTP-48`–`HTTP-50` (SHOULD; ETag, HTTP range, conditional-request aggregator) | None in v1 — this phase named phase 6, expecting `REDIR`/`AUTH` to give the helpers their first caller; it did not (phase 6 carries conditional headers and constructs none), phase 7 declined them too, and the decision now stands as the `HTTP-22`/`48`/`49`/`50` line under `docs/first-release.md` § Blockers before first publish; see below |
 
 **No segmentation design.** The roadmap's segmentation rule reaches a build phase whose ID count
 "clearly exceeds earlier phases'", or that spans more than one ID-bearing spec chapter, or that
@@ -320,8 +320,8 @@ silently stop catching Ruby's own — the same class of trap as `Dexpace::Serde:
 `::JSON`, but silent rather than loud.
 
 `Dexpace::Error` carries no behaviour in phase 1. Design §5's `#suppressed`, `#full_message` and
-`Dexpace.attach_suppressed` arrive with the recovery chain that needs them, in phase 4 — deferred
-as `DEF-24`, so the module's shape is fixed here and its content is not invented ahead of its
+`Dexpace.attach_suppressed` arrive with the recovery chain that needs them, in phase 4 — postponed
+to phase 4b, Task 1 (`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives.md`), so the module's shape is fixed here and its content is not invented ahead of its
 first caller. Recorded as Deviation Ledger rows P1-2 and P1-3 and as a one-line **Design §5
 addendum** below, so phases 2, 4 and 8 inherit the shape rather than re-deciding it.
 
@@ -423,7 +423,7 @@ is a contract retrofitted onto five classes instead of shaping them.
 **Design:** §4's header section; §10.10's "the mitigation that matters".
 
 A module of pure functions, and **the public entry point every transport adapter calls again
-immediately before dispatch** (phase 8, `DEF-25`). It is public API in the full sense — YARD, RBS,
+immediately before dispatch** (phase 8a, Task 16 and phase 8c, Task 9, with phase 9, Task 7's portable assertion). It is public API in the full sense — YARD, RBS,
 surface manifest — precisely because a phase-8 adapter is a different gem and must be able to
 reach it.
 
@@ -449,7 +449,7 @@ exactly the input this module exists to reject, and a character-oriented impleme
 
 ## HeaderName (`lib/dexpace/http/header_name.rb`)
 
-**Satisfies:** `HTTP-21`, `HTTP-13`. **Deferred:** `HTTP-22` (`DEF-2`).
+**Satisfies:** `HTTP-21`, `HTTP-13`. **Deferred:** `HTTP-22` (no v1 phase; `docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` decision line).
 
 `Data.define(:original, :folded)` with `private_class_method :new`, a `.build(original:,
 folded: nil)` whose `initialize` override trims, validates through `HeaderSyntax` and **re-derives**
@@ -716,8 +716,9 @@ it.
 
 **`body` is opaque in phase 1.** The `BODY` model is phase 3's; here the member is carried,
 `HTTP-7`'s presence check is the only thing asked of it, and its RBS type is `untyped` with a YARD
-note. Deferred as `DEF-26`, which is also where `HTTP-46`'s "body by value" becomes testable
-against a real body type.
+note. Postponed to phase 3, which narrowed it in 3b (deviation P3-15,
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`); that is also where `HTTP-46`'s
+"body by value" became testable against a real body type.
 
 ## Response (`lib/dexpace/http/response.rb`, `lib/dexpace/http/response/builder.rb`)
 
@@ -818,7 +819,7 @@ for exactly this: `MediaType.parse(render(x)) == x`; `Query.parse(q.encode) == q
 **The `HTTP-2` negative proof, which is not faked.** Design §10.10 and §11.6 admit two holes.
 **One is asserted**: a test proves `Request.send(:new, …)` reaches the generated constructor and
 produces an instance that never met a builder, with a comment naming `HTTP-2`, §10.10 and the
-mitigation — `HeaderSyntax` re-validation at the wire boundary, phase 8, `DEF-25` — so a later
+mitigation — `HeaderSyntax` re-validation at the wire boundary, phase 8a Task 16 and phase 8c Task 9 — so a later
 reader cannot mistake the gap for an oversight or the mitigation for a closure. A test asserting
 that path is blocked would be a lie that passes. **The other is stated, not tested**: that any
 object responding to `#method`, `#url`, `#headers` and `#body` duck-types past the builder is a
@@ -891,46 +892,53 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 | P1-9 | `Request` and `Response` are frozen and deep-frozen in their collections but are **not** `Ractor.shareable?` | design §4; `data-modeling/996c0b12` | The design's "deep-freezing at construction makes the whole wire model Ractor-shareable" holds for every model whose members are strings and collections, and not for the two that hold a `URI::Generic`: verified on 3.2.11 and 4.0.6, a frozen URI is not shareable because `@host` and `@path` stay unfrozen, and `Ractor.make_shareable(uri)` reaches shareability only by deep-freezing `URI::RFC3986_PARSER` — a process-global object — in place, which is the one thing §4 says never to do. `Ractor` is load-bearing nowhere (§4, §9), so the claim is narrowed rather than the global frozen. Filed as a corpus note |
 | P1-6 | `Request#==`/`#hash` override `Data`'s generated equality | `HTTP-46`; `api-design/e4fa3438` | `HTTP-46` requires comparison by textual external form; the generated equality would compare `URI::Generic` objects by `URI`'s own normalising rules, which is a different relation. The override carries the why-comment the styleguide requires |
 
-## Deferrals Filed by Phase 1
+## Work Phase 1 Postponed, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; each names a target phase or an explicit pick-up condition,
-per the roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's
-`registers` check reserves for the aggregate register, which is where these rows live.)
+Phase 1 postponed three things. Each entry is self-contained — what was postponed, why phase 1 did
+not do it, and the plan task that owns it now — because the separate register these were first
+filed against was retired on 2026-09-13, once every item had an owner. (The heading avoids the
+literal words the housekeeping probe's `registers` check reserves for an aggregate register.)
 
-| ID | Deferral | Target / condition |
+| Postponed | Why phase 1 did not do it | Owner now |
 |---|---|---|
-| `DEF-24` | Design §5's suppressed-exception trail on the error root — `#suppressed`, the `#full_message` override and `Dexpace.attach_suppressed` with `RETRY-34`'s self-suppression guard | Phase 4, with the recovery chain (`RECOV-12`) that is its first caller |
-| `DEF-25` | The wire-boundary re-validation of header names and outbound values inside every transport adapter — design §4's and §10.10's mitigation for the `HTTP-2` gap | Phase 8. Phase 1 ships `Dexpace::HeaderSyntax` as public API precisely so an adapter in another gem can call it |
-| `DEF-26` | The `body` member's type and `HTTP-46`'s "body by value" equality half, both `untyped` in phase 1's RBS | Phase 3, when `BODY` lands |
+| Design §5's suppressed-exception trail on the error root — `#suppressed`, the `#full_message` override and `Dexpace.attach_suppressed` with `RETRY-34`'s self-suppression guard | Phase 1 creates the root — and fixes its shape, a module rather than a base class, so `XCUT-4`'s "transport errors belong to the runtime's I/O-error family" stays reachable under Ruby's single inheritance — but ships it empty. The trail exists for `RECOV-12`'s close-while-throwing rule and for `PAGE-13`/`PAGE-15`, `SSE-29`/`SSE-36` and `RETRY-34`; none of those has a caller until the recovery chain lands, and an attach helper with no chain to attach in would fix an interface before its first use | Phase 4b, Task 1 (`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives.md`). The carrier 4b builds is `Dexpace::Suppressible`, a separate module the root includes, and the override is `#detailed_message` rather than `#full_message` — `4b`'s `P4-12` — because a `#full_message` override is invisible to Ruby's default uncaught-exception printer |
+| The wire-boundary re-validation of header names and outbound values inside every transport adapter — design §4's and §10.10's mitigation for the `HTTP-2` gap | Design §4 and §10.10 admit that `HTTP-2`/`SEAM-29`'s constructor privacy cannot be closed in Ruby — `send` reaches a private `new` by design, and duck typing admits impersonation — and name one mitigation that matters: `HTTP-17`, `HTTP-18` and `XCUT-18` validation runs **again** inside every transport adapter, immediately before dispatch, so a forged model cannot smuggle a CRLF into a header name even if it never met a builder. Phase 1 ships the predicate as public API — `Dexpace::HeaderSyntax`, with YARD, an RBS signature and a row in the runtime surface manifest — precisely so an adapter in another gem can call it. The call site is a transport, and phase 1 ships none | The call sites and their forged-request tests: phase 8a, Task 16 (`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`) and phase 8c, Task 9 (`docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport.md`); the portable forged-`Request` `XCUT-18` assertion: phase 9, Task 7 (`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`). Phase 8 measured that `protocol-http2` performs no outbound header validation at all, so on the HTTP/2 path this re-validation is the sole barrier, not a mitigation |
+| The `body` member's type and `HTTP-46`'s "body by value" equality half, both `untyped` in phase 1's RBS | `HTTP-6` requires a request and a response to carry an optional body, and `HTTP-46` requires request equality to compare the body by value. The `BODY` model is spec ch.06 and phase 3's, so phase 1 carries the member opaquely: `HTTP-7`'s presence check is the only thing asked of it, its RBS type is `untyped`, and equality delegates to whatever `==` the object has. Giving it a type here would fix the body interface a phase ahead of the requirements that shape it. Both halves are a narrowing of a public signature, which is why it was recorded rather than left to be noticed | Built by phase 3b on 2026-09-08: `sig/` narrows `Request#body` and `Response#body` to `Dexpace::Body?` and `HTTP-46`'s by-value comparison is tested against real body types — deviation P3-15 in `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`, with `HTTP-46` carrying a cross-reference row in 3b's checklist |
 
-### Deferral-register sweep
+### What phase 1 found among the items already postponed
 
-The roadmap's execution step 1 requires every phase to read the whole register and disposition
-every row, not to scan for its own name. All twenty-three rows were read.
+The roadmap's execution step 1 had every phase read everything earlier work had postponed, not scan
+for its own name. Phase 1 read all twenty-three items then standing: the nineteen the MVP scope
+design had postponed and phase 0's four.
 
-**Phase 1 picks up none, and gives one row a target phase it did not have.**
+**Phase 1 picks up none, and gives one item a target phase it did not have.**
 
-- **`DEF-2` — `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — now targets phase 6.** This is the only
-  row whose requirements are inside a phase-1 ID range and whose code would live in the gem phase 1
-  ships, so it is the row the sweep exists for. Phase 1 does not build them: design §12 records all
+- **`HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50` — given phase 6 as a target.** This is the only
+  item whose requirements are inside a phase-1 ID range and whose code would live in the gem phase 1
+  ships, so it is the item this reading exists for. Phase 1 does not build them: design §12 records all
   four as deferred, `HTTP-22` is a MAY whose observable contract (value equality by folded name) is
   already satisfied without interning, and `HTTP-48`–`HTTP-50` are SHOULD-level helpers over a
-  header model that has no caller for them yet. **UNSCHEDULED would be the wrong mark**: that
-  status is for a row whose pick-up condition a phase *met* and declined to act on, and this row's
-  condition — "convenience helpers prioritized over minimal public surface" — never fired, because
-  phase 1 deliberately kept the surface minimal. What the row lacked was a target, which is exactly
-  what the roadmap's execution step 7 now requires of every deferral, so the sweep supplies one:
-  **phase 6**, where `REDIR` and `AUTH` give the conditional-request helpers their first real
-  caller (`If-Match`/`If-None-Match` on a re-issued request is `HTTP-50`'s aggregator, and an ETag
-  is `HTTP-48`). The four unmet SHOULDs and the MAY are also recorded as a line in
-  `docs/first-release.md`'s readiness list, so a release decision sees them without reading the
-  deferral register.
-- `DEF-1`, `DEF-3`–`DEF-10`, `DEF-18` — requirement-level deferrals in `SEAM`, `BODY`, `PIPE`,
-  `RECOV`, `RETRY`, `REDIR`, `SSE`, `OBS`, `TRANSPORT` and `ASYNC`. None is reachable from a phase
-  that ships only the HTTP domain model; left untouched.
-- `DEF-11`–`DEF-17` — post-v1 gems, out of the MVP by construction.
-- `DEF-19`, `DEF-20` — release-gated; nothing is published and every gem is still at `0.0.0`.
-- `DEF-21` — phase 2's, hanging on require-time seam self-registration, which phase 1 does not add.
-- `DEF-22` — phase 8's conformance assertion objects.
-- `DEF-23` — a Steep target over a test tree; phase 1 adds twenty-two test files, none of which is
+  header model that has no caller for them yet. **Declining would be the wrong mark**: that is for
+  an item whose condition a phase *met* and declined to act on, and this item's condition —
+  "convenience helpers prioritized over minimal public surface" — never fired, because phase 1
+  deliberately kept the surface minimal. What the item lacked was a target, so phase 1 supplied one:
+  **phase 6**, where `REDIR` and `AUTH` were expected to give the conditional-request helpers their
+  first real caller (`If-Match`/`If-None-Match` on a re-issued request is `HTTP-50`'s aggregator, and
+  an ETag is `HTTP-48`). That target did not fire — phase 6 carries conditional headers verbatim and
+  constructs none, and phase 7 declined them too — so the decision now stands as the standing
+  `HTTP-22`/`48`/`49`/`50` line under `docs/first-release.md` § Blockers before first publish, whose
+  reopening event is the first consumer that constructs a conditional request. The four unmet
+  SHOULDs and the MAY were recorded there from the start, so a release decision sees them.
+- `SEAM-24`/`SEAM-28`, `BODY-12`/`BODY-36`, `PIPE-36`, `RECOV-31`, `RETRY-29`/`38`/`43`, `REDIR-27`,
+  `SSE-41`, `OBS-32`/`OBS-37`, `TRANSPORT-28`/`TRANSPORT-30`, and the unsatisfied MUSTs `ASYNC-3` and
+  `PIPE-33`'s interrupt clause — requirement-level items in `SEAM`, `BODY`, `PIPE`, `RECOV`, `RETRY`,
+  `REDIR`, `SSE`, `OBS`, `TRANSPORT` and `ASYNC`. None is reachable from a phase that ships only the
+  HTTP domain model; left as they were.
+- The seven post-v1 gems of design §2.2 — out of the MVP by construction.
+- The housekeeping fence executor and the release path — release-gated; nothing is published and
+  every gem is still at `0.0.0` (both now under `docs/first-release.md` § Release path).
+- The runtime version-skew guard — phase 2's, hanging on require-time seam self-registration, which
+  phase 1 does not add.
+- The conformance assertion objects — phase 8's (8a, Tasks 4–8 and 20).
+- A Steep target over a test tree — phase 1 adds twenty-two test files, none of which is
   production-quality helper code, so the condition is still unmet.

@@ -37,8 +37,8 @@ Prerequisites section, its verified Ruby facts, and its risks `R10`, `R11` and `
   forward table row naming phase 6's `#update(key) { |old| new }` addition.
 - `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md` — `Dexpace::Async::Future`,
   `::Completer`, `::Settlement`, `#on_settle`.
-- `docs/deferred-items.md` (`DEF-36`, read and found not to extend here), `docs/open-items.md`
-  (`OI-31`, consumed if present, not built here).
+- Phase 4a's deferral of the context store's configured cap (picked up by phase 5a, Task 13; read and found not to
+  extend here), `docs/open-items.md` (`OI-31`, consumed if present, not built here).
 
 ## Scope
 
@@ -46,7 +46,7 @@ Prerequisites section, its verified Ruby facts, and its risks `R10`, `R11` and `
 `AUTH-30`–`AUTH-38` implemented in full; `AUTH-29` implemented with its stripping clause satisfied
 by construction (nothing is ever added to the request, so there is nothing to strip) and its
 suppression and HTTPS-guard-skip clauses executable and implemented. No ⏳ row — `6c` is the only
-sub-phase of phase 6 with a deferred-item row of its own carrying zero of its IDs.
+sub-phase of phase 6 none of whose IDs is declined for v1 or postponed to a later phase.
 
 The canonical text of every `AUTH` ID is appendix C's; it is not reproduced here except where a
 decision turns on an exact clause, quoted inline at that decision.
@@ -125,7 +125,7 @@ that verification.
   `AUTH-1`–`AUTH-38` waits on a timer; the bearer refresh margin (`AUTH-34`) is a plain
   `Clock#now`/expiry comparison, not a scheduled wait. `Dexpace::Configuration` and
   `Configuration::Keys`/`::Sources` exist and are live (unlike phase 4a's situation when it deferred
-  `DEF-36`) — relevant to `R11` below.
+  the context store's cap to phase 5) — relevant to `R11` below.
 - **Nothing from `5b`/`5c` is a hard dependency.** `6c`'s AUTH step accepts its own optional
   `logger:`/`redactor:` keywords defaulting to the no-op pair, exactly as `6b`'s `R8` does for the
   same reason: `Stages::AUTH` (800) is outside `Stages::LOGGING` (1100) and cannot borrow that step's
@@ -219,7 +219,7 @@ Three routes were open and two are rejected:
 - **A typed failure — adopted.** `Dexpace::Auth::UnencodableCredentialError < Dexpace::Error`,
   constructed with `field:` (one of `:username`, `:realm`, `:password`), `:encoding` (`"ISO-8859-1"`),
   and `#cause` set to the rescued `Encoding::UndefinedConversionError` via `raise …, cause: e` — never
-  a bare re-raise of a stored value (`pipeline/f02559b9`, though that note is about *carried* errors
+  a bare re-raise of a stored value (`pipeline/7ce4431d`, though that note is about *carried* errors
   and this one is raised fresh, so the note's rule does not literally apply; the discipline is kept
   anyway because it is free and consistent). The message names which field failed and states the
   challenge advertised no `charset=UTF-8`, so a caller reading the error knows exactly what to do
@@ -279,11 +279,11 @@ Nothing in `AUTH-15`–`AUTH-24` requires cross-handler nonce visibility — a n
 to the realm that issued it, and a `DigestHandler` is already scoped to one credential — so
 per-handler is the narrower, correct reading and the one that needs no new process-wide singleton.
 
-**No configuration-chain deferral, because there is nothing to defer.** `DEF-36` deferred the
-**context store's** cap specifically because phase 4a shipped before phase 5's configuration chain
+**No configuration-chain deferral, because there is nothing to defer.** Phase 4a deferred the
+**context store's** cap (picked up by phase 5a, Task 13) specifically because phase 4a shipped before phase 5's configuration chain
 existed, and its own pick-up condition is "phase 5, with `CFG-1`–`CFG-4`'s layered chain … read the
 cap from the chain when constructing the process-wide store." That reasoning does not transfer here
-unmodified: `DEF-36`'s row names the context store by name, not "every `BoundedMap` consumer's cap,"
+unmodified: that deferral names the context store by name, not "every `BoundedMap` consumer's cap,"
 and its precondition — no config chain yet — is false for `6c`, which runs after `5a` has already
 shipped `Dexpace::Configuration`. More importantly, `ContextStore` is built implicitly by the SDK
 itself with no caller-visible construction call, which is *why* its cap needed a configuration-chain
@@ -292,8 +292,8 @@ whoever assembles the pipeline (the caller, or a future convenience the caller i
 `DigestHandler.build(credential:, cap: 1024, …)` is already tunable through the ordinary constructor
 keyword phase 6 ships, with no ambient global to route through configuration. `AUTH-19`'s "default
 cap 1024" is the keyword's default; a caller who wants a different bound passes one. `6c` therefore
-files no `DEF-36`-shaped deferral of its own — this is the reasoning stated in the segmentation
-design's own `R11` phrasing ("whether `DEF-36`'s configuration-source treatment applies to this cap
+files no deferral of that shape of its own — this is the reasoning stated in the segmentation
+design's own `R11` phrasing ("whether the context-store cap's configuration-source treatment applies to this cap
 too"): it does not, and the reason is that `6c`'s knob was never ambient in the first place.
 
 ## `R12` — `AUTH-37`'s three-zone async policy against the pivot
@@ -908,7 +908,7 @@ credential-leak test needing `6b`'s real REDIRECT step. `6c`'s own tests (Task 1
 against phase 4c's `ForkingProbe` doubling a REDIRECT-stage fork with the marker set and unset; the
 end-to-end test with `6b`'s real step is named as Task 14, owned by `6c` under the segmentation
 design's "whichever of `6b`/`6c` lands second" rule and the recommended order (`6a → 6b → 6c`).
-`RETRY-14`'s and `DEF-39`'s convergence points are `6a`'s and the phase-level task's respectively and
+`RETRY-14`'s and `Pipeline.standard`'s convergence points are `6a`'s and the phase-level task's (`6b` Task 13a) respectively and
 do not touch `6c` at all.
 
 ## Testing strategy
@@ -955,24 +955,26 @@ ledgers concurrently, and is resolved at consolidation into design §10, not her
 | P6-4 | The Digest nonce-counter store is owned by the `DigestHandler` instance, not by a process-wide or class-level singleton | `AUTH-19`, `AUTH-24`; `data-modeling/3e37c086` | Argued in full under `R11`. One handler per credential/realm is the natural unit; a shared singleton would let one server's nonce rotation evict another's live nonce for no requirement-driven reason. |
 | P6-5 | "Kick off an off-thread background refresh" (`AUTH-37`) is implemented as calling the provider's async fetch and attaching `#on_settle` without awaiting it — no thread is spawned by phase 6 itself | `AUTH-37`, `AUTH-11`; `Dexpace::Async::Future#on_settle` | Argued in full under `R12`. The SDK owns no thread pool; "off-thread"-ness is a property of the caller's provider implementation, exactly as `AUTH-11` already establishes for the default-mirrored case. |
 
-## Deferrals Filed by Phase 6c
+## Work phase 6c postpones, and who owns it now
 
 **None.** Every one of `6c`'s 38 IDs is implemented in full (`AUTH-29`'s stripping clause satisfied
 by construction, not deferred — it has no code because nothing is ever added to strip). `6c` carries
 no ⏳ row, matching the segmentation design's own statement that `6c` is the only sub-phase of phase
-6 with no deferred-item row of its own.
+6 none of whose IDs is declined or postponed.
 
-## Deferral-register sweep
+### Items earlier phases postponed that touch `6c`
 
-The roadmap's execution step 1 requires every row read and dispositioned; the segmentation design
-already performed this sweep at phase scope and this document does not repeat it. Two rows the
+The roadmap's execution step 1 requires every outstanding deferral read and dispositioned; the segmentation design
+already performed this sweep at phase scope and this document does not repeat it. Two items the
 segmentation design named as touching `6c`'s area are confirmed here and neither changes:
 
-- **`DEF-25`** (wire-boundary re-validation of header names and outbound values) — untouched by
-  `6c`, confirmed: it is phase 8's, and `6c`'s stamped `Authorization`/`Proxy-Authorization` values
+- **Wire-boundary re-validation of header names and outbound values** — untouched by
+  `6c`, confirmed: it is phase 8's (phase 8a Task 16 and phase 8c Task 9, with the portable assertion in phase 9 Task 7),
+  and `6c`'s stamped `Authorization`/`Proxy-Authorization` values
   are among the values that re-validation will eventually cover. `6c` builds no second validation
   pass of its own.
-- **`DEF-36`** — confirmed **not** to extend to `AUTH-19`'s cap, per `R11` above. No new deferral is
+- **The context store's configured cap** (phase 4a's deferral, picked up by phase 5a Task 13) — confirmed **not** to
+  extend to `AUTH-19`'s cap, per `R11` above. No new deferral is
   filed in its place, because `6c`'s cap needed no configuration-chain route to begin with.
 
 ## Findings proposed for the registers

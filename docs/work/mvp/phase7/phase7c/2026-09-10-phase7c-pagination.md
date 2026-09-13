@@ -1932,6 +1932,13 @@ defect is a **pair**, and `pagination/b2a85752` carries `BODY-11` rather than no
 row for §12's serde-agnosticism being harvested nowhere; and the `docs/first-release.md` line requiring phase
 8's conformance suite to carry a per-call-options test for `PAGE-36`.
 
+One pointer, not a fifth text (added 2026-09-13): **phase 7's verdict on the four unbuilt HTTP helpers was recorded on
+2026-09-13** — the charter's event-shape amendment (`HTTP-22`, `HTTP-48`–`HTTP-50` wait for the first consumer
+that constructs a conditional request) is on the standing decision line under `docs/first-release.md` § Blockers before
+first publish already. This sub-phase re-checks it
+only if it constructs a request header, which it does not (`PAGE-23` preserves the template's headers;
+Task 15's fetchers add none).
+
 - [ ] **Step 8: The checklist**
 
 Written at execution time, per `CLAUDE.md`, at

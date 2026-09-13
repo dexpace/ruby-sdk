@@ -5,8 +5,8 @@
 > checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship `dexpace-core`'s synchronous redirect pillar step — `Dexpace::Redirect::Step` at
-`Stages::REDIRECT` — satisfying all 28 `REDIR-1`–`REDIR-28` requirements (`REDIR-27` deferred,
-`DEF-7`, no code), plus the shared `Dexpace::Resilience::Resend` replayability predicate `REDIR-6`
+`Stages::REDIRECT` — satisfying all 28 `REDIR-1`–`REDIR-28` requirements (`REDIR-27` declined for v1 —
+`docs/first-release.md` § What v1 ships without — no code), plus the shared `Dexpace::Resilience::Resend` replayability predicate `REDIR-6`
 consults alongside `RETRY-5` and `AUTH-31`.
 
 **Architecture:** One iterative (`REDIR-23`) pillar step that forks a fresh `Cursor` for every hop
@@ -144,9 +144,13 @@ Fourteen tasks, in buildable dependency order:
 12. Body lifecycle, replayability, and the 303 GET rebuild (`REDIR-5`, `REDIR-6`, `REDIR-22`,
     `REDIR-23`) — needs Task 11.
 13. `REDIR-28` emission wiring at all four event sites — needs Task 12.
+    - **13a (phase-level; the constructors phase 4c postponed)** — `Pipeline.standard`/`AsyncPipeline.standard` over
+      `Builder#install_preset` (`PIPE-39`, `PIPE-24`, `PIPE-32`, `REDIR-25`). Executes here only if
+      `6a` has already landed; otherwise it moves verbatim into `6a`'s plan. Needs Task 8 and `6a`'s
+      Tasks 9–10. Lettered so no existing "Task N" citation renumbers.
 14. Integration: extending 4c's `R11` negative assertion 4 to the real step, `6b`'s half of
     convergence point 1, final wiring (`lib/dexpace.rb`, `sig/` completeness, surface snapshot,
-    RBS baseline) — needs Task 13.
+    RBS baseline) — needs Task 13 (and Task 13a, when it runs here).
 
 ---
 
@@ -1621,6 +1625,162 @@ logging" binds on *any* configured redactor, not only the default.
 
 ---
 
+## Task 13a — phase-level: `Pipeline.standard` and `AsyncPipeline.standard` over `Builder#install_preset`, the constructors phase 4c postponed
+
+**Requirement IDs:** `PIPE-39` (its second constructor, closing phase 4c's ⏳ row), `PIPE-24` (consumed,
+never re-implemented), `PIPE-32` (the substantive clause stops being vacuous), `REDIR-25` (same).
+**Design:** the charter, `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, "Phase-level
+tasks owned by no sub-phase — `Pipeline.standard` and `AsyncPipeline.standard`" and `R14`; `docs/sdk-design-ruby/05-pipeline-architecture.md`
+§5.3 (`PIPE-32`'s `redirect: :unsupported` argument); this sub-phase's design, "Convergence points" §2.
+Inserted 2026-09-13 by the reconciliation of the outstanding deferrals: phase 4c postponed the two constructors on
+2026-09-08 because the step families they install did not exist yet, the charter assigned this task to "whichever of
+`6a`/`6b` lands second", and neither sub-phase plan carried it.
+
+**Guard — read before starting.** This task executes in **whichever of `6a` and `6b` lands second**;
+under the recommended order that is `6b`, which is why it lives here. If `6a` lands second, this task
+moves **verbatim** into `6a`'s plan as its own lettered task and is skipped here — it is never run
+twice and never run before both `Dexpace::Redirect::Step` (Task 8) and
+`Dexpace::Resilience::RetryStep`/`AsyncRetryStep` (`6a` Tasks 9 and 10) exist. `6a`'s plan cites this
+task by name in its Task 13 list of postponed work; that citation is the mirror the charter requires so the
+task is neither built twice nor dropped.
+
+**Files:**
+- Modify: `gems/dexpace-core/lib/dexpace/pipeline.rb` (`Pipeline.standard`)
+- Modify: `gems/dexpace-core/lib/dexpace/async_pipeline.rb` (`AsyncPipeline.standard`)
+- Modify: `gems/dexpace-core/sig/dexpace/pipeline.rbs`, `sig/dexpace/async_pipeline.rbs`
+- Test: `gems/dexpace-core/test/dexpace/pipeline/standard_test.rb`
+
+**Needs:** 4c's `Builder#install_preset(entries)` and `Pipeline::Entry`; 5b's
+`Dexpace::Instrumentation::Step`; `6a`'s `RetryStep`/`AsyncRetryStep` (both declaring `#stage`); this
+sub-phase's `Redirect::Step`; Task 7's `ScriptedTransport`.
+**Produces:** `Pipeline.standard(transport, ...)`, `AsyncPipeline.standard(transport, ..., redirect:
+:unsupported)`; **no** second installation path.
+
+- [ ] **Step 1: Write the failing tests**
+
+```ruby
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+# PIPE-39 (second constructor), PIPE-24, PIPE-32, REDIR-25. Picks up the constructors phase 4c postponed.
+require_relative "../../test_helper"
+
+class DexpacePipelineStandardTest < DexpaceTestCase
+  test "PIPE-39: the sync standard pipeline installs redirect, retry and instrumentation, nothing else" do
+    pipeline = Dexpace::Pipeline.standard(Dexpace::Test::ScriptedTransport.new([response_with(status: 200)]))
+    stages = pipeline.entries.map(&:stage)
+
+    assert_includes(stages, Dexpace::Pipeline::Stages::REDIRECT)
+    assert_includes(stages, Dexpace::Pipeline::Stages::RETRY)
+    assert_includes(stages, Dexpace::Pipeline::Stages::LOGGING)
+    assert_equal(3, stages.size)
+  end
+
+  test "PIPE-32/REDIR-25: the async standard pipeline installs NO step at Stages::REDIRECT" do
+    pipeline = Dexpace::AsyncPipeline.standard(Dexpace::Test::ScriptedTransport.new([response_with(status: 200)]),
+                                               redirect: :unsupported)
+    stages = pipeline.entries.map(&:stage)
+
+    refute_includes(stages, Dexpace::Pipeline::Stages::REDIRECT)
+    assert_includes(stages, Dexpace::Pipeline::Stages::RETRY)
+    assert_includes(stages, Dexpace::Pipeline::Stages::LOGGING)
+  end
+
+  test "PIPE-32: the async constructor rejects any redirect: value other than :unsupported, and requires it" do
+    transport = Dexpace::Test::ScriptedTransport.new([])
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::AsyncPipeline.standard(transport, redirect: :follow) }
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::AsyncPipeline.standard(transport, redirect: nil) }
+    assert_raises(ArgumentError) { Dexpace::AsyncPipeline.standard(transport) } # keyword is required, not defaulted
+  end
+
+  test "PIPE-24: both constructors go through Builder#install_preset -- a caller-occupied pillar rejects the whole preset" do
+    # The constructors accept a pre-seeded builder only through the documented `builder:` keyword; an
+    # occupied RETRY pillar must reject the entire install, installing nothing (4c's validate-then-commit).
+    builder = Dexpace::Pipeline.builder.append(Dexpace::Resilience::RetryStep.build, stage: Dexpace::Pipeline::Stages::RETRY)
+    error = assert_raises(Dexpace::PipelineError) do
+      Dexpace::Pipeline.standard(Dexpace::Test::ScriptedTransport.new([]), builder: builder)
+    end
+    assert_match(/PIPE-24/, error.message)
+    assert_equal(1, builder.entries.size) # nothing was overlaid or partially installed
+  end
+
+  test "the sync standard pipeline actually follows a redirect and retries a 503 in one call" do
+    transport = Dexpace::Test::ScriptedTransport.new([
+      response_with(status: 503, headers: { "retry-after" => "0" }),
+      response_with(status: 302, location: "https://a.example/y"),
+      response_with(status: 200),
+    ])
+    pipeline = Dexpace::Pipeline.standard(transport, retry: Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0))
+
+    assert_equal(200, pipeline.call(seeded_get_request("https://a.example/x")).status.code)
+    assert_equal(3, transport.received_requests.size)
+  end
+end
+```
+
+- [ ] **Step 2: Run test to confirm it fails**
+
+Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/pipeline/standard_test.rb`
+Expected: fails with `NoMethodError: undefined method 'standard' for Dexpace::Pipeline`.
+
+- [ ] **Step 3: Write the two constructors — over `#install_preset`, and nothing else**
+
+```ruby
+# in lib/dexpace/pipeline.rb
+def self.standard(transport, redirect: Dexpace::Redirect::Step.new,
+                  retry: Dexpace::Resilience::RetrySettings.build,
+                  instrumentation: Dexpace::Instrumentation::Step.build,
+                  builder: Dexpace::Pipeline.builder)
+  entries = [
+    Entry.new(stage: Stages::REDIRECT, step: redirect),
+    Entry.new(stage: Stages::RETRY,    step: Dexpace::Resilience::RetryStep.build(settings: retry)),
+    Entry.new(stage: Stages::LOGGING,  step: instrumentation),
+  ]
+  builder.install_preset(entries).build(transport: transport) # PIPE-24: validate-then-commit, one path
+end
+
+# in lib/dexpace/async_pipeline.rb
+# PIPE-32 / design §5.3: the asymmetry is a REQUIRED keyword at the call site, not an absence.
+def self.standard(transport, redirect:, retry: Dexpace::Resilience::RetrySettings.build,
+                  instrumentation: Dexpace::Instrumentation::Step.build,
+                  builder: Dexpace::AsyncPipeline.builder)
+  unless redirect == :unsupported
+    raise Dexpace::InvalidArgumentError,
+          "AsyncPipeline.standard follows no redirects at the pipeline layer (PIPE-32); pass redirect: :unsupported"
+  end
+  entries = [
+    Entry.new(stage: Stages::RETRY,   step: Dexpace::Resilience::AsyncRetryStep.build(settings: retry)),
+    Entry.new(stage: Stages::LOGGING, step: instrumentation),
+  ]
+  builder.install_preset(entries).build(transport: transport)
+end
+```
+
+No method other than `#install_preset` adds a step here; if a reviewer finds a second `@buckets`
+write or a bare `#append` in either constructor, that is phase 4c's "writes no second installation
+path" condition being violated. `Stages::REDIRECT` stays installable-but-unused on the async path (`PIPE-28`,
+this sub-phase's `REDIR-25` row); this constructor simply never installs anything there.
+
+- [ ] **Step 4: Write the `sig/` mirrors, run to confirm it passes**
+
+```rbs
+def self.standard: (untyped transport, ?redirect: untyped, ?retry: Dexpace::Resilience::RetrySettings,
+                    ?instrumentation: untyped, ?builder: Dexpace::Pipeline::Builder) -> Pipeline
+# async_pipeline.rbs
+def self.standard: (untyped transport, redirect: :unsupported, ?retry: Dexpace::Resilience::RetrySettings,
+                    ?instrumentation: untyped, ?builder: Dexpace::Pipeline::Builder) -> AsyncPipeline
+```
+
+Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/pipeline/standard_test.rb`
+Expected: PASS, 5 runs, 0 failures, 0 errors. Both names are `NFR-4` **widenings** and appear in the
+surface snapshot Task 14 regenerates; add them to this sub-phase's Deviation Ledger row for new
+public names.
+
+- [ ] **Step 5: Update the YARD on `Dexpace::AsyncPipeline`** so the `PIPE-32` asymmetry sentence phase
+  4c already wrote now points at the `redirect: :unsupported` keyword rather than at an absence.
+
+---
+
 ## Task 14: Integration, 4c's negative assertion, and final wiring
 
 **Requirement IDs:** none new; closes out `REDIR-1`–`REDIR-26`, `REDIR-28`'s test coverage.
@@ -1717,8 +1877,20 @@ section already describes each in full, ready for a human to file. This step is 
 reminder, not an action: confirm the design document still states all three before calling this
 sub-phase done.
 
+**The two records Task 13a owes, when it ran here (added 2026-09-13).** Unlike the three
+findings above, these are edits this sub-phase *performs*, by hand, in the same change as the
+checklist — the 2026-09-13 reconciliation of the outstanding deferrals found that no phase-6 plan carried them:
+
+- This phase's status note in the roadmap says that the `standard` constructors phase 4c postponed have landed: that
+  `Pipeline.standard` and `AsyncPipeline.standard` were written over `Builder#install_preset` by
+  `6b`'s Task 13a and that `redirect: :unsupported` is a required keyword on the async one
+  (`PIPE-32`). If Task 13a moved to `6a`, that plan writes the sentence and names `6a` instead.
+- Phase 4c's `PIPE-39` ⏳ row: closes as ✅ in **this sub-phase's** checklist, citing Task 13a
+  (phase 4c's own checklist row is left as written, per the two-rows-one-obligation precedent).
+
 - [ ] **Step 6: Do not write `phase6b-redirect-checklist.md` in this task.** Per `CLAUDE.md`, the
   checklist is written at execution time, mapping each of the 28 IDs to the numbered task above
-  that satisfies it (or, for `REDIR-27`, to its `DEF-7` ⏳ row). This plan's own task headers already
-  carry that mapping in their "Requirement IDs" lines; the checklist transcribes it into the
-  one-row-per-ID form `CLAUDE.md` requires.
+  that satisfies it (or, for `REDIR-27`, to its ⏳ row pointing at the v1 decline in `docs/first-release.md`), plus the `PIPE-39` ✅ row Task 13a
+  adds when it runs here. This plan's own task headers already carry that mapping in their
+  "Requirement IDs" lines; the checklist transcribes it into the one-row-per-ID form `CLAUDE.md`
+  requires.

@@ -19,7 +19,7 @@ so a re-harvest that rewords a rule breaks the citation on purpose, and `ruby sc
 reports it.
 
 **A register is not harvested.** `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`
-(and its appendices 11 and 12), `docs/open-items.md`, `docs/deferred-items.md`, `docs/deviations.md` and
+(and its appendices 11 and 12), `docs/open-items.md`, `docs/deviations.md` and
 `docs/first-release.md` are ledgers every phase appends to; any harvest of one is a stale fraction of it.
 Read them directly. Appendix C of the product spec is the requirement index the CLI reads live, not a
 harvest source.

@@ -10,8 +10,9 @@ executor duck type, settles phase 2's core-owned pivot from a real producer for 
 carries the `ASYNC-15`–`ASYNC-17` lifecycle over `Dexpace::Closeable`, performs the
 `ASYNC-8`–`ASYNC-12` diagnostic hop over `Fiber[]`, and ships `ASYNC-18`'s scheduled delay. Nineteen
 requirement IDs, all `ASYNC` (`ASYNC-1`–`ASYNC-5`, `ASYNC-7`–`ASYNC-20`), plus two cross-reference
-rows with no budget line (`PIPE-33`, `ASYNC-6`). `ASYNC-3` stays ⏳ (`DEF-18`, design §10.5) and
-`ASYNC-4` stays N/A (vacuous, §10.5, no register row); no deferral is filed by this plan.
+rows with no budget line (`PIPE-33`, `ASYNC-6`). `ASYNC-3` stays ⏳ (an unsatisfied MUST, design §10.5,
+`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) and `ASYNC-4` stays N/A (vacuous,
+§10.5, on no such entry); nothing is postponed by this plan.
 
 **Architecture:** One class, `Dexpace::Async::Thread::Pool`, with a private `Job` (frozen `Data`)
 crossing the thread boundary and one `Thread.new` call in the whole gem. The worker loop clears its
@@ -22,7 +23,8 @@ snapshot and rescuing `::Exception` so no bad task ever shrinks the pool (`P8-22
 blocks the caller — a full queue is `RejectedError`, a closed pool is `Dexpace::ClosedError`, both
 routed to `Completer#fail` by phase 2's bridge (`P8-23`). `#close` closes the queue (stop, drain),
 stops one lazily created `Timer` thread shared by every outstanding `#delay`, and emits
-`Events::INSTRUMENTATION_SHUTDOWN` exactly once (`DEF-31`, closed here). The version-skew assertion
+`Events::INSTRUMENTATION_SHUTDOWN` exactly once (`SEAM-25`'s lifecycle event, which phase 2 postponed
+and which closes here). The version-skew assertion
 is made directly in the entry file rather than through a seam registry, because `SEAM-18` requires
 the executor to be caller-supplied with no default and there is no executor registry to register
 into (`P2-1`, `P8-21`).
@@ -309,7 +311,7 @@ The design's six open questions, resolved with a concrete decision each.
    required keyword on a close-time budget would make the common construction call three keywords
    long for a value most callers have no opinion about. The YARD names the transport's own read
    timeout as the value this should exceed. Task 4.
-3. **The two `DEF-31` event field keys.** *Decision:* `"dexpace.executor.worker_count"` and
+3. **The two field keys on `SEAM-25`'s lifecycle event.** *Decision:* `"dexpace.executor.worker_count"` and
    `"dexpace.executor.drained"`, as `private_constant` frozen `String`s on `Pool`, exactly as the
    design recommends — private because `dexpace-conformance`'s eventual assertion is "close twice →
    one event" and needs only the event name, and a public field key would be an `NFR-4` lock with
@@ -326,8 +328,8 @@ The design's six open questions, resolved with a concrete decision each.
    `Float`) and raising `NotImplementedError` from `#now` and `#sleep`, so a later edit that reaches
    for either fails loudly rather than silently using a stub never designed for it. Not shared with
    phase 5a's own clock double, which lives in `gems/dexpace-core/test/support/` and is unreachable
-   from this gem's `test_helper.rb` (`DEF-29`'s disposition, see *Discrepancies* above for the
-   sibling finding about `test/support/`). Task 1.
+   from this gem's `test_helper.rb` (core's fakes stay in core — `8a`'s design owns that decision; see
+   *Discrepancies* above for the sibling finding about `test/support/`). Task 1.
 6. **The three-interpreter re-run.** *Decision:* Task 1 installs `ruby@3.2.11` and `ruby@4.0.6` and
    re-runs every fact this plan's `R8`/`R9` decisions are conditional on — specifically, that
    `Fiber[:k] = nil` deletes the key and that a pooled worker created before a key was set sees
@@ -360,7 +362,7 @@ rejection path raises it by name.
 4. `Pool.build`/`.new`, `Pool::Job`, the worker loop, `#post` (`ASYNC-2`; `R8`'s clearing line;
    `R9`; `R12`; `P8-20`, `P8-22`, `P8-23`) — needs Task 3.
 5. Diagnostics conformance, the break-it proof for `R8`/`R9` (`ASYNC-8`–`ASYNC-12`) — needs Task 4.
-6. `#close`, `#release`, the bounded drain, `DEF-31`'s event (`ASYNC-15`, `ASYNC-16`, `ASYNC-17`,
+6. `#close`, `#release`, the bounded drain, `SEAM-25`'s lifecycle event (`ASYNC-15`, `ASYNC-16`, `ASYNC-17`,
    `SEAM-25`, `XCUT-13`, `XCUT-22`; `P8-24`) — needs Task 4.
 7. `Timer` and `Pool#delay` (`ASYNC-18`; `R11`; `P8-25`); the two-fibers-one-thread no-deadlock
    proof — needs Task 6 (shares `#release`'s shutdown sequence).
@@ -372,7 +374,7 @@ rejection path raises it by name.
 11. `sig/` completion, the RBS baseline diff, the runtime surface snapshot — needs Tasks 2–9.
 12. The clean-bundle isolation run, extended; the full gate set on all three interpreters — needs
     Task 11.
-13. The `ASYNC-7` README, YARD, the knowledge note, the register-edit instructions, housekeeping —
+13. The `ASYNC-7` README, YARD, the knowledge note, the postponed-work mark, housekeeping —
     needs Task 12.
 
 ---
@@ -728,7 +730,8 @@ re-declared here for the same reason):
 
 module Dexpace
   # A minimal Fiber::Scheduler, copied from phase 5a's Dexpace::ProbeScheduler (this gem's own
-  # test/support/, per DEF-29's disposition; see this plan's Discrepancies section). Verified fact
+  # test/support/, because core's fakes stay in core -- 8a's design owns that decision; see this
+  # plan's Discrepancies section). Verified fact
   # 7 above is this exact class, unmodified, driving a fiber blocked on a Thread::Queue#pop.
   class ProbeScheduler
     attr_reader :block_count, :unblock_count, :kernel_sleep_count
@@ -1292,7 +1295,7 @@ module Dexpace
 
         DEFAULT_NAME = "dexpace-async-thread"
 
-        # DEF-31's event field keys. private_constant: dexpace-conformance's assertion is "close
+        # SEAM-25's lifecycle-event field keys. private_constant: dexpace-conformance's assertion is "close
         # twice -> one event" and needs only the event name; a public field key would be an
         # NFR-4 lock with one reader inside the gem that owns it (design open question 3).
         WORKER_COUNT_FIELD = "dexpace.executor.worker_count"
@@ -1610,10 +1613,11 @@ line; confirm green again.
 
 ---
 
-## Task 6: `#close`, `#release`, the bounded drain, and `DEF-31`'s lifecycle event
+## Task 6: `#close`, `#release`, the bounded drain, and `SEAM-25`'s lifecycle event
 
 **Requirement IDs:** `ASYNC-15`, `ASYNC-16`, `ASYNC-17`. **Design:** "Teardown, stated as the
-sequence it is"; "`R12`" (the `dd8e6d2d`/`047644ea` rows); deviation `P8-24`; `DEF-31`.
+sequence it is"; "`R12`" (the `dd8e6d2d`/`047644ea` rows); deviation `P8-24`; the `SEAM-25` entry
+under *Work phase 8b postponed, and who owns what it inherited* (the event phase 2 postponed).
 
 **Files:**
 - Modify: `gems/dexpace-async-thread/lib/dexpace/async/thread/pool.rb`,
@@ -2145,7 +2149,7 @@ confirm green.
 ## Task 8: The bridge end to end, `ASYNC-6`/`PIPE-33`'s cross-reference rows, and `ASYNC-7`
 
 **Requirement IDs:** `ASYNC-1`, `ASYNC-5`, `ASYNC-7`, `ASYNC-13`, `ASYNC-14`, `ASYNC-19`,
-`ASYNC-20`; cross-reference rows `PIPE-33` and `ASYNC-6`; `ASYNC-3` (⏳, `DEF-18`) and `ASYNC-4`
+`ASYNC-20`; cross-reference rows `PIPE-33` and `ASYNC-6`; `ASYNC-3` (⏳, an unsatisfied MUST per §10.5) and `ASYNC-4`
 (N/A) demonstrated rather than newly decided. **Design:** "How a unit of work reaches the pivot,
 how a caller awaits it, and where the deadlines are"; "`R10`"; "The two cross-reference rows, with
 no budget line"; testing strategy groups 6 and 7 (the concurrency half moves to Task 10).
@@ -2265,7 +2269,7 @@ class BridgeTest < DexpaceTestCase
     assert_equal(0, response.closes)
   end
 
-  test "ASYNC-3 (DEF-18)/ASYNC-5: cancelling while queued still lets the task run, and the orphan closes exactly once" do
+  test "ASYNC-3 (unsatisfied MUST, design 10.5)/ASYNC-5: cancelling while queued still lets the task run, and the orphan closes exactly once" do
     pool = build(size: 1)
     occupy_gate = ::Thread::Queue.new
     pool.post { occupy_gate.pop } # occupy the one worker so the second unit stays queued
@@ -2825,11 +2829,11 @@ Expected: all seventeen gates clean on all three rows.
 
 ---
 
-## Task 13: The `ASYNC-7` README, YARD, the knowledge note, register-edit instructions, housekeeping
+## Task 13: The `ASYNC-7` README, YARD, the knowledge note, the postponed-work mark, housekeeping
 
 **Requirement IDs:** `ASYNC-7`. **Design:** "What `8b` additionally ships, without owning a new
-ID"; "The knowledge note `8b` files"; "The findings proposed for the registers"; "Deferral-register
-sweep"; open question 4.
+ID"; "The knowledge note `8b` files"; "The findings proposed for the registers"; "Work phase 8b
+postponed, and who owns what it inherited"; open question 4.
 
 **Files:**
 - Modify: `gems/dexpace-async-thread/README.md`,
@@ -2911,16 +2915,18 @@ interpreters, and amend that note's own single-interpreter caveat to say the re-
 what it found. Then run `ruby scripts/verify_knowledge_structure.rb` (the gate) and
 `ruby scripts/knowledge_drift.rb` (the hand-run report). **`harvested/` is not edited.**
 
-- [ ] **Step 5: Perform `DEF-31`'s register edit**
+- [ ] **Step 5: Mark `SEAM-25`'s lifecycle event — the work phase 2 postponed here — as landed**
 
-`docs/deferred-items.md`'s `DEF-31` row: change `- **Status:** deferred` to
-`- **Status:** picked-up (<execution date>, phase 8b). \`dexpace-async-thread\`'s \`#close\`
-emits \`Events::INSTRUMENTATION_SHUTDOWN\` at \`Severity::INFO\`, inside
-\`Instrumentation.contain\`, exactly once, asserted under 16-way concurrent close
-(Task 6/Task 10).` Leave `DEF-18`, `DEF-1`, `DEF-28`, `DEF-21`, `DEF-27`, `DEF-11`, `DEF-12`,
-`DEF-32`, `DEF-33` and `DEF-29` untouched, per the design's own sweep — `DEF-29`'s mark is `8a`'s,
-not this plan's, and this plan's `test/support/` doubles are exactly the evidence the design cites
-for why.
+Mark this sub-phase's `SEAM-25` and `ASYNC-15` checklist rows ✅ and say in the roadmap's phase
+status note that the lifecycle event phase 2 postponed has landed: `dexpace-async-thread`'s
+`#close` emits `Events::INSTRUMENTATION_SHUTDOWN` at `Severity::INFO`, inside
+`Instrumentation.contain`, exactly once, asserted under 16-way concurrent close (Task 6/Task 10);
+the harness half is phase 9's Task 11 (`ExecutorSuite`) and phase 9 marks that itself. Touch
+nothing else the design's *Work phase 8b postponed* section lists — the unsatisfied MUSTs, the
+`SEAM-24` bridge, the `deadline:` keyword, the version-skew guard, `close_quietly`'s routes, the
+post-v1 async gems, `Hooks.notify` and the `IO-38` trigger are all owned elsewhere as that section
+says, and the decision to keep core's fakes in core is `8a`'s to confirm, not this plan's; this
+plan's `test/support/` doubles are exactly the evidence `8a`'s entry cites for why.
 
 - [ ] **Step 6: Hand the four open-item/deviation findings to a human**
 
@@ -2947,8 +2953,8 @@ and do not commit; both are the user's to ask for.
 |---|---|---|---|
 | `ASYNC-1` | MUST | ✅ | 8 |
 | `ASYNC-2` | MUST | ✅ | 4, 8 |
-| `ASYNC-3` | MUST | **⏳ not satisfied, citing `DEF-18`** — see Task 8's cancel-while-queued test and `R10` | 8 (mitigation demonstrated) |
-| `ASYNC-4` | MUST | **N/A — vacuous, citing design §10.5, no register row** | none (vacuous by construction; no code) |
+| `ASYNC-3` | MUST | **⏳ not satisfied, citing design §10.5 and the unsatisfied-MUST entry in `docs/first-release.md` § What v1 ships without** — see Task 8's cancel-while-queued test and `R10` | 8 (mitigation demonstrated) |
+| `ASYNC-4` | MUST | **N/A — vacuous, citing design §10.5, on no such entry** | none (vacuous by construction; no code) |
 | `ASYNC-5` | MUST | ✅ | 4 (`Completer#fulfil`, core), 8 (window test) |
 | `ASYNC-6` | MUST | **cross-reference row, `8c`'s ID** — stated half only | 8 |
 | `ASYNC-7` | SHOULD | ✅ | 8 (demonstration test), 13 (README) |
@@ -2965,7 +2971,7 @@ and do not commit; both are the user's to ask for.
 | `ASYNC-18` | MUST | ✅ | 7 |
 | `ASYNC-19` | MUST | ✅ | 8 |
 | `ASYNC-20` | MUST | ✅ | 8 |
-| `PIPE-33` | MUST | **cross-reference row, phase 4's ID** — clauses 2–4 re-asserted; clause 5 (interrupt) stays phase 4's ⏳ citing `DEF-18` | 8 |
+| `PIPE-33` | MUST | **cross-reference row, phase 4's ID** — clauses 2–4 re-asserted; clause 5 (interrupt) stays phase 4's ⏳ citing the same unsatisfied-MUST entry | 8 |
 
 **Every one of the 19 owned IDs plus the two cross-reference rows appears above.** `ASYNC-3`'s row
 text and `ASYNC-4`'s row text are copied from the design's own drafted checklist language at
@@ -3038,7 +3044,7 @@ once so a later edit has something to violate rather than a habit to forget.
 - Every one of the 19 owned IDs, both cross-reference rows and all four modal levels were checked
   against appendix C (`:589-608`): 15 MUST + 4 SHOULD (`ASYNC-7`, `ASYNC-8`, `ASYNC-16`,
   `ASYNC-17`), which matches the coverage table row for row and the charter's split. `ASYNC-3` ⏳
-  citing `DEF-18`, `ASYNC-4` N/A citing §10.5 and **no** register row, `ASYNC-6` and `PIPE-33` as
+  citing the unsatisfied-MUST entry, `ASYNC-4` N/A citing §10.5 and **no** such entry, `ASYNC-6` and `PIPE-33` as
   cross-references with no budget line — all four as the charter fixes them. No ID is missing a
   task, none is ticked that the design says must carry a clause instead.
 - **Task 8's `PIPE-33` test was rebuilt around a real multi-step pipeline.** It wrapped a bare
@@ -3114,7 +3120,7 @@ a worse failure than naming the check.
 ## Handoff to follow-through
 
 Four things this sub-phase cannot write itself, recorded here so they are not rediscovered. None is
-a register edit performed by this plan.
+a mark this plan performs itself.
 
 1. **The deviation bands are settled, and the charter is where they are stated.** The 8b design's
    reserved band was narrowed from `P8-20`–`P8-39` to `P8-20`–`P8-35` on 2026-09-12, because `8b` uses
@@ -3167,7 +3173,7 @@ of which changes a line of this plan's nineteen IDs or twelve tasks.
    phase-0 file this plan does edit is `tools/require_allowlist.rb` (item 2 above), which is a
    different file and a different repair.
 7. **`Events::TRANSPORT_HEADER_DROPPED` is a `dexpace-core` widening `8a` or `8c` lands, not `8b`.**
-   `8b` drops no header and emits no drop record; `DEF-31`'s `Events::INSTRUMENTATION_SHUTDOWN` is
+   `8b` drops no header and emits no drop record; `SEAM-25`'s `Events::INSTRUMENTATION_SHUTDOWN` is
    phase 5b's and already exists. Named so a reviewer of the phase-level PR does not read the new
    constant as something every phase-8 gem touches.
 8. **`8b`'s two cross-reference rows are unchanged by the reconciliation.** `PIPE-33` keeps its phase-4

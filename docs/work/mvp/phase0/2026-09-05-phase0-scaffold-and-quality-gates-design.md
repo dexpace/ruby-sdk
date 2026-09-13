@@ -125,7 +125,7 @@ where the styleguide-derived areas that carry no requirement ID first bind:
 | *RuboCop and formatting* — `--chapter 1 --section rules` and `--topic tooling-and-quality-gates --section rules` | Two rules with no note: `tooling-and-quality-gates/f37d7536` and `/e00c3fc5`. One rule resolved only by inference from another topic: `formatting-and-tooling/82fd4af5`. Three notes filed |
 | *RBS / Steep typing* — `--chapter 3 --section rules` and `--topic type-system,data-modeling --section rules` | Clean for this phase. Every Sorbet-conditional rule is resolved by `type-system/169c8f38` and `data-modeling/677b01de`. `type-system/4a058b71` (`T::Enum` for closed domain sets) has no replacement named and is **routed to phase 1**, which owns the domain model |
 | *Minitest conventions* — `--chapter 11 --section rules` and `--topic testing,assertions --section rules` | Two rules with no note: `assertions/df75bd2e` and `testing/de6fe7e3` (with `testing/79254878` in the same family). Two notes filed. `testing/180b5f41`'s `test "..." do` form needs a helper Minitest does not ship; phase 0 builds it |
-| *Public API surface* — `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules` | Run because phase 0 builds `NFR-3`/`NFR-4`/`NFR-11`'s machinery even though it exports almost nothing. Clean for this phase, with two rules routed onward and one already answered. `documentation/80beb95e` ("YARD-document every public class and every public method") is what the `yard stats --list-undoc` gate mechanises, and `documentation/42d8cbf4` ("never restate a `sig`'s type information") governs the two YARD blocks this phase writes. `api-design/3279c12e` (a Sorbet `sig` on every public method) is Sorbet-conditional and already resolved by `type-system/169c8f38`. Routed onward, with no phase-0 obligation because phase 0 ships no domain code: `error-handling/51261878` (one project-level base exception with domain trees hanging off it) and `error-handling/75571c73` (`Assert::InvariantViolation` for programmer errors) go to **phase 1** alongside `assertions/df75bd2e`; `api-design/948e4368`'s deprecation protocol is what `gates:sig_diff` will enforce once a release exists, so it goes with `DEF-20`. `documentation/ff82e7b7`'s `# TODO(Full Name):` format has no cop and no TODO to police yet; recorded here rather than mechanised |
+| *Public API surface* — `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules` | Run because phase 0 builds `NFR-3`/`NFR-4`/`NFR-11`'s machinery even though it exports almost nothing. Clean for this phase, with two rules routed onward and one already answered. `documentation/80beb95e` ("YARD-document every public class and every public method") is what the `yard stats --list-undoc` gate mechanises, and `documentation/42d8cbf4` ("never restate a `sig`'s type information") governs the two YARD blocks this phase writes. `api-design/3279c12e` (a Sorbet `sig` on every public method) is Sorbet-conditional and already resolved by `type-system/169c8f38`. Routed onward, with no phase-0 obligation because phase 0 ships no domain code: `error-handling/51261878` (one project-level base exception with domain trees hanging off it) and `error-handling/75571c73` (`Assert::InvariantViolation` for programmer errors) go to **phase 1** alongside `assertions/df75bd2e`; `api-design/948e4368`'s deprecation protocol is what `gates:sig_diff` will enforce once a release exists, so it goes with the release path (`docs/first-release.md` § Release path, the signed-publication entry). `documentation/ff82e7b7`'s `# TODO(Full Name):` format has no cop and no TODO to police yet; recorded here rather than mechanised |
 
 **Five notes were filed against the corpus by this phase**, before the plan was written, because
 a resolution recorded only in a design document is re-litigated by whoever reads the corpus next:
@@ -416,7 +416,9 @@ The runtime half of the version-skew guard — the registration-time assertion e
 against `Dexpace::VERSION` (§2.3) — is **designed here and lands in phase 2**, because the call it
 hangs on is require-time seam self-registration, which is design §10 item 8 and phase 2's scope.
 Building a public `Dexpace.register` in phase 0 would fix an API phase 2 must be free to shape.
-Deferred as `DEF-21`.
+Postponed to phase 2, which built it as the required `core:` keyword on
+`Dexpace::Registry#register(key, factory, core:)` — deviation P2-7 in
+`docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md`.
 
 ## The zero-dependency gate, part 2: require-allowlist audit (`tasks/gates.rake`)
 
@@ -582,7 +584,9 @@ collection install` for itself, which is the same argument the lockfile note mak
 
 `test/` gets no Steep target in phase 0. The testing note records why and what changes it: a test
 tree is added as its own named target when its helpers become production-quality code worth
-checking, which is phase 8's conformance helpers at the earliest. Deferred as `DEF-23`.
+checking, which is phase 8's conformance helpers at the earliest. No v1 phase met that condition —
+phase 8a and phase 9 both place conformance code under `lib/`, which already has a target — so it is
+an event-gated entry under `docs/first-release.md` § Post-release triggers, the Steep-target-over-a-`test/`-tree entry.
 
 ## The API-surface lock: `gates:sig_diff` and `gates:surface_snapshot`
 
@@ -749,7 +753,9 @@ another *gem's* internals — but the direction is stated here so a later reader
 re-derive it.
 
 Phase 0 lays the convention and the base class. It does not lay a conformance assertion object;
-that is `dexpace-conformance`'s, it is phase 8's, and it is deferred as `DEF-22`.
+that is `dexpace-conformance`'s, it is phase 8's, and it lands in phase 8a, Tasks 4–8 and 20
+(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`), with
+phase 9, Tasks 2–12a adding the remaining suites.
 
 ## The gem entry files and `sig/` mirrors (`gems/*/lib/**`, `gems/*/sig/**`)
 
@@ -910,29 +916,36 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 | P0-9 | Every adapter gemspec declares **`dexpace-core` only**; the third-party half of each `NFR-2` budget is declared by the phase that writes the code needing it | `NFR-2`; design §2.1's dependency table | A dependency declared before any line of code requires it is a dependency nothing can justify: the require-allowlist would have nothing to permit it for, the clean-bundle run would install a gem no `require` reaches, and the `>= ` floor would be a version chosen without a caller. `json >= 2.19.9` lands in phase 7, `net-http` and `async-http` in phase 8. The audit still enforces the full budget, and its `two_third_party` fixture is the negative proof |
 | P0-10 | `NFR-5`'s coverage floor is **armed and green**, not switched off, where the roadmap says "inert until phase 1" | `NFR-5`; the roadmap's phase-0 row | Both describe the same observable state and a reader is entitled to know which the build implements. `minimum_coverage 80` is unconditional; the tracked set is the twelve entry and version files, all executed by the smoke suites, so it passes at 100% on its merits. What phase 1 changes is the denominator, not the gate |
 
-## Deferrals Filed by Phase 0
+## Work Phase 0 Postponed, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; each names a target phase or an explicit pick-up
-condition, per the roadmap's step 7. (The heading avoids the literal words the housekeeping
-probe's `registers` check reserves for the aggregate register, which is where these rows live.)
+Phase 0 postponed four things. Each entry is self-contained — what was postponed, why phase 0 did
+not do it, and the plan task or `docs/first-release.md` entry that owns it now — because the
+separate register these were first filed against was retired on 2026-09-13, once every item had
+an owner. (The heading avoids the literal words the housekeeping probe's `registers` check
+reserves for an aggregate register.)
 
-| ID | Deferral | Target / condition |
+| Postponed | Why phase 0 did not do it | Owner now |
 |---|---|---|
-| `DEF-20` | The release path: signed `gem push` (`NFR-16`) and the release half of `NFR-12` | No phase owns it. Condition: `docs/first-release.md`'s RubyGems-ownership and trusted-publishing blockers close |
-| `DEF-21` | The **runtime** half of the version-skew guard — the registration-time assertion on `Dexpace::VERSION` each adapter runs | Phase 2. It hangs on require-time seam self-registration (design §10 item 8), which is phase 2's to shape |
-| `DEF-22` | `dexpace-conformance`'s framework-agnostic assertion objects and their Minitest/RSpec drivers | Phase 8, which owns that gem's gemspec, version and first release; phase 9 adds the remaining suites |
-| `DEF-23` | A Steep target over a `test/` tree | Condition: a gem's test support becomes production-quality code worth checking — phase 8's conformance helpers at the earliest |
+| The release path: signed `gem push` (`NFR-16`) and the release half of `NFR-12` | There is no release path: nothing is published, every gem is at `0.0.0`, RubyGems ownership is unsettled and trusted publishing is not configured. A signing step wired to a path that does not exist would be a gate over nothing, which is the failure mode phase 0 is built to avoid. Phase 0 does build `gates:reproducible`, so `NFR-12`'s build half is satisfied; the release half — a published artifact byte-identical to a rebuild from its tag — waits with the rest | No phase. `docs/first-release.md` § Release path, the signed-publication entry, which opens when that file's RubyGems-ownership and trusted-publishing blockers close |
+| The **runtime** half of the version-skew guard — the registration-time assertion on `Dexpace::VERSION` each adapter runs | Design §2.3 pairs the `~> MAJOR.MINOR` constraint with a registration-time assertion so a mismatched core/adapter pair fails loudly at `require` time rather than at the first seam call. Phase 0 builds the static half — `gates:gemspec_audit` derives the expected constraint from `VERSIONS` and asserts every adapter declares it. The runtime half hangs on require-time seam self-registration, design §10 item 8 and phase 2's scope; defining a public `Dexpace.register` in phase 0 would fix an API phase 2 must be free to shape | Built by phase 2 on 2026-09-07: `Dexpace::Registry#register(key, factory, core:)` takes the adapter's `~> MAJOR.MINOR` requirement as a **required** keyword and raises `Dexpace::SeamError` on skew, with the comparison hand-rolled because `Gem` is undefined under `ruby --disable-gems` — deviation P2-7 in `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md` |
+| `dexpace-conformance`'s framework-agnostic assertion objects and their Minitest/RSpec drivers | Design §9.3 fixes the shape: each assertion is a callable that returns cleanly or raises a `Dexpace::Conformance::Failure` carrying the expected and actual values, with thin Minitest and RSpec drivers over it, so Minitest never becomes a runtime constraint on a consumer. Phase 0 creates the gem skeleton because the roadmap's phase-0 row lists all six MVP gems, and lays the test-directory convention and one shared Minitest base — but an assertion object with no transport contract to assert against would fix an interface before the contract it serves exists | Phase 8a, Tasks 4–8 and 20 (`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`) write the protocol, `WireServer`, `TransportSuite` and the two drivers; phase 9, Tasks 2–12a (`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`) add the remaining suites. Phase 8 owns the gem's gemspec, version and first release |
+| A Steep target over a `test/` tree | The styleguide holds test helpers to the same type discipline as `lib/` (`testing/de6fe7e3`), which `docs/knowledge/notes/testing.md` answers: there is no Sorbet sigil to write, and a test tree gets RBS coverage only where the `Steepfile` names a test target. Phase 0 names six targets, one per gem, and none over `test/` — the only test code that exists is a shared base class and six smoke suites, and a seventh target over them would buy a checked `assert_equal` call. The condition — a gem's test support becoming production-quality code worth checking — was checked by phase 2 (three in-memory fakes with no invariants a type checker would catch) and by phase 8a and phase 9 (both place conformance code under `lib/`, which already has a target) and never met | `docs/first-release.md` § Post-release triggers, the Steep-target-over-a-`test/`-tree entry |
 
-### Deferral-register sweep
+### What phase 0 found among the items already postponed
 
-The roadmap's execution step 1 requires every phase to read the whole register and disposition
-every row, not to scan for its own name. All nineteen seeded rows were read.
+The roadmap's execution step 1 had every phase read everything earlier work had postponed, not scan
+for its own name. Phase 0 read the nineteen items the MVP scope design had postponed before any
+phase existed.
 
-**Phase 0 picks up none and marks none UNSCHEDULED.** `DEF-1` through `DEF-10` and `DEF-18` are
-requirement-level deferrals whose conditions are behavioural and cannot be met by a phase that
-ships no domain code. `DEF-11` through `DEF-17` are post-v1 gems and are out of the MVP's scope
-by construction. `DEF-19` — the fenced-example executor for `.claude/skills/housekeeping/` —
-comes closest, since its stated pick-up condition is "needs published gems to point at": phase 0
-creates six gem *directories*, but nothing is published and every gem is at `0.0.0`, so the
-condition is not met and the row is left untouched rather than marked UNSCHEDULED. It becomes
-answerable at the first release, alongside `DEF-20`.
+**Phase 0 picks up none and declines none.** The requirement-level items — `SEAM-24`/`SEAM-28`,
+`HTTP-22`/`HTTP-48`–`HTTP-50`, `BODY-12`/`BODY-36`, `PIPE-36`, `RECOV-31`, `RETRY-29`/`38`/`43`,
+`REDIR-27`, `SSE-41`, `OBS-32`/`OBS-37`, `TRANSPORT-28`/`TRANSPORT-30`, and the unsatisfied MUSTs
+`ASYNC-3` and `PIPE-33`'s interrupt clause — have behavioural conditions that cannot be met by a
+phase that ships no domain code. The seven post-v1 gems of design §2.2 are out of the MVP's scope
+by construction (all of the above now stand under `docs/first-release.md` § What v1 ships without,
+except where a later phase built them). The fenced-example executor for
+`.claude/skills/housekeeping/` comes closest, since its stated condition is "needs published gems
+to point at": phase 0 creates six gem *directories*, but nothing is published and every gem is at
+`0.0.0`, so the condition is not met and the item is left as it was. It becomes answerable at the
+first release, alongside the release path above — it now sits under `docs/first-release.md`
+§ Release path › After the first publish.

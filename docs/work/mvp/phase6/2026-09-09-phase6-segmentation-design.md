@@ -15,7 +15,8 @@ re-imposes a chain the split existed to avoid, arriving from the other direction
 
 **The headline, stated once at the top because everything else depends on it.** Phase 6's scope is
 `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28` and `AUTH-1`–`AUTH-38` — **111 prefix IDs of its own** — plus the
-fifteen `RECOV` IDs `DEF-35` moves here, for a budget of **126**. **The cut is three ways — `6a` retry, `6b`
+fifteen `RECOV` IDs phase 4's segmentation postponed to this phase (the recovery-stack retry engine, `RECOV-17`–`RECOV-30` and
+`RECOV-34`), for a budget of **126**. **The cut is three ways — `6a` retry, `6b`
 redirect, `6c` authentication — and every boundary is a CONVENIENCE.** The roadmap's phase-6 bullet leaves one
 question open: whether the `REDIR-24`/`REDIR-11`/`AUTH-29` coupling makes redirect and auth "one segment or two
 with a shared contract landed first". **That question was answered by phase 4c on 2026-09-08 and this document
@@ -26,7 +27,9 @@ roadmap sentence is a correctly-worded pointer at a premise that went stale thre
 and the correction is stated in this document's *Deviation Ledger* rather than filed as an open item — the
 reasoning for that choice is given there.
 
-Phase 6 adds **no new unsatisfied MUST**. It closes four register rows, half-closes two, files none, and
+Phase 6 adds **no new unsatisfied MUST**. It lands five items earlier phases postponed to it — the recovery-stack retry engine,
+`ProtocolError#retryable?`, `CFG-35`'s throwable half, the per-attempt half of `OBS-29`'s wiring and the `Pipeline.standard`
+constructors — postpones nothing new, and
 inherits a spec-reading budget of **fourteen** requirement IDs that exist only as appendix-C rows (`OI-12`).
 
 ---
@@ -39,8 +42,8 @@ inherits a spec-reading budget of **fourteen** requirement IDs that exist only a
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for the canonical text of all 111
   prefix IDs and of `RECOV-17`–`RECOV-34`. Appendix C is a **necessity** here and not a convenience: fourteen
   of the fifteen `RECOV` IDs in scope appear in no prose chapter at all (`OI-12`).
-- `docs/product-spec/08-execution-pipelines.md` §8.2 — the recovery-chain primitives `DEF-35`'s engine installs
-  into, and the chapter that stops at `RECOV-16`.
+- `docs/product-spec/08-execution-pipelines.md` §8.2 — the recovery-chain primitives the recovery-stack retry engine (phase 4's deferral, `6a`'s
+  work) installs into, and the chapter that stops at `RECOV-16`.
 - `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` in full — §6.1 (single-sourcing, the open
   capability, construction-time validation, backoff, the three hand-written `Retry-After` pieces, the two
   stacks, the inter-attempt wait), §6.2 (the cross-origin marker on the per-hop cursor) and §6.3 (the
@@ -62,7 +65,7 @@ inherits a spec-reading budget of **fourteen** requirement IDs that exist only a
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md` and
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md` as the two worked examples of this document's
   form.
-- `docs/deferred-items.md`, `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -127,13 +130,13 @@ roadmap's own instructions require quoting.**
   converts it to a `Dexpace::InvalidArgumentError` carrying the offending input, and that is what to assert on.
   <sub>review · `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md` · high · sha:manual-phase2-seam27-composition</sub>
 
-- **`error-handling/a0c4abfe`** — `6a`'s note. The suppressed trail is `Dexpace::Suppressible`, a module
+- **`error-handling/5322e965`** — `6a`'s note. The suppressed trail is `Dexpace::Suppressible`, a module
   `Dexpace::Error` includes and `Dexpace.attach_suppressed` `extend`s onto anything else, with the
   self-suppression skip `RETRY-34` names already implemented; `Dexpace.suppressed(error)` reads the trail off
   any object. `6a` writes no second trail and no second skip.
   <sub>review · `docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md` · high · sha:manual-phase4b-suppressible-module</sub>
 
-- **`pipeline/f02559b9`** — `6a`'s second note. Every place core re-raises an error it is *carrying* rather
+- **`pipeline/7ce4431d`** — `6a`'s second note. Every place core re-raises an error it is *carrying* rather
   than one it just rescued is written `raise error, cause: nil`, because a bare `raise stored` silently assigns
   the caller's in-flight exception as that error's `#cause`. `RETRY-34`'s terminal surfacing and `RECOV-20`'s
   "the terminal failure's throwable MUST be surfaced" are both such places.
@@ -158,7 +161,8 @@ is not a frozen tree.
 `--phase 4` and `--phase 5` were run to see what the predecessors already cite. Phase 4 cites `RETRY-13`,
 `RETRY-25`, `RETRY-27`, `RETRY-28`, `RETRY-34`, `RETRY-37`, `RETRY-42`, `REDIR-11`, `REDIR-24`, `AUTH-19` and
 `AUTH-29` without owning any of them, all pointing here. Phase 5a cites `RETRY-1` and `RETRY-12` and fixed one
-object phase 6 consumes and must not duplicate (`Dexpace::Retryability`, `DEF-40`).
+object phase 6 consumes and must not duplicate (`Dexpace::Retryability`; the throwable half of `CFG-35`, which 5a postponed
+to this phase, is `6a`'s Task 3).
 
 **No knowledge note is filed by this document.** The one candidate — `URI::Generic#userinfo = nil` being a
 silent no-op — is recorded under *Verified Ruby facts* below and the note that carries it is **`6b`'s to file
@@ -255,7 +259,7 @@ sends. `RECOV-30` restates both at SHOULD level from the recovery side. Design �
 sentence: the idempotent set, the classifier, `XCUT-7`'s configurable set and the calculator "all live in one
 `Dexpace::Resilience::Policy` module as frozen constants and pure functions".
 
-**`DEF-35` is that argument already applied once, at phase scale.** It refused to build the recovery half in
+**Phase 4's deferral of the recovery-stack engine is that argument already applied once, at phase scale.** It refused to build the recovery half in
 phase 4 because "building the recovery half two phases before the stage half is exactly the drift both
 requirements exist to prevent". A cut inside `6a` — along the two stacks, or along sync-versus-async — re-runs
 the same mistake at document scale: one document would author the calculator and another would consume it,
@@ -301,8 +305,9 @@ accident.
 
 1. **`6a` is the largest and its policy core is the phase's longest pole.** Landing it first gives the other
    two the longest lead, which is the reasoning phase 4 gave `4a` and phase 5 gave `5a`.
-2. **`6a` is where four register rows close or half-close** — `DEF-35`, `DEF-38`, `DEF-40` and `DEF-42`'s
-   per-attempt half. Two of those (`DEF-38`, `DEF-40`) name objects phase 5a deliberately shipped half of, and
+2. **`6a` is where four postponed items land or half-land** — the recovery-stack engine (phase 4's), the baked
+   `ProtocolError#retryable?` (phase 4b's), `CFG-35`'s throwable half (phase 5a's) and the per-attempt half of `OBS-29`'s
+   wiring (phase 5c's). Two of those (`#retryable?`, the throwable half) name objects phase 5a deliberately shipped half of, and
    the longer they stay half-shipped the more likely a second one gets built.
 3. **`6a` is the sub-phase this document assigns `OI-31`'s resolution to**, and the widening it lands is
    consumed by `6b` and `6c` if it exists and by nothing if it does not — see *Phase-level tasks* below.
@@ -337,7 +342,7 @@ both stacks.
 **Rejected cut C — splitting `6a` along its two stacks, or along sync/async.** Rejected under *Why `6a` is one
 segment*, on `RETRY-13`, `RETRY-14`, `RECOV-30`, the chapter's own introduction and `PIPE-28`'s precedent.
 
-**Rejected cut D — four ways, with a closing segment for `DEF-39`, `DEF-42` and `OI-31`.** The three
+**Rejected cut D — four ways, with a closing segment for `Pipeline.standard`, `OBS-29`'s wiring and `OI-31`.** The three
 phase-level items genuinely belong to no sub-phase. Rejected anyway: together they are a handful of tasks, a
 fourth segment is a fourth document set and not a fourth merge (a phase returns to `mvp` as one phase-level
 pull request, roadmap execution step 5), and a segment that can only run last is the definition of a linear
@@ -376,13 +381,14 @@ already fixed, that settles something a sub-phase design might otherwise believe
    mechanism" are what license it.
 6. **The status classifier is phase 5's object and `6a` builds no second one.** `Dexpace::Retryability.retryable_status?`
    ships in 5a as `XCUT-5`'s SINGLE shared classifier with the exact set 408, 429 and all 5xx except 501 and
-   505. `6a` computes `DEF-38`'s baked `ProtocolError#retryable?` **from it**. `XCUT-7`'s configurable set —
+   505. `6a` computes the baked `ProtocolError#retryable?` phase 4b postponed **from it** (`6a`, Task 6). `XCUT-7`'s configurable set —
    default `{408, 429, 500, 502, 503, 504}` — is a different object and `XCUT-5`'s own closing NOTE is what
    keeps them apart: the baked flag is queryable and is **not** what the retry step consults.
 7. **The non-protocol retryability branch is `XCUT-6`'s capability query, not a concrete-type match.** Design
    §6.1: `error.respond_to?(:retryable?) && error.retryable?`, walked over `Dexpace.each_cause` (phase 4b's,
-   cycle-safe by reference identity, `XCUT-9`). `6a` writes no `is_a?(::IOError)` branch — `DEF-40` records
-   that such a branch is wrong in both directions.
+   cycle-safe by reference identity, `XCUT-9`). `6a` writes no `is_a?(::IOError)` branch — phase 5a's deferral of
+   `CFG-35`'s throwable half records that such a branch is wrong in both directions (argued under *`CFG-35`'s
+   throwable half* below).
 8. **`Dexpace::BoundedMap` is reachable only from a full-nesting `module` form.** `execution-context/b58728da`.
    `6c`'s `AUTH-19` store is written in `module Dexpace; module Auth; module Digest`, never
    `module Dexpace::Auth::Digest` and never through a qualified `Dexpace::BoundedMap`.
@@ -424,22 +430,23 @@ Verified mechanically against `docs/product-spec/appendix-c-consolidated-normati
 | `RETRY` | 45 (`RETRY-1`..`RETRY-45`, contiguous, no duplicate) | 39 MUST, 3 SHOULD (`RETRY-12`, `RETRY-38`, `RETRY-40`), 2 MAY (`RETRY-29`, `RETRY-43`), 1 MUST NOT (`RETRY-45`) |
 | `REDIR` | 28 (`REDIR-1`..`REDIR-28`) | 23 MUST, 4 SHOULD (`REDIR-10`, `REDIR-21`, `REDIR-23`, `REDIR-28`), 1 MAY (`REDIR-27`) |
 | `AUTH` | 38 (`AUTH-1`..`AUTH-38`) | 36 MUST, 2 SHOULD (`AUTH-19`, `AUTH-38`) |
-| `DEF-35`'s `RECOV` | 15 (`RECOV-17`–`RECOV-30`, `RECOV-34`) | 13 MUST, 2 SHOULD (`RECOV-25`, `RECOV-30`) |
+| The `RECOV` fifteen phase 4 postponed here | 15 (`RECOV-17`–`RECOV-30`, `RECOV-34`) | 13 MUST, 2 SHOULD (`RECOV-25`, `RECOV-30`) |
 
 45 + 28 + 38 = **111**, which is the roadmap's phase-6 cell and its own segmentation bullet's figure.
 111 + 15 = **126**, which is what the bullet instructs this document to budget for: "**Phase 6's segmentation
 design must budget for 111 + 15 and not for 111**". `6a`'s 60 plus `6b`'s 28 plus `6c`'s 38 is 126, each ID in
 exactly one sub-phase.
 
-**`RECOV-31` is the cluster's sixteenth ID and is deliberately excluded from the budget.** `DEF-5` defers it
-post-MVP and `DEF-6` defers its `RETRY-38` twin with no named trigger, so no register schedules its
-implementation here. `6a` carries a ⏳ row for it beside `RETRY-38`'s; **a row is not a budget line.** `DEF-35`
+**`RECOV-31` is the cluster's sixteenth ID and is deliberately excluded from the budget.** It is declined for v1
+together with its `RETRY-38` twin, with no named trigger (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level,
+the `RECOV-31`/`RETRY-38` entry), so nothing schedules its implementation here. `6a` carries a ⏳ row for it beside
+`RETRY-38`'s; **a row is not a budget line.** Phase 4's deferral
 states the arithmetic hazard exactly and this document adopts its wording: "Fifteen and sixteen are both correct
 numbers about different sets … and conflating them is the one arithmetic mistake this row exists to prevent."
 
 ### `6a` — Retry: both stacks and the shared policy (60 IDs)
 
-**45 `RETRY` + `DEF-35`'s 15 `RECOV`.** Scope in one sentence: one `Dexpace::Resilience::Policy` (status
+**45 `RETRY` + the 15 `RECOV` phase 4 postponed here.** Scope in one sentence: one `Dexpace::Resilience::Policy` (status
 classification consulting phase 5a's `Retryability`, the configurable retryable-status set, the idempotent
 method set, the backoff calculator, the pacing-header parser, the tuning constants), one re-sendability gate,
 and the two stacks that drive it — the recovery-stack engine that installs into phase 4b's
@@ -448,17 +455,17 @@ and the two stacks that drive it — the recovery-stack engine that installs int
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented — `RETRY` | `RETRY-1`–`RETRY-28`, `RETRY-30`–`RETRY-37`, `RETRY-39`–`RETRY-42`, `RETRY-44`, `RETRY-45` | 42 |
-| ⏳ deferred, `DEF-6` (pre-existing), no named trigger | `RETRY-29` (MAY), `RETRY-38` (SHOULD), `RETRY-43` (MAY) | 3 |
-| Implemented — `DEF-35`'s `RECOV` | `RECOV-17`–`RECOV-30`, `RECOV-34` | 15 |
+| ⏳ declined for v1 (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level), no named trigger | `RETRY-29` (MAY), `RETRY-38` (SHOULD), `RETRY-43` (MAY) | 3 |
+| Implemented — the `RECOV` fifteen phase 4 postponed here | `RECOV-17`–`RECOV-30`, `RECOV-34` | 15 |
 | **Total in budget** | | **60** |
-| ⏳ row only, no budget line — `DEF-5`, the twin of `RETRY-38` | `RECOV-31` (MAY) | — |
-| Inherited row, no budget line — `DEF-40`'s throwable half of a phase-5 ID | `CFG-35` (SHOULD) | — |
+| ⏳ row only, no budget line — declined for v1 with its twin `RETRY-38` (the same `first-release.md` entry) | `RECOV-31` (MAY) | — |
+| Inherited row, no budget line — the throwable half of a phase-5 ID, which 5a postponed here | `CFG-35` (SHOULD) | — |
 
 `6a` additionally ships, without owning a new ID: `Dexpace::ProtocolError#retryable?`, computed once at
-construction from 5a's `Dexpace::Retryability` (`DEF-38`, `XCUT-5`); `CFG-35`'s throwable half as `XCUT-6`'s
-capability query over `Dexpace.each_cause` (`DEF-40`); `RETRY-12`'s five default values behind 5a's
+construction from 5a's `Dexpace::Retryability` (phase 4b's deferral, `XCUT-5`; `6a` Task 6); `CFG-35`'s throwable half
+as `XCUT-6`'s capability query over `Dexpace.each_cause` (phase 5a's deferral; `6a` Task 3); `RETRY-12`'s five default values behind 5a's
 `Keys::MAX_RETRY_ATTEMPTS` name, which 5a shipped without a value; and `OBS-29`'s per-attempt event group on
-the retry step (`DEF-42`, half of it).
+the retry step (the per-attempt half of the wiring phase 5c postponed; `6a` Task 9).
 
 Two clauses inside `6a` a plan will otherwise leave implicit:
 
@@ -480,7 +487,7 @@ credential-hygiene rules against the **seed** origin, and managing response-body
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `REDIR-1`–`REDIR-26`, `REDIR-28` | 27 |
-| ⏳ deferred, `DEF-7` (pre-existing), no named trigger | `REDIR-27` (MAY, configurable target header) | 1 |
+| ⏳ declined for v1 (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `REDIR-27` entry), no named trigger | `REDIR-27` (MAY, configurable target header) | 1 |
 | **Total** | | **28** |
 
 Three rows carry a clause the checklist must state rather than tick:
@@ -489,7 +496,7 @@ Three rows carry a clause the checklist must state rather than tick:
   implemented in `6c`, clause (c) satisfied *a fortiori* (nothing is added, so nothing is removed). Cites
   §10.15 and 4c's five negative assertions.
 - **`REDIR-25`** — satisfied by shipping no async redirect step. Its substantive clause holds vacuously until
-  `DEF-39`'s async standard pipeline exists, which is a phase-level task; the row says so, exactly as phase
+  the async standard pipeline exists (`AsyncPipeline.standard`, phase 4c's deferral, `6b` Task 13a), which is a phase-level task; the row says so, exactly as phase
   4c's `PIPE-32` row does.
 - **`REDIR-8`** — the comparison is against the **seed** origin, not the previous hop, and design §6.2 requires
   an explicitly constructed `[scheme.downcase, host.downcase, effective_port]` triple rather than `URI#==`.
@@ -523,11 +530,11 @@ Design §12's `AUTH` row confirms the shape: "*Deferred:* none." `6c` is the onl
 consumer of phase 4a's `private_constant Dexpace::BoundedMap`, which is `XCUT-14`'s general rule getting its
 third call site and phase 4a's stated anticipation of this phase.
 
-### `DEF-35`'s fifteen: own checklist rows, not cross-references
+### The postponed `RECOV` fifteen: own checklist rows, not cross-references
 
 **Decision: each of the fifteen gets its own row in `6a`'s checklist, naming the numbered `6a` plan task that
 satisfies it, with its `RETRY` twin or twins carried as an annotation on the row rather than as its
-disposition.** `DEF-35` left the choice open — "decides whether each is a separate checklist row or a
+disposition.** Phase 4's deferral left the choice open — "decides whether each is a separate checklist row or a
 cross-reference to its twin" — and the answer is rows, on five grounds.
 
 1. **A cross-reference cannot discharge what a checklist row is for.** `CLAUDE.md`: a checklist "names, for
@@ -535,25 +542,26 @@ cross-reference to its twin" — and the answer is rows, on five grounds.
    deviation." A row reading "see `RETRY-9`" names a *requirement*, not a task. The question a checklist exists
    to answer — which task satisfies `RECOV-21`? — would then need one more hop and a re-derivation at the end
    of it, which is the failure mode the one-row-per-ID convention prevents.
-2. **The fifteen are the work, not a pointer to it.** `DEF-35`: "This row adds the work of fifteen more on top
+2. **The fifteen are the work, not a pointer to it.** Phase 4's deferral: "This row adds the work of fifteen more on top
    of that 111 — the implementation of `RECOV-17`–`RECOV-30` and `RECOV-34`, which is this row's whole scope."
    An ID whose implementation this phase performs gets a row like any other.
-3. **The mapping is not one-to-one and in three places it is a contrast rather than an identity.** `DEF-35`'s
-   own table gives `RECOV-18 ↔ RETRY-5, RETRY-6, RETRY-7, RETRY-8` (one to four), `RECOV-24 ↔ RETRY-15,
+3. **The mapping is not one-to-one and in three places it is a contrast rather than an identity.** The deferral's
+   own twin table gives `RECOV-18 ↔ RETRY-5, RETRY-6, RETRY-7, RETRY-8` (one to four), `RECOV-24 ↔ RETRY-15,
    RETRY-19, RETRY-21` and `RECOV-30 ↔ RETRY-13, RETRY-14, RETRY-28`. And `RECOV-20`'s total-timeout budget
    pairs with `RETRY-27` while `RETRY-28` **forbids** the same budget on the other stack, so a bare
    cross-reference from `RECOV-20` would point at an ID pair that disagrees; `RECOV-25` pairs with a *clause
    inside* `RETRY-15` rather than with an ID at all. A cross-reference asserts an identity the mapping does not
    have.
-4. **`DEF-35` forbids the reading a cross-reference row invites.** "none may be dropped on the grounds that the
+4. **The deferral forbids the reading a cross-reference row invites.** "none may be dropped on the grounds that the
    twin is satisfied, because the roadmap's phase-4 row states the range `RECOV-1`–`RECOV-34`." A row whose
    disposition is "satisfied via its twin" is that reading in table form.
 5. **The precedent is two rows, one obligation, and both rows real.** Phase 2 gave `SEAM-29` that treatment and
    phase 3b gave `HTTP-46` the same. Here the two rows are already distributed across two phases: phase 4's
-   fifteen stay ⏳ citing `DEF-35`, and `6a`'s fifteen are live rows naming `6a` tasks. Neither is a pointer at
+   fifteen stay ⏳ pointing at `6a`'s tasks, and `6a`'s fifteen are live rows naming `6a` tasks. Neither is a pointer at
    the other.
 
-**No requirement ID moves and no phase-4 row changes.** `DEF-35`'s twin table is used verbatim and re-derived
+**No requirement ID moves and no phase-4 row changes.** The twin table (carried by
+`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`) is used verbatim and re-derived
 nowhere; `6a`'s checklist copies the annotation column from it.
 
 ---
@@ -563,21 +571,21 @@ nowhere; `6a`'s checklist copies the annotation column from it.
 | Excluded | Owning phase |
 |---|---|
 | `RECOV-1`–`RECOV-16` — the recovery **chain** the retry engine installs into | 4b, built. `Outcome`/`Success`/`Failure`, `Recovery::RequestChain`, `Recovery::ResponseChain`, `Recovery::Orchestrator`, `Recovery.buffer_error_body` |
-| `RECOV-32`, `RECOV-33` — the idempotency-key and client-identity steps | 4b, built as `IdempotencyKeyStep` and `ClientIdentityStep`. `RECOV-31`'s attempt-ordinal header is a *third* header-stamping step and is **not** built (`DEF-5`) |
-| `RECOV-31`, `RETRY-38` — the per-attempt ordinal header | Post-MVP. One feature under two IDs at two modal levels (§11.20); `DEF-5` and `DEF-6`. ⏳ rows in `6a`, never a budget line |
+| `RECOV-32`, `RECOV-33` — the idempotency-key and client-identity steps | 4b, built as `IdempotencyKeyStep` and `ClientIdentityStep`. `RECOV-31`'s attempt-ordinal header is a *third* header-stamping step and is **not** built (declined for v1, `docs/first-release.md` § What v1 ships without) |
+| `RECOV-31`, `RETRY-38` — the per-attempt ordinal header | Post-MVP. One feature under two IDs at two modal levels (§11.20); declined for v1, `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level. ⏳ rows in `6a`, never a budget line |
 | `PIPE-2`–`PIPE-40` — the stage runtime, the cursor, the fork primitive, `Builder#install_preset` | 4c, built. Phase 6 installs steps into it and writes no second installation path |
-| `PIPE-39`'s `standard` constructors, `PIPE-32`'s `redirect: :unsupported` | **6, phase-level** (`DEF-39`). Below |
+| `PIPE-39`'s `standard` constructors, `PIPE-32`'s `redirect: :unsupported` | **6, phase-level** (phase 4c postponed them here; `6b` Task 13a). Below |
 | `CTX-11`, `XCUT-14` — the bounded-map implementation | 4a built it; phase 9 audits the general rule. `6c` is its second consumer |
-| `CFG-15`–`CFG-21` — the clock, the cancellable wait, `Async.delay` | 5a, built. `6a` calls `Clock#sleep(duration, cancellation:)`; `DEF-35` moved `RECOV-27` here *because* this object is 5a's |
+| `CFG-15`–`CFG-21` — the clock, the cancellable wait, `Async.delay` | 5a, built. `6a` calls `Clock#sleep(duration, cancellation:)`; phase 4 moved `RECOV-27` to phase 6 *because* this object is 5a's |
 | `CFG-29`–`CFG-31` — RFC 1123 date formatting and parsing | 5a, built as `Dexpace::HTTPDate`. `RETRY-15`'s HTTP-date form consumes it and 5a never claims `RETRY-15` — `R1` below |
 | `CFG-35`'s status half, `XCUT-5` | 5a, built as `Dexpace::Retryability.retryable_status?`. `6a` computes from it and builds no second classifier |
 | `CFG-12`, `CFG-14` — the well-known configuration key names | 5a, built. `Keys::MAX_RETRY_ATTEMPTS` is the name; `RETRY-12`'s **values** are `6a`'s |
-| `OBS-1`–`OBS-40` — the event object, the logger facade, the redactor, `Severity`, the span/tracer/meter SPIs, the `HTTPTracer` vocabulary | 5b and 5c, built. Phase 6 supplies emitters for two groups (`DEF-42`) and consumes `Redactor#url` for `REDIR-28` |
-| `OBS-19` — the header-drop verbosity policy | 8 (`DEF-41`). Core raises rather than drops |
+| `OBS-1`–`OBS-40` — the event object, the logger facade, the redactor, `Severity`, the span/tracer/meter SPIs, the `HTTPTracer` vocabulary | 5b and 5c, built. Phase 6 supplies the emitter for `OBS-29`'s per-attempt group (the wiring phase 5c postponed; `6a` Task 9 — the finding below is why the operation triple is not wired too) and consumes `Redactor#url` for `REDIR-28` |
+| `OBS-19` — the header-drop verbosity policy | 8, as `DropPolicy` (phase 8c's plan, Tasks 7, 9 and 15). Core raises rather than drops |
 | `XCUT-5`, `XCUT-6`, `XCUT-7` — the baked flag, the open capability, the configurable set | 9 dispositions. `6a` builds the three objects the audit is about, and `XCUT-5`'s closing NOTE is what keeps them three |
 | `XCUT-3`, `XCUT-9`, `XCUT-12`, `XCUT-16`, `XCUT-19`, `XCUT-21` | 9 dispositions. Phase 6 satisfies each by construction: `XCUT-3` through 5a's wait, `XCUT-9` through `Dexpace.each_cause`, `XCUT-12` through `AUTH-34`'s lock-free hot path, `XCUT-16` through `AUTH-28`'s guard, `XCUT-19` through 5b's redactor, `XCUT-21` through `SecureRandom` |
-| `HTTP-48`, `HTTP-49`, `HTTP-50` — ETag, Range and the conditional-request aggregator | Still deferred (`DEF-2`). Its phase-1 sweep named phase 6 as the target; the condition does not fire — see the sweep below |
-| `ASYNC-3`, `ASYNC-4`, `PIPE-33`'s interrupt clause | 8 marks all three (`DEF-18`, §10.5). Phase 6 meets the same prohibition at `RETRY-23`/`RETRY-26` and adds **no fourth** |
+| `HTTP-48`, `HTTP-49`, `HTTP-50` — ETag, Range and the conditional-request aggregator | Unbuilt, and a release decision (`docs/first-release.md` § Blockers before first publish, the `HTTP-22`/`48`/`49`/`50` line). Phase 1 named phase 6 as the target; the condition does not fire — see the sweep below |
+| `ASYNC-3`, `ASYNC-4`, `PIPE-33`'s interrupt clause | 8 marks all three (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs; design §10.5). Phase 6 meets the same prohibition at `RETRY-23`/`RETRY-26` and adds **no fourth** |
 | `TRANSPORT-1`, `TRANSPORT-2` — an adapter disabling its native redirect and retry | 8. Phase 6 is the authority those two defer to; it opens no socket |
 | `SEAM-11`, `SEAM-16`, `SEAM-17` — the transport and async seams | 2 and 8. `6a`'s async driver consumes `Dexpace::Async::Future#on_settle`, phase 2's, and replaces nothing |
 | `BODY-1`–`BODY-5` — `#replayable?` and the three documented declines | 3b, built. `RETRY-5`, `REDIR-6` and `AUTH-31` are the three call sites and `Dexpace::Resilience::Resend.eligible?(request)` — the predicate 3b's own forward table names as phase 6's — is `6a`'s to write |
@@ -607,12 +615,12 @@ RECOV — Recovery-chain pipeline primitives
 ```
 
 **Two fifteens, and they are different sets. Conflating them is the reading error this section exists to
-prevent, and it is a second instance of the arithmetic hazard `DEF-35` warns about.**
+prevent, and it is a second instance of the arithmetic hazard phase 4's deferral warns about.**
 
 - The **gap** fifteen is `RECOV-17`–`RECOV-31`: the IDs the corpus cannot answer.
-- The **`DEF-35`** fifteen is `RECOV-17`–`RECOV-30` **and `RECOV-34`**: the IDs whose implementation lands here.
+- The **postponed** fifteen is `RECOV-17`–`RECOV-30` **and `RECOV-34`**: the IDs whose implementation lands here.
 - The intersection is **fourteen** — `RECOV-17`–`RECOV-30`.
-- `RECOV-31` is a gap and is **out of budget** (`DEF-5`). `RECOV-34` is in budget and is **not** a gap: it has
+- `RECOV-31` is a gap and is **out of budget** (declined for v1). `RECOV-34` is in budget and is **not** a gap: it has
   substantive design-role entries drawn from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`
   §6.1 and §10.18, and design §12's `RECOV` row places it there. `OI-12` states the same asymmetry from the
   other side: "'the corpus cannot answer' and 'the specification cannot answer' are independent facts here, and
@@ -626,7 +634,7 @@ prevent, and it is a second instance of the arithmetic hazard `DEF-35` warns abo
    `--gaps` trailer's "read these out of docs/product-spec/08-execution-pipelines.md" is **unfollowable as an
    instruction**. That is `OI-12`, already filed, and phase 6 discharges the *reading* without closing the
    *item* — the item is about the derivation, and any fix belongs to `--gaps`, not to a phase.
-2. **The reading is cheap because chapter 09 states the same rules in prose under IDs it can read.** `DEF-35`'s
+2. **The reading is cheap because chapter 09 states the same rules in prose under IDs it can read.** The deferral's
    twin-by-twin table is what makes that true, and it was derived and verified by the phase-4 segmentation
    design against appendix C. `6a` reads `docs/product-spec/09-retry-and-resilience.md` in full (36 lines) and
    the appendix-C canonical text of all 45 `RETRY` IDs and the fifteen `RECOV` ones. **Budget: one focused
@@ -659,7 +667,7 @@ There are exactly three.
 2. **`RETRY-14`'s budget-equivalence test spans `6a`'s two stacks and nothing else.** It is a convergence point
    *inside* `6a` and therefore an ordering constraint in one plan, named here only so it is not mistaken for a
    cross-segment one.
-3. **`DEF-39`'s `Pipeline.standard` needs `6a` + `6b` + phase 5b's instrumentation step, and never `6c`.**
+3. **`Pipeline.standard` (phase 4c's deferral) needs `6a` + `6b` + phase 5b's instrumentation step, and never `6c`.**
    `PIPE-39` names the sync preset "redirect+retry+instrumentation" and the async one "retry+instrumentation
    with a caller-supplied scheduler for non-blocking backoff". **Auth is in neither.** That is what makes it a
    phase-level task rather than a sub-phase's, and it is treated as one below.
@@ -676,22 +684,27 @@ testing phase 4c's code, not phase 6's.
 Three items belong to phase 6 and to no single segment. Each is named with the sub-phase that **executes** it,
 because "owned by no sub-phase" is how a task gets built twice or not at all.
 
-### `DEF-39` — `Pipeline.standard` and `AsyncPipeline.standard`
+### `Pipeline.standard` and `AsyncPipeline.standard` — postponed by phase 4c
 
-**Executed by whichever of `6a` and `6b` lands second; under the recommended order, `6b`.** `DEF-39`'s pick-up
+**Executed by whichever of `6a` and `6b` lands second; under the recommended order, `6b`.** Phase 4c postponed the two
+constructors on 2026-09-08 because the three step families they install did not exist yet, and a constructor named for
+the defaults it installs, installing nothing, is worse than its absence. Its pick-up
 condition names "phase 6, the first phase in which all three families exist", and requires the two constructors
 to be written **over** `Builder#install_preset` with no second installation path. `PIPE-24`'s
 validate-then-commit semantics ship already and are tested; what phase 6 adds is a step set and two names, plus
 the explicit `redirect: :unsupported` argument design §5.3 specifies on the async one so `PIPE-32`'s asymmetry
-is visible at the call site.
+is visible at the call site. The executing task is `6b`'s Task 13a
+(`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`), inserted 2026-09-13 as a phase-level task that moves
+verbatim to `6a` if `6a` lands second.
 
 Two consequences the executing sub-phase must carry:
 
 - **`REDIR-25`'s substantive clause stops being vacuous the moment this lands.** Until now there is no async
   standard pipeline for it to be true of. The `6b` row says so.
-- **`PIPE-39`'s ⏳ row in phase 4c's checklist closes here**, and `DEF-39`'s status becomes picked-up.
+- **`PIPE-39`'s ⏳ row in phase 4c's checklist closes here**, and phase 4c's deferral is discharged: `6b`'s Task 14 marks
+  its own checklist row and says in the phase status note that the work phase 4c postponed has landed.
 
-### `DEF-42` — `OBS-29`'s per-attempt emitter, and where the operation triple cannot go
+### `OBS-29`'s wiring, postponed by phase 5c — the per-attempt emitter, and where the operation triple cannot go
 
 **The per-attempt half is executed by `6a`.** `OBS-29`'s three per-attempt events — attempt started, attempt
 failed with next delay, retries exhausted — are `Dexpace::Instrumentation::HTTPTracer#attempt_started`,
@@ -700,8 +713,8 @@ failed with next delay, retries exhausted — are `Dexpace::Instrumentation::HTT
 "retries-exhausted (when it fires) is immediately followed by operationFailed with the same throwable" — is the
 regression 5c's test already guards.
 
-**A finding that constrains how the rest of `DEF-42` can ever be picked up, and it is new here.** `DEF-42`
-says the operation-lifecycle triple was not wired in phase 5 because "it needs a third slot on `5b`'s
+**A finding that constrains how the rest of `OBS-29`'s wiring can ever be picked up, and it is new here.** Phase 5c's
+deferral says the operation-lifecycle triple was not wired in phase 5 because "it needs a third slot on `5b`'s
 instrumentation step, which the phase-5 charter's boundary 15 does not grant". Verified for this document:
 5b's `Dexpace::Instrumentation::Step` **declares `#stage` returning `Stages::LOGGING`** and is installed with
 no `stage:` argument, and 4c rejects with `Dexpace::PipelineError` any install that supplies a different
@@ -709,12 +722,12 @@ no `stage:` argument, and 4c rejects with `Dexpace::PipelineError` any install t
 `RETRY` (500) and `AUTH` (800). **So once phase 6's three pillars are installed, a step at `LOGGING` runs once
 per redirect hop, per retry attempt and per auth replay — and an operation-scoped triple emitted from there
 fires many times per operation, which is the opposite of `OBS-29`'s "One tracer instance corresponds 1:1 to a
-single logical operation lifecycle."** The route `DEF-42` names is therefore unavailable in exactly the phase
+single logical operation lifecycle."** The route phase 5c named is therefore unavailable in exactly the phase
 its pick-up condition targets. The site that works is `Stages::PRE_REDIRECT`, order 100 — `PIPE-2`'s outermost
 slot, which 4c states is "outside every pillar's fork, so a step there is invoked once", and which `PIPE-37`
 already reserves for steps whose correctness depends on observing only the single terminal response. That is a
 **new step**, not a third slot on an existing one. This document does not decide whether phase 6 ships it; it
-records that `DEF-42`'s stated mechanism does not work and files the finding (below). `6a` decides, and `R15`
+records that phase 5c's stated mechanism does not work; the finding is `OI-32` (below). `6a` decides, and `R15`
 is where.
 
 ### `OI-31` — the instrumentation step's first slot-precedence clause
@@ -732,7 +745,7 @@ first clause has no implementation path**, because nothing in the shipped surfac
 `RequestContext` or an `Instrumentation::Bundle`. It names two candidate resolutions and assigns the choice to
 phase 6, adding: "Whichever it picks, `bundle_for` in `5b`'s step is the one method that changes."
 
-**Candidate (b) — have `Pipeline.standard` (`DEF-39`) thread a bundle in at construction — is rejected on the
+**Candidate (b) — have `Pipeline.standard` thread a bundle in at construction — is rejected on the
 merits, not merely on reach.** `CTX-14` requires the bundle to be carried by a **context**, and `CTX-20` calls
 its factory "per-operation … because operation starts are not serialized"; `OBS-23` has span activation push a
 trace id and a span id onto the diagnostic context. Every one of those is per-operation. A bundle supplied to
@@ -779,7 +792,7 @@ exists** and each ships its own constructor keyword regardless, so neither block
 re-implements it. If the sub-phases run out of the recommended order, the task travels with whichever runs
 first, and both other designs state that they consume it and do not build it — `R13`.
 
-**What `6a`'s `DEF-42` emission task depends on, stated because it is easy to get backwards.** It depends on
+**What `6a`'s `OBS-29` emission task (Task 9) depends on, stated because it is easy to get backwards.** It depends on
 5c's `Dexpace::Instrumentation::HTTPTracer`, its frozen `NULL` instance and the `CallableAdapter` bus, and on
 the retry step's own `http_tracer:` constructor keyword. **It does not depend on this widening, on
 `Pipeline.standard`, or on `6b` or `6c`.** `OI-29` is why: `CTX-14`'s `Bundle#tracer_factory` produces **span**
@@ -791,49 +804,50 @@ and `R3` is where `6a` decides what the separate HTTP-tracer slot is.
 
 ---
 
-## `DEF-40`: picked up and closed in `6a`
+## `CFG-35`'s throwable half: picked up and closed in `6a`
 
-**Decision: agreed with the prior reading. `DEF-40` is picked up in `6a` and the row closes there.** The
-argument, from `DEF-40`'s and `CFG-35`'s own text rather than from convenience:
+**Decision: agreed with the prior reading. The throwable half phase 5a postponed on 2026-09-09 is picked up in `6a`
+(Task 3, `Policy.throwable_retryable?` over `Dexpace.each_cause`) and the obligation closes there.** The
+argument, from phase 5a's deferral and `CFG-35`'s own text rather than from convenience:
 
-- **What is deferred is a method, and `6a` writes it.** `DEF-40`'s scope is "the second clause of `CFG-35`
+- **What is deferred is a method, and `6a` writes it.** The deferral's scope is "the second clause of `CFG-35`
   (SHOULD) — 'and SHOULD treat a throwable as retryable iff it or any throwable in its cause chain is an
   IO/timeout error. Cause-chain traversal MUST be cycle-safe.'" Its pick-up condition is "phase 6, with
   `XCUT-6`'s retryability capability and `RETRY-1`". `RETRY-2` is the same clause at MUST level and is a
   phase-6 ID: "The set of retryable throwables MUST be defined in exactly one place: any throwable that IS, or
   has anywhere in its cause chain, an I/O error or a timeout error." `6a` cannot satisfy `RETRY-2` without
-  writing the very method `DEF-40` defers, so the row is discharged by `6a` whether or not anyone says so.
+  writing the very method 5a deferred, so the obligation is discharged by `6a` whether or not anyone says so.
 - **The mechanism is already fixed and needs nothing from phase 8.** `XCUT-6` requires the classifier to query
   "the **capability** (is-Retryable and the flag), not a concrete-type match", and design §6.1 gives the Ruby
   spelling: `error.respond_to?(:retryable?) && error.retryable?`, walked over `Dexpace.each_cause`, which is
   phase 4b's and is already cycle-safe by reference identity (`XCUT-9`). `CFG-35`'s cycle-safety clause needs
-  no second implementation — `DEF-40` says so itself.
+  no second implementation — 5a's deferral says so itself.
 - **Phase 8's `Dexpace::TransportError` supplies an instance of the capability, not the other half of the
-  obligation.** `DEF-40` calls it "the other half" and the sentence is easy to over-read. Read in place, it is
+  obligation.** 5a's deferral calls it "the other half" and the sentence is easy to over-read. Read in place, it is
   the other half of the *demonstration* — "which is exactly the mechanism that lets
   `dexpace-transport-net_http` declare `Errno::ETIMEDOUT` retryable without core naming it". A classifier that
   queries a capability is complete when the query exists; an error class that answers it is an ordinary use of
-  an extension point, and by that standard the row could never close, because a new adapter could always define
+  an extension point, and by that standard the obligation could never close, because a new adapter could always define
   one more. `XCUT-6`'s whole point is that adding such a class requires "**without editing the retry
   classifier**".
-- **Nothing else in the row is outstanding.** Its `NFR-4` clause — "Adding a method **widens**, which `NFR-4`'s
+- **Nothing else in 5a's deferral is outstanding.** Its `NFR-4` clause — "Adding a method **widens**, which `NFR-4`'s
   'disappears or narrows' lock permits, so shipping the status half alone now prejudices nothing" — is about
   phase 5a's position, not about a phase-6 obligation.
 
 **One residual, recorded rather than hidden.** A capability-only classifier has a stated blind spot: a bare
 `Errno::ETIMEDOUT` or `SocketError` that escapes an adapter *without* being wrapped in something answering
-`#retryable?` is classified not-retryable. `DEF-40` verified that the alternative is worse — an
+`#retryable?` is classified not-retryable. Phase 5a verified that the alternative is worse — an
 `is_a?(::IOError)` classifier would mark phase 3a's `Dexpace::StreamError` retryable and a connection timeout
 not retryable, "wrong in both directions" — and `RETRY-4` is satisfied from the other side, because design §6.1
 gives `XCUT-4`'s transport-error branch the flag by default. The residual is therefore an **obligation on phase
 8's adapters to wrap**, and it is a candidate deviation for `6a`'s ledger rather than a defect. `R4` is where
 `6a` argues it.
 
-**Consequence for the checklists.** Phase 5a's `CFG-35` row stays ⏳ citing `DEF-40` with its met half named,
+**Consequence for the checklists.** Phase 5a's `CFG-35` row stays ⏳ pointing at `6a`'s Task 3 with its met half named,
 and `6a` carries a `CFG-35` row of its own outside its 60-ID budget, the same inherited-row treatment as the
-⏳ rows. `DEF-40`'s status moves to picked-up and the row closes when that row lands. **`OI-21` closes with
+⏳ rows. The deferral is discharged when that row lands, and `6a`'s Task 13 says so in the phase status note. **`OI-21` closes with
 it**: 5a's `R1` supplied the cross-reference from the phase-5 end — "the status classifier is phase 5's and
-lives in `Dexpace::Retryability`, phase 6 computes `DEF-38`'s baked `#retryable?` from it rather than building
+lives in `Dexpace::Retryability`, phase 6 computes the baked `#retryable?` 4b postponed from it rather than building
 a second one" — and `6a` supplies the phase-6 end when it does exactly that. Nothing about `OI-21` is re-opened
 here.
 
@@ -892,7 +906,7 @@ two callers.
 (`.build`, `#apply`); `Recovery::Orchestrator.build(transport:, request_chain:, response_chain:)` with
 `#call(request, options, cancellation)`, which **is** a `Dexpace::Transport` by phase 2's duck type and is
 **not** a `PIPE` runtime; `Recovery.buffer_error_body(response)`; `Dexpace::ProtocolError` with `.for` and
-`.for_or_nil` and **no `#retryable?`** (`DEF-38`); `Dexpace::Suppressible`, `Dexpace.attach_suppressed`,
+`.for_or_nil` and **no `#retryable?`** (postponed by 4b to `6a`, Task 6); `Dexpace::Suppressible`, `Dexpace.attach_suppressed`,
 `Dexpace.suppressed`; `Dexpace.each_cause`; the `RECOV-2` fatal-family passthrough — `rescue ::StandardError`
 converts, `rescue ::Exception` re-raises unchanged with no trail, which is `RETRY-25` already implemented.
 `Recovery::Transform` takes **one** argument (`#apply(value)`), never `#call(request, cursor)`.
@@ -1021,74 +1035,93 @@ not.
 
 ---
 
-## Deferrals filed by phase 6
+## Work phase 6 postpones, and who owns it now
 
 **None, and that is deliberate.** A segmentation design decides a cut; it does not decide the interfaces whose
-absence a deferral records. Phase 4 filed `DEF-35` only because it was a **scope disposition** — an entire ID
-cluster moving to another phase. Phase 6 has no such candidate: every ID in its scope is implemented here or
-already carries a pre-existing row (`DEF-5`, `DEF-6`, `DEF-7`).
+absence a deferral records. Phase 4 postponed the recovery-stack engine only because it was a **scope disposition** — an
+entire ID cluster moving to another phase. Phase 6 has no such candidate: every ID in its scope is implemented here or
+is already declined for v1 (`RECOV-31`, `RETRY-29`/`RETRY-38`/`RETRY-43`, `REDIR-27` — `docs/first-release.md` § What v1 ships
+without › SHOULD- and MAY-level).
 
 **Two rows are expected of the sub-phases** and are named in the risks so their absence later is visible:
 `6a`'s disposition of the async trampoline under an absent `Fiber.scheduler` (`R2`), and `6a`'s disposition of
 the operation-lifecycle group of `OBS-29` if it declines the `PRE_REDIRECT` step (`R15`).
 
-### Deferral-register sweep
+### Items earlier phases postponed, and what phase 6 does with each
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row. All
-forty-two were read. As with phases 3, 4 and 5, this document **states** each disposition and the sub-phase
-**performs** the register edit.
+The roadmap's execution step 1 requires the phase to read **every** outstanding deferral and disposition each. All
+forty-two outstanding on 2026-09-09 were read. As with phases 3, 4 and 5, this document **states** each disposition and
+the sub-phase **performs** it — by marking its checklist row and saying in its phase status note that the postponed work
+has landed. Each entry below names the item, why it was postponed, and who owns it now.
 
-**Phase 6 picks up six rows, closes three of them outright, leaves three deferred with a correction owed to
-one, and files none.**
+**Phase 6 picks up five items, closes three of them outright, leaves the rest where they stand with a correction owed
+to one, and postpones nothing new.**
 
-- **`DEF-35` — picked up and CLOSED, by `6a`.** Its pick-up condition names "phase 6 … with `RETRY`'s two
-  stacks and the one shared calculator". `6a` implements `RECOV-17`–`RECOV-30` and `RECOV-34` and carries a row
-  for each; phase 4's fifteen ⏳ rows stay as they are, which is what "no requirement ID moves" means. Status
-  moves to picked-up and the row closes when `6a`'s checklist lands.
-- **`DEF-38` — picked up and CLOSED, by `6a`.** "The attachment point already exists and the work is one
-  method: add `#retryable?` to `Dexpace::ProtocolError`, computed once at construction from the classifier
-  phase 6 builds for `RETRY-1`, and add **no** second protocol-error type." Amended by 5a's `R1`: the
-  classifier is 5a's `Dexpace::Retryability` and `6a` computes from it rather than building one. Phase 4b's
-  `XCUT-5` row closes with it.
-- **`DEF-40` — picked up and CLOSED, by `6a`.** Argued in full above.
-- **`DEF-42` — picked up, NOT closed, by `6a`.** The per-attempt group gets its emitter here; the five
-  transport milestones wait for phase 8's first adapter, which the row already says. **The row also needs a
-  correction**: its stated route for the operation-lifecycle triple — a third slot on 5b's step — is
-  unavailable, because that step is pinned to `Stages::LOGGING`, which sits inside all three phase-6 loops.
-  Filed as a finding below.
-- **`DEF-39` — picked up, by the phase-level task above.** Its condition — "phase 6, the first phase in which
-  all three families exist" — is met the moment `6a` and `6b` have both landed. `PIPE-39`'s ⏳ row in phase
-  4c's checklist closes with it.
-- **`DEF-2` — stays deferred, and its target phase needs restating.** Phase 1's register sweep gave it "target:
+- **The recovery-stack retry engine (`RECOV-17`–`RECOV-30`, `RECOV-34`), postponed by phase 4's segmentation on
+  2026-09-08 — picked up and CLOSED, by `6a`.** Phase 4 postponed it because `RECOV-27`'s cancellable wait is `CFG-15`'s
+  object (phase 5's) and because `RETRY-13` forbids building the recovery half of the calculator two phases before the
+  stage half; its pick-up condition names "phase 6 … with `RETRY`'s two stacks and the one shared calculator". `6a`
+  implements the fifteen (Tasks 3, 4, 5, 7 and 11 of `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`) and
+  carries a row for each; phase 4's fifteen ⏳ rows stay as they are, which is what "no requirement ID moves" means.
+  `6a`'s Task 13 marks the rows and says in the phase status note that the work has landed.
+- **`ProtocolError#retryable?` — `XCUT-5`'s baked flag, postponed by phase 4b on 2026-09-08 — picked up and CLOSED, by
+  `6a` (Task 6).** Phase 4b postponed it because the flag must be computed from the SINGLE shared status classifier,
+  which was not 4b's to build: "The attachment point already exists and the work is one method: add `#retryable?` to
+  `Dexpace::ProtocolError`, computed once at construction from the classifier phase 6 builds for `RETRY-1`, and add
+  **no** second protocol-error type." Amended by 5a's `R1`: the classifier is 5a's `Dexpace::Retryability` and `6a`
+  computes from it rather than building one. Phase 4b's `XCUT-5` row closes with it.
+- **`CFG-35`'s throwable half, postponed by phase 5a on 2026-09-09 — picked up and CLOSED, by `6a` (Task 3).** Argued
+  in full above.
+- **`OBS-29`'s tracer wiring, postponed by phase 5c on 2026-09-09 — picked up in part, NOT closed, by `6a`.** Phase 5c
+  shipped the `HTTPTracer` vocabulary and postponed the wiring because nothing in phase 5 could emit it: the per-attempt
+  group has no emitter until a retry step exists, and the transport milestones none until an adapter opens a socket.
+  The per-attempt group gets its emitter here (`6a` Task 9); the five transport milestones were to wait for phase 8's
+  first adapter, and phase 8 later found no route to them (`OI-36`). **Phase 5c's stated route also needs a
+  correction**: a third slot on 5b's step for the operation-lifecycle triple is unavailable, because that step is
+  pinned to `Stages::LOGGING`, which sits inside all three phase-6 loops. Recorded as `OI-32` (the finding below); both
+  residuals are on phase 10's inbound list in the roadmap's 2026-09-13 status note.
+- **`Pipeline.standard` / `AsyncPipeline.standard` with `redirect: :unsupported`, postponed by phase 4c on 2026-09-08 —
+  picked up, by the phase-level task above (`6b` Task 13a).** Phase 4c postponed them because none of the three step
+  families they install existed yet. The condition — "phase 6, the first phase in which all three families exist" —
+  is met the moment `6a` and `6b` have both landed. `PIPE-39`'s ⏳ row in phase 4c's checklist closes with it.
+- **`HTTP-22`, `HTTP-48`–`HTTP-50` — still unbuilt, and the target phase 1 named needs restating.** Phase 1's sweep of
+  the deferrals gave them "target:
   phase 6 … that is where the helpers first get a caller, because a re-issued request carries
   `If-Match`/`If-None-Match` (`HTTP-50`'s aggregator) and an entity-tag (`HTTP-48`)." **Phase 6 carries such a
   request; it does not construct one.** `REDIR-3`/`REDIR-4` preserve the original headers verbatim, `REDIR-5`
   removes `Content-*` and drops the body, and `AUTH-30`'s replay copies the request — none of the three builds
   a conditional header, parses an ETag or validates a Range. So `HTTP-48`–`HTTP-50` still have no caller when
-  phase 6 ends. The row is **not UNSCHEDULED**, by the register's own definition — that status is for a row
-  whose pick-up condition a phase met and declined to act on, and phase 6 does not meet the condition
-  ("convenience helpers prioritized over minimal public surface"), it merely fails to fire it. The correction
-  owed is to the *target*, not the status. Filed as a finding below.
-- **`DEF-5`, `DEF-6`, `DEF-7` — untouched, and each gets a ⏳ row and no budget line.** `DEF-5` (`RECOV-31`) and
-  `DEF-6` (`RETRY-29`, `RETRY-38`, `RETRY-43`) in `6a`; `DEF-7` (`REDIR-27`) in `6b`.
-- **`DEF-18` — untouched.** `ASYNC-3` and `PIPE-33`'s interrupt clause are phase 8's; phase 6 meets the same
+  phase 6 ends. This is **not** a case of phase 6 meeting the condition and declining to act on it — the condition
+  ("convenience helpers prioritized over minimal public surface") never fires here. The correction owed is to the
+  *target*, not the status. Stated as a finding below; it now lives on the standing decision line under
+  `docs/first-release.md` § Blockers before first publish.
+- **`RECOV-31`, `RETRY-29`/`RETRY-38`/`RETRY-43` and `REDIR-27` — declined for v1, untouched, and each gets a ⏳ row and
+  no budget line.** All are below MUST level: `RECOV-31` and `RETRY-38` are one attempt-ordinal-header feature seen from
+  two requirement angles, `RETRY-29` and `RETRY-43` are MAYs, `REDIR-27`'s configurable target header is a MAY. Each has
+  its entry under `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level. `RECOV-31` and the three `RETRY` IDs
+  in `6a`; `REDIR-27` in `6b`.
+- **`ASYNC-3` and `PIPE-33`'s interrupt clause — untouched.** Both are phase 8's and stand as unsatisfied MUSTs
+  (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs, design §10.5); phase 6 meets the same
   §8.3 prohibition at `RETRY-23`/`RETRY-26` and adds no fourth unsatisfied MUST.
-- **`DEF-25` — untouched.** Wire-boundary re-validation of header names and outbound values is phase 8's.
+- **Wire-boundary re-validation — untouched.** Re-validation of header names and outbound values inside every adapter is
+  phase 8's (phase 8a Task 16, phase 8c Task 9; the portable assertion is phase 9 Task 7).
   `6c`'s stamped `Authorization` and `6b`'s re-issued headers are among the values it will re-validate.
-- **`DEF-28`, `DEF-34`, `DEF-36`, `DEF-37`, `DEF-27`, `DEF-31`, `DEF-32`, `DEF-41` — untouched**, all either
-  closed by phase 5 or targeted at phase 8.
-- **`DEF-1`, `DEF-3`, `DEF-4`, `DEF-8`–`DEF-24`, `DEF-26`, `DEF-29`, `DEF-30`, `DEF-33` — untouched.** `DEF-4`
-  (`PIPE-36`, pillar-step stage locking) is the one worth naming: phase 6 installs three pillar steps and does
-  **not** lock a stage, which is the row's whole content, and nothing here changes its condition.
+- **Everything else outstanding on 2026-09-09 — untouched.** The items phase 5 had already closed or that were targeted
+  at phase 8 (the pivot's `deadline:` keyword, the body-logging and context-store caps, the no-op span and tracer
+  protocols, `close_quietly`'s second disposal route, `SEAM-25`'s lifecycle event, `Hooks.notify`'s trail, `OBS-19`'s
+  drop policy); the SHOULD/MAY declines and the post-v1 gems (`docs/first-release.md` § What v1 ships without); and the
+  release- and event-gated items (its § Release path and § Post-release triggers). `PIPE-36` (pillar-step stage
+  locking, declined for v1) is the one worth naming: phase 6 installs three pillar steps and does **not** lock a
+  stage, which is that entry's whole content, and nothing here changes its condition.
 
 ### The findings proposed for the registers
 
 Three, described here for a human to file. **None is acted on by this document, none carries a number, and no
 register file is edited by it.**
 
-**Target register: `docs/open-items.md`.**
-**`OBS-29`'s operation-lifecycle triple cannot be emitted from `Stages::LOGGING`, and `DEF-42`'s stated wiring
-route is therefore unavailable in the phase its pick-up condition names.** `DEF-42` explains phase 5's decision
+**Target register: `docs/open-items.md` (filed as `OI-32`).**
+**`OBS-29`'s operation-lifecycle triple cannot be emitted from `Stages::LOGGING`, and the wiring route phase 5c's
+deferral stated is therefore unavailable in the phase its pick-up condition names.** That deferral explains phase 5's decision
 not to wire the triple as "it needs a third slot on `5b`'s instrumentation step, which the phase-5 charter's
 boundary 15 does not grant" — a statement about a *slot*, which leaves the *stage* implicit. Verified
 2026-09-09: 5b's `Dexpace::Instrumentation::Step` declares `#stage` returning `Dexpace::Pipeline::Stages::LOGGING`
@@ -1102,17 +1135,19 @@ states is "outside every pillar's fork, so a step there is invoked once" and whi
 for terminal-response-only steps — and that is a **new step**, not a slot on an existing one. Nothing is broken
 today, because nothing emits the triple. It is the `OI-14`/`OI-27`/`OI-30`/`OI-31` family: a sentence that reads
 correctly and resolves to something that is not there. Cites: `OBS-28`, `OBS-29`, `PIPE-2`, `PIPE-37`,
-`DEF-42`, `OI-29`.
+`OI-29`.
 
-**Target register: `docs/deferred-items.md`, as an amendment to `DEF-2`'s pick-up condition.**
-**`DEF-2`'s phase-6 target does not fire, and the row needs a new target or the event shape.** The
-target was supplied by phase 1's register sweep on the reasoning that a re-issued request carries `If-Match`
+**Finding: the phase-6 target phase 1 named for `HTTP-22`, `HTTP-48`, `HTTP-49` and `HTTP-50` does not fire, and the
+four need a new target or an event shape.** The
+target was supplied by phase 1's sweep of the deferrals on the reasoning that a re-issued request carries `If-Match`
 and an entity-tag. Phase 6 carries such headers and constructs none: `REDIR-3` and `REDIR-4` preserve the
 original headers, `REDIR-5` removes `Content-*` and drops the body, `AUTH-30` replays a caller-supplied
-replacement. `HTTP-48`, `HTTP-49` and `HTTP-50` therefore still have no caller when phase 6 ends. The row stays
-deferred — phase 6 does not *meet* the condition, so `UNSCHEDULED` does not apply by the register's own
-definition — and what it needs is either a later target (phase 7's pagination and conditional-request
-interplay is the next candidate) or the event shape `DEF-33` and `DEF-3`'s `BODY-36` half were given. Cites:
+replacement. `HTTP-48`, `HTTP-49` and `HTTP-50` therefore still have no caller when phase 6 ends. The four stay unbuilt — phase 6
+does not *meet* the condition and decline it — and what they needed was either a later target (phase 7's pagination
+and conditional-request interplay was the next candidate) or the event shape `IO-38`'s non-CRuby row and `BODY-36`'s
+mmap view were given. **Where this finding now lives:** the standing decision line under `docs/first-release.md` § Blockers
+before first publish, which carries this verdict together with phase 7's (its candidate did not fire either) and
+names the reopening event — the first consumer that constructs a conditional request. Cites:
 `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50`, `REDIR-3`, `REDIR-5`, `AUTH-30`.
 
 **Target register: `docs/open-items.md`, as a resolution on the existing `OI-31` row (not a new row).**
@@ -1122,7 +1157,7 @@ bundle threaded at pipeline construction is per-pipeline and `CTX-14`'s bundle i
 carry a per-request span and merely re-spells clause 2; candidate (a) is adopted as a read-only per-call
 accessor on `Cursor` plus one optional seeding keyword on the pipeline's call path, both widenings under
 `NFR-4` per `api-design/1d9e6e0b`, with `PIPE-11` naming the cursor as the home and `PIPE-17` giving the fork
-semantics; `bundle_for` in 5b's step gains its first clause in the same task; and `6a`'s `DEF-42` emission task
+semantics; `bundle_for` in 5b's step gains its first clause in the same task; and `6a`'s `OBS-29` emission task
 does **not** depend on it, because `OI-29` establishes that `OBS-29`'s HTTP-tracer is not `Bundle#tracer_factory`.
 
 **Two existing rows close as a consequence and are named so the closure is not lost.** `OI-21` closes when
@@ -1166,8 +1201,8 @@ decides whether the retry step takes an `HTTPTracer` instance, a factory, or a `
 callable, and whether `interface _HTTPTracer` — which 5c deliberately did not declare — is declared now.
 
 **R4 — `6a`: `RETRY-2`'s throwable set as a capability-only query, and the blind spot that comes with it.**
-Design §6.1 and `XCUT-6` fix the mechanism; `DEF-40` establishes that the concrete-type alternative is wrong in
-both directions. The residual is that an unwrapped stdlib `Errno::ETIMEDOUT` or `SocketError` is classified
+Design §6.1 and `XCUT-6` fix the mechanism; phase 5a's deferral of `CFG-35`'s throwable half establishes that the
+concrete-type alternative is wrong in both directions. The residual is that an unwrapped stdlib `Errno::ETIMEDOUT` or `SocketError` is classified
 not-retryable. `6a` states this as a deviation candidate (`P6-<n>`), names the obligation it puts on phase 8's
 adapters, and decides whether a `docs/first-release.md` line is owed.
 
@@ -1209,8 +1244,8 @@ the Digest test matrix asserts for each of the four algorithms.
 fixes the *reachability* condition (full nesting, bare reference). What it does not fix is whether the store is
 per-handler or process-wide, and `AUTH-24` requires "concurrent reuse of one nonce still yields correct,
 non-duplicated counts" while `AUTH-18` requires the count to restart at `00000001` per server nonce and
-`AUTH-19` permits evicting a live nonce as harmless. `6c` states which, and whether `DEF-36`'s
-configuration-source treatment applies to this cap too.
+`AUTH-19` permits evicting a live nonce as harmless. `6c` states which, and whether the context-store cap's
+configuration-source treatment (phase 5a, Task 13) applies to this cap too.
 
 **R12 — `6c`: `AUTH-37`'s three-zone async policy against the pivot.** Fresh / expiring-but-valid / expired,
 with a background refresh that must not block the dispatching thread and must be non-fatal when it fails. The
@@ -1224,16 +1259,16 @@ assigns it to `6a`. If `6b` or `6c` runs first, the task travels with it and the
 they consume the reader and do not build it. A design that silently re-implements it is the failure this risk
 exists to name.
 
-**R14 — phase-level: `DEF-39`'s two constructors, and the `PIPE-32` argument.** Written **over**
+**R14 — phase-level: the two `standard` constructors phase 4c postponed, and the `PIPE-32` argument.** Written **over**
 `Builder#install_preset`, never as a second installation path, with `redirect: :unsupported` on the async one.
 The sub-phase that executes it decides the keyword names — which `NFR-4` locks the moment they ship — and
 carries phase 4c's `R14` prohibition: "must not ship a preset that silently installs nothing while claiming to
 install the defaults."
 
 **R15 — `6a`: whether phase 6 ships a `PRE_REDIRECT` step for `OBS-29`'s operation-lifecycle triple.** The
-finding above establishes that `DEF-42`'s stated route does not work. `6a` decides whether to ship the step
+finding above establishes that phase 5c's stated route for the triple does not work. `6a` decides whether to ship the step
 (and take the `NFR-4` surface and the `PIPE-37` neighbourhood that comes with it), or to record the finding and
-leave the triple unwired with the row corrected — noting `OBS-29`'s own "pipeline/transport wiring to emit it
+leave the triple unwired with the record corrected (`OI-32`) — noting `OBS-29`'s own "pipeline/transport wiring to emit it
 is a follow-up, so it is not yet runtime-enforced", and `OBS-28`'s "Every event method SHOULD default to a
 no-op so adding a new event is a non-breaking change", which is what makes wiring a subset safe.
 

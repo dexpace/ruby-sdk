@@ -6,10 +6,11 @@
 
 **Goal:** Ship `dexpace-core`'s logging facade, URL/header redaction engine, payload preview renderer,
 and HTTP pipeline instrumentation step at `Stages::LOGGING` — satisfying all 28 `OBS-1`–`OBS-20`,
-`OBS-24`, and `OBS-34`–`OBS-40` requirement IDs (26 implemented, 2 deferred: `DEF-41` for `OBS-19`,
-`DEF-9` for `OBS-37`), discharging `XCUT-19`, `XCUT-20`, and `XCUT-11`, closing `DEF-27`, taking the
-optional diagnostic half of `DEF-32`, supplying `DEF-31`'s shutdown event shape, picking up `DEF-34`'s
-two remaining wirings and editing its row, and shipping the HTTP instrumentation step at `Stages::LOGGING`
+`OBS-24`, and `OBS-34`–`OBS-40` requirement IDs (26 implemented, 2 postponed: `OBS-19`'s header-drop policy to phase 8c,
+`OBS-37` to post-v1), discharging `XCUT-19`, `XCUT-20`, and `XCUT-11`, completing `Dexpace.close_quietly`'s
+second disposal route, taking the optional diagnostic half of `Hooks.notify`'s dropped failures, supplying
+`SEAM-25`'s shutdown event shape, picking up the body-logging caps' two remaining wirings and marking that
+item done, and shipping the HTTP instrumentation step at `Stages::LOGGING`
 with tracer and meter slots populated by `5c`.
 
 **Architecture:** A zero-dependency structured logging facade and redaction subsystem composed of:
@@ -32,8 +33,8 @@ gems (`uri`, `set`), Minitest, RBS + Steep, RuboCop with phase 0's custom cops, 
 charter `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`.
 `docs/product-spec/15-instrumentation-and-observability.md` is the normative chapter;
 `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` carries the canonical
-text for all 28 `OBS` IDs and related cross-cutting requirements (`XCUT-19`, `XCUT-20`, `XCUT-11`,
-`DEF-27`, `DEF-31`, `DEF-32`, `DEF-34`, `DEF-41`).
+text for all 28 `OBS` IDs and related cross-cutting requirements (`XCUT-19`, `XCUT-20`, `XCUT-11`, and
+the postponed items above).
 
 ## Global Constraints
 
@@ -156,18 +157,18 @@ The design closes with six open questions for the plan. Five are resolved below 
 
 5. **Default for `preview_bytes:` in `Step.build` and `AsyncStep.build`.**
    - *Decision:* `Step.build` and `AsyncStep.build` take `preview_bytes: nil` as a keyword. When `level` is `HTTPLogging::BODY`, `preview_bytes` MUST be provided as a positive integer; if `nil` or non-positive, `.build` raises `Dexpace::InvalidArgumentError` through the one `SEAM-29` message form (`P5-36` precedent: fail fast rather than baking in an unconfigured silent limit).
-   - *Where 8192 comes from, stated because a magic number in an `NFR-4`-locked signature is permanent:* it is **not** a default in any 5b signature. `OBS-36`'s own canonical text is "body capture MUST be bounded to a configurable preview size (**reference default 8 KiB**)", so 8 KiB is the *specification's* reference figure and a **caller's** choice, resolved and passed in: `configuration.integer(Dexpace::Configuration::Keys::LOG_PREVIEW_BYTES, default: 8 * 1024)`. `Configuration#integer(name, default: nil)` is `5a`'s shipped accessor and `LOG_PREVIEW_BYTES` is the one key name `DEF-34` has 5b add in the change that reads it. Putting the figure in `Step.build`'s default instead would make a memory bound nobody chose, and `NFR-4` locks a default the moment it ships.
+   - *Where 8192 comes from, stated because a magic number in an `NFR-4`-locked signature is permanent:* it is **not** a default in any 5b signature. `OBS-36`'s own canonical text is "body capture MUST be bounded to a configurable preview size (**reference default 8 KiB**)", so 8 KiB is the *specification's* reference figure and a **caller's** choice, resolved and passed in: `configuration.integer(Dexpace::Configuration::Keys::LOG_PREVIEW_BYTES, default: 8 * 1024)`. `Configuration#integer(name, default: nil)` is `5a`'s shipped accessor and `LOG_PREVIEW_BYTES` is the one key name the body-logging caps' pick-up has 5b add in the change that reads it. Putting the figure in `Step.build`'s default instead would make a memory bound nobody chose, and `NFR-4` locks a default the moment it ships.
 
 6. **Recording-sink and test doubles under `gems/dexpace-core/test/support/`.**
    - *Survey of existing test support:* Phases 2 through 5a ship stream, source, clock, and scheduler fakes, none of which implement the `_Sink` duck type or fiber storage isolation.
-   - *Decision:* Task 1 creates `test/support/recording_sink.rb` (`Dexpace::RecordingSink`, implementing `_Sink` with per-severity enablement switches and an array of recorded entries) and `test/support/diagnostic_context.rb` (`Dexpace::DiagnosticContext.preserve` helper for test isolation). For tracing and metrics, 5b reuses `5c`'s `RecordingTracer`, `RecordingSpan`, and `RecordingMeter` rather than creating redundant doubles (`DEF-29`, `P5-48`).
+   - *Decision:* Task 1 creates `test/support/recording_sink.rb` (`Dexpace::RecordingSink`, implementing `_Sink` with per-severity enablement switches and an array of recorded entries) and `test/support/diagnostic_context.rb` (`Dexpace::DiagnosticContext.preserve` helper for test isolation). For tracing and metrics, 5b reuses `5c`'s `RecordingTracer`, `RecordingSpan`, and `RecordingMeter` rather than creating redundant doubles (one double per idea, the concern behind the declined move of the fakes into `dexpace-conformance`; `P5-48`).
    - *Namespace, settled at reconciliation:* both of 5b's doubles are **flat under `Dexpace`**, not under `Dexpace::Instrumentation`. `5a`'s three — `Dexpace::FakeClock`, `Dexpace::FakeSource`, `Dexpace::ProbeScheduler` — are the precedent that decides it, `5c`'s six follow the same rule, and 5b's own `Dexpace::DiagnosticContext` already did. The draft's `Dexpace::Instrumentation::RecordingSink` would have put a test-only constant in the shipping namespace the runtime surface manifest walks.
 
 7. **How the step reaches the execution context — settled, and filed as `OI-31`.**
    - *What was found:* the design's step body calls `tracer_factory_for(request)`, `bundle_for(request)` and `operation_name_for(request)`, and **no mechanism exists by which a pipeline step can reach a `RequestContext` or an `Instrumentation::Bundle`.** Phase 4c is explicit — "4c does not consume 4a at all" — `Cursor`'s whole surface is `#call`, `#fork`, `#may_fork?`, `#request`, `#options`, `#cancellation`, `#state(stage)` and `#spent?`; `Dexpace::Request`'s members are `(:method, :url, :headers, :body)` with no `#context`; `Dexpace::RequestOptions`' — the other thing `Cursor` hands out — are `(:timeout, :max_retries, :tags)`; `PIPE-11` forbids reading per-call state from ambient storage ("per-request mutable state MUST live in the per-call cursor … never on the step"); and `CTX-11`'s `ContextStore` is not a back door, because the step holds no call key and `CTX-13` lets the store evict any entry, "the most-recently inserted included". Phase 4a's forward-obligations table hands phase 5 the `Bundle` and `RequestContext#operation_name` and names **no pipeline seam** for them.
    - *Verified at the reconciliation pass and unchanged:* every one of those readings was re-checked against phase 4a's and 4c's shipped documents rather than taken from this plan. The finding holds.
    - *Decision:* **the first clause of the reconciled precedence is not implemented in phase 5, and it is not left in this plan's margin.** It is filed as **`OI-31`** in `docs/open-items.md`, both designs state the degradation where they argue for the rule, and `Step`'s `bundle_for` carries the reasoning in a comment naming the row. The three helpers resolve through `respond_to?` to the step's own `tracer_factory:` keyword and to `Bundle::NONE`, so `Step` is correct and testable **today** against a real `Dexpace::Request`, and the degraded path is exactly `OBS-34`'s and `XCUT-19`(e)'s default configuration — no tracer, no meter, `none`. **`OBS-34`'s conformance clause is unaffected**, because the step's own keyword supplies the tracer factory and the meter the test asserts against.
-   - *Who closes it:* **phase 6**, which owns the pillar steps and is the first thing that either widens `Cursor` with a context reader or has `Pipeline.standard` (`DEF-39`) thread a bundle in at construction. Both are widenings and therefore `NFR-4`-legal. When it lands, `bundle_for` is the one method that changes and no signature moves — which is why the `respond_to?` probes stay rather than being deleted as dead code.
+   - *Who closes it:* **phase 6**, which owns the pillar steps and is the first thing that either widens `Cursor` with a context reader or has `Pipeline.standard` (phase 6b, Task 13a) thread a bundle in at construction. Both are widenings and therefore `NFR-4`-legal. When it lands, `bundle_for` is the one method that changes and no signature moves — which is why the `respond_to?` probes stay rather than being deleted as dead code.
 
 ## Task order and dependency chain
 
@@ -186,9 +187,9 @@ Sixteen tasks, in exact buildable dependency order:
 11. `Dexpace::Instrumentation.contain` (`OBS-20`, `XCUT-20`, `P5-17`, `P5-37`) — fail-safe emission containment module function; needs Tasks 2, 3, 10.
 12. `Dexpace::Instrumentation::Preview` (`OBS-38`, `P5-16`, `P5-17`, `P5-31`) — charset-aware text and binary-safe payload preview renderer; standalone.
 13. `Dexpace::Instrumentation::HTTPLogging` (`OBS-34`, `OBS-35`, `P5-16`, `P5-17`, `P5-36`) — logging level closed set, tolerant parser, and layered resolver; standalone.
-14. Downstream register wirings (`DEF-27`, `DEF-32`, `DEF-34`, `P5-8`) — wirings in `closeable.rb`, `hooks.rb`, `proxy/resolution.rb`, and `configuration/keys.rb`; needs Tasks 3, 10, 11.
-15. `Dexpace::Instrumentation::Emitter`, `Step`, and `AsyncStep` (`OBS-34`, `OBS-36`, `OBS-39`, `OBS-20`, `DEF-34`, `P5-16`, `P5-17`, `P5-33`, `P5-34`) — private emitter and pipeline steps at `Stages::LOGGING`; needs Tasks 3, 10, 11, 12, 13, 14.
-16. Final wiring, surface snapshot, RBS baseline, checklist, and register edits — `lib/dexpace.rb` require order, surface regeneration, RBS validation, checklist update, and deferred/open items registers.
+14. Downstream wirings of postponed work (`close_quietly`'s second route, `Hooks.notify`'s diagnostic, the body-logging caps' source, `P5-8`) — wirings in `closeable.rb`, `hooks.rb`, `proxy/resolution.rb`, and `configuration/keys.rb`; needs Tasks 3, 10, 11.
+15. `Dexpace::Instrumentation::Emitter`, `Step`, and `AsyncStep` (`OBS-34`, `OBS-36`, `OBS-39`, `OBS-20`, the body-logging caps, `P5-16`, `P5-17`, `P5-33`, `P5-34`) — private emitter and pipeline steps at `Stages::LOGGING`; needs Tasks 3, 10, 11, 12, 13, 14.
+16. Final wiring, surface snapshot, RBS baseline, checklist, and status note — `lib/dexpace.rb` require order, surface regeneration, RBS validation, checklist update, and the phase status note's record of the postponed work that landed.
 
 ---
 ## Task 1: Matrix Fact Verification and Test Support Doubles
@@ -1902,7 +1903,7 @@ class EventTest < DexpaceTestCase
   #   1. EVERY argument is a Symbol, an Integer or nil. None allocates on any Ruby, with or
   #      without `# frozen_string_literal: true`. A bare "x" literal allocates one object per
   #      call in a file that lacks the comment -- which is how this assertion would fail in
-  #      dexpace-conformance (DEF-22, phase 8) against a CORRECT implementation.
+  #      dexpace-conformance (phase 8a, Tasks 4-8 and 20) against a CORRECT implementation.
   #   2. It is the DELTA of two loop sizes asserted == 0, not an absolute count under a bound.
   #      An absolute count is ~8 for a chain that allocates nothing per call (warm-up, method
   #      cache, the block object), and a fudge factor is what hides a 1-per-1000 regression.
@@ -2914,10 +2915,10 @@ Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/http_lo
 Expected: 4 runs, 0 failures, 0 errors, 0 skips.
 
 ---
-## Task 14: Downstream Register Wirings
+## Task 14: Downstream Wirings of Postponed Work
 
-**Requirement IDs:** `DEF-27`, `DEF-32`, `DEF-34`, `CFG-24`, `CFG-25`.
-**Design:** "The two picked-up register wirings — DEF-27, DEF-32, DEF-34; P5-8 discharged".
+**Requirement IDs:** `Dexpace.close_quietly`'s second disposal route (phase 2's deferral), `Hooks.notify`'s optional per-failure diagnostic (phase 2's option), the body-logging caps' configuration source (phase 3b's deferral), `CFG-24`, `CFG-25`.
+**Design:** "The two picked-up wirings"; "What 5b picks up and leaves alone, and who owns each item now"; P5-8 discharged.
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace/closeable.rb`
@@ -2928,7 +2929,7 @@ Expected: 4 runs, 0 failures, 0 errors, 0 skips.
 - Modify: `gems/dexpace-core/sig/dexpace/configuration/keys.rbs`
 - Modify: `gems/dexpace-core/lib/dexpace/proxy.rb` (`Proxy.resolve` gains `logger:`)
 - Modify: `gems/dexpace-core/sig/dexpace/proxy.rbs`
-- Modify: `gems/dexpace-core/test/dexpace/closeable_test.rb` (**two** stale `DEF-27` claims — phase 2's and phase 4b's; see Step 5)
+- Modify: `gems/dexpace-core/test/dexpace/closeable_test.rb` (**two** stale dropped-error claims — phase 2's and phase 4b's; see Step 5)
 - Test: `gems/dexpace-core/test/dexpace/instrumentation/downstream_wirings_test.rb`
 
 **Interfaces:**
@@ -2948,14 +2949,15 @@ require_relative "../../support/recording_sink"
 # Configuration::Keys), so it loads the whole gem rather than hand-picking files.
 require_relative "../../../lib/dexpace"
 
-# Exercises: DEF-27, DEF-32, DEF-34, P5-8, CFG-24, CFG-25
+# Exercises: close_quietly's second disposal route, Hooks.notify's diagnostic, the body-logging caps'
+# configuration source (phase 2 and phase 3b postponed all three here), P5-8, CFG-24, CFG-25
 class DownstreamWiringsTest < DexpaceTestCase
   RecordingSink = Dexpace::RecordingSink
   Logger = Dexpace::Instrumentation::Logger
   Events = Dexpace::Instrumentation::Events
   Keys = Dexpace::Instrumentation::Keys
 
-  test "DEF-27: close_quietly without onto: routes rescued error through Instrumentation.contain" do
+  test "close_quietly second route: without onto: the rescued error goes through Instrumentation.contain" do
     sink = RecordingSink.new
     logger = Logger.build(sink: sink)
 
@@ -2970,7 +2972,7 @@ class DownstreamWiringsTest < DexpaceTestCase
     assert_equal("IOError: close failure", record[Keys::CAUSE])
   end
 
-  test "DEF-32: Hooks.notify emits diagnostic for secondary hook failures without replacing trail" do
+  test "Hooks.notify diagnostic: secondary hook failures are emitted without replacing the trail" do
     sink = RecordingSink.new
     logger = Logger.build(sink: sink)
 
@@ -3034,19 +3036,20 @@ class DownstreamWiringsTest < DexpaceTestCase
     assert_equal(Events::INSTRUMENTATION_CONFIG, sink.entries.first.payload[Keys::EVENT])
   end
 
-  test "DEF-34: Configuration::Keys gains LOG_PREVIEW_BYTES and leaves 5a's LOG_LEVEL alone" do
+  test "body-logging caps: Configuration::Keys gains LOG_PREVIEW_BYTES and leaves 5a's LOG_LEVEL alone" do
     cfg_keys = Dexpace::Configuration::Keys
     # 5a's constant, untouched by 5b. Its value is the name itself, as all seven of 5a's are.
     assert_equal("LOG_LEVEL", cfg_keys::LOG_LEVEL)
-    # 5b's one new name, added in the change that reads it (DEF-34).
+    # 5b's one new name, added in the change that reads it (the caps' source phase 3b postponed).
     assert_equal("LOG_PREVIEW_BYTES", cfg_keys::LOG_PREVIEW_BYTES)
     assert(cfg_keys::LOG_LEVEL.frozen?)
     assert(cfg_keys::LOG_PREVIEW_BYTES.frozen?)
   end
 
-  test "DEF-27: the no-logger default still returns nil and still does not raise" do
+  test "close_quietly second route: the no-logger default still returns nil and still does not raise" do
     # 4b's interface table anticipates the change: "Phase 5 adds the http.instrumentation.*
-    # diagnostic for the onto:-absent case and closes the row". What survives it is the RETURN
+    # diagnostic for the onto:-absent case and completes the pair of routes phase 2 postponed".
+    # What survives it is the RETURN
     # contract -- CFG-21's null-safety clause -- and that is what this asserts. What does NOT
     # survive is the claim that the error VANISHES, which stands in two places in
     # closeable_test.rb and which Step 5 removes.
@@ -3082,7 +3085,8 @@ require_relative "instrumentation/logger"
 require_relative "instrumentation/contain"
 
 module Dexpace
-  # DEF-27: close_quietly gains a third keyword, logger:, defaulting to Logger::NULL, and
+  # The second disposal route phase 2 postponed: close_quietly gains a third keyword, logger:,
+  # defaulting to Logger::NULL, and
   # routes the onto:-absent branch through contain. Phase 2's nil-safety (CFG-21's last
   # clause) and phase 4b's entry-time validation of onto: are BOTH preserved: 4b validates
   # before the close is attempted, so an invalid onto: raises without closing anything.
@@ -3141,7 +3145,7 @@ module Dexpace
           # Phase 4b's trail, unchanged: Dexpace.attach_suppressed(primary, secondary) is
           # the module function; there is no #add_suppressed instance method anywhere.
           Dexpace.attach_suppressed(primary_error, e)
-          # DEF-32: Secondary hook failures emitted as diagnostics BESIDE the trail.
+          # Phase 2's optional diagnostic: secondary hook failures emitted BESIDE the trail.
           Instrumentation.contain(logger, event: Instrumentation::Events::INSTRUMENTATION_HOOK) do
             logger.event(Instrumentation::Severity::WARNING)
                   .event(Instrumentation::Events::INSTRUMENTATION_HOOK)
@@ -3188,7 +3192,7 @@ Update `gems/dexpace-core/lib/dexpace/configuration/keys.rb`:
 rename or revalue it.** `5a` ships seven constants whose value is the name itself
 (`MAX_RETRY_ATTEMPTS`, `LOG_LEVEL`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`,
 `MAX_MATERIALIZED_BYTES`, `MAX_TRACKED_CONTEXTS`), and `LOG_LEVEL` is `OBS-35`'s published name a
-caller may pass — never a fallback (`P5-36`). `DEF-34`'s two wirings therefore need exactly **one**
+caller may pass — never a fallback (`P5-36`). The body-logging caps' two wirings therefore need exactly **one**
 new key, the shared body-preview size, added in the change that reads it, following the same
 value-equals-name convention:
 
@@ -3207,15 +3211,16 @@ LOG_PREVIEW_BYTES: String
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/instrumentation/downstream_wirings_test.rb`
 Expected: 5 runs, 0 failures, 0 errors, 0 skips.
 
-- [ ] **Step 5: Remove the two stale `DEF-27` claims in `closeable_test.rb`**
+- [ ] **Step 5: Remove the two stale dropped-error claims in `closeable_test.rb`**
 
 **There are two, not one, and they are in the same file.** Checked against both owning plans at the
 reconciliation pass, because the draft named only phase 2's:
 
 1. **Phase 2's**, inside `test "close_quietly closes what it is given and swallows a close failure"` —
-   the comment `# DEF-27: the rescued error is dropped until phase 4 supplies the suppressed trail
-   and phase 5 the instrumentation diagnostic. Asserted rather than left as a comment, so the day a
-   route lands this test is what has to change.` **This is that day.** Phase 2 wrote the sentence to
+   the comment phase 2 left on the postponed disposal routes: `the rescued error is dropped until
+   phase 4 supplies the suppressed trail and phase 5 the instrumentation diagnostic. Asserted rather
+   than left as a comment, so the day a route lands this test is what has to change.` **This is that
+   day.** Phase 2 wrote the sentence to
    be deleted by whoever landed the second route.
 2. **Phase 4b's**, the *name* of `test "close_quietly with onto: absent drops error and returns nil"`.
    "Drops error" is no longer true: the error now reaches `Instrumentation.contain` and, with a
@@ -3227,14 +3232,14 @@ the `onto:`-absent path, because `logger:` defaults to `Logger::NULL` and `conta
 return contract is `CFG-21`'s last clause and 5b does not touch it — which is what keeps every
 existing caller correct. So: delete phase 2's comment, rename 4b's test to
 `"close_quietly with onto: absent returns nil and routes the error to the logger"`, and leave both
-bodies alone. Do it in **this** change, not later: `DEF-27` cannot move to `picked-up` in Task 16
-while either sentence stands, and a `picked-up` row contradicted by a green test in the same gem is
-worse than a row left open.
+bodies alone. Do it in **this** change, not later: Task 16 cannot record the second route as landed
+while either sentence stands, and a status note contradicted by a green test in the same gem is
+worse than one left silent.
 
 ---
 ## Task 15: `Dexpace::Instrumentation::Emitter`, `Step`, and `AsyncStep`
 
-**Requirement IDs:** `OBS-20`, `OBS-34`, `OBS-36`, `OBS-39`, `DEF-34`.
+**Requirement IDs:** `OBS-20`, `OBS-34`, `OBS-36`, `OBS-39`, the body-logging caps' configuration source (phase 3b's deferral).
 **Design:** "Dexpace::Instrumentation::Step and ::AsyncStep — OBS-34, OBS-36, OBS-39, OBS-20"; `P5-16`, `P5-17`, `P5-33`, `P5-34`, `R11`.
 
 **Files:**
@@ -3260,15 +3265,16 @@ Write `gems/dexpace-core/test/dexpace/instrumentation/step_test.rb`:
 require_relative "../../test_helper"
 require_relative "../../support/recording_sink"
 # 5c's doubles, CONSUMED and not redefined (P5-48). The design is explicit: "5b's step tests
-# reuse them rather than adding a second set", which is DEF-29's one-double-per-idea concern
-# met rather than deferred. A second RecordingTracer/RecordingMeter under 5b would be two
-# files at one path and the exact drift DEF-29 would later have to consolidate.
+# reuse them rather than adding a second set", which is the one-double-per-idea concern behind
+# the (declined) move of the fakes into dexpace-conformance, met rather than deferred. A second
+# RecordingTracer/RecordingMeter under 5b would be two files at one path and the exact drift
+# such a move would later have to consolidate.
 require_relative "../../support/recording_tracer"
 require_relative "../../support/recording_span"
 require_relative "../../support/recording_meter"
 require_relative "../../../lib/dexpace"
 
-# Exercises: OBS-18, OBS-20, OBS-34, OBS-36, OBS-39, DEF-34
+# Exercises: OBS-18, OBS-20, OBS-34, OBS-36, OBS-39, the body-logging caps phase 3b postponed
 class StepTest < DexpaceTestCase
   Step = Dexpace::Instrumentation::Step
   HTTPLogging = Dexpace::Instrumentation::HTTPLogging
@@ -3443,7 +3449,7 @@ class StepTest < DexpaceTestCase
     end
   end
 
-  test "DEF-34: preview_bytes must be positive integer when level is BODY" do
+  test "body-logging caps: preview_bytes must be positive integer when level is BODY" do
     assert_raises(Dexpace::InvalidArgumentError) do
       Step.build(
         logger: Logger::NULL,
@@ -3786,8 +3792,9 @@ module Dexpace
         # OBS-31 makes attributes: an OPTIONAL keyword on both instruments -- the MUST is that the
         # instrument ACCEPT per-measurement attributes, not that every caller supply them -- and 5b
         # supplies none: no OBS requirement fixes an attribute set for these two instruments (OBS-32's
-        # semantic conventions are DEF-9's), and 5c's verified fact 1 measures an inline hash literal at
-        # a call site at ~1 allocation per call whether or not the callee splats. When DEF-9 lands, the
+        # semantic conventions are post-v1, with dexpace-instrumentation-otel), and 5c's verified fact 1
+        # measures an inline hash literal at a call site at ~1 allocation per call whether or not the
+        # callee splats. When OBS-32 lands with that adapter, the
         # set is hoisted to a frozen constant and passed; the signature does not change.
         @counter.add(1)
         @histogram.record((@clock.monotonic - started) * 1000.0)
@@ -3806,7 +3813,7 @@ module Dexpace
       # implementable in phase 5 and these three helpers resolve to the step's own keyword and
       # to Bundle::NONE -- exactly the default configuration OBS-34 and XCUT-19(e) describe,
       # which is why OBS-34's conformance clause is unaffected. Phase 6 closes it, by widening
-      # Cursor or by having Pipeline.standard (DEF-39) thread a bundle in; bundle_for is then
+      # Cursor or by having Pipeline.standard (phase 6b, Task 13a) thread a bundle in; bundle_for is then
       # the one method that changes and no signature moves. The respond_to? probes stay,
       # because they are what makes that later change a one-method edit.
       def bundle_for(request)
@@ -3841,7 +3848,7 @@ module Dexpace
         Tracing.correlate(span, bundle_for(request) || Bundle::NONE)
       end
 
-      # DEF-34, OBS-36: the only place in core that constructs either wrapper, which is what
+      # The body-logging caps' gate, OBS-36: the only place in core that constructs either wrapper, which is what
       # makes BODY-34's "engaged only when body-level logging is enabled" structurally true.
       # 3b's over-cap regime already replays the prefix and continues from the live tail, so
       # 5b writes no streaming code -- it supplies the cap and the gate.
@@ -4000,8 +4007,8 @@ Expected: 4 runs and 2 runs, 0 failures, 0 errors, 0 skips.
 - Update: **repository-root** `test/fixtures/surface/dexpace-core.txt` (the manifest lives beside
   `test/support/dexpace_test_case.rb` at the root, not inside the gem)
 - Create: `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`
-- Modify: `docs/deferred-items.md` (`DEF-27`, `DEF-34`, `DEF-31`)
-- Read-only: `docs/deferred-items.md` (`DEF-41`), `docs/open-items.md` (`OI-25`, `OI-26`, `OI-27`, `OI-30`, `OI-31`)
+- Modify: the phase status note in the roadmap (the postponed work that landed — see item 1 below)
+- Read-only: `docs/open-items.md` (`OI-25`, `OI-26`, `OI-27`, `OI-30`, `OI-31`)
 - Test: `gems/dexpace-core/test/dexpace/instrumentation/final_wiring_test.rb`
 
 - [ ] **Step 1: Write the final wiring verification test**
@@ -4092,28 +4099,35 @@ bundle exec rubocop
 
 **Never renumber an item ID and never reuse one, and file nothing that is already filed.** Both
 phase-4 plans re-filed rows the design had already appended, which is the failure this step is
-worded to prevent: `DEF-41`, `OI-25`, `OI-26`, `OI-27` and `OI-30` are **already in the registers**,
-appended by the pass that reconciled 5b's design with `5c`'s, and `OI-31` by the pass that reconciled the
+worded to prevent: the `OBS-19` header-drop policy (recorded in the design, owner phase 8c, Tasks 7, 9
+and 15) and `OI-25`, `OI-26`, `OI-27` and `OI-30` are **already recorded**, the open items appended by the
+pass that reconciled 5b's design with `5c`'s, and `OI-31` by the pass that reconciled the
 two **plans**. They are **verified, never re-filed**.
 Derive the counts, never write them:
 `ruby .claude/skills/housekeeping/probe.rb --only citations`.
 
-1. In `docs/deferred-items.md` — three edits, and no new row:
-   - `DEF-27`: `Status` moves to `picked-up`. The row's own pick-up condition names phase 5
-     explicitly ("phase 5 supplies the second with §8.1's facade and **closes this row**"), and the
-     second disposal route now exists: `close_quietly`'s `onto:`-absent branch routes through
-     `Instrumentation.contain` with `Events::INSTRUMENTATION_CLOSE`. The `onto:` route, the
-     suppressed trail and `CFG-21`'s null-safety are untouched.
-   - `DEF-34`: `Status` moves to `picked-up`. `5a` supplied the third wiring and deliberately did
-     not edit the row; **5b lands second and edits it**, having supplied the other two — the shared
-     preview size read into both phase-3b wrappers, and the gating of their construction on
-     `HTTPLogging::BODY`.
-   - `DEF-31`: append a **dated line to `Status` only**. 5b ships `Events::INSTRUMENTATION_SHUTDOWN`
-     and the field shape; it does **not** move the row to `picked-up`, because the first thing in
-     this repository that owns an executor is phase 8's `dexpace-async-thread`.
+1. Record the postponed work that landed — in the checklist and the phase status note, not in a
+   register (the standalone list of deferrals was retired on 2026-09-13):
+   - `Dexpace.close_quietly`'s second disposal route (phase 2's deferral): mark the checklist row as
+     completed by Task 14 and say in the status note that the work phase 2 postponed to phase 5 has
+     landed. Phase 2's own pick-up condition named phase 5 explicitly ("phase 5 supplies the second
+     with §8.1's facade"), and the second disposal route now exists: `close_quietly`'s `onto:`-absent
+     branch routes through `Instrumentation.contain` with `Events::INSTRUMENTATION_CLOSE`. The `onto:`
+     route, the suppressed trail and `CFG-21`'s null-safety are untouched.
+   - The body-logging caps' configuration source (phase 3b's deferral): mark the checklist row as
+     picked up by Tasks 14 and 15 and say in the status note that the work phase 3b postponed has
+     landed. `5a` supplied the third wiring and deliberately did not mark the item done; **5b lands
+     second and marks it**, having supplied the other two — the shared preview size read into both
+     phase-3b wrappers, and the gating of their construction on `HTTPLogging::BODY`.
+   - `SEAM-25`'s lifecycle event (phase 2's deferral): say in the status note, dated, that 5b ships
+     `Events::INSTRUMENTATION_SHUTDOWN` and the field shape and does **not** claim the item done,
+     because the first thing in this repository that owns an executor is phase 8's
+     `dexpace-async-thread` — the emission is phase 8b's (Tasks 6 and 10) and the harness phase 9's
+     (Task 11, `ExecutorSuite`).
 2. Verify, and change nothing:
-   - `docs/deferred-items.md`: `DEF-41` (`OBS-19`'s header-drop verbosity policy, target phase 8) is
-     present. `DEF-9` is untouched and is cited by `OBS-37`'s ⏳ row.
+   - The `OBS-19` header-drop verbosity policy is recorded in the 5b design's "Work phase 5b
+     postponed, and who owns it now" with phase 8c, Tasks 7, 9 and 15 as its owner. `OBS-37`'s ⏳ row
+     cites `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry.
    - `docs/open-items.md`: `OI-25` (`Event#tag` named by §8.1 and by no requirement), `OI-26`
      (`Dexpace/QualifiedCoreConstant` cannot carry `Logger`), `OI-27` (the charter's 5b scope table
      versus its own `R10`), `OI-30` (`OBS-24` assigned to 5b in prose and to `5c` in arithmetic) and
@@ -4128,8 +4142,9 @@ Derive the counts, never write them:
 
 Write `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`: **one row
 per requirement ID in scope**, naming for each the numbered task that satisfies it, or recording it as
-a deferral (`DEF-<n>`) or a deviation. All 28 — `OBS-1`–`OBS-20`, `OBS-24`, `OBS-34`–`OBS-40` — plus the
-non-ID obligations (`DEF-27`, `DEF-31`, `DEF-32`, `DEF-34`, `P5-8`) and the ✅ / 🚫 / ⏳ / N/A legend the
+postponed (with its owner named) or a deviation. All 28 — `OBS-1`–`OBS-20`, `OBS-24`, `OBS-34`–`OBS-40` — plus the
+non-ID obligations (`close_quietly`'s second route, `SEAM-25`'s event shape, `Hooks.notify`'s diagnostic,
+the body-logging caps, `P5-8`) and the ✅ / 🚫 / ⏳ / N/A legend the
 roadmap fixes. The requirement map in *Self-review against the design* below is the source; the
 checklist is the shipped artefact, and a requirement in scope with no row is the failure this
 project's conventions exist to prevent.
@@ -4206,8 +4221,8 @@ guess was wrong this plan was corrected — not `5c`.
 | `Dexpace::Instrumentation::NO_METER` | `Step.build`'s `meter:` default (`P5-33`) | Confirmed. A public frozen constant `5c` ships in **`lib/dexpace/instrumentation/meter.rb`** — not `no_meter.rb`, which was 5b's guess from the constant name and is corrected in `step.rb`'s `require_relative` |
 | `Dexpace::Instrumentation::Tracing.correlate(span, bundle) -> scope` and `Scope#close` | `Step#call`, `AsyncStep#on_settle` | Confirmed, in `lib/dexpace/instrumentation/tracing.rb`. `correlate` pushes `Diagnostics::TRACE_ID`/`::SPAN_ID` for a recording span and delegates to plain activation otherwise, so 5b needs no test on the recording flag. **5b uses the handle form on both paths** — `5c`'s design said the block form is "what `5b`'s sync step calls" and that sentence was corrected at reconciliation: `Step#call` already owns the `ensure` the block would duplicate, and `AsyncStep < Step` shares one `correlate_span` helper. Both forms ship; `P5-45` is not reopened |
 | `_Tracer#start_span(name)`, `_Span#finish` | `Step#call` | Confirmed. 4a's `_TracerFactory#tracer` is separate, keeps its five parameters, and is settled |
-| `_Meter#create_counter(name)` / `#create_histogram(name)`, `_Counter#add(amount, attributes: nil)`, `_Histogram#record(amount, attributes: nil)` | `Step.build`, `Step#call`'s `ensure` | Confirmed, and **`attributes:` is optional on both**. `OBS-31`'s MUST is that the instrument *accept* per-measurement attributes; nothing requires a caller to pass them, and no `OBS` requirement fixes an attribute set for these two instruments (`OBS-32`'s conventions are ⏳ `DEF-9`). 5b passes none and says so at the `ensure`. Instruments are manufactured **once in `.build`**, not per request (`OBS-31`, `OBS-25`) |
-| `test/support/recording_tracer.rb`, `recording_span.rb`, `recording_meter.rb` (`P5-48`) | `step_test.rb` | **Four of 5b's guesses were wrong and are fixed in Task 15.** `5c` ships a separate top-level `Dexpace::RecordingTracerFactory`, not `RecordingTracer::Factory`; the factory logs what it made in `#tracers`, so calling `#tracer` again would manufacture a second one; `RecordingSpan` has no `#finished?` — it latches into `#finished_at`, an `Array`; and `RecordingMeter` exposes `#counters` / `#histograms` (Arrays in creation order) with no by-name lookup, each element a `RecordingCounter`/`RecordingHistogram` whose `#records` entries are `{amount:, attributes:}`. All six constants are flat under `Dexpace`. **`RecordingCounter` and `RecordingHistogram` are `5c`'s and 5b declares neither**; 5b adds no second set (`DEF-29`) |
+| `_Meter#create_counter(name)` / `#create_histogram(name)`, `_Counter#add(amount, attributes: nil)`, `_Histogram#record(amount, attributes: nil)` | `Step.build`, `Step#call`'s `ensure` | Confirmed, and **`attributes:` is optional on both**. `OBS-31`'s MUST is that the instrument *accept* per-measurement attributes; nothing requires a caller to pass them, and no `OBS` requirement fixes an attribute set for these two instruments (`OBS-32`'s conventions are ⏳ post-v1). 5b passes none and says so at the `ensure`. Instruments are manufactured **once in `.build`**, not per request (`OBS-31`, `OBS-25`) |
+| `test/support/recording_tracer.rb`, `recording_span.rb`, `recording_meter.rb` (`P5-48`) | `step_test.rb` | **Four of 5b's guesses were wrong and are fixed in Task 15.** `5c` ships a separate top-level `Dexpace::RecordingTracerFactory`, not `RecordingTracer::Factory`; the factory logs what it made in `#tracers`, so calling `#tracer` again would manufacture a second one; `RecordingSpan` has no `#finished?` — it latches into `#finished_at`, an `Array`; and `RecordingMeter` exposes `#counters` / `#histograms` (Arrays in creation order) with no by-name lookup, each element a `RecordingCounter`/`RecordingHistogram` whose `#records` entries are `{amount:, attributes:}`. All six constants are flat under `Dexpace`. **`RecordingCounter` and `RecordingHistogram` are `5c`'s and 5b declares neither**; 5b adds no second set (one double per idea) |
 | `interface _Meter`, `_Counter`, `_Histogram` | `step.rbs`, `async_step.rbs` | Confirmed: declared **filled** by `5c`, in `sig/dexpace/instrumentation/meter.rbs`, and **exactly once across the two plans** — two declarations of one interface name is an `rbs validate` failure. 5b declares none and now *types against* them by bare name (`?meter: _Meter`) rather than `untyped`, since both signatures are written inside `module Instrumentation` |
 | File paths `instrumentation/meter.rb` and `instrumentation/tracing.rb` | `step.rb`'s `require_relative`s | Checked against `5c`'s *Module layout*. `tracing.rb` was right; `no_meter.rb` was wrong and is now `meter.rb` |
 | File paths `instrumentation/no_tracer.rb` and `instrumentation/bundle.rb` | `step.rb`'s `require_relative`s | **Phase 4a's, not `5c`'s, and a fifth guessed path found at reconciliation.** 4a's module layout puts `NO_TRACER_FACTORY` *and* `NO_TRACER` in `no_tracer.rb`; there is no `no_tracer_factory.rb`. `bundle.rb` was not required at all and now is, because `Step` names `Bundle::NONE` |
@@ -4243,13 +4258,13 @@ Twenty-eight requirement IDs: **26 ✅ Implemented, 2 ⏳ Deferred (`OBS-19`, `O
 | `OBS-16` | MUST | ✅ Tasks 8, 9 | Header URL redaction: relative and unparseable paths preserve path and append `?***` |
 | `OBS-17` | MUST | ✅ Tasks 7, 8, 15 | Redaction policy shared by sync and async paths via `Emitter`; `Location` and `Content-Location` redacted |
 | `OBS-18` | MUST | ✅ Tasks 7, 8, 9 | Diagnostic non-credential header allow-list (26 names); disallowed headers redacted with `REDACTED` |
-| `OBS-19` | SHOULD | ⏳ **DEF-41** (Task 16) | Header-drop verbosity policy deferred to Phase 8 transport adapters (`R10`, `P5-32`) |
+| `OBS-19` | SHOULD | ⏳ **phase 8c, Tasks 7, 9 and 15** (Task 16) | Header-drop verbosity policy postponed to the phase 8 transport adapter that drops (`R10`, `P5-32`) |
 | `OBS-20` | MUST | ✅ Tasks 11, 14, 15 | Error containment at all log emission sites; diagnostics emitted; secondary errors swallowed |
 | `OBS-24` | MUST | ✅ Task 6 | Immutable context snapshot (`Fiber.current.storage`) and union restoration across threads |
 | `OBS-34` | MUST | ✅ Tasks 13, 15 | Granularity levels (none, headers, body); at none, tracing/metrics run while logs silenced |
 | `OBS-35` | SHOULD | ✅ Task 13 | Tolerant level parsing; layered configuration resolution requires explicit key keyword |
-| `OBS-36` | MUST | ✅ Task 15 | Request and response body preview capture engaged only at body level (`DEF-34`) |
-| `OBS-37` | SHOULD | ⏳ **DEF-9** | Async streaming body preview skip deferred post-v1 with async adapters |
+| `OBS-36` | MUST | ✅ Task 15 | Request and response body preview capture engaged only at body level (the body-logging caps' gate) |
+| `OBS-37` | SHOULD | ⏳ **post-v1** — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry | Async streaming body preview skip declined for v1, pending the async adapters |
 | `OBS-38` | SHOULD | ✅ Tasks 12, 15 | Charset-aware preview decoding for text and `[binary N bytes captured]` for non-text |
 | `OBS-39` | MUST | ✅ Tasks 3, 9, 15 | Stable event (`http.request`, `http.response`) and field vocabulary; `url.full` always redacted |
 | `OBS-40` | SHOULD | ✅ Tasks 9, 10 | Collision diagnostic: warns once at verbose when per-event field collides with event tag |
@@ -4261,15 +4276,15 @@ Twenty-eight requirement IDs: **26 ✅ Implemented, 2 ⏳ Deferred (`OBS-19`, `O
 | `XCUT-19` — default-deny redaction | Tasks 7, 8, 13 | Default sets: `{api-version}`, 26 headers, level `none`. Userinfo cannot be allow-listed |
 | `XCUT-20` — total error containment | Tasks 8, 11 | `contain`, `MALFORMED_URL`, and never-throw preview decode ensure logging never breaks caller |
 | `XCUT-11` — thread-safe shared instances | Tasks 7, 8 | `Redactor` and `RedactionPolicy` are frozen with no mutable per-call state |
-| `DEF-27` — `close_quietly` diagnostic | Task 14 | Closed. Routes onto-absent through `contain` emitting `INSTRUMENTATION_CLOSE` |
-| `DEF-31` — lifecycle shutdown event | Task 3, 16 | Half supplied: `Events::INSTRUMENTATION_SHUTDOWN` constant shipped; row stays open for Phase 8 |
-| `DEF-32` — hook failure diagnostic | Task 14 | Option taken: secondary hook errors emitted as `INSTRUMENTATION_HOOK` diagnostics |
-| `DEF-34` — preview body cap wirings | Tasks 14, 15 | Picked up: `preview_bytes` cap gated at `HTTPLogging::BODY`; keys declared in `Configuration::Keys` |
-| `DEF-41` — `OBS-19` header-drop policy | Task 16 | Filed by Phase 5b design, target Phase 8 |
-| `DEF-9` — `OBS-37` async preview skip | — | Untouched; post-v1 with async adapters |
+| `close_quietly`'s second disposal route (phase 2's deferral) | Task 14 | Completed. Routes onto-absent through `contain` emitting `INSTRUMENTATION_CLOSE`; the status note says the work phase 2 postponed has landed |
+| `SEAM-25`'s lifecycle shutdown event (phase 2's deferral) | Task 3, 16 | Half supplied: `Events::INSTRUMENTATION_SHUTDOWN` constant shipped; emission is phase 8b's (Tasks 6 and 10), harness phase 9's (Task 11) |
+| `Hooks.notify`'s hook failure diagnostic (phase 2's option) | Task 14 | Option taken: secondary hook errors emitted as `INSTRUMENTATION_HOOK` diagnostics |
+| The body-logging caps' wirings (phase 3b's deferral) | Tasks 14, 15 | Picked up: `preview_bytes` cap gated at `HTTPLogging::BODY`; keys declared in `Configuration::Keys`; the status note says the work phase 3b postponed has landed |
+| `OBS-19`'s header-drop policy | Task 16 | Postponed by the 5b design; owner phase 8c, Tasks 7, 9 and 15 (`DropPolicy`) |
+| `OBS-37`'s async preview skip | — | Untouched; post-v1 with the async adapters (`docs/first-release.md` § What v1 ships without) |
 | `OI-25`, `OI-26`, `OI-27`, `OI-30`, `OI-31` | Tasks 15, 16 | **Already filed** — the first four by the design reconciliation, `OI-31` by the plan reconciliation; Task 16 verifies them and re-files nothing. `OI-30` is one this plan rests on: it records that the charter assigns `OBS-24` to 5b in prose and to `5c` in arithmetic, and the design resolves it to 5b — which is why `OBS-24` has a row above and Task 6 implements it. `OI-31` is the other: the step's slot precedence names a context bundle no pipeline step can reach, so its first clause degrades to the keyword and to `Bundle::NONE`, which is `OBS-34`'s own default configuration and leaves its conformance clause unaffected |
 | `P5-39` | — | A deliberate, **unused** gap in the ledger. No task claims it and nothing is renumbered to close it |
-| `DEF-29` | Tasks 1, 15 | Untouched. 5b adds exactly **two** doubles, `RecordingSink` and `DiagnosticContext`; the recording tracer, span and meter are `5c`'s and are consumed, not duplicated (`P5-48`) |
+| Moving core's test fakes into `dexpace-conformance` | Tasks 1, 15 | Untouched (phase 8a later declined it). 5b adds exactly **two** doubles, `RecordingSink` and `DiagnosticContext`; the recording tracer, span and meter are `5c`'s and are consumed, not duplicated (`P5-48`) |
 
 ### Deviation Ledger Mapping
 
@@ -4293,7 +4308,7 @@ Twenty-three deviations: `P5-16` through `P5-38` (`P5-39` is a deliberate gap).
 | `P5-29` | `OBS-7` cap measured in bytes via `#byteslice` + `#scrub` | `OBS-7` | Task 5 |
 | `P5-30` | Header allow-list excludes auth and challenge headers | `OBS-18`, `XCUT-19` | Task 7 |
 | `P5-31` | `OBS-38` text/binary set chosen; corrected transcode recipe | `OBS-38`, `OI-7` | Task 12 |
-| `P5-32` | `OBS-19` carried ⏳ against `DEF-41` instead of "vacuous" | `OBS-19`, `DEF-41` | Task 16 |
+| `P5-32` | `OBS-19` carried ⏳ against a named owner (phase 8c, Tasks 7, 9 and 15) instead of "vacuous" | `OBS-19`, `TRANSPORT-12`, `TRANSPORT-13` | Task 16 |
 | `P5-33` | Step tracer and meter slots defaulted to `NO_TRACER_FACTORY` and `NO_METER` | `OBS-34`, `R11` | Task 15 |
 | `P5-34` | Two steps (`Step`, `AsyncStep`) over one `Emitter` | `OBS-17`, `PIPE-28` | Task 15 |
 | `P5-35` | `RedactionPolicy#omit_disallowed_headers` defaults to `false` | `OBS-18` | Task 7 |

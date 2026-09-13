@@ -123,7 +123,7 @@ Quoted from appendix C rather than paraphrased, because each of these fixes a de
 |---|---|
 | Every `BODY` ID and the twelve `HTTP` IDs jointly numbered into spec ch.06 | 3b |
 | The body **production contract** — `HTTP-36`/`BODY-1`'s single write-to-sink operation, media type, content length, `#replayable?` | 3b. 3a fixes only the representation |
-| `DEF-26`'s narrowing of `Request#body`/`Response#body` in `sig/` | 3b — it needs a body type, and 3a's duck type is not one |
+| The narrowing of `Request#body`/`Response#body` in `sig/` that phase 1 postponed to phase 3 | 3b — it needs a body type, and 3a's duck type is not one (deviation P3-15) |
 | `HTTP-42`'s decode **policy** — the single decode boundary is `Response#body_string` | 3b. 3a ships `IO-13`'s charset reads as a primitive and adds no second decode site (boundary 7) |
 | `IO-9`/`BODY-32`'s ceiling as a **configurable** limit rather than a constant with a default | 5. 3a owns the constant; R5 (3b's) decides the parameter shape by which a value reaches it |
 | Any clock, deadline or timeout | 8 for the transport that owns the socket; 5 for `CFG-15`–`CFG-21`. `IO-40` forbids one here outright (boundary 1) |
@@ -633,7 +633,7 @@ constant**". 3a ships exactly the frozen constant that sentence declines, becaus
 chain to read from until phase 5 and the exclusion table gives phase 5 the *configuration source*;
 `R5` — which parameter shape carries a value to it — is 3b's. Nothing is foreclosed: adding an
 optional keyword later widens a signature rather than narrowing one, so `NFR-4` is not prejudiced
-(phase 2's `DEF-28` precedent, applied verbatim), and the constant remains the one ceiling `IO-9` and
+(phase 2's `deadline:` precedent, deviation P2-5, applied verbatim), and the constant remains the one ceiling `IO-9` and
 `BODY-32` share whatever ends up feeding it.
 
 ### `Dexpace::IO::TypedReads` — the read vocabulary (`IO-11`–`IO-16`, `IO-19`–`IO-24`)
@@ -863,15 +863,15 @@ names no stdlib type but `String`, `Integer` and `Encoding`.
 1. **`IO-40` — 3a owns no clock and no deadline.** No method in 3a takes a timeout, a deadline or a
    `Cancellation`; the only blocking call in the whole sub-phase is the upstream's own
    `#readpartial`/`#read` inside `#fill`, and it blocks for exactly as long as the transport that
-   owns the socket allows. `DEF-28`'s `deadline:` keyword stays off the pivot until phase 5, and 3a
-   does not reach for it. The corpus's per-call-timeout rules are answered by the note above.
+   owns the socket allows. The pivot's `deadline:` keyword stays off the pivot until phase 5 (phase 2's
+   deviation P2-5; phase 5a, Task 8 builds it), and 3a does not reach for it. The corpus's per-call-timeout rules are answered by the note above.
 2. **`IO-37` with `IO-38` — single-threaded, close being the one exception.** No instance carries a
    lock over its read or write path; the **only** synchronised state in 3a is the close latch, read
    once per public call through `Dexpace::Closeable`'s mutex (P3-6) and never held across a read, a
    fill, a drain or a `#release`. 3a does not make instances thread-safe: that would over-satisfy a
    MUST that says the opposite and would hide a caller's own error. The flag is not fiber-local.
    §3.1's mechanism is honoured exactly — a `Thread::Mutex`, not the GVL, "so the guarantee survives
-   JRuby and TruffleRuby" — and `DEF-33` records that no such interpreter is in the matrix.
+   JRuby and TruffleRuby" — and the postponement below records that no such interpreter is in the matrix.
 3. **`IO-42`'s asymmetry, in both directions.** A stream-backed `BufferedSource`/`BufferedSink`/
    `TeeSink` raises `Dexpace::ClosedError` from every read, write, flush and emit after close. A
    `Buffer` does **not**: its own read/write surface stays live after close, because an in-memory
@@ -993,8 +993,8 @@ because no real stream can produce the behaviour the requirement is about:
   encoding rule, the empty-chunk rule above and §7.1's residue, in one double. The empty-chunk case
   is the one a real `StringIO` or `IO.pipe` cannot produce, which is why it needs a fake at all.
 
-`DEF-29`'s condition — a consumer outside `dexpace-core` — is still unmet; these three strengthen the
-row without meeting it.
+The condition phase 2 set for moving core's fakes into `dexpace-conformance` — a consumer outside
+`dexpace-core` — is still unmet; these three strengthen the case without meeting it.
 
 **The concurrency tests, which are the ones a reader would otherwise write wrong.**
 
@@ -1002,7 +1002,7 @@ row without meeting it.
 |---|---|
 | Two fibers of one thread interleaving reads on one `BufferedSource` | No `ThreadError`. This is the proof that no lock is held across a read: verified fact 7 shows a mutex held across a fiber suspension raises for the second fiber, so the test fails loudly under the bug it exists to catch |
 | A view being read on thread B while thread A closes the parent, sequenced through a `Thread::Queue` | B's next read raises `Dexpace::ClosedError` — never stale bytes, never a torn read (`IO-38`, `IO-22`) |
-| **P3-6's mechanism**: one fiber holds the instance's close mutex across a `Fiber.yield`, a second fiber then calls `#closed?` | `ThreadError`. This is the **only** assertion in 3a that distinguishes the synchronised reader from phase 2's, and it fails against phase 2's — verified fact 7 is what makes it possible. Everything else about `IO-38` passes with or without the lock on every CRuby row, which is what `DEF-33` records. A one-line body change with no signature change is invisible to `gates:sig_diff`, so this assertion is the only thing standing between P3-6 and a silent revert |
+| **P3-6's mechanism**: one fiber holds the instance's close mutex across a `Fiber.yield`, a second fiber then calls `#closed?` | `ThreadError`. This is the **only** assertion in 3a that distinguishes the synchronised reader from phase 2's, and it fails against phase 2's — verified fact 7 is what makes it possible. Everything else about `IO-38` passes with or without the lock on every CRuby row, which is what the postponement below records. A one-line body change with no signature change is invisible to `gates:sig_diff`, so this assertion is the only thing standing between P3-6 and a silent revert |
 | A `#release` that reads `#closed?` | Returns `true` and does not deadlock — the proof that the mutex is held across the flip and **not** across `#release`, which a non-reentrant `Thread::Mutex` would turn into `ThreadError` (verified fact 7's second half) |
 | `#close` called from two threads on one source | `#release` runs exactly once, both callers return, the upstream is closed at most once (`IO-41`) |
 | A `#release` that raises | The latch is still flipped, the failure propagates once, a second `#close` is a no-op |
@@ -1116,56 +1116,94 @@ from the phase-3 segmentation design, which left the ledger empty.
 | P3-11 | `BufferedSource.new` and `BufferedSink.new` are `private_class_method`; `Buffer.new` and `TeeSink.new` are public | `IO-6`; design §3.7 | Ownership is a construction-time fact, and a public `.new` taking an ownership argument would let a caller build the wrapper `IO-6` forbids — one that wraps a caller's stream and does not close it. `Buffer` and `TeeSink` each have exactly one construction meaning and need no factory to name it. Phase 1's `private_class_method :new` plus a validating `.build` is a rule about `Data` value types and does not reach these, which are mutable and stateful |
 | P3-12 | `.wrapping` takes a block form; there is **no borrowing variant** of either wrapping factory | `IO-6`; `resource-management/bf5560dc`, `/43a55896` | The styleguide's strongest resource rule asks for a block form for every closable resource, and 3a adopts it exactly where a leak is possible. A borrowing wrap is not offered because `IO-6` is a MUST that a wrapper closes what it wraps; §3.7's build-versus-borrow split governs components that hold a resource, not the I/O wrap, and reading it as licence here would contradict the requirement §10.12 depends on |
 
-## Deferrals Filed by Phase 3a
+## Work Phase 3a Postpones, and Who Owns It Now
 
-Filed against `docs/deferred-items.md`; the row names an explicit pick-up condition, per the
-roadmap's execution step 7. (The heading avoids the literal words the housekeeping probe's
-`registers` check reserves for the aggregate register, which is where the row lives.)
+One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.
+It is event-gated — no v1 phase can produce the event — so it lives in `docs/first-release.md`
+§ Post-release triggers, the `IO-38` entry. The reasoning stays here in full.
 
-| ID | Deferral | Target / condition |
-|---|---|---|
-| `DEF-33` | Running the `IO` suite on a Ruby without a GVL — JRuby or TruffleRuby — so that `IO-38`'s cross-thread close guarantee is **exercised** rather than argued. Design §3.1 puts the close flag under a `Thread::Mutex` "so the guarantee survives JRuby and TruffleRuby", and the CI matrix is CRuby 3.2 / 3.3 / 3.4 / 4.0, on which the GVL would hide a missing lock. 3a ships the mutex, the test and the reasoning; what it cannot ship is the interpreter that would fail without them | Condition: a non-CRuby row is added to the CI matrix. No phase in v1 plans one, so the condition names the event and not a phase — the same shape as `DEF-3`'s `BODY-36` half, and recorded so a later reader does not mistake an unscheduled condition for a forgotten one |
+**Exercising `IO-38`'s cross-thread close guarantee on a Ruby without a GVL.** `IO-38` requires that
+"the CLOSE state of a source/buffer MUST be observable across threads to the slices derived from it, so
+that a close on one thread reliably invalidates a slice being read on another (no torn or stale reads)",
+and design §3.1 fixes the mechanism: the flag is "written and read through a `Thread::Mutex` rather than
+relying on the GVL, **so the guarantee survives JRuby and TruffleRuby**". 3a ships all of that — the
+synchronised write phase 2 already had, the synchronised **read** phase 2 did not (P3-6), the
+invalidation of every derived view, and a cross-thread test sequenced through a `Thread::Queue` so it is
+deterministic rather than flaky. What it cannot ship is an interpreter on which the mechanism is
+load-bearing: the CI matrix is CRuby 3.2 / 3.3 / 3.4 / 4.0, and on every row of it the GVL would hide a
+missing lock — the test passes with the mutex and passes without it, so it proves the behaviour and not
+the mechanism. Recorded rather than left implicit because the 3a checklist marks `IO-38` ✅ and a ✅ whose
+only evidence is an argument about a platform nobody runs is exactly the drift the one-row-per-ID
+convention exists to prevent.
 
-### Deferral-register sweep
+*Condition:* a non-CRuby row is added to the CI matrix. No phase in v1 plans one, so the condition names
+the event and not a phase — the same shape the phase-3 segmentation design gave `BODY-36`'s half of the
+zero-copy/mmap postponement, and recorded so a later reader does not mistake an unscheduled condition for
+a forgotten one. When it is met, the work is one job, not new code: run `gems/dexpace-core`'s `IO` suite
+unchanged and confirm the cross-thread close test still passes. *Owner:* `docs/first-release.md`
+§ Post-release triggers.
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every
-row. All thirty-two were read.
+### Postponed work read at planning time
+
+The roadmap's execution step 1 requires the phase to read **every** piece of work an earlier phase
+postponed and disposition each. All thirty-two items outstanding on 2026-09-08 were read; each is named
+below by subject, with the place that owns it now.
 
 **Phase 3a picks up none, marks none UNSCHEDULED, and adds a caller to one.**
 
-- **`DEF-26` — untouched, and it is 3b's.** The segmentation design already picked it up for 3b,
-  because narrowing `Request#body`/`Response#body` in `sig/` needs a body type and 3a's `_Chunked`
-  duck type is not one. 3a does not touch either signature.
-- **`DEF-3` — untouched.** `BODY-12` and `BODY-36` are `BODY` IDs; the segmentation design gave
-  `BODY-12`'s transport half phase 8 and `BODY-36` an explicit pick-up condition. Nothing in 3a moves
-  either.
-- **`DEF-27` — untouched, and 3a adds no caller.** `close_quietly`'s two disposal routes are still
-  missing, and 3a performs no best-effort close: every close here is either a caller's explicit
+- **The body member's type and `HTTP-46` (postponed by phase 1) — untouched, and it is 3b's.** The
+  segmentation design already picked it up for 3b, because narrowing `Request#body`/`Response#body`
+  in `sig/` needs a body type and 3a's `_Chunked` duck type is not one. 3a does not touch either
+  signature. Built by 3b as deviation P3-15.
+- **`BODY-12`/`BODY-36` (MVP-scope design) — untouched.** `BODY-12` and `BODY-36` are `BODY` IDs; the
+  segmentation design gave `BODY-12`'s transport half phase 8 and `BODY-36` an explicit pick-up
+  condition. Nothing in 3a moves either. (Clause 1 of `BODY-12` was then discharged by 3b; clause 2 was
+  declined by phase 8a; both it and `BODY-36` are stated in `docs/first-release.md` § What v1 ships
+  without, the `BODY-36`/`BODY-12` entry.)
+- **`close_quietly`'s two disposal routes (phase 2) — untouched, and 3a adds no caller.** Both routes
+  are still missing (phase 4b, Task 2 supplies the suppressed trail, phase 5b, Task 14 the opt-in
+  diagnostic), and 3a performs no best-effort close: every close here is either a caller's explicit
   `#close`, which propagates (§3.7's first loud exception), or a `#release`, which propagates once
   (§3.7's second). `BODY-28`'s new call site is 3b's, not 3a's.
-- **`DEF-28` — untouched, and named as a constraint rather than a deferral.** The pivot has no
-  `deadline:` until phase 5 and `IO-40` independently forbids 3a from owning one. The two agree, and
-  3a's parameterisation of `MAX_MATERIALIZED_BYTES` follows the same precedent: ship the narrower
-  surface, let phase 5 widen it.
-- **`DEF-29` — untouched, condition still unmet, row strengthened.** 3a adds `FakeSource`, `FakeSink`
-  and `FakeChunked` to `gems/dexpace-core/test/support/`, which is three more doubles that would move
-  into `dexpace-conformance` when the first consumer outside `dexpace-core` appears. That consumer is
-  phase 8 at the earliest.
-- **`DEF-32` — untouched.** `Hooks.notify` has no caller in 3a; nothing here notifies a hook list.
-- **`DEF-21` — already picked up** by phase 2. **`DEF-1`, `DEF-2`, `DEF-24`, `DEF-25`, `DEF-30`,
-  `DEF-31` — untouched**: targets phase 5, 6, 4, 8, post-v1 and 5, none reachable from a phase that
-  ships byte streams.
-- **`DEF-4`–`DEF-10` — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`, `SSE`, `OBS` and `TRANSPORT`;
-  other prefixes, later phases.
-- **`DEF-11`–`DEF-17` — untouched.** Post-v1 gems, out of the MVP by construction.
-- **`DEF-18` — untouched.** `ASYNC-3`/`ASYNC-4`/`PIPE-33`; do not re-open.
-- **`DEF-19`, `DEF-20` — untouched.** Release-gated; nothing is published.
-- **`DEF-22` — untouched.** Phase 8's conformance assertion objects.
-- **`DEF-23` — untouched, and the condition was checked rather than assumed.** A Steep target over a
-  test tree is picked up "when a gem's test support becomes production-quality code worth checking".
-  3a's three fakes are each a handful of scriptable methods with no invariants a type checker would
-  catch, and `DEF-29` already says the moment they become production-quality is the moment they move.
-  Not met, so not marked UNSCHEDULED.
+- **The pivot's `deadline:` keyword (phase 2, deviation P2-5) — untouched, and named as a constraint
+  rather than a postponement.** The pivot has no `deadline:` until phase 5 (5a, Task 8) and `IO-40`
+  independently forbids 3a from owning one. The two agree, and 3a's parameterisation of
+  `MAX_MATERIALIZED_BYTES` follows the same precedent: ship the narrower surface, let phase 5 widen it.
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched, condition still
+  unmet, case strengthened.** 3a adds `FakeSource`, `FakeSink` and `FakeChunked` to
+  `gems/dexpace-core/test/support/`, which is three more doubles that would move into
+  `dexpace-conformance` when the first consumer outside `dexpace-core` appears. That consumer is phase 8
+  at the earliest. (Phase 8a met the condition on 2026-09-12 and declined the move on the
+  development-dependency cycle it would create; the fakes stay where they are.)
+- **`Hooks.notify`'s dropped later failures (phase 2) — untouched.** `Hooks.notify` has no caller in
+  3a; nothing here notifies a hook list. Owner: phase 4b, Task 2.
+- **The runtime half of the version-skew guard — already built** by phase 2 (`Registry#register(key,
+  factory, core:)`, P2-7). **`SEAM-24`/`SEAM-28`, `HTTP-22`/`HTTP-48`–`HTTP-50`, the suppressed-exception
+  trail, wire-boundary header re-validation, presence-gated auto-activation and `SEAM-25`'s lifecycle
+  event — untouched**: targets phase 5, 6, 4, 8, post-v1 and 5, none reachable from a phase that ships
+  byte streams. Owners now: phase 5c, Task 4 for `SEAM-28` and `docs/first-release.md` § What v1 ships
+  without for `SEAM-24`; the standing decision line under `docs/first-release.md` § Blockers before first
+  publish for the four `HTTP` helpers; phase 4b, Task 1; phase 8a, Task 16, phase 8c, Task 9 and phase 9,
+  Task 7; `docs/first-release.md` § What v1 ships without › SHOULD/MAY; phase 8b, Tasks 6 and 10 with
+  phase 9, Task 11.
+- **`PIPE-36`, `RECOV-31`, `RETRY-29`/`RETRY-38`/`RETRY-43`, `REDIR-27`, `SSE-41`, `OBS-32`/`OBS-37` and
+  `TRANSPORT-28`/`TRANSPORT-30` (MVP-scope design) — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`,
+  `SSE`, `OBS` and `TRANSPORT`; other prefixes, later phases; all declined for v1
+  (`docs/first-release.md` § What v1 ships without › SHOULD/MAY).
+- **The seven post-v1 gems — untouched.** Out of the MVP by construction (`docs/first-release.md`
+  § What v1 ships without › Post-v1 gems).
+- **`ASYNC-3`/`ASYNC-4`/`PIPE-33` — untouched.** Do not re-open (`docs/first-release.md` § What v1 ships
+  without › Unsatisfied MUSTs; design §10.5).
+- **The housekeeping fence executor and the signed release path — untouched.** Release-gated; nothing
+  is published (`docs/first-release.md` § Release path).
+- **`dexpace-conformance`'s assertion objects (phase 0) — untouched.** Phase 8a's, Tasks 4–8 and 20,
+  with phase 9, Tasks 2–12a.
+- **A Steep target over a test tree (phase 0) — untouched, and the condition was checked rather than
+  assumed.** It is picked up "when a gem's test support becomes production-quality code worth
+  checking". 3a's three fakes are each a handful of scriptable methods with no invariants a type checker
+  would catch, and phase 2's fakes decision already says the moment they become production-quality is the
+  moment they move. Not met, so not marked UNSCHEDULED. Event-gated: `docs/first-release.md`
+  § Post-release triggers.
 
 ### The finding filed against `docs/open-items.md`
 

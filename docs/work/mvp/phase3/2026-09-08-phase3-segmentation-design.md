@@ -164,8 +164,9 @@ believe it is free to decide. Quoted from appendix C or from the owning design s
 
 1. **`IO-40`** — "These streaming contracts MUST NOT impose their own read/write timeout or deadline; the
    adapter wraps foreign streams with a no-op timeout, delegating all deadline enforcement to the transport."
-   `3a` owns no clock and no deadline; `3b` may not push one down; neither may reach for the `deadline:`
-   keyword `DEF-28` deliberately kept off the async pivot until phase 5.
+   `3a` owns no clock and no deadline; `3b` may not push one down; neither may reach for the pivot's
+   `deadline:` keyword, which phase 2 deliberately kept off the async pivot until phase 5 (deviation P2-5; built
+   by phase 5a, Task 8).
 2. **`IO-37` with `IO-38`** — every streaming instance is a single-threaded contract, and the **close state is
    the one cross-thread-visible exception**. `3a` may not make instances thread-safe (that would over-satisfy a
    MUST that says the opposite and would hide a caller's own error), and may not make the close flag
@@ -234,9 +235,10 @@ bridge's close ownership-bearing.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `BODY-1`–`BODY-11`, `BODY-13`–`BODY-35`, `BODY-37`; `HTTP-36`–`HTTP-45`, `HTTP-51`, `HTTP-52` | 47 |
-| ⏳ deferred, `DEF-3` | `BODY-12` (SHOULD, platform zero-copy file transfer), `BODY-36` (MAY, memory-mapped view) | 2 |
+| ⏳ postponed by the MVP-scope design; owner now `docs/first-release.md` § What v1 ships without, the `BODY-36`/`BODY-12` entry (`BODY-12`'s first clause is discharged by `3b` itself, below) | `BODY-12` (SHOULD, platform zero-copy file transfer), `BODY-36` (MAY, memory-mapped view) | 2 |
 
-`3b` additionally carries **`DEF-26` as a picked-up row** (below) and one **cross-reference row for `HTTP-46`**,
+`3b` additionally carries **the body-member narrowing phase 1 postponed to phase 3 as a picked-up row** (`Request#body`/`Response#body`
+typed `Dexpace::Body?`, deviation P3-15; below) and one **cross-reference row for `HTTP-46`**,
 whose by-value body comparison `3b` completes without owning the ID — the same treatment phase 2 gave
 `SEAM-29`, and for the same reason: dropping the row would leave a requirement whose obligation this phase
 discharges with no row in the phase that discharges it.
@@ -270,7 +272,7 @@ phase 1's 39 (`HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53`) plus phase
 | Excluded | Owning phase |
 |---|---|
 | `HTTP-16` — the header insertion-order SHOULD that ch.06 §6.3's `HTTP-16-body` label resembles | 1 |
-| `HTTP-46` — request equality by value; the ID stays phase 1's, and phase 3 completes its body half through `DEF-26` | 1, completed here |
+| `HTTP-46` — request equality by value; the ID stays phase 1's, and phase 3 completes its body half through `3b`'s narrowing of the body member (deviation P3-15) | 1, completed here |
 | `SEAM-3`, `SEAM-4` — the byte-stream provider seam, retired; design §3.1 states `IO-6`'s content citing `SEAM-3`, which is why the note below matters | 2 (🚫, §10.1) |
 | `SEAM-14`, `SEAM-25`, `XCUT-13`, `XCUT-22` — the close and ownership contracts `Dexpace::Closeable` implements | 2 built, 9 dispositions |
 | `BODY-30`/`HTTP-52`'s **pipeline step** and `BODY-31`'s error-to-exception mapping **step** — design §12 places both in §5.1, alongside `RECOV-16` | 4. Phase 3 ships the bounded replayable copy and the 4xx/5xx predicate; phase 4 ships the recovery-chain step that calls them |
@@ -279,7 +281,7 @@ phase 1's 39 (`HTTP-3`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53`) plus phase
 | `BODY-4`/`BODY-5`'s three **call sites** — retry, redirect and the 401 challenge | 6 |
 | `HTTP-44`/`HTTP-45`'s **witness-based handler** — design §7.3 is where the typed value is cashed in | 7. Phase 3 ships `Dexpace::TypedResponse` over a handler duck type; `SEAM-22`'s witness is phase 7's |
 | `SSE-12`'s BOM rule and the SSE line machine over `IO-14`; `PAGE`'s and `SERDE`'s use of `BufferedSource.over` | 7 |
-| `TRANSPORT-25`'s streaming response body over `Net::HTTPResponse#read_body`; `TRANSPORT-28`'s zero-copy dispatch (`DEF-10`) | 8 |
+| `TRANSPORT-25`'s streaming response body over `Net::HTTPResponse#read_body`; `TRANSPORT-28`'s zero-copy dispatch (its zero-copy clause is declined for v1: `docs/first-release.md` § What v1 ships without › SHOULD/MAY, the `TRANSPORT-28`/`TRANSPORT-30` entry) | 8 |
 | `XCUT-15`, `XCUT-18` — restated cross-cutting invariants phase 3 leaves satisfiable without claiming | 9 |
 
 ---
@@ -365,17 +367,17 @@ held **only across the flip**), `Dexpace.close_quietly`, `Dexpace::ClosedError`,
 - **`Closeable`'s latch is the mechanism for `IO-41`, `BODY-15`, `BODY-27` and `HTTP-43`.** Design §3.7 already
   says all four "use the same mechanism", and phase 2 built it. `3a` and `3b` include the module; neither
   writes a second latch.
-- **`close_quietly` still drops its rescued error** (`DEF-27`; phase 4 supplies the suppressed trail, phase 5
-  the diagnostic). `BODY-28`'s best-effort close on the fits-cap path is a **new call site** for it, which
+- **`close_quietly` still drops its rescued error** (phase 2's recorded decision; phase 4b, Task 2 supplies the
+  suppressed-trail route and phase 5b, Task 14 the opt-in diagnostic). `BODY-28`'s best-effort close on the fits-cap path is a **new call site** for it, which
   strengthens that row without meeting its condition.
 - **There is no fourth registry**, and `3a` adds none (§10.1, boundary 9 above).
 
 **What phase 3 changes about a phase-1 public type.** `HTTP-43` puts `#close` on `Dexpace::Response`, `HTTP-42`
-puts `#body_string` on it, and `DEF-26` **narrows** `Request#body` and `Response#body` in `sig/` from
+puts `#body_string` on it, and `3b` **narrows** `Request#body` and `Response#body` in `sig/` from
 `untyped`. `NFR-4`'s API lock is a diff against the previous release tag and **there is no release tag** —
 every gem is at `0.0.0` and nothing is published (`docs/first-release.md`). The narrowing is therefore free
-now and would not be later, which is precisely why `DEF-26` targets phase 3 rather than a phase after the
-first release.
+now and would not be later, which is precisely why phase 1 postponed the narrowing to phase 3 rather than to a
+phase after the first release.
 
 ---
 
@@ -450,63 +452,89 @@ in this document; the rest are recorded because a sub-phase design would otherwi
 
 ---
 
-## Deferrals Filed by Phase 3
+## Work Phase 3 Postpones
 
 **None, and that is deliberate.** A segmentation design decides a cut; it does not decide the interfaces whose
-absence a deferral records. Filing a row here for `BODY-19`/`BODY-34`'s cap parameter would fix that
+absence a postponement records. Postponing `BODY-19`/`BODY-34`'s cap parameter here would fix that
 parameter's shape ahead of `3b`'s design, which is the objection phase 0 raised against defining
-`Dexpace.register` early and phase 2 raised again against `close_quietly`'s disposal routes. Two rows are
-**expected of `3b`** and are named in the risks below so their absence later is visible: the configuration
+`Dexpace.register` early and phase 2 raised again against `close_quietly`'s disposal routes. Two postponements
+are **expected of `3b`** and are named in the risks below so their absence later is visible: the configuration
 source for the two caps and the enablement predicate, and `BODY-12`'s body-side clause if `3b` declines it.
 
-### Deferral-register sweep
+### Postponed work read at planning time
 
-The roadmap's execution step 1 requires the phase to read the **whole** register and disposition every row.
-All thirty-two were read.
+The roadmap's execution step 1 requires the phase to read **every** piece of work an earlier phase postponed
+and disposition each. All thirty-two items outstanding on 2026-09-08 were read; each is named below by its
+subject, with the phase that postponed it and the place that owns it now.
 
-**Phase 3 picks up one row and sharpens a second.**
+**Phase 3 picks up one item and sharpens a second.**
 
-- **`DEF-26` — picked up, by `3b`.** Its pick-up condition names phase 3 explicitly: narrow `Request#body` and
+- **The body member's type and `HTTP-46`'s by-value comparison (postponed by phase 1) — picked up, by `3b`.**
+  Phase 1's pick-up condition names phase 3 explicitly: narrow `Request#body` and
   `Response#body` in `sig/`, and add the by-value equality test against a real body type. Both need a body type
   to exist, so the row belongs to **`3b`**, not `3a` — `3a` fixes only the `#each`/BINARY duck type, which is
   not a type `sig/` can narrow to. `HTTP-46` stays phase 1's ID and gets a cross-reference row in `3b`'s
   checklist. The narrowing is safe against `NFR-4` for the reason phase 1 could not yet state: the lock diffs
-  against the previous release tag and there is none.
-- **`DEF-3` — stays deferred; its `BODY-12` half gets a target it never had.** Phase 3 owns both IDs and ships
-  the gem, so this is the row the sweep exists for. `BODY-12` is a SHOULD with two clauses: stream via the
+  against the previous release tag and there is none. Built by `3b` as deviation P3-15.
+- **`BODY-12`/`BODY-36` (postponed by the MVP-scope design) — stays postponed; the `BODY-12` half gets a target it
+  never had.** Phase 3 owns both IDs and ships the gem, so this is the item the reading exists for. `BODY-12` is a SHOULD with two clauses: stream via the
   platform's most efficient file-to-sink transfer, **and** be recognizable by type so transports can dispatch
   a zero-copy kernel path. The second clause has no subject until a transport exists and is the same feature
-  as `TRANSPORT-28` (`DEF-10`, post-MVP), so it is given the target **phase 8**, alongside `DEF-10`. The first
+  as `TRANSPORT-28` (post-MVP), so it is given the target **phase 8**, alongside `TRANSPORT-28`. The first
   clause is meetable in `3b` — `IO.copy_stream` is stdlib and available on all three interpreters — and
   **`3b`'s design decides it**; this document does not, because whether the file body's write uses it is an
   implementation question inside the sub-phase. **Not UNSCHEDULED either way**: that status is for a condition
-  a phase met and declined, and `DEF-3`'s stated condition for `BODY-12` is "post-MVP", which phase 3 cannot
+  a phase met and declined, and the stated condition for `BODY-12` is "post-MVP", which phase 3 cannot
   meet. `BODY-36` (MAY, memory-mapped view) gets an **explicit pick-up condition in place of the "no named
   trigger" it has now**: Ruby's standard library has no `mmap`, and the only routes are a C extension or the
   `mmap` gem, both barred from core by `SEAM-1`/`NFR-1` — so the condition is *core's dependency budget
   changes*, which no phase in v1 can meet. Recorded so a later reader does not mistake an unmeetable condition
-  for a forgotten one.
-- **`DEF-27` — untouched, condition unmet, and phase 3 adds a caller.** `BODY-28`'s best-effort close after a
-  successful full capture is a new `close_quietly` site. Neither disposal route exists yet (phase 4 supplies
-  the suppressed trail, phase 5 the diagnostic), so the row stands as written and this note is recorded rather
-  than the behaviour being re-litigated in `3b`.
-- **`DEF-28` — untouched, and named as a constraint rather than a deferral here.** The pivot has no
-  `deadline:` until phase 5, and `IO-40` independently forbids phase 3 from owning one, so the two agree.
-- **`DEF-29` — untouched.** `3a` and `3b` will add test doubles (a fake sink, a fake body, a fake source) under
-  `gems/dexpace-core/test/support/`, following phase 2's precedent and its four reasons. The condition — a
-  consumer outside `dexpace-core` — is not met.
-- **`DEF-24`, `DEF-25`, `DEF-30`, `DEF-31`, `DEF-32` — untouched.** Targets phase 4, 8, 5, 5 and 4; none is
-  reachable from a phase that ships bodies and byte streams.
-- **`DEF-1`, `DEF-2` — untouched.** `SEAM-24`/`SEAM-28` target phase 5; `HTTP-22`/`HTTP-48`–`HTTP-50` target
-  phase 6.
-- **`DEF-4`–`DEF-9` — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`, `SSE` and `OBS`; other prefixes, later
-  phases. `DEF-10` is touched only as `BODY-12`'s transport half, above.
-- **`DEF-11`–`DEF-17` — untouched.** Post-v1 gems, out of the MVP by construction.
-- **`DEF-18` — untouched.** `ASYNC-3`/`PIPE-33`, the two known-unsatisfied MUSTs; do not re-open.
-- **`DEF-19`, `DEF-20` — untouched.** Release-gated; nothing is published.
-- **`DEF-21` — already picked up** by phase 2.
-- **`DEF-22`, `DEF-23` — untouched.** Phase 8's conformance assertion objects, and a Steep target over a test
-  tree whose condition ("production-quality test support") phase 3's fakes do not meet.
+  for a forgotten one. Where the three parts now live: clause 1 of `BODY-12` was discharged by `3b`
+  (`::IO.copy_stream` over the body's window, `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`);
+  clause 2 was declined by phase 8a on 2026-09-12 (its design's R5 — `Net::HTTP` streams through a
+  `Net::BufferedIO`, so the kernel path is unreachable without bypassing the library's own write path); and
+  `BODY-36`'s condition is one no v1 phase meets. Clause 2 and `BODY-36` are stated in `docs/first-release.md`
+  § What v1 ships without, the `BODY-36`/`BODY-12` entry.
+- **`close_quietly`'s two disposal routes (postponed by phase 2) — untouched, condition unmet, and phase 3 adds a
+  caller.** `BODY-28`'s best-effort close after a successful full capture is a new `close_quietly` site. Neither
+  disposal route exists yet (phase 4b, Task 2 supplies the suppressed-trail route, phase 5b, Task 14 the opt-in
+  diagnostic), so phase 2's decision stands as written and this note is recorded rather than the behaviour
+  being re-litigated in `3b`.
+- **The pivot's `deadline:` keyword (phase 2, deviation P2-5) — untouched, and named as a constraint rather than
+  a postponement here.** The pivot has no `deadline:` until phase 5 (5a, Task 8 builds it), and `IO-40`
+  independently forbids phase 3 from owning one, so the two agree.
+- **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched.** `3a` and `3b` will add test
+  doubles (a fake sink, a fake body, a fake source) under `gems/dexpace-core/test/support/`, following phase 2's
+  precedent and its four reasons. The condition — a consumer outside `dexpace-core` — is not met. (Phase 8a met
+  it on 2026-09-12 and declined the move on the development-dependency cycle it would create; the fakes stay
+  where phase 2 put them.)
+- **The suppressed-exception trail (phase 1), wire-boundary header re-validation (phase 1), presence-gated
+  auto-activation (phase 2), `SEAM-25`'s lifecycle event (phase 2) and `Hooks.notify`'s dropped later failures
+  (phase 2) — untouched.** Targets phase 4, 8, 5, 5 and 4; none is reachable from a phase that ships bodies
+  and byte streams. Owners now: phase 4b, Task 1; phase 8a, Task 16 and phase 8c, Task 9 with the portable
+  assertion in phase 9, Task 7; `docs/first-release.md` § What v1 ships without › SHOULD/MAY; phase 8b, Tasks 6
+  and 10 with the harness in phase 9, Task 11; phase 4b, Task 2.
+- **`SEAM-24`/`SEAM-28` and `HTTP-22`/`HTTP-48`–`HTTP-50` (MVP-scope design) — untouched.** `SEAM-24`/`SEAM-28`
+  target phase 5 (`SEAM-28` is consumed by phase 5c, Task 4 over phase 4a, Task 7's `RequestContext#operation_name`;
+  `SEAM-24`'s cancellation bridge is post-v1, `docs/first-release.md` § What v1 ships without); `HTTP-22`/
+  `HTTP-48`–`HTTP-50` targeted phase 6, which did not fire — they are the standing decision line under
+  `docs/first-release.md` § Blockers before first publish.
+- **`PIPE-36`, `RECOV-31`, `RETRY-29`/`RETRY-38`/`RETRY-43`, `REDIR-27`, `SSE-41` and `OBS-32`/`OBS-37`
+  (MVP-scope design) — untouched.** `PIPE`, `RECOV`, `RETRY`, `REDIR`, `SSE` and `OBS`; other prefixes, later
+  phases, and all declined for v1 (`docs/first-release.md` § What v1 ships without › SHOULD/MAY).
+  `TRANSPORT-28`/`TRANSPORT-30` (same entry) is touched only as `BODY-12`'s transport half, above.
+- **The seven post-v1 gems — untouched.** Out of the MVP by construction (`docs/first-release.md` § What v1
+  ships without › Post-v1 gems; design §2.2 is the authority).
+- **`ASYNC-3`/`PIPE-33` — untouched.** The two known-unsatisfied MUSTs; do not re-open (`docs/first-release.md`
+  § What v1 ships without › Unsatisfied MUSTs, and design §10.5).
+- **The housekeeping fence executor and the signed release path (`NFR-16`, `NFR-12`'s release half) —
+  untouched.** Release-gated; nothing is published (`docs/first-release.md` § Release path).
+- **The runtime half of the version-skew guard — already built** by phase 2 (`Dexpace::Registry#register(key,
+  factory, core:)`, deviation P2-7).
+- **`dexpace-conformance`'s assertion objects and a Steep target over a test tree (phase 0) — untouched.** The
+  former is phase 8a's, Tasks 4–8 and 20, with phase 9, Tasks 2–12a adding the remaining suites; the latter's
+  condition ("production-quality test support") phase 3's fakes do not meet, and it is event-gated under
+  `docs/first-release.md` § Post-release triggers.
 
 ### The finding filed against `docs/open-items.md`
 
@@ -543,8 +571,9 @@ true when the bridge *is* the source, and is worth an assertion rather than an i
 
 **R5 — `3b`: where `BODY-19`, `BODY-34` and `IO-9`/`BODY-32`'s ceiling get their values before phase 5.** The
 caps are "configurable" in three requirements and there is no configuration chain until phase 5. `3b` decides
-the parameter shape and whether that is a deferral row; the precedent is `DEF-28`, where phase 2 shipped the
-narrower signature and deferred the wider one, and the same `NFR-4` argument applies (adding a keyword widens).
+the parameter shape and whether that is a recorded postponement; the precedent is the pivot's `deadline:`
+keyword, where phase 2 shipped the narrower signature and deferred the wider one to phase 5 (deviation P2-5), and
+the same `NFR-4` argument applies (adding a keyword widens).
 
 **R6 — `3b`: the body constants' names and namespace.** Design §3 names `Dexpace::IO::Buffer`,
 `Dexpace::IO::BufferedSource` and `Dexpace::TypedResponse`, and names **no** body-variant constant. Phase 1's

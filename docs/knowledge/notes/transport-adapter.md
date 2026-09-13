@@ -75,7 +75,8 @@ stable key.
   mutate a host global.
   <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-content-type-warning</sub>
 - **`TRANSPORT-12`'s "stricter wire grammar" is per-protocol, not per-adapter, and on the looser protocol
-  `DEF-25` is the only defence.** Annotates `transport-adapter/cb7901ef`. Verified 2026-09-11 on
+  wire-boundary re-validation (phase 8a Task 16, phase 8c Task 9) is the only defence.** Annotates
+  `transport-adapter/cb7901ef`. Verified 2026-09-11 on
   `protocol-http1` 0.41.0 and `protocol-http2` 0.28.0 under Ruby 3.4.10, against an in-process
   `async-http` server driven over both protocols. On HTTP/1.1, `Protocol::HTTP1::Connection#write_headers`
   checks `VALID_FIELD_NAME` (the RFC 7230 token set) and `VALID_FIELD_VALUE` (`[^\0\r\n]+`) and raises
@@ -85,7 +86,7 @@ stable key.
   rescuing and the drop must be a pre-dispatch predicate. On HTTP/2 the client validates **nothing**: a
   name `"Bad Name"` was transmitted (lowercased to `"bad name"`) and a value `"a\r\nEvil: 1"` was
   transmitted **verbatim**, both reaching the peer. So one adapter has `TRANSPORT-12`'s antecedent on one
-  protocol and no validation at all on the other, and `DEF-25`'s wire-boundary re-validation is, on the
+  protocol and no validation at all on the other, and that wire-boundary re-validation is, on the
   HTTP/2 path, the only thing between a forged `Dexpace::Request` and an injected header — a stronger
   statement than design §10.10's "a correctness-of-shape gap, not a request-splitting gap". The port's
   answer is to apply the RFC 7230 token predicate before dispatch on **both** protocols, so one request

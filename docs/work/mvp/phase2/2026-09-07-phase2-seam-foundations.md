@@ -475,8 +475,8 @@ class DexpaceCloseableTest < DexpaceTestCase
     Dexpace.close_quietly(spy)
 
     assert_equal(1, spy.releases)
-    # DEF-27: the rescued error is dropped until phase 4 supplies the suppressed trail and phase 5
-    # the instrumentation diagnostic. Asserted rather than left as a comment, so the day a route
+    # The rescued error is dropped until phase 4b (Task 2) supplies the suppressed trail and phase 5b
+    # (Task 14) the instrumentation diagnostic. Asserted rather than left as a comment, so the day a route
     # lands this test is what has to change.
     assert_nil(Dexpace.close_quietly(Raising.new))
   end
@@ -586,10 +586,10 @@ module Dexpace
   # clause), tolerant of an object with no #close, and never raising over a primary failure.
   #
   # Design §3.7 gives the rescued error two disposal routes and phase 2 has neither: the suppressed
-  # trail is Dexpace::Error#suppressed, deferred to phase 4 (DEF-24), and the http.instrumentation.*
+  # trail is Dexpace::Error#suppressed, postponed to phase 4b (Task 1), and the http.instrumentation.*
   # diagnostic is §8.1's facade, phase 5. Building either here would fix an interface a later phase
-  # must be free to shape, so the error is dropped and DEF-27 names the two phases that supply the
-  # routes. The two loud exceptions §3.7 names are honoured from the start and do not come through
+  # must be free to shape, so the error is dropped; phase 4b (Task 2) supplies the first route and
+  # phase 5b (Task 14) the second. The two loud exceptions §3.7 names are honoured from the start and do not come through
   # here: an explicit #close by a caller propagates, and a #release raising during the latched close
   # above propagates once.
   #
@@ -601,7 +601,7 @@ module Dexpace
     begin
       resource.close
     rescue ::StandardError
-      nil # DEF-27
+      nil # dropped until phase 4b, Task 2 and phase 5b, Task 14 supply the two routes
     end
     nil
   end
@@ -949,7 +949,7 @@ class DexpaceCancellationTest < DexpaceTestCase
   # by Completer#await is detached when the await ends, so a bounded wait retains nothing on an
   # unbounded source; without the detach the closure reaches the Completer and therefore the
   # response it settled with. `.any(client_token, per_call_token)` plus `value(cancellation:)` is
-  # exactly what `.any` is for and what phase 5's DEF-28 will do on every request.
+  # exactly what `.any` is for and what phase 5a's deadline: keyword (Task 8) will do on every request.
   #
   # The second half awaits a future that is NOT yet settled, deliberately: Completer#await returns
   # before arming anything when the future has already settled, so a test that awaits a settled
@@ -1103,12 +1103,12 @@ module Dexpace
   #
   # So every hook runs, whatever an earlier one did, and the FIRST failure is re-raised once the
   # whole list has run. Re-raised rather than dropped, because phase 2 has neither disposal route
-  # design §3.7 names -- Dexpace::Error#suppressed is phase 4's (DEF-24) and the
+  # design §3.7 names -- Dexpace::Error#suppressed is phase 4b's (Task 1) and the
   # http.instrumentation.* diagnostic is phase 5's (§8.1) -- and a handler that raises into a void
   # is a bug nothing reports. Re-raising is safe here in a way it is not at the naive site: the
   # state is already published and every other handler has already run, so the raise can no longer
   # leave a token uncancelled or a future unsettled. The failures after the first are dropped until
-  # #suppressed exists to carry them; DEF-32 records that and names the phase that closes it.
+  # #suppressed exists to carry them; phase 4b, Task 2 attaches them.
   #
   # Only StandardError is collected. A ScriptError, a NoMemoryError or a SignalException raised by
   # a handler is not a handler bug to be gathered up and re-raised later.
@@ -1160,7 +1160,7 @@ module Dexpace
   # singleton over the empty list that can never be cancelled and allocates nothing per call.
   #
   # What is deliberately absent: deadline-derived tokens and the clock behind them. Those are
-  # CFG-15..CFG-21 and phase 5's (DEF-28); .any is the composition point they will use.
+  # CFG-15..CFG-21 and phase 5a's (Task 8); .any is the composition point they will use.
   class Cancellation
     private_class_method :new
 
@@ -1240,7 +1240,7 @@ module Dexpace
     # NOTHING at construction. The alternative -- subscribe to every source and latch the winner --
     # is also correct and leaks: a token retains one closure on every source for as long as that
     # source lives, and composing a client-lifetime token with a per-call deadline token, which is
-    # what .any is for and what phase 5's DEF-28 will do on every request, retained 201 closures on
+    # what .any is for and what phase 5a's deadline: keyword will do on every request, retained 201 closures on
     # one source over 200 compositions (measured on 3.2.11 and 4.0.6).
     #
     # What the stamp buys is convergence, not atomicity, and the residual is stated rather than
@@ -1308,7 +1308,7 @@ module Dexpace
     #   Returning a handle rather than `self` is what makes a bounded subscription possible at all.
     #   Composition subscribing to nothing is only half the leak: the other half is a registration
     #   that outlives what it was made for. `.any(client_token, per_call_token)` with
-    #   `future.value(cancellation:)` -- what phase 5's DEF-28 does on every request -- retained one
+    #   `future.value(cancellation:)` -- what phase 5a's deadline: keyword does on every request -- retained one
     #   closure, and through it one response, per request on the client-lifetime source: measured
     #   200 of 200 on all three interpreters before #await detached. A caller registering for the
     #   life of the token ignores the value.
@@ -1983,7 +1983,7 @@ module Dexpace
       # It has to be. The hook lives on the caller's token, which a caller may hold for the life of
       # a client, and the closure reaches this Completer and through it the response the future
       # settled with. `.any(client_token, per_call_token)` with `future.value(cancellation:)` --
-      # what phase 5's DEF-28 will do on every request -- retained one closure and one response per
+      # what phase 5a's deadline: keyword will do on every request -- retained one closure and one response per
       # request on the client-lifetime source: measured 200 of 200 on 3.2.11, 3.4.10 and 4.0.6, and
       # 500 100 KB responses still reachable after GC.start. Per-call tokens narrow the blast
       # radius and do not close it, because the whole point of .any is composing a per-call token
@@ -2071,7 +2071,7 @@ module Dexpace
 
       # Blocks, then delivers the response or raises the failure. `deadline:` is deliberately
       # absent: SEAM-18's interruption clause is about cancellation, and deadlines need phase 5's
-      # clock and interruptible-delay primitives (CFG-15..CFG-21, DEF-28). Adding the keyword later
+      # clock and interruptible-delay primitives (CFG-15..CFG-21; phase 5a, Task 8 adds it). Adding the keyword later
       # widens this signature rather than narrowing it, so NFR-4's API lock is not prejudiced.
       def value(cancellation: nil)
         wait(cancellation: cancellation)
@@ -3085,7 +3085,7 @@ module Dexpace
             "a #{@seam} provider must implement the seam; #{provider.class} does not"
     end
 
-    # DEF-21, picked up here: the runtime half of design §2.3's version-skew guard.
+    # Postponed by phase 0 and built here: the runtime half of design §2.3's version-skew guard.
     #
     # Hand-rolled rather than built on Gem::Requirement, because `Gem` is undefined under
     # `ruby --disable-gems` (verified on 3.2.11 and 4.0.6) and a library may not assume RubyGems is
@@ -3148,16 +3148,15 @@ Expected: PASS, 28 tests. Then `bundle exec rake rubocop rbs:validate steep`.
 
 ---
 
-## Task 8: The version-skew guard (`DEF-21`)
+## Task 8: The version-skew guard (postponed by phase 0)
 
 **Requirement IDs:** `NFR-14`, and `SEAM-10`'s replacement — design §10.9 makes multi-loader
 de-duplication vacuous in Ruby and names version skew as the real risk. **Design:** "The
-version-skew guard (`DEF-21`, picked up here)"; verified Ruby fact 3.
+version-skew guard (postponed by phase 0, built here)"; verified Ruby fact 3.
 
 **Files:**
 - Test: `gems/dexpace-core/test/dexpace/registry_version_test.rb`
-- Modify: `docs/deferred-items.md` is **not** touched here — the register rows were appended during
-  planning. This task's deliverable is the proof.
+- Modify: nothing. This task's deliverable is the proof.
 
 **Interfaces:**
 - Consumes: `Dexpace::Registry#register`'s `core:` keyword and its private `#assert_core_version!`
@@ -3175,7 +3174,7 @@ version-skew guard (`DEF-21`, picked up here)"; verified Ruby fact 3.
 
 require_relative "../test_helper"
 
-# DEF-21, picked up by phase 2: the runtime half of design §2.3's version-skew guard, which
+# Postponed by phase 0 to phase 2, and built here: the runtime half of design §2.3's version-skew guard, which
 # SEAM-10's vacuity (design §10.9) makes the real Ruby risk. The comparison is hand-rolled because
 # Gem is undefined under `ruby --disable-gems` (verified on 3.2.11 and 4.0.6), so this suite is the
 # only place Gem::Requirement appears -- in a test process where Bundler has already loaded it.
@@ -3290,7 +3289,7 @@ not ship.
 ## Task 9: `Dexpace::Transport` — the synchronous transport seam
 
 **Requirement IDs:** `SEAM-11`, `SEAM-13`, `SEAM-15`, and `SEAM-2` for this seam; `SEAM-12`'s
-*shape*, with the requirement itself ⏳ against `DEF-22` because the phase ships no transport
+*shape*, with the requirement itself ⏳ against phase 8a's `TransportSuite` because the phase ships no transport
 implementation for it to be a property of.
 **Design:** "`Dexpace::Transport` — the synchronous transport seam"; §3.2; the "What a seam is in
 this port" section.
@@ -3338,7 +3337,8 @@ together.
 # block, an RBS mirror and a row in the runtime surface manifest, after which changing its shape
 # would be a public API change diffed against a release tag (NFR-4) -- a real cost paid forever for
 # a convenience. dexpace-conformance is the gem chartered to publish adapter test doubles (§9.3)
-# and it is phase 8's; DEF-29 records the move.
+# and it is phase 8's. The move was later declined by phase 8a, on the development-dependency cycle
+# it would create, so these fakes stay here.
 class FakeTransport
   # @return [Array<Array>] one [request, options, cancellation] triple per call
   attr_reader :calls
@@ -3515,7 +3515,7 @@ module Dexpace
   # SEAM-11's three clauses. *Single operation*: one #call, one response; there is no batch entry
   # point to add later. *No pre-buffering*: the returned response's body is a lazily-read stream the
   # caller owns and closes -- stated at the seam here, proved over a real socket in phase 8 and
-  # asserted per adapter by dexpace-conformance (DEF-22). *Options may be ignored*: options are
+  # asserted per adapter by dexpace-conformance (phase 8a's TransportSuite). *Options may be ignored*: options are
   # always passed and are always an immutable Dexpace::RequestOptions, so "behaves identically" is
   # structural rather than a discipline.
   #
@@ -4381,7 +4381,7 @@ class DexpaceSerdeTest < DexpaceTestCase
   end
 
   # SEAM-20 and SEAM-21's never-close rule, asserted against the fake so the seam's own harness is
-  # not the first place it is tried; dexpace-conformance asserts it per adapter (DEF-22).
+  # not the first place it is tried; dexpace-conformance asserts it per adapter (phase 8a's TransportSuite).
   test "the streaming and buffer variants never close the caller's target" do
     codec = FakeCodec.new
     sink = StringIO.new(+"")
@@ -4627,7 +4627,7 @@ that nothing under `lib/dexpace/serde/` writes a bare `JSON`.
 
 ## Task 13: `Dexpace::Operation` — the descriptor and its validation
 
-**Requirement IDs:** `SEAM-26`. **Deferred:** `SEAM-28` (`DEF-1`, target phase 5). **Design:**
+**Requirement IDs:** `SEAM-26`. **Deferred:** `SEAM-28` (phase 5c, Task 4). **Design:**
 "`Dexpace::Operation` — the operation-input projection seam"; §3.5.
 
 **Files:**
@@ -4843,7 +4843,7 @@ module Dexpace
   # and template are required and projections default to empty, so a parameterless GET is the
   # default construction.
   #
-  # SEAM-28's stable operation identifier is a MAY and is deferred (DEF-1, target phase 5): both of
+  # SEAM-28's stable operation identifier is a MAY and is deferred (phase 5c, Task 4): both of
   # its halves need machinery phase 2 does not have -- the request's context chain (CTX, phase 4)
   # and a consumer for the identifier (instrumentation, phase 5).
   class Operation < ::Data.define(:method, :template, :projections)
@@ -5429,8 +5429,9 @@ class DexpaceSeamSurfaceTest < DexpaceTestCase
 
   test "core defines no auto-activation hook, deliberately" do
     # Design §3.6 permits presence-gated auto-activation for instrumentation only, and phase 2
-    # ships no instrumentation seam, so there is nothing to activate. DEF-30 records it, so a later
-    # phase reading §3.6 does not conclude it was forgotten.
+    # ships no instrumentation seam, so there is nothing to activate. It is recorded under
+    # docs/first-release.md § What v1 ships without (post-v1; otel is its only sanctioned user), so a
+    # later phase reading §3.6 does not conclude it was forgotten.
     refute_respond_to(Dexpace::Transport, :install_if_present)
     refute_respond_to(Dexpace::Serde, :install_if_present)
   end
@@ -5596,11 +5597,11 @@ built (permanent simplification, named reason) · ⏳ deferred (`DEF-<n>` with i
 | `SEAM-3`, `SEAM-4` | 🚫 | The byte-stream provider seam is retired (§10.1); the behavioural contract `IO-1`–`IO-42` is phase 3's and is not retired with it |
 | `SEAM-10` | N/A | Vacuous in Ruby (§10.9) — one process-global constant namespace, no classloader; replaced by the version-skew guard Task 8 proves |
 | `SEAM-22` | 🚫 | The reflective generic type capture is replaced by the witness protocol (§10.14, phase 7); the surviving clause — `#load` takes an explicit witness, no witness-less overload — is Task 12 |
-| `SEAM-12` | ⏳ | `DEF-22`. The seam's shape carries no per-request state — `#call` takes everything it needs and returns everything it produces — but concurrency safety is a property of an *implementation* and this phase ships none. `dexpace-conformance` asserts it per adapter; Task 9's concurrent-call test exercises the harness, not a transport |
-| `SEAM-24` | ⏳ | `DEF-1`, riding on `DEF-11` (`dexpace-async-async`, post-v1). Task 4 and Task 5 fix the cancellation contract its bidirectional mapping will map |
-| `SEAM-15` | ✅ with a named gap | The MAY is taken and documented: `Dexpace::ClosedError` (Task 1), and the rule that **an owning transport raises it from a later send** while a borrowing wrapper closes nothing and stays usable (Task 9's module comment; `XCUT-22`). What ships is the class and the rule and **no raise site** — `Dexpace::ClosedError` has no reference anywhere in `lib/` outside its own file, and the only tests assert its ancestry — because phase 2 ships no transport that owns a resource. Phase 8's adapters are the first owners and are where the raise lands; `dexpace-conformance` is where it is asserted per adapter (`DEF-22`). The row names the gap rather than letting a bare ✅ imply a raise nothing performs |
-| `SEAM-25` | ✅ with a named gap | The idempotent, ownership-aware release is `Dexpace::Closeable` (Task 2) and both bridges take it (Tasks 9, 10). The clause "only the first close shuts the owned executor **and emits the lifecycle event**" has no event to emit until §8.1's instrumentation facade exists: `DEF-31`, phase 5. The row names it rather than claiming it |
-| `SEAM-28` | ⏳ | `DEF-1`, target **phase 5**, given by this phase's register sweep |
+| `SEAM-12` | ⏳ | Phase 8a, Tasks 4–8 and 20 (`dexpace-conformance`'s `TransportSuite`, `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`). The seam's shape carries no per-request state — `#call` takes everything it needs and returns everything it produces — but concurrency safety is a property of an *implementation* and this phase ships none. `dexpace-conformance` asserts it per adapter; Task 9's concurrent-call test exercises the harness, not a transport |
+| `SEAM-24` | ⏳ | Post-v1, riding on `dexpace-async-async` — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `SEAM-24` entry. Task 4 and Task 5 fix the cancellation contract its bidirectional mapping will map |
+| `SEAM-15` | ✅ with a named gap | The MAY is taken and documented: `Dexpace::ClosedError` (Task 1), and the rule that **an owning transport raises it from a later send** while a borrowing wrapper closes nothing and stays usable (Task 9's module comment; `XCUT-22`). What ships is the class and the rule and **no raise site** — `Dexpace::ClosedError` has no reference anywhere in `lib/` outside its own file, and the only tests assert its ancestry — because phase 2 ships no transport that owns a resource. Phase 8's adapters are the first owners and are where the raise lands; `dexpace-conformance` is where it is asserted per adapter (phase 8a's `TransportSuite`). The row names the gap rather than letting a bare ✅ imply a raise nothing performs |
+| `SEAM-25` | ✅ with a named gap | The idempotent, ownership-aware release is `Dexpace::Closeable` (Task 2) and both bridges take it (Tasks 9, 10). The clause "only the first close shuts the owned executor **and emits the lifecycle event**" has no event to emit until §8.1's instrumentation facade exists — emitted by phase 8b, Tasks 6 and 10, harnessed by phase 9, Task 11. The row names it rather than claiming it |
+| `SEAM-28` | ⏳ | Phase 5c, Task 4 (`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`), over phase 4a, Task 7's `RequestContext#operation_name` — a target this phase supplied |
 | `SEAM-29` | ✅ in phase 1 | A cross-reference row: phase 1's `Dexpace::Model.required!` and `Dexpace::Builder`. Not re-satisfied here |
 
 Add the audit-group section the roadmap requires: the six groups this phase ran (*Public API
@@ -5609,23 +5610,30 @@ safety*; *Styleguide-vs-design conflicts*; *Minitest conventions*), the result o
 notes filed. Record `OI-1` under whatever the checklist's findings heading is — never as an
 aggregate register section, which the probe's `registers` check reports.
 
-- [ ] **Step 6: Verify the register rows, and add any the implementation found**
+- [ ] **Step 6: Verify the open item, and record anything the implementation postponed**
 
 ```bash
-grep -n '^### DEF-2[7-9]\|^### DEF-3[0-2]\|^### OI-1' docs/deferred-items.md docs/open-items.md
-grep -n 'picked-up' docs/deferred-items.md
+grep -n '^### OI-1 ' docs/open-items.md
 ```
 
-Expected: `DEF-27` through `DEF-32` and `OI-1`, appended during planning, and `DEF-21` reading
-`picked-up (2026-09-07, phase 2)`. Anything the implementation defers beyond those is appended as
-`DEF-33` onward with the deferring phase, the reason, the pick-up condition and the IDs it cites,
-and the `next id:` line at the foot of each register is updated.
+Expected: `OI-1`, appended during planning. The six items phase 2 postponed are recorded in the
+design's "Work Phase 2 Postponed, and Who Owns It Now" section, each with its owner — `close_quietly`'s
+two routes (phase 4b, Task 2; phase 5b, Task 14), the `deadline:` keyword (phase 5a, Task 8), the
+fakes' move (declined by phase 8a), presence-gated activation (`docs/first-release.md` § What v1
+ships without), `Hooks.notify`'s dropped failures (phase 4b, Task 2) and `SEAM-25`'s lifecycle event
+(phase 8b, Tasks 6 and 10; phase 9, Task 11) — and the version-skew guard phase 0 postponed here is
+built by Tasks 7 and 8, which the phase status note says. Anything the implementation postpones
+beyond those is added to that design section with the reason and its owner — a numbered task in
+the plan of the phase that will do it, cited by path and task number, or, when no v1 phase will, an
+entry under the fitting `docs/first-release.md` section. Anything it finds is appended to
+`docs/open-items.md` at the next id.
 
 - [ ] **Step 7: Append the roadmap status note**
 
 Append one dated entry to `## Phase Status Notes` in
 `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, recording what was **built** — the
-planning entry is already there. Never rewrite an earlier one.
+planning entry is already there — and saying that the runtime half of the version-skew guard, which
+phase 0 postponed to this phase, has landed (Tasks 7 and 8). Never rewrite an earlier one.
 
 - [ ] **Step 8: Update `CLAUDE.md`**
 
@@ -5677,7 +5685,7 @@ the `CLAUDE.md` diff.
 |---|---|
 | What a seam is in this port, stated once (the three artifacts; the two failure classes) | 1, 9, 10, 12 |
 | `Dexpace::Registry` — discovery, install and conflict resolution | 7 |
-| The version-skew guard (`DEF-21`) | 7 (code), 8 (proof) |
+| The version-skew guard (postponed by phase 0) | 7 (code), 8 (proof) |
 | `Dexpace::Transport` — the synchronous transport seam | 9 |
 | `Dexpace::AsyncTransport` — the asynchronous transport seam | 10 |
 | The async pivot: `Future` and `Completer` | 5, and 6 for its two structural proofs |
@@ -5693,14 +5701,14 @@ the `CLAUDE.md` diff.
 | Testing (the concurrency table, the scheduler test, the shadowing test, the `SEAM-8` warning test, the version grid, the `SEAM-27` cases, the property tests) | 2, 4, 5, 6, 7, 8, 9, 11, 14 |
 | Design §3 Addendum A1 (`SEAM-27` composition) and A2 (three registries, no executor registry) | 14; 9, 10, 15 |
 | Design §9 Addendum A1 (the sixth cop) | 3 |
-| Deviation Ledger, deferrals, register sweep | filed during planning; audited in 16 |
+| Deviation Ledger, and the work phase 2 postponed with its owners | recorded during planning; audited in 16 |
 
 **Requirement coverage.** All 30 in-scope IDs: `SEAM-1`/`SEAM-2` (15, 16), `SEAM-3`/`SEAM-4` (🚫,
 16), `SEAM-5`–`SEAM-9` (7), `SEAM-10` (N/A + 8), `SEAM-11`–`SEAM-13` (9), `SEAM-14`/`SEAM-25` (2),
 `SEAM-15` (1, 9 — ✅ with a named gap: the class and the rule ship, the raise site is phase 8's),
 `SEAM-16`/`SEAM-17` (5, 6, 10), `SEAM-18` (9, 10, 11), `SEAM-19`–`SEAM-21` (12),
-`SEAM-22` (🚫 mechanism; surviving clause 12), `SEAM-23` (12), `SEAM-24` (⏳ `DEF-1`),
-`SEAM-26` (13), `SEAM-27` (14), `SEAM-28` (⏳ `DEF-1`, phase 5), `SEAM-29` (phase 1), `SEAM-30`
+`SEAM-22` (🚫 mechanism; surviving clause 12), `SEAM-23` (12), `SEAM-24` (⏳ post-v1),
+`SEAM-26` (13), `SEAM-27` (14), `SEAM-28` (⏳ phase 5c, Task 4), `SEAM-29` (phase 1), `SEAM-30`
 (5, 11).
 
 **Placeholder scan.** No "TBD", no "implement later", no "add appropriate error handling", no
@@ -5824,7 +5832,7 @@ design will not otherwise find them.**
   treated as one: 0 same-nanosecond collisions in 100,000 stamps, 50 ns median gap between
   successive `CLOCK_MONOTONIC` reads, 1 ns resolution, on all three interpreters.
 - `Hooks.notify` re-raises the **first** handler failure and drops the rest. Dropping is wrong and
-  temporary: `DEF-32` names phase 4's `Dexpace::Error#suppressed` (`DEF-24`) as where they go.
+  temporary: phase 4b, Task 2 attaches them to the suppressed trail phase 4b, Task 1 builds.
   Re-raising rather than dropping everything is the choice made here because phase 2 has no
   diagnostic channel at all, and a handler that raises into a void is a bug nothing reports.
 - `SEAM-8`'s "auto-resolved but never handed out" branch is implemented and, in production,
@@ -5838,4 +5846,4 @@ design will not otherwise find them.**
   the method rather than discovered.
 - `Operation#build_request` renders headers through the outbound builder, so a header projection
   carrying a CRLF fails at assembly rather than at dispatch. That is stricter than `SEAM-26`
-  requires and is the right side to err on; phase 8's transports re-validate anyway (`DEF-25`).
+  requires and is the right side to err on; phase 8's transports re-validate anyway (8a Task 16, 8c Task 9).

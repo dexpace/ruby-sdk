@@ -24,7 +24,8 @@ It is also the sub-phase where **§10.5's three MUSTs get their antecedent**. Ph
 states it exactly: "In phase 4 the executor is a duck type with no implementation, so no worker exists to
 fail to interrupt. `dexpace-async-thread` is what makes the antecedent real"
 (`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md:685-687`). `ASYNC-3` is carried ⏳ citing
-`DEF-18`; `ASYNC-4` is N/A citing §10.5 and **no register row**; `PIPE-33`'s interrupt clause is
+the unsatisfied-MUST entry in `docs/first-release.md` § What v1 ships without (design §10.5); `ASYNC-4` is N/A citing §10.5 and **no such
+entry**; `PIPE-33`'s interrupt clause is
 re-asserted and keeps its phase-4 row. **8b does not re-open that trade and this document does not
 re-argue it.**
 
@@ -69,8 +70,8 @@ Five decisions the charter named and declined to make are made here — **`R8`, 
 - `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.3 in full (`:189-294`) — the core-owned
   pivot, the two objects, `#value`'s queue pop, the check-after-resume rule, `Completer#on_cancel`, the
   two MVP gems that settle the pivot from two directions, `ASYNC-7`'s README obligation, and cancellation
-  and deadlines end to end. **The `dexpace-async-async` mapping at `:252-254` is post-v1 (`DEF-11`) and is
-  not `8b`'s.** And §3.7 in full (`:452-518`) — the `#close` duck type, the latch held across the flip
+  and deadlines end to end. **The `dexpace-async-async` mapping at `:252-254` is post-v1
+  (`docs/first-release.md` § What v1 ships without › Post-v1 gems) and is not `8b`'s.** And §3.7 in full (`:452-518`) — the `#close` duck type, the latch held across the flip
   only, the construction-time `@owned` boolean, the non-blocking-shutdown constraint stated **for this gem
   by name**, and `close_quietly`'s two disposal routes.
 - `docs/sdk-design-ruby/05-pipeline-architecture.md` `:192-199` — the executor duck type as `#post { … }`
@@ -115,9 +116,8 @@ Five decisions the charter named and declined to make are made here — **`R8`, 
   `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`.
 - `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md` as the closest worked example
   of this document's form, and the most recent sub-phase design to ship a second real gem.
-- `docs/deferred-items.md` (`DEF-1`, `DEF-11`, `DEF-12`, `DEF-18`, `DEF-21`, `DEF-27`, `DEF-28`, `DEF-29`,
-  `DEF-31`, `DEF-32`, `DEF-33`), `docs/open-items.md` (`OI-8`, `OI-13`, `OI-18`, `OI-22`, `OI-26`),
-  `docs/deviations.md`, `docs/first-release.md`.
+- `docs/open-items.md` (`OI-8`, `OI-13`, `OI-18`, `OI-22`, `OI-26`), `docs/deviations.md`,
+  `docs/first-release.md` (the `SEAM-24`, unsatisfied-MUST, post-v1-gem and `IO-38` entries).
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -175,7 +175,7 @@ sentence:
 - **`concurrency-and-async/65882a70`** — `SEAM-25` in one sentence: "only the first close shuts the owned
   executor and emits the lifecycle event; closing MUST NOT be required to cancel in-flight requests (a
   graceful drain is acceptable), and an adapter over a caller-supplied executor MUST NOT shut it down".
-  Every clause of `ASYNC-15`/`ASYNC-16` and all of `DEF-31` is in it.
+  Every clause of `ASYNC-15`/`ASYNC-16` and the whole of the lifecycle event phase 2 postponed is in it.
   <sub>spec · `docs/product-spec/03-pluggable-seams-and-extension-model.md:44-44` · high · sha:0adae2d6a47f</sub>
 - **`concurrency-and-async/74aee9a8`** — `ASYNC-7`'s answer, already fixed by the design: "the thread
   adapter lets an in-flight blocking read finish while reactor-backed adapters abort at the next scheduler
@@ -214,7 +214,7 @@ sentence:
   key while `Fiber[]=` coerces one) and names `ASYNC-8`–`ASYNC-12` as its consumers. **Its own caveat is
   `8b`'s to clear**: it was verified on 3.4.10 only and says so.
   <sub>review · `docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-design.md` · high · sha:manual-phase5-fiber-slot-and-key-type</sub>
-- **`pipeline/f02559b9`** — `raise error, cause: nil` is the spelling for re-raising an error a component is
+- **`pipeline/7ce4431d`** — `raise error, cause: nil` is the spelling for re-raising an error a component is
   *carrying*. `8b` has exactly one re-raise site and it is not that shape; the paragraph under the object
   model says which and why.
   <sub>review · `docs/work/mvp/phase4/phase4b/2026-09-08-phase4b-recovery-primitives-design.md` · high · sha:manual-phase4b-reraise-cause</sub>
@@ -270,14 +270,14 @@ where a decision turns on it:
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `ASYNC-1`, `ASYNC-2`, `ASYNC-5`, `ASYNC-7`–`ASYNC-20` | 17 |
-| ⏳ not satisfied — `DEF-18`, §10.5 | `ASYNC-3` | 1 |
-| N/A — vacuous, §10.5, **no register row** | `ASYNC-4` | 1 |
+| ⏳ not satisfied — an unsatisfied MUST, §10.5 (`docs/first-release.md` § What v1 ships without) | `ASYNC-3` | 1 |
+| N/A — vacuous, §10.5, **on no such entry** | `ASYNC-4` | 1 |
 | **Total in budget** | | **19** |
 | Cross-reference rows, no budget line | `PIPE-33` (phase 4's), `ASYNC-6` (`8c`'s) | 2 |
 
 Level split, derived mechanically from appendix C on 2026-09-11 and matching the charter's: **15 MUST, 4
-SHOULD (`ASYNC-7`, `ASYNC-8`, `ASYNC-16`, `ASYNC-17`), 0 MAY.** No `MUST NOT` row appears. **No `DEF-<n>`
-moves an ID into `8b` and none moves one out.**
+SHOULD (`ASYNC-7`, `ASYNC-8`, `ASYNC-16`, `ASYNC-17`), 0 MAY.** No `MUST NOT` row appears. **No earlier
+phase's postponement moves an ID into `8b` and none moves one out.**
 
 ### Twelve rows carry a clause the checklist must state rather than tick
 
@@ -291,16 +291,17 @@ antecedent — never on `8b`'s convenience.
   > by `Dexpace::Async::Future#cancel`; **cancel-with-interrupt is `Thread#raise`**, forbidden
   > repository-wide by design §8.3 and by phase 0's `Dexpace/NoThreadInterrupt` cop. The third clause — "a
   > task still queued (not yet started) or already finished MUST NOT be interrupted" — holds because
-  > nothing is ever interrupted. §10.5's split is settled and is not re-opened here. `DEF-18` carries the
-  > mechanism and its pick-up condition ("if an interruptible transport path is ever adopted"). Appendix B
+  > nothing is ever interrupted. §10.5's split is settled and is not re-opened here. The unsatisfied-MUST
+  > entry in `docs/first-release.md` § What v1 ships without carries the mechanism and its reopening
+  > condition ("if an interruptible transport path is ever adopted"). Appendix B
   > records this item as **failing, not vacuous** (§9.3, B.7), and the port's own build suppresses it
   > through a named waiver listing `ASYNC-3`.
 
-- **`ASYNC-4` is N/A and cites no register row.** `DEF-18`'s `Cites:` line is `ASYNC-3, PIPE-33`
-  (`docs/deferred-items.md`), and §10.5 holds `ASYNC-4` *vacuous* rather than deferred: "a port that never
+- **`ASYNC-4` is N/A and cites no unsatisfied-MUST entry.** That entry covers `ASYNC-3` and `PIPE-33`'s
+  interrupt clause and nothing else, and §10.5 holds `ASYNC-4` *vacuous* rather than unsatisfied: "a port that never
   delivers an interrupt cannot produce the hazard, so the guarantee holds — and holds more strongly than an
   implementation of the handshake would provide, since a handshake narrows a window it does not close." The
-  row cites §10.5 and §9.3's B.7 restatement and **must not** cite `DEF-18`. The roadmap's cross-cutting
+  row cites §10.5 and §9.3's B.7 restatement and **must not** cite the unsatisfied-MUST entry. The roadmap's cross-cutting
   constraint 8 says "phase 8 marks all three ⏳ citing it"; the charter corrects that sentence in place and
   `8b` follows the correction.
 - **`ASYNC-7`'s answer is already fixed and `8b` writes it rather than deciding it.**
@@ -372,18 +373,18 @@ antecedent — never on `8b`'s convenience.
   in-flight send") is not. `8b` is what makes clause 5's antecedent real. Phase 4's own treatment governs:
   "Phase 8's disposition is therefore a **re-assertion at the point the requirement starts applying, not a
   second decision**" (`docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md:687-689`). The row
-  keeps its phase-4 ⏳, cites `DEF-18`, and adds what `8b` contributes: clauses 2 and 3 are re-asserted end
+  keeps its phase-4 ⏳, cites the unsatisfied-MUST entry in `docs/first-release.md` § What v1 ships without, and adds what `8b` contributes: clauses 2 and 3 are re-asserted end
   to end through a real pool (exactly one `#post` for a multi-step pipeline; the identical options object
   arrives), and clause 4 is demonstrated against a running worker rather than a synchronous fake.
 - **`ASYNC-6`** — `8c`'s ID, quantified over "**each** adapter" with a per-adapter conformance clause. `8b`
   states the thread-pool half explicitly so its absence is a decision rather than an oversight: **cancelling
   the pivot reaches the worker only at its next check-after-resume point**, which is `ASYNC-3`'s
-  unsatisfied mode under a second ID and not a second decision (§10.5, `DEF-18`). The other direction —
+  unsatisfied mode under a second ID and not a second decision (§10.5). The other direction —
   "cancelling the runtime-native primitive MUST cancel the canonical future" — has no subject here: this
   adapter exposes no runtime-native primitive to the caller. A `::Thread` is not handed out, `#post`
   returns `nil`, and the only handle a caller holds is the pivot itself. `SEAM-24`'s second sentence
-  (a *caller-facing* cancellation bridge) is `DEF-11`/`DEF-1` and post-v1; design §3.3 (`:252-254`) assigns
-  it to `dexpace-async-async`.
+  (a *caller-facing* cancellation bridge) is post-v1 (`docs/first-release.md` § What v1 ships without, the
+  `SEAM-24` entry); design §3.3 (`:252-254`) assigns it to `dexpace-async-async`.
 
 ### What `8b` additionally ships, without owning a new ID
 
@@ -394,12 +395,14 @@ antecedent — never on `8b`'s convenience.
   core-declared and `8b` did not write it — `interface _Executor; def post: () { () -> void } -> void; end`
   (`…phase7c…-design.md:871`) — which is an `NFR-3`/`NFR-11` surface `8b` inherits. `R12` states how the
   pool's `#post` signature relates to it: **it is that interface exactly, not a superset.**
-- **`DEF-1`'s `SEAM-24` first-sentence amendment.** `SEAM-24`'s first sentence — "propagate the ambient
+- **The `SEAM-24` first-sentence narrowing.** `SEAM-24`'s first sentence — "propagate the ambient
   logging/diagnostic context across the thread handoff" — is `ASYNC-8`'s and `8b` implements it through
-  `Fiber[]`, within fiber storage. The charter proposes the register amendment; `8b` supplies the fact it
-  rests on and **performs no register edit**. What stays deferred is §12's "beyond fiber storage" scope and
-  `SEAM-24`'s second sentence proper.
-- **`DEF-31`'s lifecycle event, closed.** Phase 5b shipped `Events::INSTRUMENTATION_SHUTDOWN` and stated
+  `Fiber[]`, within fiber storage. The charter narrowed the `SEAM-24` entry (now in `docs/first-release.md`
+  § What v1 ships without) to say so; `8b` supplies the fact it rests on and **performs no edit of that
+  entry**. What stays declined for v1 is §12's "beyond fiber storage" scope and `SEAM-24`'s second sentence
+  proper.
+- **`SEAM-25`'s lifecycle event, which phase 2 postponed, closed.** Phase 5b shipped
+  `Events::INSTRUMENTATION_SHUTDOWN` and stated
   that "the first thing in this repository that actually **owns** an executor is phase 8's
   `dexpace-async-thread`". `8b` supplies the subject: the first — and only the first — `#close` emits it.
 - **The gem's `README.md`**, which `ASYNC-7` makes a deliverable rather than a courtesy, and which the
@@ -410,8 +413,8 @@ antecedent — never on `8b`'s convenience.
   the core run cannot: that an adapter activates with nothing but core in the bundle, on every Ruby in the
   matrix. Stated as an extension of an existing gate, not a sixteenth gate.
 - **Its own test doubles**, in `gems/dexpace-async-thread/test/support/`. `8b` does **not** reach into
-  `gems/dexpace-core/test/support/`; see the `DEF-29` disposition in the register sweep, which corrects a
-  premise of the charter's.
+  `gems/dexpace-core/test/support/`; see the core-fakes entry under *Work phase 8b postponed*, which corrects
+  a premise of the charter's.
 
 ### Canonical text quoted because a decision below turns on it
 
@@ -458,14 +461,14 @@ antecedent — never on `8b`'s convenience.
 | `SEAM-18`'s two bridges | **2, built** as `Dexpace::Bridge::AsyncOver` and `SyncOver`. `8b` supplies the first executor the `async_over` direction has ever had and **ships no third bridge** |
 | `SEAM-13`, `Dexpace::Cancellation`, `Cancellation::Source`, `.any`, `Subscription#detach` | 2. `8b` consumes the token and defines no reason type |
 | `SEAM-14`, `SEAM-15`, `Dexpace::Closeable`, `Dexpace.close_quietly`, `Dexpace::ClosedError` | 2. `8b` includes `Closeable` and is the first raise site for `ClosedError` alongside `8a`'s transport |
-| `SEAM-24`'s second sentence, `SEAM-28` | `DEF-1`, riding on `DEF-11` (`dexpace-async-async`), post-v1 |
-| `SEAM-25`'s release half | 2. Only `DEF-31`'s **event** half closes here |
+| `SEAM-24`'s second sentence, `SEAM-28` | The bridge is post-v1, riding on `dexpace-async-async` (`docs/first-release.md` § What v1 ships without, the `SEAM-24` entry); `SEAM-28`'s identifier is phase 5c's Task 4, done |
+| `SEAM-25`'s release half | 2. Only the **event** half phase 2 postponed closes here |
 | `PIPE-1`–`PIPE-40` | 4c. `8b` installs no step, adds no stage and ships no pipeline. `PIPE-33` is a cross-reference row |
 | `CTX-1`–`CTX-20`, `Instrumentation::Bundle`, `ContextStore` | 4a. **Nothing in `ASYNC` consumes any of it**: `ASYNC-8`–`ASYNC-12`'s subject is fiber storage, which is `OBS-23`/`OBS-24`'s carrier and not `CTX`'s store — phase 4a's own finding, re-confirmed from this side |
 | `RECOV-1`–`RECOV-34`, `Dexpace::Outcome`, `each_cause`, `attach_suppressed` | 4b. `8b` folds no outcome and walks no cause chain |
 | `CFG-15`–`CFG-21` — the clock, `Clock#sleep`, `Dexpace::Async.delay`, the `deadline:` keyword | 5a. `8b` consumes `Clock::SYSTEM#monotonic` for its own deadline arithmetic and re-decides nothing. **`CFG-20`'s unmet clause is `ASYNC-3`'s under a second ID (`OI-22`) and `8b` adds no fourth unsatisfied MUST for it** |
 | `OBS-1`–`OBS-40`, `Diagnostics.capture`/`.with`, `Severity`, `Events`, `Logger`, `Instrumentation.contain` | 5b and 5c, built. `8b` calls four of them and builds none. **`OBS-23`/`OBS-24` are 5b's and 5c's; `ASYNC-9` is `8b`'s, and they are the same mechanism under two subsystems** |
-| `OBS-28`, `OBS-29` — the `HTTPTracer` vocabulary | 5c. `DEF-42`'s transport-milestone group is `8a`'s subject to `R6`, and `Events::INSTRUMENTATION_SHUTDOWN` is deliberately **not** a twelfth tracer method (5b settled it) |
+| `OBS-28`, `OBS-29` — the `HTTPTracer` vocabulary | 5c. `OBS-29`'s transport-milestone group is `8a`'s subject to `R6`, and `Events::INSTRUMENTATION_SHUTDOWN` is deliberately **not** a twelfth tracer method (5b settled it) |
 | `SERDE`, `SSE`, `PAGE` | 7. `8b` consumes **one** phase-7 artifact — `Dexpace::Page::_Executor` — and implements it; it ships no strategy, no codec and no event parser |
 | `dexpace-conformance`'s gem, gemspec, assertion protocol and `TCPServer` fixture | `8a` (charter `R7`, `R16`). **`8b` writes no part of the harness**, needs no socket fixture, and hands `8a` the three assertion shapes named under *The interface surface later phases may cite* |
 | `Dexpace::TransportError < ::IOError` | The **phase-level task**. It lands in `dexpace-core`, is consumed by `8a` and `8c`, and `8b` neither raises nor needs it |
@@ -578,7 +581,8 @@ lets `Dexpace::Async::Thread::RejectedError` be a `::StandardError` that `rescue
   flipped under a `::Thread::Mutex` **held only across the flip**. `Dexpace.close_quietly` is null-safe and
   rescues `::StandardError`. `Dexpace::ClosedError` is `SEAM-15`'s class with the rule and **no raise
   site** — phase 8's adapters are the first owners.
-- **The version-skew guard** (`DEF-21`, `P2-7`): `Registry#register(key, factory, core:)` takes the
+- **The version-skew guard** (the runtime half phase 0 postponed to phase 2; `P2-7`):
+  `Registry#register(key, factory, core:)` takes the
   adapter's `~> MAJOR.MINOR` requirement as a **required** keyword and raises `Dexpace::SeamError` on skew.
   **There is no executor registry** (`P2-1`): `SEAM-18` requires the executor to be caller-supplied with no
   default, and an auto-resolved executor is exactly that default. The object model below says what `8b`
@@ -594,7 +598,7 @@ lets `Dexpace::Async::Thread::RejectedError` be a `::StandardError` that `rescue
   4a's exclusion row) and states that `CTX`'s store "touches fiber storage nowhere".
 - **4b**: `RECOV-2`'s conversion rule — rescue `Exception`, immediately re-raise anything outside
   `StandardError`, convert the rest — which is the rule `8b`'s worker net deliberately **departs from**,
-  argued in the object model. `pipeline/f02559b9`'s `raise error, cause: nil` spelling.
+  argued in the object model. `pipeline/7ce4431d`'s `raise error, cause: nil` spelling.
 - **4c**: `PIPE-33`'s five-clause accounting, `PIPE-26`/`PIPE-27` (a pipeline is a transport and closing one
   does not close the transport), and `FakeExecutor` — 4c's own `#post`-shaped double, which is the proof
   that a test-side executor is a five-line object and a shared one buys nothing.
@@ -605,8 +609,8 @@ lets `Dexpace::Async::Thread::RejectedError` be a `::StandardError` that `rescue
   `Clock::SYSTEM`. **`#monotonic` is `Process.clock_gettime(Process::CLOCK_MONOTONIC)` in Float seconds,
   used only for differences** — the arithmetic `8b`'s shutdown drain and timer both use.
   `Dexpace::Async.delay(duration)`, which **raises `Dexpace::SeamError` when `Fiber.scheduler` is `nil`**
-  (`P5-9`) — `R11`'s starting point. `Future#value`/`#wait` gained `deadline:` and `clock:` (`DEF-28`,
-  closed), with **`deadline:` a monotonic instant and not a duration**. And 5a's own precedent for
+  (`P5-9`) — `R11`'s starting point. `Future#value`/`#wait` gained `deadline:` and `clock:` (the keyword
+  phase 2 postponed, built by 5a's Task 8), with **`deadline:` a monotonic instant and not a duration**. And 5a's own precedent for
   declining a keyword: `Async.delay` has no `clock:` because "a `clock:` here would be an `NFR-4`-locked
   keyword with no consumer and no test that could drive it, which is `OI-8`'s shape".
 - **5b**: `Instrumentation::Diagnostics.capture` (`(Fiber.current.storage || {}).freeze`) and
@@ -639,7 +643,8 @@ the pool releases nothing, ever — it holds no response and the orphan close is
 **One interpreter, and this document says so before it says anything else.** Only **Ruby 3.4.10**
 (`ruby 3.4.10 (2026-06-30 revision 2b0b7728dc) +PRISM [x86_64-linux]`, `/usr/bin/ruby`) is installed on the
 authoring machine. **The 3.2, 3.3 and 4.0 columns have not been run for anything below**, and neither has
-anything on JRuby or TruffleRuby (`DEF-33`). `8b`'s plan installs 3.2.11 and 4.0.6 and **re-runs every fact
+anything on JRuby or TruffleRuby (the `IO-38` trigger under `docs/first-release.md` § Post-release triggers).
+`8b`'s plan installs 3.2.11 and 4.0.6 and **re-runs every fact
 before any implementation task begins**; the facts on which a decision below is conditional are named at
 the end of this section.
 
@@ -833,7 +838,8 @@ been re-measured here on the floor. **Clearing `observability/65191069`'s own si
 `8b`'s obligation** — the note says in its own words that it "must be re-run on 3.2.11 and 4.0.6 before
 anything rests on it", and `ASYNC-9` and `ASYNC-11` rest on it entirely.
 
-**Nothing here is verified on a non-CRuby implementation** (`DEF-33`). `8b`'s pool is the fifth and most
+**Nothing here is verified on a non-CRuby implementation** (the `IO-38` trigger, `docs/first-release.md`
+§ Post-release triggers). `8b`'s pool is the fifth and most
 acute case of a concurrency guarantee resting on a `::Thread::Mutex` the GVL would hide the absence of, and
 this document states that without proposing a matrix row no v1 phase plans.
 
@@ -1103,7 +1109,7 @@ threads at construction and **never grows**; its submission queue is a `::Thread
 non-blocking push and translates a full queue into `Dexpace::Async::Thread::RejectedError` and a closed
 pool into `Dexpace::ClosedError`, both of which the bridge routes to `Completer#fail`, which is `ASYNC-2`;
 and `#close` closes the queue (stop accepting, drain what is queued), waits for every worker and the timer
-within a construction-time bounded budget, and emits `DEF-31`'s event exactly once. `#post`'s signature is
+within a construction-time bounded budget, and emits `SEAM-25`'s lifecycle event exactly once. `#post`'s signature is
 `Dexpace::Page::_Executor`'s **exactly**, not a superset.
 
 ### The six corpus rules the charter routed here by name, one at a time
@@ -1253,7 +1259,7 @@ rather than as `respond_to?` reports it.
    by itself.
 4. **Emit `Events::INSTRUMENTATION_SHUTDOWN` exactly once**, inside `Instrumentation.contain`, with
    `Severity::INFO` and two adapter-private fields: the worker count and whether the drain completed within
-   the budget. `DEF-31` closes here.
+   the budget. The lifecycle event phase 2 postponed closes here.
 
 **`#close` returns `nil` whether or not the drain completed**, and the fact is carried on the event rather
 than in the return value, because `Dexpace::Closeable#close` is a duck type shared with `Response`, `IO`
@@ -1296,7 +1302,7 @@ gems/dexpace-async-thread/
   test/support/fake_transport.rb        8b's own — a #call(request, options, cancellation) double with a
                                         gate, a produces-a-closeable mode and an ignores-cancellation mode
   test/support/counting_response.rb     a #close-counting Response double, for ASYNC-5 and ASYNC-20
-  test/support/recording_sink.rb        a logging sink double, for DEF-31's one-event assertion
+  test/support/recording_sink.rb        a logging sink double, for SEAM-25's one-event assertion
   test/support/probe_scheduler.rb       the minimal Fiber::Scheduler, for the one ASYNC-18 contrast test
   test/dexpace/async/thread_test.rb     the entry file, VERSION, CORE_REQUIREMENT and the skew assertion
   test/dexpace/async/thread/pool_test.rb
@@ -1372,7 +1378,7 @@ Pool.build(size:,
 
 #post { … }            -> nil     # Dexpace::Page::_Executor; SEAM-18's duck type; ASYNC-2
 #delay(duration)       -> Dexpace::Async::Future   # ASYNC-18
-#close                 -> nil     # Dexpace::Closeable; ASYNC-15, ASYNC-16, SEAM-25, DEF-31
+#close                 -> nil     # Dexpace::Closeable; ASYNC-15, ASYNC-16, SEAM-25 (event half)
 #closed?               -> bool    # Dexpace::Closeable
 #owned?                -> bool    # Dexpace::Closeable — always true; see below
 #size                  -> Integer
@@ -1484,7 +1490,7 @@ end
    **`Interrupt` is the one case worth naming**: swallowing it on a worker is harmless because `Ctrl-C` is
    delivered to the main thread, and re-raising it would kill the worker for a signal that was never aimed
    at it.
-5. **There is no `raise` in `#run` at all**, so `pipeline/f02559b9`'s `raise error, cause: nil` spelling has
+5. **There is no `raise` in `#run` at all**, so `pipeline/7ce4431d`'s `raise error, cause: nil` spelling has
    no site here — `8b` never re-raises an error it is carrying. The gem's only `raise`s are the four
    validation raises in `.build` and the two rejection raises in `#post`, all of them raising a fresh error
    about the immediate call, which is the shape a bare `raise Klass, msg` is correct for.
@@ -1508,7 +1514,8 @@ already-settled future returns `false` and closes the response it was handed** �
 no orphan-close code of its own. `#cancel` after settlement is a no-op on the value, which is `ASYNC-20`.
 
 **How a caller awaits, without `Timeout.timeout`.** `future.value(cancellation:, deadline:, clock:)` —
-phase 2's blocking read, widened by 5a's `DEF-28`. It blocks on a `::Thread::Queue` pop rather than a spin
+phase 2's blocking read, widened by 5a's Task 8 (the `deadline:` phase 2 postponed). It blocks on a
+`::Thread::Queue` pop rather than a spin
 or a `Kernel#sleep` poll, so under a registered `Fiber.scheduler` it routes through the scheduler's
 `#block`/`#unblock` hooks and unmounts the fiber (verified fact 15), and with no scheduler it blocks the
 **calling** thread and never a pool worker. `#wait` is the non-raising form and `#on_settle` the callback
@@ -1521,7 +1528,7 @@ blocking a worker.
 | Deadline | Whose | Checked at |
 |---|---|---|
 | The transport's `open_timeout`/`read_timeout`/`write_timeout` | `8a`'s, from phase 5a's layered configuration (`resource-management/d1f16cad`) | A syscall boundary, with a typed exception |
-| The caller's await budget, `future.value(deadline:)` | The caller's; a **monotonic instant** on `Clock#monotonic`'s scale (`DEF-28`) | The pivot's queue pop, on the caller's own thread |
+| The caller's await budget, `future.value(deadline:)` | The caller's; a **monotonic instant** on `Clock#monotonic`'s scale (5a's `deadline:` convention) | The pivot's queue pop, on the caller's own thread |
 | The pool's `shutdown_timeout` | The pool's, fixed at construction (`P8-24`) | Each iteration of the drain loop, as a `clock.monotonic` difference |
 | A scheduled delay's interval | The caller's, per `#delay` call | The timer's `pop(timeout:)`, recomputed against the nearest deadline after every wake |
 
@@ -1688,8 +1695,9 @@ listed as not `8b`'s so a reader can see the whole set was read.
    list. `Dexpace/NoThreadInterrupt` has nothing to bite, and the plan asserts it with a grep-shaped test
    over the gem's `lib/` rather than relying on the cop alone, because the cop's absence of findings and a
    test's positive assertion are different evidence.
-4. **§10.5's three MUSTs are settled and split exactly that way (boundary 4).** `ASYNC-3` ⏳ `DEF-18`;
-   `PIPE-33`'s interrupt clause ⏳, cross-reference; `ASYNC-4` **N/A, vacuous, no register row**. The
+4. **§10.5's three MUSTs are settled and split exactly that way (boundary 4).** `ASYNC-3` ⏳ (an
+   unsatisfied MUST, `docs/first-release.md` § What v1 ships without); `PIPE-33`'s interrupt clause ⏳,
+   cross-reference; `ASYNC-4` **N/A, vacuous, on no such entry**. The
    mitigation is load-bearing and `8b` does not weaken it: check-after-resume
    (`concurrency-and-async/611b9392`) is honoured at the worker's `Queue#pop` — the earliest resume point
    a queued task has — and `Completer#on_cancel` is left to the object that owns the blocking resource
@@ -1750,7 +1758,8 @@ listed as not `8b`'s so a reader can see the whole set was read.
 
 - **The forbidden three.** `Timeout.timeout`, `Thread#raise`, `Thread#kill`. **This is the gem a reader is
   most tempted by** — a blocked read on a pooled worker is exactly what `Thread#raise` looks designed for,
-  and `ASYNC-3` is a MUST that names it. §10.5 records the trade, `DEF-18` carries the cost, `R10` states
+  and `ASYNC-3` is a MUST that names it. §10.5 records the trade, the unsatisfied-MUST entry in
+  `docs/first-release.md` carries the cost, `R10` states
   the residual, and the cop plus a grep-shaped test are what make it a decision rather than a discipline.
 - **`::Thread::Mutex` is per-fiber-owned and non-reentrant.** It binds `8b` hardest of any gem: verified
   fact 9 measures both failures, and the two-fibers-on-one-thread test is what proves the timer's lock is
@@ -1796,7 +1805,7 @@ Seven groups. Three of them exist because a measured fact showed the obvious tes
    pool raises `Dexpace::ClosedError` and **never `::ClosedQueueError`**; and — the assertion that makes
    `ASYNC-2` a requirement rather than a claim — `Transport.async_over(t, executor: closed_pool).call(…)`
    returns a **future that completes exceptionally**, with nothing raised synchronously from `#call`.
-3. **Lifecycle (`ASYNC-15`–`ASYNC-17`, `SEAM-25`, `DEF-31`)** — close twice → one event, one shutdown,
+3. **Lifecycle (`ASYNC-15`–`ASYNC-17`, `SEAM-25` with its postponed event)** — close twice → one event, one shutdown,
    both calls return; 16 concurrent closes → **exactly one** event; an in-flight task **finishes** rather
    than being interrupted; queued work drains; a task still queued when `#close` runs still runs;
    `Transport.async_over(t, executor: pool).close` leaves the pool **open and usable**, which is
@@ -1870,10 +1879,10 @@ Stated as a contract, so a later phase cites rather than re-derives.
 
 | Consumer | What it gets, and the obligation |
 |---|---|
-| **`8a`**, on the conformance harness | **Nothing from `8b`'s code, and three assertion shapes worth lifting.** `8b` writes no part of `DEF-22`'s protocol or the `TCPServer` fixture (`R16`: `8b` is on neither side). What it hands `8a` is the list: **(i)** `SEAM-25`/`ASYNC-15`'s "close twice → executor shut once, one event", which needs a recording sink and no socket; **(ii)** `XCUT-22`'s "a BYO executor passed to a bridge is never shut down", which is one line and is the clause an adapter author satisfies by accident on the first call; **(iii)** `ASYNC-2`'s "submit through a shut-down executor → the future completes exceptionally", which is adapter-agnostic and belongs in the shared suite rather than in this gem |
-| **`8a`**, on `ASYNC-3`'s waiver | The waiver's text — a named suppression listing `ASYNC-3` and citing `DEF-18` and §10.5 — which §9.3 requires and which `8a` owns the mechanism for. `8b` writes the words; `8a` builds the thing that carries them |
+| **`8a`**, on the conformance harness | **Nothing from `8b`'s code, and three assertion shapes worth lifting.** `8b` writes no part of the conformance assertion protocol or the `TCPServer` fixture (`R16`: `8b` is on neither side). What it hands `8a` is the list: **(i)** `SEAM-25`/`ASYNC-15`'s "close twice → executor shut once, one event", which needs a recording sink and no socket; **(ii)** `XCUT-22`'s "a BYO executor passed to a bridge is never shut down", which is one line and is the clause an adapter author satisfies by accident on the first call; **(iii)** `ASYNC-2`'s "submit through a shut-down executor → the future completes exceptionally", which is adapter-agnostic and belongs in the shared suite rather than in this gem |
+| **`8a`**, on `ASYNC-3`'s waiver | The waiver's text — a named suppression listing `ASYNC-3` and citing §10.5 and the unsatisfied-MUST entry in `docs/first-release.md` — which §9.3 requires and which `8a` owns the mechanism for. `8b` writes the words; `8a` builds the thing that carries them |
 | **`8a`**, on `Completer#on_cancel` | **The hook is the transport's, not the pool's** (`R10`). `8a` decides whether `dexpace-transport-net_http` registers one to close its socket under a blocked read, and inherits two constraints from here: the woken `IOError` must not be classified as a retryable transport failure when a cancellation caused it (`XCUT-2`, `TRANSPORT-3`), and `max_retries = 0` is required for the abort to surface at all (the charter's verified facts 1 and 11) |
-| **`8a`**, on `DEF-29` | **A corrected premise.** The charter's `DEF-29` disposition says "`8b` drives phase 2's `FakeTransport` from a suite outside `dexpace-core`". It does not: `8b` writes its own doubles, because phase 0's `test_helper.rb` puts only *this gem's* `lib` on the load path and a `require_relative` into another gem's `test/` tree is the cross-gem reach styleguide 12.6 forbids. **That strengthens `8a`'s UNSCHEDULED recommendation rather than weakening it** — the cheapest correct answer for the first consumer outside core was a ten-line double, which is evidence the three fakes are not in fact shared. `8a`'s mark should cite this sentence rather than the charter's |
+| **`8a`**, on core's test fakes staying in core | **A corrected premise.** The charter's disposition of the move phase 2 postponed says "`8b` drives phase 2's `FakeTransport` from a suite outside `dexpace-core`". It does not: `8b` writes its own doubles, because phase 0's `test_helper.rb` puts only *this gem's* `lib` on the load path and a `require_relative` into another gem's `test/` tree is the cross-gem reach styleguide 12.6 forbids. **That strengthens `8a`'s decline rather than weakening it** — the cheapest correct answer for the first consumer outside core was a ten-line double, which is evidence the three fakes are not in fact shared. `8a`'s owning entry cites this sentence rather than the charter's |
 | **`8c`**, on `ASYNC-6` | `8b`'s stated half: cancelling the pivot reaches a thread-pool worker only at its next check-after-resume point, which is `ASYNC-3`'s unsatisfied mode and not a second decision. `8c` owns the row and the bidirectional property; `8b` owns the sentence that makes its own absence a decision |
 | **`8c`**, on `ASYNC-7` | The thread half of the contrast, written in `gems/dexpace-async-thread/README.md`: an in-flight blocking read **runs to completion**. `8c` writes the reactor half and owns the conformance row asserting the two differ as documented (convergence point 3) |
 | **`8c`**, on the pool | **Nothing.** `async-http` runs on `Async::Task` under a `Fiber.scheduler`, and verified fact 15 adds that a pool worker sees `Fiber.scheduler` as `nil` regardless. A `8c` test that installs a `dexpace-async-thread` pool is testing `8b`'s gem |
@@ -1881,7 +1890,7 @@ Stated as a contract, so a later phase cites rather than re-derives.
 | **Phase 9**, on `XCUT-11` | The five concurrency assertions above as the audit's existing evidence — in particular the **two-fibers-on-one-thread** test, which is the only shape that proves a per-fiber mutex is not held across a suspension point |
 | **Phase 9**, on `XCUT-13` and `XCUT-22` | `Pool#close` as the bounded, non-blocking, latched shutdown, and the bridge assertion that a caller-supplied executor survives its holder's close. Both satisfied by construction through §3.7 and asserted rather than argued |
 | **Phase 9**, on `SEAM-12` | The `#post`-from-16-threads and `#post`-racing-`#close` assertions, which are "concurrency safety is a property of an implementation" for the one seam implementation that is not a transport |
-| **`dexpace-async-async` (`DEF-11`)** | The pool is **not** its precedent. That gem bridges a *caller-held* `Async::Task` to the pivot in both directions, which is `SEAM-24`'s second sentence and a different shape entirely; what it inherits from `8b` is the `ASYNC-7` README obligation and the `ASYNC-9` context-hop shape, not the pool |
+| **`dexpace-async-async` (post-v1)** | The pool is **not** its precedent. That gem bridges a *caller-held* `Async::Task` to the pivot in both directions, which is `SEAM-24`'s second sentence and a different shape entirely; what it inherits from `8b` is the `ASYNC-7` README obligation and the `ASYNC-9` context-hop shape, not the pool |
 | **A downstream SDK author** | `Dexpace::Async::Thread::Pool.build(size:)` plus `Dexpace::Transport.async_over(transport, executor: pool)` as the whole of "make my blocking transport async with nothing installed", and `Pool` as the worked example of what a `SEAM-18` executor owes: a `#post` that does not block, a rejection through the failure channel, an idempotent ownership-aware close, and a per-submission context capture |
 
 ---
@@ -1916,7 +1925,7 @@ step of the plan's Task 1, with a regression test, rather than as a `P8-<n>`.
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P8-20 | **A pooled worker clears its inherited fiber storage once, at thread start**, so the caller's captured context is *installed* rather than *merged onto* whatever the pool creator's fiber happened to hold. Design §8.1 describes the adapter as saving, installing and restoring and does not mention the floor underneath | `ASYNC-9`, `ASYNC-10`, `ASYNC-12`; design §8.1 (`:136-142`); `OBS-24`; `P5-23`; `observability/65191069`; verified facts 5, 7, 8 | Measured: a pool built while `Fiber[:tenant] = "assembly"` was set runs a caller's task with `tenant: "assembly"` visible, through phase 5b's `Diagnostics.with` exactly as written, because `::Thread.new` inherited it at construction and the caller's snapshot has no key to overwrite it with. That is `ASYNC-10`'s "stale snapshot from when it was assembled" reaching a log line the caller believes describes their own call, and it is **invisible in any test that builds the pool in the same context it submits from**. The repair is one line, once per worker, on a `Hash` `Fiber.current.storage` already returns fresh — not a change to 5b's `.with`, which is correct for its own consumer, and not `Fiber#storage=`, which `OI-13` and `P5-23` both rule out. The residual `P5-49` records (a prior key holding a literal `nil` restores as absent) is doubly harmless here: after the clear there is no prior key at all |
-| P8-21 | **The version-skew assertion is made directly in the gem's entry file**, with `Gem::Requirement` against `Dexpace::VERSION`, rather than through `Dexpace::Registry#register`'s required `core:` keyword | `SEAM-10`'s replacement (`DEF-21`, `P2-7`); §2.3's version-skew guard; `P2-1`; charter boundary 8 | `P2-1` established that **there is no executor registry**, because `SEAM-18` requires the executor to be caller-supplied with no default and an auto-resolved executor is exactly that default. The boundary's substance is the assertion, not the call that usually carries it, so the assertion is kept and the vehicle is dropped. Two properties are preserved and one is added: the failure is at `require` time and names both versions (§2.3's whole purpose), the keyword is not optional because there is no keyword, and a test asserts `CORE_REQUIREMENT` equals the gemspec's declared string — the agreement `gates:gemspec_audit` checks from one side and nothing checked from the other. 7a's `P7-7` is the precedent for a require-time assertion in an adapter entry file |
+| P8-21 | **The version-skew assertion is made directly in the gem's entry file**, with `Gem::Requirement` against `Dexpace::VERSION`, rather than through `Dexpace::Registry#register`'s required `core:` keyword | `SEAM-10`'s replacement (the version-skew guard's runtime half, `P2-7`); §2.3's version-skew guard; `P2-1`; charter boundary 8 | `P2-1` established that **there is no executor registry**, because `SEAM-18` requires the executor to be caller-supplied with no default and an auto-resolved executor is exactly that default. The boundary's substance is the assertion, not the call that usually carries it, so the assertion is kept and the vehicle is dropped. Two properties are preserved and one is added: the failure is at `require` time and names both versions (§2.3's whole purpose), the keyword is not optional because there is no keyword, and a test asserts `CORE_REQUIREMENT` equals the gemspec's declared string — the agreement `gates:gemspec_audit` checks from one side and nothing checked from the other. 7a's `P7-7` is the precedent for a require-time assertion in an adapter entry file |
 | P8-22 | **A pool worker rescues `::Exception` and never dies**, where `RECOV-2`'s rule (design §5.2) is "rescue `Exception`, immediately re-raise anything outside `StandardError`, convert the rest" | `RECOV-2`; design §5.2; `ASYNC-15`; `error-handling/3bfdf6f0`; verified facts 10, 11 | On a worker thread, "re-raise" means the thread dies, and three measurements say nothing would notice: a worker's `SystemExit` does not exit the process and `exit(3)` on a worker is swallowed entirely; `Thread#report_on_exception` writes to `$stderr` **directly and not through `Warning.warn`**, so phase 0's warnings-fatal gate cannot see it; and the pool is then permanently one worker smaller with no signal, which is a capacity invariant the caller depends on silently violated by one bad task. The rule's *purpose* — never demote a programmer error to a handled operational error — is served by a different mechanism rather than abandoned: the error is **not** routed into any caller's result (the block already settled the future through `Completer#fail` before the net could see anything), and what reaches the net is a defect in the block, emitted as an `http.instrumentation.*` diagnostic through §3.7's second disposal route, which phase 5b's facade made available and phase 2 and 4b did not have. `Interrupt` is the case worth naming: `Ctrl-C` is delivered to the main thread, so swallowing it on a worker discards nothing |
 | P8-23 | **`#post` never blocks the calling thread**: the submission queue is a bounded `::Thread::SizedQueue` used with the **non-blocking** push, so a full queue is a `RejectedError` rather than a parked producer — where `concurrency-and-async/dc345cae` names `SizedQueue`'s blocking backpressure as the mechanism | `ASYNC-2`; `SEAM-18`; `PAGE-30`; `concurrency-and-async/dc345cae`, `/171f800d`; verified fact 2 | Four reasons, of which the first is normative. `ASYNC-2` names "worker-pool rejection (**a saturated**/shut-down executor)" as a failure that MUST arrive through the future; a blocking `#post` gives this adapter **no saturated case at all** and kills half the requirement's antecedent. Second, `Transport.async_over#call` promises a future and phase 2 makes it return that future before doing anything fallible — a `#post` that parks moves the blocking from the transport, where the caller asked for it, to the submission, where they did not. Third, `PAGE-30` was designed against a raising `#post` ("every `#post` call site is wrapped"). Fourth, a task that posts back to the same pool would park a worker waiting for a worker. The rule's *purpose* — a producer cannot race arbitrarily ahead of consumers — is met exactly by the bound; only its side effect is declined. Rejected alternatives: a caller-runs policy runs a blocking send on the caller's thread inside an async call; a `on_saturation:` keyword is `OI-8`'s shape |
 | P8-24 | **`#close` takes no arguments**: the graceful-drain wait is bounded by a **construction-time** `shutdown_timeout:` and carries no `cancellation:` token, where design §3.7 writes the wait as "§8.3's cancellable queue wait **and** a bounded deadline" | `ASYNC-15`, `ASYNC-16`, `XCUT-13`; design §3.7 (`:493-497`); `OI-8` | The wait **is** a queue wait and it **is** bounded, so two of the sentence's three elements are taken literally. The token is declined for a mechanical reason: `Dexpace.close_quietly(resource)` is the single sanctioned exit §3.7 itself defines and it calls `#close` with **no arguments**, so a `cancellation:` keyword would be unreachable from the one call site that matters — an `NFR-4`-locked keyword with no caller, which is `OI-8`'s shape and what `P5-2` exists to keep deliberate. A second, differently named `#shutdown(cancellation:)` was considered and rejected: two names for one latch, and the `#close` duck type's whole value is that a `Response`, an `IO`, a `Tempfile` and a pool answer the same message. §3.7's stated harm — "a caller who closes inside a cancelled scope is not parked" — is prevented by the budget: such a caller waits at most `shutdown_timeout` and never forever |
@@ -1924,89 +1933,123 @@ step of the plan's Task 1, with a regression test, rather than as a `P8-<n>`.
 
 ---
 
-## Deferrals filed by phase 8b
+## Work phase 8b postponed, and who owns what it inherited
 
-**None.** Seventeen of `8b`'s nineteen IDs are implemented here; `ASYNC-3` is `DEF-18`'s, which already
-exists and whose pick-up condition ("if an interruptible transport path is ever adopted") `8b` does not
-meet; and `ASYNC-4` is vacuous and on no register row. **`8b` adds no unsatisfied MUST, no unsatisfied
-SHOULD clause with a register row, and no new `DEF-<n>`.** Design §12's `ASYNC` row — "*Deferred:* none" —
-is unchanged by this document.
+**None.** Seventeen of `8b`'s nineteen IDs are implemented here; `ASYNC-3` is one of the port's
+unsatisfied MUSTs (design §10.5; `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs),
+whose reopening condition ("if an interruptible transport path is ever adopted") `8b` does not meet; and
+`ASYNC-4` is vacuous and on no such entry. **`8b` adds no unsatisfied MUST, no unsatisfied SHOULD clause,
+and postpones nothing new.** Design §12's `ASYNC` row — "*Deferred:* none" — is unchanged by this
+document.
 
-### Deferral-register sweep
+### What earlier phases postponed to `8b`, and what `8b` decided about each
 
-`8b`'s delta against the charter's whole-register sweep, which covered all forty-two rows once and is not
-repeated here. As with phases 3 through 7, this document **states** each disposition and `8b`'s **plan
-performs** the register edit.
+`8b`'s delta against the charter's sweep of everything an earlier phase postponed, which covered each item
+once and is not repeated here. As with phases 3 through 7, this document **states** each disposition and
+`8b`'s **plan performs** the mark (Task 13, Step 5).
 
-- **`DEF-31` — picked up and closed by `8b`.** Its condition names this gem: "The first thing in this
-  repository that actually **owns** an executor is phase 8's `dexpace-async-thread`, so phase 8 is where
-  the emission gets a real subject and where `dexpace-conformance` asserts 'close twice → executor shut
-  once, one event'." `8b` supplies the subject: `#release` emits `Events::INSTRUMENTATION_SHUTDOWN` at
-  `Severity::INFO`, inside `Instrumentation.contain`, **exactly once**, asserted under 16-way concurrent
-  close. Phase 5b shipped the event name and the field shape and added a dated line to `Status` without
-  moving the row; `8b` moves `Status` to `picked-up (<date>, phase 8b)`. The *harness* half of the
-  condition — the assertion living in `dexpace-conformance` — is `8a`'s, and `8b` hands it the shape under
-  *The interface surface later phases may cite* rather than writing it.
-- **`DEF-1` — untouched, and `8b` supplies the fact the charter's proposed amendment rests on.**
-  `SEAM-24`'s **first** sentence ("propagate the ambient logging/diagnostic context across the thread
-  handoff") is `ASYNC-8`'s and `8b` implements it through `Fiber[]`, within fiber storage. Its **second**
-  sentence — "Each adapter's cancellation bridge SHOULD map cancellation in both directions" — is a
-  *caller-facing* bridge over the host's own primitive, which design §3.3 (`:252-254`) assigns to
-  `dexpace-async-async` and which is `DEF-11`, post-v1. **`8b` bridges no caller-held primitive**: it hands
-  out no `::Thread`, `#post` returns `nil`, and the only handle a caller holds is the pivot. So `8b` does
-  not meet the second sentence and does not claim to. The row's `Status` stays **deferred** and is **not**
-  UNSCHEDULED, because the condition it names is post-v1 and unmeetable here. The charter proposes the
-  `Status` amendment; `8b` performs no register edit for it.
-- **`DEF-18` — untouched, and carried as one ⏳ row plus one cross-reference plus one N/A that is not on
-  the row.** Its condition is "if an interruptible transport path is ever adopted", which §8.3 forbids and
-  `8b` does not adopt — so **not UNSCHEDULED**. The row's `Cites:` line is `ASYNC-3, PIPE-33`, so `8b`
-  carries `ASYNC-3` ⏳ **citing `DEF-18`**, `PIPE-33`'s cross-reference row citing it too, and `ASYNC-4`
-  N/A **citing §10.5 and no register row at all**. **`8b` does not edit `DEF-18`**: its `Cites:` line is a
-  committed, adversarially reviewed row and the register's rules permit only a `Status` edit, which this
-  phase does not earn.
-- **`DEF-29` — `8b`'s premise correction, and the mark is `8a`'s.** The charter marks it UNSCHEDULED and
-  cites, among its reasons, that "`8b` drives phase 2's `FakeTransport` from a suite outside
-  `dexpace-core`". **`8b` does not.** Phase 0's `test_helper.rb` puts only *this gem's* `lib` on the load
-  path, and a `require_relative` into `gems/dexpace-core/test/support/` is the cross-gem reach styleguide
-  12.6 forbids — worse here than a style violation, because it would make this gem's suite depend on a
-  path that exists only in the workspace. `8b` writes its own doubles, which is what phases 3a, 5b, 7a and
-  4c each did. **That strengthens the UNSCHEDULED recommendation rather than weakening it**: the first
+- **`SEAM-25`'s lifecycle event on the first close of an owned executor — postponed by phase 2
+  (2026-09-07); landed and closed by `8b`.** Why phase 2 postponed it: `SEAM-25` requires that "only the
+  first close shuts the owned executor and emits the lifecycle event, later closes are true no-ops", and
+  phase 2 shipped the whole of that sentence except the event — `Dexpace::Closeable` supplies the latch,
+  the ownership rule and the once-only `#release`, verified under contention — because there was nothing
+  to emit an event *through*: the instrumentation facade is design §8.1 and phase 5's, and defining an
+  event shape two phases early would have fixed the facade's interface ahead of the requirements that
+  define it. It was recorded rather than left implicit because the phase-2 checklist marks `SEAM-25` ✅
+  for the release half, and a ✅ with an unstated missing clause is the drift the one-row-per-ID
+  convention exists to prevent. Its condition named this gem: "The first thing in this repository that
+  actually **owns** an executor is phase 8's `dexpace-async-thread`, so phase 8 is where the emission
+  gets a real subject and where `dexpace-conformance` asserts 'close twice → executor shut once, one
+  event'." `8b` supplies the subject: `#release` emits `Events::INSTRUMENTATION_SHUTDOWN` — phase 5b's
+  event name and field shape, unchanged — at `Severity::INFO`, inside `Instrumentation.contain`,
+  **exactly once**, asserted under 16-way concurrent close (plan Tasks 6 and 10). The two adapter-private
+  field keys are `private_constant`s in the pool and are deliberately not added to core's `Keys`. The
+  *harness* half of the condition — the assertion living in `dexpace-conformance` — is **phase 9's Task
+  11**, `Dexpace::Conformance::ExecutorSuite`, matching on the event name only; this paragraph originally
+  assigned that half to `8a`, and phase 9's design corrected it on 2026-09-12 because `8a` wrote the
+  protocol and the transport suite and no executor suite. `8b` hands the shape forward under *The
+  interface surface later phases may cite* rather than writing the harness.
+- **`SEAM-24`'s cancellation bridge, and `SEAM-28` — declined for v1 by the MVP scope design
+  (2026-09-05); `8b` supplies the fact that narrowed the entry.** `SEAM-24`'s **first** sentence
+  ("propagate the ambient logging/diagnostic context across the thread handoff") is `ASYNC-8`'s and `8b`
+  implements it through `Fiber[]`, within fiber storage. Its **second** sentence — "Each adapter's
+  cancellation bridge SHOULD map cancellation in both directions" — is a *caller-facing* bridge over the
+  host's own primitive, which design §3.3 (`:252-254`) assigns to the post-v1 `dexpace-async-async`.
+  **`8b` bridges no caller-held primitive**: it hands out no `::Thread`, `#post` returns `nil`, and the
+  only handle a caller holds is the pivot. So `8b` does not meet the second sentence and does not claim
+  to; what stays declined is narrower than the original entry read — §12's "beyond fiber storage" scope
+  and the second sentence proper — and that is not a decline by `8b`, because the condition is post-v1
+  and unmeetable here. Owner: `docs/first-release.md` § What v1 ships without, the `SEAM-24` entry.
+  `SEAM-28`'s identifier half is phase 5c's Task 4, over the `RequestContext#operation_name` phase 4a's
+  Task 7 gives, and done there.
+- **The unsatisfied MUSTs `ASYNC-3` and `PIPE-33`'s interrupt clause — the MVP scope design's decision
+  (2026-09-05); `8b` carries them as one ⏳ row plus one cross-reference plus one N/A that is on no such
+  entry.** Why they are unsatisfied: §8.3's prohibition on `Timeout.timeout`, `Thread#raise` and
+  `Thread#kill` forbids landing an asynchronous interrupt on a worker thread, because it can land inside
+  an `ensure` releasing a pooled connection; check-after-resume and `Completer#on_cancel` mitigate but do
+  not close the gap. The reopening condition is "if an interruptible transport path is ever adopted",
+  which §8.3 forbids and `8b` does not adopt — so **not** a decline by `8b`. The entry covers `ASYNC-3`
+  and `PIPE-33` and nothing else, so `8b` carries `ASYNC-3` ⏳ **citing it**, `PIPE-33`'s cross-reference
+  row citing it too, and `ASYNC-4` N/A **citing §10.5 and no entry at all**. Owner:
+  `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs (design §10.5); phase 9 asserts
+  `ASYNC-3` in `ExecutorSuite` so it genuinely fails and the thread driver waives it by ID (phase 9's Task
+  11 and Task 16 Step 4); phase 10 audits the §10.5 ledger.
+- **Moving core's in-memory fakes into `dexpace-conformance` — postponed by phase 2 (2026-09-07);
+  `8b`'s premise correction, and the decision is `8a`'s.** `8a`'s design owns the decline (its *Work
+  phase 8a postponed, and who owns it now*: the move would create a development-dependency cycle between
+  `dexpace-core` and `dexpace-conformance`, so the fakes stay in `gems/dexpace-core/test/support/`). The
+  charter's argument cited, among its reasons, that "`8b` drives phase 2's `FakeTransport` from a suite
+  outside `dexpace-core`". **`8b` does not.** Phase 0's `test_helper.rb` puts only *this gem's* `lib` on
+  the load path, and a `require_relative` into `gems/dexpace-core/test/support/` is the cross-gem reach
+  styleguide 12.6 forbids — worse here than a style violation, because it would make this gem's suite
+  depend on a path that exists only in the workspace. `8b` writes its own doubles, which is what phases
+  3a, 5b, 7a and 4c each did. **That strengthens the decline rather than weakening it**: the first
   consumer outside core found a ten-line double cheaper than a shared fake, which is evidence the three
-  fakes are not in fact shared. `8b` performs no mark; `8a` does, and should cite this sentence.
-- **`DEF-28` — closed in 5a, and named because `8b` is the first consumer of the half that was added.**
-  `Future#value`/`#wait` gained `deadline:` and `clock:`. `8b` uses neither on the pivot — its own waits
-  are on its own queues — but the **`deadline:` is a monotonic instant, not a duration** convention is the
-  one `8b`'s shutdown budget follows, so the repository has one meaning for the word. No action.
-- **`DEF-27` — closed in 4b and 5b, and `8b` is the first adapter to use the route it opened.**
-  `close_quietly`'s two disposal routes now exist; `8b`'s worker net uses the second (the
-  `http.instrumentation.*` diagnostic) for an error that has no primary exception to attach to. No action,
-  and named because `P8-22`'s argument depends on that route existing.
-- **`DEF-21` — closed in phase 2, and `8b` is the one adapter its mechanism does not fit.** `P8-21` states
-  what `8b` does instead and why. No action on the row: the guard it describes is the registry's, and `8b`
-  registers nothing.
-- **`DEF-11`, `DEF-12` — untouched, and `8b` is what makes the line §2.2 draws observable.**
-  `dexpace-async-thread` proves the pivot with a thread pool; `dexpace-async-async` and
-  `dexpace-async-concurrent_ruby` are second adapters over an already-proven property and wait. Neither
-  condition is met and neither is marked.
-- **`DEF-32` — untouched.** `Hooks.notify`'s dropped handler failures were resolved by phase 4b. `8b`
-  notifies no hook list of its own; the one it touches indirectly is `Cancellation::Source`'s, through
-  `Completer#on_cancel`, which is phase 2's.
-- **`DEF-33` — untouched, and its value is higher after this phase than before it.** A non-CRuby matrix
-  row. `8b`'s pool is the fifth and most acute case of a concurrency guarantee resting on a
+  fakes are not in fact shared. `8b` performs no mark; `8a`'s entry carries this sentence.
+- **The pivot's `deadline:` keyword — postponed by phase 2, built by phase 5a (Task 8); named because
+  `8b` is the first consumer of the half that was added.** `Future#value`/`#wait` gained `deadline:` and
+  `clock:`. `8b` uses neither on the pivot — its own waits are on its own queues — but the **`deadline:`
+  is a monotonic instant, not a duration** convention is the one `8b`'s shutdown budget follows, so the
+  repository has one meaning for the word. No action.
+- **`Dexpace.close_quietly`'s two error-disposal routes — postponed by phase 2; route 1 built by phase
+  4b (Task 2, `onto:`), route 2 by phase 5b (Task 14, `logger:`); `8b` is the first adapter to use the
+  route it opened.** `8b`'s worker net uses the second (the `http.instrumentation.*` diagnostic) for an
+  error that has no primary exception to attach to. No action, and named because `P8-22`'s argument
+  depends on that route existing.
+- **The version-skew guard's runtime half — postponed by phase 0, built by phase 2 as
+  `Dexpace::Registry#register(key, factory, core:)` (`P2-7`); `8b` is the one adapter its mechanism does
+  not fit.** `P8-21` states what `8b` does instead and why. No action: the guard it describes is the
+  registry's, and `8b` registers nothing.
+- **`dexpace-async-async` and `dexpace-async-concurrent_ruby` — post-v1 gems (`docs/first-release.md`
+  § What v1 ships without › Post-v1 gems; design §2.2 is the authority); untouched, and `8b` is what
+  makes the line §2.2 draws observable.** `dexpace-async-thread` proves the pivot with a thread pool;
+  the other two are second adapters over an already-proven property and wait. Neither condition is met
+  and neither is marked.
+- **`Hooks.notify`'s dropped handler failures — postponed by phase 2, built by phase 4b (Task 2);
+  untouched.** `8b` notifies no hook list of its own; the one it touches indirectly is
+  `Cancellation::Source`'s, through `Completer#on_cancel`, which is phase 2's.
+- **`IO-38`'s cross-thread close guarantee on a Ruby without a GVL — event-gated on a non-CRuby CI row
+  (`docs/first-release.md` § Post-release triggers); untouched, and its value is higher after this phase
+  than before it.** `8b`'s pool is the fifth and most acute case of a concurrency guarantee resting on a
   `::Thread::Mutex` the GVL would hide the absence of — and it is the first case where the *object under
   test is the concurrency*, rather than a lock incidental to something else. No v1 phase plans a JRuby or
-  TruffleRuby row and `8b` does not propose one; the row's `Why` is worth one added sentence and the
-  charter's sweep already says so.
-- **`DEF-22`, `DEF-23`, `DEF-25`, `DEF-42`, `DEF-3`, `DEF-10`, `DEF-41` — `8a`'s and `8c`'s.** `8b` writes
-  no conformance assertion object, no `TCPServer` fixture, no dispatch-path header re-validation, no tracer
-  emitter, no file-body transfer and no header-drop policy. Named so the sweep is visibly complete rather
-  than visibly partial.
-- **`DEF-2`, `DEF-4`–`DEF-9`, `DEF-13`–`DEF-17`, `DEF-19`, `DEF-20`, `DEF-24`, `DEF-26`, `DEF-30`,
-  `DEF-34`–`DEF-40` — untouched.** Other prefixes, other phases, or post-v1 gems. **`DEF-30` is worth one
-  sentence** because `8b` must not meet it by accident: presence-gated auto-activation is permitted "for
-  instrumentation only" and "no transport or codec adapter may ever use it". `dexpace-async-thread` is
-  neither, and it activates nothing at all — **it registers into no registry**, which is the strongest
-  available form of the restriction and is `P2-1`'s consequence rather than `8b`'s choice.
+  TruffleRuby row and `8b` does not propose one; that entry is worth one added sentence saying so, which
+  the charter's sweep already supplies.
+- **`8a`'s and `8c`'s items** — the conformance assertion protocol (`8a` Tasks 4–8 and 20; phase 9
+  Tasks 2–12a), the Steep-over-`test/` trigger (`docs/first-release.md` § Post-release triggers), the
+  wire-boundary re-validation (`8a` Task 16, `8c` Task 9, phase 9 Task 7), `OBS-29`'s transport-milestone
+  group (`OI-36`, phase 10's inbound list), `BODY-12` clause 2 (`8a`'s decline), `TRANSPORT-28`'s
+  zero-copy clause and `TRANSPORT-30` (declined for v1, `docs/first-release.md` § What v1 ships without)
+  and `OBS-19`'s header-drop policy (`8c` Tasks 7, 9 and 15). `8b` writes no conformance assertion
+  object, no `TCPServer` fixture, no dispatch-path header re-validation, no tracer emitter, no file-body
+  transfer and no header-drop policy. Named so the sweep is visibly complete rather than visibly partial.
+- **Everything else earlier phases postponed — untouched.** Other prefixes, other phases, or post-v1 gems.
+  **Presence-gated auto-activation is worth one sentence** because `8b` must not meet it by accident:
+  phase 2 declined it for v1 (`docs/first-release.md` § What v1 ships without carries the entry and its
+  restriction), it is permitted "for instrumentation only" and "no transport or codec adapter may ever
+  use it". `dexpace-async-thread` is neither, and it activates nothing at all — **it registers into no
+  registry**, which is the strongest available form of the restriction and is `P2-1`'s consequence rather
+  than `8b`'s choice.
 
 ---
 
@@ -2126,10 +2169,11 @@ under the read**". `dexpace-async-thread` owns no socket and cannot register suc
 opaque block and does not know what is inside it — so on the thread path the mitigation reduces to
 check-after-resume alone, and the "shorten" half belongs entirely to the transport
 (`dexpace-transport-net_http`, `8a`). The sentence is not wrong; it is unattributed, and a phase-9 audit
-reading `DEF-18` will look for the hook in the gem whose name appears two sentences earlier. The addition:
+reading §10.5's unsatisfied MUSTs will look for the hook in the gem whose name appears two sentences
+earlier. The addition:
 one clause naming the transport rather than "an adapter", recorded in `docs/deviations.md` as the as-built
 audit of item 5 until §10 is deliberately amended by a human. Cites: `ASYNC-3`, `ASYNC-6`, `PIPE-33`,
-`TRANSPORT-3`, `DEF-18`.
+`TRANSPORT-3`; the unsatisfied-MUST entry in `docs/first-release.md` § What v1 ships without.
 
 **Two rows explicitly do not close.** `OI-13`'s subject is `Fiber#storage=`, a call `8b` does not make —
 `R8` removes the problem rather than resolving the row, and the row stays open for whoever does call it.
@@ -2221,7 +2265,7 @@ Six, each bounded, none reopening a decision above.
    and a required keyword on a close-time budget would make the common construction three keywords long for
    a value most callers have no opinion about. The YARD block says it should exceed the transport's own
    read timeout and why.
-3. **The two adapter-private field keys on `DEF-31`'s event.** The event name is core's
+3. **The two adapter-private field keys on `SEAM-25`'s lifecycle event.** The event name is core's
    (`Events::INSTRUMENTATION_SHUTDOWN`) and settled. **Open:** the spelling of the worker-count and
    drained-flag field keys, which 5b's `Keys` does not carry and which `8b` must not add to core.
    *Recommendation:* `"dexpace.executor.worker_count"` and `"dexpace.executor.drained"`, as
@@ -2237,7 +2281,8 @@ Six, each bounded, none reopening a decision above.
 5. **Whether the fake clock is a test double or a second `Dexpace::Clock`-shaped support file worth
    naming.** `8b` needs one to drive the shutdown budget's timed-out branch with no real waiting. 5a
    already wrote a clock double for `CFG-15`'s suite, in core's `test/`, which `8b` cannot reach
-   (`DEF-29`'s disposition). *Recommendation:* `8b` writes a five-line `StubClock` in its own
+   (core's fakes stay in core; `8a`'s design owns that decision). *Recommendation:* `8b` writes a five-line
+   `StubClock` in its own
    `test/support/`, implementing exactly `#monotonic` and raising `NotImplementedError` from `#now` and
    `#sleep` — so a later edit that reaches for either fails loudly rather than silently using a stub that
    was never designed for it. The plan should not attempt to share 5a's.
