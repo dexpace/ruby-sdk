@@ -21,7 +21,8 @@ each was forced by a fact run on a real interpreter.
   to the BINARY bytes 3a delivers, that call **mangles every non-ASCII byte** — `"café".b.encode(...)`
   is `"caf��"` on 3.2.11, 3.4.10 and 4.0.6 alike. The retag has to come first, and the
   target encoding has to be named explicitly because a target-less `#encode` follows the process-global
-  `Encoding.default_internal`. Filed as `OI-7` with a corpus note (verified fact 1).
+  `Encoding.default_internal`. §3 is frozen, so the correction goes to the roadmap's phase-10 inbound
+  list — §3.1's decode sentence — with a corpus note (verified fact 1).
 - **`BODY-9`'s "mark/reset" has a Ruby antecedent and it is not `respond_to?`.** A pipe, a socket, a
   `StringIO` and a `File` all answer `true` to `respond_to?(:rewind)`; the pipe and the socket then
   raise `Errno::ESPIPE`. The probe that works is `pos` + `seek(pos)` — non-destructive on a seekable
@@ -188,7 +189,8 @@ default gems on 3.2.11, 3.4.10 and 4.0.6 and appear in no `Gem::BUNDLED_GEMS::SI
 task. 3b adds more public constants than any phase so far, which is why R6 names every one on purpose
 and gives them a ledger row.
 
-`OI-6` records that RuboCop is clean for no phase under `.rubocop.yml` as phase 0 wrote it. 3b inherits
+Phase 0's plan, Task 3 — the reviewed `.rubocop.yml` baseline — owns the fact that RuboCop is clean for
+no phase under `.rubocop.yml` as phase 0 wrote it. 3b inherits
 that and adds to it rather than resolving it: the resolution belongs to whoever lands phase 0. The
 plan's "expected: clean" steps are unfalsifiable until then, and 3b states that rather than repeating
 the claim.
@@ -255,13 +257,13 @@ edges; the two further surfaces are named in 3a's following paragraph rather tha
 
 | 3a row | What 3b needs | Verdict |
 |---|---|---|
-| 1 — `TeeSink.new(primary:, tap_limit:)`, `#write`, `#write_from`, `#write_all`, `#emit`, `#flush`, `#close`, `#tap_snapshot`, `#tap_bytesize`, `#clear_tap`, `#buffer` raising | The tee, per write, with the tap readable afterwards | **Delivers, with one consequence and one unused method.** `IO-29` makes `#close`, `#flush` and `#emit` forward to the **primary**, which is the transport's sink — so `RequestLoggingBody` calls none of the three. And because `TeeSink` binds its primary at construction, 3b creates a **fresh tee per write** rather than reusing one, which satisfies `BODY-18` by construction and leaves **`#clear_tap` with no core caller** — filed as `OI-8`, which names the window in which 3a's plan may drop it without an `NFR-4` break. Reported as a cross-phase finding rather than worked around |
+| 1 — `TeeSink.new(primary:, tap_limit:)`, `#write`, `#write_from`, `#write_all`, `#emit`, `#flush`, `#close`, `#tap_snapshot`, `#tap_bytesize`, `#clear_tap`, `#buffer` raising | The tee, per write, with the tap readable afterwards | **Delivers, with one consequence and one unused method.** `IO-29` makes `#close`, `#flush` and `#emit` forward to the **primary**, which is the transport's sink — so `RequestLoggingBody` calls none of the three. And because `TeeSink` binds its primary at construction, 3b creates a **fresh tee per write** rather than reusing one, which satisfies `BODY-18` by construction and leaves **`#clear_tap` with no core caller** — handed to 3a's plan, Task 14 as a keep-or-drop decision, which names the window in which 3a's plan may drop it without an `NFR-4` break. Reported as a cross-phase finding rather than worked around |
 | 2 — `Buffer.new`, the `TypedWrites` surface, `#snapshot`, `#bytesize`, the `TypedReads` surface | Materialize-once's drain target and the replayable body over it | Delivers |
 | 3 — `#read_exactly(count)`, `#write_all(source)`, `StreamError.short_transfer` / `.zero_read` | `HTTP-39`/`BODY-10`'s exact copy, `BODY-13`'s short write, `BODY-25`'s zero read, one message form | **Delivers two of three, and `#write_all` is deliberately not used.** `#write_all(source)` is `TypedWrites`', so it requires the *sink* to be a `Dexpace::IO` sink; a body writes to whatever `#write`-shaped object the transport hands it, and wrapping that in `BufferedSink.wrapping` would take ownership of the transport's socket, which `IO-6` then obliges the wrapper to close. 3b drives its own copy loop instead (P3-20). The two message helpers are used exactly as `BODY-13` intends |
 | 4 — `#peek`, `#slice(offset:, count:)`, `Closeable`'s latch, `Buffer`'s post-close readability | `BODY-22`–`BODY-29` | **Delivers, and 3b needs one surface more than the row names.** `Buffer`'s post-close readability is `IO-42`'s in-memory exemption, expressed in 3a as the private `#reads_survive_close?`/`#writes_survive_close?` hooks, and it is exactly what `BODY-28` needs. `Closeable`'s latch alone is not all of `BODY-27`: the requirement names **two** close paths, and the tail's reaches the latch only through `BufferedSource.wrapping`'s ownership (`IO-6`) — R10, where `.over` is rejected for exactly this |
 | 5 — `Dexpace::IO::MAX_MATERIALIZED_BYTES` | `BODY-32`'s clamp target and `BODY-9`'s "fits the platform's maximum single-array bound" | Delivers. Cited, never re-derived; one ceiling (boundary 8) |
 | 6 — `BufferedSource.wrapping(io)` with its ownership, `#close`, `#closed?`, `IO-42`'s rejection | `HTTP-41`/`BODY-14`/`BODY-15`'s response body | Delivers |
-| 7 — `#read_string(encoding, count: nil)`, `#read_utf8(count: nil)` | `HTTP-42`'s decode | **Delivers the retag; the transcode is 3b's and the design's recipe for it is wrong.** 3a's `#read_string` retags the drained BINARY bytes and applies no policy, which is exactly right. The second step is `#encode(enc, invalid: :replace, undef: :replace)` with the **target named explicitly**, and it must not be applied to untagged bytes. `OI-7` |
+| 7 — `#read_string(encoding, count: nil)`, `#read_utf8(count: nil)` | `HTTP-42`'s decode | **Delivers the retag; the transcode is 3b's and the design's recipe for it is wrong.** 3a's `#read_string` retags the drained BINARY bytes and applies no policy, which is exactly right. The second step is `#encode(enc, invalid: :replace, undef: :replace)` with the **target named explicitly**, and it must not be applied to untagged bytes. The roadmap's phase-10 inbound list carries §3.1's decode sentence |
 | 8 — `IO-6`'s I/O-layer half, the factory-name convention, `.over`'s exception | `BODY-8`'s inverted body-layer rule | Delivers. §10.12 is one decision with two halves; 3b fixes the second and re-decides neither |
 | + `Dexpace::IO::_Chunked` | The RBS type a body's own interface can include | Delivers |
 | + `BufferedSource#each` | What makes a source itself a canonical body representation | Delivers, and it is what `ResponseBody` is built on |
@@ -318,7 +320,8 @@ re-litigated by whoever reads the corpus next.
   `io-and-byte-streams/fbcb4d19` ("there is exactly one decode boundary, `Response#body_string`, which
   applies the media type's charset via `String#encode(invalid: :replace, undef: :replace)`"), whose
   *rule* is right and whose *recipe* mangles every non-ASCII byte when applied to the BINARY bytes the
-  I/O layer delivers. Verified fact 1. This is the corpus half of `OI-7`.
+  I/O layer delivers. Verified fact 1. This is the corpus half of the §3.1 decode-sentence correction
+  the roadmap's phase-10 inbound list carries.
 - **`docs/knowledge/notes/pagination.md`**, `## Superseded`, second entry — **§7.1's rule reaches an
   ordinary `#each` method, not only an `Enumerator.new` block.** Supersedes `pagination/f57c50f6`
   ("Resource acquisition and release must never live inside an Enumerator block in the Ruby SDK,
@@ -451,7 +454,9 @@ subsystem one. Design §3 names `Dexpace::IO::Buffer`, `Dexpace::IO::BufferedSou
 `Dexpace::TypedResponse`. It names **no** body-variant constant, so the default applies. Two things
 make the default the right answer here rather than merely the rule:
 
-- **A `Dexpace::Body::` namespace would manufacture the exact hazard `OI-3` and P3-7 are about.** The
+- **A `Dexpace::Body::` namespace would manufacture the exact hazard the `include Dexpace` shadow and
+  P3-7 are about** — the one `docs/first-release.md` § Blockers before first publish requires v1 to
+  document. The
   natural names inside it are `File`, `Buffer`, `Response` and `Stream` — three of which shadow
   something the body code uses constantly (`::File`, `Dexpace::IO::Buffer`, `Dexpace::Response`), and
   the shadowing is silent for `is_a?` and `case/when`. Flattening to `Dexpace::FileBody`,
@@ -697,12 +702,13 @@ close in either order, and a delegate whose close raises still marked closed (`B
 sentence). The wrapper's own `#close` closes the **delegate** and not the tail, so there is no cycle;
 and `Closeable`'s mutex is held only across the flip, so even a cycle would not deadlock.
 
-**The cost is stated rather than hidden.** `.wrapping`'s read path is `OI-9`'s one-byte-per-read defect
-until `OI-9` is resolved, and the tail sits on top of a delegate whose own source is already
-`wrapping`-backed, so an over-cap body pays it twice — and this is the consumer's real byte path, not a
-preview, because `BODY-24` routes the whole remaining body through it. It is still the right trade:
-`OI-9` is a measured throughput defect with a named one-line fix that removes it from both layers at
-once, and what it is traded against is a transport connection that is never released at all.
+**The cost is stated rather than hidden.** `.wrapping`'s read path delivers one byte per read until 3a's
+plan, Task 10 lands its `fill(count)` refill fix, and the tail sits on top of a delegate whose own
+source is already `wrapping`-backed, so an over-cap body pays it twice — and this is the consumer's
+real byte path, not a preview, because `BODY-24` routes the whole remaining body through it. It is
+still the right trade: it is a measured throughput defect with a named one-line fix that removes it
+from both layers at once, and what it is traded against is a transport connection that is never
+released at all.
 
 §7.1's residue applies and is bounded: the tail holds the wrapper's own state, not an unowned resource,
 and the delegate stays reachable from the wrapper.
@@ -757,7 +763,11 @@ invalidated the buffer would destroy the copy between `BODY-30`'s "decode it" an
 Declaring both on the module rather than per class is what makes `HTTP-43`'s "forward to the body"
 total: `Request::Builder` coerces nothing (below), so there is no type-level guarantee about what sits
 in `Response#body`, and a `respond_to?`-guarded forward would be the same gap with a quieter failure.
-Recorded as **P3-23**.
+Recorded as **P3-23**. **This was a review finding, and it was resolved on 2026-09-08 by this
+document** — `Response#close`, `#body_string` and `#body_bytes` were written against a
+`#source`-plus-`#close` surface `Dexpace::Body` did not declare and two of the three bodies did not
+implement, and the fix is this member table, the three-body table above and P3-23 together, with the
+plan's Tasks 1, 2, 8 and 14 carrying the code half and no residue.
 
 **`HTTP-46`'s by-value equality, made concrete.** Each variant defines `#==`, `#eql?` and `#hash`
 together over the facts that determine its bytes — `BytesBody` over its frozen bytes and media type,
@@ -862,7 +872,8 @@ stream.
   full untruncated payload reaching the primary is `IO-25`/`IO-26`.
 - **`BODY-18` is satisfied by construction.** A fresh tee per write cannot accumulate an earlier
   attempt's bytes, which is strictly stronger than clearing one — it also drops the previous attempt's
-  memory. This is why 3a's `TeeSink#clear_tap` has no core caller (`OI-8`).
+  memory. This is why 3a's `TeeSink#clear_tap` has no core caller, and why 3a's plan, Task 14 carries
+  the keep-or-drop decision on it.
 - **The wrapper never calls `#close`, `#flush` or `#emit` on the tee.** `IO-29` forwards all three to
   the primary, and the primary is the transport's sink, which the body does not own (`BODY-8`, §10.12).
   Nothing leaks: the tee holds a tap `Buffer` and a reference.
@@ -925,8 +936,8 @@ not on one class.** The version of this design that reviewers first saw put `#so
 `BODY-30`/`HTTP-52` puts into a response, the one whose canonical text says "decode it, then snapshot
 it". Nothing in 3b's own suite would have caught it, because every `Response` 3b builds carries a bare
 `ResponseBody`; the first failure would have been phase 4's, against code phase 3 shipped and phase 3's
-tests pass over. The contract row and the three-body table above are the fix, and `OI-10` records the
-finding and its resolution. It is worth stating in this section as well as that one, because this is the
+tests pass over. The contract row and the three-body table above are the fix, made on 2026-09-08 when
+the review found it. It is worth stating in this section as well as that one, because this is the
 section a later phase reads before adding a fourth thing that can sit in `Response#body`: whatever it
 is, it answers `#source` and `#close` or it does not go there.
 
@@ -1041,11 +1052,11 @@ method is not a way around it.** Four consequences, and the third is honest rath
 4. **Every view core takes, core closes.** `BufferBody#write_to` and `ResponseBody#preview` each take a
    `#peek` view and close it in an `ensure`, which deregisters it from the parent. The one place a view
    outlives the call is `BODY-23`'s per-read view, which is handed to the caller — an instance of the
-   growth `OI-4` describes ("a caller that takes many views and closes none"), reached on a **second**
-   axis to the per-attempt one `OI-4` names for "phase 3b's per-attempt response-logging drain": one
+   growth 3a's plan describes ("a caller that takes many views and closes none"), reached on a **second**
+   axis to the per-attempt one 3a names for "phase 3b's per-attempt response-logging drain": one
    view per *read* of a captured body, not one per retry attempt. Both are the same registry and the
-   same `Array#delete`. `OI-4` asks for a measurement on this drain rather than a redesign; the plan
-   owns that measurement, and this document does not pre-empt its result.
+   same `Array#delete`. 3a asks for a measurement on this drain rather than a redesign; the plan's
+   Task 13 owns that measurement, and this document does not pre-empt its result.
 
 ## Module layout
 
@@ -1142,7 +1153,7 @@ after close" test would pass over either error: the captured buffer's `#snapshot
 wrapper's close, and the over-cap tail's read **raises `Dexpace::ClosedError`** after it.
 
 **P3-23's response-body surface is asserted over all three bodies, not over `ResponseBody` alone** — the
-shape of the defect `OI-10` recorded was that the passing test used the one body that happened to have
+shape of the defect the review found was that the passing test used the one body that happened to have
 the members. So: a `Response` is built over each of `ResponseBody`, `ResponseLoggingBody` and
 `BufferBody` in turn, and `#close`, `#body_string` and `#body_bytes` are driven against each. The
 `BufferBody` row carries `BODY-30`'s own two-step sentence as one test — **decode it, then snapshot it**,
@@ -1188,11 +1199,12 @@ discarded. It is stated so the plan does not quietly drop it.
 
 Design §3 and §5 are frozen and are not edited here. Two additions, recorded in different places on
 purpose, following 3a's own test: a row goes in the Deviation Ledger when the port departs from the
-**reference contract**; a documentation erratum goes to `docs/open-items.md` and to the corpus.
+**reference contract**; a documentation erratum goes to the owner that can act on it — for a frozen
+chapter, the roadmap's phase-10 inbound list — and to the corpus.
 
 | Addendum | What the design says | What phase 3b builds |
 |---|---|---|
-| **B1 — the decode boundary is two steps, and the second names its target** | §3.1: `Response#body_string` "applies the media type's charset via `String#encode(invalid: :replace, undef: :replace)`" | The rule is implemented exactly as stated — one boundary, the declared charset, UTF-8 as the fallback. The **recipe** is not: applied to BINARY bytes, that call replaces every byte ≥ 0x80, and with no target argument it follows the process-global `Encoding.default_internal`. The port retags first and names both encodings. **No ledger row** — nothing about the port's behaviour departs from `HTTP-42`; only the design's mechanism sentence is wrong. `OI-7`, plus the corpus note against `io-and-byte-streams/fbcb4d19` |
+| **B1 — the decode boundary is two steps, and the second names its target** | §3.1: `Response#body_string` "applies the media type's charset via `String#encode(invalid: :replace, undef: :replace)`" | The rule is implemented exactly as stated — one boundary, the declared charset, UTF-8 as the fallback. The **recipe** is not: applied to BINARY bytes, that call replaces every byte ≥ 0x80, and with no target argument it follows the process-global `Encoding.default_internal`. The port retags first and names both encodings. **No ledger row** — nothing about the port's behaviour departs from `HTTP-42`; only the design's mechanism sentence is wrong. The roadmap's phase-10 inbound list carries that sentence, plus the corpus note against `io-and-byte-streams/fbcb4d19` |
 | **B2 — the error-body cap constant moves one layer down** | §5.1: "Core ships one `Dexpace::Recovery.buffer_error_body(response)` holding the one constant" | The constant is `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES` and the operation reading it is `Dexpace::Body.buffer_bounded(body, cap:)`, both shipped by phase 3b. Phase 4's `Recovery.buffer_error_body(response)` is still the one step and still the one call site, and it reads this constant rather than declaring a second. **No ledger row**: §5.1's guarantee — one constant, one shared bound across every error-body-buffering path — holds exactly, and only the file it lives in changes, because phase 3 ships bodies before phase 4 ships the chain |
 
 ## Deviation Ledger
@@ -1201,12 +1213,12 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`. N
 phase 3a, whose last row was P3-13; P3-14 through P3-21 were reserved for 3a's reviewers and went
 unused, so this phase starts at P3-14. **P3-22 is the plan's** — the per-variant accessors this list's
 constants do not enumerate — and **P3-23 is this document's review's**, added when the review found the
-response-body surface below (`OI-10`). A gap in the numbers would be fine; a collision would not, which
+response-body surface below on 2026-09-08. A gap in the numbers would be fine; a collision would not, which
 is why each row names where it came from.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P3-14 | The public constants and methods design §3 does not name: `Dexpace::Body` with its eight factories, `.buffer_bounded` and `MAX_BUFFERED_ERROR_BODY_BYTES`; `Dexpace::BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `MultipartBody` (and `MultipartBody::Part`), `ResponseBody`, `RequestLoggingBody`, `ResponseLoggingBody`; `Response#close`, `#body_string`, `#body_bytes`; `PercentEncoding.encode_form` and `.encode_form_component`; the RBS interface `Dexpace::_ResponseHandler` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and 3a's P3-8 precedent | Each is locked at the first release tag, so a name arriving by accident is locked by accident. The constants are **flat under `lib/dexpace/http/body/`** per P1-1, and a `Dexpace::Body::` namespace is rejected rather than merely not chosen: its natural member names are `File`, `Buffer` and `Response`, three constants the body code uses constantly, and `OI-3`/P3-7 show that shadowing is silent for `is_a?` and `case/when`. `Dexpace::Body` is a **module**, not an interface and not a base class, because it must carry the default `#replayable?`, `#content_length` and `#each` implementations *and* be the type `sig/` narrows to under P3-15; an RBS interface can do the second but not the first. The form encoder goes beside the RFC 3986 encoder in one file because `url-and-query-encoding/9ff11c34` asks for two distinct functions, not two modules, and adjacency is the strongest guard against interchanging them |
+| P3-14 | The public constants and methods design §3 does not name: `Dexpace::Body` with its eight factories, `.buffer_bounded` and `MAX_BUFFERED_ERROR_BODY_BYTES`; `Dexpace::BytesBody`, `BufferBody`, `FileBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `MultipartBody` (and `MultipartBody::Part`), `ResponseBody`, `RequestLoggingBody`, `ResponseLoggingBody`; `Response#close`, `#body_string`, `#body_bytes`; `PercentEncoding.encode_form` and `.encode_form_component`; the RBS interface `Dexpace::_ResponseHandler` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and 3a's P3-8 precedent | Each is locked at the first release tag, so a name arriving by accident is locked by accident. The constants are **flat under `lib/dexpace/http/body/`** per P1-1, and a `Dexpace::Body::` namespace is rejected rather than merely not chosen: its natural member names are `File`, `Buffer` and `Response`, three constants the body code uses constantly, and the `include Dexpace` shadow blocker and P3-7 show that shadowing is silent for `is_a?` and `case/when`. `Dexpace::Body` is a **module**, not an interface and not a base class, because it must carry the default `#replayable?`, `#content_length` and `#each` implementations *and* be the type `sig/` narrows to under P3-15; an RBS interface can do the second but not the first. The form encoder goes beside the RFC 3986 encoder in one file because `url-and-query-encoding/9ff11c34` asks for two distinct functions, not two modules, and adjacency is the strongest guard against interchanging them |
 | P3-15 | `sig/` narrows `Request#body` and `Response#body` from `untyped` to `Dexpace::Body?` — the **production contract**, not §10.2's `#each` duck type — and no coercion is added at the builder | `HTTP-6`, `HTTP-36`, `HTTP-46`, `NFR-4`; design §10.2; phase 1's postponement of the narrowing to phase 3 | §10.2's duck type is what a body *yields*; `HTTP-36` says what a request body *is* — a thing with a single write-to-sink operation, a media type, a length and a replayability property — and a Rack array is not one. 3a named its interface `_Chunked` and not `_Body` for exactly this reason. Coercion at the builder is rejected because it would create a second replayability-classification site next to `HTTP-38`'s one. The narrowing is free against `NFR-4` because the lock diffs against the previous release tag and there is none |
 | P3-16 | `BODY-9`'s "supports mark/reset" is **seekability, probed at construction with `pos` + `seek(pos)`**, and a replayable stream body rewinds to its **construction position**, not to byte 0 | `BODY-9`, `HTTP-38`; design §3.1 | Ruby has no mark/reset and `respond_to?(:rewind)` answers `true` for a pipe, a socket, a `StringIO` and a `File` alike (verified on 3.2.11, 3.4.10, 4.0.6). A trial `#rewind` discriminates but silently moves a caller's mid-file cursor to 0; `origin = io.pos; io.seek(origin, ::IO::SEEK_SET)` discriminates and is a genuine no-op, raising `Errno::ESPIPE` — a `SystemCallError`, **not** an `IOError` — on a pipe or socket with nothing consumed and the stream still readable. Rewinding to `@origin` rather than 0 is what stops a body over a pre-positioned handle sending bytes the caller never offered. The SHOULD is implemented rather than declared vacuous |
 | P3-17 | `BODY-12`'s first clause is **implemented** via `::IO.copy_stream(handle, sink, count, offset)`, and the file body is made recognisable by exposing `#path`, `#offset` and `#count` while deliberately **not** defining `#to_path` | `BODY-12`, `BODY-11`, `BODY-13`; `TRANSPORT-28` | The segmentation design delegated this clause to 3b. `::IO.copy_stream` is core Ruby, needs no `require`, accepts a duck-typed `#write` destination, honours the `(length, offset)` window, leaves the source handle's own cursor untouched when an offset is given, and returns the byte count — which is `BODY-13`'s short-write detection for free (verified on all three). It is also the call that becomes a real kernel `sendfile`/`copy_file_range` the moment both ends are real `::IO`s, which is what clause 2 is waiting for. `#to_path` is not defined because a `copy_stream(body, sink)` with no length would then copy the **whole file**, silently ignoring the body's window (verified). Clause 2's dispatch stays a transport obligation, phase 8's — declined there by 8a's R5 and stated in `docs/first-release.md` § What v1 ships without |
@@ -1214,7 +1226,7 @@ is why each row names where it came from.
 | P3-19 | `ChunkedBody` is **unconditionally single-use**; there is no `replayable:` keyword on it or on `Body.chunked` | `BODY-1`, `HTTP-38`, `BODY-4` | `BODY-1` permits `#replayable?` to be `true` **only** when writing more than once provably yields byte-for-byte identical output. An `#each`-shaped object may or may not, and a keyword would let a caller *assert* the property — an assertion the retry, redirect and 401 paths then believe (`BODY-4`). A caller with a genuinely repeatable source uses `Body.bytes`, or calls `#to_replayable` and pays one materialisation. Recorded rather than left silent because "add a keyword" is the obvious first request |
 | P3-20 | The body layer drives its own exact-length copy through one private routine in `Dexpace::Body`, rather than calling 3a's `TypedWrites#write_all(source)` | `HTTP-39`/`BODY-10`, `BODY-13`, `BODY-25`, `IO-6`, `IO-17` | `#write_all` is a method **on a sink**, so using it would require the transport's `#write`-shaped destination to be wrapped in a `Dexpace::IO::BufferedSink` — and `IO-6` makes that wrapper own and close the socket, which is precisely what a body must never do (`BODY-8`, §10.12), with no borrowing variant available by design (3a's P3-12). One body-layer routine instead, using 3a's `StreamError.short_transfer` and `.zero_read` so `BODY-13`'s "one helper so the message form cannot diverge" holds across both layers. `IO-17`'s zero-read *rule* is therefore implemented in two places; its *message* in one, which is what the requirement actually fixes |
 | P3-21 | `Dexpace::Body#each` is **derived from `#write_to`** through a block-shaped sink, defined once in the module; and `FileBody`'s external-iteration residue is documented rather than closed | §10.2, §7.1; `BODY-11`, `BODY-17` | One byte-producing implementation per body means `BODY-17`'s "the exact bytes the wrapped body's single write produces" cannot differ between the `#write_to` path and the `#each` path. §7.1's rule is wider than the corpus states it: verified on all three interpreters that an **ordinary** `#each` method's `ensure` also fails to run when the method is driven through `to_enum(:each)` and abandoned, that `#rewind` does not run it, and that `block_given?` is `true` under that drive so a "require a block" guard is not a defence. Bodies that hold a resource hold it on the object with `#close`; `FileBody`, which `BODY-11` obliges to open a fresh handle per write, cannot, so its YARD states the leak and the corpus note widens `pagination/f57c50f6`. §10.10's precedent: an admitted hole beats a fake proof |
-| P3-23 | `Dexpace::Body` declares two members `HTTP-36` does not enumerate — `#source -> Dexpace::IO::BufferedSource`, whose module default **raises `Dexpace::StreamError`**, and `#close`, whose module default is a **no-op** — and the read handle carries one name across all three bodies that can occupy `Response#body`, so `ResponseLoggingBody`'s accessor is `#source` rather than `#read` and `BufferBody` implements both | `HTTP-36`, `HTTP-41`/`BODY-14`, `HTTP-43`, `BODY-15`, `BODY-16`, `BODY-30`/`HTTP-52`; `NFR-4`; P3-14 and P3-22's precedent | `HTTP-36` enumerates what a **request** body is; `HTTP-43`'s "forward to the body", `BODY-16`'s finally-close and `HTTP-42`'s decode are all written against a **response** body's read handle and close, and nothing declared them. Found by review, filed as `OI-10`: `BufferBody` — the body `BODY-30`/`HTTP-52` puts into a response — had neither, so `response.close` and `response.body_string` raised `NoMethodError` on the one object whose canonical text says "decode it, then snapshot it", and no phase-3 test reached it because every `Response` 3b builds carries a bare `ResponseBody`. Three sub-decisions are forced rather than chosen. **The default `#close` is a no-op**, not a raise and not a `respond_to?` guard at the caller: `Request::Builder` coerces nothing, so nothing constrains what sits in `Response#body`, and a guard is the same gap with a quieter failure; a body owning no transport resource has nothing to release, and `BODY-30` positively requires `#body_string`'s `ensure`-close to leave the buffered copy readable. **`BufferBody#source` returns a fresh `#peek` view per call**, because `BODY-30` says "readable independently and **repeatably** (decode it, then snapshot it)" and `BODY-14`'s same-handle rule governs the single-use response body, not a replayable in-memory copy. **`Closeable` wins over the default** wherever a body owns something, because the include order is `Dexpace::Body` then `Dexpace::Closeable` and the later include sits nearer the class. Consequence for the plan: `Body.buffer_bounded` closes the original unguarded, and the `respond_to?(:close)` test disappears with the guard |
+| P3-23 | `Dexpace::Body` declares two members `HTTP-36` does not enumerate — `#source -> Dexpace::IO::BufferedSource`, whose module default **raises `Dexpace::StreamError`**, and `#close`, whose module default is a **no-op** — and the read handle carries one name across all three bodies that can occupy `Response#body`, so `ResponseLoggingBody`'s accessor is `#source` rather than `#read` and `BufferBody` implements both | `HTTP-36`, `HTTP-41`/`BODY-14`, `HTTP-43`, `BODY-15`, `BODY-16`, `BODY-30`/`HTTP-52`; `NFR-4`; P3-14 and P3-22's precedent | `HTTP-36` enumerates what a **request** body is; `HTTP-43`'s "forward to the body", `BODY-16`'s finally-close and `HTTP-42`'s decode are all written against a **response** body's read handle and close, and nothing declared them. Found by review on 2026-09-08: `BufferBody` — the body `BODY-30`/`HTTP-52` puts into a response — had neither, so `response.close` and `response.body_string` raised `NoMethodError` on the one object whose canonical text says "decode it, then snapshot it", and no phase-3 test reached it because every `Response` 3b builds carries a bare `ResponseBody`. Three sub-decisions are forced rather than chosen. **The default `#close` is a no-op**, not a raise and not a `respond_to?` guard at the caller: `Request::Builder` coerces nothing, so nothing constrains what sits in `Response#body`, and a guard is the same gap with a quieter failure; a body owning no transport resource has nothing to release, and `BODY-30` positively requires `#body_string`'s `ensure`-close to leave the buffered copy readable. **`BufferBody#source` returns a fresh `#peek` view per call**, because `BODY-30` says "readable independently and **repeatably** (decode it, then snapshot it)" and `BODY-14`'s same-handle rule governs the single-use response body, not a replayable in-memory copy. **`Closeable` wins over the default** wherever a body owns something, because the include order is `Dexpace::Body` then `Dexpace::Closeable` and the later include sits nearer the class. Consequence for the plan: `Body.buffer_bounded` closes the original unguarded, and the `respond_to?(:close)` test disappears with the guard |
 
 ## Work Phase 3b Postpones, and Who Owns It Now
 
@@ -1322,10 +1334,10 @@ below by subject, with the place that owns it now.
   factory, core:)`, P2-7). **`dexpace-conformance`'s assertion objects (phase 0) — untouched**, phase
   8a's, Tasks 4–8 and 20, with phase 9, Tasks 2–12a.
 
-### The finding filed against `docs/open-items.md`
+### Findings, and who owns them now
 
-**`OI-7` — design §3.1's decode recipe destroys every non-ASCII byte, and its target-less `#encode`
-follows a process global.** §3.1 fixes one decode boundary, `Response#body_string`, "which applies the
+**Design §3.1's decode recipe destroys every non-ASCII byte, and its target-less `#encode` follows a
+process global.** §3.1 fixes one decode boundary, `Response#body_string`, "which applies the
 media type's charset via `String#encode(invalid: :replace, undef: :replace)`". The rule is right and the
 mechanism is not. Verified on 3.2.11, 3.4.10 and 4.0.6: applied to the BINARY bytes the I/O layer
 delivers, that call replaces every byte ≥ 0x80 — `"café".b.encode(Encoding::UTF_8, invalid: :replace,
@@ -1338,14 +1350,28 @@ unaffected. That is the same floor-straddling, passes-where-you-look shape desig
 `URI::RFC3986_PARSER` against and `IO-14` avoids `$/` for. What phase 3b does: `#body_string` resolves
 the charset from `MediaType#charset` (already `nil` for absent or unknown, so `Encoding.find` cannot
 raise), retags through 3a's `#read_string`, then transcodes with **both** encodings named. What would
-resolve the item: one sentence in §3.1 the next time §3 is deliberately amended. Filed with the corpus
-note against `io-and-byte-streams/fbcb4d19` so the next reader of the corpus does not repeat the recipe.
-`OI-1` through `OI-6` remain open and unchanged, and `OI-8` is this document's second filing (3a's
-`TeeSink#clear_tap`, above); `OI-4` names this sub-phase's drain as where its bound stops being obvious,
-and the plan owns the measurement it asks for. Two further items were opened against this sub-phase
-after this document was first written. **`OI-9`**, from the plan, is open: `BufferedSource.wrapping`
-delivers one byte per read, which reaches every path here that reads through a wrapped stream, including
-R10's tail. **`OI-10`**, from this document's review, is **resolved by this document**: `Response#close`,
+resolve the finding: one sentence in §3.1 the next time §3 is deliberately amended. Recorded with the
+corpus note against `io-and-byte-streams/fbcb4d19` so the next reader of the corpus does not repeat the
+recipe. **Owner now:** the roadmap's **phase-10 inbound list**, which carries §3.1's decode sentence —
+§3 is frozen and is corrected by the phase that audits it, never in place — with `docs/deviations.md`
+§ Deviations found outside a phase as the interim record.
+
+**3a's `TeeSink#clear_tap` has no core caller.** This document's fresh-tee-per-write mechanism satisfies
+`BODY-18` by construction and is forced by `TeeSink` binding its primary at construction, so the method
+is public surface — a YARD block and an RBS signature — that `NFR-4` locks at the first release tag with
+nothing in core calling it. **Owner now:** 3a's plan, **Task 14**, which carries the keep-or-drop
+decision and the window it closes in.
+
+The findings 3b inherits are unchanged and none is 3b's to close: the appendix-C-only gap findings,
+`IO-6`'s among them, stay with the roadmap's gap paragraph; the `include Dexpace` shadow with
+`docs/first-release.md` § Blockers before first publish; the unbounded `#read_line_utf8` with phase 7b's
+plan, Task 12; the RuboCop baseline with phase 0's plan, Task 3; and the view-retention cost with this
+sub-phase's own plan, **Task 13** — this document names this drain as where its bound stops being
+obvious, and the plan owns the measurement 3a asked for. Two further findings were opened against this
+sub-phase after this document was first written. **The plan's**: `BufferedSource.wrapping` delivers one
+byte per read, which reaches every path here that reads through a wrapped stream, including R10's tail —
+owned by **3a's plan, Task 10**, whose `fill(count)` refill fix removes it from both layers at once.
+**This document's review's**, and **resolved by this document on 2026-09-08**: `Response#close`,
 `#body_string` and `#body_bytes` were written against a `#source`-plus-`#close` surface that
 `Dexpace::Body` did not declare and that two of the three bodies which can occupy `Response#body` did
 not implement; both members are now on the module, `ResponseLoggingBody`'s accessor is `#source`, and
@@ -1360,10 +1386,10 @@ Five, each bounded, none re-opening a decision above.
    `BODY-17`–`BODY-34`, `BODY-37`, `HTTP-44`, `HTTP-45` and `HTTP-52`, because every wrapper wraps a
    body. Within the first group the plan picks the order; the recommendation is `Dexpace::Body` and
    `BytesBody` first, since every later test needs a body it can trust.
-2. **`OI-4`'s measurement.** `BODY-23` hands out one `#peek` view per read, and `OI-4` asks for a
-   measurement on this drain rather than a redesign. The plan owns a task that measures the retention
-   and the `Array#delete` cost under a realistic read count, and records the number in `OI-4`'s
-   resolution field. It does **not** own changing 3a's view registry.
+2. **The view-retention measurement 3a asked for.** `BODY-23` hands out one `#peek` view per read, and
+   3a's plan asks for a measurement on this drain rather than a redesign. The plan owns a task that
+   measures the retention and the `Array#delete` cost under a realistic read count, and records the
+   number in its own decision paragraph. It does **not** own changing 3a's view registry.
 3. **Whether `MultipartBody#content_length` runs the framing routine eagerly or memoizes it.** `HTTP-51`
    fixes that the length and the bytes come from one routine; it does not fix when. The recommendation
    is to compute lazily and memoize, because a multipart body over eight file parts should not stat

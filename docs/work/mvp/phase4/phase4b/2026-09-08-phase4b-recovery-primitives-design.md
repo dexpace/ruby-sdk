@@ -87,7 +87,9 @@ value objects, folds over lambdas, and one fake transport that returns what it w
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for the canonical text
   of all 34 `RECOV` IDs and of `XCUT-4`, `XCUT-5`, `XCUT-7`, `XCUT-8`, `XCUT-9`, `RETRY-25`,
   `RETRY-34`, `RETRY-36`, `BODY-30`, `BODY-31` and `HTTP-52`. Appendix C is the **only** source for
-  eighteen of the `RECOV` IDs (`OI-12`), and reading those eighteen rows is the whole of 4b's
+  eighteen of the `RECOV` IDs — `RECOV-17`–`RECOV-34` appear nowhere in `docs/product-spec/` outside
+  appendix C, which is the correction the roadmap's gap paragraph and `--gaps`'s trailing pointer both
+  owe — and reading those eighteen rows is the whole of 4b's
   specification-reading budget — the charter did that pass and this document does not redo it.
 - `docs/sdk-design-ruby/05-pipeline-architecture.md` §5.2 in full and §5.1's "three shipped steps"
   and "bounded error-body copy" paragraphs;
@@ -332,14 +334,17 @@ nothing to bite on, because 4b starts no thread, interrupts none, and has no wai
 - **`Dexpace::Response#close`**, `#body_string`, `#body_bytes`, and `Dexpace::BufferBody`.
 - **`Dexpace::StreamError < ::IOError`** and `EndOfStreamError < ::EOFError` — the two errors whose
   Ruby superclass is not a core-family class, and therefore R5's second sub-question.
-- **`OI-8` and `OI-9`** land in 4b's window and neither is 4b's to fix or widen.
+- **Two phase-3 findings** land in 4b's window and neither is 4b's to fix or widen: 3a's plan,
+  Task 14's keep-or-drop decision on `TeeSink#clear_tap`, and Task 10's `fill(count)` refill fix.
 
 ### From phase 4a
 
 Nothing in `lib/`. 4a's `Dexpace::BoundedMap` is offered to 4c and not to 4b; 4b has no keyed map.
 What 4b takes is P4-11's discipline — a public method design §5 does not name gets a ledger row — and
-`OI-16`'s standing caution, which this document obeys by reading each note rather than trusting the
-`[overridden by notes/…]` marker.
+the standing caution that the corpus CLI prints `[overridden by notes/…]` for every key a note
+backticks, including rules the note adopts — until `scripts/knowledge.rb` separates `[cited by …]`
+from `[overridden by …]`, this document obeys it by reading each note rather than trusting the
+marker.
 
 ## Corpus reading, and what it settled
 
@@ -1669,13 +1674,13 @@ reading covered the phase-4-wide dispositions and is not repeated, so what follo
   declines `RETRY-38`, `RECOV-31`'s twin, so a phase-6 planner meeting the recovery-stack engine will meet
   all three at once, and the charter already says the cluster's sixteenth ID is not phase 6's budget.
 
-### The findings filed against `docs/open-items.md`
+### Findings, and who owns them now
 
-**None.** Everything 4b found is either a decision it owns (R5–R9, in the ledger above), a corpus
-correction (the three notes), or a finding against a **committed** document that belongs to the
-manager rather than to the open-items list.
+**None needing a new owner.** Everything 4b found is either a decision it owns (R5–R9, in the ledger
+above), a corpus correction (the three notes), or a finding against a **committed** document that
+belongs to the manager.
 
-That last category has **two** members and both are named here rather than filed, because each is a
+That last category has **two** members and both are named here, because each is a
 statement in a committed phase-2 document that 4b's own change makes false rather than a gap anyone
 needs to track.
 
@@ -1684,8 +1689,8 @@ runs, whatever an earlier one did", its plan's edge-case bullet "`Hooks.notify` 
 handler failure and drops the rest", and the YARD block the plan's Task 4 step 3 writes into
 `lib/dexpace/hooks.rb` all describe the behaviour before the fix. Phase 2's own postponement of the fix
 already anticipates the change, and this design is the durable record; the shipped comment is 4b's plan
-to update, and the two committed documents are the manager's call. An `OI-` row would duplicate the
-postponement rather than add to it.
+to update, and the two committed documents are the manager's call. Routing it anywhere else would
+duplicate the postponement rather than add to it.
 
 **The second is not anticipated anywhere, because it is P4-12's finding and not the fix's.** Four
 committed places name **`Dexpace::Error#suppressed`** as the carrier a handler failure or a
@@ -1695,19 +1700,25 @@ same clause in its plan's edge-case bullet, `closeable.rb`'s shipped YARD ("the 
 carrier cannot work at either site: both primaries are caller-supplied exceptions and phase 2's own tests
 raise a bare `::IOError`. The two files 4b edits carry their correction with the edit; the committed
 documents are the manager's, and 4b's plan records the corrected carrier where it records the pick-ups
-(Task 15). It is still not an `OI-` row — every one of them is a sentence a named change rewrites, not a
-finding nobody owns.
+(Task 15). It still needs no owner of its own — every one of them is a sentence a named change
+rewrites, not a finding nobody owns.
 
-`OI-8`, `OI-9`, `OI-12`, `OI-13`, `OI-14`, `OI-15` and `OI-16` are read and untouched. **`OI-14` is
-the one a reader would expect 4b to close and 4b cannot**: its prompting instance is the wording of
+**Seven findings from earlier phases were read and are untouched here**: the two phase-3 ones 3a's
+plan owns (Tasks 10 and 14); the `RECOV-17`–`RECOV-34` gap-paragraph correction; the `Fiber#storage=`
+warning the `observability` note carries; the housekeeping probe's unresolved backticked paths and
+ID-to-chapter claims; the charter's exclusions row, now naming the **elapsed-time counter**
+(`CFG-16`); and the corpus CLI's `[overridden by notes/…]` marker. **The probe's is the one a reader
+would expect 4b to close and 4b cannot**: its prompting instance is the wording of
 phase 2's postponement of the `Hooks.notify` fix, which cites a design chapter filename that has never
 existed, and that postponement is the one this phase picks up. Picking it up does not rewrite phase 2's
-committed wording, so the filename stays wrong there and `OI-14` stays open — which is the item's own
-point, that nothing mechanically checks the class. `OI-16` is obeyed
+committed wording, so the filename stays wrong there and the check that would catch it is still owed —
+which is the finding's own point, that nothing mechanically checks the class. The marker caution is obeyed
 rather than merely noted: every `[overridden by notes/…]` marker met while reading this phase's
 corpus was resolved by reading the note, and two of them — `error-handling/c1fa7ee8` and
 `error-handling/71ef8cb1` — are marked overridden by a note whose own text says it adopts them
-verbatim, which is exactly the false signal `OI-16` records.
+verbatim, which is exactly the false signal that marker gives until `scripts/knowledge.rb` separates
+`[cited by …]` from `[overridden by …]`.
+
 
 ## Open questions for 4b's own plan
 

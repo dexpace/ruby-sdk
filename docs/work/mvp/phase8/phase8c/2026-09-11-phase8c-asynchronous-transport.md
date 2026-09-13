@@ -11,13 +11,15 @@
 floor collides with (`VERSIONS`, `tools/versions.rb`, the root `Gemfile`, `VersionsGate`,
 `test:gems`). Ten requirement IDs — `TRANSPORT-7`, `8`, `9`, `12`, `13`, `21`, `23`, `ASYNC-6`,
 `21`, `22` — nine MUST and one SHOULD, with `ASYNC-21` **N/A** per the design's §11.21 reading and
-`TRANSPORT-8` **satisfied here** where §12 records it vacuous (`R14`, `OI-41`). Nothing is postponed
-by this plan; four items earlier phases postponed are landed or reported against, named in each task:
+`TRANSPORT-8` **satisfied here** where §12 records it vacuous (`R14`; the §12 correction is on phase
+10's inbound list). Nothing is postponed by this plan; four items earlier phases postponed are landed
+or reported against, named in each task:
 `OBS-19`'s header-drop policy (phase 5b postponed it; Tasks 7, 9 and 15 land it), the wire-boundary
 re-validation (phase 1 postponed it to the adapters; Task 9 is this adapter's half, `8a`'s Task 16 the
-other), `OBS-29`'s transport-milestone group (phase 5c postponed it; not wired, `OI-36`, on phase 10's
-inbound list) and `SEAM-24`'s caller-facing cancellation bridge (post-v1, `docs/first-release.md` § What
-v1 ships without, the `SEAM-24` entry; confirmed rather than met).
+other), `OBS-29`'s transport-milestone group (phase 5c postponed it; not wired, because no route exists
+by which a transport adapter reaches an `HTTPTracer` — phase 10's inbound list carries it) and
+`SEAM-24`'s caller-facing cancellation bridge (post-v1, `docs/first-release.md` § What v1 ships without,
+the `SEAM-24` entry; confirmed rather than met).
 
 **Architecture:** One dispatch path, eighteen steps, all inside one method
 (`Adapter#call(request, options, cancellation)`), returning a `Dexpace::Async::Future` before
@@ -69,8 +71,9 @@ appendix C `:559-610` carries the canonical text and modal level of all ten IDs.
   place the design's `R13` needs to notice a cancellation, this plan inspects `$!` inside an
   `ensure` clause instead — that is an inspection, not a rescue, and it never stops the exception
   from propagating.
-- **`Async::Task#cancel`, never `#stop`.** `#stop` is a deprecated alias (`OI-40`); every call site
-  in this plan spells it `#cancel`.
+- **`Async::Task#cancel`, never `#stop`.** `#stop` is a deprecated alias on `async` 2.45.1, as
+  `docs/knowledge/notes/concurrency-and-async.md` records; every call site in this plan spells it
+  `#cancel`.
 - **`URI::RFC3986_PARSER` is never called by this gem.** `Dexpace::Request#url` already arrives as
   a frozen `URI::Generic` parsed by phase 1's `Dexpace::URL.parse!` (which pins
   `URI::RFC3986_PARSER` itself); this gem hands that object straight to
@@ -190,8 +193,9 @@ trusted from the design's prose:
 8. **`Dexpace::ResponseBody` already exists in `dexpace-core` (phase 3b) and is not what this gem
    uses**, read directly from the phase 3b plan: it is a handle over a `BufferedSource` the
    transport built with `.wrapping`, and closing it closes that `BufferedSource`, which in turn
-   closes what it wraps. This gem's own `.over`-built `BufferedSource` (chosen specifically to
-   avoid `OI-9`'s one-byte-per-read defect in `.wrapping`) does **not** close what it iterates —
+   closes what it wraps. This gem's own `.over`-built `BufferedSource` (chosen specifically to avoid
+   the one-byte-per-read defect in `.wrapping` that 3a plan Task 10's `fill(count)` refill fix
+   repairs) does **not** close what it iterates —
    `.over`'s own design note says so in as many words — so reusing core's `Dexpace::ResponseBody`
    over a `.over`-built source would leak the native connection on every close. This gem's
    `ResponseBody` therefore implements `Dexpace::Body`'s module contract directly and holds
@@ -283,8 +287,9 @@ it is not one of the design's eight and this plan does not pretend the design as
    collision to avoid — only one to *not create* going forward, stated in Task 8's own comment so
    `8a` knows the name is taken and the concept it names.
 4. **Where `DropPolicy` lives.** *This gem*, per the design's own recommendation, confirmed:
-   `OI-8`'s shape (public, `NFR-4`-locked, no caller yet) is exactly what a core-resident policy
-   with one external caller would become, and moving it later widens rather than narrows.
+   the shape `TeeSink#clear_tap` is in — public, `NFR-4`-locked, no caller yet, which is what 3a
+   plan Task 14's keep-or-drop decision is about — is exactly what a core-resident policy with one
+   external caller would become, and moving it later widens rather than narrows.
 5. **The h2 multiplexing test.** *Ten concurrent streams on one connection*, chosen because it is
    comfortably above the eight-connection default `connection_limit` this gem sets for HTTP/1.1
    (so the test is unambiguously about one h2 connection's own multiplexing, not about the pool),
@@ -338,7 +343,7 @@ contract a failing test gives, expressed through the gate that already exists.
 
 1. Matrix and floor fact re-verification, plus this gem's local test doubles.
 2. The gemspec, the skeleton's entry-file wiring, and the ordering gate.
-3. The phase-0 gate edit for a per-gem Ruby floor (`R15`, `OI-38`).
+3. The phase-0 gate edit for a per-gem Ruby floor (`R15`; this plan owns that finding).
 4. `Dexpace::TransportError < ::IOError` in `dexpace-core` — the phase-level type.
 5. `Endpoints` — `URI::Generic` → `Async::HTTP::Endpoint`, TLS defaults, the origin key.
 6. `Errors.wrap` and its table.
@@ -580,7 +585,7 @@ spec.add_dependency "async-http", "~> 0.104"
 # P8-36: narrower than DexpaceVersions.ruby_floor (the repository's 3.2). async-http 0.95.0 and
 # async 2.38.0 both raised required_ruby_version to >= 3.3 on 2026-03-08; the highest release
 # compatible with 3.2 is eleven minor versions behind the one every fact in this gem's design
-# was verified against. A floor a gem declares must be a floor it is tested on (R15, OI-38).
+# was verified against. A floor a gem declares must be a floor it is tested on (R15).
 # Task 3 is the phase-0 gate edit that makes this line coexist with gates:versions.
 spec.required_ruby_version = ">= 3.3"
 ```
@@ -643,9 +648,13 @@ running them again at the end of Task 3 rather than here.
 ---
 ## Task 3: The phase-0 gate edit for a per-gem Ruby floor
 
-**Requirement IDs:** none new (`NFR-2`, `NFR-10`, `NFR-14`; `P8-36`, `OI-38`).
+**Requirement IDs:** none new (`NFR-2`, `NFR-10`, `NFR-14`; `P8-36`).
 **Design:** `R15`'s "What has to change, named so it is not discovered at execution time"; open
 question 2.
+
+**Amendment, 2026-09-13 — this task owns the per-gem Ruby floor finding.** The design raised the
+six-file gate change as machinery "that has to change and that no sub-phase owns"; it is owned here,
+together with Task 18's two `docs/first-release.md` lines, and is recorded nowhere else.
 
 **Files:**
 - Modify: `VERSIONS`, `tools/versions.rb`, `Gemfile`, `tools/versions_gate.rb`,
@@ -2269,7 +2278,7 @@ class DexpaceTransportAsyncHTTPResponseBodyTest < DexpaceTestCase
     assert_equal(1, native.close_count)
   end
 
-  test "#source is built with BufferedSource.over, never .wrapping (OI-9)" do
+  test "#source is built with BufferedSource.over, never .wrapping (one byte per read)" do
     native = RecordingBody.new(["a".b])
     body = ResponseBody.new(native: native, media_type: nil, content_length: -1)
 
@@ -3171,8 +3180,9 @@ end
 
 Run: `bundle exec ruby -w gems/dexpace-transport-async_http/test/dexpace/transport/async_http/parent_cancellation_test.rb`
 Expected: PASS, 2 runs, both well under the 30-second suite budget (the timeout test's own
-`0.05` second deadline is the longest wait in this file). **This is the row that closes `OI-41`
-by measurement**: §12 lists `TRANSPORT-8` among the MUSTs that hold vacuously, and this test is
+`0.05` second deadline is the longest wait in this file). **This is the row that settles §12's
+`TRANSPORT-8` vacuity claim by measurement** — the correction phase 10's inbound list carries:
+§12 lists `TRANSPORT-8` among the MUSTs that hold vacuously, and this test is
 the reason this gem's own checklist row says *satisfied*, not vacuous — a fact this plan cannot
 change in `docs/sdk-design-ruby/12-…md` itself (frozen), only report against it (Task 19).
 
@@ -3341,7 +3351,7 @@ module Dexpace
             wait_until_accepting(port)
           end
 
-          # #cancel, never the deprecated #stop (OI-40) -- this plan's own Global Constraint binds
+          # #cancel, never the deprecated #stop -- this plan's own Global Constraint binds
           # its fixtures as well as its lib/, because a fixture is where a deprecated spelling
           # survives longest.
           def close
@@ -3766,7 +3776,7 @@ public-surface list (Task 18) are both settled.
 
 **Requirement IDs:** none new (`NFR-1`, `NFR-2`; `P8-36`, `R15`).
 **Design:** "The three zero-dependency checks, from this gem's side"; "CI matrix"; the two
-`docs/first-release.md` lines under the `OI-38` finding.
+`docs/first-release.md` lines this gem's `>= 3.3` floor earns (Task 3 owns that finding).
 
 **Files:**
 - Verify: `.github/workflows/ci.yml` (no edit — Task 3 already made the exclusion live inside
@@ -3816,8 +3826,9 @@ disappears from any job, one gem is skipped inside several gates on one row.
 Handed to a human in Task 19, not filed by this task:
 
 > - `dexpace-transport-async_http` requires Ruby **>= 3.3**, narrower than every other gem in
->   the workspace (`P8-36`, `OI-38`). A consumer on Ruby 3.2 composes `dexpace-core`,
->   `dexpace-transport-net_http`, `dexpace-serde-json`, `dexpace-async-thread` and
+>   the workspace (`P8-36`; this plan's Task 3 makes the gates accept it). A consumer on Ruby 3.2
+>   composes `dexpace-core`, `dexpace-transport-net_http`, `dexpace-serde-json`,
+>   `dexpace-async-thread` and
 >   `dexpace-conformance`, and loses only the reactor transport — `NFR-2`'s separability paying
 >   for itself.
 > - The gem's transitive closure contains `io-event`, which compiles a C extension
@@ -3832,8 +3843,8 @@ the charter's one-row-per-ID convention — no second row for any of them here).
 **Design:** `R16` → *What 8c needs the suite to assume — cited, not restated*, which points at the
 one twelve-clause **suite contract** in
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`
-(`R16` → *The suite contract*); "The knowledge note `8c` files"; "The findings proposed for the
-registers"; "Work phase 8c postponed, and who owns what it inherited."
+(`R16` → *The suite contract*); "The knowledge note `8c` files"; "Findings, and who owns them
+now"; "Work phase 8c postponed, and who owns what it inherited."
 
 - [ ] **Step 1: Run 8a's suite as a second driver — written to run when it exists, and to be a
   no-op today**
@@ -3904,8 +3915,9 @@ end
 
 **Two waivers, both scoped to this adapter, and one of them was wrongly scoped before.**
 `TRANSPORT-14`'s malformed-inbound-header-**name** clause is unreachable here — `protocol-http1`
-raises `BadHeader` out of the read before a response exists to adapt (verified fact 11, `P8-38`,
-`OI-39`). `TRANSPORT-27`'s invalid-`Content-Length` clause is unreachable here too
+raises `BadHeader` out of the read before a response exists to adapt (verified fact 11, `P8-38`;
+§12's `TRANSPORT-14` scoping is on phase 10's inbound list). `TRANSPORT-27`'s
+invalid-`Content-Length` clause is unreachable here too
 (`Protocol::HTTP1::BadRequest` out of the read). **Corrected 2026-09-12**: this plan and its design
 both reported the second one "unreachable on both MVP adapters for the same reason" and proposed
 "one waiver covering both drivers". `8a` measured `Net::HTTP` directly under the block form it uses,
@@ -3955,13 +3967,21 @@ execution contradicts it; do not re-create the file and do not duplicate the ent
 `ruby scripts/verify_knowledge_structure.rb` (the gate) and `ruby scripts/knowledge_drift.rb`
 (the hand-run report). `harvested/` is not edited.
 
-- [ ] **Step 5: Hand the register findings to a human**
+- [ ] **Step 5: Route this sub-phase's findings and ledger rows to their owners**
+      *(reworded 2026-09-13: findings are routed to an owner when found, never registered)*
 
-This plan does not file any of the following — it hands them over verbatim, as the design
-already drafted them, for a human to paste:
+This plan files nothing into a register — there is none. Each of the following goes to the owner
+named beside it, and the design's *Findings, and who owns them now* section states the same four
+dispositions in full:
 
-- Four `docs/open-items.md` rows, `OI-38` through `OI-41` (the design's own text, quoted in
-  full in "The findings proposed for the registers").
+- The design's four findings. The per-gem Ruby floor gate edit is **Task 3 of this plan**, with
+  Task 18's two `docs/first-release.md` lines; §12's `TRANSPORT-14` scoping and §12's
+  `TRANSPORT-8` vacuity claim are **entries on phase 10's inbound list** in the roadmap, with
+  `docs/deviations.md` carrying the interim notes; and `Async::Task#cancel` superseding the
+  deprecated `#stop` is an entry in **`docs/knowledge/notes/concurrency-and-async.md`**. A finding
+  execution turns up goes the same way — a numbered task in the plan of the phase whose scope it
+  falls in, phase 10's inbound list when it is audit or repair work on an already-planned phase,
+  `docs/first-release.md` when it belongs to the release, or it is simply fixed.
 - ~~The one-sentence addition on `OBS-19`'s drop policy~~ — **already applied** (corrected
   2026-09-13): the design's *Work phase 8c postponed* entry for the policy carries the
   HTTP/1.1-specific sentence verbatim, so nothing is handed over for it. Marking the work as landed is
@@ -4023,7 +4043,7 @@ reason.
 | ID | Level | Disposition | Implemented in | Tested in |
 |---|---|---|---|---|
 | `TRANSPORT-7` | MUST | ✅ satisfied | Task 11 (steps 11–13) | Task 12 |
-| `TRANSPORT-8` | MUST | ✅ satisfied — §12 records it vacuous; `R14`, `OI-41` (open) | Task 11 (steps 4/17's discrimination) | Task 13 |
+| `TRANSPORT-8` | MUST | ✅ satisfied — §12 records it vacuous; `R14`, and the §12 correction is on phase 10's inbound list | Task 11 (steps 4/17's discrimination) | Task 13 |
 | `TRANSPORT-9` | MUST | ✅ satisfied — phase 2's `Completer#fulfil` does the work; this gem writes no second guard | Task 11 (the `ensure`) | Task 12 |
 | `TRANSPORT-12` | MUST | ✅ satisfied on both protocols by construction (`P8-40`) | Task 9 (steps 4–6) | Task 15 |
 | `TRANSPORT-13` | SHOULD | ✅ satisfied — bounded at 64, case-insensitive | Task 7 | Tasks 7, 15 |
@@ -4160,8 +4180,9 @@ wrote `#request_cancel`; the two design sentences are corrected.
   gemspec and read text, so both pass on 3.2 with this gem present and neither is given a skip it
   does not need.
 - **The design's `R15` exclusion list is corrected there too** — two tasks too long
-  (`gates:gemspec_audit`, `gates:require_allowlist`) and one short (the root `Gemfile`), and `OI-38`'s
-  proposed row is re-worded to match, so what a human pastes into the register is what the gates need.
+  (`gates:gemspec_audit`, `gates:require_allowlist`) and one short (the root `Gemfile`), and the
+  design's own statement of the finding is re-worded to match, so what Task 3 implements is what the
+  gates need.
 - **Task 3 gains Step 9: the end-state table for `VERSIONS`, `ci.yml`, `tools/versions.rb`,
   `Gemfile`, `tools/versions_gate.rb` and the two rake files**, so `8a` and `8b` align to one
   description rather than to a diff.
@@ -4187,7 +4208,8 @@ wrote `#request_cancel`; the two design sentences are corrected.
   proving it, so Task 14 is 4 runs rather than 3) — the same fixture on both protocols is also
   what `R16` clause 9 asks the suite for.
 - **`HTTP2Server#close` calls `#cancel`, not the deprecated `#stop`** — the plan's own Global
-  Constraint (`OI-40`), which its fixture broke.
+  Constraint (the deprecation `docs/knowledge/notes/concurrency-and-async.md` records), which its
+  fixture broke.
 - **Two builder reads removed** (`ResponseMapper.call`, Task 9's `request` test helper). Phase 1
   ships "a writer per member and `#build`" with no readers
   (`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model.md:3165-3168`, `:2877-2880`), so
@@ -4220,10 +4242,11 @@ wrote `#request_cancel`; the two design sentences are corrected.
   returns an object `Async::HTTP::Server.new` does not accept — measured while the plan was
   written.
 - **`ASYNC-21` as N/A with the property asserted anyway**, and **`TRANSPORT-8` as satisfied where
-  §12 records it vacuous** (`OI-41`). Both match the charter and §11.21/§9.3; neither is re-opened
+  §12 records it vacuous** (the correction is on phase 10's inbound list). Both match the charter
+  and §11.21/§9.3; neither is re-opened
   here.
-- **The coverage table is complete**: ten rows for ten IDs, no `DEF-<n>` moving an ID in or out,
-  which agrees with the charter's `8c` scope table.
+- **The coverage table is complete**: ten rows for ten IDs, no postponed item moving an ID in or
+  out, which agrees with the charter's `8c` scope table.
 
 **Facts re-measured in this pass** (Ruby 3.4.10, `async-http` 0.104.0, `async` 2.45.1):
 `required_ruby_version` is `>= 3.3`; `Async::Stop.equal?(Async::Cancel)` is `true` and
@@ -4279,20 +4302,19 @@ reconciliation pass on 2026-09-12 — this plan was the only one of the three wi
    A reviewer should see exactly one timeout key in `Dexpace::Configuration::Keys` after phase 8.
 6. **Task 3's six-file gate edit is this plan's and nobody else's.** `VERSIONS`, `tools/versions.rb`,
    `tools/versions_gate.rb`, the root `Gemfile`, `tasks/quality.rake` and `tasks/gates.rake` change so
-   this gem alone can declare `required_ruby_version >= 3.3` (`P8-36`, `OI-38`). The end state is
+   this gem alone can declare `required_ruby_version >= 3.3` (`P8-36`; Task 3 owns the finding). The end state is
    written out once in the charter (*The CI matrix after `8c`'s per-gem Ruby floor*) and in Task 3's own
    Step 9 table; **`8a` and `8b` touch none of those files and run their gates on all three
    interpreters unchanged**, in either execution order. If `8a` or `8b` lands the same edit first, Task
    3 is a verification pass against that table rather than a second diff. `.github/workflows/ci.yml` is
    not edited at all.
-7. **`OI-38`–`OI-41` keep their numbers, and the block around them is now known.** `8a`'s four proposed
-   open items are `OI-42`–`OI-45` and `8b`'s three are `OI-46`–`OI-48`, assigned in sub-phase order
-   after this document's four. Fifteen numbers (`OI-34`–`OI-48`) are cited across phase 8 with no row
-   in `docs/open-items.md`; the probe reports each as a dangling citation until they are pasted, which
-   is the expected state and not drift. **A filer runs
-   `ruby .claude/skills/housekeeping/probe.rb --only citations` before pasting**; if any is filed under
-   a different number, every one after it shifts and the shift is mechanical, because nothing in phase
-   8 cites an `OI-3x`/`OI-4x` from source code.
+7. **This sub-phase's four findings are routed to owners, not filed in a register** *(restated
+   2026-09-13, when the find-list was retired)*. The per-gem Ruby floor gate edit is Task 3 here, with
+   Task 18's two `docs/first-release.md` lines; §12's `TRANSPORT-14` scoping and §12's `TRANSPORT-8`
+   vacuity claim are entries on phase 10's inbound list, with `docs/deviations.md` carrying the interim
+   notes; `Async::Task#cancel` superseding the deprecated `#stop` is an entry in
+   `docs/knowledge/notes/concurrency-and-async.md`. The charter's findings and `8a`'s and `8b`'s are
+   routed the same way, each in its own document, so nothing about phase 8 waits on a paste.
 8. **Two items the reconciliation pass found in this plan and did not fix, because they are execution-
    time decisions rather than cross-document conflicts.** Task 19's driver sketch is written against
    `MinitestDriver`/`TransportSuite` as `8a`'s design fixes them, but `8a`'s gem does not exist yet, so

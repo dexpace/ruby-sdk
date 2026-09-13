@@ -8,7 +8,9 @@
 machine (`Dexpace::SSE::LineReader`, `::Reader`), the immutable five-field event value
 (`::Event`), the resource-owning single-pass streaming facade (`::Stream`) and the typed adapter
 (`::TypedStream`) — satisfying `SSE-1`–`SSE-40` and carrying `SSE-41` as a ⏳ row as a v1 decline
-(`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level); resolving `OI-5` with the corrected requirement ID and a documented line cap;
+(`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level); resolving the line-cap finding
+phase 3a opened against `#read_line_utf8`, with the corrected requirement ID and a documented line cap
+(Task 12, with Tasks 2 and 6);
 and building the `SSE-37` require-and-constant audit that spec-forced boundary 5 extends over core's
 pagination layer.
 
@@ -26,7 +28,7 @@ a second resource, and whose three mapper outcomes are a bare decoded value plus
 
 **Tech Stack:** Ruby 3.2–4.0 (authored against 3.4.10), **zero new runtime dependencies and zero new
 `require`s outside `dexpace/`** — the require allowlist does not grow, Minitest, RBS + Steep, RuboCop
-with phase 0's six custom cops, SimpleCov, YARD.
+with phase 0's five original custom cops plus phase 2's sixth, SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`, under the
 charter `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`.
@@ -200,8 +202,8 @@ Thirteen tasks, in exact buildable dependency order. Nothing in this list waits 
 11. `gates:serde_boundary` — `SSE-37`'s mechanism, extended over `lib/dexpace/page/**` (spec-forced
     boundary 5) — needs Task 8's files to exist so the at-least-one-match assertion has something to
     match.
-12. `OI-5`'s closure evidence — the YARD sentences that make the 3a-ceiling relationship visible from
-    the code, and the four register-amendment texts drafted for a human.
+12. The line-cap closure evidence — the YARD sentences that make the 3a-ceiling relationship visible from
+    the code, and the routing of this sub-phase's seven findings to their owners.
 13. Final wiring: the nine `require_relative` lines, the surface snapshot regeneration, the RBS
     baseline diff, and the checklist note. **The checklist itself is written at execution time per
     `CLAUDE.md` and is not a task this plan performs.**
@@ -352,7 +354,7 @@ class DexpaceSSETest < DexpaceTestCase
   end
 
   test "SSE-19: the line cap is strictly below phase 3a's materialisation ceiling" do
-    # OI-5: this is a different bound at a different layer, never a second ceiling on the same
+    # The line cap is a different bound at a different layer, never a second ceiling on the same
     # operation. The relationship is asserted rather than described so a later change to either
     # constant that inverted it would fail here.
     assert_operator(Dexpace::SSE::MAX_LINE_BYTES, :<, Dexpace::IO::MAX_MATERIALIZED_BYTES)
@@ -457,7 +459,9 @@ end
 
 Each constant carries a YARD block stating the number, that it is **chosen rather than derived**, that
 it is `SSE-19`'s (or `SSE-11`'s) documented divergence from a reference that imposes no maximum, and —
-on `MAX_LINE_BYTES` — **that this is the bound `OI-5` names**. Task 12 checks that sentence exists.
+on `MAX_LINE_BYTES` — **that this is the bound phase 3a's `#read_line_utf8` finding names**, and that it sits
+at a different layer from `Dexpace::IO::MAX_MATERIALIZED_BYTES` rather than as a second ceiling under it.
+Task 12 checks those sentences exist.
 
 - [ ] **Step 5: Write the `sig/` mirrors, add the requires, run to confirm it passes**
 
@@ -958,14 +962,22 @@ Expected: PASS, 20 runs, 0 failures, 0 errors.
 **Needs:** Task 5.
 **Produces:** `Reader`'s `retry` handling.
 
+**Amendment, 2026-09-13 — why this task is written and tested apart from the line cap.** The finding Task 12
+closes was first worded as "phase 7 supplying **`SSE-11`**'s cap at the line-machine level", and `SSE-11` is
+this task's subject: the `retry` field's magnitude cap, a MUST, cashed out as 2^31−1 **milliseconds**. The
+requirement that obliges a *line* cap is `SSE-19`, a MAY. An author who implements this task and then ticks
+the line-cap row has satisfied a MUST, ticked a checklist row and left the line read exactly as unbounded as
+the finding found it. The two caps therefore get two tasks, two constants and two checklist rows, and the test
+comments at both ends say so.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ruby
 # appended to reader_test.rb
 #
 # SSE-11: the retry field's value screen and magnitude cap. This is a SEPARATE cap from SSE-19's
-# line cap and a separate checklist row; OI-5 conflated the two once already and the two tests sit
-# apart deliberately.
+# line cap and a separate checklist row; the line-cap finding conflated the two once already and the two
+# tests sit apart deliberately.
 
 test "SSE-11: a digits-only value is accepted as a non-negative millisecond duration" do
   assert_equal(5000, first_event("retry: 5000\n\n").retry)
@@ -1771,21 +1783,58 @@ Expected: PASS. The gate's output names the one `PENDING` row (or none, if `7c` 
 
 ---
 
-## Task 12: `OI-5`'s closure evidence and the register-amendment texts
+## Task 12: the line-cap closure evidence, and routing this sub-phase's findings
 
 **Requirement IDs:** none new. `SSE-19`, `SSE-11`, `SSE-2`, `IO-14`, `IO-9` are cited by the texts.
-**Design:** "`R4`"; "The findings proposed for the registers".
+**Design:** "`R4`"; "Findings, and who owns them now".
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace/sse.rb` (the YARD sentences)
 - Test: `gems/dexpace-core/test/dexpace/sse/documentation_test.rb`
-- **No new document.** The four register-amendment texts already live, verbatim and ready to paste, in
-  the design's *The findings proposed for the registers* section. This task builds the **code** half of
-  `OI-5`'s closure and hands the prose half to a human; writing a second copy of those texts into a
-  third file is how a correction ends up applied in one place and stale in another.
+- **No new document.** All seven findings already live, verbatim and ready to act on, in the design's
+  *Findings, and who owns them now* section, each with the owner that carries it. This task builds the
+  **code** half of the line-cap closure and hands the prose half to a human; writing a second copy of those
+  texts into a third file is how a correction ends up applied in one place and stale in another.
 
 **Needs:** Tasks 2 and 3.
 **Produces:** the documented divergence `SSE-19` charges for taking its option.
+
+**Amendment, 2026-09-13 — the finding this task closes, stated here in full so it is executable from this plan
+alone.** Phase 3a's I/O-contracts design review (2026-09-08) found that `#read_line_utf8` is **the one
+drain-style read phase 3a's 64 MiB ceiling does not guard**. Phase 3a's deviation `P3-4` widens `IO-9`'s SHOULD
+so `Dexpace::IO::MAX_MATERIALIZED_BYTES` guards every operation producing one contiguous `String` —
+`#snapshot`, `#read` with no count, `#read_exactly`, `#read_utf8`, `#read_string` and a length-bounded slice
+read — with the three drain-style members of that list guarded **incrementally**, as the result grows,
+precisely because their size is not known before they start. `#read_line_utf8` is not among them and cannot
+be: `IO-14` fixes no maximum line length, so there is neither a count to check up front nor an end to stop at,
+only a terminator that may never arrive. A source that never yields `\n` therefore materialises the whole
+stream into one `String`, which on a stream-backed source is exactly the OOM `IO-9` exists to convert into an
+actionable error. It is the one *drain-style* read outside the guard, not the one read outside it:
+`#read(length)` and `#readpartial(maxlen)` are outside it too, and correctly so — their count is a number the
+calling code chose, while `#read_exactly`'s is a *declared* length a peer chose, which is the provenance
+distinction `P3-4` widened on.
+
+Phase 3a recorded it rather than fixing it: `IO-9`'s own scope names `snapshot()` and length-bounded slice
+reads, a line read is neither, and guarding it would widen the SHOULD a second time against a requirement
+(`IO-14`) that positively describes an unbounded read — and would put a second, lower, silent cap underneath
+the cap phase 7 was already obliged to carry, giving one stream two ceilings. The stated resolution was
+**phase 7 supplying the cap at the line-machine level**, so the bound is one documented number in the layer
+that knows what a line means; the stated non-resolution was a `max_line_bytes:` keyword on `#read_line_utf8`,
+which would be a keyword with no configuration source behind it.
+
+**`7b` closes it with three corrections, argued in the design's `R4`.** (a) The obliging requirement is
+**`SSE-19`** — a MAY whose chapter form carries the port sanction — and **not `SSE-11`**, which is a MUST and
+is the `retry` field's 2^31−1 ms magnitude cap (Task 6, deliberately a separate task). (b) Its citation list
+should read `IO-9`, `IO-14`, `SSE-2`, `SSE-11`, `SSE-12`, `SSE-19`, `SSE-39`, `BODY-32`. (c) Its **premise** is
+false: `7b` is not `#read_line_utf8`'s consumer at all, because `IO-14` keeps a lone `\r` as content while
+`SSE-2` makes it terminate a line, so `7b` builds `Dexpace::SSE::LineReader` over `BufferedSource#getbyte`
+(`P7-20`) and `#read_line_utf8` finishes the MVP with **no in-repository caller**. So the closure is two
+sentences and not one: the bound the finding asked for exists, in the layer it named, as
+`Dexpace::SSE::MAX_LINE_BYTES = 1 MiB` (Task 2); and `#read_line_utf8` itself remains unbounded and now has no
+caller here at all, which is where `IO-14` puts it and what phase 3a's own YARD says. A closure that said only
+the first would leave a reader believing a public, `NFR-4`-locked method is now guarded. The residual is a
+documented sharp edge for an SDK author outside this repository, not a live hazard. **The steps below are the
+code half of that closure**; Step 3 routes the prose half.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1793,9 +1842,9 @@ Expected: PASS. The gate's output names the one `PENDING` row (or none, if `7c` 
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# SSE-19 charges taking its MAY with "documenting the divergence", and OI-5's third obligation is
-# that the relationship between phase 3a's ceiling and 7b's cap be "visible from the code and not
-# only from a register". A doc-comment test is unusual; it is written because both obligations are
+# SSE-19 charges taking its MAY with "documenting the divergence", and the line-cap finding's third
+# obligation is that the relationship between phase 3a's ceiling and 7b's cap be visible from the code
+# and not only from a document. A doc-comment test is unusual; it is written because both obligations are
 # discharged by prose and prose is exactly what silently disappears in a later refactor.
 
 require_relative "../../test_helper"
@@ -1808,9 +1857,9 @@ class DexpaceSSEDocumentationTest < DexpaceTestCase
     assert_match(/documented divergence|documenting the divergence/, SOURCE)
   end
 
-  test "OI-5: MAX_LINE_BYTES's YARD names OI-5 and phase 3a's ceiling" do
-    assert_match(/OI-5/, SOURCE)
+  test "the line cap: MAX_LINE_BYTES's YARD names phase 3a's ceiling and the layer split" do
     assert_match(/MAX_MATERIALIZED_BYTES/, SOURCE)
+    assert_match(/different bound at a different layer|not a second ceiling/, SOURCE)
   end
 
   test "the two caps are documented as chosen rather than derived" do
@@ -1828,14 +1877,20 @@ end
 Run: `bundle exec ruby -w gems/dexpace-core/test/dexpace/sse/documentation_test.rb`
 Expected: fails, then PASS, 4 runs.
 
-- [ ] **Step 3: Hand the four register-amendment texts to a human**
+- [ ] **Step 3: Route this sub-phase's findings to their owners**
 
-**This plan edits no register.** The four texts are already drafted, verbatim and ready to paste, in the
-design's *The findings proposed for the registers* section: the `OI-5` amendment (three corrections,
-including the false-premise one), the `P3-4` amendment, the appendix-C `SSE-19` finding, the
-corpus-navigation finding, the `sse-streaming` note draft, the segmentation-design correction and the
-`knowledge-lookup` thirteenth row. The task's deliverable is a note in the handover naming that
-section, not an edit.
+**This plan edits no register.** Every finding is already drafted, verbatim and ready to act on, in the
+design's *Findings, and who owns them now* section, each with the owner that carries it: the three
+corrections to the line-cap finding (this task, including the false-premise one); the `P3-4` amendment
+(`docs/deviations.md`, or wherever `P3-4`'s as-built text is audited); appendix C's `SSE-19` row dropping the
+chapter's port sanction (phase 10's inbound list, because `docs/product-spec/` is frozen); the four
+corpus-attribution defects and the `SSE-16`/`SSE-38` supersession draft
+(`docs/knowledge/notes/sse-streaming.md`, never `harvested/`); the two segmentation-design corrections (that
+document, in place); and the `knowledge-lookup` thirteenth audit-group row
+(`.claude/skills/knowledge-lookup/SKILL.md`). A finding is routed to an owner when it is found — a numbered
+task in the phase whose scope it falls in, phase 10's inbound list when it is audit or repair work on an
+already-planned phase, or `docs/first-release.md` when it belongs to the release — never to a standing
+register. The task's deliverable is a note in the handover naming that section and its owners, not an edit.
 
 ---
 
@@ -1888,7 +1943,7 @@ only.
 
 - [ ] **Step 5: Write the handover note**
 
-Naming: the four register-amendment texts (design, *The findings proposed for the registers*); the
+Naming: the seven findings and the owner each carries (design, *Findings, and who owns them now*); the
 `sse-streaming` note draft for `docs/knowledge/notes/`; the `knowledge-lookup` thirteenth row; the
 `P7-20`–`P7-27` ledger rows for consolidation into design §10, with the §10.18 amendment recommendation
 for both cap constants; and the deviation-numbering band, so the human filing `7a`, `7b` and `7c`

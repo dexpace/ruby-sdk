@@ -213,9 +213,11 @@ module Knowledge
       violations
     end
 
-    # A note names the harvested rule it overrides by that rule's stable key,
-    # which is digested from the entry's text — so a re-harvest that rewords the
-    # rule changes its key and silently orphans every note citing it. Failing
+    # A note names a harvested rule by that rule's stable key — whether it
+    # overrides the rule or only leans on it; both relations are checked here,
+    # because a key is stale whichever one it carried. The key is digested from
+    # the entry's text, so a re-harvest that rewords the rule changes it and
+    # silently orphans every note citing it. Failing
     # here means a re-harvest cannot land until the notes it invalidates are
     # updated in the same commit, which is the point.
     def orphaned_note_keys(entries)

@@ -255,6 +255,42 @@ Expected: `ruby 4.0.6 ...`, overriding the user's global mise pin. If it still r
   `#rake(task, env)` and `#assert_gate_rejects`. And `rake -T` listing every gate by name, plus
   the `DEFAULT_GATES` array that every later task appends exactly one entry to.
 
+**Amendment, 2026-09-13 — Minitest is a *bundled* gem, not a default gem, so the `Gemfile` entry
+for it is load-bearing.** Design §9.3 argues for Minitest over RSpec on the grounds that "it ships
+with the interpreter as a **default gem**, so the same argument §2.4 makes about `base64` and
+`logger` applies to the test framework". The premise is wrong; the conclusion survives. Verified on
+3.4.10: `Gem::Specification.find_by_name("minitest").default_gem?` is `false`, its gem directory is
+not the interpreter's, and `Gem::BUNDLED_GEMS::SINCE` does not name it either — that table lists
+only gems that *became* bundled at a known version. Minitest is **bundled**: shipped with the
+interpreter, and requiring an explicit `Gemfile`/gemspec entry under Bundler, which is the exact
+property §2.4 spends a page warning about. So the `tool minitest` record in Step 4 and the `Gemfile`
+line Step 8 derives from it are not a convenience and may not be dropped on the theory that the
+interpreter supplies the framework. Nothing else moves: `dexpace-conformance` still declares no
+dependency, because phase 8a's two drivers reference `::Minitest` and `::RSpec` at call time and
+`require` neither. §9.3's own sentence sits in a frozen chapter and is not corrected in place; what
+this task owns is the `Gemfile` line the corrected premise requires.
+
+**Amendment, 2026-09-13 — the constraint is `~> 5.25`, and it is a decision rather than a default.**
+Measured on all three installed interpreters: `minitest 5.25.1` on **3.2.11**, `5.25.4` on
+**3.4.10** and **`6.0.0` on 4.0.6**, with `default_gem?` `false` on every one. On 5.25.x the gem
+ships `minitest/mock.rb`; **on 6.0.0 it does not.** `require "minitest/mock"` raises `LoadError` on
+4.0.6, and that gem's `lib/` listing has neither `minitest/mock.rb` nor `minitest/unit.rb`, while
+`assertions.rb`, `test.rb`, `autorun.rb`, `spec.rb` and `benchmark.rb` all remain. Every assertion
+name this repository uses survives — 22 were checked, from `assert_equal` to `assert_in_delta`, and
+all 22 are still defined on `Minitest::Assertions` in 6.0.0. What disappears is `Minitest::Mock` and
+`Object#stub`. Left unconstrained, the top row of the matrix would run a different framework major
+from the other three, and phase 8a's two `Object#stub` fences —
+`Dexpace::Conformance::TransportSuite.stub(:assertions, assertions)` in its driver test and again in
+its `test/` fence
+(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`) —
+would raise `NoMethodError` there, making `docs/first-release.md`'s standing blocker (the
+`dexpace-conformance` suite passing across 3.2 through 4.0) false on that row. Pinning `~> 5.25`
+keeps `minitest/mock` and one framework major on every row. It is a **development** dependency, so
+`dexpace-core`'s zero-runtime-dependency rule and `gates:gemspec_audit` (Task 8) are untouched. The
+cost, stated plainly: the 4.0 row does not exercise the Minitest its interpreter ships. Lifting the
+pin is `docs/first-release.md` § Post-release triggers, the Minitest 6 entry — once no fence in the
+repository requires `minitest/mock`.
+
 `VERSIONS` and its reader belong here, not in a later task: the `Gemfile` reads
 `tools/versions.rb` for every constraint, so a `Gemfile` written before that file exists makes
 every `bundle exec` in Tasks 3 and 4 raise `LoadError`. Nothing else in the repository parses
@@ -603,6 +639,59 @@ last of them exists.
 - Produces: the `rubocop` rake task; a config every later `.rb` file in this repository is written
   against.
 
+**Amendment, 2026-09-13 — the baseline below is not clean, and this task does not end until one
+reviewed diff makes it so.** Every phase plan closes by running `bundle exec rubocop
+--fail-level=convention` and expecting it clean. Measured for the first time by extracting phase 1's
+and phase 2's `lib/` fences and running **RuboCop 1.90.0** against Step 3's `.rubocop.yml` exactly
+as written below: **it is clean for neither.** Over 32 files, the counts being offenses —
+`Layout/EmptyLineAfterMagicComment` ×32, because the two-line header **this phase itself mandates**
+(`# frozen_string_literal: true` then `# SPDX-License-Identifier: MIT`) puts a non-magic comment
+where that cop wants a blank line, so it fires on every file in the repository, present and future;
+`Metrics/AbcSize` ×8, never configured, so RuboCop's default of 17 applies;
+`Naming/RescuedExceptionsVariableName` ×4, because this repository has written `rescue … => error`
+since phase 1 and the cop's default `PreferredName` is `e`; and one to eight each of
+`Style/ArgumentsForwarding`, `Naming/BlockForwarding`, `Style/DataInheritance`,
+`Layout/MultilineMethodCallIndentation`, `Layout/EmptyLinesAfterModuleInclusion`,
+`Metrics/CyclomaticComplexity`, `Metrics/PerceivedComplexity`, `Style/ModuleFunction`,
+`Metrics/ClassLength`, `Naming/PredicateMethod`, `Style/SymbolProc`, `Style/MultipleComparison`,
+`Style/TrailingCommaInArguments` and `Style/TrailingCommaInArrayLiteral` — four of those last in
+**Task 4's own** `.rubocop/test/cops_test.rb` fence, and most of them cops added or tightened after
+this config was written. `test/` is worse and is not excluded: phase 1's and phase 2's 37 suite
+fences report `Minitest/MultipleAssertions` ×33 (the cop's default cap is 3),
+`Minitest/AssertPredicate` ×22, `Minitest/EmptyLineBeforeAssertionMethods` ×15 and
+`Minitest/RefutePredicate` ×10 — and two of those are not configuration gaps at all:
+`Minitest/AssertPredicate` and `Minitest/RefutePredicate` propose exactly the form phase 1
+documented as unusable here, because `assert_predicate` sends past `private` on the 3.2 floor,
+which is why every plan's Global Constraints say visibility is asserted with `respond_to?`. Phase 3a
+adds `Metrics/ModuleLength` on `TypedReads` (399 lines) and `TypedWrites` (145) and
+`Metrics/AbcSize` on two chunk-store helpers, and nothing else.
+
+`NFR-7` makes findings fatal, so a baseline that cannot pass is a baseline whose `--fail-level` gets
+lowered or `Exclude:`d in a hurry by whoever first runs `bundle exec rake` — at which point the cops
+that *are* load-bearing stop being read, and every plan's "Expected: clean" step becomes
+unfalsifiable. What this task must therefore deliver is **one reviewed `.rubocop.yml` diff that, per
+cop, either sets the value this repository actually wants or disables the cop with the reason
+named** — the shape Task 9 fixes for the require allowlist ("a reviewed one-line diff naming the
+requirement that motivated it") and that `tooling-and-quality-gates/d39dd7c6` requires of every
+override, where an unexplained `Enabled: false` is rejected in review. The list above is a **floor**
+on that work and not a specification of it: it was measured against 1.90.0, and `VERSIONS` pins
+whatever is current at implementation time. **One finding in it must not be autocorrected.**
+`Style/SymbolProc` on phase 3a's `@dexpace_views.each { |view| view.dexpace_invalidate }` proposes
+`&:dexpace_invalidate`; `#dexpace_invalidate` is `protected` and the symbol form sends it publicly —
+verified `NoMethodError: protected method 'dexpace_invalidate' called for an instance of …`. The
+block form is load-bearing, so any pass that runs `rubocop --autocorrect` over the tree excludes it.
+
+**Amendment, 2026-09-13 — `Metrics/ParameterLists: Max: 4`, set in Step 3, is unsatisfiable as
+written.** RuboCop counts keyword arguments by default (`CountKeywordArgs: true`) and
+`api-design/1d9e6e0b` makes every public parameter a keyword, so the cap cannot be met by any model
+with more than four members — and every phase plan's Global Constraints restate that cap. Phase 4a
+is the first phase where it bites at scale: seven methods trip it — `Bundle.build` and `#initialize`
+at 8, `ExchangeContext`'s pair at 6, `RequestContext`'s pair at 5 and `NO_TRACER_FACTORY#tracer` at
+5 — each carrying exactly the member set its design fixes. 4a pays it with named inline disables,
+which is this phase's own convention for a directive; the alternative is one reviewed
+`CountKeywordArgs: false` line, which is a `.rubocop.yml` diff and so belongs to the reviewed diff
+the amendment above requires. Decide it there, with this count rather than an impression.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `test/gates/rubocop_config_test.rb`:
@@ -782,32 +871,77 @@ exactly the risk `NFR-7` exists to surface.
 - [ ] **Step 5: Run the test to confirm it passes**
 
 Run: `ruby -Itest test/gates/rubocop_config_test.rb`
-Expected: PASS, 6 runs. `rake rubocop` still fails because the five custom cop files do not exist
-— Task 4 creates them.
+Expected: PASS, 6 runs. `rake rubocop` still fails because the custom cop files — the original
+five and the keyword-splat cop — do not exist; Task 4 creates them.
 
 ---
 
-## Task 4: The five custom cops and their data-driven suite
+## Task 4: The custom cops and their data-driven suite
 
 **Files:**
 - Create: `.rubocop/cops/dexpace/spdx_header.rb`, `.rubocop/cops/dexpace/no_time_parse.rb`,
   `.rubocop/cops/dexpace/no_uri_default_parser.rb`,
   `.rubocop/cops/dexpace/no_locale_case_fold.rb`,
-  `.rubocop/cops/dexpace/no_thread_interrupt.rb`
+  `.rubocop/cops/dexpace/no_thread_interrupt.rb`,
+  `.rubocop/cops/dexpace/no_keyword_splat.rb` (the amendment below)
 - Create: `.rubocop/test/cop_case.rb`, `.rubocop/test/cops_test.rb`
 - Modify: `tasks/quality.rake`
 
 **Interfaces:**
-- Consumes: Task 3's `.rubocop.yml`, which already `require`s these five paths.
+- Consumes: Task 3's `.rubocop.yml`, which already `require`s the original five of these paths;
+  `no_keyword_splat.rb` is added to its `require:` list and to its `Dexpace/…: Enabled: true`
+  block here.
 - Produces: `RuboCop::Cop::Dexpace::SpdxHeader`, `::NoTimeParse`, `::NoUriDefaultParser`,
-  `::NoLocaleCaseFold`, `::NoThreadInterrupt`; `CopCase#assert_offense(cop_class, source,
-  message_fragment)` and `#assert_no_offense(cop_class, source)`; and the `cops:test` rake task,
-  which is the second entry in `DEFAULT_GATES`.
+  `::NoLocaleCaseFold`, `::NoThreadInterrupt`, `::NoKeywordSplat`;
+  `CopCase#assert_offense(cop_class, source, message_fragment)` and
+  `#assert_no_offense(cop_class, source)`; and the `cops:test` rake task, which is the second entry
+  in `DEFAULT_GATES`.
 
-One suite, not five. The five cops share one harness, one assertion pair and one shape of case —
-a source string and the fragment its message must carry — so five files would be five copies of
-the same four lines around a table. The table generates one Minitest method per row, so a failure
-still names exactly one case (`testing/fc33f51b`).
+One suite, not one per cop. The original five and the keyword-splat cop share one harness, one
+assertion pair and one shape of case — a source string and the fragment its message must carry — so
+a file each would be a copy each of the same four lines around a table. The table generates one
+Minitest method per row, so a failure still names exactly one case (`testing/fc33f51b`).
+
+**Amendment, 2026-09-13 — one more cop, `Dexpace/NoKeywordSplat`, because a `**` splat allocates a
+`Hash` per call even when nothing is passed.** It carries **no ordinal**, deliberately. This task's
+cops were numbered one to five when they were written, phase 2's `Dexpace/QualifiedCoreConstant` is
+"the sixth" and phase 4a's `Dexpace/NoWeakReferences` "the seventh", and renumbering a later phase's
+cop to make room for one added here would falsify every document that already cites those ordinals.
+So this one is named and never counted, every ordinal elsewhere in the repository stands as written,
+and where this task's own prose counts it says "the original five and the keyword-splat cop".
+`api-design/1d9e6e0b` requires keyword arguments on every public method and gives its reason as
+backward compatibility: "a new keyword with a default is always backward-compatible". That reason is
+a property of **named** keywords, and nothing distinguishes them from a splat. Measured on `ruby
+3.4.10 (2026-06-30 revision 2b0b7728dc) +PRISM [x86_64-linux]`, 1000 iterations each, `GC` disabled,
+in a file carrying `# frozen_string_literal: true`: `def m(x, **attributes)` called as `m(e)` —
+**with no keyword argument at all** — allocates **1002–1005** objects, one `Hash` per call; called
+as `m(e, **FROZEN)` it allocates 1003–1004; a wrapper forwarding `**kw` to another `**kw` allocates
+2003–2004. The named form `def m(x, attributes: nil)` allocates 2–4 whether or not the keyword is
+passed, and a four-keyword signature called with one positional argument allocates 1–2, the
+measurement floor. (Reproduced independently on 2026-09-09; the run-to-run spread is warm-up, and
+the per-call cost is 1 or 0 in every run.)
+
+Two MUSTs make that a correctness question rather than a performance one: `OBS-25` — "Selecting a
+no-op path MUST NOT allocate per call" — and `OBS-1`, under which a disabled log event "MUST
+allocate nothing". Both are asserted by allocation count, and both are unsatisfiable for any method
+written with a splat, including one whose callers never pass a keyword. Nothing else catches it:
+RuboCop ships no cop for it, the styleguide rule reads as licensing it, `**opts` is the spelling
+`opentelemetry-api` and every Ruby metrics library uses, and the failure is silent — an
+implementation with a splat passes every behavioural test and fails only two allocation assertions,
+in two different phases and one of them in a different gem (`dexpace-conformance`, phase 8a's Tasks
+4–8 and 20). Phase 5c pays it with `P5-42`, a stated deviation forbidding the splat across its own
+SPI, which binds one segment and nothing else.
+
+So: `.rubocop/cops/dexpace/no_keyword_splat.rb`, in the shape of `Dexpace/NoTimeParse` and
+`Dexpace/NoThreadInterrupt` — both of which exist for the same reason, that the idiomatic spelling
+is the wrong one and a reviewer will not catch it every time. It flags a `**` rest-keyword parameter
+(named or anonymous) in the signature of a **public** method under `gems/*/lib/**/*.rb`, and its
+message names `OBS-25` and the named-keyword replacement. Its rows go into Step 2's table like every
+other cop's: at least four rejected — `def emit(event, **attributes)` and `def
+self.build(**options)` inside `module Dexpace`, an anonymous `def m(x, **)`, and a wrapper
+forwarding `**kw` onward — and at least three accepted, which are what prove it does not simply
+reject every method: `def emit(event, attributes: nil)`, a four-named-keyword signature, and a
+`private` method taking `**opts`. Step 10's expected run count grows by the rows added.
 
 - [ ] **Step 1: Write the Minitest cop harness**
 
@@ -866,8 +1000,9 @@ end
 
 require_relative "cop_case"
 
-# The five cops that mechanise CLAUDE.md's ban list and NFR-13. One row per case, one generated
-# Minitest method per row, so a failure names exactly one input.
+# The original five cops and Dexpace/NoKeywordSplat, which between them mechanise CLAUDE.md's
+# ban list and NFR-13. One row per case, one generated Minitest method per row, so a failure
+# names exactly one input.
 class CopsTest < CopCase
   D = RuboCop::Cop::Dexpace
   HEADER = "# frozen_string_literal: true\n# SPDX-License-Identifier: MIT\n\n"
@@ -1493,6 +1628,24 @@ Task 20 fixes the sentence, and fixing it here would put the count edit in the w
   `test:gems` and `test:gates` rake tasks and the `run_suite(files, libs, coverage:)` helper they
   share.
 
+**Amendment, 2026-09-13 — `DexpaceTestCase` also asserts at `teardown` that the test leaked no
+thread, because neither half of `NFR-6` can see a thread die.** Step 3's `Warning.warn` override is
+the in-process half and Step 5's stderr scan is the load-time half, and a dying thread escapes both.
+Measured on 3.4.10: a thread that dies with an exception prints
+`#<Thread:…> terminated with exception (report_on_exception is true)` to `$stderr` **directly** —
+`Thread#report_on_exception` does not route through `Warning.warn`, so the override captures
+nothing — and that line does not contain the string `warning:`, which is what `run_suite` greps for.
+So a suite that leaks a dying thread (a test double's worker, a helper's background thread, a later
+adapter's exporter) produces stderr noise no gate reads and fails no assertion, in the one
+repository whose gate set exists to make exactly that impossible. Phase 8 is the first phase to
+create a thread at all; phase 8b's own workers cannot die and set `report_on_exception = false`
+inside the thread body regardless, so the finding is about this gate and not about that gem. Add to
+`DexpaceTestCase`: capture `::Thread.list.size` at `setup` and assert it unchanged at `teardown`,
+with a message naming `NFR-6`/`XCUT-11` and the test that leaked. One line each, and cheaper than
+the class of bug it catches — 8b's own suite already asserts it per-test, which is the precedent
+rather than the requirement. A suite that legitimately outlives a test with a running thread opts
+out explicitly and says why; the assertion itself is never dropped.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `test/gates/warnings_fatal_test.rb`:
@@ -2008,9 +2161,26 @@ Expected: `gates:gemspec_audit: 6 gemspecs, dependency budget respected.`
 
 **Interfaces:**
 - Consumes: the six gems from Task 5, each gemspec's declared dependencies from Task 8's loader.
-- Produces: `RequireAllowlist::ALLOWED`, `::DENIED` (a name → reason `Hash`), `.bundled?`,
+- Produces: `RequireAllowlist::ALLOWED`, `::DENIED` (a name → reason **and scope**), `.bundled?`,
   `.bundled_since`, `.scan_file(path, permitted:, lib_root:)` and
   `.violations(root) -> Array[String]`.
+
+**Amendment, 2026-09-13 — `DENIED` carries a scope, because a reason written for core reaches gems
+the reason does not describe.** Step 3's denylist denies `socket` with the reason
+"`SEAM-1`/`SEAM-2`: core embeds no concrete transport", and `#reason_for` applies every entry to
+every gem, permitting only an allowlisted name, a name under `dexpace/`, or the single third-party
+gem that gem's own gemspec declares. `dexpace-conformance` declares no third-party gem, so it cannot
+`require "socket"` — even though it embeds no transport, and `socket` is non-gemified stdlib that
+can never become a bundled gem. That is the immediate case (phase 8a amends this gate with a named
+per-gem exception, its `P8-14`), and the shape is general: every entry here carries a *reason*, the
+reasons are gem-scoped, and the mechanism is not. The same question arrives for
+`dexpace-transport-async_http` and `openssl`, and for any later adapter that legitimately needs a
+denied name. So `DENIED`'s value becomes a reason **plus a scope** — an entry reads "denied to core
+and to transport adapters" rather than "denied" — and `#reason_for` takes the gem being scanned and
+consults the scope before the reason. Keep the default strict: an entry with no scope is denied
+everywhere, so widening is a deliberate reviewed act and narrowing is never accidental. Step 1's
+suite gains the pair that proves it — a gem outside a denial's scope requiring that name is clean,
+and a gem inside it is not — and Step 5's expected run count grows by two.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2891,6 +3061,38 @@ Expected: PASS, 3 runs.
 - Consumes: `CLEAN_BUNDLE_ENTRIES` from Task 10.
 - Produces: `Surface.manifest(constant) -> String`, the `gates:surface_snapshot` task, and
   `rake surface:regenerate`.
+
+**Amendment, 2026-09-13 — decide here what `Surface.walk` does about `Data`-generated readers; as
+Step 3 writes it, it holds none of them.** `CLAUDE.md`'s Public API Surface section and design §9.1
+both justify this gate as the half that catches what RBS cannot see, and both name "`Data.define`'s
+generated readers" first. Verified directly against Step 3's walker —
+`mod.public_instance_methods(false)` — on 3.2.11, 3.4.10 and 4.0.6: **it does not hold a single one
+of them.** `public_instance_methods(false)` returns only methods defined directly on the class
+named, and this SDK's construction pattern (design §4; phase 1's `class Status < Data.define(:code)`
+and every value type after it, phase 4a's `DispatchContext`, `RequestContext`, `ExchangeContext`,
+`Bundle` and `TraceIdFlavour` included) defines the readers on the **anonymous class `Data.define`
+returns**, which is that type's `superclass` and not the type itself:
+
+```
+Dexpace::DispatchContext.instance_methods(false)             # => [:promote_to_request]
+Dexpace::DispatchContext.superclass.instance_methods(false)  # => [:bundle, :call_key, :store]
+```
+
+on all three interpreters. It is a consequence of the **subclassing** idiom, not of `Data.define` or
+of any interpreter: `Foo = Data.define(:a, :b) do … end` — assigning the return directly to a
+constant, with a block — gives `Foo.instance_methods(false) == [:a, :b, :extra]` and
+`Foo.superclass == Data` on all three. `#==`, `#eql?`, `#hash`, `#to_h` and `#with`, one level
+further up again, are absent from every `Data`-based type's row for the identical reason. The
+consequence for `NFR-4` is narrow and real: a `Data`-generated reader can be renamed or removed and
+this gate says nothing. Nothing is unguarded — the `sig/` diff still catches it, because phase 1
+writes every reader out explicitly in `sig/` for exactly this reason — but for that one kind of
+member the runtime snapshot contributes nothing, rather than being the second gate the rationale
+claims. Take one of the two repairs here rather than leaving the claim unchecked: walk
+`mod.superclass.instance_methods(false)` as well when `mod.superclass` is itself a `Data.define`
+return value (narrow, but it couples the walker to a heuristic for recognising an anonymous class),
+or accept the split and amend `CLAUDE.md`'s and design §9.1's stated rationale to say the runtime
+snapshot's role is method **definitions** only and never member accessors. Whichever is taken, Step
+5's committed manifests are regenerated under it and Step 1's suite gains the case that pins it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3983,7 +4185,7 @@ bundle exec rake                                  # the default task: all sevent
 bundle exec rake rubocop                          # NFR-7, findings fatal, no autocorrection
 bundle exec rake rubocop:fix                      # safe autocorrections only, never the gate
 bundle exec rake rbs:validate steep               # NFR-3
-bundle exec rake cops:test                        # the five custom cops' own suite
+bundle exec rake cops:test                        # the custom cops' own suite
 bundle exec rake test:gems                        # gem suites: warnings fatal, coverage floor
 bundle exec rake test:gates                       # the repository's gate suites
 bundle exec rake gates:gemspec_audit              # SEAM-1, NFR-1, NFR-2
@@ -4063,7 +4265,7 @@ each gate was verified on, the `DEF-` rows appended, and the `CLAUDE.md` diff.
 | Zero-dependency gate part 1: gemspec audit | 8 |
 | Zero-dependency gate part 2: require-allowlist | 9 |
 | Zero-dependency gate part 3: clean-bundle | 10 |
-| `.rubocop.yml` and the five custom cops | 3 (config), 4 (cops, their suite and `cops:test`) |
+| `.rubocop.yml` and the custom cops — the original five and the keyword-splat cop | 3 (config), 4 (cops, their suite and `cops:test`) |
 | Warnings as errors | 6 |
 | Typing: `sig/`, `Steepfile`, `rbs_collection.yaml` | 5 (`sig/`), 12 (`Steepfile`, the tasks) |
 | The API-surface lock | 14 (runtime snapshot), 15 (RBS diff) |
@@ -4080,7 +4282,7 @@ each gate was verified on, the `DEF-` rows appended, and the `CLAUDE.md` diff.
 | Testing: a deliberately failing input per gate | every gate task's Step 1 |
 | Single-instance guarantee (§2.4) | 11 |
 | The four items phase 0 postponed, and their owners | recorded during planning; re-checked in Task 20, Step 5 |
-| The checklist, the registers and `CLAUDE.md` | 20 |
+| The checklist, the roadmap status note and `CLAUDE.md` | 20 |
 
 One design element deliberately has no task of its own: the five knowledge notes were written
 during planning rather than during implementation, at the coordinator's direction, and Task 20

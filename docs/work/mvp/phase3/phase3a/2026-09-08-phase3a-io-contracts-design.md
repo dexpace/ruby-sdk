@@ -29,7 +29,9 @@ fact run on a real interpreter rather than by taste.
 - **Defining `Dexpace::IO` reaches further than core.** Inside `module Dexpace`, `x.is_a?(IO)` and
   `IO === x` are silently `false` for a real `::IO` — and, contrary to phase 1's "verified inert
   outside core", the same is true inside a **consumer's own class that does `include Dexpace`**.
-  Phase 1's claim holds only for a top-level include. Filed as `OI-3` (R1).
+  Phase 1's claim holds only for a top-level include, no gate this repository owns can reach a
+  consumer's file, and the finding goes to `docs/first-release.md` § Blockers before first publish as a
+  line requiring the `include Dexpace` shadow to be documented (R1).
 
 3a ships no body, no transport and no pipeline. Its whole test surface is bytes: construction,
 reading, writing, views, close, encoding and the two threads that `IO-38` puts on one flag.
@@ -41,7 +43,8 @@ reading, writing, views, close, encoding and the two threads that `IO-38` puts o
   touched here.
 - `docs/product-spec/05-i-o-contracts.md`, read in full, with
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for the canonical text
-  of every ID — and for `IO-6`, which appendix C is the **only** normative statement of (`OI-2`).
+  of every ID — and for `IO-6`, which appendix C is the **only** normative statement of (the roadmap's
+  gap paragraph names it as appendix-C only).
 - `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1 in full and §3.7 for the close
   latch; `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md` §7.1 for the `Enumerator`
   rule; `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md` items 1, 2,
@@ -253,7 +256,8 @@ whoever reads the corpus next.
   ownership rule's surviving normative home is **`IO-6`**, not the retired `SEAM-3`. Resolves
   `message-bodies/8a1e7a7b`, whose text ("at the I/O layer, wrapping takes ownership … (SEAM-3,
   BODY-11, BODY-8)") attributes a live MUST to an ID design §10.1 retires and phase 2 shipped as 🚫.
-  This is R3, and it is the corpus half of `OI-2`.
+  This is R3, and it is the corpus half of the appendix-C-only finding the roadmap's gap paragraph
+  carries for `IO-6`.
 - **`docs/knowledge/notes/io-and-byte-streams.md`** (new file), `## Superseded` — two entries.
   (a) `io-and-byte-streams/ba53c43b` (`IO-1`) and `/f009344c` (`IO-16`) read together imply one
   `#read`; **they cannot be one method in Ruby**, with the `IO.copy_stream` evidence. (b)
@@ -301,7 +305,8 @@ five changed a decision; the rest are recorded because the plan would otherwise 
    `Dexpace` sits ahead of `Object` in `C.ancestors`. Phase 1's "verified inert outside core" holds
    only for a **top-level** `include Dexpace`, where `Object`'s own constants win and `Dexpace` lands
    *after* `Object` in the chain — verified both ways. `File`, `StringIO` and `Tempfile` are **not**
-   shadowed, because no `Dexpace::` constant of those names exists. Filed as `OI-3`.
+   shadowed, because no `Dexpace::` constant of those names exists. It goes to `docs/first-release.md`
+   § Blockers before first publish as a line requiring the shadow to be documented.
 6. **`Thread::Mutex#synchronize` costs about 40 ns more than an unsynchronised read** (10⁶ round
    trips: 0.050 / 0.071 / 0.060 s against 0.013 / 0.020 / 0.017 s). Affordable once per public call.
 7. **A `Thread::Mutex` held across a fiber suspension raises `ThreadError` for the second fiber of
@@ -394,7 +399,8 @@ unqualified form, and `respond_to?` everywhere is what the code review looks for
 
 **What the cop cannot reach, and where it is recorded.** Verified fact 5's consumer half — a
 consumer's own `class C; include Dexpace` silently loses `is_a?(IO)` — is outside every gate this
-repository owns. It is filed as **`OI-3`**, it is stated in `Dexpace::IO`'s own YARD block, and the
+repository owns. It goes to **`docs/first-release.md` § Blockers before first publish** as a line
+requiring the `include Dexpace` shadow to be documented, it is stated in `Dexpace::IO`'s own YARD block, and the
 finding is about `Dexpace::Method`, `Dexpace::Request` and every other flat constant as much as about
 `Dexpace::IO`. 3a does not flatten the namespace to avoid it: boundary 10 fixes `Dexpace::IO::`, and
 flattening would trade one shadowed constant for four.
@@ -488,8 +494,9 @@ nowhere on the ingress path.
 ## R3 — `IO-6`, stated once, without `SEAM-3`
 
 `IO-6` is a MUST with no chapter prose: outside appendix C the string `IO-6` occurs once in the whole
-tree, in the roadmap's gap paragraph, which sends a reader to a chapter that does not carry it
-(`OI-2`). Its *bridge* half survives in `docs/product-spec/05-i-o-contracts.md` §5.3 under `IO-16`, a
+tree, in the roadmap's gap paragraph, which is where the correction lives — that paragraph now names
+`IO-6` as appendix-C only rather than sending a reader to a chapter that does not carry it. Its
+*bridge* half survives in `docs/product-spec/05-i-o-contracts.md` §5.3 under `IO-16`, a
 SHOULD. Both places that state its *wrap* half — design §3.1's "Two ownership rules, deliberately
 different" paragraph and the corpus entry `message-bodies/8a1e7a7b` — attribute it to **`SEAM-3`**,
 which design §10.1 retires and phase 2 shipped as 🚫. **3a reads `IO-6` out of appendix C and cites
@@ -656,7 +663,7 @@ shape of the reference's `BufferedSource` interface. `Dexpace::Closeable` set th
 | `#readbyte -> Integer` / `#getbyte -> Integer?` | `IO-11`, `IO-16` | Raises at EOF / `nil` at EOF |
 | `#read_utf8(count: nil) -> String` | `IO-12`, `IO-13` | `count` is a **byte** count; with none, drains |
 | `#read_string(encoding, count: nil) -> String` | `IO-13` | Retags the drained BINARY bytes. No replacement policy — that is `HTTP-42`'s, at 3b's single decode boundary |
-| `#read_line_utf8 -> String?` | `IO-14` | Hand-implemented, never `#gets`: `$/` is global and universal-newline handling depends on how the `IO` was opened. `\n` and `\r\n` terminate, a lone `\r` is content, a final unterminated line comes back as-is, `nil` when exhausted before any byte. **Unbounded on purpose** — the one **drain-style** read `MAX_MATERIALIZED_BYTES` does not guard, its size being unknown until the terminator is found (P3-4, `OI-5`) |
+| `#read_line_utf8 -> String?` | `IO-14` | Hand-implemented, never `#gets`: `$/` is global and universal-newline handling depends on how the `IO` was opened. `\n` and `\r\n` terminate, a lone `\r` is content, a final unterminated line comes back as-is, `nil` when exhausted before any byte. **Unbounded on purpose** — the one **drain-style** read `MAX_MATERIALIZED_BYTES` does not guard, its size being unknown until the terminator is found (P3-4; the documented cap that closes it is phase 7b's, plan Task 12) |
 | `#skip(count) -> void` | `IO-15` | Exactly `count`, `Dexpace::EndOfStreamError` if fewer remain; `skip(0)` a no-op at or after EOF |
 | `#eof? -> bool` | `IO-11` | May block while the upstream decides. Ruby's own name for `exhausted()` |
 | `#peek -> BufferedSource` | `IO-19` | A non-consuming view over the whole remaining source |
@@ -692,7 +699,8 @@ halves of one rule rather than a rule and an exception:
   anchor. Bytes the view has already read are behind it and the parent may pass them freely.
 
 Retention therefore needs no pin bookkeeping at all — the parent's cursor is the floor, and the view
-registry exists only for `IO-22`/`IO-38`'s invalidation on close (`OI-4`). Recorded as **P3-5**.
+registry exists only for `IO-22`/`IO-38`'s invalidation on close; 3b's plan, Task 13 measures what
+that retention costs on a real drain. Recorded as **P3-5**.
 Closing a view releases its registration (`IO-22`).
 
 ### `Dexpace::IO::TypedWrites` — the write vocabulary (`IO-4`, `IO-5`, `IO-13`, `IO-17`, `IO-18`)
@@ -1052,8 +1060,9 @@ nothing else, and the only consumer in this SDK that reads lines from a stream a
 is phase 7's SSE machine, whose own cap `SSE-11` requires and design §10.18 catalogues alongside this
 one. So the line read materialises whatever the next terminator is away, a caller that hands it a
 terminator-free multi-gigabyte stream gets a multi-gigabyte `String`, and the bound belongs to the
-caller. Recorded as `OI-5` so the choice is visible to phase 7 and to a release decision rather than
-being rediscovered as a `#read_utf8` inconsistency. **One test does allocate**:
+caller. Handed to phase 7b — its plan's Task 12 is where `SSE-11`'s own documented cap closes it —
+so the choice is visible to phase 7 and to a release decision rather than being rediscovered as a
+`#read_utf8` inconsistency. **One test does allocate**:
 a `Buffer` built just over the ceiling,
 asserting `#snapshot` refuses with a message naming the streaming alternative. It costs one 64 MiB
 allocation, once per run per matrix row, and it is the only test in 3a that allocates anything
@@ -1086,15 +1095,16 @@ places on purpose. **A1 is a deviation** — the port's method names depart from
 assumes — and carries **P3-1**. **A2 is not a deviation and gets no ledger row**: nothing about this
 port's behaviour departs from the reference contract there, the rule §3.1 states is implemented
 exactly as stated, and only its *citation* is wrong. That is a finding about the design document,
-and it is recorded where findings go — `OI-2`, plus the corpus note against
-`message-bodies/8a1e7a7b` so the next reader of the corpus does not repeat the attribution. Filing a
+and it is recorded with the owner that can act on it — the roadmap's gap paragraph, which names
+`IO-6` as appendix-C only — plus the corpus note against `message-bodies/8a1e7a7b`, so the next
+reader of the corpus does not repeat the attribution. Filing a
 `P3-<n>` row for it would put a documentation erratum in the register that audits behavioural
 departures.
 
 | Addendum | What §3.1 says | What phase 3a builds |
 |---|---|---|
 | **A1 — the bridge and the primitive are different methods** | "`IO-16`'s native-stream bridge is satisfied by construction, since a `BufferedSource` already responds to `#read`, `#readpartial` and `#each`" | True only once `IO-1`'s primitive is renamed `#read_into`. Verified: `IO.copy_stream` — what `Net::HTTP#send_request_with_body_stream` calls — hands `#readpartial` one buffer it reuses across every call and expects overwritten, on 3.2.11, 3.4.10 and 4.0.6. `#read`/`#readpartial`/`#getbyte`/`#each` carry Ruby's semantics; `#read_into` carries `IO-1`'s |
-| **A2 — the ownership rule's citation** | "At the I/O layer, wrapping takes ownership … (**SEAM-3**)" | The surviving normative home is **`IO-6`**, a MUST. `SEAM-3` is retired by §10.1 and was shipped 🚫 by phase 2; §10.12 depends on `IO-6` without naming it. Every 3a citation of the rule names `IO-6` and §10.12. `OI-2`, and a corpus note against `message-bodies/8a1e7a7b` |
+| **A2 — the ownership rule's citation** | "At the I/O layer, wrapping takes ownership … (**SEAM-3**)" | The surviving normative home is **`IO-6`**, a MUST. `SEAM-3` is retired by §10.1 and was shipped 🚫 by phase 2; §10.12 depends on `IO-6` without naming it. Every 3a citation of the rule names `IO-6` and §10.12. The roadmap's gap paragraph names `IO-6` as appendix-C only, and a corpus note stands against `message-bodies/8a1e7a7b` |
 
 ## Deviation Ledger
 
@@ -1106,8 +1116,8 @@ from the phase-3 segmentation design, which left the ledger empty.
 | P3-1 | `IO-1`'s primitive is **`#read_into(dest, count:)`**, not `#read` | `IO-1`, `IO-16`; design §3.1 | `IO.copy_stream` — the exact call `Net::HTTP#send_request_with_body_stream` makes — drives a duck-typed source through `#readpartial(len, buf)`, or `#read(len, buf)` when there is no `#readpartial`, with **one buffer object reused across every call** and expected overwritten (verified on 3.2.11, 3.4.10, 4.0.6). A tail-appending `#read` would corrupt every streamed upload and grow that buffer without bound. Appendix C's operation names are the reference's spelling; `IO-3`'s own "a port MAY use whichever argument-error type is idiomatic" is the specification signalling as much. Addendum §3-A1 |
 | P3-2 | `IO-16`'s bridge signals end of stream the **host-native** way — `nil` from `#read`/`#getbyte`, `Dexpace::EndOfStreamError` from `#readpartial`/`#readbyte` — not with `-1` | `IO-16` | The requirement's own word is "host-native", and `-1` is the reference host's `InputStream` convention. `Dexpace::EndOfStreamError < ::EOFError` is load-bearing: verified that `IO.copy_stream` terminates cleanly on an `EOFError` **subclass** from a duck-typed `#readpartial` on all three interpreters. The portable vocabulary keeps `IO-1`'s `-1` |
 | P3-3 | `IO-42`'s "I/O error" for use-after-close is **`Dexpace::ClosedError`** — phase 2's `::StandardError` — rather than a new `::IOError` subclass | `IO-42`, `IO-22`, `IO-24`; `SEAM-15` | Phase 2 shipped the class, the rule and no raise site; 3a is its first caller. Read as "a loud, distinct, non-EOF failure", which is what `IO-42`'s rationale asks for and what `IO-24`'s "distinct from normal EOF" makes structural. Introducing `Dexpace::IOError` is barred for phase 1's `Dexpace::ArgumentError` reason: it would shadow `::IOError` for every file inside `module Dexpace` |
-| P3-4 | The materialisation ceiling guards **every** operation that produces one contiguous `String` — `#snapshot`, `#read` with no count, `#read_exactly`, `#read_utf8`, `#read_string` and a length-bounded slice read — and never a slice's *construction* | `IO-9`, `IO-21`; design §10.18 | `IO-9` lets plain exact-count reads "inherit whatever bounds check the underlying stream library performs". In Ruby that check does not exist — a `String` is bounded only by memory — so inheriting it means inheriting the OOM killer. §10.18's "fails or ignores loudly above them, preserving the observable behaviour on a host where the stated failure mode is unreachable" is the sanction. It widens a SHOULD's scope; it narrows nothing. It is widened over `#read_exactly` and **not** over `#read(length)` or `#readpartial(maxlen)`, and the line is the **provenance of the count** rather than its size: `#read_exactly` is what `HTTP-39`/`BODY-10`'s exact-length copy drives, and `BODY-10`'s is a *declared* length — a number a peer chose — while the other two take a number the calling code chose. Those two stay where `IO-9` puts them, inheriting "whatever bounds check the underlying stream library performs". The one **drain-style** read left outside the guard is `#read_line_utf8`: the guarded drains — `#read` with no count, `#read_utf8`, `#read_string` — are checked incrementally as the result grows, and a line read has no count to check and no end but a terminator that may never arrive. `IO-14` fixes no line length, and the caller that reads lines from a hostile stream is phase 7's SSE machine, which `SSE-11` obliges to carry its own documented cap (`OI-5`) |
-| P3-5 | A view pins the parent's cursor at construction, the parent holds nothing back for it, and a parent whose own cursor passes the next byte a live view still needs makes that view's later reads fail with `Dexpace::ClosedError` | `IO-19`, `IO-20`, `IO-22` | The specification does not say what happens when the parent advances under a live view. `IO-22`'s "never returning stale or arbitrary bytes" is the only normative anchor and it points one way. The alternative — the parent retaining from the lowest live pin — was rejected because it makes this rule unreachable and turns any un-closed view into an unbounded retention hold on the parent; the parent's own cursor is the retention floor instead, and the view registry serves invalidation only (`OI-4`). Stated so a plan does not decide it silently, differently, per view kind |
+| P3-4 | The materialisation ceiling guards **every** operation that produces one contiguous `String` — `#snapshot`, `#read` with no count, `#read_exactly`, `#read_utf8`, `#read_string` and a length-bounded slice read — and never a slice's *construction* | `IO-9`, `IO-21`; design §10.18 | `IO-9` lets plain exact-count reads "inherit whatever bounds check the underlying stream library performs". In Ruby that check does not exist — a `String` is bounded only by memory — so inheriting it means inheriting the OOM killer. §10.18's "fails or ignores loudly above them, preserving the observable behaviour on a host where the stated failure mode is unreachable" is the sanction. It widens a SHOULD's scope; it narrows nothing. It is widened over `#read_exactly` and **not** over `#read(length)` or `#readpartial(maxlen)`, and the line is the **provenance of the count** rather than its size: `#read_exactly` is what `HTTP-39`/`BODY-10`'s exact-length copy drives, and `BODY-10`'s is a *declared* length — a number a peer chose — while the other two take a number the calling code chose. Those two stay where `IO-9` puts them, inheriting "whatever bounds check the underlying stream library performs". The one **drain-style** read left outside the guard is `#read_line_utf8`: the guarded drains — `#read` with no count, `#read_utf8`, `#read_string` — are checked incrementally as the result grows, and a line read has no count to check and no end but a terminator that may never arrive. `IO-14` fixes no line length, and the caller that reads lines from a hostile stream is phase 7's SSE machine, which `SSE-11` obliges to carry its own documented cap (phase 7b's plan, Task 12) |
+| P3-5 | A view pins the parent's cursor at construction, the parent holds nothing back for it, and a parent whose own cursor passes the next byte a live view still needs makes that view's later reads fail with `Dexpace::ClosedError` | `IO-19`, `IO-20`, `IO-22` | The specification does not say what happens when the parent advances under a live view. `IO-22`'s "never returning stale or arbitrary bytes" is the only normative anchor and it points one way. The alternative — the parent retaining from the lowest live pin — was rejected because it makes this rule unreachable and turns any un-closed view into an unbounded retention hold on the parent; the parent's own cursor is the retention floor instead, and the view registry serves invalidation only (3b's plan, Task 13 measures what that retention costs). Stated so a plan does not decide it silently, differently, per view kind |
 | P3-6 | `Dexpace::Closeable#closed?` is changed to read the latch **under the close mutex** | `IO-38`; design §3.1; phase 2's `closeable.rb` | `IO-38` is the first requirement that reads the flag from a second thread, and §3.1 fixes the mechanism as "written and read through a `Thread::Mutex` rather than relying on the GVL, so the guarantee survives JRuby and TruffleRuby". Phase 2's reader is unsynchronised, which is correct for everything phase 2 ships and not for this. Measured cost ~40 ns per call on all three interpreters, paid once per public call and never per byte |
 | P3-7 | `Dexpace/QualifiedCoreConstant` gains the constant `IO`, a third watched namespace — the one-segment `Dexpace`, making it repository-wide over every gem's `lib/` — and a definition-site guard | phase 2's P2-8; design §9's gate table | Verified: inside `module Dexpace`, `x.is_a?(IO)` and `IO === x` are silently `false` for a real `::IO` and a `case/when IO` falls through, while `IO.pipe` is a loud `NoMethodError`. `Response#body_string`, which 3b adds under `lib/dexpace/http/`, is the counter-example that forbids scoping the rule to `lib/dexpace/io/**`. `File`, `StringIO` and `Tempfile` are deliberately **not** added: no `Dexpace::` constant of those names exists, and the standing rule is that a constant joins the list in the same change that creates its shadow. The definition-site guard is new and is not optional: this is the first phase whose own `lib/` **defines** a constant that is in `SHADOWED`, so without it the cop rejects `lib/dexpace/io.rb`, the file that creates the hazard the cop exists for |
 | P3-8 | Public constants and public methods the design's §3 does not name: `Dexpace::IO` itself, `Dexpace::IO::TypedReads`, `Dexpace::IO::TypedWrites`, `Dexpace::StreamError`, `Dexpace::EndOfStreamError`, `StreamError.short_transfer`/`.zero_read`, `TeeSink#tap_snapshot`/`#tap_bytesize`/`#clear_tap`, `BufferedSource#owns_upstream?`/`#view?`, and the RBS interfaces `_Source`, `_Sink`, `_Chunked` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 precedent | Each is locked at the first release tag, so a name arriving by accident is locked by accident. `TypedReads`/`TypedWrites` are public and not `private_constant` because the surface snapshot's `public_instance_methods(false)` cannot see a method reaching a class through a module, so a private module would hide most of 3a from the gate that exists to see it. The two `StreamError` class methods exist because `BODY-13` requires one helper "so the message form cannot diverge". `_Chunked` is not called `_Body` because 3b's body type is richer and one name for two meanings across the cut is the failure the cut exists to prevent. `#owns_upstream?` and `#view?` are the two construction-time facts read back: without them `IO-6`'s ownership and `IO-22`'s slice-versus-parent rule are assertable only through `instance_variable_get`, which is the shape §10.10 already records as reaching anything |
@@ -1205,9 +1215,9 @@ below by subject, with the place that owns it now.
   moment they move. Not met, so not marked UNSCHEDULED. Event-gated: `docs/first-release.md`
   § Post-release triggers.
 
-### The finding filed against `docs/open-items.md`
+### The finding, and who owns it now
 
-**`OI-3` — the `Dexpace::` constant shadowing is not inert outside core, and phase 1's claim is
+**The `Dexpace::` constant shadowing is not inert outside core, and phase 1's claim is
 narrower than it reads.** Phase 1's design records "Verified inert outside core: a consumer's
 top-level `Method` still resolves to Ruby's, because `Object`'s own constants win over an included
 module's." That sentence is true and its conclusion is not: verified on 3.2.11, 3.4.10 and 4.0.6, a
@@ -1219,7 +1229,10 @@ consumer writing `class C; include Dexpace; …` gets `Dexpace::IO` for a bare `
 with a core class — `Method`, `Request`, `Response`, and now `IO` — and no gate this repository owns
 can reach a consumer's file. What would resolve it: nothing mechanical; what 3a does is state it in
 `Dexpace::IO`'s YARD block and record it here so a release decision and the as-built documentation
-both see it. `OI-2` remains open and unchanged.
+both see it. **Owner now:** `docs/first-release.md` § Blockers before first publish, as a line beside
+the one on what a green conformance run does not prove, requiring the `include Dexpace` shadow to be
+documented before anything is published. The `IO-6` finding above stays with the roadmap's gap
+paragraph, unchanged.
 
 ## Open questions for 3a's own plan
 

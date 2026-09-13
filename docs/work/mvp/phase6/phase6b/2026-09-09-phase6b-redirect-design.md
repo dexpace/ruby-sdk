@@ -24,7 +24,7 @@ are three independent segments (charter, *The cut*). `6b` depends on phases 0–
 dependency on `6a` and on `6c` is **empty**, with two named exceptions, both already flagged by the charter and
 both handled below rather than silently reimplemented:
 
-- **`OI-31`'s cursor widening (`R13`)** — assigned to `6a`. `6b`'s emission task (`R8`) takes its own
+- **The `Cursor` context-bundle widening (`R13`)** — assigned to `6a`. `6b`'s emission task (`R8`) takes its own
   `logger:`/`redactor:` constructor keywords regardless of whether the widening exists, so `6b` neither blocks
   on it nor builds it. See *Prerequisites* below for the concrete consequence if `6b` lands first.
 - **`Dexpace::Resilience::Resend.eligible?(request)`** — the replayability predicate `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`'s forward
@@ -82,8 +82,8 @@ sub-phase's to consume and not to edit.
   `Severity` — the machinery `R8` reuses.
 - `docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-design.md` and `.../phase5b` as the worked
   precedent for this document's shape, depth and section naming.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` (read, not
-  edited — findings are described below for a human to file); the two deferrals that reach this sub-phase — `REDIR-27`'s
+- `docs/deviations.md` and `docs/first-release.md` (read, not
+  edited — findings are described below, each with the owner that carries it); the two deferrals that reach this sub-phase — `REDIR-27`'s
   v1 decline (`docs/first-release.md` § What v1 ships without) and phase 4c's postponed `standard` constructors (Task 13a).
 - `CLAUDE.md` and `docs/README.md`.
 
@@ -152,12 +152,12 @@ asserting the race and does not treat the raise as anything but a single-cursor,
 authentication,cancellation-and-timeouts --section rules --brief`, run for the `REDIR` slice of it: clean, zero
 roll-up, nothing contradicting a decision below. **This document does not add the row to the skill file** — that
 edit is outside `docs/work/mvp/phase6/phase6b/` and is therefore not this document's to make; it is named again
-under *Findings for the registers* so it is not lost twice.
+under *Findings, and who owns them now* so it is not lost twice.
 
 **No note is filed by this document.** One candidate exists — `URI::Generic#userinfo = nil` being a silent
 no-op for `REDIR-12` — and the charter already assigns it to `6b` "to file with the design that acts on it." It
 is recorded in full under *Verified Ruby facts* below, with the exact note text a human should file, per the
-instruction that register and note edits are described here, not made here.
+instruction that note edits are described here, not made here.
 
 ## Scope: the 28 IDs, with dispositions
 
@@ -547,13 +547,13 @@ a merged test suite**, exactly as 5a's plan did for its own six.
    `ConditionSnapshot#visited_uris` as a frozen `Set<String>` satisfies `REDIR-20`'s "insertion-ordered set of
    visited URIs" with no ordering shim.
 
-## Findings for the registers
+## Findings, and who owns them now
 
-Three, described here for a human to file. **None is acted on by this document, none carries a number, and no
-register file is edited by it** — the frozen-tree rule and the "register items are not `6b`'s to file" instruction
-both apply.
+Three, each named with the owner that carries it. **None is acted on by this document, and no file outside
+`docs/work/mvp/phase6/phase6b/` is edited by it** — the frozen-tree rule and the "these edits are not `6b`'s to
+make" instruction both apply.
 
-**No register row — corrected in place instead, 2026-09-09.** **The charter's *Prerequisites* section
+**No finding to route — corrected in place instead, 2026-09-09.** **The charter's *Prerequisites* section
 wrote `Dexpace::HTTP::URL.parse!` where the shipped constant is the flat `Dexpace::URL`.** Verified 2026-09-09
 against every `module`/`class` declaration in
 `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model.md`: `Dexpace::URL` is a direct child of
@@ -561,11 +561,11 @@ against every `module`/`class` declaration in
 the design namespaced the subsystem" and §3's namespacing nothing. This sub-phase's own text cites
 `Dexpace::URL` throughout and never repeated the slip. **Disposition:** the charter is same-day, uncommitted
 work and no design decision rested on the wrong namespace, so all four occurrences were corrected in the
-charter directly rather than filed as an open item — `open-items.md` holds findings nobody is acting on, and
+charter directly rather than routed to an owner — a finding is routed only when nobody is acting on it, and
 this one was acted on. `6c`'s plan carried one instance in a code sample and was corrected with it.
 Cites: `P1-1`, `HTTP-47`.
 
-**Target register: `docs/knowledge/notes/url-and-query-encoding.md`.** **The `URI::Generic#userinfo = nil`
+**Owner: `docs/knowledge/notes/url-and-query-encoding.md`.** **The `URI::Generic#userinfo = nil`
 no-op note, filed in full under *Verified Ruby facts*, fact 1 above.** The charter names this as `6b`'s to file
 "with the design that acts on it," which this document is; the exact text, key placement (a new `## Superseded`
 or `## Reference` entry, since it does not override an *existing* harvested rule about `#userinfo=` — none
@@ -573,7 +573,7 @@ exists — it instead **adds** a fact the corpus does not yet carry, so `## Refe
 section per the skill's own guidance: "`## Reference` when the note only points somewhere") and manual `sha:`
 marker are given above, ready to paste.
 
-**Target register: `.claude/skills/knowledge-lookup/SKILL.md`'s audit-group table.** **The eleventh row the
+**Owner: `.claude/skills/knowledge-lookup/SKILL.md`'s audit-group table.** **The eleventh row the
 charter names — *Resilience: retry, redirect and authentication* — is still unfiled**, and this document,
 constrained to write only under `docs/work/mvp/phase6/phase6b/`, cannot file it either. Named again here so a
 second sub-phase document does not also assume the other filed it. Exact row content is given in the charter,
@@ -646,7 +646,7 @@ namespace, handled above so landing order does not matter; its dependency on `6c
 `state: { cross_origin: ... }` into its own fork's `Stages::REDIRECT` slot and returns, with no knowledge of
 whether an `AUTH` step is installed at all, and `PIPE-4` guarantees at most one could be. A `6b` plan whose first
 task waits on `6c`'s `Step` existing, or on `6a`'s `Resilience::Policy`, has re-imposed a chain the split existed
-to avoid. **`OI-31`'s cursor widening (`R13`)** travels with whichever of the three sub-phases lands first; this
+to avoid. **The `Cursor` context-bundle widening (`R13`)** travels with whichever of the three sub-phases lands first; this
 document does not build it and does not wait for it — `6b`'s `logger:`/`redactor:` keywords are `Step`'s own,
 independent of any per-call instrumentation bundle a widened `Cursor` might one day carry, exactly as the charter
 requires each consuming design to state.

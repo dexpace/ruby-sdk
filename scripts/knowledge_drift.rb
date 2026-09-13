@@ -106,9 +106,10 @@ module Knowledge
       end
     end
 
-    # A note names the rule it overrides by key. Report every citation that no
-    # longer resolves — the rule was reworded, so the note is describing
-    # something that is not there any more.
+    # A note names a harvested rule by key, whether it overrides that rule or only
+    # leans on it. Report every citation that no longer resolves — the rule was
+    # reworded, so the note is describing something that is not there any more.
+    # Both relations count here: a stale key is stale whichever one it carried.
     def report_keys
       corpus = Corpus.load(@paths, AppendixC.load(@paths).prefixes)
       dangling = corpus.dangling_keys
@@ -116,7 +117,7 @@ module Knowledge
         @stdout.puts("STALE KEY\t#{entry[:note]}\tcites #{entry[:cited]}, which no entry carries")
       end
 
-      resolved = corpus.entries.select(&:note?).sum { |note| note.overrides.size }
+      resolved = corpus.entries.select(&:note?).sum { |note| note.overrides.size + note.cites.size }
       @stdout.puts("\n#{resolved} note citation(s) resolve, #{dangling.size} do not.")
       return if dangling.empty?
 

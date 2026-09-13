@@ -2,7 +2,13 @@
 
 Release-readiness register — and, since 2026-09-13, also the register of what v1 ships without and of
 the post-release triggers, recorded here when the deferral register was retired: every postponed item
-now lives either in the plan task that will do it or in this file. **Nothing has been published.** There is no `gems/`
+now lives either in the plan task that will do it or in this file. The find-list register was retired
+the same day, on the same rule — a finding is routed to its owner when it is found, not registered —
+and four of its items came here: two blockers before first publish (documenting the `include Dexpace`
+constant shadow, and the `AuthDescriptor` carrier decision), `CFG-20`'s cancel-with-interrupt clause
+under the unsatisfied MUSTs, and the `CTX-7`/`CTX-8` drain proof under the post-release triggers. Two
+more left a second home here beside their primary owner: the Minitest 6 trigger, and the red
+`gates:bounded_map` blocker phase 10's repair clears. **Nothing has been published.** There is no `gems/`
 directory yet, no tag, and no version beyond the `0.0.0` every gem will start at.
 
 ## Gems, once they exist
@@ -25,7 +31,8 @@ them at `0.0.0` until the first release:
 
 **Supported Ruby is not uniform across this table, from phase 8 onward.**
 `dexpace-transport-async_http` declares `required_ruby_version >= 3.3` where every other gem keeps the
-repository floor of 3.2 (phase 8c's deviation `P8-36`, `OI-38`): `async-http` 0.104.0 and its whole
+repository floor of 3.2 (phase 8c's deviation `P8-36`, whose per-gem Ruby floor gate edit is 8c's plan,
+Task 3): `async-http` 0.104.0 and its whole
 dependency closure require 3.3, and the last release allowing 3.2 is eleven minor versions behind the one
 phase 8c verified against. **A consumer on Ruby 3.2 composes `dexpace-core`,
 `dexpace-transport-net_http`, `dexpace-serde-json`, `dexpace-async-thread` and `dexpace-conformance`, and
@@ -47,7 +54,7 @@ stated in the release notes rather than discovered at `bundle install`.
       fixture and both thin drivers — and
       phase 8a and 8c each run it against a real adapter. **With one stated exception**: the 3.2 row runs
       the suite against `dexpace-transport-net_http` only, because `dexpace-transport-async_http` cannot
-      be installed there (see the supported-Ruby note above, `P8-36`/`OI-38`). "Passing across 3.2
+      be installed there (see the supported-Ruby note above, `P8-36`, and 8c's plan, Task 3). "Passing across 3.2
       through 4.0" therefore means: every gem on every row it can be installed on
 - [ ] **Before release, `docs/sdk-documentation/` must state what a green `dexpace-conformance` run does
       and does not prove, and the run's own report preamble must name the same omissions.** Filed
@@ -55,11 +62,60 @@ stated in the release notes rather than discovered at `bundle install`.
       connect timeout, so `TRANSPORT-4`'s open-timeout half and every TLS property are asserted in
       `dexpace-transport-net_http`'s own suite and **not** in the portable one; phase 8c's adapter
       additionally carries a named waiver listing `TRANSPORT-14`, whose malformed-inbound-header-**name**
-      clause is unreachable on `async-http` (`OI-39`, `P8-38`). A third-party adapter author whose adapter
+      clause is unreachable on `async-http` (`P8-38`; the roadmap's phase-10 inbound list carries §12's
+      `TRANSPORT-14` scoping). A third-party adapter author whose adapter
       passes is entitled to know that TLS verification, connect-timeout classification and any waived ID
       were not among the things it passed — which is the difference between a conformance suite and a
       badge. Cites `TRANSPORT-4`, `TRANSPORT-14`, `TRANSPORT-20`, `NFR-2`; the suite itself is phase
       8a's Tasks 4–8 and 20 and phase 9's Tasks 2–12a
+- [ ] **Before release, `docs/sdk-documentation/` must document the `include Dexpace` constant-shadow
+      hazard.** Filed 2026-09-08 by phase 3a's design; recorded here 2026-09-13. Phase 1 measured
+      `Dexpace::Method` shadowing `::Method` and concluded "**verified inert outside core**"; the observation
+      is true and the conclusion is wider than it supports, because the measurement was taken at the top level.
+      Verified 2026-09-08 on 3.2.11, 3.4.10 and 4.0.6, identically on all three: a **top-level**
+      `include Dexpace` is inert, since `include` inserts `Dexpace` into `Object` and `Object`'s own constant
+      table is searched first — but a consumer writing `class C; include Dexpace; def check(x) = x.is_a?(IO);`
+      gets `Dexpace::IO`, because `include` puts `Dexpace` **ahead of** `Object` in `C.ancestors`
+      (`[C, Dexpace, Object, Kernel, BasicObject]`). `C#check` then returns **`false` for a real `::IO`**, with
+      no error and no warning; `IO === x` is false and a `case/when IO` falls through. `extend Dexpace` and a
+      class with no include are unaffected; a `module M; include Dexpace` behaves like a class. It is about
+      **every flat `Dexpace::` constant sharing a name with a core class** — `Dexpace::Method`, `Request`,
+      `Response`, `Query`, `Status`, and `Dexpace::IO`, which phase 3a adds and which is the one callers most
+      often type-test — and `include Dexpace` is an ordinary Ruby convenience phase 1 deliberately measured, so
+      it is a use this port expects. Nothing mechanical can reach a consumer's file: phase 3a's extension of
+      `Dexpace/QualifiedCoreConstant` covers `gems/*/lib/**/*.rb` and stops at the gem boundary by
+      construction. Renaming is not on the table — design §3.1 and §10.2 name `Dexpace::IO::Buffer`, and `P1-1`
+      keeps a namespace the design gave a subsystem. Phase 3a states the hazard in `Dexpace::IO`'s own YARD
+      block; what is owed before the tag is the same warning in `docs/sdk-documentation/`, where a consumer
+      meets it, and a release decision that has seen it
+- [ ] **A decision on where a per-call or operation-level `AuthDescriptor` is carried.** `AUTH-4`–`AUTH-7`'s
+      tier resolution takes a per-call, an operation and a client `AuthDescriptor` in that preference order,
+      and `6c` ships the resolver as a correct, tested, stateless pure function. What no phase specifies — not
+      1 through 5, and not `AUTH`'s own 38 IDs — is **where a per-call or operation-level descriptor is
+      carried**: `docs/sdk-design-ruby/` names no field on `Request`, on `RequestOptions`, or on any
+      `Operation` construct for it, and no `AUTH` requirement asks for one. `AUTH-1`–`AUTH-7` describe the
+      descriptor and the resolver as data and a function, never a carrier. `6c` therefore ships the AUTH
+      pillar step accepting an **already-resolved** credential (or a caller-supplied `Scheme => credential`
+      table) at construction time, treating the resolver as a standalone library object whose caller —
+      presumably Operation-building code, outside `AUTH`'s scope entirely — invokes it and threads the result
+      into the step. **Release-gated since 2026-09-13; this line owns the decision**, filed 2026-09-09 by
+      phase 6c's design. No v1 phase builds that Operation-level wiring, so `AUTH-4`–`AUTH-7`'s resolver ships
+      correct and exercised **only by its own unit tests**, never by an end-to-end call path. The event that
+      would reopen it is **the first consumer that needs per-call or per-operation credentials — a worked
+      example in `docs/sdk-documentation/`, a `dexpace-conformance` fixture, or a downstream SDK's `SEAM-26`
+      operation projection carrying a descriptor**. Until that event: either the release notes state that the
+      tier resolver has no carrier and only the client tier is reachable end to end, or a carrier is built
+      before the tag
+- [ ] **`gates:bounded_map` green: `dexpace-transport-async_http`'s `Clients` is an uncapped
+      per-origin client cache, which `XCUT-14` (MUST) forbids.** Found 2026-09-13 by phase 9's planning, and
+      the **one true positive** of six `gates:bounded_map` reports over 222 filed Ruby fences at 184 distinct
+      `gems/*/lib/**/*.rb` paths, measured identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. The map is
+      instance-lived and lives as long as the client, its key space is chosen by caller URLs and by a server's
+      redirect `Location`, `#fetch` inserts with `||=` and nothing evicts — `#close` closes each client's pool
+      and leaves the map populated. The repair is **phase 10's**, because `8c` owns the file and has already
+      run by the time phase 9's audit does, and it sits on phase 10's inbound list (the roadmap's 2026-09-13
+      status note) with the measured detail and the line numbers. The gate stays red until it lands, and
+      `XCUT-14` being a MUST is why this is a blocker rather than a report line
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
       accidental breaking change
 - [ ] `SECURITY.md` contact confirmed reachable and monitored
@@ -134,6 +190,18 @@ for one of those IDs cites the entry here rather than a phase.
   never a green one; phase 10 audits the §10.5 ledger and may not re-open the trade (roadmap cross-cutting
   constraint 8). That `dexpace-transport-async_http` *can* abort an in-flight exchange through a parent
   task's cancellation does not close `ASYNC-3`, whose antecedent is a blocking task on a **worker thread**.
+  **`CFG-20`'s cancel-with-interrupt clause is this same unmet clause under a second ID**, added here
+  2026-09-13 (found 2026-09-09 by the phase-5 segmentation design). `CFG-20` is a SHOULD, three of its four
+  clauses are met, and the fourth is the prohibition §10.5 already settles — so **the port gains no fourth
+  unsatisfied MUST** and `CFG-20` does not join this entry's heading. What it gains is a citation that states
+  the gap, which it did not have: design §10.5 names `ASYNC-3`, `ASYNC-4` and `PIPE-33` and stops; §12's `CFG`
+  row says `CFG-20` is "reshaped as the pivot", which does not say a clause is unmet; and §10 item 4 lists
+  `CFG-20` among the IDs it touches but argues the mechanism substitution rather than the gap — three
+  citations available to a `CFG-20` checklist row and not one of them saying what is missing, which is exactly
+  the ✅-or-⏳-with-an-unstated-clause the roadmap's one-row-per-ID convention exists to stop. Phase 5a's `R7`
+  owns the row's form (⏳ against this entry with a note that the entry does not cite `CFG-20`, ✅-with-clauses
+  naming the three that are met, or a partial marker of its own). The parallel worth reading beside it is
+  §11.20's `RECOV-31`/`RETRY-38`, "the same feature under two IDs", and phase 4's treatment of it.
 
 ### SHOULD- and MAY-level requirements declined for v1
 
@@ -279,12 +347,48 @@ the trigger, then the one job to do when it fires.
   `IO` suite unchanged
   and confirm the cross-thread close test (`IO-38`) still passes. On every CRuby row the GVL hides a
   missing lock, so the test proves the behaviour and not the `Thread::Mutex` mechanism design §3.1 fixes
-  for JRuby and TruffleRuby.
+  for JRuby and TruffleRuby. **The same row is what proves `ContextStore`'s drain, added here 2026-09-13**
+  (found 2026-09-08 by phase 4a's plan review): `CTX-7`'s "registered, overwritten, and removed concurrently
+  without external locking" and `CTX-8`'s "deterministically admit exactly one winner" both rest on
+  `BoundedMap`'s one-`synchronize` insert-and-drain, and **no test holds it** — the discriminating
+  measurement, "the maximum size ever observed", is unreachable from the public surface, because
+  `ContextStore#size` delegates to `BoundedMap#size`, which takes the same `Thread::Mutex` as the insert, so a
+  reader can never observe the transient `cap + 1`. Measured: a split-lock `BoundedMap`, acquiring the mutex
+  separately for the insert and for the drain, sampled by four concurrent `#size` readers across 64 000
+  inserts from 32 threads at `cap` 8, reported a maximum of **exactly 8 on six consecutive runs**, identical
+  to six runs of the shipped one-`synchronize` form; the corpus note's own `9`-at-`cap`-8 observation was
+  taken from **inside** the prototype's hash, which no test written against the public surface can reach.
+  Phase 4a's plan ships the other discriminating measurement, "the maximum iterations in any one call", in its
+  observable form. So narrowing that lock's scope is invisible to the suite on CRuby, exactly as a missing
+  lock is for `IO-38`: when this trigger fires, add the `CTX-7`/`CTX-8` drain assertion beside it. The
+  alternative repair — an internal probe seam on `BoundedMap` a test can read without the mutex — is a
+  `private_constant`'s test surface phase 2 declined for `Dexpace::Hooks`, and would need the same argument
+  made deliberately.
 - **The require-allowlist regeneration guard — a new Ruby minor version enters the CI matrix** →
   re-derive the require-allowlist's name
   list on the new interpreter and diff it against the committed allowlist. This is `NFR-9`'s content that
   §10.19's retarget does not cover: the allowlist audit and the clean-bundle run check that today's list
   holds, not that it is still the right list.
+- **Minitest 6 — no fence in the repository requires `minitest/mock`** → lift the root `Gemfile`'s `minitest`
+  pin. Recorded 2026-09-13; found 2026-09-12 by phase 9's design. Phase 0's Task 2 pins `minitest` to
+  `~> 5.25` — a **development** dependency, so the zero-runtime-dependency rule is untouched — because
+  Minitest is a different major at the top of the supported range and the version there has removed
+  `minitest/mock`. Measured on all three installed interpreters: `minitest 5.25.1` on **3.2.11**, `5.25.4` on
+  **3.4.10** and **`6.0.0` on 4.0.6**, with
+  `Gem::Specification.find_by_name("minitest").default_gem?` `false` on every one. On 5.25.x the gem ships
+  `minitest/mock.rb`; **on 6.0.0 it does not** — `require "minitest/mock"` raises `LoadError` on 4.0.6, and
+  that gem's `lib/` listing has neither `minitest/mock.rb` nor `minitest/unit.rb`, while `assertions.rb`,
+  `test.rb`, `autorun.rb`, `spec.rb` and `benchmark.rb` all remain. Every assertion name this repository uses
+  survives: 22 were checked, from `assert_equal` to `assert_in_delta`, and all 22 are still defined on
+  `Minitest::Assertions` in 6.0.0. What disappears is `Minitest::Mock` and `Object#stub` — which **phase 8a's
+  plan uses twice** (`Dexpace::Conformance::TransportSuite.stub(:assertions, assertions)`, in its driver test
+  and again in its `test/` fence) and which two corpus rules name (`testing/e27df4c7`, `testing/70473c9d`).
+  The pin keeps the same framework major and a working `stub` on every matrix row, at the cost of the 4.0 row
+  not exercising the Minitest its interpreter ships; without it that row runs **red**, which would falsify the
+  standing blocker above — the `dexpace-conformance` suite passing across 3.2 through 4.0 — and is exactly the
+  trap §9.2's "run the real suite on each Ruby" argument exists for, since `TargetRubyVersion` catches syntax
+  and not library availability. The job when this fires: drop the pin, and re-check that no fence requires
+  `minitest/mock`.
 - **Lifting appendix `B.1`, `B.2` and `B.5` — a second implementation of the pagination engine, the SSE
   reader or the configuration chain exists** → lift their assertions into `dexpace-conformance`. Until
   then a lifted assertion over a single subject is a test with one subject living in a package whose

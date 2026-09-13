@@ -16,8 +16,10 @@ declare, which the draft had assigned to `5c`; the recording tracer and meter fa
 5b's suite reuses; and `Events::INSTRUMENTATION_SHUTDOWN` was settled here rather than deferred to `5c`. One thing the
 reconciliation found that neither document had noticed: **`OBS-24` had a scope-table row in neither**, which
 *Scope* now corrects — it is 5b's, making this segment 28 IDs and `5c` 12, against a charter whose arithmetic
-and whose prose disagree. The items this document proposed are recorded: the `OBS-19` header-drop policy (owner: phase 8c, Tasks
-7, 9 and 15), and `OI-25`, `OI-26` and `OI-27`.
+and whose prose disagreed and which has since been corrected in place. The items this document proposed all
+have owners: the `OBS-19` header-drop policy (phase 8c, Tasks 7, 9 and 15), §8.1's unsourced `Event#tag`
+(phase 10's inbound list), the bare-`Logger` cop watch (this phase's own plan, Task 10) and the charter's
+`OBS-19` scope-table cell (corrected to what `R10` settled).
 
 ## Purpose
 
@@ -66,14 +68,14 @@ than by taste.
   captured and prior key sets** restores a context byte-for-byte (`restored == prior` is `true`) using
   `Fiber[]=` alone, which emits no warning; the one context it cannot restore exactly is one holding a key
   whose value is literally `nil`, and such a context is only constructible through the very setter this route
-  refuses. `OI-13`'s gate problem therefore never arises. `R12`.
+  refuses. The warned setter's gate problem therefore never arises. `R12`.
 - **Fiber-storage keys are `Symbol`s and event field keys are dotted `String`s, and the conversion must be
   `Symbol#name`.** Verified: `Fiber#storage=` raises `TypeError: wrong argument type String (expected Symbol)`
   on a `String` key while `Fiber[]=` coerces one; and `Symbol#name` returns the **same frozen `String`** on
   every call while `Symbol#to_s` allocates a fresh unfrozen one each time. A fold written with `#to_s`
   allocates one `String` per folded key per event on the hot path `OBS-1` exists to protect.
-- **§3.1's decode recipe is wrong for `OBS-38` in the way `OI-7` records, and phase 3b's correction is what
-  5b copies.** Re-verified: `"café".b.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace)` returns
+- **§3.1's decode recipe is wrong for `OBS-38` in the way phase 10's inbound list records, and phase 3b's
+  correction is what 5b copies.** Re-verified: `"café".b.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace)` returns
   `"caf"` plus two replacement characters. The preview renderer retags first and names both encodings, exactly
   as `Response#body_string` does.
 - **`OBS-7`'s 8 KiB cap is a byte figure and a byte-sliced multibyte string is not a valid `String`.**
@@ -120,7 +122,8 @@ value type and two pipeline steps.
   reconciliation**, and not read while this document was drafted. It is the source for every span, tracer,
   scope, meter and instrument method name this document calls, for the two slot defaults, and for
   `interface _Meter`.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/deviations.md` and `docs/first-release.md` (and, while it existed, the open-items register,
+  retired on 2026-09-13).
 - `CLAUDE.md` and `docs/README.md`.
 
 ## The `5b`/`5c` line, and how each crossing was settled
@@ -157,10 +160,10 @@ second step, a second diagnostic-context key-name constant, or a second no-op me
 Twenty-eight IDs: **23 MUST, 5 SHOULD (`OBS-7`, `OBS-19`, `OBS-35`, `OBS-37`, `OBS-38`), 0 MAY**, derived
 mechanically from appendix C on 2026-09-09.
 
-**A second correction to the charter, found at reconciliation, stated here and filed as `OI-30` rather than
-made by editing the charter.**
-The charter says 5b's "ID set is exactly `OBS-1`–`OBS-20` together with `OBS-34`–`OBS-40`: 20 + 7 = **27**",
-and its `5c` table's Implemented row reads `OBS-21`–`OBS-31`, which **includes `OBS-24`**. Its prose says the
+**A second correction to the charter, found at reconciliation and stated here; the charter's own two scope
+tables were corrected in place on 2026-09-13, after this document.**
+The charter said 5b's "ID set is exactly `OBS-1`–`OBS-20` together with `OBS-34`–`OBS-40`: 20 + 7 = **27**",
+and its `5c` table's Implemented row read `OBS-21`–`OBS-31`, which **includes `OBS-24`**. Its prose says the
 opposite twice: "`OBS-24` goes to `5b`: it is the context snapshot itself, with no span in it", and `R12`
 says "`5b` owns `OBS-24` and `5c` owns `OBS-23`". The two cannot both be true, and the prose is the one the
 substance follows — 5b builds `Diagnostics.capture` and `.with` for it (`R12`, `P5-22`, `P5-23`) and `5c`
@@ -174,16 +177,16 @@ to prevent, and is why the correction is made rather than carried.
 | Disposition | IDs | Count |
 |---|---|---|
 | Implemented | `OBS-1`–`OBS-18`, `OBS-20`, `OBS-24`, `OBS-34`, `OBS-35`, `OBS-36`, `OBS-38`, `OBS-39`, `OBS-40` | 26 |
-| ⏳ postponed to phase 8 — now phase 8c, Tasks 7, 9 and 15 (`DropPolicy`) — the requirement's subject is "a transport that drops a caller-set request header it cannot encode"; core has no transport, `Net::HTTP` raises rather than drops (§12's `OBS` row), and a three-mode policy object with no core caller and no core test is `OI-8`'s exact shape. `R10` | `OBS-19` (SHOULD) | 1 |
+| ⏳ postponed to phase 8 — now phase 8c, Tasks 7, 9 and 15 (`DropPolicy`) — the requirement's subject is "a transport that drops a caller-set request header it cannot encode"; core has no transport, `Net::HTTP` raises rather than drops (§12's `OBS` row), and a three-mode policy object with no core caller and no core test is `TeeSink#clear_tap`'s exact shape, the decision 3a's Task 14 still owns. `R10` | `OBS-19` (SHOULD) | 1 |
 | ⏳ post-v1 with the async adapters — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry | `OBS-37` (SHOULD) | 1 |
 
-**This changes one cell of the charter's own scope table**, which expects `OBS-19` as "Partially satisfied —
+**This changes one cell of the charter's own scope table**, which expected `OBS-19` as "Partially satisfied —
 the verbosity policy and its once-per-name throttle ship". The charter's `R10` explicitly leaves the choice
 open and forbids only one of the two answers ("It must not ship a policy with no caller and no test that
 exercises it"). `R10` below argues the deferral and `P5-32` records it, because §12's word for `OBS-19` is
-"vacuous" and a checklist row cannot cite "vacuous" as a target. **The charter is not edited**; the correction
-is made here, where it is made, and the discrepancy between the scope table and `R10` is filed as `OI-27`.
-The precedent is phase 4c correcting the charter's `PIPE-39` row.
+"vacuous" and a checklist row cannot cite "vacuous" as a target. **This document did not edit the charter**;
+the correction is made here, where it is made, and the charter's own cell was corrected to what `R10` settled
+on 2026-09-13. The precedent is phase 4c correcting the charter's `PIPE-39` row.
 
 **`XCUT-19` and `XCUT-20` are phase 9's IDs and get no row here.** 5b satisfies both by construction —
 `OBS-11`/`XCUT-19`(a), `OBS-12`/`OBS-13`/`XCUT-19`(b), `OBS-18`/`XCUT-19`(c), `OBS-34`/`XCUT-19`(e), and
@@ -290,9 +293,9 @@ And the one sentence in design §8.1 that the whole security argument rests on:
 | `OBS-31`–`OBS-33` — the metrics SPI, the no-op meter, the counter and histogram contracts | `5c`. 5b's step takes a meter through a slot and calls it; it ships none |
 | `OBS-32`'s instrument **units**, descriptions and attribute sets | `5c`, ⏳ post-v1 (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry); its conformance clause needs a recording meter, which core does not ship. **The two instrument *names* are 5b's**, reversed at reconciliation: the step is the only caller of `create_counter`/`create_histogram` in core, so the object *is* 5b's, and `OBS-34` cannot record without a name (`R11`) |
 | `CFG-1`–`CFG-38` — the layered chain, the clock, the proxy model, the five utilities | `5a`. 5b consumes `Configuration#string` and `Configuration::Keys` and adds **one** key name, `LOG_PREVIEW_BYTES`. **Corrected at the plan reconciliation: this said two.** Phase 3b's deferral of the body-logging caps names three wirings — the shared preview size, the body-logging enablement gate, and a configured source for `MAX_MATERIALIZED_BYTES` — and only the first needs a name that does not exist. The enablement gate reads `5a`'s shipped `Keys::LOG_LEVEL` (`"LOG_LEVEL"`, `OBS-35`'s published name), which 5b must not restate, rename or revalue; `Keys::MAX_MATERIALIZED_BYTES` is `5a`'s too and `5a` supplied that third wiring |
-| `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a **thread hop** in an adapter | 8. 5b owns the carrier and `OBS-24`'s bridge; `dexpace-async-thread` owns the pooled-worker save/install/restore and is what `OI-13` will meet |
+| `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a **thread hop** in an adapter | 8. 5b owns the carrier and `OBS-24`'s bridge; `dexpace-async-thread` owns the pooled-worker save/install/restore and is what the observability note's warned-setter entry will meet |
 | `BODY-17`–`BODY-29`, `BODY-34`, `IO-9`, `BODY-32` — the two logging body wrappers and the materialisation ceiling | 3a and 3b, built. 5b supplies the configured preview size and the enablement gate phase 3b postponed here (Tasks 14–15) and adds no keyword to either wrapper |
-| `HTTP-42`'s decode boundary and `Response#body_string` | 3b, built. `OBS-38`'s preview renderer follows its corrected recipe (`OI-7`) and does not replace it |
+| `HTTP-42`'s decode boundary and `Response#body_string` | 3b, built. `OBS-38`'s preview renderer follows its corrected recipe — §3.1's own sentence is wrong and is on phase 10's inbound list — and does not replace it |
 | `XCUT-11`'s shared-instance audit, `XCUT-14`'s bounded-map audit, `XCUT-19`/`XCUT-20`'s totality audits | 9 dispositions. 5b builds the redactor and the two policies that are the audit's subject |
 | `XCUT-21`'s CSPRNG path | 6. 5b draws no random value at all |
 | `TRANSPORT-8` — header-drop reporting on a real adapter | 8, and it is what the `OBS-19` postponement targets (phase 8c, Tasks 7, 9 and 15) |
@@ -363,8 +366,8 @@ that warns.
   fallback need no second validation and what makes `Encoding.find` unreachable from 5b — verified that
   `Encoding.find("no-such-charset")` raises `ArgumentError`, which is exactly the raise phase 1 already
   removed.
-- **`Dexpace::Response`** — `#body_string` (retag then transcode with both encodings named, `OI-7`'s
-  correction) and `#body_bytes` (BINARY, decodes nothing). `OBS-38`'s renderer is the same recipe applied to a
+- **`Dexpace::Response`** — `#body_string` (retag then transcode with both encodings named, the correction
+  phase 3b made to §3.1's recipe) and `#body_bytes` (BINARY, decodes nothing). `OBS-38`'s renderer is the same recipe applied to a
   **preview** rather than to a whole body, and it does not reimplement it.
 - **Public wire-model constants are flat (P1-1) unless the design namespaced the subsystem.** §8.1 names
   `Dexpace::Instrumentation::Event`, `Event::INERT` and `Dexpace::Instrumentation::Bundle`, and phase 4a
@@ -395,8 +398,8 @@ that warns.
   absence** (presence-gated auto-activation, post-v1 — `docs/first-release.md` § What v1 ships without). 5b adds
   no fourth registry.
 - **`Dexpace/QualifiedCoreConstant`** (P2-8, extended by 3a as P3-7). 5b defines `Dexpace::Instrumentation::Logger`,
-  which is deliberately *named after* a core-adjacent constant it must never become — `P5-38` and a proposed
-  open item.
+  which is deliberately *named after* a core-adjacent constant it must never become — `P5-38`, and the
+  scoped cop watch this phase's plan carries as Task 10's amendment.
 - **P2-6's precedent, which 5a re-applied as `P5-8` and which 5b now discharges**: a warning emitted through
   `Kernel#warn` before the facade existed gets an `http.instrumentation.*` event **beside** it and keeps the
   warning. 5b adds the event at `Dexpace::ProxyResolution`'s two `Kernel#warn` sites (`CFG-24`, `CFG-25`) and
@@ -415,8 +418,8 @@ that warns.
   `ceiling:` keyword and does not re-read it.
 - **`Dexpace::ResponseBody#preview(cap:)`** — a fresh peek view, a capped read, the view closed in an `ensure`.
   `OBS-38`'s renderer takes bytes; it does not acquire a body.
-- **The retag-then-transcode recipe and `OI-7`.** 5b copies phase 3b's corrected form and cites `OI-7`;
-  §3.1's own sentence is the one that must not be copied.
+- **The retag-then-transcode recipe.** 5b copies phase 3b's corrected form and cites the §3.1 decode-sentence
+  correction on phase 10's inbound list; §3.1's own sentence is the one that must not be copied.
 
 ### From phase 4
 
@@ -460,16 +463,17 @@ that warns.
   falls back to** — `OBS-35`'s embedded MUST is 'The SDK MUST NOT bake in a default config key name', so
   `5b`'s log-level resolution takes its key as a **required** argument." 5b honours it exactly (`P5-36`).
 - **`5a` deliberately declared no key constant for the body preview size or the enablement setting**, and said
-  why: "a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is `OI-8`'s shape."
+  why: "a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is the `TeeSink#clear_tap` shape (3a plan, Task 14)."
   **5b adds the two names in the change that reads them**, which is the body-logging caps' pick-up.
 - **`Dexpace::Clock` and `Clock::SYSTEM`** — `#now`, `#monotonic`, `#sleep`. `OBS-39`'s
   `http.response.duration_ms` is measured with `#monotonic` and **never** with `#now`, which is `CFG-16`'s own
   rule arriving at its first consumer. The step takes `clock:` defaulting to `Clock::SYSTEM`.
 - **`Dexpace::ProxyResolution`'s two `Kernel#warn` sites** (`P5-8`), where 5b adds an event beside each.
 
-**Three open items land in 5b's window and none is 5b's to close.** `OI-13` is `R12`'s subject and 5b's
-resolution is to never make the call it records. `OI-7` is `OBS-38`'s recipe and 5b copies phase 3b's
-correction rather than §3.1's sentence. `OI-8` is the shape `R10` refuses to repeat.
+**Three findings from earlier passes land in 5b's window and none is 5b's to close.** The observability
+note's `Fiber#storage=` entry is `R12`'s subject and 5b's resolution is to never make the call it records.
+The §3.1 decode sentence on phase 10's inbound list is `OBS-38`'s recipe, and 5b copies phase 3b's correction
+rather than §3.1's sentence. `TeeSink#clear_tap` (3a plan, Task 14) is the shape `R10` refuses to repeat.
 
 ## Corpus reading, and what it settled
 
@@ -494,13 +498,13 @@ statement of what the fragment-`?` clause produces; `OBS-16`'s "`/cb?code=SECRET
 worked example of the relative branch; and `OBS-34`'s "at none assert no request/response events but the span
 still starts/ends and the counter/histogram still record" is the test `R11` has to make writable.
 
-**`OI-24`'s shape does not recur for `OBS`, and that was checked rather than assumed.** `5a` found that
+**The audit-group shortfall `5a` found does not recur for `OBS`, and that was checked rather than assumed.** `5a` found that
 `--prefix CFG --section rules` returns 36 of 38 IDs because `CFG-14` and `CFG-29` are filed under `Reference`.
 Verified mechanically on 2026-09-09: `ruby scripts/knowledge.rb --prefix OBS --section rules --brief` returns
 **51 entries covering all 40 distinct `OBS` IDs**, `OBS-1` through `OBS-40` with none missing. So the audit
 group's ID-bearing half is complete for this half of the phase, and a 5b designer who counts what comes back
-gets the same number `--prefix-info` reports. Recorded positively because `OI-24` is open and a reader meeting
-it would otherwise have to re-check.
+gets the same number `--prefix-info` reports. Recorded positively because the `knowledge-lookup` skill's
+audit-group row now carries `5a`'s mitigation line, and a reader meeting it would otherwise have to re-check.
 
 **The appendix-B roll-up hazard fires on every `OBS` ID**, exactly as the charter said. Confirmed on the ten
 IDs whose roll-up is most misleading: `observability/9345dbb4`, `/1b6ebe7e`, `/45e60e1e`, `/9394cf3e`,
@@ -516,13 +520,13 @@ this document, and the substantive entry was located beside the roll-up in every
 |---|---|---|
 | **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` (92 entries across three topic files) and `--prefix OBS --section rules --brief` (51 entries, 40 distinct IDs) | The `redaction-and-security` half is the one that shaped this document: it carries `OBS-11`–`OBS-19` **and** `XCUT-19`'s five clauses **and** `XCUT-16`'s non-secure-transport rule **and** `XCUT-21` in one file, which is the charter's point that "the redaction surface is one audit target spanning two prefixes and must not be split from the event object". Nothing in either half contradicts a decision below, so **no note is filed** |
 | **Observability, non-rule sections** | `--topic observability --section constraints,conclusions,reference --brief` | The four `Constraints` and eight `Conclusions` entries are §8.1's own arguments harvested, and three are cited rather than restated: `observability/956f1603` ("Ruby cannot make an enabled structured log event allocation-free; only the disabled path is required to allocate nothing"), `observability/53a73482` (why a `sink.info { }` shape was rejected) and `observability/c2ebb968` ("URL redaction runs on the way into `#field` rather than at the sink"). `observability/80c9594d` is the fragment split `OBS-13` needs and is the reason the fragment tokenizer is hand-rolled |
-| **Fiber storage and the diagnostic context** | `--topic observability --origin note` | One entry, `observability/698552b4`, superseding `observability/e0f1e864`. It is the boundary 5b works inside: fiber storage is the carrier across the whole supported range, its inheritance is **copy-on-write**, `Fiber.new(storage: nil)` opts out, and it is **not** where `CTX`'s execution context lives. It also names `OI-13` for the write side, which is `R12` |
+| **Fiber storage and the diagnostic context** | `--topic observability --origin note` | One entry, `observability/698552b4`, superseding `observability/e0f1e864`. It is the boundary 5b works inside: fiber storage is the carrier across the whole supported range, its inheritance is **copy-on-write**, `Fiber.new(storage: nil)` opts out, and it is **not** where `CTX`'s execution context lives. The same note covers the write side — `Fiber#storage=` warns per call and `= nil` reads back differently on the 3.2 floor, so writes go per key — which is `R12` |
 | **Concurrency and shared state** | `--topic concurrency-and-async --section rules --brief`, narrowed by grep on `mutex\|thread\|fiber\|frozen` | `concurrency-and-async/f414b864` (the note) governs `OBS-8`'s emit-once latch exactly as §8.1 describes it: a flag flipped under a `Thread::Mutex` held across the flip only, released before the sink call, and not the GVL. Verified here that `Thread::Mutex` is non-reentrant (`ThreadError: deadlock; recursive locking`) and per-**fiber**-owned (`m.owned?` is `false` inside a child fiber of the owning thread), so a sink call inside the lock would be a live deadlock risk and not a theoretical one |
 | **Resource lifecycle** | `--topic resource-management --section rules --brief` | 27 entries. 5b acquires no resource: the step never closes a body (phase 3b's wrappers own that), `Instrumentation.contain` holds nothing across its `rescue`, and `Diagnostics.with` is a `begin/ensure` around a caller's block with no acquisition inside it. `resource-management/bf5560dc`'s block-form rule reaches only `Diagnostics.with`, which already has that shape |
 | **Public API surface** | `--topic api-design,error-handling,module-organization,documentation --section rules --brief` | `api-design/1d9e6e0b` (keywords everywhere) shapes every constructor; `api-design/6ea28c9c` (never `nil` for absent) is **overruled by requirement** at `Redactor#header_value`, which returns a `String` always, and is honoured everywhere else; `api-design/c15b29ce` (every returned collection frozen) is adopted through `Model.own` for `OBS-9`'s context and through `#freeze` for `OBS-24`'s snapshot; `module-organization/64e84d64`'s full-nesting rule is what the four `private_constant`s depend on; and `api-design/1d9e6e0b`, `/a9943041` and `/634ccc4b` together make **adding an optional keyword non-breaking and changing an existing default MAJOR**, which is the rule the two required step slots are chosen under (`R11`, `P5-33`) |
 | **RBS / Steep typing** | `--topic type-system,data-modeling --section rules --brief` | `type-system/545949a5` fixes `Severity` and `HTTPLogging` as frozen `Data` value types over a frozen table with an `.of` factory, never a `T::Enum`; `data-modeling/3e37c086` puts `Logger`, `Event` and `Redactor` in classes because they are implementations rather than values; `data-modeling/b74a2869` and `/ec0f41cb` put `Diagnostics`, `Preview`, `Keys` and `Events` in modules because they own no state; `data-modeling/6accaff9` (a mutable constant must be frozen at assignment) covers every one of the twenty-odd frozen `String` constants in `Keys`/`Events`; `data-modeling/5bc538ba` already narrows the Ractor claim and `P5-22` narrows it once more |
 | **Minitest conventions** | `--topic testing,assertions --section rules --brief` | 29 entries. `testing/4ef070df` (every test runs alone, in any order, fresh fixtures) is what forces every `Diagnostics` test to restore fiber storage in an `ensure` — a leaked `Fiber[:"trace.id"]` is visible to every later test in the same thread; `testing/7ecef8e8` and `/630ba094` name the four doubles 5b builds **fakes**; `testing/26b866e1` forbids `assert_nothing_raised`, which bites hardest here because `OBS-15`, `OBS-20` and `XCUT-20` are all "never throws" requirements — each is asserted on the *substituted value* and on the *diagnostic emitted*, never on the absence of a raise; `assertions/e8c05720` routes `OBS-3`'s empty-key rejection through `Model.required!` |
-| **RuboCop and formatting** | `--topic tooling-and-quality-gates --section rules --brief` | Clean. **5b adds no cop.** The one it would have wanted — a `Dexpace/QualifiedCoreConstant` entry for `Logger` — cannot be written, and that is `OI-26` rather than a silent omission |
+| **RuboCop and formatting** | `--topic tooling-and-quality-gates --section rules --brief` | Clean. **5b adds no cop.** The one it would have wanted — a `Dexpace/QualifiedCoreConstant` entry for `Logger` — cannot be written in the cop's current shape, and the plan's Task 10 owns the scoped watch that would replace it rather than leaving a silent omission |
 | **Styleguide-vs-design conflicts** | `--section conflicts --brief` | All six resolved; none open |
 
 ### The notes filed against the corpus by this phase
@@ -535,7 +539,7 @@ this document, and the substantive entry was located beside the roll-up in every
   write side and `docs/knowledge/notes/observability.md` did not record it. This document did not file it
   **because the note file already existed and the `5c` agent was writing concurrently** — a second author
   appending to one note file loses an edit — and recommended instead that it be added as a third write-side
-  property beside `OI-13`'s two. The pass that reconciled the two designs did exactly that, in one entry that
+  property beside the two the observability note already records for the whole-map setter. The pass that reconciled the two designs did exactly that, in one entry that
   also carries `5c`'s finding that fiber storage's copy-on-write protects the **slot** and not a mutable
   object held in it. The entry narrows `observability/e0f1e864` a second time, is flagged single-interpreter
   (3.4.10 only), and is what `R11`'s type argument and `5c`'s `R13` both now cite instead of restating.
@@ -557,8 +561,8 @@ installed** — re-checked for this document: `ruby -v` is `ruby 3.4.10 (2026-06
 **2**, **3**, **6** and **9** are of the floor-straddling kind this repository has been bitten by three times
 — `URI::DEFAULT_PARSER` at 3.4.0, `StringIO#read(n, buf)`'s encoding at 3.4, `Data#with`'s `initialize` on
 3.2 — and **5b's plan re-runs each on 3.2.11 and 4.0.6 before the code that rests on it is written**; each is
-flagged inline and the inline flags and this list are the same five. `OI-13` already establishes that one
-member of this family, `Fiber.current.storage = nil`, **does** differ on the floor, which is independent
+flagged inline and the inline flags and this list are the same five. The observability note already establishes
+that one member of this family, `Fiber.current.storage = nil`, **does** differ on the floor, which is independent
 evidence that the flag is not ceremonial.
 
 **1. `Fiber[]=` writes and reads without a warning; `Fiber#storage=` warns on every call and rejects a
@@ -703,7 +707,7 @@ characters. Retagging first and naming both encodings —
 `"\xE4\xBD"` without raising. Empty input yields `""`.
 *What it licenses:* `OBS-38`'s renderer as phase 3b's corrected recipe applied to a preview, with
 `MediaType#charset`'s documented `nil`-for-unknown making `Encoding.find` unreachable.
-*What it does not license:* copying design §3.1's sentence, which is `OI-7`'s finding and is still open.
+*What it does not license:* copying design §3.1's sentence, which is wrong and is on phase 10's inbound list.
 
 **12. `Thread::Mutex` is non-reentrant and per-fiber-owned; `Kernel#warn` routes through `Warning.warn`.**
 `m.synchronize { m.synchronize { } }` raises `ThreadError: deadlock; recursive locking`; `m.owned?` inside
@@ -897,10 +901,10 @@ disposition together.
 2. **§12's `OBS` row already records the emission site as vacuous for the one MVP transport**: "`OBS-19`
    (SHOULD) is vacuous for `Net::HTTP`, which raises on an unencodable header rather than dropping it, and
    binds any adapter that drops."
-3. **A three-mode policy object with no caller and no test is `OI-8`'s exact shape**, and the charter forbids
-   it in as many words: "It must not ship a policy with no caller and no test that exercises it." `OI-8` is
-   open right now precisely because phase 3a shipped `TeeSink#clear_tap` for a caller phase 3b then did not
-   need, and the item's own body states the asymmetry that makes this cheap to avoid now and expensive later:
+3. **A three-mode policy object with no caller and no test is `TeeSink#clear_tap`'s exact shape**, and the charter forbids
+   it in as many words: "It must not ship a policy with no caller and no test that exercises it." That keep-or-drop
+   decision is open right now (3a plan, Task 14) precisely because phase 3a shipped `TeeSink#clear_tap` for a caller
+   phase 3b then did not need, and it states the asymmetry that makes this cheap to avoid now and expensive later:
    before the first release tag, not shipping a method costs one edit; after it, removing one is a public
    signature disappearing, which `NFR-4` treats as a breaking change.
 
@@ -925,8 +929,8 @@ twice.
 none of the existing thirty-nine deferrals covers `OBS-19`: the `OBS-32`/`OBS-37` item's condition is the OTel
 and async adapters, which is not this. So an item was written, **the `OBS-19` header-drop policy**, now owned
 by phase 8c, Tasks 7, 9 and 15. `P5-32`
-records that this reads §12 differently from the way §12 words it, and `OI-27` records that it reads the
-charter's 5b scope table differently too.
+records that this reads §12 differently from the way §12 words it, and it read the charter's 5b scope table
+differently too — a cell the charter has since corrected to what `R10` settled.
 
 ## R11 — the instrumentation step's two slots, and who declares `trace.id` and `span.id`
 
@@ -1178,7 +1182,7 @@ through a slot would sit *outside* `Instrumentation.contain` under `OBS-20`'s as
 vocabulary would put three throwing callbacks on the request path for three of eleven events. The wiring is
 `5c`'s postponed `OBS-29` item: the per-attempt group is phase 6a's (Task 9), the rest phase 10's inbound list.
 
-## R12 — `OBS-24`'s whole-map snapshot against `OI-13`'s warned setter
+## R12 — `OBS-24`'s whole-map snapshot against the warned whole-map setter
 
 **The decision: capture is `Fiber.current.storage` normalised and frozen; reinstall and restore are per key
 over the union of the captured and prior key sets, through `Fiber[]=` alone. `Fiber#storage=` is never
@@ -1192,11 +1196,12 @@ lists no Ruby and no interpreter exists under `~/.local/share/mise/installs`, `~
 task**, and the decision is conditional on `Fiber[:k] = nil` deleting the key on all three. If it does not —
 if on some Ruby it stores a `nil` — the restore loop must delete explicitly rather than assign, and the
 mechanism is unchanged; only the loop body moves. **Nothing in this decision depends on `Fiber#storage=`'s
-behaviour on any version, which is the point:** `OI-13`'s two findings are both about a call 5b does not make.
+behaviour on any version, which is the point:** the observability note's two findings about that setter are
+both about a call 5b does not make.
 
 ### Why per-key wins on the merits and not only on the warning
 
-`OI-13` gives two independent problems with `Fiber#storage=`: it warns on every call at the default warning
+The observability note gives two independent problems with `Fiber#storage=`: it warns on every call at the default warning
 level, against a gate set that fails the build on warnings (`NFR-7`); and `Fiber.current.storage = nil` leaves
 `{}` on 3.2.11 and `nil` on 3.4.10 and 4.0.6, so the obvious spelling of "reinstate an empty context" reads
 back differently on the floor. The charter lists three routes: per key over the union; a scoped `Warning.warn`
@@ -1432,8 +1437,9 @@ mutable accumulator, and a frozen value type cannot accumulate. `P5-21`.
 **`#tag(key, value)` from §8.1's code block is not shipped.** §8.1 lists it once and never mentions it again;
 no `OBS` requirement names a tag other than `OBS-4`'s reserved `event` tag, which `#event(name)` sets; and
 `OBS-5`'s precedence enumerates exactly three sources, so a fourth channel would have no precedence rule and no
-test. A public, `NFR-4`-locked method with no requirement and no caller is `OI-8`'s shape. `P5-18`, and a
-finding filed as `OI-25` against §8.1, because the method is named in a frozen document.
+test. A public, `NFR-4`-locked method with no requirement and no caller is the `TeeSink#clear_tap` shape (3a plan,
+Task 14). `P5-18`, and a finding against §8.1 — the unsourced `Event#tag`, now on phase 10's inbound list —
+because the method is named in a frozen document.
 
 **`Event::INERT` is an instance of `Event::Inert < Event`**, a `private_constant` subclass overriding all five
 methods to return `self` (or `nil` for `#emit`) and writing no instance variable, then frozen. Two
@@ -1728,8 +1734,8 @@ as text is how a log line acquires a control character or a partial credential.
 `bytes.dup.force_encoding(enc).encode(::Encoding::UTF_8, enc, invalid: :replace, undef: :replace)` where `enc`
 is `media_type.charset` resolved through `Encoding.find`, falling back to `::Encoding::UTF_8`. Verified fact
 11: the §3.1 form destroys every non-ASCII byte, and `MediaType#charset` returning `nil` for an unrecognised
-charset is what makes `Encoding.find` unreachable from here. `OI-7` is the open item and `P5-31` records that
-5b follows the correction rather than the frozen sentence.
+charset is what makes `Encoding.find` unreachable from here. §3.1's sentence is on phase 10's inbound list and
+`P5-31` records that 5b follows the correction rather than the frozen sentence.
 
 **"Decoding MUST NOT throw" and "Empty input yields an empty preview" are both asserted, and neither is
 asserted with `assert_nothing_raised`** (`testing/26b866e1`): the truncated-multibyte case asserts the
@@ -1957,7 +1963,7 @@ Eight of the charter's fifteen bind 5b; each is honoured by a named mechanism ra
    body lifecycle and 5b constructs them without closing them.
 5. **Bytes on the wire are `Encoding::BINARY`.** Every captured preview arrives BINARY from phase 3a's sinks,
    and `Preview.render` **retags before transcoding** rather than transcoding from BINARY — verified fact 11,
-   and `OI-7`'s finding. The binary branch never decodes at all and reports `#bytesize`.
+   and the §3.1 decode-sentence finding on phase 10's inbound list. The binary branch never decodes at all and reports `#bytesize`.
 6. **Pin `URI::RFC3986_PARSER` explicitly.** Every parse in the redactor does. `Dexpace/NoUriDefaultParser` is
    the mechanised half, and `5a`'s finding travels: `URI.decode_uri_component` and
    `URI.decode_www_form_component`, never `URI::RFC3986_PARSER.unescape`, which warns on 3.4.10.
@@ -2081,8 +2087,8 @@ namespace the runtime surface manifest walks and made 5b inconsistent with its o
   `Thread` inherits a copy of the parent's storage, so B's "original context" is not empty and a test that
   assumes it is asserts the wrong thing.
 - **`OBS-38`'s three cases, none of them ASCII.** An ISO-8859-1 body that decodes, a binary body that gets the
-  size marker, and a truncated multibyte body that yields U+FFFD. `OI-7`'s own finding is that **an ASCII-only
-  fixture passes under the bug**, which is why phase 3 made every encoding test non-ASCII and why 5b does too.
+  size marker, and a truncated multibyte body that yields U+FFFD. The §3.1 decode-sentence finding's own point is
+  that **an ASCII-only fixture passes under the bug**, which is why phase 3 made every encoding test non-ASCII and why 5b does too.
 - **`OBS-7`'s cap, asserted on `bytesize`.** Verified fact 9: the requirement's conformance sentence says
   "output length equals cap+suffix", and `String#length` is characters. The assertion is on bytes and the
   divergence is named in the test.
@@ -2115,7 +2121,7 @@ a stable contract:
 | **Phase 6**, on `Pipeline.standard` (phase 6b, Task 13a) | The two steps are two of the three families `Pipeline.standard` installs. Phase 6 writes the constructor **over** `Builder#install_preset` and 5b installs nothing |
 | **Phase 6**, on `AUTH` | `RedactionPolicy#with`, for a phase that may need a header name allow-listed or a credential type kept out of a rendering. **The userinfo redaction has no member to change**, deliberately (boundary 4) |
 | **Phase 8**, on `TRANSPORT-12`/`TRANSPORT-13` | `Severity` and the once-per-key throttle, which is what the postponed `OBS-19` policy targets (phase 8c, Tasks 7, 9 and 15). Phase 8 writes the three-mode policy at the call site that actually drops a header. (**Requirement ID corrected in place 2026-09-12**, together with the `OBS-19` item's own text: this cell read `TRANSPORT-8`, whose subject is a cancellation originating inside the native client. The subject here is *dropping* a caller-set header, which is `TRANSPORT-12`, with `TRANSPORT-13` the transport-side twin of `OBS-19`'s three-mode policy over that drop) |
-| **Phase 8**, on `ASYNC-8`–`ASYNC-12` | `Diagnostics.capture` and `.with`, and `R12`'s decision. `dexpace-async-thread`'s pooled-worker save/install/restore is the case `Diagnostics.with` was shaped for, and `OI-13`'s warned setter is the call it does not have to make |
+| **Phase 8**, on `ASYNC-8`–`ASYNC-12` | `Diagnostics.capture` and `.with`, and `R12`'s decision. `dexpace-async-thread`'s pooled-worker save/install/restore is the case `Diagnostics.with` was shaped for, and `Fiber#storage=`, the warned setter the observability note records, is the call it does not have to make |
 | **Phase 8**, on `SEAM-25`'s lifecycle event | `Events::INSTRUMENTATION_SHUTDOWN`; the emission is phase 8b's (Tasks 6 and 10) and the harness phase 9's (Task 11) |
 | **Phase 8**, on `dexpace-conformance`'s assertion protocol | `OBS-1`'s allocation assertion in the form `dexpace-conformance` restates, and the reason its argument types rather than its file's magic comment are what make it portable (`R8`) |
 | **Phase 9**, on `XCUT-19` | `RedactionPolicy::DEFAULT`'s three sets and `HTTPLogging::DEFAULT`, as the five clauses' audited subjects — (a) `OBS-11`, (b) `OBS-12`/`OBS-13`, (c) `OBS-18`, (e) `OBS-34` |
@@ -2149,12 +2155,12 @@ deliberate.
 |---|---|---|---|
 | P5-16 | Public **constants** design §8.1 does not name: `Dexpace::Instrumentation::Severity` (+ four constants and `ALL`); `::Keys` (twelve frozen `String` constants) and `::Events` (eight); `::NULL_SINK`; `::Logger` (+ `Logger::NULL`); `::Diagnostics` (+ `TRACE_ID`, `SPAN_ID`, `DEFAULT_KEYS`); `::RedactionPolicy` (+ `DEFAULT`); `::Redactor` (+ `DEFAULT`, `MALFORMED_URL`, `REDACTED_VALUE`, `REDACTED_USERINFO`, `REDACTED_HEADER`, `RELATIVE_MARKER`); `::Preview` (+ `BINARY_MARKER_FORMAT`, `TEXT_SUBTYPES`); `::HTTPLogging` (+ `NONE`, `HEADERS`, `BODY`, `DEFAULT`); `::Step`; `::AsyncStep`; `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`; and the RBS interfaces `_Sink` and `_DiagnosticSnapshot` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11, phase 4a's P4-2 and `5a`'s P5-1 precedent | §8.1 names exactly three Ruby identifiers in this segment — `Dexpace::Instrumentation::Event`, `Event::INERT` and `NullLogger` — and describes everything else in prose. `NFR-4` locks every public name at the first release tag, so a name arriving by accident is locked by accident. Each is chosen for a stated reason in the object-model section, and the `Keys`/`Events` constants are additionally required to be snapshot-covered by §8.1 itself |
 | P5-17 | Public **methods** design §8.1 does not name: `Logger.build`, `#event`, `#enabled?`, `#context`, `#sink`; `Event#field`, `#event`, `#cause`, `#emit`; `Severity.of`; `Diagnostics.capture`, `.with`, `.folded`; `RedactionPolicy.build`, `#with`; `Redactor.build`, `#url`, `#header_value`, `#header_name?`, `#policy`; `Preview.render`; `HTTPLogging.of`, `.parse`, `.resolve`, `#at_least?`; `Step.build`, `#call`, `#stage`; `AsyncStep.build`, `#call`, `#stage`; `Dexpace::Instrumentation.contain`; plus the `logger:` keyword added to `Dexpace.close_quietly` and to `Dexpace::Proxy.resolve` | `NFR-4`; phase 2's P2-11 and phase 4a's P4-11, both of which cover methods as well as constants | `NFR-4` locks a public *signature*, not only a name. Two deserve naming here. **`Logger::NULL` exists so no caller ever holds a `nil` logger** — `contain` takes one, `close_quietly` takes one, and a `nil` would make every containment site branch; `Bundle::NONE` is phase 4a's identical decision. **`Redactor#policy` is public so a later phase derives with `#with` rather than rebuilding**, which is what keeps `OBS-17`'s "shared … so it cannot drift" true when phase 6 needs one more allow-listed header |
-| P5-18 | `Event#tag(key, value)`, listed in design §8.1's code block, is **not shipped** | §8.1; `OBS-4`, `OBS-5`; `NFR-4`; `OI-8`'s shape | §8.1 lists it once and never mentions it again. No `OBS` requirement names a tag other than `OBS-4`'s reserved `event` tag, which `#event(name)` sets, and `OBS-5`'s precedence enumerates exactly three sources — so a fourth channel would have no precedence rule, no default and no test. A public, `NFR-4`-locked method with no requirement and no caller is `OI-8`'s exact shape, and `OI-8` is open right now because a previous phase shipped one. Adding a method later **widens**, so nothing is prejudiced. `OI-25` records the finding against §8.1, because the method is named in a frozen document |
+| P5-18 | `Event#tag(key, value)`, listed in design §8.1's code block, is **not shipped** | §8.1; `OBS-4`, `OBS-5`; `NFR-4`; the `TeeSink#clear_tap` shape (3a plan, Task 14) | §8.1 lists it once and never mentions it again. No `OBS` requirement names a tag other than `OBS-4`'s reserved `event` tag, which `#event(name)` sets, and `OBS-5`'s precedence enumerates exactly three sources — so a fourth channel would have no precedence rule, no default and no test. A public, `NFR-4`-locked method with no requirement and no caller is `TeeSink#clear_tap`'s exact shape, and that keep-or-drop decision is open right now because a previous phase shipped one. Adding a method later **widens**, so nothing is prejudiced. The finding against §8.1 — the unsourced `Event#tag` — is on phase 10's inbound list, because the method is named in a frozen document |
 | P5-19 | The default sink is `Dexpace::Instrumentation::NULL_SINK`, one frozen instance of a `private_constant` class, and not §8.1's `NullLogger` class | §8.1; `OBS-1`; phase 4a's `NO_SPAN`/`NO_TRACER_FACTORY` precedent; `Dexpace/QualifiedCoreConstant` | Two reasons. What `OBS-1` needs is a **value** to install and compare, not a class to instantiate, and phase 4a already set the shape for exactly that: a public constant naming a frozen instance of a private class. And `Logger` is already taken in this namespace by the facade §8.1 itself calls `Logger#event`, so a second constant whose name also says "Logger" would put the facade and its default output under one word in one namespace — the confusion `P5-3` avoided for `Sources::ENV` |
 | P5-20 | `Event::INERT` is a frozen instance of `Event::Inert < Event`, a `private_constant` subclass, rather than a frozen `Event` | `OBS-1`; `NFR-3` | A frozen `Event` raises `FrozenError` the first time `#field` writes its accumulator, and `OBS-1` requires the disabled path to be a no-op, not a failure. An unrelated class would make `Logger#event`'s return type a union and force an RBS interface for a case a subclass models exactly. The subclass writes no instance variable, so freezing it is safe, and `is_a?(Event)` stays true |
 | P5-21 | `Dexpace::Instrumentation::Event` and `::Logger` are plain classes, not `Data` types, against phase 1's construction pattern | `OBS-8`; `OBS-40`; `docs/sdk-design-ruby/04-domain-model-construction.md`; `data-modeling/3e37c086` | `OBS-8` says field, tag and cause accumulation "is not required to be thread-safe (single-thread build)", which describes a mutable accumulator; a frozen value type cannot accumulate. `Logger` holds `OBS-40`'s once-per-logger latch. Phase 1's pattern governs the **wire model**, and `data-modeling/3e37c086` already puts an implementation of a duck type in a class. Both keep `private_class_method :new` and a validating `.build`, so the half of the pattern that is about construction discipline survives |
 | P5-22 | `OBS-24`'s snapshot is a shallow-frozen `Hash` and **no `Ractor` shareability claim is made** | `OBS-24` ("The snapshot itself MUST be immutable/shareable"); `data-modeling/5bc538ba`; phase 1's P1-9; `5a`'s P5-6 | The snapshot's *values* are the host's, and `Ractor.make_shareable` on an unshareable value raises `Ractor::IsolationError` — from a logging path, which `XCUT-20` forbids failing. "Immutable/shareable" is read as one property, immutability, which is what makes the cross-thread bridge the requirement is about safe and which a frozen `Hash` supplies. A claim that holds only for hosts that store shareable values is not a claim |
-| P5-23 | `OBS-24`'s reinstall and restore are **per key over the union of the captured and prior key sets**, through `Fiber[]=` alone; `Fiber#storage=` is never called in `lib/` | `OBS-24`; `OI-13`; `NFR-7`; design §8.1 | `OI-13` records two problems with the whole-map setter: it warns per call at the default warning level against a gate set that fails on warnings, and `= nil` reads back differently on the 3.2 floor. A scoped `Warning.warn` filter (verified to work) is a mutation of a process-global object, which this port refuses for `Regexp.timeout`; an `NFR-7` waiver's re-enable condition would be a condition on MRI's roadmap. The per-key route removes both problems instead of silencing one, and is verified exact. **Residual, stated in the YARD block:** a prior key holding a literal `nil` restores as absent — and such a key is only constructible through the setter this route refuses. `R12`, conditional on the floor re-run |
+| P5-23 | `OBS-24`'s reinstall and restore are **per key over the union of the captured and prior key sets**, through `Fiber[]=` alone; `Fiber#storage=` is never called in `lib/` | `OBS-24`; the observability note's `Fiber#storage=` entry; `NFR-7`; design §8.1 | That note records two problems with the whole-map setter: it warns per call at the default warning level against a gate set that fails on warnings, and `= nil` reads back differently on the 3.2 floor. A scoped `Warning.warn` filter (verified to work) is a mutation of a process-global object, which this port refuses for `Regexp.timeout`; an `NFR-7` waiver's re-enable condition would be a condition on MRI's roadmap. The per-key route removes both problems instead of silencing one, and is verified exact. **Residual, stated in the YARD block:** a prior key holding a literal `nil` restores as absent — and such a key is only constructible through the setter this route refuses. `R12`, conditional on the floor re-run |
 | P5-24 | The diagnostic-context key constants are **`Symbol`s**, and the fold to an `OBS-39` field key is `Symbol#name` and never `#to_s` | `OBS-10`, `OBS-23`, `OBS-39`, `OBS-1` | Verified: `Fiber#storage=` raises `TypeError` on a `String` key and `Fiber[]=` coerces one, so the storage key space **is** `Symbol`-shaped whatever a constant declares; and `Symbol#name` returns the same frozen `String` on every call while `#to_s` allocates a fresh unfrozen one. A fold written with `#to_s` allocates one `String` per folded key per event, on the hot path `OBS-1` exists to protect. The specification writes the keys as `trace.id` and `span.id`, which is the *field* spelling, and both spellings are needed — and verified at reconciliation that `:"trace.id".name` is **not** `equal?` to a `"trace.id"` frozen literal, so one constant must be the single source. **Narrowed at reconciliation, against `5c`'s frozen-`String` counter-proposal:** the deciding fact is not `Fiber#storage=`'s `TypeError` (a call `P5-23` never makes in `lib/`) but `Fiber.current.storage` returning `Symbol` keys unconditionally, which is the reader `OBS-10`'s unfiltered mode is obliged to use, plus design §8.1's own `Fiber[:key]` spelling. `R11` carries the ownership half |
 | P5-25 | The redactor has **two** public entry points with two failure policies, `#url` and `#header_value` | `OBS-15`, `OBS-16`; `XCUT-20` | `OBS-15` requires the `[malformed url]` sentinel "on any parse/rebuild failure"; `OBS-16` requires the **opposite** for the same input arriving as a header value — keep the path, append `?***`. Both are MUSTs. One entry point loses one requirement whichever way the collision resolves, and neither §8.1 nor §11 records that they are two operations. `R9` |
 | P5-26 | The redactor rescues `StandardError`, not `URI::Error` | `OBS-15`, `OBS-12`, `XCUT-20` | Verified: `URI::RFC3986_PARSER` **accepts** `%FF` in a query; `URI.decode_www_form_component("%FF")` returns an invalid-UTF-8 `String`; and `OBS-12`'s "decoded, compared case-insensitively" then raises `ArgumentError: input string invalid` out of `String#downcase`, which is not under `URI::Error`. `https://h/x?%FF=secret` is reachable from any server. `#scrub` before folding keeps the common case out of the rescue; the rescue still covers `OBS-6`'s rendering path, which calls `#to_s` on caller-supplied objects inside the same containment. `R9` |
@@ -2162,14 +2168,14 @@ deliberate.
 | P5-28 | `OBS-16`'s "relative or otherwise unparseable" is **two** code paths — one over a parsed `URI`, one over the raw `String` | `OBS-16` | Verified: `P.parse("/cb?code=S")` succeeds with `scheme == nil`, and `P.parse("a b?c=1")` raises. The unparseable route has no object to read `#path`, `#query` or `#fragment` from, so it derives the path and the query-or-fragment test by string surgery on the raw value. Calling `parse` again inside the branch does not help — it raises again. Written as one branch, the code is either wrong for one of the two inputs or silently re-parses |
 | P5-29 | `OBS-7`'s bounded maximum is measured in **bytes**, truncated with `#byteslice` then `#scrub("")` then the marker | `OBS-7` ("bounded maximum length (reference: 8 KiB)") | Verified: `("é" * 5000)` is 5000 characters and 10000 bytes; `#byteslice(0, 8191)` yields an invalid `String`; `s[0, 8192]` yields 16384 bytes. "8 KiB" is a memory bound and only the byte reading makes it one. The cost is that `OBS-7`'s conformance sentence — "assert output length equals cap+suffix" — is asserted on `bytesize` and not on `length`, and the divergence is named in the test rather than resolved silently |
 | P5-30 | The default header-name allow-list's exact membership is chosen, not derived, and excludes `www-authenticate` and `proxy-authenticate` | `OBS-18` ("MUST contain only diagnostic, non-credential headers"); `XCUT-19`(c) | `OBS-18` names a property and no list, and `NFR-4` locks whatever list ships. Twenty-six names are enumerated in the object model. The two challenge headers are excluded even though a challenge is not a credential, because a Digest challenge carries a server nonce and whether that is loggable is `AUTH`'s question, phase 6's. Default-deny means an omission is safe and an inclusion is not, so the list errs short |
-| P5-31 | `OBS-38`'s text/binary discrimination set is chosen, and its decode is phase 3b's corrected recipe rather than design §3.1's | `OBS-38`; `HTTP-42`; `OI-7` | `OBS-38` says "charset-aware for text … binary-safe for non-text" and gives no test. `TEXT_SUBTYPES` plus `type == "text"` plus the RFC 6839 `+json`/`+xml` suffixes is the discriminator, and an **absent** media type is binary — rendering unknown bytes as text is how a log line acquires a control character. The decode retags before transcoding and names both encodings; verified that §3.1's form returns `"caf"` plus two replacement characters for `"café".b`. `OI-7` is the open item and §3.1 is frozen |
-| P5-32 | `OBS-19` is carried **⏳ against a deferral** rather than as §12's "vacuous" | §12's `OBS` row; `OBS-19`; `OI-8`; the charter's 5b scope table | §12 records `OBS-19` as vacuous for `Net::HTTP` and does **not** list it as deferred, and the charter's 5b scope table expects the policy to ship. "Vacuous" names no target, no gem and no event, so a one-row-per-ID checklist has nothing to cite; and shipping a three-mode public policy with no core caller is the `OI-8` shape the charter's own `R10` forbids. The requirement's subject is a transport that drops a header, core has none, and the two halves the policy needs — `Severity` and a per-name latch — both ship here with `OBS-40` as the latch's exercising caller. `R10` |
-| P5-33 | The step's `tracer_factory:` and `meter:` slots are keywords **defaulted** to `Dexpace::Instrumentation::NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword | `OBS-34`; `CTX-14`, `CTX-15`; `OBS-25`; `NFR-4`; `api-design/1d9e6e0b`, `/a9943041`, `/634ccc4b`; `5c`'s `R11` | **Rewritten at reconciliation; the draft made both slots required and undefaulted and `5c`'s answer won.** The draft's reason — `meter:` cannot be defaulted without naming a `5c` object that did not exist — was an artefact of parallel authorship, and `NO_METER` ships in the same phase. On the merits: `CTX-14` already puts a `tracer_factory` on every context and `CTX-15`/`OBS-25` make `Bundle::NONE`'s the published no-op, so a required keyword would make every caller — phase 6's `Pipeline.standard` included — restate an object the request's context already carries; `OBS-34` defaults logging to `none` and `XCUT-19`(e) makes body logging off by default, so the untraced, unmetered step is this SDK's *default* configuration and ought to be writable without naming two constants; and `OBS-25`'s allocation clause is asserted by reference identity from a qualified constant, which a constant default is. A configuration read stays rejected for the reason the draft gave and `5c` gave independently: no tier of `5a`'s `String`-valued chain can carry a tracer factory. `NFR-4` decides nothing here — the lock bites on *changing* a default, not on having one. Recorded because the shipped signature differs from the one this document first argued for. **The first clause of the precedence is unimplementable in phase 5 and is `OI-31`:** no mechanism exists by which a pipeline step reaches a `RequestContext` or an `Instrumentation::Bundle` — 4c "does not consume 4a at all", `Cursor` has no context reader, `Request`'s members are `(:method, :url, :headers, :body)`, `RequestOptions`'s are `(:timeout, :max_retries, :tags)`, and `PIPE-11` forbids ambient carriage. The step therefore resolves to its keyword and to `Bundle::NONE`, which is `OBS-34`'s and `XCUT-19`(e)'s **default** configuration, so `OBS-34`'s conformance clause is unaffected; the missing clause is a widening phase 6 supplies, not a signature change |
+| P5-31 | `OBS-38`'s text/binary discrimination set is chosen, and its decode is phase 3b's corrected recipe rather than design §3.1's | `OBS-38`; `HTTP-42`; the §3.1 decode-sentence correction on phase 10's inbound list | `OBS-38` says "charset-aware for text … binary-safe for non-text" and gives no test. `TEXT_SUBTYPES` plus `type == "text"` plus the RFC 6839 `+json`/`+xml` suffixes is the discriminator, and an **absent** media type is binary — rendering unknown bytes as text is how a log line acquires a control character. The decode retags before transcoding and names both encodings; verified that §3.1's form returns `"caf"` plus two replacement characters for `"café".b`. The sentence is on phase 10's inbound list and §3.1 is frozen |
+| P5-32 | `OBS-19` is carried **⏳ against a deferral** rather than as §12's "vacuous" | §12's `OBS` row; `OBS-19`; `TeeSink#clear_tap` (3a plan, Task 14); the charter's 5b scope table | §12 records `OBS-19` as vacuous for `Net::HTTP` and does **not** list it as deferred, and the charter's 5b scope table expected the policy to ship. "Vacuous" names no target, no gem and no event, so a one-row-per-ID checklist has nothing to cite; and shipping a three-mode public policy with no core caller is the `TeeSink#clear_tap` shape the charter's own `R10` forbids. The requirement's subject is a transport that drops a header, core has none, and the two halves the policy needs — `Severity` and a per-name latch — both ship here with `OBS-40` as the latch's exercising caller. `R10` |
+| P5-33 | The step's `tracer_factory:` and `meter:` slots are keywords **defaulted** to `Dexpace::Instrumentation::NO_TRACER_FACTORY` and `NO_METER`, and the per-request precedence is the context's bundle when it is not `Bundle::NONE`, else the keyword | `OBS-34`; `CTX-14`, `CTX-15`; `OBS-25`; `NFR-4`; `api-design/1d9e6e0b`, `/a9943041`, `/634ccc4b`; `5c`'s `R11` | **Rewritten at reconciliation; the draft made both slots required and undefaulted and `5c`'s answer won.** The draft's reason — `meter:` cannot be defaulted without naming a `5c` object that did not exist — was an artefact of parallel authorship, and `NO_METER` ships in the same phase. On the merits: `CTX-14` already puts a `tracer_factory` on every context and `CTX-15`/`OBS-25` make `Bundle::NONE`'s the published no-op, so a required keyword would make every caller — phase 6's `Pipeline.standard` included — restate an object the request's context already carries; `OBS-34` defaults logging to `none` and `XCUT-19`(e) makes body logging off by default, so the untraced, unmetered step is this SDK's *default* configuration and ought to be writable without naming two constants; and `OBS-25`'s allocation clause is asserted by reference identity from a qualified constant, which a constant default is. A configuration read stays rejected for the reason the draft gave and `5c` gave independently: no tier of `5a`'s `String`-valued chain can carry a tracer factory. `NFR-4` decides nothing here — the lock bites on *changing* a default, not on having one. Recorded because the shipped signature differs from the one this document first argued for. **The first clause of the precedence is unimplementable in phase 5, and the widening it needs is phase 6a's Task 8 (`Cursor`'s context bundle):** no mechanism exists by which a pipeline step reaches a `RequestContext` or an `Instrumentation::Bundle` — 4c "does not consume 4a at all", `Cursor` has no context reader, `Request`'s members are `(:method, :url, :headers, :body)`, `RequestOptions`'s are `(:timeout, :max_retries, :tags)`, and `PIPE-11` forbids ambient carriage. The step therefore resolves to its keyword and to `Bundle::NONE`, which is `OBS-34`'s and `XCUT-19`(e)'s **default** configuration, so `OBS-34`'s conformance clause is unaffected; the missing clause is a widening phase 6 supplies, not a signature change |
 | P5-34 | 5b ships **two** steps, `Step` and `AsyncStep`, over one `private_constant` `Emitter` | `OBS-17` ("The redaction policy MUST be shared by the sync and async logging paths so it cannot drift"); `PIPE-28`; 4c's `_Step`/`_AsyncStep` | Two steps sharing one policy *object* satisfy the letter and drift the moment one grows a field the other lacks. Two steps sharing one `Emitter` — which owns every `logger.event(…)` call and every field key in the sub-phase — cannot. `PIPE-28` requires identical stage identities in both runtimes, and `OBS-37`'s deferral presupposes an async logging path exists to skip capture on |
 | P5-35 | `RedactionPolicy#omit_disallowed_headers` defaults to `false`, emitting the fixed `REDACTED` marker rather than omitting the header | `OBS-18` (a boolean policy with no stated default) | A header that was present and redacted and a header that was absent are different facts to a reader, and collapsing them loses the one that matters when a request fails on an auth header nobody realised was sent. That is `OBS-3`'s own null-versus-absent argument arriving at a second place in the same sub-phase, and the requirement's own ordering — "either emitted with a fixed redaction marker … or omitted entirely" — puts the marker first |
 | P5-36 | `HTTPLogging.resolve(configuration, key:, default:)` takes its configuration key as a **required** keyword with no default, and `Configuration::Keys::LOG_LEVEL` is a name a caller may pass rather than a fallback | `OBS-35`'s embedded MUST ("The SDK MUST NOT bake in a default config key name"); `CFG-14`; `5a`'s own reconciliation | `CFG-14` asks for "stable well-known key constants … for … SDK log level" and `OBS-35` forbids baking one in, and the two are only consistent one way. `5a` fixed it and 5b implements it: the constant exists and nothing falls back to it. Restated as a ledger row rather than inherited silently, because `.resolve` is 5b's method and a required keyword with an obvious default is exactly what a later reader supplies a default for. `.parse` is the sibling for a caller who holds a level `String` and no `Configuration`, which is also what makes 5b's independence from `5a` concrete |
 | P5-37 | `Instrumentation.contain(logger, event:)` is a **module function**, not a method on `Logger` or on `Event` | `OBS-20`, `XCUT-20`; §8.1 | A `logger.contain { }` reads as "the logger contains", which invites the containment to move to the sink — the placement §8.1 rejects for redaction, and for the identical reason: it can be bypassed by installing a different sink. A module function has no receiver to reimplement. It returns `nil` and swallows the block's value, so no call site can branch on whether logging worked, which is what `OBS-20` forbids; and its secondary rescue does nothing at all, because a swallow path with its own failure mode is a third failure mode |
-| P5-38 | `Dexpace::Instrumentation::Logger` keeps §8.1's name despite shadowing the stdlib `Logger` for a bare reference inside `module Dexpace`, and the shadow is **not** covered by `Dexpace/QualifiedCoreConstant` | §8.1; `Dexpace/QualifiedCoreConstant` (P2-8, P3-7); `5a`'s P5-3; `SEAM-1` | `5a` met the same hazard for `ENV` and chose a different name. That escape is unavailable here: §8.1 names the facade `Logger`, and the sink duck type is deliberately the stdlib `Logger` surface as a structural subset, so the word is load-bearing. The cop cannot carry it either — adding `Logger` to `SHADOWED` would flag every legitimate bare reference in an adapter gem that declares the dependency, which is the budget `NFR-2` exists to permit. Mitigated in the two places it can be: the default sink is `NULL_SINK` and not §8.1's `NullLogger`, so exactly one `Logger`-shaped name exists in the namespace (`P5-19`), and every reference to either constant in 5b's own code is fully qualified. Recorded as a deviation because a reader checking §8.1 against the code will see a name the repository's own cop set would normally forbid, and `OI-26` carries the cop-coverage gap |
+| P5-38 | `Dexpace::Instrumentation::Logger` keeps §8.1's name despite shadowing the stdlib `Logger` for a bare reference inside `module Dexpace`, and the shadow is **not** covered by `Dexpace/QualifiedCoreConstant` | §8.1; `Dexpace/QualifiedCoreConstant` (P2-8, P3-7); `5a`'s P5-3; `SEAM-1` | `5a` met the same hazard for `ENV` and chose a different name. That escape is unavailable here: §8.1 names the facade `Logger`, and the sink duck type is deliberately the stdlib `Logger` surface as a structural subset, so the word is load-bearing. The cop cannot carry it either — adding `Logger` to `SHADOWED` would flag every legitimate bare reference in an adapter gem that declares the dependency, which is the budget `NFR-2` exists to permit. Mitigated in the two places it can be: the default sink is `NULL_SINK` and not §8.1's `NullLogger`, so exactly one `Logger`-shaped name exists in the namespace (`P5-19`), and every reference to either constant in 5b's own code is fully qualified. Recorded as a deviation because a reader checking §8.1 against the code will see a name the repository's own cop set would normally forbid; the plan's Task 10 owns the cop-coverage gap, as the bare-`Logger` watch scoped to `module Dexpace` |
 
 ## Work phase 5b postponed, and who owns it now
 
@@ -2181,8 +2187,8 @@ is now owned by the phase-8c plan task named below, and this section carries the
 `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport.md`).** Phase 5b ships **no** policy object, no mode constants and no reporting method; the
 requirement's subject is a transport that drops a caller-set header it cannot encode, core has none, and
 `HTTP-17`/`HTTP-18`'s wire-boundary re-validation (phase 8a Task 16, phase 8c Task 9) **raises** rather than
-drops. A public, `NFR-4`-locked three-mode policy with no core caller and no core test is `OI-8`'s exact
-shape, and the charter's `R10` forbids it. What is *not* postponed is both halves the policy is built from:
+drops. A public, `NFR-4`-locked three-mode policy with no core caller and no core test is
+`TeeSink#clear_tap`'s exact shape (3a plan, Task 14), and the charter's `R10` forbids it. What is *not* postponed is both halves the policy is built from:
 `Severity` supplies the two levels the three modes are expressed in and the once-per-key latch supplies the
 throttle, with `OBS-40`'s collision diagnostic as its exercising caller. The pick-up condition was phase 8, at
 the first adapter that drops rather than raises — `TRANSPORT-12`'s subject, with `TRANSPORT-13` the
@@ -2192,7 +2198,8 @@ native client) — with the fallback of naming the **event** rather than a phase
 condition was met on 2026-09-12: `protocol-http1` rejects a header name `HTTP-17` accepts, after the request
 line is on the socket, so `dexpace-transport-async_http` drops that header and logs the drop under the
 three-mode policy, bounded at 64 distinct folded names per adapter instance. `R10` is the argument, `P5-32` is
-the ledger row, and `OI-27` records that the charter's 5b scope table words the same disposition as shipping.
+the ledger row, and the charter's 5b scope table — which worded the same disposition as shipping — was
+corrected to what `R10` settled on 2026-09-13.
 
 ## What 5b picks up and leaves alone, and who owns each item now
 
@@ -2242,8 +2249,8 @@ landed. Each entry names the item by subject, keeps the reason it was postponed,
   and 15. See *Work phase 5b postponed, and who owns it now* above, which carries what is and is not
   postponed.
 - **`OBS-29`'s HTTP-tracer lifecycle wiring — `5c`'s, postponed at the same time and untouched by 5b.** The
-  per-attempt group is phase 6a, Task 9; the operation-lifecycle triple (`OI-32`) and the transport
-  milestones (`OI-36`) are on phase 10's inbound list. It reaches 5b only as a negative: **no third slot on
+  per-attempt group is phase 6a, Task 9; the operation-lifecycle triple and the transport-reachable
+  `HTTPTracer` are on phase 10's inbound list. It reaches 5b only as a negative: **no third slot on
   the step**, which `R11` confirms from this side.
 - **`SEAM-25`'s lifecycle event on the first close of an owned executor — half supplied; 5b must not claim
   it done.** Phase 2 postponed the event because there was nothing to emit it through. Its condition named
@@ -2323,33 +2330,37 @@ landed. Each entry names the item by subject, keeps the reason it was postponed,
   gems, or release-gated items; each lives under `docs/first-release.md` § What v1 ships without or
   § Release path.
 
-## Open items filed by phase 5b
+## Findings, and who owns them now
 
-**Three, filed as `OI-25`, `OI-26` and `OI-27`** by the reconciliation pass on 2026-09-09, for the reason the
-postponed item above was: `5b` and `5c` were written concurrently and both would have taken the same next id. All
-three are in `docs/open-items.md`; none is acted on by this document.
+**Three, made by the reconciliation pass on 2026-09-09** rather than by this document, for the reason the
+postponed item above was: `5b` and `5c` were written concurrently, and the pass is where a finding touching
+both was recorded once. None is acted on here; each names the owner it was routed to.
 
-- **`OI-25` — design §8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does.** Four of the
+- **Design §8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does.** Four of the
   five methods §8.1's code block fixes trace to a requirement and `#tag` does not; `OBS-5`'s precedence rule
   enumerates exactly three contributing sources, so a fourth channel would have no precedence and no collision
-  rule. **Amended when filed:** the row now names `OBS-8`'s "Field/tag/cause accumulation" phrase, which is
-  the closest chapter 15 comes to `#tag` and which a reader would otherwise cite against the item — the tag it
+  rule. **Amended at the pass:** the finding also names `OBS-8`'s "Field/tag/cause accumulation" phrase, which is
+  the closest chapter 15 comes to `#tag` and which a reader would otherwise cite against it — the tag it
   names is `OBS-4`'s single reserved categorisation tag that `#event(name)` sets, and nothing in the chapter
   gives a tag a **key**, which is what the two-argument signature is for. 5b ships `#field`, `#event`,
-  `#cause` and `#emit` and not `#tag` (`P5-18`).
-- **`OI-26` — `Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`, and `Dexpace/QualifiedCoreConstant`
+  `#cause` and `#emit` and not `#tag` (`P5-18`). *Owner: phase 10's inbound list — §8.1's unsourced
+  `Event#tag` — because the method is named in a frozen chapter and only phase 10 repairs one.*
+- **`Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`, and `Dexpace/QualifiedCoreConstant`
   cannot carry the name.** §8.1 names the facade `Logger` and the sink duck type is deliberately the stdlib
   `Logger` surface as a structural subset, so the word is load-bearing and `5a`'s `ENV` escape is unavailable;
   adding `Logger` to the cop's `SHADOWED` list would flag every legitimate bare reference in an adapter gem
   that declares the dependency, which is the budget `NFR-2` exists to permit. 5b keeps the name (`P5-38`) and
   mitigates by shipping `NULL_SINK` rather than §8.1's `NullLogger` (`P5-19`) and by qualifying every
-  reference.
-- **`OI-27` — the phase-5 segmentation design's 5b scope table states an outcome its own `R10` leaves open.**
+  reference. *Owner: this phase's own plan, Task 10, which adds the bare-`Logger` watch scoped to
+  `module Dexpace` — the scope the cop does not currently express.*
+- **The phase-5 segmentation design's 5b scope table states an outcome its own `R10` leaves open.**
   The scope table dispositions `OBS-19` as "the verbosity policy and its once-per-name throttle ship"; `R10`
   says recording it vacuous with a phase-8 cross-reference is equally available and forbids only shipping a
-  policy with no caller. Both sentences are defensible and they are not the same sentence. Filed rather than
-  fixed because the charter is committed; the precedent for the sub-phase's reading winning is phase 4c's
-  correction of the charter's `PIPE-39` row, and `P5-32` records the divergence.
+  policy with no caller. Both sentences are defensible and they are not the same sentence. Recorded rather than
+  fixed here because the charter is committed; the precedent for the sub-phase's reading winning is phase 4c's
+  correction of the charter's `PIPE-39` row, and `P5-32` records the divergence. *Owner: the charter's own
+  `OBS-19` scope-table cell, corrected on 2026-09-13 to the ⏳-against-phase-8c disposition `R10` and `P5-32`
+  settled.*
 
 ## Open questions for 5b's own plan
 
@@ -2361,8 +2372,8 @@ Six, each bounded, none reopening a decision above.
    `Fiber.new(storage: nil)`), 3 (the per-key union restore's exactness), 6 (`URI::RFC3986_PARSER`'s parse and
    rebuild behaviour, including the opaque-URI raises) and 9 (`#byteslice`'s invalid result and `#scrub`'s
    trim). **Only 3.4.10 is installed on this machine**, verified. `R12`'s decision is explicitly conditional
-   on fact 1 holding across the range, and `OI-13` already records that a neighbouring fact does **not** hold
-   on the floor, so this is not a formality. Recommendation: install the two interpreters and re-run all five
+   on fact 1 holding across the range, and the observability note already records that a neighbouring fact does
+   **not** hold on the floor, so this is not a formality. Recommendation: install the two interpreters and re-run all five
    as a single script whose output is pasted into the plan, exactly as phases 3 and 4 did. **If `Fiber[:k] =
    nil` stores rather than deletes on some Ruby**, the restore loop deletes explicitly instead of assigning and
    the mechanism is unchanged; `P5-23` survives and only its loop body moves.

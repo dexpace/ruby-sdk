@@ -27,9 +27,9 @@ rather than building a second buffering site or a second error type. One adapter
 validating it, and rescuing `::JSON::JSONError` and nothing wider.
 
 **Tech Stack:** Ruby 3.2–4.0 (authored on 3.4.10), Minitest, RBS + Steep (the `serde_json` target has
-**two** signature roots), RuboCop with phase 0's five custom cops plus phase 2's sixth, SimpleCov,
-YARD. `dexpace-core` gains **no** dependency and no allowlist entry. `dexpace-serde-json` gains
-exactly one: `json >= 2.19.9`.
+**two** signature roots), RuboCop with phase 0's five original custom cops plus phase 2's sixth,
+SimpleCov, YARD. `dexpace-core` gains **no** dependency and no allowlist entry. `dexpace-serde-json`
+gains exactly one: `json >= 2.19.9`.
 
 **Spec:** `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md`, under the
 charter `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`.
@@ -1607,7 +1607,8 @@ Expected: PASS, 8 runs. Re-run Task 10's suite.
 
 ## Task 12: `interface _Codec`'s body, and core's `sig/` and `require` wiring
 
-**Requirement IDs:** none new (`NFR-3`, `NFR-11`; the finding under `docs/open-items.md`).
+**Requirement IDs:** none new (`NFR-3`, `NFR-11`; this task settles the `#media_type` clause of the
+unwritten-`_Codec`-interface finding).
 **Design:** "The `sig/` shape"; `R3`'s coercion paragraph.
 
 **Files:**
@@ -1632,7 +1633,7 @@ module Dexpace
 end
 ```
 
-`#media_type`'s union is the finding the design proposes for `docs/open-items.md`: phase 2 declared
+`#media_type`'s union settles the finding the design records: phase 2 declared
 this interface and never wrote it, its `FakeCodec` returns a `String`, and `Dexpace::Body#media_type`
 returns `Dexpace::MediaType?`. `#load`'s `source` is `untyped` rather than
 `Dexpace::IO::BufferedSource`, because `SERDE-3`'s subject is "a caller-supplied stream" and phase
@@ -2268,8 +2269,7 @@ callable assertion shape (phase 8a Tasks 4–8 and 20) is **not** pre-empted.
 ## Task 18: Final wiring
 
 **Requirement IDs:** none new (`NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`).
-**Design:** "The `sig/` shape"; "The knowledge note `7a` files"; "The findings proposed for the
-registers".
+**Design:** "The `sig/` shape"; "The knowledge note `7a` files"; "Findings, and who owns them now".
 
 - [ ] **Step 1: Run the whole gate set on all three interpreters**
 
@@ -2297,12 +2297,15 @@ constant. Task 1's `SEAM-2` test must still pass over the finished tree.
 reference. Then run `ruby scripts/verify_knowledge_structure.rb` (the gate) and
 `ruby scripts/knowledge_drift.rb` (the hand-run report). **`harvested/` is not edited.**
 
-- [ ] **Step 5: Hand the four register findings to a human**
+- [ ] **Step 5: Hand the four findings and the owner each carries to a human**
 
-The design drafts all four verbatim and **this plan does not file them**: the unwritten `_Codec`
-interface and the `SERDE`-audit-group narrowness (`docs/open-items.md`), the `SERDE-27` release
-blocker (`docs/first-release.md`), and `dexpace-serde-oj`'s second motive (its entry under `docs/first-release.md` § What v1
-ships without › Post-v1 gems). Also hand
+The design drafts all four verbatim, each with its owner, and **this plan files none of them**: the unwritten
+`_Codec` interface (its `#media_type` clause settled by Task 12 above, with the residue — whether phase 2's
+four other declared `sig/` files are empty too — on phase 10's inbound list), the `SERDE`-audit-group
+narrowness (`.claude/skills/knowledge-lookup/SKILL.md`'s audit-group table), the `SERDE-27` release blocker
+(`docs/first-release.md`), and `dexpace-serde-oj`'s second motive (its entry under `docs/first-release.md`
+§ What v1 ships without › Post-v1 gems). A finding is routed to an owner when it is found — a numbered plan
+task, phase 10's inbound list, or `docs/first-release.md` — never to a standing register. Also hand
 over the nine `P7-<n>` ledger rows for consolidation into design §10 and audit by
 `docs/deviations.md`.
 

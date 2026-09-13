@@ -4183,17 +4183,17 @@ Expected: PASS with 14 runs, 0 failures, 0 errors.
 
 ---
 
-## Task 16: Final Wiring, Surface Snapshot, RBS Baseline, Checklist, and Register Updates
+## Task 16: Final Wiring, Surface Snapshot, RBS Baseline, Checklist, and Status Note
 
 **Requirement IDs:** `NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`, `NFR-14`, and all 38 `CFG` IDs.
-**Design:** "Module layout"; "Deviation Ledger (P5-1 through P5-15)"; "What 5a picks up and leaves alone, and who owns each item now"; "The findings filed against docs/open-items.md".
+**Design:** "Module layout"; "Deviation Ledger (P5-1 through P5-15)"; "What 5a picks up and leaves alone, and who owns each item now"; "Findings, and who owns them now".
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
 - Regenerate: `test/fixtures/surface/dexpace-core.txt` (**repository root**, not under the gem — phase 0 put the six manifests at `test/fixtures/surface/*.txt`)
 - Create: `gems/dexpace-core/test/dexpace/close_quietly_cfg21_test.rb`
 - Create: `docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`
-- Register edits: none — the postponed work that landed is recorded in the checklist and the phase status note (Step 5); `docs/open-items.md` (nothing to write)
+- Register edits: none — the postponed work that landed is recorded in the checklist and the phase status note (Step 5), and a finding found while executing this plan is routed to its owner rather than to a register (Step 5)
 - Update: `CLAUDE.md`'s two claims sentences
 
 - [ ] **Step 1: Verify the final require list in `gems/dexpace-core/lib/dexpace.rb`**
@@ -4318,7 +4318,7 @@ scope table exactly — **35 implemented, `CFG-20` and `CFG-34` partially satisf
 - `CFG-1`–`CFG-18`: ✅ (Tasks 6, 7, 9, 10, 11, 12)
 - `CFG-19`: ✅ — satisfied **by construction**, no `unwrap` method ships (`P5-11`; Task 8)
 - `CFG-20`: ⏳, and the row is the one the design fixes, copied verbatim rather than paraphrased:
-  > `| CFG-20 | SHOULD | ⏳ | first-release.md § Unsatisfied MUSTs, OI-22 | Three of four clauses met: the non-interrupting cancel is Future#cancel (phase 2); the queued-or-finished clause holds because no interrupt is ever delivered; the rejected-submission clause is Completer#fail's routing. The fourth — cancel-with-interrupt — is ASYNC-3's mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry carries the mechanism and does not cite CFG-20, which is what OI-22 records. |`
+  > `| CFG-20 | SHOULD | ⏳ | first-release.md § What v1 ships without › Unsatisfied MUSTs, CFG-20's fourth clause | Three of four clauses met: the non-interrupting cancel is Future#cancel (phase 2); the queued-or-finished clause holds because no interrupt is ever delivered; the rejected-submission clause is Completer#fail's routing. The fourth — cancel-with-interrupt — is ASYNC-3's mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry names this clause among the gaps that mechanism covers. |`
 - `CFG-21`: ✅ (phase 2's code, this task's test)
 - `CFG-22`–`CFG-33`: ✅ (Tasks 3, 5, 10, 11, 14, 15)
 - `CFG-34`: ⏳ — NaN, signed-zero and element-kind distinctness implemented; the **container-kind**
@@ -4346,12 +4346,17 @@ recorded by the checklist row that names it and by the phase status note, not by
 - **The body-logging caps' item is NOT marked done.** 5a supplies the ceiling half only; the two
   logging-body wirings need `5b`'s enablement setting, and the charter puts the mark on whichever of
   `5a`/`5b` lands **second**. 5a leads, so `5b` marks it.
-- **`CFG-35`'s throwable half and `OI-24` already exist** — the throwable half is recorded in the 5a
-  design's "Work phase 5a postponed, and who owns it now" and owned by phase 6a, Task 3; `OI-24` is
-  filed in `docs/open-items.md`. **Do not re-file, re-number or duplicate either**; both 4b's and 4c's
-  plans made exactly that mistake. Confirm the open item with:
-  `grep -n '^### OI-24 ' docs/open-items.md`
-- No `P5-<n>` or `OI-<n>` is invented by this plan, and no deferral is filed. The ledger is `P5-1`–`P5-15` and it
+- **`CFG-35`'s throwable half and the audit-group finding already have owners** — the throwable half is
+  recorded in the 5a design's "Work phase 5a postponed, and who owns it now" and owned by phase 6a, Task 3;
+  the finding that the tenth audit group's `--prefix CFG --section rules` returns 36 of 38 `CFG` IDs belongs
+  with whoever owns the corpus, and the design states the one-line mitigation the `knowledge-lookup` skill's
+  row now carries — diff the IDs `--prefix` returns against the prefix's canonical range. **Do not re-state
+  or duplicate either**; both 4b's and 4c's plans made exactly that mistake against the register this
+  repository no longer keeps.
+- No `P5-<n>` is invented by this plan, and nothing is postponed to a register: a finding made while
+  executing this plan is routed to its owner — a numbered task in the phase whose scope it falls in, phase
+  10's inbound list when it is audit or repair work on an already-planned phase, or `docs/first-release.md`
+  when it belongs to the release. The ledger is `P5-1`–`P5-15` and it
   is the 5a **design**'s; a sixteenth deviation found at execution time is appended there as
   **`P5-50`** and consolidated into design §10, never renumbered and never duplicated into a second
   list. **`P5-16` is not free and this sentence was repointed on 2026-09-09**: 5b's design took
@@ -4416,9 +4421,10 @@ Stated first, because the table below is a mapping and not a proof.
      `split_non_proxy`'s token order and then dropped before compilation, because
      `HostPattern.of("")` is not a host pattern. The requirement fixes the order, not what a
      consumer does with an empty token; this is the reading, stated rather than assumed.
-- **No `P5-` or `OI-` number is invented here, and no deferral is filed.** The ledger is the design's
-  `P5-1`–`P5-15`; the `CFG-35` throwable-half item (phase 6a, Task 3) and `OI-24` exist already and Task
-  16 verifies rather than re-files them; the body-logging caps' item is not marked done.
+- **No `P5-` number is invented here, and nothing is postponed to a register.** The ledger is the design's
+  `P5-1`–`P5-15`; the `CFG-35` throwable-half item (phase 6a, Task 3) and the audit-group finding the
+  `knowledge-lookup` skill's tenth row now carries a mitigation line for already have owners, and Task 16
+  verifies rather than re-states them; the body-logging caps' item is not marked done.
 
 ### Requirement ID Mapping
 
@@ -4446,7 +4452,7 @@ matching the design's scope table exactly. Nothing in `CFG` is deferred outright
 | `CFG-17` | MUST | Task 6 | Sleep negative rejection, zero duration, cancellation re-assertion |
 | `CFG-18` | SHOULD | Tasks 1, 7 | `Async.delay` non-blocking under scheduler; `SeamError` without (`P5-9`) |
 | `CFG-19` | SHOULD | ✅ Task 8 | Cause unwrapping satisfied **by construction**: no `unwrap` method ships (`P5-11`); asserted with `assert_same` on the error object |
-| `CFG-20` | SHOULD | **⏳** Tasks 8, 16 | Three of four clauses met; cancel-with-interrupt is `ASYNC-3`'s mechanism under a second ID and is forbidden by §8.3. Row cites the unsatisfied-MUSTs entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) **and** `OI-22`, verbatim from the design (`R7`). 5a files no fourth deferral |
+| `CFG-20` | SHOULD | **⏳** Tasks 8, 16 | Three of four clauses met; cancel-with-interrupt is `ASYNC-3`'s mechanism under a second ID and is forbidden by §8.3. Row cites the unsatisfied-MUSTs entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs), which names `CFG-20`'s fourth clause, verbatim from the design (`R7`). 5a postpones nothing further |
 | `CFG-21` | MUST | ✅ Task 16 | Discard-path close and its null-safety are phase 2's `Dexpace.close_quietly` and `Completer#fulfil`'s lost-race close. 5a adds no code and adds the test the row names |
 | `CFG-22` | MUST | Tasks 14, 15 | `Proxy` and `Proxy::Type`; credential masking in `to_s` and `inspect` (`P5-7`) |
 | `CFG-23` | MUST | Task 14 | `HostPattern` glob matching with `\A...\z`, per-pattern timeout |
@@ -4475,8 +4481,8 @@ matching the design's scope table exactly. Nothing in `CFG` is deferred outright
 | A configuration source for `ContextStore`'s cap (phase 4a's deferral) | Task 13 | One wiring, no signature change. Checklist row marked picked up; the status note says the work phase 4a postponed has landed |
 | The body-logging caps' configuration source (phase 3b's deferral) — the **ceiling** half only | Task 13 | `IO.max_materialized_bytes` reads `Keys::MAX_MATERIALIZED_BYTES`; no `ceiling:` keyword anywhere, so phase 3's boundary 8 is untouched. **The item is not marked done** — the other two wirings need `5b`'s enablement setting and `5b` lands second (Tasks 14–15 there) |
 | `CFG-14`'s well-known key constants, which `RETRY-12` and `OBS-35` reference without owning | Task 9 | `Keys::MAX_RETRY_ATTEMPTS` is the **name** only; the 200 ms / ×2 / 8 s / 0.2 / 3-sends values are phase 6's. `Keys::LOG_LEVEL` is **a published name a caller may pass, never a default any resolver falls back to** — `OBS-35`'s embedded MUST, which `5b` meets by taking its key as a required argument |
-| `CFG-35`'s throwable half (phase 6a, Task 3), `OI-24` | Task 16 | Recorded by the **design**. Verified present; not re-filed, not re-numbered |
-| The unsatisfied MUSTs, `OI-22`, `ProtocolError#retryable?` (phase 6a, Task 6), the recovery-stack retry engine (phase 6a, Tasks 3, 4, 5, 7 and 11), `close_quietly`'s second route (`5b`, Task 14), presence-gated auto-activation and `BODY-36` (both `docs/first-release.md` § What v1 ships without) | — | Untouched. 5a cites the unsatisfied-MUSTs entry and `OI-22` from `CFG-20`'s row, changes `#retryable?`'s *source* without rewriting phase 4b's argument, unblocks the retry engine by building `Clock#sleep`, adds no `close_quietly` call site, adds no fourth registry, and does not grow the require allowlist |
+| `CFG-35`'s throwable half (phase 6a, Task 3), and the audit-group finding the `knowledge-lookup` skill's tenth row owns (diff `--prefix` rules against the canonical range) | Task 16 | Recorded by the **design**. Verified present; not re-stated, not duplicated |
+| The unsatisfied MUSTs, `CFG-20`'s fourth clause among them, `ProtocolError#retryable?` (phase 6a, Task 6), the recovery-stack retry engine (phase 6a, Tasks 3, 4, 5, 7 and 11), `close_quietly`'s second route (`5b`, Task 14), presence-gated auto-activation and `BODY-36` (both `docs/first-release.md` § What v1 ships without) | — | Untouched. 5a cites the unsatisfied-MUSTs entry from `CFG-20`'s row, changes `#retryable?`'s *source* without rewriting phase 4b's argument, unblocks the retry engine by building `Clock#sleep`, adds no `close_quietly` call site, adds no fourth registry, and does not grow the require allowlist |
 
 ### Deviation Ledger Mapping
 

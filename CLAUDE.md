@@ -14,9 +14,9 @@ Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normat
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
 **Nothing is implemented yet.** Zero gems exist under `gems/`; there is no `Gemfile`, `Rakefile`, `Steepfile`
-or `.rubocop.yml`. What exists is the specification, the port design, the process tooling and the registers.
-Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec); CI runs a 3.2 / 3.3 / 3.4 / 4.0
-matrix; every Ruby fact in the design was verified against 3.4.10.
+or `.rubocop.yml`. What exists is the specification, the port design, the process tooling and the register,
+`docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec); CI runs a 3.2 /
+3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against 3.4.10.
 
 Top-level namespace is `Dexpace`. Gem names are hyphenated and map segment-for-segment onto the constant path:
 `dexpace-transport-net_http` → `lib/dexpace/transport/net_http.rb` → `Dexpace::Transport::NetHTTP`.
@@ -146,7 +146,6 @@ remembers.
 | `docs/sdk-documentation/` | **As-built.** How the gems compose, which one to install, worked cross-gem examples. `architecture.md` is the front door, and is a stub | A human, or a skill on request | yes |
 | `docs/work/<delivery>/phaseN[/phaseNx]/` | Process records: per-(sub)phase design, plan and checklist | The phase that produced them; **collected** by `housekeeping` | yes — `git mv` only |
 | `docs/superpowers/` | Nothing, for long. The **inbox** the Superpowers skills write into; never a citation target | `brainstorming`, `writing-plans` | yes — it drains it |
-| `docs/open-items.md` | **Register.** The running find-list: permanent `OI-<n>` IDs, cited from anywhere in the repository | Whoever finds the item | yes — appends |
 | `docs/deviations.md` | **Register.** The as-built audit of design §10, and where a deviation with no owning phase lands | A human, following a phase or review | no — judgment, not a mechanical append |
 | `docs/first-release.md` | **Register.** Release readiness, plus what v1 ships without and the post-release triggers. Nothing is published; every gem is at 0.0.0 | A human, as blockers close | no |
 | `docs/assets/` | Vendored wordmark SVGs the root `README.md` renders | Copied from `dexpace/morphic` | yes |
@@ -157,19 +156,23 @@ constant — `Guard::FROZEN` in `.claude/skills/housekeeping/guard.rb` — and `
 ways a naive `start_with?` fails: a sibling directory whose name merely starts with a frozen one, a `..` segment
 that lands inside after normalisation, an absolute path, and a symlink whose target is inside a frozen tree.
 
-**Which register.** A finding you are not acting on now → `docs/open-items.md`, `OI-<n>`. Something consciously
-postponed while building the SDK has no register: it is either a numbered task in the plan of the phase that
-will do it, cited by path and task number, or an entry in `docs/first-release.md` under what v1 ships without,
-the release path or the post-release triggers — and the postponing document says which, with the reason and
-the pick-up condition. A place this port deliberately differs from the reference contract → the owning
-phase document's own `## Deviation Ledger`, consolidated into design §10, audited by `docs/deviations.md`. A
-release blocker → `docs/first-release.md`. **Never leave an aggregate register section inside a spec, design or
-plan document** — the probe's `registers` check reports it, because a concern only a specification remembers is
-a concern nothing acted on.
+**Where a finding goes.** Nothing is registered and looked up later. A finding is **routed to its owner when
+it is found**, and there are four owners. Work that falls inside a phase's scope → a numbered task in that
+phase's plan, cited by path and task number. Audit-or-repair work against a phase that is already planned →
+phase 10's inbound list in `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`. Anything that belongs to
+the release — a blocker, something v1 ships without, a step on the release path, a post-release trigger →
+`docs/first-release.md`. And if the thing it reports is in material you may write, it is not a finding at all:
+fix it. Something consciously postponed while building the SDK takes the first or the third of those, and the
+postponing document says which, with the reason and the pick-up condition. A place this port deliberately
+differs from the reference contract → the owning phase document's own `## Deviation Ledger`, consolidated into
+design §10, audited by `docs/deviations.md` — the only register left at the `docs/` root. **Never leave an
+aggregate register section inside a spec, design or plan document** — the probe's `registers` check reports it,
+because a concern only a specification remembers is a concern nothing acted on.
 
-**Never renumber an item ID, and never reuse one.** They are cited from source comments, tests and the `docs/`
-tree. `OI-<n>` is the register namespace; requirement IDs are a different one and the probe does not confuse
-them. Do not write the *number* of items into any document; derive it:
+**Both item-ID namespaces are retired.** `OI-<n>`, the find-list, and `DEF-<n>`, the deferrals, were retired on
+2026-09-13; neither resolves to anything any more, and neither prefix is reused for a new namespace. Requirement
+IDs are a different namespace and the probe does not confuse them. Every surviving citation of either — from a
+source comment, a test or anywhere under `docs/` — is a finding, and so is either register file reappearing:
 
 ```bash
 ruby .claude/skills/housekeeping/probe.rb --only citations
@@ -191,8 +194,12 @@ table, and the note-writing shape. Invoke it, do not improvise queries from memo
 a `<sub>` sha digests the whole source file rather than the entry, so an edit inside an entry changes no sha and
 the next harvest regenerates or duplicates it with nothing to notice. A correction is a **note** —
 `docs/knowledge/notes/<topic>.md`, role `review`, a manual `sha:` marker, and a backticked `<topic>/<8 hex>` key
-naming the harvested rule it overrides, which makes that rule print `[overridden by notes/…]` in every query
-result. `ruby scripts/verify_knowledge_structure.rb` keeps the trees apart; re-harvest with
+naming the harvested rule it answers. **Which relation that key carries is the note's own verb.** A key preceded
+by `Supersedes`, `Resolves`, `Answers`, `Narrows`, `Corrects`, `Overrides` or `Replaces` is an override and makes
+that rule print `[overridden by notes/…]` in every query result; every other backticked key in the entry is a
+citation in support and prints `[cited by notes/…]`, which is what a rule the note *rests on* must say — marking
+a correct, load-bearing rule as overruled is the expensive direction to get wrong.
+`ruby scripts/verify_knowledge_structure.rb` keeps the trees apart; re-harvest with
 `--corpus docs/knowledge/harvested`, never the default.
 
 Six cross-role conflicts between the styleguide and the design (`--section conflicts`) are recorded in the
@@ -343,9 +350,11 @@ all three read the corpus first.
    phase postpones goes to no register: either the plan of the phase that will do it gains a numbered task,
    cited by path and task, or `docs/first-release.md` gains an entry under what v1 ships without, the release
    path or the post-release triggers — and the phase document records the reason and the pick-up condition
-   beside that pointer. A finding nobody is acting on yet goes to `docs/open-items.md` as `OI-<n>`. A release
-   blocker goes to `docs/first-release.md`. **Never leave an aggregate register section inside the spec or the
-   plan.**
+   beside that pointer. A finding the phase is not acting on is not registered either: it goes to the plan task
+   whose scope it falls in, to phase 10's inbound list in the roadmap when it is audit-or-repair work against an
+   already-planned phase, or to `docs/first-release.md` when it belongs to the release — and when it is in
+   material the phase may write, it is simply fixed. **Never leave an aggregate register section inside the spec
+   or the plan.**
 7. **Housekeeping before handover.** Run the probe, fix what it reports, then apply.
 
 Agents do not commit, push, or touch the remote unless the user asks for that specific action in that message.

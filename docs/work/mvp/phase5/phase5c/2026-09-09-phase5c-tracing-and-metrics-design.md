@@ -17,8 +17,10 @@ deviation ledger starts at **`P5-40`** and is deliberately not contiguous with `
 twenty-four. `P5-39` is a **deliberate** unused number, not a lost row. One thing the reconciliation found
 that neither document had noticed: **`OBS-24` had a scope-table row in neither**, which *Scope* now corrects
 — it is `5b`'s, making this segment 12 IDs and `5b` 28, against a charter whose arithmetic and whose prose
-disagree. The items this document proposed are recorded: the `OBS-29` wiring (per-attempt half owned by phase 6a,
-Task 9; the rest on phase 10's inbound list), and `OI-28` and `OI-29`.
+disagreed and which has since been corrected in place. The items this document proposed all have owners: the
+`OBS-29` wiring (per-attempt half owned by phase 6a, Task 9; the rest on phase 10's inbound list), the
+keyword-splat cop (phase 0's plan, Task 4) and the two-objects-one-name tracer-factory finding (phase 10's
+inbound list).
 
 ## Purpose
 
@@ -45,7 +47,8 @@ requirement read against another requirement, or by a contract phase 4 already s
   so **no method in this segment's SPI takes a keyword splat**, and every attributes parameter is one named
   optional keyword carrying a frozen `Hash`. This is the single most consequential fact in the sub-phase: the
   splat is the spelling every Ruby tracing and metrics API uses, `api-design/1d9e6e0b`'s keywords-everywhere
-  rule reads as licensing it, and nothing mechanised catches it (`P5-42`, and `OI-28`).
+  rule reads as licensing it, and nothing mechanised catches it (`P5-42`; the cop that would is phase 0's plan,
+  Task 4).
 - **Fiber storage's copy-on-write protects the *slot*, not the object in it.** Measured:
   `Fiber[:stack] = []` followed by a `<<` inside `Thread.new` and inside `Fiber.new` mutates the parent's
   Array — the same object, verified by `object_id` — while `Fiber[:span] = :a` rebound in a child leaves the
@@ -125,8 +128,8 @@ surface is protocols, frozen singletons, one `Fiber[]` slot, one generator and o
   slots in.
   `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md` for the require allowlist and
   the denylist.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` — all read in
-  full. `docs/first-release.md` carries no line touching any 5c ID; `docs/deviations.md` rows 7 and 16 touch
+- `docs/deviations.md` and `docs/first-release.md` — all read in
+  full, together with the open-items register that then existed and was retired on 2026-09-13. `docs/first-release.md` carries no line touching any 5c ID; `docs/deviations.md` rows 7 and 16 touch
   `OBS-2` and `OBS-35`, both `5b`'s.
 - `CLAUDE.md` and `docs/README.md`.
 
@@ -136,8 +139,8 @@ surface is protocols, frozen singletons, one `Fiber[]` slot, one generator and o
 
 Twelve IDs: **10 MUST, 2 SHOULD (`OBS-28`, `OBS-32`), 0 MAY**, derived mechanically from appendix C.
 
-**A correction to the charter's arithmetic, found at reconciliation, stated here and filed as `OI-30` rather
-than made by editing the charter.** The charter's 5c table says 13 and its Implemented row reads `OBS-21`–`OBS-31`, which **includes
+**A correction to the charter's arithmetic, found at reconciliation and stated here; the charter's own two
+scope tables were corrected in place on 2026-09-13, after this document.** The charter's 5c table said 13 and its Implemented row read `OBS-21`–`OBS-31`, which **includes
 `OBS-24`**; its prose says twice that `OBS-24` is `5b`'s ("it is the context snapshot itself, with no span in
 it", and `R12`'s "`5b` owns `OBS-24` and `5c` owns `OBS-23`"). The prose is the reading both sub-phase designs
 act on — `5b` builds `Diagnostics.capture` and `.with` for it and this document disclaims it — so 5c is **12**
@@ -151,11 +154,11 @@ convention exists to prevent, which is why the correction is made rather than ca
 |---|---|---|
 | Implemented | `OBS-22`, `OBS-23`, `OBS-25`, `OBS-27`, `OBS-28`, `OBS-31`, `OBS-33` | 7 |
 | Implemented — core's only span is non-recording, so every clause holds on shipped code; the **recording** branch is an SPI obligation stated in the protocol's YARD and asserted against `RecordingSpan`, a test fake (`P5-48`) | `OBS-21` | 1 |
-| Implemented — the **emission contract and its ordering test** ship; **nothing in phase 5 emits it**, which the requirement itself calls a follow-up. ✅-with-clause, naming the two unwired halves and their owners — per-attempt: phase 6a, Task 9; the rest: `OI-32`/`OI-36` on phase 10's inbound list (`R14`) | `OBS-29` | 1 |
+| Implemented — the **emission contract and its ordering test** ship; **nothing in phase 5 emits it**, which the requirement itself calls a follow-up. ✅-with-clause, naming the two unwired halves and their owners — per-attempt: phase 6a, Task 9; the rest — the operation-lifecycle triple and the transport-reachable `HTTPTracer` — on phase 10's inbound list (`R14`) | `OBS-29` | 1 |
 | Implemented **by construction** — core does not wrap a tracer or meter call anywhere, which is the whole of the runtime's obligation; the must-not-throw half is a contract on implementers, documented and asserted against a throwing fake that is required to propagate (`OBS-20`'s conformance clause says so in as many words) | `OBS-30` | 1 |
 | Satisfied by **phase 4a**, which 5c populates and may not redefine — the reserved sentinels, the 16-lowercase-hex span-id rule and the derived validity flag are `Bundle`, `Bundle::INVALID_SPAN_ID` and `TraceIdFlavour`, all shipped. 5c adds the generator `OBS-27` needs and touches no sentinel (roadmap obligation 1, phase 4a's deferral of the protocols, boundaries 10 and 11) | `OBS-26` | 1 |
 | ⏳ post-v1 with `dexpace-instrumentation-otel` — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry | `OBS-32` (SHOULD) | 1 |
-| Not 5c's, listed for the reader the charter's arithmetic will send here: `OBS-24` is **`5b`'s** and now carries a row in `5b`'s scope table. 5c owns `OBS-23`'s per-key push and cites `5b`'s `P5-23` for the whole-map half (`R12`) | `OBS-24` | — |
+| Not 5c's, listed for the reader the charter's pre-correction arithmetic sent here: `OBS-24` is **`5b`'s** and now carries a row in `5b`'s scope table. 5c owns `OBS-23`'s per-key push and cites `5b`'s `P5-23` for the whole-map half (`R12`) | `OBS-24` | — |
 
 **Also shipped by 5c without owning a new ID**, per the charter:
 
@@ -254,13 +257,13 @@ The four neighbours that bound the segment:
 | `OBS-1`–`OBS-20`, `OBS-34`–`OBS-40` — the event object and `Event::INERT`, the duck-typed sink, redaction, the diagnostic-context **fold** and its two key-name constants, `OBS-24`'s snapshot bridge, and the HTTP instrumentation step itself | `5b`. 5c ships **no step, no diagnostic-context key-name constant and no second no-op meter** (boundary 15; the key names moved to `5b` at reconciliation, `R11`) |
 | `CFG-1`–`CFG-38` — the configuration chain, the clock, the proxy model | `5a`, shipped. 5c reads nothing from the chain (`R11`) |
 | `CTX-14`, `CTX-15`, `CTX-20` — the bundle's shape, `Bundle::NONE`, the no-op tracer factory's existence | 4a, built. Roadmap obligation 1: phase 4 fixed the shape, phase 5 populates and may not redefine. 5c owns `OBS-25`/`OBS-26`/`OBS-27`, the requirements those members are *values of* |
-| `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a thread hop | 8. 5c owns the *writer* (`OBS-23`); `dexpace-async-thread` owns the adapter-side save/install/restore, and `OI-13`'s warned setter is what it will meet |
+| `ASYNC-8`–`ASYNC-12` — capture, install and restore of the diagnostic context across a thread hop | 8. 5c owns the *writer* (`OBS-23`); `dexpace-async-thread` owns the adapter-side save/install/restore, and the warned whole-map setter the observability note records is what it will meet |
 | `XCUT-11`'s shared-instance audit, `XCUT-20`'s observability-totality audit | 9. 5c builds three of the audited objects — `NO_SPAN`, `NO_TRACER`, `NO_METER` — and `XCUT-20` is the audit `OBS-30`'s deliberate non-wrapping has to survive |
 | `SEAM-5`'s auto-activation for instrumentation | Post-v1 — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the presence-gated auto-activation entry; its only sanctioned user is `dexpace-instrumentation-otel`. 5c adds no registry, which is `R15` |
 | `PIPE-24`/`PIPE-39`'s `Pipeline.standard` and any preset installing an instrumentation step | 6 (phase 6b, Task 13a). 5c installs nothing |
 | `RETRY`'s attempt loop and `TRANSPORT`'s connection and byte-count milestones — the emitters `OBS-28`'s vocabulary is *for* | 6 and 8. This is `R14`, and it is why nothing emits in phase 5 |
 | `OBS-32`'s OpenTelemetry metric names, units and attribute sets | Post-v1 with `dexpace-instrumentation-otel` — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `OBS-32`/`OBS-37` entry |
-| A span-id **generator** | Nobody, deliberately. `OBS-27`'s scope is trace ids and `OBS-26` states the span-id rule as a *validity* rule; core creates no spans, so a generator would be `NFR-4`-locked surface with no caller (`P5-44`, `OI-8`'s shape) |
+| A span-id **generator** | Nobody, deliberately. `OBS-27`'s scope is trace ids and `OBS-26` states the span-id rule as a *validity* rule; core creates no spans, so a generator would be `NFR-4`-locked surface with no caller (`P5-44`; the `TeeSink#clear_tap` shape, 3a plan, Task 14) |
 
 **No segmentation design of its own.** 5c is four sections of one spec chapter, one gem, 12 IDs, under a
 segmentation design that already exists at the `phase5/` level.
@@ -300,18 +303,20 @@ row where §8.1 did not already name it — and **§8.1 names exactly two things
 `Dexpace::Instrumentation::NULL` (§8.1 line 10) and `CallableAdapter` (line 13), verified by grepping the whole
 `docs/` tree and re-verified at reconciliation.
 
-**One correction to the charter, stated here because this is where it is made and the charter is not edited.**
+**One correction to the charter, stated here because this is where it is made and this document does not edit the charter.**
 The charter's *From phase 1* prerequisite enumerates the constants §8.1 names as
 "`Dexpace::Instrumentation::Event`, `Event::INERT` and `Dexpace::Instrumentation::Bundle`", and adds that
 phase 4a already shipped `NO_SPAN`, `NO_TRACER_FACTORY` and `TraceIdFlavour`. That enumeration is
 **incomplete**: §8.1 also names `Dexpace::Instrumentation::NULL` and `CallableAdapter`, both of them 5c's, and
 a sub-phase reading the charter's list as exhaustive would file a Deviation Ledger row for each — an
 `NFR-4`-relevant name recorded as arriving by accident when the design in fact chose it. Neither needs a row,
-and `P5-40` says so explicitly. The charter is not edited; the correction lives here, which is the treatment
-the charter itself prescribes for a sub-phase correcting it and the same one `5b` uses for the charter's `R8`
-framing and its 5b scope-table cell.
+and `P5-40` says so explicitly. This document did not edit the charter; the correction lives here, which is the
+treatment the charter itself prescribes for a sub-phase correcting it and the same one `5b` uses for the
+charter's `R8` framing and its 5b scope-table cell. (The charter's two scope tables were corrected in place on
+2026-09-13.)
 
-`OI-19` is a live constraint on the last task and not background: the runtime surface snapshot "does not hold
+Phase 0's Task 14 decision on the runtime surface snapshot is a live constraint on the last task and not
+background: the snapshot "does not hold
 a `Data`-generated reader for any type using this repository's `class X < Data.define(...)` convention". 5c
 adds methods to `TraceIdFlavour`, which is such a type; the methods are ordinary and *are* held, but a reader
 regenerating the manifest must not read a stable diff as proof the `Data` readers are covered.
@@ -417,7 +422,7 @@ document; the substantive entry was located beside the roll-up in every case, wh
 
 | Group | Query | Result |
 |---|---|---|
-| **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix OBS --section rules --brief` | 92 entries across 3 topic files, and **51 entries covering all 40 `OBS` IDs**. **`OI-24` does not recur on the `OBS` half, and that was checked rather than trusted**: the IDs returned by `--prefix OBS --section rules` were extracted and diffed against the canonical range `OBS-1`..`OBS-40`, and none is missing. `OI-24`'s own mitigation line is what was run |
+| **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix OBS --section rules --brief` | 92 entries across 3 topic files, and **51 entries covering all 40 `OBS` IDs**. **`5a`'s audit-group shortfall does not recur on the `OBS` half, and that was checked rather than trusted**: the IDs returned by `--prefix OBS --section rules` were extracted and diffed against the canonical range `OBS-1`..`OBS-40`, and none is missing. That is the mitigation line the `knowledge-lookup` skill's audit-group row now carries |
 | **Tracing and metrics rules proper** | `--req OBS-21,…,OBS-33` (three calls, one per roll-up block) | `observability/3655d800` (`OBS-21`), `/97ee8aa4` (`OBS-22`), `/87b26572` (`OBS-23`), `/14b7a965` (`OBS-25`), `/ab7e3bc3` (`OBS-26`), `/ed4172fe` (`OBS-27`), `/1f2f8c85` (`OBS-28`), `/2da9e2f3` (`OBS-29`), `/23abba6b` (`OBS-30`), `/6ba95c3c` (`OBS-31`), `/31cefdb2` (`OBS-32`), `/65043fdd` (`OBS-33`) are faithful restatements of the chapter and add nothing it does not say. **Three design-role entries do add something**: `/94f90bac` (the `opentelemetry-api` structural subset, and *why one shape rather than two*), `/68a9625c` (`dexpace-instrumentation-otel` is "the one adapter permitted presence-gated activation" — which is `R15`'s subject seen from the corpus), and `/4044a5c7`, which is the only place outside §8.1 that names `Dexpace::Instrumentation::NULL` |
 | **Failure containment, read for the boundary rather than for 5c's own IDs** | `--topic observability --section constraints --brief` | 3 entries. `observability/0ea8a5ee` is `OBS-20`/`OBS-30`'s asymmetry stated as a constraint — "a throwing tracer or meter will propagate and can fail the request" — and is the entry `P5-48`'s honesty rests on. `/c2ebb968` and `/956f1603` are `5b`'s |
 | **Public API surface** | `--topic api-design,module-organization,documentation --section rules --brief` | `api-design/1d9e6e0b` (keywords everywhere) is the rule verified fact 1 **narrows rather than deviates from**: a *named* keyword is free and a *splat* is not, and 1d9e6e0b's stated reason ("a new keyword with a default is always backward-compatible") is a property of named keywords only. `/a9943041` and `/634ccc4b` make adding an optional keyword non-breaking and changing an existing default MAJOR, which is the rule the two slots in `R11` are defaulted under. `/88e6bf12` (narrowest duck-typed parameter) is what makes every protocol here an RBS `interface` rather than a class. `api-design/b0e18938`'s minimal-surface rule is why `NO_METER`'s instruments are `private_constant` |
@@ -435,7 +440,7 @@ document; the substantive entry was located beside the roll-up in every case, wh
   keyword arguments and says nothing about `**splat`, and `observability/956f1603` records only that an
   *enabled* event cannot be allocation-free. A note would be adding a rule, not overriding one, and the
   mechanism for that is a styleguide amendment plus a harvest — not a `notes/` file. It is recorded here as
-  verified fact 1, as `P5-42`, and as `OI-28`.
+  verified fact 1, as `P5-42`, and as the keyword-splat cop phase 0's plan, Task 4 owns.
 - **`Fiber[]`'s copy-on-write being per-slot and not per-object — filed at reconciliation, not by this
   document.** It *narrows* the "inheritance is copy-on-write" property this repository's existing note added
   to `observability/e0f1e864`, and a narrowing of a note is exactly what a second note is for — **but the `5b`
@@ -525,7 +530,7 @@ property and the plan re-measures them anyway as part of `OBS-25`'s own test.
    key per event. Both are `5b`'s to pay or avoid; 5c owes the fact, not the fix.
 
 4. **`Fiber[:k] = nil` deletes the key; `Fiber#storage = {k: nil}` retains it.** *Floor-straddling — and
-   `OI-13` already records that `Fiber.current.storage = nil` reads back as `{}` on 3.2.11 and as `nil` on
+   the observability note already records that `Fiber.current.storage = nil` reads back as `{}` on 3.2.11 and as `nil` on
    3.4.10 and 4.0.6, so the whole-map setter's floor behaviour is known-divergent.* Verified here: after
    `Fiber[:k] = "v"; Fiber[:k] = nil`, `Fiber.current.storage.key?(:k)` is `false`. After
    `Fiber.current.storage = { a: nil, b: 1 }`, `key?(:a)` is `true` and `Fiber[:a]` is `nil`. Consequently a
@@ -623,7 +628,8 @@ authorship: `NO_METER` ships in this segment, in the same phase. **5c's defaults
 is rewritten around reason 3 above — `CTX-14` already puts a `tracer_factory` on every context, so a required
 keyword makes every caller restate an object the request's own context carries.
 
-**The precedence's first clause has no implementation path in phase 5, and this is `OI-31`.** Found at the
+**The precedence's first clause has no implementation path in phase 5, and phase 6a's Task 8 owns the
+widening that gives it one.** Found at the
 5b/5c plan reconciliation, after both designs were written, and stated here because reason 3 above is where
 the unimplementable clause is argued for. **No mechanism exists by which a pipeline step can reach a
 `RequestContext` or an `Instrumentation::Bundle`.** Phase 4c is explicit that "4c does not consume 4a at all";
@@ -641,7 +647,8 @@ against a context. The clause is a widening, and `api-design/1d9e6e0b` makes a w
 nothing here is prejudiced by shipping the two-clause resolution now. The phase that would close it is
 **phase 6**, which owns the pillar steps and is the first thing that either widens `Cursor` with a context
 reader or has a `Pipeline.standard` (phase 6b, Task 13a) thread a bundle in at construction. Neither is 5b's or 5c's to
-choose. `OI-31` carries the finding; both plans state the degradation at the call site.
+choose; phase 6a's Task 8 — the `Cursor` context-bundle widening — is where it lands. Both plans state the
+degradation at the call site.
 
 ### `OBS-34`'s independence of the log level, and the half 5c owes
 
@@ -762,7 +769,7 @@ Four properties, each verified rather than assumed:
   same handle and the same block. Three restores, one `ensure`, no ordering hazard between them because none
   reads another's slot.
 - **`Fiber[]=` emits no warning** (verified fact 4: two writes, zero warnings), so `NFR-7`'s
-  warnings-fail-the-build gate is never engaged and `OI-13` never bites 5c.
+  warnings-fail-the-build gate is never engaged and the warned whole-map setter never bites 5c.
 - **Nothing is stored that a child fiber or thread can mutate.** The slots hold frozen `String`s and one
   immutable span reference (verified fact 2).
 
@@ -780,8 +787,8 @@ re-opens this.
 `OBS-24`'s whole-map snapshot is the warned operation. **5c recommended, and `5b` decided (its `R12`,
 `P5-23`), and 5c does not implement:** restore per key over the **union of the captured and prior key sets**,
 which
-stays inside `Fiber[]=`, never touches `Fiber#storage=`, and therefore never meets `OI-13`'s warning or its
-3.2-versus-3.4 `= nil` divergence. The costs, stated so the recommendation is not free: the union restore is
+stays inside `Fiber[]=`, never touches `Fiber#storage=`, and therefore never meets the warning the
+observability note records or its 3.2-versus-3.4 `= nil` divergence. The costs, stated so the recommendation is not free: the union restore is
 O(captured + prior) rather than one assignment; a key present-with-`nil` in the *prior* map is dropped by the
 same mechanism this section already records; and the capture side still needs `Fiber.current.storage`, which
 is not warned and which verified fact 3 shows already returns a fresh unfrozen `Hash` per call — so
@@ -793,10 +800,10 @@ with no defensive copy needed. That last point is a genuine simplification of `O
 called in `dexpace-core`'s `lib/`, and exactly once in its `test/`, to construct the null-valued key
 `OBS-10`'s skip clause is about. `5b`'s statement is the one that binds and this section cites it; 5c does not
 restate the argument. The one thing 5c adds that `5b`'s route also inherits is `P5-49`'s gap, recorded on both
-sides. Neither route touches `OI-13`, which is the point of both.
+sides. Neither route touches the warned setter, which is the point of both.
 
 **Both halves need re-running on 3.2.11 and 4.0.6 before either is implemented.** This document ran 3.4.10
-only, and `OI-13` already documents a floor divergence in the neighbourhood.
+only, and the observability note already documents a floor divergence in the neighbourhood.
 
 ## `R13` — the scope handle, against `OBS-25`'s cached-singleton clause
 
@@ -862,8 +869,8 @@ construct", so the handle must exist as an object — but the *primary* form is 
 - **`Tracing.activate(span) -> _Scope`** and `.correlate(span, bundle) -> _Scope`, with `#close` —
   `OBS-22`'s literal requirement, public because the requirement is. **`activate` is called by nothing in
   core**; `correlate` is, by `5b`'s `AsyncStep`, whose span outlives `#call`. `activate`'s bare-handle form is
-  the `OI-8` shape and it is accepted deliberately (`P5-45`): the requirement's words are "return a scope handle", the conformance test nests two of them by
-  hand, and an SDK consumer who spans a non-lexical region needs exactly this. What makes it not `OI-8` is
+  the `TeeSink#clear_tap` shape (3a plan, Task 14) and it is accepted deliberately (`P5-45`): the requirement's words are "return a scope handle", the conformance test nests two of them by
+  hand, and an SDK consumer who spans a non-lexical region needs exactly this. What makes it not that shape is
   that the block form is implemented **in terms of** it, so the handle has a caller and one code path.
 - **`Scope` is not a `Dexpace::Closeable`.** `XCUT-13`'s idempotent non-blocking close is about resources
   with an owner and a lifecycle; a scope is neither, its `#close` restores rather than releases, and
@@ -927,10 +934,12 @@ The checklist row, written out here so the plan copies it rather than inventing 
 > ordering assertion over a conformant emitter fake ship in 5c. **Nothing in phase 5 emits any of it**: the
 > per-attempt group has no emitter until phase 6's retry step and the transport-milestone group none until
 > phase 8's adapters, which the requirement's own last sentence anticipates. The wiring is postponed: the
-> per-attempt half to phase 6a, Task 9, the rest to phase 10's inbound list (`OI-32`, `OI-36`). *Cites:*
+> per-attempt half to phase 6a, Task 9, the rest to phase 10's inbound list — the operation-lifecycle triple
+> and the transport-reachable `HTTPTracer`. *Cites:*
 > `OBS-28`, `OBS-29`, `PIPE-24`, `PIPE-39`, §8.1.
 
-**The cost, stated rather than hidden.** An eleven-method public module with no core caller is `OI-8`'s shape
+**The cost, stated rather than hidden.** An eleven-method public module with no core caller is the
+`TeeSink#clear_tap` shape
 — `NFR-4`-locked surface that nothing exercises in production. Two things make it a different case, and
 neither is "the requirement says so": the ordering test drives every one of the eleven through the fake, so
 the module has a caller in the suite and its no-op defaults are asserted rather than assumed; and deferring
@@ -1339,11 +1348,12 @@ Boundary 15 — the charter's own charter decision about the step — is `R11`, 
 6. **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden.** 5c reaches for none: it starts no
    thread, takes no lock and performs no wait. Stated because it is unusual for a phase-5 segment, not
    because it was in doubt.
-7. **`Metrics/ParameterLists` counts keyword arguments (`OI-20`).** `_Tracer#start_span`'s four-parameter
+7. **`Metrics/ParameterLists` counts keyword arguments**, a property of the reviewed `.rubocop.yml` baseline
+   phase 0's Task 3 owns. `_Tracer#start_span`'s four-parameter
    signature is at the `Max: 4` boundary and `NO_TRACER`'s implementation of it is exactly four; if the plan
    confirms `opentelemetry-api` carries `links:` and `start_timestamp:` as well, the method trips the cop and
-   is paid with a named inline disable, which is phase 0's convention for a directive and `OI-20`'s recorded
-   treatment. Not a `.rubocop.yml` change (`OI-6`).
+   is paid with a named inline disable, which is phase 0's convention for a directive and the treatment that
+   baseline records. Not a `.rubocop.yml` change: the reviewed baseline stays as it is.
 8. **`Ractor` is never load-bearing.** Every singleton here is deep-frozen and therefore shareable as a free
    side effect, and no claim is made for it. `Scope` holds a foreign span reference and is not shareable; that
    is a non-claim, not a gap.
@@ -1353,7 +1363,7 @@ Boundary 15 — the charter's own charter decision about the step — is `R11`, 
 `test/` mirrors `lib/` one file per file; each file's header comment names the requirement IDs it exercises,
 and a non-obvious branch names the ID that forced it. Every suite subclasses `DexpaceTestCase`, so a warning
 raised by code under test fails the test that triggered it — which is what would catch a stray
-`Fiber#storage=` in 5c's own code before `OI-13` ever became relevant.
+`Fiber#storage=` in 5c's own code before the observability note's warning ever became relevant.
 
 **No transport, no socket, no stream, no configuration, no logger.** 5c's suite requires only the
 `Dexpace::Instrumentation` tree, and **that is itself an assertion** (`R11`): a reference to `5b`'s event
@@ -1455,7 +1465,7 @@ What 5c ships as a stable contract:
 | **`5b`**, on `OBS-32` | Nothing. 5c fixes no instrument name, unit or attribute set; `5b` declares `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION` for the step's two instruments, and `OBS-32`'s units, descriptions and attribute sets stay ⏳ post-v1 until `dexpace-instrumentation-otel` lands (`R11`) |
 | **`5b`**, on `OBS-31` | `interface _Meter`, `_Counter` and `_Histogram`, declared **filled**, here and only here — `5b`'s empty `_Meter` was deleted at reconciliation because two declarations of one interface name is an `rbs validate` failure. `5b`'s `meter:` types as `Dexpace::Instrumentation::_Meter` — the interfaces are declared inside `module Instrumentation`, so a bare `_Meter` is what `step.rbs` writes |
 | **`5b`**, on test doubles | `RecordingTracer`, `RecordingSpan` and `RecordingMeter` under `test/support/`, 5c's files (`P5-48`). `5b`'s step tests consume them and add no second set; the method names in them are 5c's |
-| **Phase 6**, on `OBS-28`/`OBS-29` | `HTTPTracer` with its eleven no-op methods, `NULL`, `CallableAdapter`, and the ordering contract. Phase 6 wires the per-attempt group from its retry step (phase 6a, Task 9); the operation-lifecycle triple is `OI-32`, on phase 10's inbound list; it does not redefine the vocabulary (`R14`) |
+| **Phase 6**, on `OBS-28`/`OBS-29` | `HTTPTracer` with its eleven no-op methods, `NULL`, `CallableAdapter`, and the ordering contract. Phase 6 wires the per-attempt group from its retry step (phase 6a, Task 9); the operation-lifecycle triple is on phase 10's inbound list; it does not redefine the vocabulary (`R14`) |
 | **Phase 6**, on `RETRY`'s events | `#attempt_started`, `#attempt_failed(context, error, next_delay)` and `#retries_exhausted` are the three names the retry step emits, and `OBS-29`'s adjacency clause — retries-exhausted immediately followed by `operation_failed` **with the same throwable** — is a constraint on the retry step, not on the vocabulary |
 | **Phase 8**, on `TRANSPORT`'s milestones | The five transport methods, with their argument lists fixed here: host and port on `#connection_acquired`, byte counts on `#request_sent` and `#response_received`, status and headers on `#response_headers_received` |
 | **Phase 8**, on `ASYNC-8`–`ASYNC-12` | The finding that a key present with a `nil` value is turned absent by a per-key restore (`P5-49`), and that `Fiber#storage=` — which a whole-map restore may have no way to avoid — **rejects a `String` key**, which is why the two key names are `Symbol`s. The names themselves are `5b`'s. `dexpace-async-thread`'s save/install/restore is the other place that matters |
@@ -1476,14 +1486,14 @@ is preferred to a collision.
 |---|---|---|---|
 | P5-40 | Public constants design §8.1 does not name: `Dexpace::Instrumentation::Tracing`, `::Scope`, `::NO_SCOPE`, `::HTTPTracer`, `::NO_METER`; and the RBS interfaces `_Scope`, `_Meter`, `_Counter`, `_Histogram`. **`NULL` and `CallableAdapter` are §8.1's own names and are not deviations** | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11, phase 4a's P4-2 and phase 5a's P5-1 precedent | §8.1 names exactly two Ruby identifiers for this segment — `Dexpace::Instrumentation::NULL` at §8.1 line 10 and `CallableAdapter` at line 13 — verified by grepping the tracked `docs/` tree and re-verified at reconciliation. `NFR-4` locks every public name at the first release tag, so a name arriving by accident is locked by accident. Each is chosen for a stated reason in the object-model section. **`::TRACE_ID_KEY` and `::SPAN_ID_KEY` were in the draft's list and are not shipped**: the two key constants are `5b`'s (`R11`) |
 | P5-41 | Public **methods** design §8.1 does not name: `Tracing.current_span`, `.activate`, `.with_span`, `.correlate`, `.with_correlated_span`; `Scope#close`; `TraceIdFlavour#generate_trace_id`; `Bundle#sampled?`; the seven methods on `NO_SPAN`'s class and the two on `NO_TRACER`'s; `HTTPTracer`'s eleven; `NO_METER#create_counter`/`#create_histogram` and the instruments' `#add`/`#record` | `NFR-4`; phase 2's P2-11, phase 4a's P4-11, phase 5a's P5-2 | `NFR-4` locks a public *signature*, not only a name. Two deserve naming here. **`Tracing.activate` has no core caller** — both of `5b`'s steps take `correlate`'s handle, and 5c's own block forms are implemented in terms of it — and is public because `OBS-22`'s words are "return a scope handle" and its conformance test nests two by hand; the block forms are implemented in terms of it, so there is one code path rather than two. **`Bundle#sampled?` has no core caller either** and is added because 4a explicitly reserved it for phase 5 and because a two-hex-char byte whose low bit nobody can read is a member with no reader |
-| P5-42 | **No method in this segment takes a `**` keyword splat.** Every attributes parameter is one named optional keyword carrying a frozen `Hash`, against the shape every Ruby tracing and metrics library uses | `OBS-25` ("Selecting a no-op path MUST NOT allocate per call"); `api-design/1d9e6e0b`; verified fact 1 | Measured on 3.4.10: `def m(x, **attributes)` allocates one `Hash` per call **even with no keyword argument passed** (1002 / 1000), and a forwarding wrapper doubles it; the named form allocates nothing. `OBS-25` is a MUST and the splat makes it unsatisfiable. Recorded as a deviation rather than as a style note because the splat is what an implementer copying `opentelemetry-api` will write, `api-design/1d9e6e0b` reads as licensing it, and **nothing mechanised catches it** — an open item is proposed for that |
+| P5-42 | **No method in this segment takes a `**` keyword splat.** Every attributes parameter is one named optional keyword carrying a frozen `Hash`, against the shape every Ruby tracing and metrics library uses | `OBS-25` ("Selecting a no-op path MUST NOT allocate per call"); `api-design/1d9e6e0b`; verified fact 1 | Measured on 3.4.10: `def m(x, **attributes)` allocates one `Hash` per call **even with no keyword argument passed** (1002 / 1000), and a forwarding wrapper doubles it; the named form allocates nothing. `OBS-25` is a MUST and the splat makes it unsatisfiable. Recorded as a deviation rather than as a style note because the splat is what an implementer copying `opentelemetry-api` will write, `api-design/1d9e6e0b` reads as licensing it, and **nothing mechanised catches it** — the cop that would is phase 0's plan, Task 4 |
 | P5-43 | `OBS-29`'s "One tracer instance corresponds 1:1 to a single logical operation lifecycle" is read as binding **stateful** tracers only; `NO_TRACER_FACTORY#tracer` returns one shared object on every call | `OBS-29`, `OBS-25`, `CTX-20`; phase 4a's fixed shape and boundary 10 | The two MUSTs are in literal conflict: `OBS-25` requires the no-op factory to return a shared no-op tracer and to allocate nothing per call, and `OBS-29` requires one tracer per operation. They are consistent only if the 1:1 clause is about per-operation *state*, which a stateless no-op has none of. 4a fixed the shared return and boundary 10 forbids changing it, so the obligation is restated where it can bind — `_Tracer`'s YARD as an implementer contract — and asserted against `RecordingTracer`, whose factory returns a fresh instance per call |
-| P5-44 | **No span-id generator ships.** `OBS-27`'s generation is implemented for trace ids only | `OBS-26`, `OBS-27`; `OI-8`'s shape; phase 4a's P4-7 | `OBS-27`'s scope is "Trace-id generation" and `OBS-26` states the span-id rule as a *validity* rule, which 4a's span-id pattern already enforces at `Bundle.build`. Core creates no spans, so a generator would be `NFR-4`-locked public surface with no caller — `OI-8`'s exact shape. An adapter that creates spans generates its own span ids, which is what every tracing runtime already does |
+| P5-44 | **No span-id generator ships.** `OBS-27`'s generation is implemented for trace ids only | `OBS-26`, `OBS-27`; the `TeeSink#clear_tap` shape (3a plan, Task 14); phase 4a's P4-7 | `OBS-27`'s scope is "Trace-id generation" and `OBS-26` states the span-id rule as a *validity* rule, which 4a's span-id pattern already enforces at `Bundle.build`. Core creates no spans, so a generator would be `NFR-4`-locked public surface with no caller — `TeeSink#clear_tap`'s exact shape. An adapter that creates spans generates its own span ids, which is what every tracing runtime already does |
 | P5-45 | `OBS-22`'s scope handle is exposed **block-form-first**, and the bare handle is the secondary form | `OBS-22` ("closeable from a try/using construct"); `resource-management/bf5560dc`; `CLAUDE.md`'s abandoned-`Enumerator` rule | Ruby's `ensure` is the try/using construct and a block is how a library hands it to a caller. The bare handle exists because the requirement's words are "return a scope handle" and because a consumer spanning a non-lexical region needs one — and reconciliation found that core has such a consumer: `5b`'s `AsyncStep` activates before `cursor.call` and closes in the future's `#on_settle` callback, two stacks apart, which no block form can express. The block form is implemented in terms of `activate`, so there is one restore path rather than two whichever form a caller takes; the draft said core never calls `#close` directly, and that is now true only of the **sync** path. `Scope` is **not** a `Dexpace::Closeable`: `XCUT-13`'s latch is about owned resources and a scope owns nothing |
 | P5-46 | `Scope` is a plain class with three ivars, not a `Data` — the one place in this repository where the domain-model construction pattern is deliberately not applied | `docs/sdk-design-ruby/04-domain-model-construction.md`; `data-modeling/3e37c086`; `OBS-25`; verified fact 5 | `Scope` is a per-call resource handle, not a value: it has no meaningful `==`, its generated `#hash` would be nonsense, frozen-on-construction buys it nothing, and it costs two allocations as a `Data` against one as a plain object (measured). `data-modeling/3e37c086` puts state-owning behaviour in a class. Recorded because §4's opening sentence is "Every core model follows one shape" and a reader is entitled to know why this one does not |
 | P5-47 | `NO_SCOPE` is returned on an **identity** test — the span being activated is `equal?` to the current one — and not on the span's recording flag | `OBS-22`, `OBS-25` | The recording-flag reading is the obvious one and it is wrong: a non-recording span activated on top of a recording one still owes a restore, and `OBS-23` requires that case to exist ("activation MUST delegate to plain current-span activation"). Returning the cached singleton there would leave the recording span un-restored, which is `OBS-22`'s exact failure. The identity test returns the singleton in every case the flag test would, plus one it misses, and never in the case that breaks — and in an untraced application it is true on every activation, which is what `OBS-25`'s clause is about |
 | P5-48 | Core ships **no recording span, no recording tracer and no recording meter**; every recording-branch clause of `OBS-21`, `OBS-29`, `OBS-30` and `OBS-31` is asserted against a fake under `test/support/` | `OBS-21`, `OBS-29`, `OBS-30`, `OBS-31`; `SEAM-2`; phase 5a's `FakeClock` precedent | Core owns no exporter and no metrics runtime — `OBS-31` forbids the second in as many words — so a recording implementation would be a second, unused runtime beside the no-ops, with an export path nothing consumes. The clauses are obligations on an implementer and are stated in each protocol's YARD, which is where a duck-typed SPI's contract can bind. The cost is real and is accepted: four MUSTs are verified against a fake rather than against shipped code, and phase 8's `dexpace-conformance` is where the same assertions meet a real adapter |
-| P5-49 | A diagnostic key that was present with a `nil` **value** is turned **absent** by `OBS-23`'s per-key restore | `OBS-23` ("restore each key to its prior value (or remove it if previously unset)"); `OBS-10`; verified fact 4; `OI-13` | `Fiber[:k] = nil` deletes the key (measured), so one assignment serves both of `OBS-23`'s branches and no presence check is needed — at the price of collapsing "was absent" and "was present and null" into removal. A null-valued key is reachable only through `Fiber#storage=`, the warned setter `OI-13` records, and `OBS-10`'s "Keys with null values MUST be skipped" makes the two states fold identically at the only reader. Recorded rather than buried because the argument that makes it harmless is `OBS-10`'s clause, and a later phase that relaxes that clause re-opens this |
+| P5-49 | A diagnostic key that was present with a `nil` **value** is turned **absent** by `OBS-23`'s per-key restore | `OBS-23` ("restore each key to its prior value (or remove it if previously unset)"); `OBS-10`; verified fact 4; the observability note on `Fiber#storage=` | `Fiber[:k] = nil` deletes the key (measured), so one assignment serves both of `OBS-23`'s branches and no presence check is needed — at the price of collapsing "was absent" and "was present and null" into removal. A null-valued key is reachable only through `Fiber#storage=`, the warned setter that note records, and `OBS-10`'s "Keys with null values MUST be skipped" makes the two states fold identically at the only reader. Recorded rather than buried because the argument that makes it harmless is `OBS-10`'s clause, and a later phase that relaxes that clause re-opens this |
 
 ## Work phase 5c postponed, and who owns it now
 
@@ -1505,12 +1515,12 @@ and 5c's ordering test is the regression the wiring must keep green. **Who owns 
 group — attempt started, attempt failed with next delay, retries exhausted — is phase 6a, Task 9
 (`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`), emitted by its retry step. The operation-lifecycle triple could not take the route this
 section first named (phase 6's design found `5b`'s step is pinned at `Stages::LOGGING` and fires per hop, per
-attempt and per auth replay; the site that works is a new `PRE_REDIRECT`-adjacent step) and is `OI-32`; the
+attempt and per auth replay; the site that works is a new `PRE_REDIRECT`-adjacent step); the
 transport-milestone group found no route through the three-argument transport seam without a
-`RequestOptions` widening and is `OI-36`. Both residuals are one surface decision on phase 10's inbound list
-(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, its 2026-09-13 status note); the two open items are the tracking artefacts. `OI-29` carries
-the separate finding that `CTX-14`'s bundle member and `OBS-29`'s per-operation factory are two different
-objects.
+`RequestOptions` widening. Both residuals are one surface decision on phase 10's inbound list
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, its 2026-09-13 status note), which names each by
+its subject. The separate finding that `CTX-14`'s bundle member and `OBS-29`'s per-operation factory are two
+different objects is on that same list.
 
 **`OBS-32` adds no item.** It is part of the pre-existing `OBS-32`/`OBS-37` deferral, and its condition — the
 OTel adapter `dexpace-instrumentation-otel` — is post-v1 and phase 5 cannot meet it; it is stated in
@@ -1560,12 +1570,12 @@ landed. Each entry names the item by subject, keeps the reason it was postponed,
   pick-up and is honoured structurally:** "when present it is attached to the request's context chain but
   **MUST NOT affect the assembled request's URL, headers, or body**" — 5c reads `operation_name` and writes
   nothing to any request, and nothing in `Dexpace::Instrumentation` can reach a `Request` at all. **Note for
-  the status note:** `SEAM-28` is one of the five IDs `OI-1` records as existing **only** as an appendix-C
-  row — re-verified for this document, `grep -rn 'SEAM-28' docs/product-spec/` matches appendix C and nothing
+  the status note:** `SEAM-28` is one of the five `SEAM` IDs the roadmap's gap paragraph records as existing
+  **only** as an appendix-C row — re-verified for this document, `grep -rn 'SEAM-28' docs/product-spec/` matches appendix C and nothing
   else — so 5c read it out of appendix C and the status note should say so. The deferral itself points
   nowhere better; it is the roadmap's gap paragraph and `ruby scripts/knowledge.rb --gaps SEAM` that both
   send a reader to `docs/product-spec/03-pluggable-seams-and-extension-model.md`, which does not carry the ID
-  — which is precisely what `OI-1` records, unresolved. Nothing new is filed for it. The `SEAM-24` half —
+  — which is precisely what that gap paragraph records, and it is still unresolved. Nothing new is recorded for it. The `SEAM-24` half —
   each adapter's caller-facing cancellation bridge — rides on the post-v1 `dexpace-async-async` and is stated
   in `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `SEAM-24` entry.
 - **Presence-gated auto-activation for instrumentation — untouched, condition read and found NOT met.**
@@ -1615,30 +1625,33 @@ landed. Each entry names the item by subject, keeps the reason it was postponed,
   release-gated items (each under `docs/first-release.md` § What v1 ships without or § Release path), or
   already built (the version-skew guard, the suppressed trail, the body member type).
 
-## Open items filed by phase 5c
+## Findings, and who owns them now
 
-**Two, filed as `OI-28` and `OI-29`** by the reconciliation pass on 2026-09-09, for the reason the postponed
-item above was: the `5b` agent would have taken the same next id. Both are in `docs/open-items.md`; neither is
-acted on by this document.
+**Two, made by the reconciliation pass on 2026-09-09** rather than by this document, for the reason the
+postponed item above was: `5b` and `5c` were written concurrently. Neither is acted on here; each names the
+owner it was routed to.
 
-- **`OI-28` — a `**` keyword splat allocates a `Hash` per call even when nothing is passed, and nothing
+- **A `**` keyword splat allocates a `Hash` per call even when nothing is passed, and nothing
   mechanised distinguishes it from the named keyword the styleguide's rule is about.** `api-design/1d9e6e0b`
   asks for keyword arguments and gives backward compatibility as its reason, which is a property of *named*
   keywords; the splat is the spelling `opentelemetry-api` and every Ruby metrics library uses, and it makes
   `OBS-25`'s and `OBS-1`'s allocation MUSTs unsatisfiable for any method written with one. **Independently
   reproduced by the reconciliation pass on 2026-09-09** — `def m(x, **attributes)` called with no keyword
   argument measured 1005 per 1000 calls against the named form's 2, and a forwarding wrapper 2004 — so the
-  numbers in the filed row are given as a range rather than a single figure and the per-call cost is 1 in
-  every run. `P5-42` pays it for this segment; the resolution is a `Dexpace/` cop, which belongs with `OI-6`.
-- **`OI-29` — "per-operation tracer factory" names two different objects, and phase 4a bound the bundle's
+  numbers are given as a range rather than a single figure and the per-call cost is 1 in
+  every run. `P5-42` pays it for this segment. *Owner: phase 0's plan, Task 4 — the keyword-splat cop, added
+  to the custom cop set beside the reviewed `.rubocop.yml` baseline that task's neighbour (Task 3) owns.*
+- **"Per-operation tracer factory" names two different objects, and phase 4a bound the bundle's
   member to the one that is per-library.** `CTX-14`/`CTX-20`'s bundle member and `OBS-29`'s HTTP-tracer factory
   read as one object across appendix C, §8.1, phase 4a's deferral of the protocols and phase 4a's `R3`, and phase 6 is the first phase
-  that needs them to be two. **Amended when filed:** the draft's supporting claim that an `opentelemetry-api`
+  that needs them to be two. **Amended at the pass:** the draft's supporting claim that an `opentelemetry-api`
   `TracerProvider` caches per name and version is a statement about a gem **neither phase 4a nor 5c could
-  install**, re-checked at reconciliation and still absent from this machine, so the filed row marks it as the
+  install**, re-checked at reconciliation and still absent from this machine, so the finding marks it as the
   motivation for `P4-8` rather than as a measured fact and rests the argument instead on the internal
   contradiction between `OBS-25`'s shared no-op tracer and `OBS-29`'s one-per-operation clause — which needs
-  nothing outside this repository's normative text. `P5-43` records the reconciliation 5c adopted.
+  nothing outside this repository's normative text. `P5-43` records the reconciliation 5c adopted. *Owner:
+  phase 10's inbound list — the HTTP-tracer factory against `CTX-14`'s bundle member, one surface decision
+  taken with the two `OBS-29` wiring residuals above.*
 
 ## Open questions for 5c's own plan
 
@@ -1650,15 +1663,15 @@ Six, each bounded, none reopening a decision above.
    guarantee), 4 (`Fiber[:k] = nil` deleting, and the map setter retaining a nil) and 6
    (`Gem::BUNDLED_GEMS::SINCE` and `securerandom`'s require footprint). **Only 3.4.10 is installed on this
    machine**, verified. Recommendation: the plan's first task installs the two interpreters and re-runs all
-   four as one script whose output is pasted into the plan, exactly as phases 3, 4 and 5a did. `OI-13`
-   already documents a 3.2-versus-3.4 divergence in fact 4's immediate neighbourhood, so this is not a
+   four as one script whose output is pasted into the plan, exactly as phases 3, 4 and 5a did. The
+   observability note already documents a 3.2-versus-3.4 divergence in fact 4's immediate neighbourhood, so this is not a
    formality. If fact 3's `Symbol#name` identity does not hold on 3.2.11, the crossing contract's advice to
    `5b` narrows to the versions where it was observed and the fold takes a memoised lookup instead.
 2. **`opentelemetry-api`'s exact method names and arities for `Tracer`, `Span` and the metrics SPI.** This
    document could not install the gem, which is the same limit phase 4a hit for `#tracer`'s arity (`P4-8`, and
    4a's own open question 1 — check whether its plan resolved it before re-deriving); re-checked at
-   reconciliation and the gem is still absent from this machine, which is why `OI-29` marks the
-   `TracerProvider`-caches claim as unverified rather than measured. **Whatever this check returns, `5b` has
+   reconciliation and the gem is still absent from this machine, which is why the tracer-factory finding
+   above marks the `TracerProvider`-caches claim as unverified rather than measured. **Whatever this check returns, `5b` has
    already written these names into its step and its `OBS-34` conformance test**, so a name that moves here
    moves there in the same change — the plan states the divergence rather than letting the two documents drift. The signatures 5c designs
    to are `#start_span(name, attributes:, kind:, with_parent:)`, `#in_span(name, attributes:) { |span| }`,

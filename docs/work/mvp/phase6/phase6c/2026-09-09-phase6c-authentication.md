@@ -120,7 +120,7 @@ the design states, and this plan does not silently retract, that no task here wa
     "whichever of `6b`/`6c` lands second" rule) — needs Task 14, and needs `6b`'s real REDIRECT step
     to exist to run for real; written now, guarded to skip with a stated reason if `6b` has not
     landed yet.
-16. Final wiring, RBS mirrors, runtime surface snapshot, checklist and register updates.
+16. Final wiring, RBS mirrors, runtime surface snapshot, checklist, and routing the one finding to its owner.
 
 ---
 
@@ -1667,7 +1667,7 @@ end
 
 ---
 
-## Task 16: Final Wiring, RBS Baseline, Runtime Surface Snapshot, Checklist and Register Updates
+## Task 16: Final Wiring, RBS Baseline, Runtime Surface Snapshot, Checklist, and Routing the One Finding
 
 **Needs:** Tasks 1–15.
 **Produces:** the wiring that makes `6c`'s files load as part of `dexpace-core`, and the phase's
@@ -1698,10 +1698,20 @@ own bookkeeping.
   it, plus the two ⏳-adjacent rows this plan carries with no code: `AUTH-29`'s stripping clause
   ("satisfied by construction, no code," Task 11) and nothing else, since `6c` files no deferral.
 
-- [ ] **Step 7: File the register items this plan's design identified**, by hand, in the target
-  registers the design names — the `docs/open-items.md` finding about `AUTH-4`–`AUTH-7`'s missing
-  wiring producer — using the next free `OI-<n>` number at the time of filing, never a number chosen
-  in advance by this plan.
+- [ ] **Step 7: Route the finding this plan's design identified to its owner**, by hand, in the place the
+  design names. There is one, and its substance is: `AUTH-4`–`AUTH-7`'s tier resolution takes a per-call, an
+  operation and a client `AuthDescriptor` in that preference order, and no phase — not 1 through 5, and not
+  `AUTH`'s own 38 IDs — specifies **where a per-call or operation-level `AuthDescriptor` is carried**;
+  `docs/sdk-design-ruby/` names no field on `Request`, on `RequestOptions` or on any `Operation` construct
+  for it. `6c` therefore ships the pillar step taking an already-resolved credential (or a caller-supplied
+  `Scheme => credential` table) at construction time, and unless Operation-level wiring is built in a later
+  phase the resolver ships correct and exercised only by its own unit tests, never by an end-to-end call
+  path. **Owner: `docs/first-release.md` § Blockers before first publish**, as a standing decision line in
+  the shape of the existing `HTTP-22`/`HTTP-48`/`HTTP-49`/`HTTP-50` line, naming the reopening event — the
+  first phase that builds Operation-level request construction. A finding is routed to an owner when it is
+  found — a numbered task in the phase whose scope it falls in, phase 10's inbound list when it is audit or
+  repair work on an already-planned phase, or `docs/first-release.md` when it belongs to the release — never
+  to a standing register and never under an ID chosen in advance.
 
 - [ ] **Step 8: Run housekeeping** (`ruby .claude/skills/housekeeping/probe.rb`) and fix what it
   reports before calling the sub-phase done.
@@ -1713,7 +1723,7 @@ implemented by a specific task (`R10`: Task 7's `UnencodableCredentialError`; `R
 per-handler `BoundedMap` plus the design's no-deferral argument, nothing further to implement;
 `R12`: Task 12's `AsyncBearerStamper` and Task 13's uniform failed-future delivery). The three
 deviation-ledger entries beyond those (`P6-2`, `P6-3`) are implemented in Tasks 8 and 4 respectively.
-The one register finding is filed by hand in Task 16, not by any earlier task's code.
+The one finding is routed by hand in Task 16, not by any earlier task's code.
 
 **What remains genuinely open at the end of this plan.** Task 15's end-to-end test is written but
 its pass/skip state depends on `6b`'s landing order, which this plan does not control and does not

@@ -38,7 +38,7 @@ Prerequisites section, its verified Ruby facts, and its risks `R10`, `R11` and `
 - `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md` — `Dexpace::Async::Future`,
   `::Completer`, `::Settlement`, `#on_settle`.
 - Phase 4a's deferral of the context store's configured cap (picked up by phase 5a, Task 13; read and found not to
-  extend here), `docs/open-items.md` (`OI-31`, consumed if present, not built here).
+  extend here), and `6a`'s Task 8 `Cursor` context-bundle widening (consumed if present, not built here).
 
 ## Scope
 
@@ -54,7 +54,7 @@ decision turns on an exact clause, quoted inline at that decision.
 ## Independence
 
 **`6c` depends on phases 0–5 only. Its dependency on `6a` and `6b` is empty, with the single
-exception of `OI-31`'s cursor widening, which `6c` consumes if `6a` has already built it and does
+exception of the `Cursor` context-bundle widening, which `6c` consumes if `6a` has already built it and does
 not require and does not build.** This is the segmentation design's own instruction (`R13`) that
 every sub-phase's Prerequisite section say so explicitly rather than inherit a chain by habit, and
 it is stated here plainly:
@@ -81,10 +81,10 @@ it is stated here plainly:
   table anticipates — the two computations agree with nothing to reconcile; if `6a`'s `R5` gives it
   additional clauses, that is a decision `6a` makes with all three call sites (`RETRY-5`, `REDIR-6`,
   `AUTH-31`) in view, not one `6c` pre-empts by guessing at a name that may not exist when `6c` runs.
-- **`OI-31`'s cursor widening.** If `6c` runs before `6a`, `6c` builds no `Cursor` accessor for a
+- **The `Cursor` context-bundle widening (`6a`'s Task 8).** If `6c` runs before `6a`, `6c` builds no `Cursor` accessor for a
   per-call instrumentation bundle and files no such task — `6c` ships its own `logger:`/`redactor:`
   constructor keywords on its step exactly as `6b`'s `R8` does, and consumes the widened reader only
-  if it is already there. `6c` neither builds `OI-31`'s resolution nor silently re-implements a
+  if it is already there. `6c` neither builds that widening nor silently re-implements a
   second one.
 
 ## Prerequisites, verified to exist
@@ -376,8 +376,8 @@ ships the AUTH pillar step accepting an **already-resolved** credential (or a sm
 `Scheme => credential` table when a caller wants the step itself to pick among several, using the
 resolver internally) at step-construction time. Threading a resolver's *output* from a genuinely
 per-call override into the pipeline is Operation-level work with no `AUTH` ID behind it — see
-*Findings proposed for the registers* below, which records this as a candidate open item rather than
-building speculative plumbing for it.
+*Findings, and who owns them now* below, which records this as a candidate for the release decision rather
+than building speculative plumbing for it.
 
 **The challenge-handler interface is one method, not two.** `AUTH-23`'s "delegate to the first
 handler … whose can-handle check passes" and `AUTH-25`'s "return no header … when it cannot satisfy"
@@ -977,12 +977,14 @@ segmentation design named as touching `6c`'s area are confirmed here and neither
   extend to `AUTH-19`'s cap, per `R11` above. No new deferral is
   filed in its place, because `6c`'s cap needed no configuration-chain route to begin with.
 
-## Findings proposed for the registers
+## Findings, and who owns them now
 
-One, described here for a human to file. **Not acted on by this document; no number assigned; no
-register file edited.**
+One, with the owner that carries it. **Not acted on by this document, and no file outside
+`docs/work/mvp/phase6/phase6c/` is edited by it.**
 
-**Target register: `docs/open-items.md`.**
+**Owner: `docs/first-release.md` § Blockers before first publish — a standing decision line in the shape of the
+existing `HTTP-22`/`HTTP-48`/`HTTP-49`/`HTTP-50` line, carrying the verdict below and naming the reopening
+event: the first phase that builds Operation-level request construction.**
 **`AUTH-4`–`AUTH-7`'s tier resolution presupposes a producer for its three inputs that no phase
 names.** The resolver takes a per-call, an operation, and a client `AuthDescriptor`, in that
 preference order, and `6c` ships it as a correct, tested, stateless pure function. What no phase —
@@ -995,10 +997,10 @@ construction time, treating the resolver as a standalone library object whose ca
 Operation-building code, which is outside `AUTH`'s scope entirely — is responsible for invoking it
 and threading the result into the step. If that Operation-level wiring is never built in any later
 phase, `AUTH-4`–`AUTH-7`'s resolver ships correct and exercised only by its own unit tests, never by
-an end-to-end call path. This is the same shape `OI-14`, `OI-27`, `OI-30` and `OI-31` already record —
-a sentence that reads correctly and resolves to something not yet built — and it is filed here as a
-candidate rather than assumed settled by shipping the resolver alone. Cites: `AUTH-1`, `AUTH-4`,
-`AUTH-5`, `AUTH-6`, `AUTH-7`.
+an end-to-end call path. This is the same shape the phase-5 charter's `OBS-19` cell, its `OBS-24` arithmetic
+and `6a`'s Task 8 cursor widening all have — a sentence that reads correctly and resolves to something not yet
+built — and it is recorded here as a candidate rather than assumed settled by shipping the resolver alone.
+Cites: `AUTH-1`, `AUTH-4`, `AUTH-5`, `AUTH-6`, `AUTH-7`.
 
 ## Open questions for 6c's own plan
 

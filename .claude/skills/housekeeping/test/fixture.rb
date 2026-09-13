@@ -109,14 +109,12 @@ module Housekeeping
         'README.md' => "# fixture\n\n#{CLEAN_CLAIMS}\n",
         'CLAUDE.md' => "# CLAUDE.md\n\n#{CLEAN_CLAIMS}\n\nSee [docs](docs/README.md).\n",
         'docs/README.md' => docs_readme,
-        # The one register. An invented one, with both definition shapes the check accepts: a
-        # heading and a table row. `DEF-<n>` is deliberately absent -- that register is
-        # retired, and the clean tree must cite nothing from it.
-        'docs/open-items.md' => "# Open items\n\n### OI-1 — a real item\n\nBody.\n\n| ID | State |\n|---|---|\n| `OI-2` | open |\n",
+        # No register. `OI-<n>` and `DEF-<n>` are both retired, so a clean tree cites
+        # neither; a test that needs a live one invents its own prefix and file.
         'docs/superpowers/README.md' => "# the inbox\n\nNew documents land here and do not stay.\n",
         'docs/superpowers/specs/.gitkeep' => '',
         'docs/superpowers/plans/.gitkeep' => '',
-        'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nSatisfies OI-1.\n",
+        'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nSatisfies task 3 of the plan.\n",
         'docs/sdk-documentation/architecture.md' => "# architecture\n\nAs built.\n",
         'docs/knowledge/harvested/documentation.md' => "# documentation\n\nHarvested.\n",
         'docs/knowledge/harvested/INDEX.md' => "# index\n\nNot a topic.\n",
@@ -133,7 +131,7 @@ module Housekeeping
         # `docs/`
 
         #{CLEAN_CLAIMS}
-        The index. See [the inbox](superpowers/README.md) and [OI-2](open-items.md).
+        The index. See [the inbox](superpowers/README.md).
       TEXT
     end
   end

@@ -17,8 +17,8 @@ synchronised state in the whole sub-phase is `Dexpace::Closeable`'s close latch,
 entry point.
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS + Steep,
-RuboCop with phase 0's five custom cops plus phase 2's sixth which this phase extends, SimpleCov,
-YARD.
+RuboCop with phase 0's five original custom cops plus phase 2's sixth which this phase extends,
+SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md`, under the charter
 `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`.
@@ -192,7 +192,7 @@ That satisfies both invariants the design fixed:
   design's rule exactly, and the reason the store needs no pin bookkeeping for retention. A view
   whose next byte the parent's cursor has already passed raises `Dexpace::ClosedError` rather than
   reading somewhere else (P3-5). `@dexpace_views` therefore serves `IO-22`/`IO-38`'s invalidation on
-  close and nothing else (`OI-4`).
+  close and nothing else; 3b's plan, Task 13 measures what that retention costs on a real drain.
 
 **2. `#each`'s chunk granularity: whatever the upstream returned.** `#store_take_chunk` hands back the
 whole remaining head chunk, so `BufferedSource.over(body)` yields exactly the boundaries `body#each`
@@ -572,8 +572,9 @@ Expected: clean. The widened `Include:` now reaches phase 1's and phase 2's `lib
 already write `::Thread::Mutex` and `::Thread::Queue` in that form — if anything is reported there,
 qualify it; that is the one-`::` cost P3-7 names. **Scoped to this cop deliberately**: an unscoped
 run over the repository is not clean today and was not clean before this phase, for reasons that
-belong to phase 0's cop configuration rather than to any one phase's code (`OI-6`, and Task 15
-Step 5 states the measured list). Widening a watch must not be blocked on, or become the excuse for,
+belong to phase 0's cop configuration rather than to any one phase's code (phase 0's plan, Task 3 owns
+the reviewed `.rubocop.yml` baseline; Task 15 Step 5 states the measured list). Widening a watch must
+not be blocked on, or become the excuse for,
 relaxing four metric cops for everyone.
 
 ---
@@ -1120,9 +1121,10 @@ Expected: FAIL — `uninitialized constant Dexpace::IO`.
 
 - [ ] **Step 3: Write `lib/dexpace/io.rb`**
 
-The YARD block carries `OI-3` — the finding that the shadowing is **not** inert inside a consumer's
-own `class C; include Dexpace`, only inside a top-level include — because that is where a reader
-meets it and no gate this repository owns can reach a consumer's file.
+The YARD block carries the finding that the shadowing is **not** inert inside a consumer's own
+`class C; include Dexpace`, only inside a top-level include — because that is where a reader meets it
+and no gate this repository owns can reach a consumer's file. The release half of it is a line under
+`docs/first-release.md` § Blockers before first publish.
 
 ```ruby
 # frozen_string_literal: true
@@ -1134,7 +1136,7 @@ module Dexpace
   # this pluggable, so the behavioural contract is the whole deliverable -- there is no registry,
   # no factory and no installation call here.
   #
-  # HAZARD (OI-3), stated where a reader meets it. This constant shadows ::IO for every file
+  # HAZARD, stated where a reader meets it. This constant shadows ::IO for every file
   # inside `module Dexpace` AND inside a consumer's own `class C; include Dexpace`, because
   # `include` inserts Dexpace ahead of Object in C.ancestors. `x.is_a?(IO)` is then silently false
   # for a real ::IO, with no error and no warning, and a `case/when IO` falls through. A top-level
@@ -1829,7 +1831,8 @@ added afterwards misses one of them with no gate that would notice.
 and `#readpartial(maxlen)` are `IO-9`'s own stated exemption — "plain (non-slice) exact-count
 buffered reads instead inherit whatever bounds check the underlying stream library performs" — and
 they are the bridge methods, which must behave as `::IO`'s do. `#read_line_utf8` (Task 7) is the
-other, and it is the one the design records as `OI-5`: `IO-14` fixes no maximum line length, and the
+other, and it is the one the design hands to phase 7b (its plan's Task 12, where `SSE-11`'s own
+documented cap closes it): `IO-14` fixes no maximum line length, and the
 caller that reads lines from a stream an attacker controls is phase 7's SSE machine, which `SSE-11`
 obliges to carry its own cap. Neither is an oversight to be "tidied up" by a later task.
 
@@ -2155,7 +2158,8 @@ written yet.
 
 **Requirement IDs:** `IO-14`. **Design:** the `#read_line_utf8` row of the read-vocabulary table,
 which marks this read **unbounded on purpose** — the one materialising read
-`MAX_MATERIALIZED_BYTES` does not guard (P3-4, `OI-5`). Do not add the guard here: the bound belongs
+`MAX_MATERIALIZED_BYTES` does not guard (P3-4; the documented cap is phase 7b's, plan Task 12). Do
+not add the guard here: the bound belongs
 to the caller, and phase 7's SSE machine is the one `SSE-11` obliges to carry it.
 
 > **IO-14** (MUST) — readUtf8Line() MUST read up to and consume the next line terminator and return
@@ -2870,7 +2874,8 @@ one needs, so `Layout/EmptyLineBetweenDefs` and `Layout/EmptyLinesAroundAccessMo
 by the concatenation itself.
 
 Three offenses are **expected here and are not this task's to fix**, all of them in the
-already-repository-wide family `OI-6` records: `Metrics/ModuleLength` (this module is the whole read
+already-repository-wide family phase 0's plan, Task 3 owns as a reviewed `.rubocop.yml` baseline:
+`Metrics/ModuleLength` (this module is the whole read
 vocabulary by design, and phase 0 configured `MethodLength`, `ParameterLists` and `BlockNesting` but
 never `ModuleLength`), `Metrics/AbcSize` on `#store_take` and `#store_peek` (phase 1's `lib/` already
 carries eight of these), and `Naming/RescuedExceptionsVariableName`, whose `e` this repository has
@@ -2934,7 +2939,42 @@ because its callers are always downstream of something that already owns the res
 
 **Cite `IO-6` and design §10.12, never `SEAM-3`.** Design §10.1 retires `SEAM-3` with the byte-stream
 provider seam and phase 2 shipped it 🚫; the surviving normative home of ownership-on-wrap is `IO-6`,
-which is `OI-2` and the subject of `docs/knowledge/notes/message-bodies.md`.
+which the roadmap's gap paragraph names as appendix-C only and which is the subject of
+`docs/knowledge/notes/message-bodies.md`.
+
+**Amendment, 2026-09-13 — `.wrapping` must pass the caller's count to the upstream (`fill(count)`).**
+Phase 3b's plan measured this factory on 3.2.11, 3.4.10 and 4.0.6 on 2026-09-08 and found that
+`BufferedSource.wrapping(io)` returns **one byte** from `#read_into(dest, count: N)` for any positive
+`N` whenever its buffer is empty, and yields **one-byte chunks** from `#each`: 200 000 bytes come back
+as 200 000 chunks through 200 001 `readpartial(1)` calls, ~0.21 s, where the same 200 000 bytes through
+a `Dexpace::IO::Buffer` or a `BufferedSource.over` source take 0.000 s. The three interpreters agree to
+within a few milliseconds. The cause is one hard-coded count in two places of the same shape: Task 5's
+`#fill_once_if_empty` is fixed at `ensure_buffered(1)` — that is, `fill(1)` — so the `min_bytes` reaching
+`#fill_from_upstream` below, and therefore `readpartial([min_bytes, 1].max)`, is never the count the
+caller asked for; and `#store_take_chunk`'s empty refill inside `#each` and `#drain_all` (Tasks 6 and 8)
+carries the same literal `1`.
+
+**What this task must additionally do.** Give `#fill_once_if_empty` the count its caller has —
+`#fill_once_if_empty(min_bytes = 1)`, filling **once** with `fill(min_bytes)` — and pass the real count
+from the two readers that have one: `#read_into`'s `count` and `#readpartial`'s `maxlen`. `#getbyte`,
+`#readbyte` and `#eof?` keep the default, because one byte is genuinely what they want. This satisfies
+`IO-1`'s "at least 1 when byteCount is positive and the source is not exhausted" exactly as `fill(1)`
+did, and it must **not** become `ensure_buffered(count)`: that loop blocks until `count` bytes or end of
+stream, which is `#read(n)`'s contract and not the primitive's. `#read(n)` is already the efficient path
+— `#read_up_to` calls `ensure_buffered(length)` — and is untouched. For `#each` and `#drain_all` there is
+no caller count, so the literal there is a decision this task states in the fragment rather than leaves
+as a `1`: while the upstream is asked for one byte at a time, the design's "the granularity is whatever
+the upstream produced" claim is vacuous for a `wrapping` source, and only `.over` preserves a real
+chunking.
+
+**Why it lands here.** It is a **throughput** defect and not a correctness one — every read returns the
+right bytes in the right order, every `IO` requirement is met, and 3a's suite is green either way, which
+is why no gate would have caught it. It reaches 3b's `Dexpace::StreamBody` upload pump,
+`Dexpace::ResponseBody`'s readers, `Dexpace::Response#body_string` and `Dexpace::ResponseLoggingBody`'s
+drain, and every transport phase 8 writes, since `.wrapping` is how a response body is built. The fix
+changes **no signature, no constant and no test**: no phase-3b test asserts a chunk granularity in either
+direction, and 3b's plan asks the source for the whole remaining count rather than inventing a block
+size, so 3b's throughput improves and none of its tests move.
 
 - [ ] **Step 1: Write `test/support/fake_chunked.rb`**
 
@@ -3073,7 +3113,7 @@ class DexpaceBufferedSourceTest < DexpaceTestCase
   end
 
   # R1's real mitigation, asserted rather than argued: core never writes is_a?(IO), so every one
-  # of these works. A nominal test would be silently false inside `module Dexpace` (OI-3).
+  # of these works. A nominal test would be silently false inside `module Dexpace`.
   test "wrapping accepts a real IO, a StringIO and a bare readpartial-shaped object" do
     duck = Class.new do
       def initialize = @sent = false
@@ -3490,7 +3530,7 @@ module Dexpace
       # object IO-6 prohibits (P3-12).
       #
       # `io` is anything responding to #readpartial or #read. Checked with respond_to?, never
-      # is_a?(IO): a nominal test would be silently false inside `module Dexpace` (OI-3), and the
+      # is_a?(IO): a nominal test would be silently false inside `module Dexpace`, and the
       # duck test is what makes a StringIO, an IO.pipe end, a Tempfile and a caller's own
       # #readpartial-shaped object all work.
       #
@@ -5302,6 +5342,31 @@ lifecycle and then overriding three quarters of it would be inheritance used as 
 wrapped body.** It is not a lifecycle method and `IO-29` does not reach it — which is why it is safe
 for it to touch the tap when nothing else does.
 
+**Amendment, 2026-09-13 — the `#clear_tap` keep-or-drop decision, and it is made before execution.**
+Phase 3b satisfies `BODY-18` a different way, and the difference is forced rather than chosen:
+`TeeSink.new(primary:, tap_limit:)` binds its primary **at construction**, and a retry writes to a
+different sink on a different connection, so one tee cannot span two attempts. `Dexpace::RequestLoggingBody`
+therefore builds a **fresh** `TeeSink` per `#write_to` call (3b's plan, Task 10, which is the confirmation
+this decision waited on). That satisfies `BODY-18` by construction — a fresh tap cannot accumulate an
+earlier attempt's bytes — and is strictly stronger than clearing one, because it also drops the previous
+attempt's memory rather than retaining a cleared buffer for the wrapper's lifetime. The consequence is
+that **`#clear_tap` has no caller anywhere in core**, while being a public method with a YARD block and an
+RBS signature, which is this repository's own definition of public surface and is therefore locked by
+`NFR-4` at the first release tag.
+
+**The window is now, and it closes at that tag.** Neither plan has been executed, no gem exists under
+`gems/`, every gem is at `0.0.0` and nothing is published (`docs/first-release.md`), so dropping the
+method costs one edit to this unexecuted plan and one line of its `sig/` mirror — Step 1's
+`clear_tap empties the tap without touching the primary` test, the `#clear_tap` fragment, the `.rbs` line,
+the surface-snapshot line and the `3a→3b` contract row all go together. After the first release tag the
+same removal is a public signature disappearing, which `NFR-4`'s API lock treats as a breaking change
+requiring a major bump.
+
+**Two resolutions are admissible and the task must take one, in the open.** Drop `#clear_tap` — 3b's
+fresh-tee mechanism is reviewed and no core caller exists — or keep it as a deliberate convenience for an
+SDK author reusing a tee directly, with its YARD saying that core does not call it and why. What is not
+admissible is leaving it as a method nobody removed.
+
 **`IO-40` is honoured structurally, not by a clause.** The staging buffer is cleared in an `ensure`
 and not a `rescue`, so nothing is swallowed and nothing is duplicated: the primary's own failure,
 whatever it is, propagates exactly once. That is also `resource-management/346deaec`.
@@ -5852,8 +5917,9 @@ Measured on RuboCop 1.90.0 with phase 0's `.rubocop.yml` exactly as written: pha
 `Metrics/ModuleLength` on the two vocabulary modules and `Metrics/AbcSize` on two store helpers to
 the same list. **The gap is in the configuration, not in any one phase's code**, and closing it is a
 reviewed `.rubocop.yml` diff that has to name the cop, the reason and the phases affected — the same
-shape phase 0 fixed for the require allowlist. It is recorded as **`OI-6`** and it is deliberately
-not closed here: 3a widened this cop's `Include:` and must not also be the phase that relaxes four
+shape phase 0 fixed for the require allowlist. It belongs to **phase 0's plan, Task 3**, whose reviewed
+`.rubocop.yml` baseline is where it closes, and it is deliberately not closed here: 3a widened this
+cop's `Include:` and must not also be the phase that relaxes four
 metric cops for everyone. Task 1 Step 6's expectation is the same one, narrowed to the cop 3a owns.
 
 - [ ] **Step 6: Run every gate on every matrix row**
@@ -5905,8 +5971,16 @@ ID, using the roadmap's ✅ / 🚫 / ⏳ / N/A legend verbatim. Every one of `IO
   exceptions), the pivot's `deadline:` keyword is named as a constraint rather than a postponement,
   the condition for moving core's fakes into `dexpace-conformance` stays unmet while the case is
   strengthened by three more doubles, and `Hooks.notify` has no notifier here.
-- **Open items.** This plan files **`OI-4`** and **`OI-6`** (below). `OI-2`, `OI-3` and `OI-5` stay
-  open and none is 3a's to close.
+- **Findings.** This plan produces two (below), and each is routed to its owner rather than to a
+  register: the view-retention cost to **3b's plan, Task 13**, which measures it on the `BODY-23`
+  drain, and the RuboCop baseline to **phase 0's plan, Task 3**, which owns the reviewed
+  `.rubocop.yml` diff. A finding this phase's execution turns up that neither owns goes the same way —
+  a numbered task in the plan of the phase whose scope it falls in, the roadmap's phase-10 inbound list
+  when it is audit or repair work on an already-planned phase, or `docs/first-release.md` when it
+  belongs to the release — named by path and task, never left in a list of its own. The `IO-6`
+  appendix-C finding stays with the roadmap's gap paragraph, the `include Dexpace` shadow with
+  `docs/first-release.md` § Blockers before first publish, and the unbounded line read with phase 7b's
+  plan, Task 12; none is 3a's to close.
 - **Release blockers.** None. Nothing is published and every gem stays at `0.0.0`.
 
 - [ ] **Step 9: Update `CLAUDE.md`'s claims sentences if what they must say has changed**
@@ -5918,10 +5992,10 @@ where, and the judgement about what the sentence should say is yours.
 
 ---
 
-## The two findings filed against `docs/open-items.md`
+## The two findings, and who owns them now
 
-**`OI-4` — a source retains every view derived from it until it is closed, and `Array#delete` makes
-the deregistration O(n).** `TypedReads` keeps `@dexpace_views` so that a close can invalidate every
+**A source retains every view derived from it until it is closed, and `Array#delete` makes the
+deregistration O(n).** `TypedReads` keeps `@dexpace_views` so that a close can invalidate every
 outstanding view (`IO-22`, `IO-38`, `IO-42`). A view removes itself on its own `#close`, through
 `#dexpace_forget_view`, but a caller that takes many views and closes none — which nothing forbids —
 grows that array for the parent's lifetime, and each later close is a linear scan. It is bounded in
@@ -5932,10 +6006,11 @@ first place the bound stops being obvious. What would resolve it: nothing mechan
 — a weak reference table would trade a real, measurable cost for a hypothetical one, and the
 `ObjectSpace`-based alternative is barred by `resource-management/1676974d` and design §7.1's rule
 that the GC is not a cleanup hook. What a later phase should do first is measure, on 3b's actual
-drain.
+drain. **Owner now:** 3b's plan, **Task 13**, which runs that measurement on the `BODY-23`
+response-logging drain and records the number in the plan's own decision 5.
 
-**`OI-6` — RuboCop's own report is not clean for any phase under `.rubocop.yml` as phase 0 wrote
-it.** Measured on RuboCop 1.90.0 against phase 0's config exactly as that plan writes it: phase 1's
+**RuboCop's own report is not clean for any phase under `.rubocop.yml` as phase 0 wrote it.**
+Measured on RuboCop 1.90.0 against phase 0's config exactly as that plan writes it: phase 1's
 and phase 2's `lib/` fences already report 32 `Layout/EmptyLineAfterMagicComment` offenses — on the
 two-line SPDX header **phase 0 itself mandates** — plus `Metrics/AbcSize` ×8,
 `Naming/RescuedExceptionsVariableName` ×4 (this repository has written `=> error` since phase 1)
@@ -5947,9 +6022,12 @@ pass. One finding inside it is **not** a configuration gap: `Style/SymbolProc` o
 `#dexpace_invalidate` is `protected` and `&:dexpace_invalidate` sends it publicly. Resolving it is
 one reviewed `.rubocop.yml` diff naming each cop and its reason, against the RuboCop version
 `VERSIONS` pins — and it belongs to phase 0's owner, not to the phase that widened one cop's
-`Include:`.
+`Include:`. **Owner now:** phase 0's plan, **Task 3**, the reviewed `.rubocop.yml` baseline, with the
+`Style/SymbolProc` exception carried there as a named exclusion rather than an autocorrect.
 
-`OI-2`, `OI-3` and `OI-5` remain open and unchanged; none is 3a's to close.
+The three findings 3a inherits are unchanged and none is 3a's to close: `IO-6`'s appendix-C-only home
+stays with the roadmap's gap paragraph, the `include Dexpace` shadow with `docs/first-release.md`
+§ Blockers before first publish, and `#read_line_utf8`'s missing bound with phase 7b's plan, Task 12.
 
 ---
 

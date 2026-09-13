@@ -477,7 +477,7 @@ See *The three unsatisfied MUSTs*.
 | `PAGE-13`, `PAGE-15`, `SSE-29`, `SSE-36` — the other consumers of the suppressed trail | 7 |
 | `SSE-33`–`SSE-36` — the typed adapter's reuse of `Outcome` with a third variant | 7 |
 | `BODY-30`/`HTTP-52`'s bounded replayable copy, `BODY-31`'s 4xx/5xx predicate, `Status#error?` | 3b and 1, built. Phase 4 ships only `Recovery.buffer_error_body(response)`, the step that calls them |
-| `CFG-15`–`CFG-21` — the clock, the monotonic counter, the interruptible sleep, `future.value(deadline:)` | 5 (phase 5a, Task 8; P2-5) |
+| `CFG-15`–`CFG-21` — the clock, the **elapsed-time counter** (`CFG-16`: non-decreasing, used only for measuring elapsed durations between its own readings, absolute value not meaningful — **not** `CTX-4`'s call-sequence counter, which is `4a`'s and is an integer sequence with no relation to time), the interruptible sleep, `future.value(deadline:)` | 5 (phase 5a, Task 8; P2-5) |
 | `ASYNC-3`, `ASYNC-4` | 8 marks them (§10.5; `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) |
 | `TRANSPORT-1`, `TRANSPORT-2` — disabling a native client's own redirect and retry | 8. They presuppose `PIPE` as the single authority, which is what phase 4 makes true |
 
@@ -514,8 +514,10 @@ characterisation is wrong in two directions.**
 `RECOV-16` and stops. Verified by repository-wide grep on 2026-09-08: **`RECOV-17` through `RECOV-34` appear
 nowhere in `docs/product-spec/` outside appendix C** — eighteen IDs, not fifteen. Both `--gaps`'s trailing
 line and the roadmap's own gap paragraph send a reader to a chapter that does not carry them. This is the
-third instance of the shape `OI-1` (five `SEAM` IDs) and `OI-2` (`IO-6`) already record, it is now clearly a
-pattern rather than three accidents, and it is filed as **`OI-12`**.
+third instance of a shape already corrected twice — five `SEAM` IDs, and `IO-6`, each of which the roadmap's
+gap paragraph and `--gaps`'s trailing pointer now state is **appendix-C only**. At three occurrences it is
+clearly a pattern rather than three accidents, and it is owed the same correction: the roadmap's gap paragraph
+and `scripts/knowledge.rb`'s `--gaps` pointer must say that **`RECOV-17`–`RECOV-34` are appendix-C only**.
 
 **Three of the eighteen are not gaps only because the *design* rescued them.** `RECOV-32`, `RECOV-33` and
 `RECOV-34` have substantive corpus entries — `pipeline/785eab36`, `pipeline/2e998896`, `pipeline/7f286969`,
@@ -595,7 +597,7 @@ rules bind every file phase 4 writes:
   are **phase 0's** and are listed there.
 
 **From phase 3** — `Dexpace::Body` as the contract, carrying `#source` and a default no-op `#close` (P3-23,
-resolving `OI-10`); `Dexpace::Body.buffer_bounded(body, cap:)`; `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES`
+which settled that contract on 2026-09-08 — 3b's plan builds it in Tasks 1, 2 and 8); `Dexpace::Body.buffer_bounded(body, cap:)`; `Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES`
 (1 MiB); `Dexpace::BufferBody`, `ResponseBody`, and the two logging wrappers; `Response#close`,
 `#body_string`, `#body_bytes`; the whole `Dexpace::IO::` tree; `Dexpace::StreamError < ::IOError` and
 `EndOfStreamError < ::EOFError`; and `Closeable#closed?` read under the close mutex (P3-6).
@@ -607,11 +609,11 @@ returns a response carrying the buffered body." `Body.buffer_bounded` is deliber
 body layer cannot get `BODY-31` wrong, and the status test is phase 4's. `4b` may refine the *name*'s
 namespace (R9); it may not re-decide the contract.
 
-**Two open items from phase 3 land in phase 4's window and neither is phase 4's to fix.** `OI-8`
-(`TeeSink#clear_tap` is `NFR-4`-locked public API with no core caller) and `OI-9`
-(`BufferedSource.wrapping` returns one byte per read) both name a window that closes when phase 3's plans
-execute and before the first release tag. Phase 4 neither widens nor closes them; it is recorded here so a
-`4b` or `4c` designer meeting either does not open a third item for the same finding.
+**Two phase-3 findings land in phase 4's window and neither is phase 4's to fix.** Phase 3a's plan owns both:
+Task 14's keep-or-drop decision on `TeeSink#clear_tap` (`NFR-4`-locked public API with no core caller) and
+Task 10's `fill(count)` refill fix (`BufferedSource.wrapping` returns one byte per read). Both name a window
+that closes when phase 3's plans execute and before the first release tag. Phase 4 neither widens nor closes
+them; it is recorded here so a `4b` or `4c` designer meeting either does not re-report it as a fresh finding.
 
 ---
 
@@ -774,7 +776,8 @@ decision in this document; the rest are recorded because a sub-phase design woul
    entry (`observability/e0f1e864`) carries no version qualifier and omits the copy-on-write half. **Note
    filed**, widening it and recording the `CTX`-versus-diagnostic-context line above. The **write** side is
    a different story and is not phase 4's: `Fiber#storage=` warns on every call on all three and reads back
-   differently on the floor, filed as `OI-13` for phases 5 and 8.
+   differently on the floor — recorded for phases 5 and 8 in `docs/knowledge/notes/observability.md`, whose
+   `## Reference` entry states that `Fiber#storage=` warns and that per-key writes are the way to set it.
 8. **A module included into an exception class sits ahead of `StandardError` in the ancestry** on all three,
    so `super` from `Dexpace::Error`'s `#detailed_message` reaches `Exception`'s. `Dexpace::Error` being a
    module (P1-2) costs nothing here.
@@ -923,23 +926,28 @@ document, because it is a **scope disposition** rather than an interface: leavin
   in v1 plans one (`docs/first-release.md` § Post-release triggers).
 - **The body-logging configuration source (phase 3b) — untouched.** Phase 5's (5a, Task 13; 5b, Tasks 14–15).
 
-### The findings filed against `docs/open-items.md`
+### Findings, and who owns them now
 
-**`OI-12` — eighteen `RECOV` requirements exist only as appendix-C rows, and both the roadmap's gap paragraph
-and `scripts/knowledge.rb --gaps` send a reader to a chapter that does not carry them.** Filed for the reasons
-under *Gap IDs* above. It is the third instance of `OI-1`'s and `OI-2`'s shape and the largest; the three are
+**Eighteen `RECOV` requirements exist only as appendix-C rows, and both the roadmap's gap paragraph
+and `scripts/knowledge.rb --gaps` send a reader to a chapter that does not carry them.** Recorded for the reasons
+under *Gap IDs* above. It is the third instance of the shape the five `SEAM` IDs and `IO-6` already show, and the
+largest; the three are
 worth reading together, because at three occurrences the pattern is a property of appendix C's relationship to
 the prose chapters rather than three separate omissions, and the pointer `--gaps` prints is derived
 mechanically from appendix C's subsystem cell in every case.
+*Owner:* the roadmap's gap paragraph and `scripts/knowledge.rb`'s `--gaps` trailing pointer, both of which must
+state that `RECOV-17`–`RECOV-34` are appendix-C only.
 
-**`OI-13` — `Fiber#storage=` warns on every call on every supported Ruby, and `= nil` reads back differently
-on the floor.** Filed by this document's review, not by phase 4's own scope. Fiber storage's *read* side is
+**`Fiber#storage=` warns on every call on every supported Ruby, and `= nil` reads back differently
+on the floor.** Found by this document's review, not by phase 4's own scope. Fiber storage's *read* side is
 uniform across the range and is what verified fact 7 and the `observability` note record; its *write* side is
 the mechanism design §8.1's `ASYNC-9`/`ASYNC-11` save/install/restore needs, and it emits
 `Fiber#storage= is experimental and may be removed in the future!` per call on 3.2.11, 3.4.10 and 4.0.6 at
 the default warning level, against a gate set that fails the build on warnings. `Fiber.current.storage = nil`
 also leaves `{}` on 3.2.11 and `nil` on the other two. Nothing in `CTX`, `RECOV` or `PIPE` touches fiber
 storage, so phase 4 neither acts on it nor is blocked by it; phases 5 and 8 are the ones that will meet it.
+*Owner:* `docs/knowledge/notes/observability.md`, a `## Reference` entry beside the two fiber-storage entries —
+`Fiber#storage=` warns, so use per-key writes.
 
 ---
 
@@ -1084,5 +1092,7 @@ files this document.**
   `Thread.current[:key]`; the passage is in `docs/sdk-design-ruby/08-instrumentation-and-configuration.md`
   **§8.1**, since §8.2 is Configuration. The section number is corrected and nothing else in that sentence is
   touched. This is fixed rather than merely recorded because `CLAUDE.md` is the working contract every later
-  phase reads first, and a wrong section pointer there is the same class of unfollowable pointer `OI-2` and
-  `OI-12` record — the difference being that this one is a one-character fix in a writable file.
+  phase reads first, and a wrong section pointer there is the same class of unfollowable pointer the `IO-6` and
+  `RECOV-17`–`RECOV-34` gap-paragraph corrections record — the difference being that this one is a
+  one-character fix in a writable file.
+

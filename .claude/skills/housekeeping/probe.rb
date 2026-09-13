@@ -163,9 +163,11 @@ module Housekeeping
     end
 
     # `text` with all the code a document can carry blanked -- fenced blocks, inline code
-    # spans and 4-space/tab-indented blocks -- so a link or a citation ID that appears only
-    # as an EXAMPLE, inside code, is not read as an actual link or citation. Quoted prose
-    # spans are left alone; line count is preserved throughout.
+    # spans and 4-space/tab-indented blocks -- so a link that appears only as an EXAMPLE,
+    # inside code, is not read as an actual link. Quoted prose spans are left alone; line
+    # count is preserved throughout.
+    #
+    # The `citations` check deliberately does NOT use this; see `Citations#check_file`.
     def unfenced(text)
       strip_inline_code(strip_indented(fenced_blanked(text)))
     end
@@ -401,6 +403,18 @@ module Housekeeping
       DEFINITION = /^\[([^\]]+)\]:\s*(\S+)(?:\s+"[^"]*")?\s*$/
       # Anything the filesystem cannot answer for.
       EXTERNAL = %r{\A(?:https?:|mailto:|#)}
+      # An inline code span, read for the paths this repository writes in prose
+      # rather than in link syntax.
+      SPAN = /`([^`\n]+)`/
+      # A chapter of one of the two NORMATIVE trees. Scoped to those two on purpose:
+      # both are complete today, so a chapter that does not resolve is wrong rather
+      # than not-yet-written -- while `Gemfile`, `Rakefile` and every `gems/…` path
+      # in this repository names something a later phase creates, and claiming those
+      # do not exist would be true and useless.
+      NORMATIVE_PATH = %r{\Adocs/(?:product-spec|sdk-design-ruby)/\S+\.md\z}
+      # A pattern standing for a family of chapters, or a path elided to fit a line.
+      # Neither is a claim about one file.
+      PLACEHOLDER = /[*\u2026]|\bNN\b/
 
       def run(repo)
         files(repo).flat_map { |file| check_file(repo, file) }
@@ -415,12 +429,37 @@ module Housekeeping
       end
 
       def check_file(repo, file)
-        text = Prose.unfenced(repo.read(file))
+        raw = repo.read(file)
+        text = Prose.unfenced(raw)
         definitions = reference_definitions(text)
         findings = []
         text.each_line.with_index(1) do |line, number|
           findings.concat(inline_findings(repo, file, line, number))
           findings.concat(reference_findings(repo, file, line, number, definitions))
+        end
+        findings + span_findings(repo, file, raw)
+      end
+
+      # A claim of the form "X is stated in `docs/sdk-design-ruby/NN-….md`". Four
+      # of those, in four documents by four authors, named a chapter that does not
+      # exist or does not carry what was claimed, and every one survived review
+      # because a pointer is read for whether it LOOKS right. Markdown link syntax
+      # is not how this repository writes a chapter reference -- backticks are --
+      # so `unfenced`, which blanks inline code, resolves none of them. This pass
+      # reads the spans instead, over `fenced_blanked`: a fence is still an example.
+      def span_findings(repo, file, raw)
+        findings = []
+        Prose.fenced_blanked(raw).each_line.with_index(1) do |line, number|
+          line.scan(SPAN) do |(span)|
+            target = span.split('#').first.to_s.strip
+            next if PLACEHOLDER.match?(target) || !NORMATIVE_PATH.match?(target)
+            next if repo.exist?(target)
+
+            findings << act(file, number,
+                            "names `#{target}`, a path that does not exist. A chapter of a " \
+                            'normative tree is a claim about the repository; check the filename ' \
+                            'against docs/product-spec/ or docs/sdk-design-ruby/.')
+          end
         end
         findings
       end
@@ -476,9 +515,13 @@ module Housekeeping
     end
 
     # 6. An aggregate register living inside a specification, design or plan document.
+    #
+    # There is no find-list register left to move such a section into: a finding is routed to
+    # its owner when it is found -- the numbered plan task whose scope it falls in, phase 10's
+    # inbound list in the roadmap, or a `docs/first-release.md` entry -- or it is simply fixed.
+    # So the message names the owners rather than a file.
     class Registers < Check
       NAME = 'registers'
-      REGISTER = 'docs/open-items.md'
       TREES = %w[
         docs/work docs/superpowers docs/sdk-documentation
         docs/product-spec docs/sdk-design-ruby
@@ -505,29 +548,33 @@ module Housekeeping
           next if match.nil? || STUB.match?(text[match.begin(0), 600].to_s)
 
           act(file, Prose.line_at(text, match.begin(0)),
-              "carries \"#{match[0].strip}\". An aggregate register belongs in #{REGISTER}, or, " \
-              'for postponed work, in the owning plan task or docs/first-release.md. ' \
+              "carries \"#{match[0].strip}\". No find-list register exists: an aggregate belongs " \
+              "with its owner -- the numbered plan task whose scope it falls in, phase 10's " \
+              'inbound list in the roadmap, or a docs/first-release.md entry. ' \
               "A phase's own dated section stays with the phase; the aggregate does not.")
         end
       end
     end
 
-    # 7. Every register item ID cited anywhere resolves to an item in ITS OWN register, and
-    #    no ID from a RETIRED register is cited at all.
+    # 7. No ID from a RETIRED register is cited anywhere, and every ID from a LIVE one
+    #    resolves to an item in ITS OWN register.
     #
-    # Two namespaces. The LIVE one, `OI-<n>`, resolves only against `docs/open-items.md`: a
-    # prefix's definitions are scanned from its own file only, so a heading or table row with
-    # the right shape sitting in any other file resolves nothing -- the file, not just the
-    # pattern, has to match. A live prefix whose register file does not exist is a no-op, so
-    # a tree that has not grown a register yet is not reported as dangling.
+    # There is no live register today: both prefixes are retired. `DEF-<n>` was the deferral
+    # register `docs/deferred-items.md` and `OI-<n>` the find-list `docs/open-items.md`, and
+    # both were retired on 2026-09-13 with every row resolved. Nothing is registered now and
+    # looked up later: a finding is routed to its owner when it is found -- the numbered plan
+    # task whose scope it falls in, phase 10's inbound list in the roadmap, or a
+    # `docs/first-release.md` entry -- or it is simply fixed. Every `DEF-<n>` and `OI-<n>`
+    # citation is therefore a leftover and is reported as one, whether or not the old file is
+    # still on disk. A retired prefix deliberately does NOT no-op when its file is missing:
+    # that is the one behaviour that would hide the leftovers this check exists to find. The
+    # file itself, if it lingers, is one finding rather than one per row.
     #
-    # The RETIRED one, `DEF-<n>`, was the deferral register `docs/deferred-items.md` until
-    # 2026-09-13, when every row was resolved and the file removed; a deferral now lives with
-    # its owner -- the plan task that picks it up, or a `docs/first-release.md` entry. Every
-    # `DEF-<n>` citation is therefore a leftover and is reported as one, whether or not the
-    # old file is still on disk. A retired prefix deliberately does NOT no-op when its file
-    # is missing: that is the one behaviour that would hide the leftovers this check exists
-    # to find. The file itself, if it lingers, is one finding rather than one per row.
+    # The LIVE half stays, because a register is one entry away. A live prefix resolves only
+    # against its own file, so a heading or table row with the right shape sitting in any
+    # other file resolves nothing -- the file, not just the pattern, has to match -- and a
+    # live prefix whose register file does not exist is a no-op, so a tree that has not grown
+    # its register yet is not reported as dangling.
     #
     # The ID namespace is a declared list of prefixes rather than `[A-Z]+-\d+`, which would
     # swallow every requirement ID in the spec (`HTTP-7`, `SEAM-1`, `NFR-5`) and report the
@@ -535,23 +582,38 @@ module Housekeeping
     # one is moving it to RETIRED with the sentence that says where its items went.
     class Citations < Check
       NAME = 'citations'
-      REGISTERS = { 'OI' => 'docs/open-items.md' }.freeze
+      # The live registers: prefix => the file whose own rows define it. Empty, for now.
+      REGISTERS = {}.freeze
       RETIRED = {
         'DEF' => 'the deferral register, retired 2026-09-13: cite the owning plan task or the ' \
-                 'docs/first-release.md entry instead'
+                 'docs/first-release.md entry instead',
+        'OI' => 'the open-items register, retired 2026-09-13: cite the owning plan task, ' \
+                "phase 10's inbound list or the docs/first-release.md entry instead"
       }.freeze
       # Where a retired register used to live. Its presence is drift in itself.
-      RETIRED_FILES = { 'DEF' => 'docs/deferred-items.md' }.freeze
-      ID = "(?:#{(REGISTERS.keys + RETIRED.keys).join('|')})-\\d+"
-      CITATION = Regexp.new('\b(' + ID + ')\b')
+      RETIRED_FILES = { 'DEF' => 'docs/deferred-items.md', 'OI' => 'docs/open-items.md' }.freeze
       TREES = ['docs', '*.md', 'gems', 'lib', 'scripts', '.claude'].freeze
       READABLE = /\.(?:md|rb|rake)\z/
       # A skill's own test fixtures invent a register and cite it. Those IDs are literals in
       # a throwaway tree, not citations of this repository's register.
       EXCLUDED = %r{\A\.claude/skills/[^/]+/test/}
 
+      # The citation pattern over a set of live prefixes plus every retired one.
+      def self.citation_for(registers)
+        Regexp.new("\\b((?:#{(registers.keys + RETIRED.keys).join('|')})-\\d+)\\b")
+      end
+
+      # The live register table is a constructor argument rather than a constant read from
+      # the body, so the live half can still be exercised while REGISTERS is empty; the probe
+      # builds every check with no arguments, and that is the only reason this exists.
+      def initialize(registers: REGISTERS)
+        super()
+        @registers = registers
+        @citation = self.class.citation_for(registers)
+      end
+
       def run(repo)
-        active = REGISTERS.select { |_prefix, file| repo.exist?(file) }
+        active = @registers.select { |_prefix, file| repo.exist?(file) }
         known = known_ids(repo, active)
         lingering(repo) + cited_files(repo).flat_map { |file| check_file(repo, file, known, active) }
       end
@@ -568,7 +630,7 @@ module Housekeeping
         end
       end
 
-      # `### OI-12`, or a table row whose first cell is the ID, backticked or not. Both
+      # `### OI-<n>`, or a table row whose first cell is the ID, backticked or not. Both
       # shapes, so a register can be a list of sections or a table of rows without this
       # check caring which -- that is the generalisation of a hard-coded archive filename.
       def definition_pattern(prefix)
@@ -585,13 +647,19 @@ module Housekeeping
 
       def cited_files(repo)
         (repo.present(*TREES).select { |file| READABLE.match?(file) && !EXCLUDED.match?(file) }) -
-          REGISTERS.values - RETIRED_FILES.values
+          @registers.values - RETIRED_FILES.values
       end
 
+      # `fenced_blanked` rather than `unfenced`, which is what the `links` check reads.
+      # `unfenced` also blanks inline code spans and every 4-space-indented line, and both
+      # of those are prose where register IDs are concerned: this repository's own ID
+      # convention BACKTICKS every ID, and a 4-space indent here is nearly always list-item
+      # continuation rather than a code block. Reading `unfenced` left the check looking at
+      # 22 of 1178 citations. A fence is still an example, and is still blanked.
       def check_file(repo, file, known, active)
         findings = []
-        Prose.unfenced(repo.read(file)).each_line.with_index(1) do |line, number|
-          line.scan(CITATION) do |(id)|
+        Prose.fenced_blanked(repo.read(file)).each_line.with_index(1) do |line, number|
+          line.scan(@citation) do |(id)|
             finding = finding_for(id, known, active)
             findings << act(file, number, finding) unless finding.nil?
           end
@@ -619,7 +687,7 @@ module Housekeeping
       NAME = 'guard'
       # Every surface this skill, or a routine edit, is allowed to write.
       WRITABLE_SURFACE = %w[
-        docs/README.md docs/open-items.md docs/sdk-documentation docs/work
+        docs/README.md docs/sdk-documentation docs/work
         docs/superpowers docs/assets CLAUDE.md README.md
       ].freeze
       # Paths the guard must refuse, whether or not they exist yet. A guard that has

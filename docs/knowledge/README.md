@@ -19,10 +19,9 @@ so a re-harvest that rewords a rule breaks the citation on purpose, and `ruby sc
 reports it.
 
 **A register is not harvested.** `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`
-(and its appendices 11 and 12), `docs/open-items.md`, `docs/deviations.md` and
-`docs/first-release.md` are ledgers every phase appends to; any harvest of one is a stale fraction of it.
-Read them directly. Appendix C of the product spec is the requirement index the CLI reads live, not a
-harvest source.
+(and its appendices 11 and 12), `docs/deviations.md` and `docs/first-release.md` are ledgers every phase
+appends to; any harvest of one is a stale fraction of it. Read them directly. Appendix C of the product spec
+is the requirement index the CLI reads live, not a harvest source.
 
 **Sources.** `docs/product-spec/` chapters 01–20 plus appendices A and B (role `spec`);
 `docs/sdk-design-ruby/` chapters 00–09 (role `design`); the Ruby styleguide at

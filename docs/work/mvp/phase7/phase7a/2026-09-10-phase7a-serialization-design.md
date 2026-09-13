@@ -80,7 +80,7 @@ three inverts a premise the charter had to reason around:
 - `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md` and its plan
   `…-quality-gates.md` — the seventeen gates, the require allowlist with `json` on its **denylist**
   by name (`:459`), the adapter extension to the same audit (`:471-475`), the gemspec audit's
-  `NFR-2` budget, the clean-bundle isolation run, the five custom cops (`:523`), and
+  `NFR-2` budget, the clean-bundle isolation run, the five original custom cops (`:523`), and
   `gems/dexpace-serde-json`'s skeleton (`:254-260`; plan `:1374-1398`, `:2628-2630`).
 - `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md` — `Dexpace::Model`
   (`.required!`, `#with`, `.own`, `.frozen_string`), `Dexpace::MediaType`,
@@ -118,7 +118,9 @@ three inverts a premise the charter had to reason around:
   without › Post-v1 gems), `dexpace-conformance`'s assertion objects (phase 8a Tasks 4–8 and 20; phase 9 Tasks 2–12a),
   the body member type (built by phase 3b, deviation P3-15) and the move of core's test fakes into
   `dexpace-conformance` (declined by phase 8a's design; the fakes stay in `gems/dexpace-core/test/support/`);
-  `docs/open-items.md` (`OI-7`, `OI-10`, `OI-12`), `docs/deviations.md`, `docs/first-release.md`.
+  phase 10's inbound-list entry on design §3.1's decode sentence; 3b's Tasks 1, 2 and 8, where `Body#source`
+  and a default no-op `#close` resolved the response-body surface on 2026-09-08; the roadmap's gap paragraph
+  on the appendix-C-only IDs; `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -206,7 +208,8 @@ the sentence:
 - **`io-and-byte-streams/6eb5155f`** — the single decode boundary is retag then transcode, both
   encodings named, because bytes from the wire are `Encoding::BINARY` and `String#encode` with
   `undef: :replace` and no explicit target destroys every byte at or above `0x80` and follows
-  `Encoding.default_internal`. `OI-7`. `7a`'s `#load` crosses this boundary, and verified fact 7
+  `Encoding.default_internal`. The correction §3.1's decode sentence needs is on phase 10's inbound list.
+  `7a`'s `#load` crosses this boundary, and verified fact 7
   below is what it adds to the recipe.
   <sub>review · `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` · high · sha:manual-phase3b-decode-retag-then-transcode</sub>
 - **`data-modeling/83610619`** — `Dexpace::Model#with` routes through the type's own validating
@@ -233,8 +236,8 @@ gaps to budget reading time in its design document and say so there
 so the budget is zero and this sentence discharges the obligation.
 
 **What that does not license**, restated from the charter because it applies to `7a` specifically:
-`--gaps` measures *corpus* coverage, not *specification* coverage (`OI-12` states the same asymmetry
-from the other side). Chapter 14 was read in full anyway, at 57 lines, and the `*Conformance:*`
+`--gaps` measures *corpus* coverage, not *specification* coverage (the roadmap's gap paragraph states the
+same asymmetry from the other side). Chapter 14 was read in full anyway, at 57 lines, and the `*Conformance:*`
 clauses appendix C does not carry are load-bearing in five places — `SERDE-3`'s close-counting
 tracker "even when the codec's own auto-close feature is enabled", `SERDE-4`'s four-part buffer
 assertion, `SERDE-9`'s "its cause is the library's exception", `SERDE-27`'s five-case matrix, and
@@ -252,8 +255,8 @@ assertion, `SERDE-9`'s "its cause is the library's exception", `SERDE-27`'s five
 
 Level split, derived mechanically from appendix C on 2026-09-10 and matching the charter's: **22
 MUST, 7 SHOULD (`SERDE-11`, `SERDE-18`, `SERDE-20`, `SERDE-23`, `SERDE-24`, `SERDE-25`, `SERDE-29`),
-1 MAY (`SERDE-30`)**. No `MUST NOT` row appears. **No `DEF-<n>` moves an ID into `7a` and none moves
-one out.**
+1 MAY (`SERDE-30`)**. No `MUST NOT` row appears. **No postponed item moves an ID into `7a` and none
+moves one out.**
 
 ### Nine rows carry a clause the checklist must state rather than tick
 
@@ -378,7 +381,7 @@ antecedent — never on `7a`'s convenience.
 | `SEAM-22` — the reflective generic type capture | 2, marked 🚫 with the reason attached; the surviving clause (`#load` takes an explicit witness, no witness-less overload) is phase 2's Task 12. The **witness protocol** §10.14 substitutes is `7a`'s work, but the ID's row is phase 2's and does not move |
 | `SEAM-26`, `SEAM-27` — the operation-input projection seam | 2. `SERDE-2`'s Content-Type default is `7a`'s and is a **body-factory** concern, not an operation-projection one |
 | `HTTP-44`, `HTTP-45` — the lazy typed-response wrapper, its `@state` memo and its mutex | 3b, built as `Dexpace::TypedResponse` over `Dexpace::_ResponseHandler`. `7a` supplies two handlers **into** it and writes no second memo, no second `@state` machine and no second lock |
-| `HTTP-41`, `HTTP-42`, `BODY-14`, `BODY-16` — the response body, `#source`, the charset decode, the close-in-`ensure` readers | 3b, built. `OI-10`'s resolution put `#source` and a default no-op `#close` on `Dexpace::Body` |
+| `HTTP-41`, `HTTP-42`, `BODY-14`, `BODY-16` — the response body, `#source`, the charset decode, the close-in-`ensure` readers | 3b, built. 3b's Tasks 1, 2 and 8 put `#source` and a default no-op `#close` on `Dexpace::Body`, resolved 2026-09-08 |
 | `BODY-30`, `HTTP-52` — the bounded buffered error-body copy | 3b (`Body.buffer_bounded`, `MAX_BUFFERED_ERROR_BODY_BYTES`) and 4b (`Recovery.buffer_error_body`, the **one** buffering call site). `SERDE-28`'s "bounded, buffered in-memory copy" consumes them and adds no second |
 | `IO-9`, `BODY-32` — `MAX_MATERIALIZED_BYTES` | 3a, one ceiling, cited and never re-derived. `7a`'s `#load` drain is guarded by it and lowers nothing |
 | `IO-6`, `BODY-8` — the two ownership rules | 3a and 3b. The **third** rule — a codec closes nothing — is `7a`'s and phase 3 declined to touch it (`message-bodies/a7afc6ee`) |
@@ -529,7 +532,7 @@ non-BINARY destination" raises `Dexpace::InvalidArgumentError`, not a stream err
 for `#media_type` (`nil`), `#content_length` (`-1` when unknown, **never `nil`**), `#replayable?`
 (`false`), `#to_replayable`, `#each`, **`#source`** (default **raises** `Dexpace::StreamError` naming
 the class) and **`#close`** (default **no-op**). The include order is `include Dexpace::Body` then
-`include Dexpace::Closeable` wherever a body owns something (`OI-10`, `P3-23`). Eight factories.
+`include Dexpace::Closeable` wherever a body owns something (3b's Tasks 1, 2 and 8, `P3-23`). Eight factories.
 `Body.buffer_bounded(body, cap:)` and `Body::MAX_BUFFERED_ERROR_BODY_BYTES` (1 MiB, **3b's**
 constant). `Dexpace::ResponseBody` — `#source` returns **the same underlying handle every call**,
 `#close` releases the transport resource through `Closeable`'s latch. `Dexpace::BufferBody` —
@@ -1041,7 +1044,7 @@ nothing:
   codec's class, because `SERDE-2`'s "MUST NOT be defaulted to a format-agnostic constant at the SPI
   level" means there is no fallback to fall back to — phase 2 enforced that at `.conforms?`, and this
   is the same rule at the one call site that consumes the value.
-- The unfixed-return-type finding is proposed for `docs/open-items.md` below rather than fixed by
+- The unfixed-return-type finding is routed to its owner below rather than fixed by
   editing phase 2's document.
 
 ---
@@ -1626,7 +1629,7 @@ is consolidated into design §10 and audited by `docs/deviations.md`.
 | P7-3 | Public **methods** neither design §3.4 nor §7.3 names: `Dexpace::Serde.witness?`; `DecodeContext.root`, `#path`, `#at`, `#object!`, `#array!`, `#string!`, `#integer!`, `#float!`, `#boolean!`, `#present!`, `#error!`; `Tristate.absent`, `.null`, `.present`, `.from_nullable`, and the six instance methods; `Native.of`; `List`/`Map`/`Nullable`/`Tristate`'s `#dexpace_load` and `Tristate.of`'s `#dexpace_load_field`; `Instant.dexpace_load`/`#dexpace_dump`; both handlers' `.build` and `#call`; `Codec.build`, `.default` and the six seam methods; `Dexpace::Body.serialized` | `NFR-4`; `api-design/b0e18938`; `P4-23`, `P5-2`, `P6-2` precedent | `NFR-4` locks a signature, not only a name. Two deserve naming here. **`#dexpace_load_field(hash, key, ctx)` is a second entry point on one combinator** — `Tristate.of`'s — and exists because verified fact 6 makes the in-object case answerable only with the enclosing `Hash` in hand; the top-level `#dexpace_load` is `SERDE-20`'s and cannot see a key. **`Body.serialized` widens phase 3b's factory set from eight to nine**, which `NFR-4`'s "disappears or narrows" lock permits and `api-design/1d9e6e0b` covers |
 | P7-4 | **`SERDE-26` is satisfied by a per-instance private `::JSON::Coder`, and the adapter accepts no caller-supplied engine** — where design §7.3 predicts "close to vacuous for a stateless `JSON` module … satisfied by holding configuration in a frozen options hash … the requirement's own fallback clause covers this" | `SERDE-26`; design §7.3; §11.18; verified fact 8 | §7.3 and §11.18 were written against **json 2.9.1**, which has no `JSON::Coder`. The floor the gemspec declares — **2.19.9** — does, and it is a real per-instance engine: freezable, thread-safe across 8 × 500 concurrent dumps, `[:dump, :generate, :load, :load_file, :parse]`. So the port does not need the fallback clause and does not invoke it. Two properties follow that the frozen-options-hash route does not give: no engine is ever shared between two serdes, and there is no caller instance to mutate because `Codec.build` takes options rather than a coder — which makes `SERDE-26`'s antecedent false by construction *and* its purpose satisfied literally, rather than either alone |
 | P7-5 | **`#dump_into`'s target is a mutable `Encoding::BINARY` `String` only.** Ruby's `IO::Buffer` is rejected with `Dexpace::InvalidArgumentError`, where design §3.4 writes "a caller-supplied `String`/`IO::Buffer`" | `SEAM-20`; `SERDE-4`; design §3.4; phase 0's warnings-fatal gate; verified fact 5 | Measured: `IO::Buffer.new` emits an experimental warning through `Warning.warn` at **every** warning level, and phase 0's shared test case overrides `Warning.warn` **to raise** — so a test that constructs one fails the build, and a requirement whose conformance clause cannot be tested is not satisfied. Second reason: `IO::Buffer#set_string` raises `ArgumentError` where `String#[]=` raises `IndexError`, so supporting both would give `SERDE-4`'s "range/overflow error" two classes and a caller two rescues. Third: `Dexpace::IO::Buffer` — the name a reader will reach for — is a **FIFO with no offset addressing**, so it is not the missing third option either. A BINARY `String` *is* Ruby's byte array (§10.13's own argument), so nothing about `SEAM-20`'s buffer profile is lost |
-| P7-6 | **`#load` validates that the drained text is valid UTF-8 before parsing**, raising `DeserializationError` — a guard neither the requirement nor the design names | `SERDE-9`, `SERDE-13`; `io-and-byte-streams/6eb5155f`; `OI-7`; verified fact 7 | Two silences compose into one: phase 3a's `#read_utf8` **retags without validating** (its own stated contract — "no replacement policy — that is `HTTP-42`'s"), and `::JSON.parse` accepts invalid UTF-8 and returns a UTF-8-tagged `String` whose `#valid_encoding?` is `false`. Without the guard a caller receives a `String` that claims an encoding it does not have, several frames from the cause, with no error anywhere. A *transcode* is the wrong repair — `"\xc3\xa9".b.encode(UTF_8, BINARY)` raises on a perfectly valid `é` — so retag-then-**validate** is the recipe, and `7a` adds the second step rather than changing 3a's primitive, because `7b`'s SSE machine reads the same primitive and may legitimately want bytes that are not valid UTF-8 |
+| P7-6 | **`#load` validates that the drained text is valid UTF-8 before parsing**, raising `DeserializationError` — a guard neither the requirement nor the design names | `SERDE-9`, `SERDE-13`; `io-and-byte-streams/6eb5155f`; phase 10's inbound-list entry on design §3.1's decode sentence; verified fact 7 | Two silences compose into one: phase 3a's `#read_utf8` **retags without validating** (its own stated contract — "no replacement policy — that is `HTTP-42`'s"), and `::JSON.parse` accepts invalid UTF-8 and returns a UTF-8-tagged `String` whose `#valid_encoding?` is `false`. Without the guard a caller receives a `String` that claims an encoding it does not have, several frames from the cause, with no error anywhere. A *transcode* is the wrong repair — `"\xc3\xa9".b.encode(UTF_8, BINARY)` raises on a perfectly valid `é` — so retag-then-**validate** is the recipe, and `7a` adds the second step rather than changing 3a's primitive, because `7b`'s SSE machine reads the same primitive and may legitimately want bytes that are not valid UTF-8 |
 | P7-7 | **`dexpace-serde-json` asserts `json >= 2.19.9` at require time**, raising `Dexpace::SeamError`, where `CLAUDE.md` and design §3.4 name `bundler-audit` as what enforces the floor | `NFR-2`; design §3.4; `serde/d15ade64`; verified fact 8 | `bundler-audit` runs in **this** repository's CI, not in a consumer's process, and it audits a `Gemfile.lock` — so it never sees an unbundled `require "dexpace/serde/json"`, which on Ruby 3.4.10 activates the interpreter's default `json` **2.9.1**. That version has no `JSON::Coder` at all, so the failure without the assertion is a `NameError` deep inside a codec rather than a message naming the floor — and, worse, the 2026 advisories the floor exists for would be silently unpatched. One `Gem::Version` comparison, no `require` needed |
 | P7-8 | **`SERDE-24`'s round-trip guarantee is stated as holding for a `Time` whose `subsec` is an exact multiple of one microsecond**, and the encoder truncates outside that domain | `SERDE-24`; design §3.4's "the round-trip **SERDE-24** requires holds by construction"; verified fact 9 | Measured: `Time#iso8601(n)` **truncates**, so `Time.new(2026,9,10,12,0,0.123456,"+02:00").iso8601(6)` is `…00.123455+02:00` — one microsecond low — and the round trip fails. The `Float` second is stored as `8895942329546431/72057594037927936` ≈ `0.12345599999…`, and a `subsec` with no finite decimal expansion (`Rational(1,3)`) fails at any width. Integer-microsecond times round-trip **exactly** at `iso8601(6)`, which is every `Time` this SDK constructs and every `Time` `Instant` decodes. The port states the domain in the YARD with the measured example and asserts both halves in tests, rather than claiming "by construction" for a guarantee that measurably has an edge. Rounding instead of truncating would mean a second date formatter beside 5a's `HTTPDate` |
 | P7-9 | **The tri-state omission is core's `Native` walk, not each model's `#dexpace_dump`**, where design §7.3 writes "`#dexpace_dump` builds the `Hash` and simply omits Absent keys before `JSON.generate`" | `SERDE-15`, `SERDE-19`, `SERDE-20`; design §7.3 | §7.3's route makes `SERDE-19`'s MUST a convention every hand-written model must remember, and the requirement names the exact failure of forgetting it: "absent this wiring, Absent and Null become indistinguishable on the wire" — silent, on the wire, in a PATCH. Moving the drop into the walk makes the wiring **structural**, which is the word §7.3 itself uses for what `SERDE-19` needs, and puts `SERDE-20`'s three degradations (top-level, array element, in-object) in one place instead of in every model. A model that omits its own Absent keys still works; the walk simply has nothing to drop. It also means `dexpace-serde-oj` inherits tri-state encoding by calling `Native.of`, which is `serde/66ebd950`'s "no second code path in core" |
@@ -1704,12 +1707,14 @@ document says so twice on purpose.
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-Four, described here for a human to file. **None is acted on by this document, none carries a number,
-and no register file is edited by it.**
+Four, each named with the owner that carries it. **None is acted on by this document, and no register file
+is edited by it.**
 
-**Target register: `docs/open-items.md`.**
+**Owner: `7a`'s plan, Task 12, for the `#media_type` clause it settles; and phase 10's inbound list for the
+residue — whether phase 2's four other declared-and-unwritten `sig/` files are empty too, which no gate can
+see.**
 **Phase 2 declared `interface _Codec` and never wrote its body, and `#media_type`'s return type is
 the clause with a consequence.** `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:4613-4614`
 says `sig/dexpace/serde.rbs` "carries `interface _Codec` with the six methods and the module's class
@@ -1725,7 +1730,8 @@ diff has nothing to diff. Worth a row because phase 2 declared four other `sig/`
 sentence and a reader should know whether the same happened to them. Cites: `SEAM-19`, `SERDE-1`,
 `SERDE-2`, `NFR-3`, `NFR-4`.
 
-**Target register: `docs/open-items.md`.**
+**Owner: `.claude/skills/knowledge-lookup/SKILL.md` — the audit-group table's `Query` column, which is where
+this document's own proposed fix lands.**
 **A `--section rules` audit of `SERDE` misses four of its thirty IDs, which is the charter's
 navigation hazard from a third direction.** `--prefix SERDE --section rules` returns 26 entries;
 `SERDE-17` lives only in *Constraints* (`serde/18a5757b`) and `SERDE-24`, `SERDE-25` and `SERDE-30`
@@ -1734,13 +1740,13 @@ live only in *Conclusions* (`serde/fccbd8a5`, `/d3bef411`, `/9c037363`). The
 loop's step 2 says "Read the group. One query, `--section rules`, from the table above" — so an
 auditor following the documented loop over `SERDE` reports clean over 26 of 30 rules. This is the
 same species as `sse-streaming/5f4803a0` (an SSE rule filed under `PAGE-14`) and `pagination/b2a85752`
-(a rule with no ID at all), and the charter proposed a row for those two; this one argues the fix is
+(a rule with no ID at all), which the charter routes to `docs/knowledge/notes/`; this one argues the fix is
 different, because the entries are correctly filed and it is the *group query* that is too narrow.
 The proposed amendment is to the audit-group table's `Query` column — `--section rules,constraints,conclusions`
 for the ID-bearing groups — rather than to any corpus entry. Cites: `SERDE-17`, `SERDE-24`,
 `SERDE-25`, `SERDE-30`.
 
-**Target register: `docs/first-release.md`.**
+**Owner: `docs/first-release.md`.**
 **`SERDE-27`'s no-materialization clause is unsatisfied for every adapter the MVP ships, and the
 failure is a `Dexpace::StreamError` a caller will meet at 64 MiB.** `P7-1`. The line to file: **before
 release, the documented behaviour of a typed response handler on a body above
@@ -1761,10 +1767,10 @@ an `oj` adapter would satisfy `SERDE-27`'s "without first materializing the whol
 not change the trigger (throughput is still the one a user will feel first) but it does
 change what the gem is worth. Cites: `SERDE-27`, `SEAM-21`, `IO-9`.
 
-**One existing row explicitly does not close.** `OI-7`'s subject is a sentence in the frozen §3.1 and
-`7a` consumes the corrected retag-then-transcode recipe without touching the mechanism — it adds a
-validation step above it (`P7-6`) rather than amending it. The item resolves when §3 is next
-deliberately amended by a human, as the row itself says.
+**One finding explicitly does not close.** The §3.1 decode sentence on phase 10's inbound list is a sentence
+in a frozen chapter and `7a` consumes the corrected retag-then-transcode recipe without touching the
+mechanism — it adds a validation step above it (`P7-6`) rather than amending it. It resolves when §3 is next
+deliberately amended by a human, as that entry itself says.
 
 ---
 

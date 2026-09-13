@@ -24,8 +24,8 @@ stable key.
   fixed by one line, `http.max_retries = 0`. Two clauses of the same method bound the hazard without
   removing it: `rescue Net::OpenTimeout; raise` means a connect timeout is never retried, and
   `count = max_retries` inside the `reading_body` block means the window closes once the response head
-  is read; neither helps the connect-and-head phase, which is where a cancel lands. `OI-34` records the
-  same finding against design §3.2, §11.18 and §12, which are frozen.
+  is read; neither helps the connect-and-head phase, which is where a cancel lands. Phase 10's inbound
+  list carries the same finding against design §3.2, §11.18 and §12, which are frozen.
   <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-net-http-retry</sub>
 - **The block-scoped `read_body` construction buffers the whole body, and the coroutine that fixes it
   must be a `Thread` rather than a `Fiber` — because a fiber cannot be resumed from another thread.**
@@ -51,7 +51,7 @@ stable key.
   requires `max_retries = 0` per this file's first entry) and joins with a **bounded** deadline.
   Measured: head at 4 ms against a 400 ms dribble, 4 MiB round-tripped byte-exactly in 95 ms, close
   mid-stream returning in 1 ms with the server observing the peer close, idempotent, no stranded
-  thread. `OI-35` records the same finding against design §3.2, which is frozen.
+  thread. Phase 10's inbound list carries the same finding against design §3.2, which is frozen.
   <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-response-pump</sub>
 
 ## Reference
@@ -92,3 +92,23 @@ stable key.
   answer is to apply the RFC 7230 token predicate before dispatch on **both** protocols, so one request
   produces one observable header set (`P8-40`).
   <sub>review · `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-design.md` · high · sha:manual-phase8c-http2-no-validation</sub>
+- **`dexpace-transport-net_http` opens a TCP — and, over HTTPS, a TLS — connection per request, which is
+  what the design requires and what the corpus rule forbids.** Beside `resource-management/4aca52f9`
+  ("Never open one connection per request; size connection or HTTP pools with a bounded, named constant
+  instead"), which is a good rule for an application and is not the rule this gem follows. Design §3.2
+  with `transport-adapter/52b448e8` requires the opposite for a measured reason: a **shared** `Net::HTTP`
+  driven by eight threads produced 128 errors and **26 responses matched to the wrong request** (8a's
+  verified fact 9) — `Net::HTTP` holds one socket and one response state per instance, so sharing one is
+  not slow, it is wrong. The cost of the design is real and is not hidden: every request pays a
+  handshake, which on an HTTPS endpoint is one round trip plus a TLS negotiation. **Why a pool is not the
+  answer inside this gem.** `connection_pool` would be a second third-party declaration and
+  `gates:gemspec_audit` rejects it — `NFR-2` budgets an adapter at `dexpace-core` plus at most one
+  library, and `net-http` is that one. A hand-rolled pool would have to answer every bounded-pool and
+  deterministic-teardown rule the corpus routes to `dexpace-async-thread`
+  (`concurrency-and-async/6764e0b5`, `dc345cae`, `df658d73`, `3692970f`, `047644ea`, `dd8e6d2d`), in a gem
+  that is not that one and whose `XCUT-11` surface would grow accordingly. What would resolve it: a later
+  phase taking a hand-rolled bounded pool with a checkout timeout as a **deliberate, separately-designed**
+  piece of work — not as a line added to the send path. Recorded here rather than left implicit because
+  the first user to benchmark this SDK against `faraday` will find the handshake and should find it
+  already written down. Cites `TRANSPORT-5`, `TRANSPORT-29`, `SEAM-12`, `NFR-2`, `XCUT-11`.
+  <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-connection-per-request</sub>

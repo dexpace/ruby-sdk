@@ -18,14 +18,14 @@ the `RETRY` twin is an annotation on the row, never the row's disposition.
 **It is the sub-phase the charter recommends first**, for four reasons the charter itself gives and
 this document does not re-argue: it is the largest and the longest pole; it closes or half-closes
 four postponed items (the recovery-stack engine, `ProtocolError#retryable?`, `CFG-35`'s throwable half, and half of
-`OBS-29`'s wiring); it is where `OI-31`'s cursor
+`OBS-29`'s wiring); it is where the `Cursor` context-bundle
 widening is assigned; and it is where the redirect-then-auth marker's writer-before-reader ordering
 becomes moot because `6a` touches neither side of it. **None of that makes `6a` a dependency of `6b`
 or `6c`.** The charter is explicit that every phase-6 boundary is a convenience, and the Prerequisites
 section below states that independence in `6a`'s own words rather than inheriting a chain by habit.
 
 Seven decisions the charter named and declined to make are made here — `R1`–`R6` and `R15` — plus
-`OI-31`'s cursor-widening task, which the charter assigns to `6a` outright. Two of the seven turn on
+the `Cursor` context-bundle widening task, which the charter assigns to `6a` outright. Two of the seven turn on
 a fact this document verifies against 5a's shipped code rather than against the segmentation
 charter's prose, because the charter could describe the shape of the problem but not the exact
 regular expression 5a wrote:
@@ -52,7 +52,8 @@ regular expression 5a wrote:
 - `docs/product-spec/09-retry-and-resilience.md`, read in full (36 lines), together with
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for the canonical text
   of all 45 `RETRY` IDs and of `RECOV-17`–`RECOV-30`, `RECOV-34` (rows 245–258, 262). `RECOV-17`
-  through `RECOV-30` appear in no prose chapter (`OI-12`); the spec-reading budget section below
+  through `RECOV-30` appear in no prose chapter, exactly as the roadmap's gap paragraph records; the
+  spec-reading budget section below
   states exactly what was read in place of a chapter that does not exist for them.
 - `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` §6.1 in full — single-sourcing, the
   open capability, construction-time validation, backoff, the three hand-written `Retry-After`
@@ -95,8 +96,9 @@ regular expression 5a wrote:
 - The deferrals earlier phases aimed at this one — the recovery-stack engine (phase 4's segmentation),
   `ProtocolError#retryable?` (phase 4b), the `standard` constructors (phase 4c), `CFG-35`'s throwable half (phase 5a),
   `OBS-29`'s wiring (phase 5c) — and the v1 declines of `RECOV-31` and `RETRY-29`/`RETRY-38`/`RETRY-43`
-  (`docs/first-release.md` § What v1 ships without); `docs/open-items.md` (`OI-12`, `OI-21`, `OI-29`, `OI-31`),
-  `docs/deviations.md`, `docs/first-release.md`.
+  (`docs/first-release.md` § What v1 ships without); the roadmap's gap paragraph and its phase-10 inbound
+  list; 5a's Task 4, whose throwable half `6a`'s Task 3 completes; `docs/deviations.md`,
+  `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ## Corpus reading, and what it settled
@@ -143,7 +145,7 @@ owning them; `--phase 5` shows 5a cites `RETRY-1` and `RETRY-12`, fixing `Dexpac
 the object `6a` computes from and never rebuilds.
 
 **No knowledge note is filed by this document.** Nothing found here contradicts a harvested rule; the
-findings this document produces are findings for the open-items and release registers (below), not corpus corrections. The
+findings this document produces are routed to their owners (below), not corpus corrections. The
 `knowledge-lookup` skill's audit-group table row the charter states is owed —
 *Resilience: retry, redirect and authentication* — is the charter's own obligation, restated in the
 findings section below rather than added twice.
@@ -151,7 +153,7 @@ findings section below rather than added twice.
 ## The spec-reading budget for the fifteen `RECOV` IDs
 
 `RECOV-17`–`RECOV-30` appear in no prose chapter — `docs/product-spec/08-execution-pipelines.md` §8.2
-states `RECOV-1` through `RECOV-16` and stops (`OI-12`). `RECOV-34` is **not** in this set; it has
+states `RECOV-1` through `RECOV-16` and stops, which is what the roadmap's gap paragraph records. `RECOV-34` is **not** in this set; it has
 substantive design-role entries (design §6.1, §10 item 18) and is read from there. The budget, stated
 exactly as the charter states it: fourteen IDs read directly out of appendix C rows 245–258, and the
 reading is cheap because `docs/product-spec/09-retry-and-resilience.md` states the same rules in
@@ -215,8 +217,8 @@ names them and this design must not silently drop them again:
 - `CFG-35`'s throwable half, as `XCUT-6`'s capability query over `Dexpace.each_cause` (phase 5a's deferral; Task 3).
 - `RETRY-12`'s five default tuning-constant values, behind 5a's `Keys::MAX_RETRY_ATTEMPTS` name.
 - `OBS-29`'s per-attempt event group on the retry step (the half of phase 5c's postponed wiring `6a` can reach; Task 9).
-- `OI-31`'s cursor widening (a read-only per-call bundle reader plus one optional seeding keyword on
-  the pipeline call path).
+- The `Cursor` context-bundle widening (a read-only per-call bundle reader plus one optional seeding
+  keyword on the pipeline call path).
 
 **Inherited row, no budget line:** `CFG-35` (SHOULD) — 5a's row, whose throwable half 5a postponed here; closed by Task 3.
 
@@ -288,7 +290,7 @@ every phase-6 boundary is a convenience — is stated here in `6a`'s own words r
 stage-namespaced cursor state means a RETRY fork's `state:` is invisible under any other stage's key
 to anyone, including `REDIRECT` and `AUTH` — the same negative assertion (assertion 4 in 4c's suite)
 that makes `6b`/`6c`'s marker exchange safe from `6a`'s interference. `6a`'s one export a later
-sub-phase might consume, `OI-31`'s cursor widening, is stated as an *if-it-exists* consumption in
+sub-phase might consume, the `Cursor` context-bundle widening, is stated as an *if-it-exists* consumption in
 `6b`'s and `6c`'s own designs, never a wait. **A `6a` plan whose first task waits on anything from
 `6b` or `6c` has re-imposed a chain that does not exist**, and none does here.
 
@@ -334,8 +336,9 @@ change — confirmed in `R5` below, unchanged.
 
 ### From phase 4a
 
-`Dexpace::Instrumentation::Bundle` (`Bundle::NONE`, `#tracer_factory` — `OI-29`'s point: this factory
-produces **span** tracers, never the HTTP-tracer `6a` needs, and `6a` does not read it).
+`Dexpace::Instrumentation::Bundle` (`Bundle::NONE`, `#tracer_factory` — the point the HTTP-tracer-factory-
+versus-bundle finding on phase 10's inbound list makes: this factory produces **span** tracers, never the
+HTTP-tracer `6a` needs, and `6a` does not read it).
 
 ### From phase 4b
 
@@ -379,7 +382,7 @@ value); `Dexpace.configuration`.
 ### From phase 5b and 5c
 
 `Dexpace::Instrumentation::Step`/`::AsyncStep` at `Stages::LOGGING`, whose `bundle_for` gains its
-first clause under `OI-31` (below); `Dexpace::Instrumentation::Redactor` (`6a` does not call it —
+first clause under the cursor widening (below); `Dexpace::Instrumentation::Redactor` (`6a` does not call it —
 `REDIR-28`'s linkage is `6b`'s); `Dexpace::Instrumentation::HTTPTracer` (eleven no-op methods:
 `#operation_started(context)`, `#operation_succeeded(context, response)`,
 `#operation_failed(context, error)`; `#attempt_started(context, attempt)`,
@@ -388,7 +391,7 @@ milestones `6a` does not call), its frozen `NULL` instance, `CallableAdapter`. *
 _HTTPTracer` is deliberately not declared in 5c's RBS** — `R3` decides whether `6a` declares one now.
 
 **The independence statement, restated as the charter requires**: every real dependency above is on
-phases 0–5; the dependency on `6b` and `6c` is empty. `OI-31`'s widening is the one export either of
+phases 0–5; the dependency on `6b` and `6c` is empty. The cursor widening is the one export either of
 them might consume, and neither's design may wait on it existing.
 
 ---
@@ -512,19 +515,20 @@ loop.
 **Decision: a factory, called once per pipeline-level call. `interface _HTTPTracer` is declared now,
 in a new `sig/` file widening 5c's instrumentation namespace.**
 
-`OI-29` establishes that `CTX-14`'s `Bundle#tracer_factory` (span tracers, legitimately shared or
+The HTTP-tracer-factory-versus-bundle finding — the one `OBS-29` surface decision phase 10's inbound list
+carries — establishes that `CTX-14`'s `Bundle#tracer_factory` (span tracers, legitimately shared or
 cached) and `OBS-29`'s per-operation HTTP-tracer factory (`OBS-28`'s eleven-method vocabulary,
-legitimately per-operation) are different kinds of object, and assigns the separate slot to phase 6.
+legitimately per-operation) are different kinds of object, and leaves the separate slot to phase 6.
 Two constraints fix the shape:
 
 - `RETRY-42` requires the retry step itself to be shared and stateless across calls, so it cannot
   hold a per-operation `HTTPTracer` as a plain constructor-time instance — that would give every call
   the pipeline ever serves the same tracer, violating `OBS-29`'s "one tracer instance corresponds 1:1
   to a single logical operation lifecycle."
-- The retry step has no reachable per-operation context object to read one off — `OI-31`'s own
-  finding, restated for this ID: nothing shipped lets a pipeline step reach a `RequestContext` or an
-  `Instrumentation::Bundle`, and `6a`'s widening of `Cursor` (below) adds a *bundle* reader, which
-  `OI-29` says is the wrong object for this purpose anyway.
+- The retry step has no reachable per-operation context object to read one off — the same finding the
+  cursor widening acts on, restated for this ID: nothing shipped lets a pipeline step reach a
+  `RequestContext` or an `Instrumentation::Bundle`, and `6a`'s widening of `Cursor` (below) adds a
+  *bundle* reader, which is the wrong object for this purpose anyway.
 
 **The resolution needs no second cursor widening.** `Dexpace::Resilience::RetryStep#call(request,
 cursor)` (sync) and `AsyncRetryStep#call(request, cursor)` (async) already receive `cursor` as an
@@ -540,9 +544,9 @@ the attempt loop begins. The resulting tracer is used for every `#attempt_starte
 `HTTPTracer`'s eleven methods take — the same per-call correlation handle the pipeline design already
 established, reused rather than duplicated.
 
-This also settles why `6a`'s `OBS-29` emission task does not depend on `OI-31`'s widening, which the
+This also settles why `6a`'s `OBS-29` emission task does not depend on the cursor widening, which the
 charter states as a finding and this document confirms by construction: the factory's argument is
-`cursor`, never a `Bundle`, so nothing about `OI-31` landing or not landing changes what the retry
+`cursor`, never a `Bundle`, so nothing about the widening landing or not landing changes what the retry
 step passes to `http_tracer_factory.call`.
 
 **`interface _HTTPTracer` is declared now**, because a constructor keyword typed `untyped` for
@@ -726,7 +730,7 @@ considerations, each cited from the charter's own words:
    design has equal standing to make if it ever needed that slot for something of its own.
 
 **What `6a` does instead: correct the record.** The finding — the charter's, restated below under the findings
-section, and recorded as `OI-32` — is that the
+section, and now carried on phase 10's inbound list — is that the
 stated route does not work and the site that would is a new step nobody's scope currently asks for.
 `6a`'s own checklist marks `OBS-29` **not** as its ID (it owns none of `OBS-29`; `5c` does) but names
 the per-attempt group it *does* wire as satisfying the per-attempt half of 5c's deferral, and leaves the
@@ -735,7 +739,7 @@ absent.
 
 ---
 
-## `OI-31`: widening the cursor
+## Widening the cursor
 
 **Decision: widen `Dexpace::Pipeline::Cursor`. Executed by `6a`, as the charter assigns.**
 
@@ -765,14 +769,15 @@ named:
    options = RequestOptions::EMPTY, cancellation = Cancellation.none, bundle: Dexpace::Instrumentation::Bundle::NONE)`
    and the same keyword on `AsyncPipeline#call`. `Cursor.build` is called with this `bundle:` at the
    top of `#call`, exactly as `options` and `cancellation` already are. **This is the producer side
-   `OI-31`'s own text omits and this document supplies it explicitly**, because a reader accessor with
-   nothing that ever populates it non-`NONE` would be `OI-8`'s "an implementation with no caller and
-   no test that exercises the non-default branch" shape all over again.
+   the finding's own text omits and this document supplies explicitly**, because a reader accessor with
+   nothing that ever populates it non-`NONE` would be the "an implementation with no caller and no test
+   that exercises the non-default branch" shape all over again — the shape 3a's Task 14 weighs for
+   `TeeSink#clear_tap`.
 
 **`bundle_for` in 5b's `Dexpace::Instrumentation::Step` gains its first clause in the same task.**
 5b's step currently resolves `tracer_factory:`/`meter:` from its own constructor keywords and the
 published `Bundle::NONE`/`_HTTPTracer`... wait — 5b's step resolves *span* tracer factories and
-meters, and `OI-31`'s three-clause rule names "the request context's instrumentation bundle when it
+meters, and the three-clause rule names "the request context's instrumentation bundle when it
 is not `Bundle::NONE`, else the step's constructor keyword, else the constant" for exactly that
 resolution. With `Cursor#bundle` shipped, `bundle_for(cursor)` becomes:
 
@@ -784,7 +789,7 @@ def bundle_for(cursor)
 end
 ```
 
-which is the one method `OI-31`'s own text says changes, and no other 5b file changes.
+which is the one method the finding says changes, and no other 5b file changes.
 
 **Why this is safe against `4c`'s stated position** ("4c does not consume 4a at all"): `4c` itself is
 untouched — `Cursor` gains a member and a keyword, and `4c`'s own design and tests named no
@@ -797,7 +802,8 @@ no published singleton — roadmap obligation 1's actual content, honoured eithe
 keyword regardless of whether it does, per the charter's `R13`. **`6a`'s own `OBS-29` emission task
 does not depend on this widening** — `R3` above resolves the retry step's `HTTPTracer` slot through
 `cursor` itself (the argument every step already receives), never through `Cursor#bundle`, because
-`OI-29` establishes the two are different kinds of object. If `6b` or `6c` lands first, this task
+the HTTP-tracer-factory-versus-bundle finding on phase 10's inbound list establishes the two are different
+kinds of object. If `6b` or `6c` lands first, this task
 travels with whichever does, and this document's own Prerequisites section already states that `6a`
 does not wait for either.
 
@@ -819,8 +825,9 @@ specifies; `6a` writes no second walk. The one residual it records — a bare, u
 `Errno::ETIMEDOUT`/`SocketError` classifying not-retryable — is `R4`'s deviation candidate `P6-4`,
 and it is the same residual under one name, not two. Phase 5a's `CFG-35` row stays ⏳ citing this
 document with its met half named; `6a` carries the `CFG-35` row that closes it, outside its 60-ID
-budget (an inherited row, per the Scope section above). `OI-21` closes with it, per 5a's own `R1`
-supplying the phase-5 end of the cross-reference and `6a` supplying the phase-6 end.
+budget (an inherited row, per the Scope section above). The `CFG-35`/`XCUT-5` shared-classifier
+cross-reference closes with it: 5a's own `R1` (5a plan, Task 4) supplies the status half and the phase-5
+end, and `6a`'s Task 3 supplies the throwable half and the phase-6 end.
 
 ---
 
@@ -840,10 +847,10 @@ lib/dexpace/resilience/async_retry_step.rb       Dexpace::Resilience::AsyncRetry
 
 lib/dexpace/http_date.rb                         MODIFIED: GRAMMAR's day group widened (R1)
 lib/dexpace/error/protocol_error.rb              MODIFIED: #retryable? added (XCUT-5's baked flag, 4b's deferral)
-lib/dexpace/pipeline/cursor.rb                   MODIFIED: #bundle reader, .build's bundle: (OI-31)
-lib/dexpace/pipeline.rb                          MODIFIED: #call's bundle: keyword (OI-31)
-lib/dexpace/async_pipeline.rb                    MODIFIED: #call's bundle: keyword (OI-31)
-lib/dexpace/instrumentation/step.rb              MODIFIED: bundle_for's first clause (OI-31)
+lib/dexpace/pipeline/cursor.rb                   MODIFIED: #bundle reader, .build's bundle: (Task 8)
+lib/dexpace/pipeline.rb                          MODIFIED: #call's bundle: keyword (Task 8)
+lib/dexpace/async_pipeline.rb                    MODIFIED: #call's bundle: keyword (Task 8)
+lib/dexpace/instrumentation/step.rb              MODIFIED: bundle_for's first clause (Task 8)
 
 sig/dexpace/instrumentation/http_tracer.rbs      NEW FILE: interface _HTTPTracer (R3), widening 5c's tree
 
@@ -1315,8 +1322,8 @@ fallback).
 
 | Consumer | What it gets, and the obligation |
 |---|---|
-| **`6b`** (`OI-31`) | `Cursor#bundle`, if `6a` lands first. `6b` states in its own design that it consumes it if present and ships its own constructor keyword regardless |
-| **`6c`** (`OI-31`) | The same, for the same reason |
+| **`6b`** (the cursor widening) | `Cursor#bundle`, if `6a` lands first. `6b` states in its own design that it consumes it if present and ships its own constructor keyword regardless |
+| **`6c`** (the cursor widening) | The same, for the same reason |
 | **The `standard` constructors' executor** (phase-level, `6a` or `6b`, whichever lands second; `6b` Task 13a) | `Dexpace::Resilience::RetryStep`/`AsyncRetryStep`, both declaring `#stage`. The constructors phase 4c postponed install them **over** `Builder#install_preset`; `6a` builds the ingredient and does not build the constructors |
 | **Phase 8**, on `R4`'s deviation candidate | The obligation to wrap a bare `Errno::*`/`SocketError`/`Timeout::Error` an adapter lets escape in something answering `#retryable?`, defaulting to `true` per `XCUT-4` branch (b)'s default |
 | **Phase 9**, on `XCUT-5`/`XCUT-6`/`XCUT-7` | `Dexpace::Retryability.retryable_status?` (the baked classifier), `Policy.throwable_retryable?` (the capability query), `RetrySettings#retryable_statuses` (the configurable set) — three distinct objects, audited as three |
@@ -1336,7 +1343,7 @@ Numbering starts at `P6-1`; no `P6-<n>` exists anywhere in `docs/` (verified 202
 | P6-4 | `RETRY-2`'s capability-only classification has a stated blind spot: a bare, unwrapped stdlib I/O or timeout error escaping an adapter classifies not-retryable | `RETRY-2`, `RETRY-4`, `XCUT-4`, `XCUT-6`; the mirror-image residual 5a's deferral records for `CFG-35` | The concrete-type alternative is wrong in both directions (5a's own argument, re-verified here); the residual becomes an obligation on phase 8's adapters to wrap, mitigated by `XCUT-4` branch (b)'s own default-retryable flag on the wrapper type they must supply |
 | P6-5 | `Dexpace::Resilience::Policy.backoff_delay` takes no `total_timeout` parameter; the recovery-only budget check is a separate function, `Policy.budget_remaining`, that `RetryStep`/`AsyncRetryStep` never call | `RETRY-28`; `RECOV-20`; design §6.1's "MAY additionally enforce" reading (`R6`) | A parameter that exists, however defaulted, is a parameter the stage driver's code could pass by mistake. Splitting the function makes `RETRY-28`'s prohibition a fact about which files reference which method name, checkable by a text scan, rather than a runtime invariant that depends on every future edit remembering not to pass the keyword |
 | P6-6 | `Configuration::Keys::MAX_RETRY_ATTEMPTS`'s configured integer is defined to denote the **stage-vocabulary** `max_retries` (excluding the initial send); the recovery stack's `max_attempts` is always `max_retries + 1` wherever it reads the same key | `RETRY-12`; `RETRY-14`; 5a's un-decided key semantics | 5a shipped the name with no semantics attached to its value. Fixing the semantics as an arithmetic derivation rather than as two independently-configured numbers makes `RETRY-14`'s equivalence an identity a test asserts structurally, never a coincidence two separate defaults happen to agree on today and could silently stop agreeing after an edit to one of them |
-| P6-7 | `Dexpace::Resilience::RetryStep`'s and `AsyncRetryStep`'s `http_tracer_factory:` keyword is called with `cursor` as its sole argument and as the `context` HTTPTracer's eleven methods take, rather than with an `Instrumentation::Bundle` or a new correlation type | `OI-29`; `OBS-29`; `PIPE-11` (`R3`) | `OI-29` establishes the bundle is the wrong object for a per-operation HTTP-tracer; `cursor` is the one per-call handle every step already receives, so reusing it needs no second cursor widening beyond `OI-31`'s own and keeps `6a`'s `OBS-29` emission task independent of whether `OI-31` has landed |
+| P6-7 | `Dexpace::Resilience::RetryStep`'s and `AsyncRetryStep`'s `http_tracer_factory:` keyword is called with `cursor` as its sole argument and as the `context` HTTPTracer's eleven methods take, rather than with an `Instrumentation::Bundle` or a new correlation type | `OBS-29`; `PIPE-11` (`R3`); the HTTP-tracer-factory-versus-bundle finding on phase 10's inbound list | That finding establishes the bundle is the wrong object for a per-operation HTTP-tracer; `cursor` is the one per-call handle every step already receives, so reusing it needs no second cursor widening beyond Task 8's own and keeps `6a`'s `OBS-29` emission task independent of whether Task 8 has landed |
 
 ---
 
@@ -1373,8 +1380,8 @@ landed (Task 13). Each entry names the item, why it was postponed, and who owns 
   `RecoveryRetry` (Task 11) call `#attempt_started`/`#attempt_failed` only and never
   `#retries_exhausted` (corrected in place 2026-09-13 — the earlier sentence claimed all three for
   `RecoveryRetry`, which the plan does not do). The finding that the operation-lifecycle triple's stated route is
-  unavailable is confirmed and recorded below; it lives as `OI-32`, and with the transport-milestone group (`OI-36`) it is
-  on phase 10's inbound list in the roadmap's 2026-09-13 status note.
+  unavailable is confirmed and recorded below; it lives, together with the transport-milestone group, on
+  phase 10's inbound list in the roadmap's 2026-09-13 status note.
 - **`Pipeline.standard`/`AsyncPipeline.standard`, postponed by phase 4c on 2026-09-08 — untouched by `6a`, and named
   because the charter assigns its execution elsewhere (`6b` Task 13a).** Phase 4c postponed the constructors because
   the step families they install did not exist yet. `6a` builds the two step families the constructor needs but does
@@ -1391,8 +1398,8 @@ landed (Task 13). Each entry names the item, why it was postponed, and who owns 
 `6a` is **independent of `6b` and `6c`**, as the Prerequisites section states in its own words. Its
 only two touchpoints with the rest of phase 6 are:
 
-- **`OI-31`'s cursor widening**, which `6a` **builds**, per the charter's assignment and this
-  document's `OI-31` section above. `6b` and `6c` consume `Cursor#bundle` if it exists and ship their
+- **The `Cursor` context-bundle widening**, which `6a` **builds**, per the charter's assignment and this
+  document's "Widening the cursor" section above. `6b` and `6c` consume `Cursor#bundle` if it exists and ship their
   own constructor keyword regardless.
 - **`Pipeline.standard`/`AsyncPipeline.standard`**, phase 4c's deferral and a phase-level task `6a` does **not**
   own (`6b` Task 13a). The charter assigns its execution to "whichever of `6a` and `6b` lands second"; `6a` builds the
@@ -1409,12 +1416,13 @@ re-argue; if the order changes, nothing in `6a`'s own plan needs to.
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-Three, described here for a human to file. **None is acted on by this document, none carries a
-number, and no register file is edited by it.**
+Three, each named with the owner that carries it. **None is acted on by this document; a finding is routed
+to its owner when found, never to a standing register.**
 
-**Finding on `OBS-29`'s wiring, which phase 5c postponed to phase 6 — recorded as `OI-32`.** Phase 5c's stated
+**Finding on `OBS-29`'s wiring, which phase 5c postponed to phase 6. Owner: phase 10's inbound list in the
+roadmap.** Phase 5c's stated
 pick-up route for `OBS-29`'s operation-lifecycle triple — a third slot on 5b's instrumentation step —
 is confirmed unavailable in the phase its own condition names: 5b's step is pinned to
 `Stages::LOGGING` (order 1100), which sits inside `Stages::REDIRECT` (200), `Stages::RETRY` (500) and
@@ -1425,20 +1433,23 @@ rather than trusted. `6a` discharges the per-attempt half of that deferral (the 
 and leaves the operation-lifecycle triple unwired, per `R15`'s decision not to ship a new
 `Stages::PRE_REDIRECT`-adjacent step to close it. The correction the charter drafted — the site that would work is
 `Stages::PRE_REDIRECT`, a **new** step, not a slot on an existing one, and no sub-phase of phase 6 currently owns the ID
-that would justify shipping it — is what `OI-32` records, and the triple now waits, with the transport-milestone group
-(`OI-36`), on the surface decision phase 10's inbound list carries. Cites: `OBS-28`, `OBS-29`, `PIPE-2`, `PIPE-37`,
-`OI-29`.
+that would justify shipping it — is what that inbound-list entry records, and the triple now waits, together with the transport-milestone
+group, on the one `OBS-29` surface decision phase 10's inbound list carries. Cites: `OBS-28`, `OBS-29`,
+`PIPE-2`, `PIPE-37`.
 
-**Target register: `docs/open-items.md`, as a resolution on the existing `OI-31` row.** `OI-31` is
-resolved by widening `Dexpace::Pipeline::Cursor`, built by `6a`: a read-only per-call `#bundle`
+**Finding on the instrumentation step's first slot-precedence clause, whose bundle nothing shipped could
+reach. Owner: `6a`'s plan, Task 8, which carries the whole finding and builds the mechanism.** It is
+resolved by widening `Dexpace::Pipeline::Cursor`: a read-only per-call `#bundle`
 accessor plus one optional `bundle:` seeding keyword on `Pipeline#call`/`AsyncPipeline#call`, both
 widenings under `NFR-4` per `api-design/1d9e6e0b`; `bundle_for` in 5b's `Dexpace::Instrumentation::Step`
-gains its first clause in the same task, exactly as `OI-31`'s own text anticipates. `6a`'s `OBS-29`
-emission task does **not** depend on this widening, because `OI-29` establishes that `OBS-29`'s
-HTTP-tracer is a different kind of object from `CTX-14`'s `Bundle#tracer_factory`, and `6a`'s retry
+gains its first clause in the same task, exactly as the finding anticipates. `6a`'s `OBS-29`
+emission task does **not** depend on this widening, because the HTTP-tracer-factory-versus-bundle finding on
+phase 10's inbound list establishes that `OBS-29`'s HTTP-tracer is a different kind of object from
+`CTX-14`'s `Bundle#tracer_factory`, and `6a`'s retry
 step reads its per-operation tracer from a factory called with `cursor` itself, never from a `Bundle`.
 
-**Target register: `docs/first-release.md`.** `RETRY-2`'s capability-only classification has a stated
+**Finding on `RETRY-2`'s capability-only blind spot. Owner: `docs/first-release.md`.** `RETRY-2`'s
+capability-only classification has a stated
 blind spot (`P6-4`): a bare, unwrapped `Errno::ETIMEDOUT`/`SocketError`/`Timeout::Error` an adapter
 lets escape unwrapped classifies as not-retryable, and this is invisible until an adapter exists to
 test it against. The line to file: **phase 8's first transport adapter must wrap every stdlib I/O and
@@ -1448,8 +1459,9 @@ is a real, silent retry-eligibility regression for exactly the class of failure 
 "always retryable," reachable the first time a real socket times out against a real adapter. Cites:
 `RETRY-2`, `RETRY-4`, `XCUT-4`, `XCUT-6`; the residual is the one 5a's deferral of `CFG-35`'s throwable half recorded.
 
-**One existing row closes as a consequence and is named so the closure is not lost.** `OI-21` closes
-when `6a` computes `ProtocolError#retryable?` from 5a's `Dexpace::Retryability`, supplying the
+**One outstanding cross-reference closes as a consequence and is named so the closure is not lost.** The
+`CFG-35`/`XCUT-5` shared-classifier cross-reference — 5a plan Task 4's status half, `6a` Task 3's throwable
+half — closes when `6a` computes `ProtocolError#retryable?` from 5a's `Dexpace::Retryability`, supplying the
 phase-6 end of the cross-reference 5a's `R1` supplied from the phase-5 end.
 
 ---

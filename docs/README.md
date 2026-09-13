@@ -16,7 +16,6 @@ and the entries below are frozen the moment they appear, not the moment someone 
 | [`sdk-documentation/`](./sdk-documentation/) | **As-built.** How the gems compose, which one to install, worked cross-gem examples | A human, or a skill on request | Yes |
 | [`work/`](./work/) | Process records: per-(sub)phase design, plan and checklist, one directory per phase under a unit of delivery | The phase that produced them; **collected** here by the `housekeeping` skill | Yes — `git mv` only |
 | [`superpowers/`](./superpowers/README.md) | Nothing, for long. The **inbox** the Superpowers skills write into | `brainstorming`, `writing-plans` | Yes — it drains it |
-| [`open-items.md`](./open-items.md) | Running register of findings: gaps discovered **after** the work, permanent item IDs `OI-<n>`, cited from anywhere in the repository | Whoever finds the item | Yes — appends |
 | [`deviations.md`](./deviations.md) | As-built audit of `sdk-design-ruby/10`'s deviation ledger, plus deviations found outside a phase | A human, following a phase or review | No — judgment, not a mechanical append |
 | [`first-release.md`](./first-release.md) | Release-readiness register: gem versions, blockers before first publish, the release path, plus what v1 ships without and the post-release triggers | A human, updated as blockers close | No |
 | [`assets/`](./assets/) | Vendored wordmark SVGs the root [`README.md`](../README.md) renders | Copied from `dexpace/morphic` | Yes |
@@ -73,24 +72,30 @@ hard-code `docs/superpowers/{specs,plans}/`, they are installed globally, and th
 cannot change them — so that directory is an inbox and the `housekeeping` skill collects from
 it. See [`superpowers/README.md`](./superpowers/README.md).
 
-## The registers
+## The register
 
-There are two, at the `docs/` root: [`open-items.md`](./open-items.md) and
-[`deviations.md`](./deviations.md). An open item is a discovery made **after** the work ("this is
-not what the checklist says it is"); `deviations.md` is a different kind of thing entirely: the
-as-built audit of the normative deviation ledger in `sdk-design-ruby/10`, not a register anyone
-appends findings to routinely. Work consciously postponed **before** it is done ("not this phase,
-that one") has no register of its own: it is either a numbered task in the plan of the phase that
-will do it, cited by path and task, or an entry in [`first-release.md`](./first-release.md) under
-what v1 ships without, the release path or the post-release triggers — and the document that
-postpones it says which, with the reason and the pick-up condition. An aggregate
+There is one, at the `docs/` root: [`deviations.md`](./deviations.md) — the as-built audit of the
+normative deviation ledger in `sdk-design-ruby/10`, plus deviations found outside a phase. It is
+not a find-list, and nothing else here is one either.
+
+A finding is **not registered; it is routed to its owner when it is found**. Work that falls
+inside a phase's scope becomes a numbered task in that phase's plan, cited by path and task
+number. Audit-or-repair work against a phase that is already planned goes to phase 10's inbound
+list in [the roadmap](./work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md). Anything belonging to
+the release — a blocker, something v1 ships without, a step on the release path, a post-release
+trigger — goes to [`first-release.md`](./first-release.md). And when the thing reported is in
+material you may write, it is not routed anywhere: it is fixed. Work consciously postponed
+**before** it is done ("not this phase, that one") takes the first or the third of those, and the
+document that postpones it says which, with the reason and the pick-up condition. An aggregate
 `## Open Findings` / `## Deferred Items` / `## Open Items` section inside a spec, design or plan
 document is drift, and the probe reports it — a concern only a specification remembers is a
 concern nothing acts on.
 
-Item IDs are **permanent**: never renumbered, never reused, cited from source comments and tests
-as well as from `docs/`. `OI-<n>` resolves only against `open-items.md`. Requirement IDs
-(`HTTP-7`, `SEAM-1`) are a different namespace and the probe does not confuse them.
+Both item-ID namespaces are **retired**: `OI-<n>`, the find-list that was `open-items.md`, and
+`DEF-<n>`, the deferrals that were `deferred-items.md`, both on 2026-09-13. Neither resolves to
+anything, neither prefix is reused, and the probe reports every surviving citation of either —
+from a source comment, a test, or anywhere under `docs/`. Requirement IDs (`HTTP-7`, `SEAM-1`) are
+a different namespace and the probe does not confuse them.
 
 ## Keeping this file true
 

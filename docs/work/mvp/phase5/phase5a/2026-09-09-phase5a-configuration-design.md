@@ -93,7 +93,8 @@ process-wide slot behind a mutex, one bounded wait, and six parsers.
   `Cancellation`, `Closeable`, `Registry`, `Hooks` and the declined `deadline:` keyword; the phase-3a and
   phase-3b designs for `MAX_MATERIALIZED_BYTES` and the two logging bodies; and all three phase-4 sub-phase
   designs for their *interface surface later phases may cite* tables.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/deviations.md` and `docs/first-release.md` (and, while it existed, the open-items register,
+  retired on 2026-09-13).
 - `CLAUDE.md` and `docs/README.md`.
 
 ## Scope
@@ -108,7 +109,7 @@ Thirty-eight IDs: **29 MUST, 8 SHOULD (`CFG-12`, `CFG-13`, `CFG-14`, `CFG-18`, `
 | Implemented | `CFG-1`–`CFG-18`, `CFG-21`–`CFG-33`, `CFG-36`–`CFG-38` | 34 |
 | Implemented, satisfied **by construction** — this port's async pivot delivers the caller's own exception, so there is no completion/execution wrapper to unwrap and "a non-wrapper throwable MUST be returned unchanged" holds for every input. No `unwrap` method ships (`P5-11`) | `CFG-19` (SHOULD) | 1 |
 | Partially satisfied — the NaN and signed-zero halves implemented; `CFG-34`'s boxed-versus-primitive **container-kind** clause recorded inapplicable per §11.15, and the inapplicability is not extended (`R4`) | `CFG-34` | 1 |
-| Partially satisfied — `CFG-20`'s cancel-with-interrupt clause is `ASYNC-3`'s mechanism under a second ID and is unsatisfiable under §8.3; its other three clauses are met. ⏳ citing the unsatisfied-MUSTs entry in `docs/first-release.md` **and** `OI-22`, with the unmet clause named in the row (`R7`) | `CFG-20` (SHOULD) | 1 |
+| Partially satisfied — `CFG-20`'s cancel-with-interrupt clause is `ASYNC-3`'s mechanism under a second ID and is unsatisfiable under §8.3; its other three clauses are met. ⏳ citing the unsatisfied-MUSTs entry in `docs/first-release.md`, which names `CFG-20`'s fourth clause, with the unmet clause named in the row (`R7`) | `CFG-20` (SHOULD) | 1 |
 | Partially satisfied — the **status** classifier ships here as `XCUT-5`'s single shared object; the **throwable** half is postponed to phase 6a, Task 3, because core cannot name the error classes the clause is about (`R1`) | `CFG-35` (SHOULD) | 1 |
 
 **Nothing in `CFG` is deferred outright**, which design §12's `CFG` row confirms. One clause of one SHOULD is,
@@ -124,9 +125,9 @@ and it is recorded below with its owner rather than left in prose.
 - `CFG-14`'s well-known key constants, which `RETRY-12` and `OBS-35` both reference by name without either
   owning them.
 
-`CFG-16` is `OI-15`'s **elapsed-time** counter and shares nothing with `CTX-4`'s **call-sequence** counter but
-the adjective. This document writes the full phrase everywhere and never "the monotonic counter" unqualified,
-which is the mitigation `OI-15` itself names.
+`CFG-16` is the **elapsed-time** counter the phase-4 charter's exclusions row names, and shares nothing with
+`CTX-4`'s **call-sequence** counter but the adjective. This document writes the full phrase everywhere and
+never "the monotonic counter" unqualified, which is the mitigation that row itself carries.
 
 ### The canonical text the design turns on
 
@@ -395,9 +396,13 @@ in Ruby, `Dexpace.configure` and `Dexpace.reset_config!`.
   5a's licence: "when `deadline:` lands on
   `Future#value`, `AsyncTransport.sync_over` gains it and **no pipeline signature changes**."
 
-**Three open items land in 5a's window and none is 5a's to close.** `OI-15` is met by `CFG-16` and mitigated
-by writing "elapsed-time counter" in full. `OI-21` is `R1`'s subject and is what the `CFG-35` throwable-half entry
-below cross-references at the phase-5 end. `OI-22` is `R7`'s subject and is what 5a's `CFG-20` checklist row cites.
+**Three findings from earlier passes land in 5a's window and none is 5a's to close.** The phase-4 charter's
+exclusions row — one phrase, "the monotonic counter", naming two unrelated objects — is met by `CFG-16` and
+mitigated by writing "elapsed-time counter" in full. The `CFG-35`/`XCUT-5` classifier collision is `R1`'s
+subject, and the cross-reference it wanted is what the `CFG-35` throwable-half entry below supplies at the
+phase-5 end (5a's Task 4 owns the status half, phase 6a's Task 3 the throwable one). `CFG-20`'s unmet fourth
+clause is `R7`'s subject and is what 5a's `CFG-20` checklist row cites, in the unsatisfied-MUSTs entry under
+`docs/first-release.md` § What v1 ships without that now names it.
 
 ## Corpus reading, and what it settled
 
@@ -429,7 +434,7 @@ entry was located beside the roll-up in every case.
 
 | Group | Query | Result |
 |---|---|---|
-| **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix CFG,OBS --section rules --brief` | 92 + (37 `CFG` / 51 `OBS`) entries. The `CFG` half is a faithful restatement of chapter 16 and adds nothing chapter 16 does not say — which is itself the result: **no harvested rule contradicts a decision here, so no note is filed.** The half of the group that changed something is the discovery that `--section rules` omits two of the 38 IDs — `OI-24`, below |
+| **Observability, configuration and redaction** (the tenth row, added by the charter for this material) | `--topic observability,configuration,redaction-and-security --section rules --brief` and `--prefix CFG,OBS --section rules --brief` | 92 + (37 `CFG` / 51 `OBS`) entries. The `CFG` half is a faithful restatement of chapter 16 and adds nothing chapter 16 does not say — which is itself the result: **no harvested rule contradicts a decision here, so no note is filed.** The half of the group that changed something is the discovery that `--section rules` omits two of the 38 IDs — the finding below, now the `knowledge-lookup` skill's |
 | **Fiber scheduler, thread safety** | `--topic concurrency-and-async --section rules --brief` (75 entries), narrowed by grep on `mutex\|thread\|fiber\|monotonic\|sleep\|scheduler` | `concurrency-and-async/f414b864` (the note) governs `CFG-8`/`CFG-13`'s process-wide slot exactly as the charter said: one frozen snapshot swapped under a `Thread::Mutex`, read without a lock. `/241fb067`, `/fd3b2e2f`, `/05274309`, `/fcd96ee7`, `/b4489c39`, `/10579527`, `/ed7b9454` are `CFG-15`–`CFG-21` restated and are cited rather than repeated. `/08f1c7be` (`ASYNC-12`) is phase 8's and is what `R3`'s carrier choice must not be confused with |
 | **Resource lifecycle and stream ownership** | `--topic resource-management --section rules --brief` | 27 entries. `resource-management/d1f16cad`'s note already records that the styleguide's per-call I/O timeout rules do not reach the streaming layer; they do not reach the clock either, for the second reason the charter gives — §8.3 forbids `Timeout.timeout` outright and `CFG-15`'s wait is a cancellable queue wait, not a timeout. `resource-management/bf5560dc`'s block-form rule reaches nothing 5a builds: the only resource 5a acquires is a per-call `Thread::Queue`, released in an `ensure` in the same method scope |
 | **Public API surface** | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` | 150 entries. `api-design/1d9e6e0b` (keywords everywhere) shapes every accessor signature and takes no exception here; `api-design/6ea28c9c` (never `nil` for absent) is **overruled by requirement** for the lookup family, because `CFG-1` makes an absent value resolve to the caller's default and `CFG-37` documents that default as nullable — the case `6ea28c9c` itself reserves; `api-design/c15b29ce` (every returned collection frozen) is adopted through `Model.own`; `module-organization/64e84d64`'s full-nesting rule is what `R4`'s `private_constant` depends on; `api-design/1d9e6e0b`, `/a9943041` and `/634ccc4b` together make adding an optional keyword non-breaking and changing an existing default a MAJOR change, which is the rule the `deadline:` keyword, the body-logging caps' source and the context store's cap are all picked up under |
@@ -672,8 +677,8 @@ phase 5, which owns `CFG-35` — the only requirement in the corpus that states 
 requirement level, in a chapter titled "Configuration and utilities" whose subsystem line names "a shared
 retryability classifier" among its utilities. Building it here gives `XCUT-5`'s SINGLE exactly one home, and
 turns phase 6's `#retryable?` work (phase 6a, Task 6) from "build a classifier" into "compute from the classifier phase 5 built",
-which is one method rather than a second object. That is precisely the cross-reference `OI-21` records as
-missing, supplied from the phase-5 end.
+which is one method rather than a second object. That is precisely the cross-reference neither end carried —
+`CFG-35` and `XCUT-5` name one classifier from two phases — supplied from the phase-5 end.
 
 **Why the throwable half cannot be built here, and this is a fact rather than a preference.** `CFG-35`'s
 second clause is "SHOULD treat a throwable as retryable iff it or any throwable in its cause chain is an
@@ -706,10 +711,10 @@ one can only be changed by breaking.
 **What it costs.** `CFG-35` becomes a partially-satisfied SHOULD in 5a's checklist and phase 6 must close it,
 so two postponed items now point at one requirement: the baked flag (phase 6a, Task 6) and the throwable
 half (phase 6a, Task 3). That is the two-items-one-feature shape §11.20 warns about, accepted deliberately and
-mitigated by the throwable-half entry naming the baked-flag item and `OI-21` in its own text — which is more
-cross-referencing than exists today, not less. The alternative costs were worse: **(a)** building both halves here would put a knowingly wrong
+mitigated by the throwable-half entry naming the baked-flag item (phase 6a, Task 6) in its own text — which is
+more cross-referencing than exists today, not less. The alternative costs were worse: **(a)** building both halves here would put a knowingly wrong
 IO-classification in core under a "hard contract"; **(b)** deferring both would leave `XCUT-5`'s SINGLE
-homeless for another phase and leave `OI-21`'s hole exactly as it is.
+homeless for another phase and leave the `CFG-35` cross-reference missing at both ends exactly as it was.
 
 ## R2 — `CFG-30`'s four zone tokens, against a banned `Time.parse` and an over-tolerant `Time.httpdate`
 
@@ -814,8 +819,8 @@ fiber-scheduler adapter ever reports UUID generation as hot. The alternative tha
 surface-manifest row.**
 
 **Why private.** It has **no caller anywhere in phase 5** — nothing in `CFG`, `OBS` or the chain consumes deep
-equality — and `OI-8` names the exact failure a public one would be: `TeeSink#clear_tap`, `NFR-4`-locked
-public API with no core caller. Phase 2 set the precedent with `Dexpace::Hooks` (P2-15) and phase 4a repeated
+equality — and 3a's Task 14 names the exact failure a public one would be: `TeeSink#clear_tap`, `NFR-4`-locked
+public API with no core caller, whose keep-or-drop decision is still open there. Phase 2 set the precedent with `Dexpace::Hooks` (P2-15) and phase 4a repeated
 it with `BoundedMap` and `CallKey` (P4-3). The reachability condition is already recorded and already met:
 phase 4a verified that a `private_constant` on `Dexpace` is bare-name reachable from **every** file that
 reopens `module Dexpace; module …` in the full nesting form — including a separately-required file in another
@@ -964,7 +969,7 @@ The `Fiber.scheduler.nil?` guard is 5a's and not inherited: `Fiber.schedule`'s o
 signature in 5a has one. Nothing in the four branches reads a clock: the wait is `Thread::Queue#pop`'s own
 `timeout:`, which takes a duration and not an instant, and no fake clock can make a real queue wake early —
 the same limit the `CFG-15` test note records. A `clock:` here would be an `NFR-4`-locked keyword with no
-consumer and no test that could drive it, which is `OI-8`'s shape and the thing `P5-2` exists to keep
+consumer and no test that could drive it, which is the `TeeSink#clear_tap` shape (3a plan, Task 14) and the thing `P5-2` exists to keep
 deliberate.
 
 **Why it lives on `Dexpace::Async` and not on `Clock`.** `CFG-15` says the time seam exposes **three**
@@ -980,22 +985,22 @@ never a shared pool thread. The two operations are different requirements with d
 
 ## R7 — the citation `CFG-20`'s checklist row carries
 
-**The decision: ⏳, citing the unsatisfied-MUSTs entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs) **and** `OI-22`, with the unmet clause
+**The decision: ⏳, citing the unsatisfied-MUSTs entry (`docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs), which names `CFG-20`'s fourth clause, with the unmet clause
 named in the row's own words.**
 
 The row 5a's checklist will carry:
 
-> `| CFG-20 | SHOULD | ⏳ | first-release.md § Unsatisfied MUSTs, OI-22 | Three of four clauses met: the non-interrupting cancel is
+> `| CFG-20 | SHOULD | ⏳ | first-release.md § What v1 ships without › Unsatisfied MUSTs, CFG-20's fourth clause | Three of four clauses met: the non-interrupting cancel is
 > Future#cancel (phase 2); the queued-or-finished clause holds because no interrupt is ever delivered; the
 > rejected-submission clause is Completer#fail's routing. The fourth — cancel-with-interrupt — is ASYNC-3's
-> mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry carries the mechanism and
-> does not cite CFG-20, which is what OI-22 records. |`
+> mechanism under a second ID and is forbidden by §8.3; the unsatisfied-MUSTs entry names this clause among
+> the gaps that mechanism covers. |`
 
 **Why not ✅-with-clauses.** A ✅ with an unstated missing clause is the failure the roadmap's one-row-per-ID
 convention exists to prevent. Phase 2's `SEAM-25` row is ✅-with-a-named-gap only because that gap had a
 deferral of its own (the lifecycle event, now phase 8b's Tasks 6 and 10). `CFG-20`'s does not — the
-unsatisfied-MUSTs entry cites `ASYNC-3` and `PIPE-33` and stops —
-which is exactly `OI-22`'s content.
+unsatisfied-MUSTs entry cited `ASYNC-3` and `PIPE-33` and stopped, which is why it was
+amended on 2026-09-13 to name `CFG-20`'s fourth clause as the same gap under a second ID.
 
 **Why not a marker of 5a's own.** The legend is fixed by the roadmap and used verbatim by every phase; a fifth
 symbol invented for one row costs more than a ⏳ whose reason column carries the clause.
@@ -1007,10 +1012,10 @@ under a second ID is the `RECOV-31`/`RETRY-38` duplication §11.20 warns about, 
 port's unsatisfied-clause arithmetic look larger than it is. `CFG-20` is a **SHOULD**, so its unmet clause is
 an unmet SHOULD clause and **phase 5 adds no fourth unsatisfied MUST** — the charter's arithmetic, unchanged.
 
-**5a does not rewrite the unsatisfied-MUSTs entry and does not close `OI-22`.** That entry's ID list is a
-committed, adversarially reviewed statement and 5a adds nothing to it. `OI-22`'s own stated resolution is "a
-citation that names the unmet clause"; the row above **is** that citation, so 5a landing is what would let a
-human close it — a judgement about `docs/first-release.md`, made by whoever owns it.
+**5a does not rewrite the unsatisfied-MUSTs entry's mechanism argument.** That entry's ID list is a
+committed, adversarially reviewed statement and 5a adds nothing to it. What the finding wanted was "a
+citation that names the unmet clause"; the row above **is** that citation, and the entry itself gained
+`CFG-20`'s fourth clause on 2026-09-13 — a judgement about `docs/first-release.md`, made by whoever owns it.
 
 ## Module layout
 
@@ -1145,7 +1150,7 @@ Frozen `String` constants. Five are `CFG-14`'s own; two are the names 5a's own w
 
 `5b` adds the body-preview and body-logging-enablement key names **in the change that reads them**, and 5a
 does not pre-declare them: a key constant with no reader is `NFR-4`-locked surface nothing exercises, which is
-`OI-8`'s shape.
+the `TeeSink#clear_tap` shape (3a plan, Task 14).
 
 The seven system-property names `CFG-24` and `CFG-26` read — `https.proxyHost`, `http.proxyHost`,
 `https.proxyPort`, `http.proxyPort`, `https.proxyUser`, `https.proxyPassword`, `http.nonProxyHosts` — are
@@ -1642,7 +1647,7 @@ phase-5 segmentation design left the ledger empty, and no `P5-<n>` exists anywhe
 | P5-8 | `CFG-24`'s and `CFG-25`'s required warning is `Kernel#warn` in 5a, with `5b` adding an `http.instrumentation.*` event beside it rather than replacing it | `CFG-24`, `CFG-25`; §8.1; phase 2's P2-6 | The charter fixes that every phase-5 boundary is a convenience and requires each sub-phase to state its independence. A warning routed through a facade that does not exist yet would make 5a depend on 5b, which is the chain the cut exists to avoid. P2-6 set the shape for `SEAM-8` — "§8.1's facade does not exist until phase 5 and may add an event then; **it does not replace this**" — and it applies unchanged one sub-phase in. The cost is one warning path that stays after the event lands, which is what P2-6 already accepted |
 | P5-9 | `CFG-18`'s delay **raises `Dexpace::SeamError`** when no `Fiber.scheduler` is registered, rather than degrading to a thread-backed delay | `CFG-18`; §8.3; the charter's `R6` | Verified: `Thread::Queue#pop(timeout:)` calls a registered scheduler's `#block` hook and unmounts the fiber, and `Fiber.scheduler` is `nil` by default. There is no non-blocking path without one. A thread-backed delay would satisfy the three MUST clauses and violate the SHOULD's headline while appearing to satisfy it, which the charter forbids in as many words. Raising is the only option that neither lies nor degrades silently, and `Clock#sleep` remains available for the blocking case the `SeamError` message names |
 | P5-10 | `CFG-18`'s delay is `Dexpace::Async.delay`, not a fourth method on `Clock` | `CFG-15` ("exposing three operations"); `CFG-18` ("The async layer SHOULD provide") | A fourth method on the time seam would widen what every fake clock owes for a requirement whose stated subject is the async layer. Three operations is what `_Clock` declares and what `FakeClock` implements |
-| P5-11 | `CFG-19` ships **no** `unwrap` method; the requirement is satisfied by construction | `CFG-19`; §11.15's clauses-with-no-Ruby-manifestation family; `OI-8`'s shape | Ruby has no completion/execution wrapper — `Thread#value` re-raises the original and phase 2's `Completer#fail(error)`/`Future#value` deliver the caller's own object — so "a non-wrapper throwable MUST be returned unchanged" holds for every input and an implementation would be an identity function under an `NFR-4` lock with no caller. That is `OI-8`'s exact shape. The requirement's observable content is asserted (`assert_same` on the error object) rather than implemented, and `Dexpace.each_cause` already exists if a later phase finds a wrapper |
+| P5-11 | `CFG-19` ships **no** `unwrap` method; the requirement is satisfied by construction | `CFG-19`; §11.15's clauses-with-no-Ruby-manifestation family; the `TeeSink#clear_tap` shape (3a plan, Task 14) | Ruby has no completion/execution wrapper — `Thread#value` re-raises the original and phase 2's `Completer#fail(error)`/`Future#value` deliver the caller's own object — so "a non-wrapper throwable MUST be returned unchanged" holds for every input and an implementation would be an identity function under an `NFR-4` lock with no caller. That is `TeeSink#clear_tap`'s exact shape, the decision 3a's Task 14 still owns. The requirement's observable content is asserted (`assert_same` on the error object) rather than implemented, and `Dexpace.each_cause` already exists if a later phase finds a wrapper |
 | P5-12 | `CFG-30`/`CFG-31` are parsed by an owned anchored grammar rather than by `Time.httpdate` or `Date._httpdate`, while `CFG-29` formats through `Time#httpdate` | `CFG-30`, `CFG-31`; `Dexpace/NoTimeParse` | Verified fact 1: `Time.httpdate` accepts RFC 850, asctime and a leading space, so a delegating parser accepts two date formats with no `'Xxx, '` prefix — the exact prefix `CFG-31`'s strictness clause is about — while still passing the chapter's two conformance cases. And a normalise-first route makes `CFG-31`'s failures a property of a method the input no longer reaches unmodified. The formatting direction has no such problem and `Time#httpdate` is byte-exact against the specification's example |
 | P5-13 | `Dexpace::UUID`'s generator is memoised in `Thread.current[:…]`, the carrier `CLAUDE.md`'s constraint list names as the wrong one | `CFG-32`; `docs/knowledge/notes/observability.md`; `CLAUDE.md`'s diagnostic-context constraint | Verified: `Fiber[]` hands the same object to a new `Thread` by identity, which is the shared mutable state `CFG-32` forbids; `Thread.current[]` is inherited by neither a child fiber nor a new thread, so no two execution contexts share a generator. The `CLAUDE.md` line is about the diagnostic context, where inheritance is the property wanted; here non-inheritance is. Recorded as a deviation because the sentence a reader will check reads as a blanket rule |
 | P5-14 | `CFG-34`'s "distinct array kinds" is implemented as **element**-kind distinctness (`[1]` ≠ `[1.0]`) while the **container**-kind clause stays inapplicable per §11.15 | `CFG-34`; §11.15 | Ruby has one `Array`, so there is no second container to be unequal to — that is §11.15's clause and it is not extended. What Ruby does have is `[1] == [1.0]` true with `[1].eql?([1.0])` false and `1.hash != 1.0.hash` (verified), so an `Integer` array and a `Float` array of the same numeric values are the nearest true reading of the requirement's sentence, and `eql?` semantics for numeric leaves is also what keeps the helper's hash consistent with its equality, which `CFG-33` makes a MUST |
@@ -1695,7 +1700,7 @@ keeps the reason it was postponed, and names its owner (rewritten in that form i
   postponed the predicate to phase 6, where it is Task 6 of `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry.md`, and it stays there. What changes
   is that phase 6 computes the flag from `Dexpace::Retryability`, which 5a built, instead of building a
   classifier — `R1`. Phase 4b's argument is committed and 5a does not rewrite it; the `CFG-35` throwable-half
-  entry above and `OI-21` are where the cross-reference now lives.
+  entry above is where the cross-reference now lives, with phase 6a's Task 3 at the other end.
 - **`ASYNC-3`, `ASYNC-4` and `PIPE-33`'s interrupt clause — untouched, and cited by 5a's `CFG-20` row.** The
   three unsatisfied MUSTs are stated in `docs/first-release.md` § What v1 ships without › Unsatisfied MUSTs (and design §10.5). 5a neither meets nor re-opens
   them; `R7`.
@@ -1739,11 +1744,13 @@ keeps the reason it was postponed, and names its owner (rewritten in that form i
   § Release path. The runtime version-skew guard (phase 2), the suppressed trail (phase 4b, Task 1) and the
   body member type (phase 3b) were already built.
 
-## The findings filed against `docs/open-items.md`
+## Findings, and who owns them now
 
-One, filed by this document.
+One, found by this document. **Owner: the `knowledge-lookup` skill's tenth audit-group row**, which now
+carries the mitigation line below; the underlying fix, if there is one, belongs to `scripts/knowledge.rb`'s
+`--section rules` and `--prefix-info` and to whoever owns the corpus.
 
-**`OI-24` — the audit group for this material returns 36 of 38 `CFG` IDs, and `--prefix-info` says 38 of 38.**
+**The audit group for this material returns 36 of 38 `CFG` IDs, and `--prefix-info` says 38 of 38.**
 The `knowledge-lookup` skill's tenth audit-group row, added by the charter for exactly this phase, is
 `--topic observability,configuration,redaction-and-security --section rules --brief` **and**
 `--prefix CFG,OBS --section rules --brief`. Running the second half returns 37 entries covering **36 distinct
@@ -1758,8 +1765,9 @@ per-ID filing decision that happens to fall on two `CFG` IDs — which is worse,
 comparison. `CFG-14` (the well-known key constants) and `CFG-29` (RFC 1123 formatting) are both load-bearing
 in this sub-phase and were read from the chapter and from appendix C instead.
 
-This is the `OI-14` and `OI-16` family — a mechanism that reports clean over a set it never looked at — and it
-is filed rather than fixed because the fix is a judgement about the tool or the harvest (should `--section
+This is the same family as the probe's unresolved backticked paths and `knowledge.rb`'s conflated
+`[cited by …]`/`[overridden by …]` markers — a mechanism that reports clean over a set it never looked at —
+and it is recorded rather than fixed here because the fix is a judgement about the tool or the harvest (should `--section
 rules` fall back to `Reference` for an ID with no `Rules` entry? should `--prefix-info` report the per-section
 split? should the two entries be re-harvested as rules?) and belongs with whoever owns the corpus. The
 mitigation available today is one line and is stated for the next phase to copy: **run `--prefix <P>

@@ -83,7 +83,7 @@ each problem but not the interpreter's answer to it:
 - `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` — the phase-7 row (`:92`), the ordering rationale
   (`:115-118`), and cross-cutting constraint 4 (`:52-53`), which is the only one of the nine that binds `7c`
   directly.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`; and the deferrals earlier phases left outstanding,
+- `docs/deviations.md` and `docs/first-release.md`; and the deferrals earlier phases left outstanding,
   read for the sweep below.
 - `CLAUDE.md` and `docs/README.md`.
 
@@ -799,7 +799,8 @@ names exactly one Ruby identifier for this subsystem — `Dexpace::Page`, in the
 "`Dexpace::Page.each { }`" — and appendix A's glossary calls the value "a Page". Nesting the rest inside it
 keeps `lib/dexpace/page/**` as the audited glob boundary 5 fixes, and keeps the directory-to-namespace
 correspondence phases 6a (`Dexpace::Resilience::*`) and 6c (`Dexpace::Auth::*`) established. **Phase 3b's
-`OI-3`/`P3-7` shadowing lesson is applied rather than ignored**: the nested names are `Info`,
+`P3-7` shadowing lesson — the one `docs/first-release.md` carries as a blocker, that a `Dexpace::` constant
+shadowing a core one is not inert outside core — is applied rather than ignored**: the nested names are `Info`,
 `QueryRewriter`, `LinkHeader`, `CursorStrategy`, `PageNumberStrategy`, `LinkStrategy`, `Walk`, `Items`,
 `Pages`, `Paginator`, `AsyncPaginator` and `Fetchers`, and **none shadows a Ruby core constant or a
 `Dexpace::` one**; the plan's final task runs an explicit shadowing audit over the list rather than trusting
@@ -1339,7 +1340,7 @@ precedent, and the failure `6a` and `6c` both walked into by numbering in isolat
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P7-1 | **`PAGE-15`'s wrapping clause is not implemented; no wrapper type ships.** The ID's other two clauses are implemented in full | `PAGE-15`; design §11.15's "clauses with no Ruby manifestation" family | Measured, four terminal shapes: a close error raised from an `ensure` reaches the caller **unwrapped** through `Enumerable#first`, `Enumerator::Lazy#first(2)`, an explicit `break` and a plain block. The clause's antecedent — a terminal that cannot declare the underlying I/O error type — cannot arise in a language with no checked exceptions. A wrapper would be a type with no reachable construction site, one more `NFR-4` lock, and a second thing every caller must `rescue`. §12's `PAGE` row records `PAGE-35`'s vacuity and **not** this one, so the row is owed an addition (filed below) |
-| P7-2 | Public constants and methods design §7.1 does not name: `Dexpace::Page` (as a **class and namespace**) with `::Info`, `::QueryRewriter`, `::CursorStrategy`, `::PageNumberStrategy`, `::LinkStrategy`, `::Walk`, `::Items`, `::Pages`, `::Paginator`, `::AsyncPaginator`, `::Fetchers`; every `.build` and `#each`/`#close`/`#each_item`/`#each_page`; the RBS interfaces `_Strategy`, `_Extractor`, `_Executor` | `NFR-4`; `api-design/b0e18938`; phases 3b (`P3-14`), 5a (`P5-1`) and 6a (`P6-1`) precedent | Design §7.1 names one Ruby identifier, `Dexpace::Page`, in a block-form shorthand and describes everything else in prose. `NFR-4` locks a signature, not only a name, so each is listed. **`Dexpace::Page` being a class that is also the namespace** is the one sub-decision needing its own argument: it keeps `lib/dexpace/page/**` as boundary 5's glob, keeps the glossary's noun for the value, and is checked against `OI-3`/`P3-7`'s shadowing hazard by an explicit audit over the twelve nested names rather than by assertion. `Dexpace::Page::LinkHeader` is `private_constant` and carries no `sig/` and no manifest row |
+| P7-2 | Public constants and methods design §7.1 does not name: `Dexpace::Page` (as a **class and namespace**) with `::Info`, `::QueryRewriter`, `::CursorStrategy`, `::PageNumberStrategy`, `::LinkStrategy`, `::Walk`, `::Items`, `::Pages`, `::Paginator`, `::AsyncPaginator`, `::Fetchers`; every `.build` and `#each`/`#close`/`#each_item`/`#each_page`; the RBS interfaces `_Strategy`, `_Extractor`, `_Executor` | `NFR-4`; `api-design/b0e18938`; phases 3b (`P3-14`), 5a (`P5-1`) and 6a (`P6-1`) precedent | Design §7.1 names one Ruby identifier, `Dexpace::Page`, in a block-form shorthand and describes everything else in prose. `NFR-4` locks a signature, not only a name, so each is listed. **`Dexpace::Page` being a class that is also the namespace** is the one sub-decision needing its own argument: it keeps `lib/dexpace/page/**` as boundary 5's glob, keeps the glossary's noun for the value, and is checked against `P3-7`'s shadowing hazard — the `include Dexpace` shadow `docs/first-release.md` carries as a blocker — by an explicit audit over the twelve nested names rather than by assertion. `Dexpace::Page::LinkHeader` is `private_constant` and carries no `sig/` and no manifest row |
 | P7-3 | `Dexpace::URL` gains a third function, `.resolve(base, reference)`, wrapping `URI::RFC3986_PARSER.join` — a widening of phase 1's module rather than a resolution call inside the Link strategy | `PAGE-19`; `HTTP-46`/`HTTP-47`; phase 0's `Dexpace/NoUriDefaultParser`; `api-design/1d9e6e0b` | `PAGE-19` needs *resolution*, and `URL.parse!` cannot do it — it rejects a non-absolute URI, which every relative `rel=next` target is. The cop bans `URI.join`, so the call must be `URI::RFC3986_PARSER.join`, and the design's rule is that the pin lives in one place. Putting it in `URL` beside `.parse!` keeps that true; putting it in the strategy would make `lib/dexpace/page/` the second file in core that knows which parser is pinned. Adding a module function widens and prejudices no existing signature |
 | P7-4 | `QueryRewriter.set` normalises an empty spliced query to `nil`, so removing the only parameter yields a URL with **no** `?` rather than a dangling one | `PAGE-23`; `HTTP-29`'s "returns `""` when empty" | Measured: `uri.query = nil` gives `https://x/a` and `uri.query = ""` gives `https://x/a?`. `PAGE-23`'s own example removes one of two parameters and does not settle the degenerate case. A dangling `?` is a different URL on the wire, and a next-page request that differs from the caller's template by a stray `?` is a difference `PAGE-24`'s "only the query may change" did not license |
 | P7-5 | A blank or whitespace-only `rel=next` target is treated as **end-of-stream before resolution is attempted**, rather than resolved | `PAGE-18`, `PAGE-19`; `PAGE-34`'s explicit rule for the fetcher front-end | Measured: `URI::RFC3986_PARSER.join(base, "")` and `join(base, "//")` **succeed**, returning the base unchanged — so `<>; rel=next` produces a next request identical to the current one and loops until the page cap. `PAGE-18`'s "Absence of a Link header or a rel=next segment" does not literally cover present-but-blank, and `PAGE-34` states exactly this rule for the other front-end, so applying it here makes the two consistent rather than inventing one |
@@ -1385,19 +1386,20 @@ entry names the item, why it stands as it does, and who owns it now.
   without › Unsatisfied MUSTs) — untouched.** They are phase 8's. `7c` meets the same §8.3 prohibition — its async
   abort is cooperative — and **adds no fourth unsatisfied MUST**.
 - **`PIPE-36`'s stage locking (declined for v1), the `standard` presets (phase 4c's deferral, phase 6b Task 13a) and
-  `OBS-29`'s wiring (phase 5c's deferral, phase 6a Task 9 and `OI-32`/`OI-36`) — untouched.** `7c` installs no
+  `OBS-29`'s wiring (phase 5c's deferral, phase 6a Task 9, and the two residuals on phase 10's inbound list)
+  — untouched.** `7c` installs no
   pipeline step, ships no preset and emits no instrumentation event required by any of its 36 IDs.
 - **Every other outstanding item — untouched**, all either closed by an earlier phase, targeted at phase 8 or 9, or
   riding on a post-v1 gem.
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-Four, described here for a human to file. **None is acted on by this document, none carries a number, and no
-register file is edited by it.**
+Four, each named with the owner that carries it. **None is acted on by this document, and no register file is
+edited by it.**
 
-**Target register: `docs/deviations.md`, and design §12's `PAGE` row when §10 is next amended.**
+**Owner: `docs/deviations.md`, and design §12's `PAGE` row when §10 is next amended.**
 **`PAGE-15`'s wrapping clause has no Ruby antecedent and is recorded nowhere.** Design §12's `PAGE` row
 currently records exactly one vacuity — `PAGE-35`'s — and reads "*Deferred:* none", which is true and
 incomplete: `PAGE-15`'s middle sentence ("When exposed through a stream whose terminal cannot declare the
@@ -1408,9 +1410,9 @@ re-throw-wrapped clause is conditional on a terminal that cannot declare the und
 no checked exceptions and no such terminal, so the clause is vacuous (§11.15) while the ID's other two
 clauses are implemented.* Cites: `PAGE-15`, `PAGE-35`, `CFG-34`, `SERDE-11`, `SERDE-14`.
 
-**Target register: `docs/open-items.md`, as an amendment to the corpus-attribution finding the charter
-already proposes.** **The charter's corpus-attribution finding is right and is understated in two ways, both
-measured.** First, the SSE-rule-filed-under-`PAGE-14` defect is a **pair**, not a singleton:
+**Owner: `docs/knowledge/notes/` — the same `## Reference` entries the charter's corpus-attribution finding is
+routed to, extended by the two corrections below; `harvested/` is never hand-edited.** **The charter's
+corpus-attribution finding is right and is understated in two ways, both measured.** First, the SSE-rule-filed-under-`PAGE-14` defect is a **pair**, not a singleton:
 `sse-streaming/5f4803a0` (Rules) and `sse-streaming/b94ce49e` (Conclusions) both carry only `PAGE-14`, and a
 correction naming one leaves the other. Second, `pagination/b2a85752` does **not** carry "no requirement ID at
 all" — it carries `BODY-11`, so `--prefix BODY` and `--req BODY-11` return it while `--prefix PAGE` does not;
@@ -1418,7 +1420,8 @@ the consequence the charter names is right and the characterisation is not, whic
 chasing "an entry with no IDs" will not find it. Cites: `SSE-26`, `SSE-40`, `PAGE-11`, `PAGE-12`, `PAGE-14`,
 `BODY-11`.
 
-**Target register: `docs/open-items.md`, as a new row.**
+**Owner: `docs/knowledge/notes/pagination.md`, as a `## Reference` entry carrying the property and its source
+line, so the next harvest can be checked against it.**
 **§12's serde-agnosticism is harvested nowhere, which makes it invisible to every corpus query.**
 `pagination/cb5f1b9e` harvests `docs/product-spec/12-pagination.md:3` as the "A port MUST preserve …" half
 only; the same line's first sentence — "It is transport-agnostic and serde-agnostic" — appears in no entry,
@@ -1426,11 +1429,12 @@ and `ruby scripts/knowledge.rb --grep 'serde-agnostic|transport-agnostic'` retur
 (`http-domain-model/f4bd2330`, `XCUT-18`). So a phase author who queried the corpus for the property would
 conclude it does not exist, and the charter's spec-forced boundary 5 — which exists precisely because the
 property carries no requirement ID — would look unmotivated. This is a **harvest-coverage** gap rather than an
-attribution one, which is a species neither `OI-16`, `OI-24` nor the charter's own finding covers, and it is
-worth a row of its own so the next harvest can be checked against it. Nothing is broken today because nothing
+attribution one — a species neither `knowledge.rb`'s `[cited by …]`/`[overridden by …]` conflation, nor the
+`--prefix` rules gap the knowledge-lookup skill owns, nor the charter's own finding covers — and it is worth
+an entry of its own so the next harvest can be checked against it. Nothing is broken today because nothing
 is implemented. Cites: `PAGE-16`, `SSE-37`, `SEAM-2`.
 
-**Target register: `docs/first-release.md`.**
+**Owner: `docs/first-release.md`.**
 **`PAGE-36`'s per-call overrides are a contract on phase 8's adapters and are invisible until one exists.**
 `PAGE-36` requires that "per-call request overrides (timeout, retry budget, tags) … MUST be applied to *every*
 page exchange, not just the first", and in this port those overrides are a frozen `Dexpace::RequestOptions`
@@ -1443,8 +1447,9 @@ pages 2..N"). The line to file: **phase 8's transport conformance suite must inc
 that drives the same transport twice with different `RequestOptions` and asserts both are honoured**, before
 release. Cites: `PAGE-36`, `HTTP-34`, `HTTP-35`, `TRANSPORT-1`.
 
-**One row explicitly does not close.** `OI-7`'s subject is a sentence in the frozen §3.1 about the decode
-boundary; `7c` reads no body and does not touch the mechanism, so the row is unaffected in either direction.
+**One finding explicitly does not close.** The §3.1 decode sentence on phase 10's inbound list is a sentence in
+a frozen chapter about the decode boundary; `7c` reads no body and does not touch the mechanism, so that entry
+is unaffected in either direction.
 
 ---
 

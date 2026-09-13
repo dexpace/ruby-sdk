@@ -25,8 +25,8 @@ without allocation on empty pipelines; a generic adapter (`Dexpace::Pipeline::Tr
 wrapping phase 4b's `Transform` contract; and one unified error type (`Dexpace::PipelineError`).
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS +
-Steep, RuboCop with phase 0's five custom cops, phase 2's sixth, and phase 4a's seventh, SimpleCov,
-YARD.
+Steep, RuboCop with phase 0's five original custom cops, phase 2's sixth, and phase 4a's seventh,
+SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`, under the
 charter `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`. `docs/product-spec/08-execution-pipelines.md`
@@ -226,8 +226,9 @@ bundle exec rake surface:regenerate                                 # deliberate
     async pipeline feature set.
 11. **Task 11: Wiring, Runtime Surface Snapshot, RBS Baseline, the Checklist, and Documentation Upkeep** — fixes
     `lib/dexpace.rb`'s require order, updates `sig/dexpace.rbs`, regenerates the runtime surface snapshot,
-    **verifies** what the design already recorded (the `PIPE-39` postponement, `OI-17`, `OI-18` — none is
-    re-filed),
+    **verifies** what the design already recorded (the `PIPE-39` postponement, and the design's two
+    findings — the type-keyed surgical edits, and `async_over`'s missing return-type check — none of which
+    is re-recorded),
     writes the phase checklist, runs the whole gate set and the floor, and runs the housekeeping probe.
 
 **One ordering wrinkle, stated so nobody reads it as a defect.** Tasks 2 and 4–7 each open
@@ -1068,6 +1069,14 @@ funnels through), `PIPE-22`, `PIPE-23`, `PIPE-25`, `PIPE-35` — the four that n
 **Design:** "`Dexpace::Pipeline::Entry` — `PIPE-22`, `PIPE-23`, `PIPE-25`, `PIPE-35`."
 **Deviations:** P4-26 (public Entry constant), P4-27 (`Entry.build`).
 
+**Amendment, 2026-09-13 — the optional anchor name.** `Entry` gains an optional `name:` member — a
+`Symbol` or `String`, defaulting to `nil`, frozen with the rest of the model and carried through
+`Entry.build` — because the four surgical edits key on step *type* and every lambda step's type is
+`Proc`. Task 7's amendment states that finding, its measurement and the repair in full; `Entry` is
+simply where the name lives. Nothing else in this task changes, and `name:` is **not** part of
+`PIPE-22`/`PIPE-23`'s "this step, at this stage" pair — it is addressing metadata for
+`PIPE-18`–`PIPE-21` and nothing reads it outside the four edits.
+
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/pipeline/entry.rb`,
   `gems/dexpace-core/sig/dexpace/pipeline/entry.rbs`
@@ -1793,7 +1802,42 @@ them on. The `PIPE-39` constructor postponement (4c's design; phase 6b, Task 13a
 is built under.
 **Design:** "`Dexpace::Pipeline::Builder` — `PIPE-4`–`PIPE-8`, `PIPE-18`–`PIPE-25`, `PIPE-35`, `PIPE-38`", R10, R14.
 **Deviations:** P4-27 (public builder methods), P4-30 (one Builder class for both runtimes), P4-34 (`PIPE-24` all-or-nothing preset mechanism with step set postponed to phase 6b, Task 13a).
-**Open Items:** `OI-17` (surgical edits keyed by type; YARD documentation).
+**Findings carried:** the four surgical edits are keyed by step type and every lambda step shares the
+type `Proc` — YARD documentation, plus the amendment below, which this task owns.
+
+**Amendment, 2026-09-13 — a caller-supplied anchor name, and why the four surgical edits need one.**
+`PIPE-18`, `PIPE-19`, `PIPE-20` and `PIPE-21` are four MUSTs whose subject is an **anchor type**:
+insert-after and insert-before place a step "immediately after/before the FIRST existing step that is an
+instance of a given anchor type"; replace "swap[s] the FIRST existing instance of the anchor type";
+remove "MUST delete EVERY step that is an instance of the given type"; and an edit whose anchor type has
+no instance "MUST fail with an error identifying the missing type". `docs/sdk-design-ruby/05-pipeline-architecture.md`
+§5.1 separately requires that "a step is any object responding to `#call(request, cursor)` — again
+`#call`, so a `lambda` is a step and Ruby's middleware muscle memory transfers". **Every lambda's class
+is `Proc`** — verified 2026-09-08 on 3.2.11, 3.4.10 and 4.0.6: `->(r, c) {}.class` is `Proc` and
+`#instance_of?(Proc)` is `true`, for every lambda (this plan's verified fact 13).
+
+The two requirements are individually satisfiable and jointly reach less far than either implies. In a
+pipeline holding two lambda steps, `remove(Proc)` deletes **both** — exactly `PIPE-20`'s stated semantics
+and almost certainly not what the caller meant — and `insert_after(Proc, step)` anchors on whichever
+lambda the flattening happens to place first, which is well-defined and arbitrary. There is no spelling
+of the four edits that addresses one lambda and not the other, because the API's addressing key is the
+type and the type is shared. Neither the specification nor the design notices it: `PIPE-18` was written
+against a host where a step is a class, and phase 9's conformance pass exercises the four edits against
+class-typed steps and would never see it.
+
+**What this task must additionally do.** Three repairs were available — an optional caller-supplied name
+on `Entry` that the edits may anchor on instead of a type; rejecting `Proc` as an anchor type outright,
+which would make `PIPE-20`'s "delete EVERY instance" unreachable for lambdas rather than surprising; or
+leaving it and recording the limit in `docs/sdk-documentation/`. **The first is the only one that makes
+the four MUSTs reach a lambda step at all, and it is the one this task takes.** Concretely: `Entry`
+(Task 5) carries an optional `name:`; every install affordance that reaches `Entry.build` accepts and
+forwards it; and each of the four surgical edits accepts a `Symbol` or `String` in the argument position
+that today takes a `Class`, matching on the entry's name instead of on `step.instance_of?(anchor_type)`
+when it is given one. Type anchoring is unchanged, `PIPE-20`'s "delete EVERY instance" keeps its type
+semantics, a name anchor addresses exactly one entry, and a name with no instance fails with the same
+missing-anchor error `PIPE-21` requires, identifying the name. The YARD sentence below stays — a named
+class is still the documented default anchor — and gains the name as the recourse a caller who meets the
+lambda case now has.
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/pipeline/builder.rb`,
@@ -2141,10 +2185,11 @@ module Dexpace
 
       # PIPE-18. The anchor is the FIRST step in flattened order that is an instance of anchor_type.
       #
-      # OI-17: the four surgical edits are keyed by step TYPE, and every lambda step has the class
+      # The four surgical edits are keyed by step TYPE, and every lambda step has the class
       # Proc (verified fact 13) -- so in a pipeline holding two lambdas, insert_after(Proc, ...)
       # anchors on whichever flattens first and remove(Proc) deletes both. A step intended as an
-      # anchor should be a named class. There is no repair inside this API; the finding is filed.
+      # anchor should be a named class, or should carry Entry's optional name: and be anchored by
+      # that name instead -- see this task's 2026-09-13 amendment.
       def insert_after(anchor_type, step, stage: nil)
         anchor_entry, bucket = find_anchor(anchor_type)
         target_stage = resolve_surgical_stage(step, stage, anchor_entry.stage)
@@ -3374,7 +3419,8 @@ Expected: PASS, 7 runs, 0 failures, 0 errors.
 ## Task 11: Wiring, the two regenerated artifacts, and the phase record
 
 **Requirement IDs:** `NFR-3`, `NFR-4`, `NFR-11`, `NFR-13`, `NFR-14`.
-**Design:** "Module layout", "Cross-cutting constraints", "Registers".
+**Design:** "Module layout", "Cross-cutting constraints", "Findings, and who owns them now".
+
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace.rb`
@@ -3382,8 +3428,9 @@ Expected: PASS, 7 runs, 0 failures, 0 errors.
 - Regenerate: `gems/dexpace-core/test/fixtures/surface/dexpace-core.txt`
 - Create: `docs/work/mvp/phase4/phase4c/<date>-phase4c-stage-pipeline-checklist.md`
 - Verify (do **not** re-record): the `PIPE-39` constructor postponement in the design's "Work Phase 4c
-  Postpones" section, and `docs/open-items.md`'s `OI-17` and `OI-18` — all three were recorded by the
-  design on 2026-09-08 and an ID is never reused
+  Postpones" section, and the design's two findings — the type-keyed surgical edits, and `async_over`'s
+  missing return-type check — all three recorded by the design on 2026-09-08, each already carrying the
+  owner that acts on it
 - Verify: `CLAUDE.md` claims sentence and housekeeping probe
 
 - [ ] **Step 1: Verify the require order in `gems/dexpace-core/lib/dexpace.rb`**
@@ -3425,12 +3472,14 @@ writer method and that private drivers are not exposed.
 
 - [ ] **Step 4: Verify what this phase's design already recorded**
 
-**Nothing is appended here.** The `PIPE-39` constructor postponement, `OI-17` and `OI-18` were recorded by
-`2026-09-08-phase4c-stage-pipeline-design.md` — the postponement in its "Work Phase 4c Postpones" section,
-owned by phase 6b, Task 13a; the two findings in `docs/open-items.md`, which reads `next id: OI-21`.
-Re-filing either finding would duplicate an ID that is already cited from this plan, from the design and
-from `docs/knowledge/notes/pipeline.md`, and `CLAUDE.md`'s rule is that an item ID is never renumbered
-and never reused.
+**Nothing new is recorded here, and nothing is appended to a register — there is none.** A finding is
+routed to its owner at the moment it is found: a numbered task in the plan of the phase whose scope it
+falls in, an entry in `docs/first-release.md` when it belongs to the release, or a fix in the writable
+material. The `PIPE-39` constructor postponement and both of the design's findings were recorded by
+`2026-09-08-phase4c-stage-pipeline-design.md` — the postponement in its "Work Phase 4c Postpones"
+section, owned by phase 6b, Task 13a; the two findings under its *Findings, and who owns them now*
+section, each with its owner named. Re-recording either would duplicate a record this plan, the design
+and `docs/knowledge/notes/pipeline.md` all already cite.
 
 What this step does is confirm each record still describes what shipped:
 
@@ -3438,11 +3487,13 @@ What this step does is confirm each record still describes what shipped:
    `Pipeline.direct` / `AsyncPipeline.direct` and `Builder.flattening` / `.nesting`. All five ship
    (Tasks 7, 8, 10). The `PIPE-39` checklist row (Step 5) says so and names phase 6b, Task 13a as the
    owner of the other half.
-2. `OI-17` — its mitigation is documentation, and the YARD on `#insert_after` states it (Task 7).
-3. `OI-18` — 4c neither introduces nor widens it; the repair it recommends is phase 2's to make.
+2. The type-keyed surgical edits — owned by **this plan's Task 7**, with Task 5, which ship the optional
+   caller-supplied anchor name; the YARD on `#insert_after` states the type-anchor limit and points at it.
+3. `async_over`'s missing return-type check — owned by **phase 2's plan, Task 11**, the two bridges. 4c
+   neither introduces nor widens it, and the repair is phase 2's to make.
 
-Run: `ruby .claude/skills/housekeeping/probe.rb --only citations`
-Expected: every `OI-` citation in this plan resolves; no dangling item.
+Run: `ruby .claude/skills/housekeeping/probe.rb --only citations,links`
+Expected: every citation in this plan resolves and no path is dangling.
 
 - [ ] **Step 5: Write the checklist**
 
@@ -3546,7 +3597,8 @@ Expected: exit code 0, "no drift found."
 - **Verified Ruby facts:** facts 1 and 2 are Task 4's predicate and `PIPE-26`'s call forms; 3 is the
   `PIPE-6` fixture; 4 and 5 are R11's merge and `PIPE-17`'s `assert_same`; 6 is R10's `respond_to?`;
   7 is the async bare `raise`; 8 is `#steps`' single frozen reference; 10 is Task 2's `sort` raise;
-  11 is R12's two deltas; 12 is Task 9's `#call`-raises double; 13 is `OI-17`. **Fact 9 informs no
+  11 is R12's two deltas; 12 is Task 9's `#call`-raises double; 13 is the type-keyed surgical edits and
+  Task 7's anchor-name amendment. **Fact 9 informs no
   test by design** — 4c ships none asserting the latch race, at 1.5 % on the floor — and appears in
   the global constraints, `Cursor#call`'s YARD and `#fork`'s YARD instead.
 - **R10:** `Builder#resolve_stage` and `#resolve_surgical_stage`; all five rows of the precedence
@@ -3569,8 +3621,10 @@ Expected: exit code 0, "no drift found."
 - **Testing strategy:** every case the design's *Testing strategy* enumerates has a home; the mapping
   is the disposition table above, task by task.
 - **Deviation ledger:** all fourteen rows `P4-26`–`P4-39` assigned to tasks.
-- **Postponed work and open items:** the `PIPE-39` constructor postponement, `OI-17` and `OI-18` were
-  recorded by the **design**; Task 11 verifies them and records nothing new.
+- **Postponed work and findings:** the `PIPE-39` constructor postponement and the design's two findings —
+  the type-keyed surgical edits (now Task 7's, with Task 5) and `async_over`'s missing return-type check
+  (phase 2's plan, Task 11) — were recorded by the **design**; Task 11 verifies them and records nothing new.
+
 
 ### What this plan does not carry, said plainly
 

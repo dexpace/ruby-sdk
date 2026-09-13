@@ -182,7 +182,7 @@ Two IDs outside `CTX` fix values 4a must carry, and are quoted because 4a is whe
 | `OBS-25`'s no-op tracer and span **protocols**, `OBS-26`'s sentinel definitions as tracing API, `OBS-27`'s trace-id **generation** | 5. 4a fixes the bundle's members, their names and the identity of the two no-op singletons; phase 5 populates and may not redefine (roadmap obligation 1; the protocols are postponed below to phase 5c, Tasks 3, 4 and 5) |
 | `OBS-10`, `OBS-23`, `OBS-24`, `ASYNC-8`–`ASYNC-12` — the **diagnostic context** carried in `Fiber[:key]` | 5 and 8. This is not `CTX`; `docs/knowledge/notes/observability.md` draws the line and 4a asserts it in one test rather than restating it |
 | `SEAM-28` — a stable operation identifier attached to the context chain | 5 (the MVP-scope design's `SEAM-28` postponement; consumer phase 5c, Task 4). 4a supplies the chain half — `CTX-16`'s operation name is the carrier — and does not act on the rest |
-| `CFG-15`–`CFG-21` — the clock, the **elapsed-time** monotonic counter, the interruptible sleep | 5 (phase 2's `deadline:` postponement, P2-5; phase 5a, Task 8). `CTX-4`'s counter is a sequence counter and shares nothing with it but the adjective (`OI-15`) |
+| `CFG-15`–`CFG-21` — the clock, the **elapsed-time** monotonic counter, the interruptible sleep | 5 (phase 2's `deadline:` postponement, P2-5; phase 5a, Task 8). `CTX-4`'s counter is a **call-sequence** counter and shares nothing with it but the adjective. The charter's exclusions row names the object — "the **elapsed-time counter** (`CFG-16`)" — so the two cannot be conflated from either side |
 | A configuration source for the store's cap | 5 (postponed below; phase 5a, Task 13). 4a owns the constant and the `cap:` keyword that reaches it |
 | `XCUT-14`'s audit of every bounded map, and `XCUT-11`'s audit of shared-instance state | 9. 4a builds the map `XCUT-14` audits |
 | `AUTH-19`'s per-nonce counter store | 6. It reuses 4a's map and adds one operation to it (R4) |
@@ -277,8 +277,9 @@ thread and interrupts none.
 - **The `CopCase` harness** (phase 0, `.rubocop/test/cop_case.rb`) with `TARGET_RUBY = 3.2`, one row per
   case in `.rubocop/test/cops_test.rb`, `#assert_offense(cop_class, source, message_fragment)` and
   `#assert_no_offense`. The seventh cop's cases go into that same table.
-- **Two open items land in 4a's window and neither is 4a's to fix.** `OI-8` and `OI-9` are phase-3 findings
-  whose window closes when phase 3's plans execute; 4a neither widens nor closes them.
+- **Two phase-3 findings land in 4a's window and neither is 4a's to fix.** Phase 3a's plan owns both — Task 14's
+  keep-or-drop decision on `TeeSink#clear_tap`, and Task 10's `fill(count)` refill fix — and their window closes
+  when phase 3's plans execute; 4a neither widens nor closes them.
 
 ## Corpus reading, and what it settled
 
@@ -441,8 +442,9 @@ changed a decision; the rest are recorded because a plan would otherwise assume 
     `Fiber.new(storage: nil)` opts out entirely.** Re-verified on all three, confirming
     `docs/knowledge/notes/observability.md`. `Fiber#storage=` still warns
     `Fiber#storage= is experimental and may be removed in the future!` on every call on every interpreter and
-    `= nil` reads back `{}` on 3.2.11 and `nil` on the other two — `OI-13`, which 4a neither acts on nor is
-    blocked by, because nothing in `CTX` touches fiber storage. **The half of `OI-13` that 4a does have to
+    `= nil` reads back `{}` on 3.2.11 and `nil` on the other two — the warning
+    `docs/knowledge/notes/observability.md` records (use per-key writes), which 4a neither acts on nor is
+    blocked by, because nothing in `CTX` touches fiber storage. **The half of that warning that 4a does have to
     stand on is the complement**, and it was verified for that reason: `Fiber[:k] = v` and
     `Fiber.new(storage: …)` emit **no** warning on any of the three under `ruby -w` with
     `RUBYOPT=-W:deprecated`, and only `Fiber#storage=` does. 4a's `Fiber[]` boundary test writes
@@ -475,8 +477,8 @@ a reason each of the two candidates supplies on its own.
   hazard, which is exactly what this is — but the hazard is async interrupts and the cop is named after it.
   Renaming it would edit phase 0's gate table and `.rubocop.yml` for a rule phase 0 never claimed.
 
-Phase 0's five cops and phase 2's sixth each mechanise exactly one named rule and are named after it. The
-seventh follows, and `CTX-19` earns its own gate row because it is a MUST with its own conformance clause.
+Phase 0's five original cops and phase 2's sixth each mechanise exactly one named rule and are named after it.
+The seventh follows, and `CTX-19` earns its own gate row because it is a MUST with its own conformance clause.
 
 **What it forbids**, over `gems/*/lib/**/*.rb` — every gem, because an adapter is as capable of "helping the
 collector" as core is:
@@ -1064,8 +1066,9 @@ Six of the charter's sixteen bind 4a; each is honoured by a named mechanism rath
    on here, and it is named so that nobody reaches for an interrupt to bound a drain.
 3. **Deadlines are explicit values, never ambient interrupts.** 4a has no deadline, no clock and no wait.
    `CTX-4`'s counter is a **sequence** counter and shares nothing with `CFG-16`'s elapsed-time monotonic
-   counter but the adjective — `OI-15` records that collision, because the charter's own exclusions table
-   assigns "the monotonic counter" to phase 5 and a 4a reader could take that to mean this one.
+   counter but the adjective. The charter's own exclusions table names the object rather than the adjective —
+   "the **elapsed-time counter** (`CFG-16`)", excluded to phase 5 — so a 4a reader cannot take that row to mean
+   this one.
 4. **`Thread::Mutex` is per-fiber-owned and non-reentrant** (`concurrency-and-async/f414b864`). Two mutexes
    exist in 4a — one inside `BoundedMap`, one inside `CallKey` — and neither is ever held across a callback,
    a drain of anything but its own hash, a close, or any suspension point. `BoundedMap` never yields to
@@ -1294,7 +1297,8 @@ covered the phase-4-wide dispositions and is not repeated, so what follows is th
   suppressed trail, and `close_quietly` gains no call site here.
 - **The pivot's `deadline:` keyword (phase 2, P2-5; phase 5a, Task 8) — untouched, and named as a
   constraint.** 4a has no clock, no deadline and no wait. Recorded because phase 2's text names "the
-  monotonic counter", which is not `CTX-4`'s (`OI-15`).
+  monotonic counter", which is `CFG-16`'s elapsed-time counter and not `CTX-4`'s call-sequence one — the
+  distinction the charter's exclusions row now spells out.
 - **Moving core's in-memory fakes into `dexpace-conformance` (phase 2) — untouched.** `FakeContext` lands
   under `gems/dexpace-core/test/support/`, following phase 2's and phase 3's precedent. The condition — a
   consumer outside `dexpace-core` — is not met.
@@ -1312,24 +1316,27 @@ covered the phase-4-wide dispositions and is not repeated, so what follows is th
 - **Everything else — untouched.** Other prefixes, other phases, or already built (the version-skew guard,
   phase 2; the body-member narrowing, phase 3b). None names phase 4 or a condition 4a can meet.
 
-### The findings filed against `docs/open-items.md`
+### Findings, and who owns them now
 
-**`OI-15` — "the monotonic counter" names two unrelated objects in two committed documents, and the
-phase-4 segmentation design's exclusions table assigns the phrase to phase 5.** `CTX-4` requires "a
+**"The monotonic counter" names two unrelated objects in two committed documents, and the
+phase-4 segmentation design's exclusions table assigned the phrase to phase 5.** `CTX-4` requires "a
 process-wide, monotonically increasing counter" appended to the key rendering — an integer sequence, phase
 4's, with no notion of time. `CFG-16` requires "a monotonic elapsed-time counter" on the time seam — phase
-5's, postponed with the pivot's `deadline:` keyword (P2-5). The charter's exclusions table reads
-"`CFG-15`–`CFG-21` — the clock, the monotonic counter, the interruptible sleep, `future.value(deadline:)` —
-5", citing that postponement, and a 4a reader who
-takes that row at face value concludes the counter `CTX-4` needs is not theirs to build. It is. Filed rather
-than fixed because the charter is committed and reviewed and a finding against a committed phase is a
-register row, not an edit. It is the same family as `OI-14`: a cross-reference that reads correctly and
-resolves to the wrong thing, with nothing mechanically checking it — and here the collision is a *word*
-rather than a path, which is the one variant of the four `OI-14`'s proposed link-and-citation check would
-not catch.
+5's, postponed with the pivot's `deadline:` keyword (P2-5). The charter's exclusions table read, on the day
+this was found, "`CFG-15`–`CFG-21` — the clock, the monotonic counter, the interruptible sleep,
+`future.value(deadline:)` — 5", citing that postponement, and a 4a reader who
 
-**`OI-16` — the corpus CLI prints `[overridden by notes/…]` for every key a note backticks, including the
-rules the note explicitly adopts.** Filed by this document's own review, because this phase's note is one of
+took that row at face value concluded the counter `CTX-4` needs is not theirs to build. It is. It is the same
+family as the unresolvable cross-reference the housekeeping probe's `links` and `citations` checks are being
+extended to catch — a pointer that reads correctly and resolves to the wrong thing, with nothing mechanically
+checking it — and here the collision is a *word*
+rather than a path, which is the one variant of the four that a link-and-citation check would
+not catch. What resolves it is naming the object rather than its adjective.
+*Owner:* the phase-4 charter's exclusions row, which now reads "elapsed-time counter (`CFG-16`)" and
+distinguishes it from `CTX-4`'s call-sequence counter.
+
+**The corpus CLI prints `[overridden by notes/…]` for every key a note backticks, including the
+rules the note explicitly adopts.** Found by this document's own review, because this phase's note is one of
 the two that trip it. `Corpus#link_overrides` has a single relation and derives it from a bare backticked
 key anywhere in a note's text, so `docs/knowledge/notes/execution-context.md`'s citation of
 `api-design/b0e18938` and `module-organization/64e84d64` — both rules the note *rests on* — now marks them
@@ -1339,6 +1346,9 @@ it does not weaken them. 77 of 2 166 harvested entries carry the marker today; t
 spot-checked and are genuine multi-key supersedes. The citations are not removed here: the fix is a tool or
 convention change, and stripping one note's citations would break the citation rule for that note alone
 while the committed note kept doing it.
+*Owner:* `scripts/knowledge.rb` — `CITED_KEY` and `Corpus#link_overrides` must separate `[cited by …]` from
+`[overridden by …]`, mirrored in `scripts/verify_knowledge_structure.rb` and `scripts/knowledge_drift.rb`.
+
 
 ## Open questions for 4a's own plan
 

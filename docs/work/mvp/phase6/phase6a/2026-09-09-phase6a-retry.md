@@ -11,7 +11,7 @@
 satisfying all 45 `RETRY-1`–`RETRY-45` requirements and, as the recovery-stack engine phase 4 postponed here, all
 fifteen `RECOV-17`–`RECOV-30`/`RECOV-34` requirements; picking up and closing `ProtocolError#retryable?` (phase 4b's
 deferral), `CFG-35`'s throwable half (phase 5a's) and the per-attempt half of `OBS-29`'s wiring (phase 5c's);
-and executing `OI-31`'s cursor widening.
+and executing the `Cursor` context-bundle widening (Task 8).
 
 **Architecture:** One frozen policy module (`Policy`) exposing the backoff calculator, the pacing
 parser, and the two-branch retryability classifier consult (`XCUT-5`'s baked flag never AND-ed with
@@ -26,7 +26,7 @@ never recursive future composition), both forking a fresh `Cursor` for every dri
 first (`pipeline/86343352`) and neither ever touching a total-timeout (`RETRY-28`'s prohibition is a
 fact about which files reference `Policy.budget_remaining`, not a runtime check). `Cursor` gains a
 read-only `#bundle` reader and `Pipeline#call`/`AsyncPipeline#call` gain a `bundle:` seeding keyword
-(`OI-31`), consumed by neither of `6a`'s own retry drivers, which read their per-operation
+(Task 8), consumed by neither of `6a`'s own retry drivers, which read their per-operation
 `HTTPTracer` from a factory called with `cursor` itself (`R3`).
 
 **Tech Stack:** Ruby 3.2–4.0 (tested on 3.4.10), zero new runtime dependencies (`dexpace-core` gains
@@ -37,7 +37,8 @@ RBS + Steep, RuboCop with phase 0's custom cops, SimpleCov, YARD.
 `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`.
 `docs/product-spec/09-retry-and-resilience.md` is the normative chapter for all 45 `RETRY` IDs;
 `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` rows 245–258 and 262
-carry the canonical text of the fifteen `RECOV` IDs, which appear in no prose chapter (`OI-12`).
+carry the canonical text of the fifteen `RECOV` IDs, which appear in no prose chapter — the roadmap's
+gap paragraph records `RECOV-17`–`34` as appendix-C only.
 
 ## Global Constraints
 
@@ -132,7 +133,7 @@ document's prose, because two of `6a`'s decisions (`R1`, `R2`) turn on the liter
    keyword yet — Task 8 below adds it as a widening, never touching the existing four.
 8. **`Dexpace::Instrumentation::Step#bundle_for`** (`gems/dexpace-core/lib/dexpace/instrumentation/step.rb`,
    5b's) is confirmed to resolve `tracer_factory:`/`meter:` from `@tracer_factory`/`@meter`
-   unconditionally today — the one method `OI-31`'s text says changes, and Task 8 below is the only
+   unconditionally today — the one method Task 8's widening changes, and Task 8 below is the only
    task that touches this file.
 
 ## This plan's open questions, resolved
@@ -187,7 +188,7 @@ before Task 9 (`RetryStep`), Task 10 (`AsyncRetryStep`) or Task 11 (`RecoveryRet
 6. `Dexpace::ProtocolError#retryable?` (`XCUT-5`'s baked flag, phase 4b's deferral) — standalone, needs 5a's `Retryability`
    only.
 7. `Dexpace::Resilience::RetrySettings` (`RECOV-34`) — needs Task 3's constants.
-8. `OI-31`'s cursor widening — `Cursor#bundle`, `Pipeline#call`'s and `AsyncPipeline#call`'s
+8. The `Cursor` context-bundle widening — `Cursor#bundle`, `Pipeline#call`'s and `AsyncPipeline#call`'s
    `bundle:` keyword, 5b's `bundle_for`'s first clause — standalone; independent of every other task
    in this plan (`R3`'s finding: `6a`'s own emission task does not consume it).
 9. `Dexpace::Resilience::RetryStep`, the sync stage-based pillar step (`RETRY-2`, `RETRY-5`–`RETRY-8`,
@@ -1132,10 +1133,11 @@ Expected: PASS, 5 runs, 0 failures, 0 errors.
 
 ---
 
-## Task 8: `OI-31` — widening `Cursor`
+## Task 8: the `Cursor` context-bundle widening
 
-**Requirement IDs:** none new (`OI-31`).
-**Design:** "`OI-31`: widening the cursor" above.
+**Requirement IDs:** none new; the widening is argued from `CTX-14`, `PIPE-11`, `PIPE-17`, `OBS-34`
+and `NFR-4`.
+**Design:** "Widening the cursor" above.
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace/pipeline/cursor.rb`
@@ -1151,16 +1153,44 @@ does not consume this widening).
 **Produces:** `Cursor#bundle`; `Pipeline#call`'s and `AsyncPipeline#call`'s `bundle:` keyword;
 `Instrumentation::Step#bundle_for`'s first clause.
 
+**Amendment, 2026-09-13 — why this task exists, stated here in full so it is executable from this plan
+alone.** The reconciled `5b`/`5c` contract fixes how `Dexpace::Instrumentation::Step` resolves its tracer
+factory and its meter, in three clauses: **the request context's instrumentation bundle when it is not
+`Bundle::NONE`, else the step's constructor keyword, else the constant.** `5c`'s design argues it from
+`CTX-14` ("Each context MUST carry a correlation/instrumentation metadata bundle exposing at minimum … an
+active span, and a per-operation tracer factory") and `5b`'s `P5-33` adopts it. **The first clause had no
+implementation path when it was written.** Phase 4c gives `Dexpace::Pipeline::Cursor` the surface `#call`,
+`#fork`, `#may_fork?`, `#request`, `#options`, `#cancellation`, `#state(stage)` and `#spent?`, with no
+context reader among them; `Dexpace::Request`'s members are `(:method, :url, :headers, :body)` and
+`Dexpace::RequestOptions`'s are `(:timeout, :max_retries, :tags)`, so neither of the two things `Cursor`
+hands out carries a bundle; `PIPE-11` ("Per-request mutable state MUST live in the per-call cursor (carried
+and forked by next), never on the step") rules out the ambient-storage route; and `CTX-11`'s `ContextStore`
+is not a back door, being keyed by a per-call key the step does not hold and explicitly evictable under
+`CTX-13`. Until this task lands the step degrades to its own `tracer_factory:`/`meter:` keywords and to
+`Bundle::NONE`, which is `OBS-34`'s and `XCUT-19`(e)'s *default* configuration — no tracer, no meter, log
+level `none` — so no phase-5 assertion is weakened and no signature moves, which is why this is a widening
+to schedule rather than a blocker. **The mechanism is decided** (phase 6's segmentation design and `6a`'s
+own design) and is exactly what the steps below build: a read-only per-call accessor on `Cursor` plus one
+optional seeding keyword on the pipeline's call path, both widenings under `NFR-4` per
+`api-design/1d9e6e0b`, with `PIPE-11` naming the cursor as the home and `PIPE-17` giving the fork semantics;
+`bundle_for` in `5b`'s step gains its first clause in the same task. The rejected alternative — threading a
+bundle in at `Pipeline.standard` construction — is *per-pipeline* where `CTX-14`/`CTX-20`/`OBS-23`'s bundle
+is *per-operation*, so it cannot carry a per-request span and merely re-spells clause 2, leaving clause 1
+dead including for the preset. `6a`'s `OBS-29` per-attempt emission task (Task 9) does **not** depend on this
+widening: `OBS-29`'s HTTP-tracer is a different kind of object from `CTX-14`'s `Bundle#tracer_factory` — the
+surface decision phase 10's inbound list carries — and `6a`'s retry step reads its per-operation tracer from
+a factory called with `cursor` itself.
+
 - [ ] **Step 1: Write the failing tests**
 
 ```ruby
 # appended to cursor_test.rb
-test "OI-31: #bundle defaults to Bundle::NONE and is carried unchanged across #fork" do
+test "cursor bundle: #bundle defaults to Bundle::NONE and is carried unchanged across #fork" do
   cursor = Dexpace::Pipeline::Cursor.build(drive: fake_drive, request: fake_request, options: RequestOptions::EMPTY, cancellation: Cancellation.none)
   assert_same(Dexpace::Instrumentation::Bundle::NONE, cursor.bundle)
 end
 
-test "OI-31: a seeded bundle is readable and survives #fork" do
+test "cursor bundle: a seeded bundle is readable and survives #fork" do
   bundle = Dexpace::Instrumentation::Bundle.build(tracer_factory: ->(*) { nil })
   cursor = Dexpace::Pipeline::Cursor.build(
     drive: fake_drive(pillar: true), request: fake_request,
@@ -1173,7 +1203,7 @@ end
 
 ```ruby
 # appended to step_test.rb (5b's instrumentation step)
-test "OI-31: bundle_for prefers the cursor's non-NONE bundle over the step's own keyword" do
+test "cursor bundle: bundle_for prefers the cursor's non-NONE bundle over the step's own keyword" do
   own_factory = ->(*) { :own }
   cursor_bundle = Dexpace::Instrumentation::Bundle.build(tracer_factory: ->(*) { :from_cursor })
   step = Dexpace::Instrumentation::Step.build(tracer_factory: own_factory)
@@ -1181,7 +1211,7 @@ test "OI-31: bundle_for prefers the cursor's non-NONE bundle over the step's own
   assert_equal(cursor_bundle, step.send(:bundle_for, cursor))
 end
 
-test "OI-31: bundle_for falls back to the step's own keyword when the cursor's bundle is NONE" do
+test "cursor bundle: bundle_for falls back to the step's own keyword when the cursor's bundle is NONE" do
   step = Dexpace::Instrumentation::Step.build(tracer_factory: ->(*) { :own })
   cursor = fake_cursor(bundle: Dexpace::Instrumentation::Bundle::NONE)
   refute_equal(Dexpace::Instrumentation::Bundle::NONE, step.send(:bundle_for, cursor))
@@ -2141,11 +2171,16 @@ regenerates the two mechanised snapshots, per the roadmap's own execution steps.
     postponed; Tasks 3, 4, 5, 7 and 11), for `XCUT-5`'s baked `ProtocolError#retryable?` (phase 4b's deferral; Task 6),
     for `CFG-35`'s throwable half (phase 5a's deferral; Task 3) and for `OBS-29`'s per-attempt group (the half of phase
     5c's postponed wiring `6a` reaches; Task 9) are ✅ and name those tasks; the phase status note in the roadmap says
-    the four have landed, and that `OBS-29`'s operation-lifecycle triple stays unwired (`OI-32`), together with the
-    transport-milestone group (`OI-36`), on phase 10's inbound list.
-  - Apply, by hand, the two register-edit texts the design document already drafted:
-    `docs/open-items.md`: `OI-31` → resolved (candidate (a) adopted, as drafted); `OI-21` → closed.
+    the four have landed, and that `OBS-29`'s operation-lifecycle triple stays unwired, together with the
+    transport-milestone group, on phase 10's inbound list as the one `OBS-29` surface decision.
+  - Apply, by hand, the one release-register text the design document already drafted:
     `docs/first-release.md`: the phase-8 line on wrapping stdlib I/O/timeout errors, as drafted.
+    Nothing else is filed: Task 8's cursor widening lands the mechanism its own amendment states, and the
+    `CFG-35`/`XCUT-5` classifier cross-reference closes here — 5a's Task 4 supplied the status half and this
+    plan's Task 3 supplies the throwable half. Any **new** finding this task turns up is routed to its owner
+    when found — a numbered task in the phase whose scope it falls in, phase 10's inbound list when it is
+    audit or repair work on an already-planned phase, or `docs/first-release.md` when it belongs to the
+    release — never to a standing register.
   - **Not `6a`'s: the `standard` constructors.** `Pipeline.standard`/`AsyncPipeline.standard` (phase 4c's deferral) is
     `6b`'s **Task 13a** (phase-level, `docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect.md`), and marking
     that work as landed travels with it. It becomes `6a`'s only if `6a` lands *after* `6b`, in which case
@@ -2177,12 +2212,13 @@ Run: `bundle exec rake surface:regenerate` and the RBS-baseline-diff task; revie
 against the Deviation Ledger's `P6-1`/`P6-2` rows (every new public name and signature should appear
 there and nowhere else unexpected).
 
-- [ ] **Step 4: Record the landed deferrals and apply the two register edits**
+- [ ] **Step 4: Record the landed deferrals and apply the one release-register edit**
 
 Mark the checklist rows named under **Files** above ✅ against their tasks, and write the phase status note sentence
 saying the work phases 4, 4b, 5a and 5c postponed here has landed (with the `OBS-29` residuals named). Then edit
-`docs/open-items.md` and `docs/first-release.md` with the exact text the design document's *findings proposed for the
-registers* section drafts, verbatim.
+`docs/first-release.md` with the exact text the design document's *Findings, and who owns them now* section drafts,
+verbatim. The other two findings in that section need no edit here: one is owned by Task 8, which builds it, and the
+other by phase 10's inbound list, which already carries it.
 
 - [ ] **Step 5: Run `housekeeping`'s probe**
 

@@ -241,6 +241,91 @@ class OverrideTest < Minitest::Test
   end
 end
 
+# A note cites a harvested key for two different reasons, and the corpus has to
+# tell them apart: it OVERRIDES the rule it corrects, and it CITES the rules it
+# leans on. The signal is the note's own relation verb -- "Supersedes", "Resolves",
+# "Answers", "Narrows", "Corrects" -- immediately before the key it governs. Every
+# other backticked key in the entry is a citation in support.
+class RelationTest < Minitest::Test
+  include KnowledgeFixture
+
+  SUPPORT_NOTE = <<~MARKDOWN
+    # http-domain-model — notes
+
+    Hand-written. This entry leans on a harvested rule; it does not correct it.
+
+    ## Reference
+    - **A citation in support, not a correction.** Adds to `#{KnowledgeFixture::RULE_PAGE_1}`, which the decision rests on.
+      <sub>review · `docs/work/mvp/phase1/phase1a/2026-01-01-phase1a-http.md` · high · sha:manual-fixture-support</sub>
+  MARKDOWN
+
+  MIXED_NOTE = <<~MARKDOWN
+    # http-domain-model — notes
+
+    Hand-written. One entry, one correction, one supporting citation.
+
+    ## Superseded
+    - **One relation verb scopes one key.** Supersedes `#{KnowledgeFixture::RULE_PAGE_1}`, and rests on `#{KnowledgeFixture::REFERENCE_PAGE_2}`, which is unchanged. Restating `#{KnowledgeFixture::RULE_PAGE_1}` does not name it twice.
+      <sub>review · `docs/work/mvp/phase1/phase1a/2026-01-01-phase1a-http.md` · high · sha:manual-fixture-mixed</sub>
+  MARKDOWN
+
+  def test_a_key_cited_in_support_is_a_citation_and_not_an_override
+    with_note(SUPPORT_NOTE) do
+      rule = entry(KnowledgeFixture::RULE_PAGE_1)
+
+      assert_equal ["notes/http-domain-model.md:6"], rule.cited_by
+      assert_empty rule.overridden_by
+    end
+  end
+
+  def test_a_cited_entry_prints_cited_by_rather_than_overridden_by
+    with_note(SUPPORT_NOTE) do
+      stdout, = cli("--key", KnowledgeFixture::RULE_PAGE_1)
+
+      assert_includes stdout, "[cited by notes/http-domain-model.md:6]"
+      refute_includes stdout, "[overridden by"
+    end
+  end
+
+  def test_a_relation_verb_scopes_only_the_keys_that_follow_it
+    with_note(MIXED_NOTE) do
+      assert_equal ["notes/http-domain-model.md:6"], entry(KnowledgeFixture::RULE_PAGE_1).overridden_by
+      assert_empty entry(KnowledgeFixture::RULE_PAGE_1).cited_by
+      assert_equal ["notes/http-domain-model.md:6"], entry(KnowledgeFixture::REFERENCE_PAGE_2).cited_by
+    end
+  end
+
+  def test_a_key_named_twice_in_one_note_is_listed_once
+    with_note(MIXED_NOTE) do
+      note = corpus.entries.find { |candidate| candidate.note? && candidate.topic == "http-domain-model" }
+
+      assert_equal [KnowledgeFixture::RULE_PAGE_1], note.overrides
+      assert_equal [KnowledgeFixture::REFERENCE_PAGE_2], note.cites
+    end
+  end
+
+  def test_the_drift_report_counts_a_supporting_citation_as_resolved
+    with_note(SUPPORT_NOTE) do
+      stdout = StringIO.new
+      Knowledge::DriftReport.new(paths, stdout: stdout).run
+
+      assert_includes stdout.string, "2 note citation(s) resolve, 0 do not."
+    end
+  end
+
+  private
+
+  # The committed fixture carries one note. A second one is written beside it and
+  # removed again, so a relation test never edits the fixture it shares.
+  def with_note(body)
+    path = File.join(KnowledgeFixture::ROOT, "docs/knowledge/notes/http-domain-model.md")
+    File.write(path, body)
+    yield
+  ensure
+    FileUtils.rm_f(path)
+  end
+end
+
 class FilterTest < Minitest::Test
   include KnowledgeFixture
 
@@ -336,7 +421,9 @@ class GapsTest < Minitest::Test
     assert_includes stdout, "4 canonical IDs: 2 substantive, 1 roll-up only, 1 uncited"
     assert_match(/roll-up only .*\n\s+HTTP-2$/, stdout)
     assert_match(/uncited .*\n\s+HTTP-7$/, stdout)
-    assert_includes stdout, "read these out of docs/product-spec/04-core-http-domain-model.md"
+    # The fixture's chapter 04 states no HTTP-<n> token, so the pointer says so
+    # rather than naming it; `GapPointerTest` drives both branches.
+    assert_includes stdout, "appendix C is their only normative statement"
   end
 
   def test_gaps_all_covers_every_prefix_in_id_order
@@ -675,6 +762,96 @@ class CompanionScriptTest < Minitest::Test
     yield(stderr, status)
   ensure
     FileUtils.rm_f(path)
+  end
+end
+
+# `--prefix P --section rules` answers a different question from `--prefix-info P`,
+# and the two numbers are easy to read as one. A narrowed prefix query therefore
+# says which of the prefix's canonical IDs it did NOT cover, and why each is
+# missing: filed in another section, or not in the corpus at all.
+class PrefixCoverageTest < Minitest::Test
+  include KnowledgeFixture
+
+  def test_a_narrowed_prefix_query_names_the_canonical_ids_it_did_not_cover
+    stdout, = cli("--prefix", "PAGE", "--section", "rules", "--brief", "--no-drift-check")
+
+    assert_includes stdout, "these filters cover 2 of PAGE's 4 canonical IDs"
+    assert_match(/PAGE-3 — in the corpus under Conflicts/, stdout)
+    assert_match(/PAGE-4 — no substantive entry anywhere/, stdout)
+    assert_includes stdout, "--gaps PAGE"
+  end
+
+  def test_an_unnarrowed_prefix_query_reports_only_what_the_corpus_lacks
+    stdout, = cli("--prefix", "PAGE", "--brief", "--no-drift-check")
+
+    assert_includes stdout, "these filters cover 3 of PAGE's 4 canonical IDs"
+    assert_match(/PAGE-4 — no substantive entry anywhere/, stdout)
+    refute_includes stdout, "PAGE-3 —"
+  end
+
+  def test_a_query_with_no_prefix_filter_carries_no_coverage_footer
+    stdout, = cli("--req", "PAGE-1", "--brief", "--no-drift-check")
+
+    refute_includes stdout, "canonical IDs"
+  end
+end
+
+# `--gaps` derives its trailing pointer from appendix C's subsystem cell, which
+# names the prefix's owning chapter without asserting the chapter states the ID.
+# For an ID appendix C alone carries, that pointer sends a reader to a file the ID
+# is not in. The pointer therefore checks the chapters rather than assuming them.
+class GapPointerTest < Minitest::Test
+  include KnowledgeFixture
+
+  CHAPTER = File.join(KnowledgeFixture::ROOT, "docs/product-spec/12-pagination.md")
+
+  def test_the_pointer_names_appendix_c_for_an_id_no_chapter_states
+    stdout, = cli("--gaps", "PAGE", "--no-drift-check")
+
+    assert_includes stdout, "appendix C is their only normative statement"
+    refute_includes stdout, "read these out of docs/product-spec/12-pagination.md"
+  end
+
+  def test_the_pointer_names_the_chapter_for_an_id_the_chapter_states
+    with_chapter_stating("PAGE-4") do
+      stdout, = cli("--gaps", "PAGE", "--no-drift-check")
+
+      assert_includes stdout, "read these out of docs/product-spec/12-pagination.md"
+      refute_includes stdout, "appendix C is their only normative statement"
+    end
+  end
+
+  def test_a_near_miss_id_in_the_chapter_does_not_satisfy_the_pointer
+    # Whole-token matching: `PAGE-40` is a different requirement from `PAGE-4`.
+    with_chapter_stating("PAGE-40") do
+      stdout, = cli("--gaps", "PAGE", "--no-drift-check")
+
+      assert_includes stdout, "appendix C is their only normative statement"
+    end
+  end
+
+  def test_a_prefix_split_across_both_sources_gets_both_pointers_with_their_ids
+    # HTTP-2 is roll-up-only and HTTP-7 uncited; both need reading. Stating just
+    # one of them in the chapter splits the pointer in two.
+    chapter = File.join(KnowledgeFixture::ROOT, "docs/product-spec/04-core-http-domain-model.md")
+    original = File.read(chapter)
+    File.write(chapter, "#{original}\nHTTP-2 is stated here for this test.\n")
+    stdout, = cli("--gaps", "HTTP", "--no-drift-check")
+
+    assert_includes stdout, "read these out of docs/product-spec/04-core-http-domain-model.md: HTTP-2"
+    assert_includes stdout, "chapter states them: HTTP-7"
+  ensure
+    File.write(chapter, original)
+  end
+
+  private
+
+  def with_chapter_stating(id)
+    original = File.read(CHAPTER)
+    File.write(CHAPTER, "#{original}\n#{id} is stated here for this test.\n")
+    yield
+  ensure
+    File.write(CHAPTER, original)
   end
 end
 

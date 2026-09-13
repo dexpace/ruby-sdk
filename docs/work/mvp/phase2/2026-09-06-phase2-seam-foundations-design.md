@@ -155,10 +155,10 @@ gates and a validated wire model. Specifically it relies on:
 - **Phase 1's construction rule**, which binds every model phase 2 adds: no `.build` is a bare
   `new` wrapper; validation lives in the `Data` type's `initialize`; a validating constructor
   coerces through the member type's own factory.
-- **The gates**, unchanged and unlowered — `rubocop` with phase 0's five custom cops, `rbs:validate`,
-  `steep` with `core` strict, `test:gems` under `-w -W:deprecated` with the SimpleCov floor,
-  `gates:require_allowlist`, `gates:rbs_surface`, `gates:surface_snapshot`, `gates:sig_diff`,
-  `gates:gemspec_audit`, `gates:clean_bundle`, `gates:single_instance`.
+- **The gates**, unchanged and unlowered — `rubocop` with phase 0's five original custom cops,
+  `rbs:validate`, `steep` with `core` strict, `test:gems` under `-w -W:deprecated` with the
+  SimpleCov floor, `gates:require_allowlist`, `gates:rbs_surface`, `gates:surface_snapshot`,
+  `gates:sig_diff`, `gates:gemspec_audit`, `gates:clean_bundle`, `gates:single_instance`.
 - **The require allowlist**, unchanged: `monitor`, `uri`, `stringio`, `strscan`, `time`, `date`,
   `securerandom`, `digest`, `openssl`, `forwardable`, `set`, `singleton`. Phase 2 adds **no name to
   it** and uses exactly one entry, `uri` (already required by phase 1's `URL`). `Thread`,
@@ -206,9 +206,13 @@ IDs; `SEAM-1`, `SEAM-2`, `SEAM-13` and `SEAM-29` are stated in
 `SEAM-23` and `SEAM-28` appear nowhere in the specification's prose at all** — appendix C is their
 only normative statement. The CLI's pointer is derived mechanically from appendix C's subsystem
 cell, so it names the subsystem's chapter rather than asserting the ID is in it; the roadmap
-inherited the pointer and repeated it as an instruction. Filed as `OI-1`, because a phase told to
-read a chapter that does not contain the requirement will either read the wrong thing or conclude
-the specification is missing.
+inherited the pointer and repeated it as an instruction. Corrected where it originates rather than
+recorded against this phase: the roadmap's gap paragraph
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, "Gap IDs each phase must read from the
+spec chapter itself") now states that these five SEAM IDs are appendix-C only, and
+`scripts/knowledge.rb` carries the same qualification on `--gaps`' trailing pointer — because a
+phase told to read a chapter that does not contain the requirement will either read the wrong
+thing or conclude the specification is missing.
 
 So this phase read appendix C rows 28 and 34 verbatim, and both roadmap expectations hold:
 

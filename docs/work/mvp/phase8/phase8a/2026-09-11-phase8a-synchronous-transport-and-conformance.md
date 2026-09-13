@@ -38,10 +38,11 @@ drivers, and the two
 observability doubles 5b and 5c are owed (`RecordingSpan`, `Allocations`).
 
 **Tech Stack:** Ruby 3.2–4.0 (authored on 3.4.10), Minitest, RBS + Steep, RuboCop with phase 0's
-five custom cops, SimpleCov, YARD. `dexpace-transport-net_http` gains exactly one third-party
-dependency: `net-http >= 0.4` (a default gem on every Ruby in the matrix). `dexpace-conformance`
-gains **none** — it declares `dexpace-core` and nothing else, by design, which is what forces both
-of its drivers to reference `::Minitest`/`::RSpec` without ever `require`-ing them.
+five original custom cops, SimpleCov, YARD. `dexpace-transport-net_http` gains exactly one
+third-party dependency: `net-http >= 0.4` (a default gem on every Ruby in the matrix).
+`dexpace-conformance` gains **none** — it declares `dexpace-core` and nothing else, by design,
+which is what forces both of its drivers to reference `::Minitest`/`::RSpec` without ever
+`require`-ing them.
 
 **Spec:** `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md`,
 under the charter `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`.
@@ -64,7 +65,8 @@ under the charter `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md
 - **This plan does not touch `VERSIONS`, the root `Gemfile`, `tools/versions.rb`,
   `tools/versions_gate.rb` or `tasks/quality.rake`'s `test:gems`** (added 2026-09-12). `8c`'s plan
   Task 3 edits all five for `dexpace-transport-async_http`'s `required_ruby_version >= 3.3`
-  (`P8-36`, `OI-38`), and the end state is written out once in the charter's *The CI matrix after
+  (`P8-36`, and that task owns the per-gem floor finding), and the end state is written out once in
+  the charter's *The CI matrix after
   `8c`'s per-gem Ruby floor*. **Both of this sub-phase's gems keep the repository floor of 3.2 and
   run every gate on all three interpreters** (3.2.11, 3.4.10, 4.0.6 — Tasks 1 and 23), which is
   unchanged by that edit in either execution order. **If `8c` has already landed it**, this plan's
@@ -82,7 +84,7 @@ under the charter `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md
   written to satisfy this without a waiver: a latch, a queue close, a connection close, a **bounded**
   `Thread#join(JOIN_DEADLINE_SECONDS)`, never a `Thread#raise`/`#kill` on the producer. `net-http`'s
   own internal use of `Timeout.timeout` for the connect phase is outside this repository's `lib/`
-  and outside this cop's scan; it is recorded under *The findings proposed for the registers* and
+  and outside this cop's scan; it is recorded under *Findings, and who owns them now* and
   not worked around.
 - **`Thread::Mutex` is held across the flag flip only, in both latches this plan writes**
   (`Adapter`'s and `ResponsePump`'s, both phase 2's `Closeable`) — never across a queue close, a
@@ -138,7 +140,7 @@ bundle exec rake gates:sig_diff
 bundle exec rake gates:surface_snapshot
 bundle exec rake rubocop                           # NFR-7, findings fatal, no autocorrection
 bundle exec rake rbs:validate steep                # NFR-3
-bundle exec rake cops:test                         # the five custom cops' own suite
+bundle exec rake cops:test                         # the custom cops' own suite
 bundle exec rake test:gems                         # gem suites: warnings fatal, coverage floor
 bundle exec rake test:gates                        # the repository's gate suites
 bundle exec rake yard bundler_audit
@@ -230,8 +232,8 @@ of its own and adds nothing to the require-allowlist audit.
 fold into a recognised wire form) — a real `HTTP/1.0` response would make `ResponseMapper` raise.
 No `TRANSPORT` ID requires 1.0 support and the fixture is self-authored, so every `WireServer` script
 in this plan answers `HTTP/1.1` on its status line and this gap is never exercised. Worth one
-sentence in `ResponseMapper`'s YARD and nothing else; it is the kind of finding *The findings
-proposed for the registers* names for a human, not a code change this plan makes.
+sentence in `ResponseMapper`'s YARD and nothing else; it is the kind of finding the design's
+*Findings, and who owns them now* names for a human, not a code change this plan makes.
 
 ## This plan's open questions, resolved
 
@@ -346,7 +348,7 @@ into it, and before any adapter test asserts a wrapped error's type.
 23. `gates:gemspec_audit`, `gates:require_allowlist`, `gates:clean_bundle` (with the Gemfile fix) on
     all three interpreters.
 24. YARD's undocumented-public-method gate for both gems.
-25. The knowledge note, the open-item findings handed to a human, the marks for the work earlier
+25. The knowledge note, this sub-phase's findings routed to their owners, the marks for the work earlier
     phases postponed here, `docs/first-release.md`'s `dexpace-conformance` row, and the housekeeping probe.
 
 ---
@@ -2999,7 +3001,8 @@ Run:
           body: lambda do |_kase|
             raise Vacuous, "max_retries = 0 removes Net::HTTP's only resend hook, so the " \
                             "re-subscribable-producer antecedent this requirement conditions on " \
-                            "is genuinely absent on this adapter (OI-34)"
+                            "is genuinely absent on this adapter -- the coverage appendix calls " \
+                            "it absent by default, which phase 10's inbound list corrects"
           end,
         ),
         Assertion.build(
@@ -3549,7 +3552,8 @@ module Dexpace
         #
         # An earlier revision of this file carried a WRAPPABLE constant listing those families. It is
         # gone rather than kept unused: a frozen Array nothing reads is NFR-4-locked surface with no
-        # caller, which is OI-8's exact shape. The families are named in this comment, where they
+        # caller -- exactly the shape 3a plan Task 14's #clear_tap keep-or-drop decision is about.
+        # The families are named in this comment, where they
         # document the measurement, rather than in code that would imply a branch.
 
         module_function
@@ -4177,8 +4181,8 @@ Expected: PASS, 7 runs.
 `"http/1.0"` (Global Constraints, verified fact re-run in Task 1); a real `HTTP/1.0` server would
 make `native.http_version` produce `"1.0"` and this method raise. No `TRANSPORT` ID requires 1.0
 support and every `WireServer` script in this plan answers `HTTP/1.1`, so the gap is never
-exercised here — worth one sentence in this file's YARD and one of *The findings proposed for the
-registers* (Task 25), not a code change.
+exercised here — worth one sentence in this file's YARD and one of *Findings, and who owns them
+now* (Task 25), not a code change.
 
 ---
 
@@ -5159,7 +5163,8 @@ named exception) and denied everywhere else.
 
 `8c`'s plan Task 3 edits `VERSIONS`, `tools/versions.rb`, `tools/versions_gate.rb`, the root
 `Gemfile`, `tasks/quality.rake` and `tasks/gates.rake` so `dexpace-transport-async_http` alone can
-declare `required_ruby_version >= 3.3` (`P8-36`, `OI-38`). **This plan touches none of them.** If the
+declare `required_ruby_version >= 3.3` (`P8-36`; that task owns the finding). **This plan touches
+none of them.** If the
 edit is in place when this task runs, check the state against the charter's own end-state table (*The
 CI matrix after `8c`'s per-gem Ruby floor*) rather than against a diff, and confirm the three things
 that bear on this sub-phase:
@@ -5197,11 +5202,11 @@ block explaining **why** the method exists or what a caller must know (per `docu
 
 ---
 
-## Task 25: The knowledge note, the open-item findings, the postponed-work marks, `docs/first-release.md`, housekeeping
+## Task 25: The knowledge note, the findings and their owners, the postponed-work marks, `docs/first-release.md`, housekeeping
 
 **Requirement IDs:** none directly — the documentation follow-through every phase's final task
 performs.
-**Design:** "The knowledge notes `8a` files"; "The findings proposed for the registers"; "Work phase
+**Design:** "The knowledge notes `8a` files"; "Findings, and who owns them now"; "Work phase
 8a postponed, and who owns it now".
 
 **Files:**
@@ -5210,10 +5215,10 @@ performs.
   postponed, and who owns it now* — the marks and confirmations Step 3a performs. *(Corrected in place
   2026-09-13: an earlier revision handed these marks to a human, which contradicted the design's own
   section — "this document **states** each disposition and `8a`'s **plan performs** the mark". The
-  hand-off reason, colliding `OI-<n>` numbers across three concurrent sub-phases, never applied to a
-  checklist mark, which takes no new number.)*
-- Modify (by a human, per this plan's own hand-off, not by this plan): `docs/open-items.md`,
-  `docs/first-release.md`
+  hand-off reason, colliding register numbers across three concurrent sub-phases, never applied to a
+  checklist mark, which takes no new number — and the register itself was retired on 2026-09-13.)*
+- Modify (by a human, per this plan's own hand-off, not by this plan): `docs/first-release.md`, and the
+  documents Step 3 names as this sub-phase's findings' owners
 
 **Needs:** everything above landed and green.
 
@@ -5239,24 +5244,36 @@ Run: `ruby scripts/knowledge.rb --key transport-adapter/7e8e2c60` and `--key
 transport-adapter/d16c7444`
 Expected: each prints `[overridden by notes/transport-adapter.md:…]`.
 
-- [ ] **Step 3: Hand the five register findings to a human**
+- [ ] **Step 3: Route this sub-phase's findings to their owners**
+      *(reworded 2026-09-13: a finding goes to its owner when found, never to a register)*
 
-The design drafts all five verbatim in "The findings proposed for the registers", plus the two
-`OI-34`/`OI-35` amendments; this plan adds a **sixth**, its own (this plan's fact 4, the
-clean-bundle smoke-test limitation) and a **seventh** (the `Protocol.parse`/`"http/1.0"` gap noted
-in Task 17). Neither is filed by this task — the same collision hazard the design names (`OI-34`–
-`OI-37` and `OI-38`–`OI-41` both dangling at once, from the charter and a sibling sub-phase written
-concurrently) applies here with two more numbers in flight, and the housekeeping probe's `citations`
-check is how the next free block is found rather than guessed, exactly as the design says.
+The design states all five under "Findings, and who owns them now", each with the owner that carries
+it, and this task performs none of them itself: `net-http`'s `Timeout.timeout` in the connect phase,
+which design §8.3's absolute prohibition does not scope and the cop cannot see, is **phase 10's
+inbound list**; Minitest being a bundled rather than a default gem is **phase 0's plan, Task 2**,
+whose root `Gemfile` must list `minitest` explicitly; the require-allowlist denylist having no
+per-gem scope is **phase 0's plan, Task 9**; the connection-per-request cost is the `## Reference`
+entry in **`docs/knowledge/notes/transport-adapter.md`** that Step 2 above verifies; and the fifth is
+a line in **`docs/first-release.md`**. The two amendments the design carries — the measured swallow of
+a cancellation by `Net::HTTP`'s built-in retry, and the `read_body` construction — are corrections to
+the charter's findings on §12's retry rows and §3.2's `read_body` sentence, both on phase 10's inbound
+list.
+
+This plan adds two more, and they route the same way: this plan's fact 4, the clean-bundle
+smoke-test limitation, is a **phase-0 gate repair carried by this plan's own Task 23** (`tasks/gates.rake`
+is phase 0's file); and the `Protocol.parse`/`"http/1.0"` gap noted in Task 17 is a **phase-1 surface
+decision** (widening `Protocol::WIRE_FORMS`) that no sub-phase takes alone, so it goes to phase 10's
+inbound list as repair work on an already-planned phase. Anything execution turns up goes to the same
+four places — a numbered task in the owning phase's plan, phase 10's inbound list, `docs/first-release.md`,
+or a fix.
 
 - [ ] **Step 3a: Mark the work earlier phases postponed here as landed, and re-confirm the two declines**
       *(added 2026-09-13, plan re-verification)*
 
 Every other plan in this repository marks its own postponed-work items (`8b`'s Task 13 Step 5,
 `8c`'s Task 19 Step 5a, phase 9's Task 17 Step 3), and the design's *Work phase 8a postponed, and who
-owns it now* says this one does too. Step 3 hands the **open items** to a human because their
-numbers collide across three concurrent sub-phases; a checklist mark takes no new number, so that
-reason stops here. Four items:
+owns it now* says this one does too. Step 3 routes this sub-phase's **findings** to the documents
+that own them; a checklist mark is this plan's own to make, so it stops here. Four items:
 
 - **The conformance assertion protocol (phase 0 postponed it to this phase)** — mark this
   sub-phase's checklist rows for Tasks 4–8 and 20 ✅ and say in the roadmap's phase status note that
@@ -5334,7 +5351,7 @@ disposition the design's scope table assigns.
 | `TRANSPORT-15` | Implemented — both halves: owned refuses a later send, borrowed survives close | 13, 19, 20 |
 | `TRANSPORT-16` | Implemented — idempotent close, bounded teardown | 13, 18, 19, 20 |
 | `TRANSPORT-17` | Implemented — one write, asserted from outside and guaranteed by shape from inside | 12, 16, 20 |
-| `TRANSPORT-18` | Vacuous, once `max_retries = 0` removes the antecedent — `OI-34` | 12, 20 |
+| `TRANSPORT-18` | Vacuous, once `max_retries = 0` removes the antecedent — §12 assumes it vacuous without that line, a correction on phase 10's inbound list | 12, 20 |
 | `TRANSPORT-19` | Implemented (SHOULD) — closing an undrained, dribbling response unblocks the producer promptly and idempotently | 11, 18, 20 |
 | `TRANSPORT-20` | Implemented — the canonical retryable failure, `Dexpace::TransportError` | 2, 12, 15, 20 |
 | `TRANSPORT-22` | Implemented — the connection is released when a caller-side failure follows a live response | 12, 19, 20 |
@@ -5418,7 +5435,7 @@ the design's own reasoning operates.
 One further note, not rising to a discrepancy because the design never claims otherwise:
 `Dexpace::Protocol.parse` has no alias for `"http/1.0"` (Task 17's caution). This plan's `WireServer`
 fixture always answers `HTTP/1.1`, so the gap is never exercised by anything in this plan, and it is
-handed to *The findings proposed for the registers* (Task 25) rather than fixed, because fixing it
+handed to *Findings, and who owns them now* (Task 25) rather than fixed, because fixing it
 is a phase-1 surface decision (widening `Protocol::WIRE_FORMS`) no sub-phase should take alone.
 
 
@@ -5552,7 +5569,8 @@ what `TRANSPORT-3`'s ask-the-token-first rule requires of both `Failures.wrap` c
   both untouched. The two now-unused `require "socket"` lines in that gem's tests became
   `require "net/http"`.
 - **`Failures`' `WRAPPABLE` constant was never read** by the final `wrap` body, which is a catch-all.
-  The constant is removed rather than left as `NFR-4`-locked surface with no caller (`OI-8`'s shape),
+  The constant is removed rather than left as `NFR-4`-locked surface with no caller (the shape 3a
+  plan Task 14's `#clear_tap` keep-or-drop decision is about),
   and the families it listed are kept in the comment where they document verified fact 7. The
   **design** was corrected to match, because the plan is right on the merits: `P6-4`'s obligation is
   "wrap, and default to retryable, **not** wrap and get the classification right by hand", and an
@@ -5598,11 +5616,13 @@ what `TRANSPORT-3`'s ask-the-token-first rule requires of both `Failures.wrap` c
 
 Items this verification pass found that belong in a document it may not write. **None is filed here.**
 
-- **`docs/open-items.md`** — the plan hands seven findings to a human (the design's five, plus the
-  clean-bundle smoke-test limitation and the `Protocol.parse`/`"http/1.0"` gap). This pass adds
-  nothing to that list and confirms the numbering hazard the plan already states: `OI-34`–`OI-37` are
-  cited by the charter and a further block by a sibling sub-phase, both dangling, so the next free
-  block is found with `ruby .claude/skills/housekeeping/probe.rb --only citations`, never guessed.
+- **The seven findings and where each goes** — the design's five (phase 10's inbound list for §8.3's
+  unscoped `Timeout.timeout` ban; phase 0's plan Task 2 for the explicit `minitest` `Gemfile` line;
+  phase 0's plan Task 9 for the per-gem denylist scope; `docs/knowledge/notes/transport-adapter.md`
+  for connection-per-request; and `docs/first-release.md` for the fifth), plus the clean-bundle
+  smoke-test limitation (a phase-0 gate repair carried by Task 23) and the `Protocol.parse`/`"http/1.0"`
+  gap (a phase-1 surface decision, so phase 10's inbound list). This pass adds nothing to that list;
+  Task 25 Step 3 is where the routing happens *(rewritten 2026-09-13, when the find-list was retired)*.
 - **`tasks/gates.rake` is phase 0's file and Task 23 edits it.** The one-line-Gemfile defect is
   measured above and affects all five adapter rows of `CLEAN_BUNDLE_ENTRIES`; whoever reviews the
   phase-level PR should see it as a phase-0 repair carried by 8a, not as an 8a-local workaround.
@@ -5645,9 +5665,10 @@ that changed; what is listed here is what a follow-through agent still has to ca
    expect `docs/deviations.md`'s `P8-13` row to read as the ten-name set, not a nine-name one.**
 6. **The CI matrix after `8c`'s per-gem Ruby floor is stated once in the charter**, and this plan
    touches none of the six files. Task 23 Step 4 verifies rather than re-applies.
-7. **`OI-42`–`OI-45` are this sub-phase's four proposed open items** (`8b`'s three follow at
-   `OI-46`–`OI-48`), each written out in the register's own row format in the design's *The findings
-   proposed for the registers*. The fifth proposal there targets `docs/first-release.md` and carries
-   no `OI-<n>`, deliberately. **Task 25 hands all five over; a filer runs
-   `ruby .claude/skills/housekeeping/probe.rb --only citations` first, because fifteen numbers
-   (`OI-34`–`OI-48`) are cited across phase 8 with no row in `docs/open-items.md` yet.**
+7. **This sub-phase's five findings each have an owner, stated in the design's *Findings, and who owns
+   them now*** *(restated 2026-09-13, when the find-list was retired)*: phase 10's inbound list for
+   §8.3's unscoped `Timeout.timeout` ban, phase 0's plan Task 2 for the explicit `minitest` `Gemfile`
+   line, phase 0's plan Task 9 for the per-gem denylist scope, a `## Reference` entry in
+   `docs/knowledge/notes/transport-adapter.md` for connection-per-request, and `docs/first-release.md`
+   for the fifth. **Task 25 Step 3 routes them**, and nothing in phase 8 waits on a human pasting a
+   register row.

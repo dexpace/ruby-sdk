@@ -40,8 +40,8 @@ those two. It **lands four items earlier phases postponed to it** (the conforman
 wire-boundary re-validation, `SEAM-25`'s lifecycle event, `OBS-19`'s header-drop policy), **partly lands
 one** (`OBS-29`'s transport-milestone group), **declines two** (`BODY-12` clause 2, and moving core's test
 fakes into `dexpace-conformance`), **closes one release blocker** (`docs/first-release.md`'s phase-8
-transport-adapter line), and proposes **four new open items** and **three amendments to earlier
-records**. Its
+transport-adapter line), and raises **four findings**, each routed to an owner below, plus **three
+amendments to earlier records**. Its
 spec-reading budget is **zero**: `ruby scripts/knowledge.rb --gaps TRANSPORT,ASYNC` reports 0 of 52 with
 no substantive corpus entry. Both chapters were read in full anyway (51 and 46 lines), for the
 `*Conformance:*` clauses appendix C does not carry.
@@ -110,7 +110,8 @@ no substantive corpus entry. Both chapters were read in full anyway (51 and 46 l
   `docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-design.md`,
   `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md`,
   `docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/deviations.md` and `docs/first-release.md`, and the plan tasks, knowledge notes and phase-10
+  inbound entries that carry the findings earlier phases raised.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -155,7 +156,7 @@ in opposite directions and both are stated:
 and together they are the sharpest inherited constraint on `8b`:
 
 - **`observability/698552b4`** — fiber storage's range across the supported interpreters, and the write
-  side's warning. The half that binds `8b` is the one `OI-13` carries: `Fiber#storage=` is the only
+  side's warning. The half that binds `8b` is the warned setter the note carries: `Fiber#storage=` is the only
   whole-map write API, it warns on every call at the default warning level, and this repository's gate
   set fails the build on warnings.
   <sub>review · `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md` · high · sha:manual-phase4-fiber-storage-range</sub>
@@ -361,7 +362,8 @@ whole of the three-way argument.**
 `8a` is 23 `TRANSPORT` IDs, one adapter gem and one non-adapter gem. Three questions a reader will ask.
 
 **Why not split the adapter from the conformance gem?** Because a conformance assertion object with
-nothing to assert against is `OI-8`'s exact shape — `NFR-4`-locked public API with no caller — and
+nothing to assert against is exactly the shape 3a plan Task 14's `#clear_tap` keep-or-drop decision is
+about — `NFR-4`-locked public API with no caller — and
 phase 0's own argument for postponing the protocol is that one "would fix an interface before the
 contract it serves exists". By
 `8a` the contract exists (spec ch.17, read in full) *and* an adapter exists to drive it, which is the
@@ -519,7 +521,8 @@ the `TCPServer` fixture two sub-phases need cannot land after them.
 **Rejected cut D — four ways, with `dexpace-conformance` as `8a` landing first, before any adapter.**
 The mirror of C, and it fails on phase 0's own recorded argument: "an assertion object with no transport
 contract to assert against would fix an interface before the contract it serves exists". It also produces
-a segment with no gem of its own to test against, which `OI-8` is the register's standing example of.
+a segment with no gem of its own to test against, of which `TeeSink#clear_tap` — 3a plan Task 14's
+keep-or-drop decision — is this repository's standing example.
 
 **Rejected cut E — splitting `8a` along §17's own section headings (pipeline authority and cancellation
 against header/body/lifecycle/response mapping).** Rejected under *Why `8a` is one segment*, on
@@ -529,7 +532,7 @@ and on `TRANSPORT-24`/`25`/`27` being one inbound routine.
 **Rejected cut F — splitting `8b` along the §18.3 logging-context line, giving `ASYNC-8`–`ASYNC-12` their
 own segment.** Five IDs, one mechanism, and the mechanism is a save/install/restore *on the pool's
 worker*. A segment that owns the restore and not the thing it restores on has no object to test against,
-and `OI-13`'s `Fiber#storage=` decision would then be taken in a document that ships no pool. It is phase
+and the `Fiber#storage=` decision would then be taken in a document that ships no pool. It is phase
 7's rejected cut C in a different subsystem and it fails for the same reason.
 
 ---
@@ -684,8 +687,8 @@ its row rather than a tick; and **one open** (`TRANSPORT-8`, settled by `8c` und
 runtime's own structured-concurrency scope reaches the in-flight exchange as `Async::Cancel` while the
 pivot is live, which is the requirement's "originates inside it" antecedent, and the terminal-versus-
 retryable discrimination is free because `Async::Cancel < Exception` and `Async::TimeoutError <
-StandardError`. §12 records the ID vacuous; `8c` files `OI-41` against that frozen cell rather than
-correcting it).
+StandardError`. §12 records the ID vacuous; `8c` raises the correction against that frozen cell — it is
+on phase 10's inbound list — rather than correcting it).
 
 ### `8a` — Synchronous transport and the conformance harness (23 IDs, all `TRANSPORT`)
 
@@ -744,9 +747,9 @@ Gem: `dexpace-async-thread` (declares `dexpace-core` and **nothing else**).
 | `ASYNC-6` | MUST | **Cross-reference row, no budget line.** The ID is `8c`'s, but `ASYNC-6` is quantified over "**each** adapter" with a per-adapter conformance clause. `8b` states the thread-pool half explicitly: cancelling the pivot reaches the worker only at its next check-after-resume point, which is `ASYNC-3`'s unsatisfied mode and not a second decision (§10.5) |
 | `ASYNC-7` | SHOULD | The per-adapter README contrast §3.3 fixes: "the thread adapter lets an in-flight blocking read finish, the reactor-backed ones abort at the next scheduler checkpoint" (`concurrency-and-async/74aee9a8`). `8a` and `8c` each write their own section; `8b` owns the ID |
 | `ASYNC-8` | SHOULD | Diagnostic-context propagation across the thread hop, over `Fiber[]` and never `Thread.current[]` |
-| `ASYNC-9` | MUST | Save the worker's prior context, install for the duration, restore in an `ensure` including on a throw. **`R8`** — `OI-13`'s `Fiber#storage=` warning |
+| `ASYNC-9` | MUST | Save the worker's prior context, install for the duration, restore in an `ensure` including on a throw. **`R8`** — `Fiber#storage=`'s warning, which the observability note records |
 | `ASYNC-10` | MUST | Capture **per task submission**, not at pool construction. This is the clause a pooled worker makes non-trivial |
-| `ASYNC-11` | MUST | Absent context captures empty; reinstating empty clears rather than raises. `Fiber.current.storage = nil` reads back differently on 3.2 than on 3.4/4.0 (`OI-13`), so the spelling is not free |
+| `ASYNC-11` | MUST | Absent context captures empty; reinstating empty clears rather than raises. `Fiber.current.storage = nil` reads back differently on 3.2 than on 3.4/4.0 (the observability note measures it), so the spelling is not free |
 | `ASYNC-12` | MUST | The thread-creation-boundary transfer. **Antecedent check required**: a new `Thread` **does** inherit `Fiber[]` (verified fact 13), so the live case is the pooled worker, not the fresh one. **`R9`** |
 | `ASYNC-13` | MUST | Unwrap wrapper exceptions to the original cause, terminating on a non-wrapper, a nil cause or a cycle. `Dexpace.each_cause` (phase 4b) is the walk; `raise error, cause: nil` (`pipeline/7ce4431d`) is the re-raise |
 | `ASYNC-14` | MUST | The async→sync blocking bridge. Phase 2 shipped `Bridge::SyncOver`; `8b` is the first sub-phase that can exercise it end to end, and §10.4 already settled that this port has no interrupt flag to restore |
@@ -808,9 +811,9 @@ assertions; and the `ASYNC-7` README section for a reactor-backed adapter.
 | `IO-1`–`IO-42` — the byte-stream contracts, `BufferedSource`, `MAX_MATERIALIZED_BYTES` | 3a, built. `IO-40` is the boundary that keeps timeouts out of them |
 | `CTX-1`–`CTX-20`, `RECOV-1`–`RECOV-34` | 4a and 4b |
 | `XCUT-4`'s branch (a), `XCUT-5`–`XCUT-9` | 4b built `Dexpace::ProtocolError` and `Dexpace.each_cause`; 5a built `Dexpace::Retryability.retryable_status?`; 6a built `CFG-35`'s throwable half (its Task 3). **Branch (b)'s type is phase 8's and is the phase-level task** |
-| `CFG-1`–`CFG-38` | 5a. `CFG-15`'s clock and cancellable wait, `CFG-20`'s pivot reshaping (`OI-22`, still open) and `CFG-35`'s status classifier are all consumed, none re-decided |
+| `CFG-1`–`CFG-38` | 5a. `CFG-15`'s clock and cancellable wait, `CFG-20`'s pivot reshaping (its fourth clause is named in `docs/first-release.md`'s unsatisfied MUSTs) and `CFG-35`'s status classifier are all consumed, none re-decided |
 | `OBS-1`–`OBS-40` | 5b and 5c. **`OBS-19` is the exception**: phase 5b postponed its policy to phase 8 and it lands in `8c` |
-| `OBS-28`, `OBS-29` — the eleven-method `HTTPTracer` vocabulary and its ordering contract | 5c, built with no emitter. `OBS-29`'s **transport-milestone group** is phase 8's, subject to `R6`; the operation-lifecycle triple is `OI-32`'s and is nobody's in phase 8 |
+| `OBS-28`, `OBS-29` — the eleven-method `HTTPTracer` vocabulary and its ordering contract | 5c, built with no emitter. `OBS-29`'s **transport-milestone group** is phase 8's, subject to `R6`; the operation-lifecycle triple is phase 10's inbound list's and is nobody's in phase 8 |
 | `RETRY-1`–`RETRY-45`, `REDIR-1`–`REDIR-28`, `AUTH-1`–`AUTH-38` | 6. Phase 8 disables the native equivalents and installs no step |
 | `PAGE`, `SSE`, `SERDE` | 7. `SERDE-27`'s no-materialization clause names "any adapter phase 8 or later ships whose library has a pull parser" (`P7-1`), which none of phase 8's three is |
 | `BODY-12` clause 2, `BODY-36` | Phase 3b targeted clause 2 at phase 8 and it is dispositioned under *What earlier phases postponed to phase 8* (declined; `8a`'s design owns the record); `BODY-36` needs core's dependency budget to change and no v1 phase can meet it — `docs/first-release.md` § What v1 ships without |
@@ -840,8 +843,9 @@ Phase 8 is the second build phase after phase 7 with a zero gap set, and the roa
 
 **What that does not license.** Three things, and the third is specific to this phase:
 
-1. **`--gaps` measures corpus coverage, not specification coverage** (`OI-12` states the same asymmetry
-   from the other side). Both chapters were read in full anyway, which is cheap at 51 and 46 lines.
+1. **`--gaps` measures corpus coverage, not specification coverage** (the roadmap's gap paragraph states
+   the same asymmetry from the other side, where `RECOV-17`–`34` are appendix-C only). Both chapters were
+   read in full anyway, which is cheap at 51 and 46 lines.
 2. **The `*Conformance:*` clauses appendix C drops are load-bearing here more than anywhere.** Nine of
    them prescribe a *test shape* no appendix-C row implies — `TRANSPORT-5`'s "two concurrent calls with
    different per-call timeouts", `TRANSPORT-13`'s "the same name warns once then goes quiet, a different
@@ -1036,7 +1040,8 @@ no pool to bound — and is named so `8a` knows the name is taken and the concep
 ### The CI matrix after `8c`'s per-gem Ruby floor
 
 **Added 2026-09-12,** because three plans touch the same six files if each does this independently.
-`dexpace-transport-async_http` declares `required_ruby_version >= 3.3` (`P8-36`, `OI-38`) and every other
+`dexpace-transport-async_http` declares `required_ruby_version >= 3.3` (`P8-36`, and `8c`'s plan Task 3
+owns the gate edit) and every other
 gem keeps the repository floor of 3.2. **`8c`'s plan Task 3 makes the edit, in `8c`'s own PR**, against
 this document's earlier recommendation that it be phase-level: without it `bundle install` on the 3.2 row
 fails for the **whole workspace** the moment `8c`'s gemspec exists, because phase 0's root `Gemfile` adds
@@ -1107,17 +1112,20 @@ make the cooperative contract *stateable and testable* … not to close the gap,
 `.wrapping(io)`; `MAX_MATERIALIZED_BYTES`; `Dexpace::StreamError < ::IOError` as a **sibling** of
 `Dexpace::TransportError` and never a subclass (`P3-3`); `Dexpace::EndOfStreamError < ::EOFError`, without
 which "every streaming upload phase 8 performs would fail"; `Dexpace::Body` with `#source` and a default
-no-op `#close` (`OI-10`'s resolution); `Dexpace::FileBody` exposing `#path`, `#offset` and `#count` and
-deliberately **not** `#to_path` (`P3-17`); `Body.buffer_bounded`. Two open items phase 8 inherits
-unresolved: **`OI-9`** — `BufferedSource.wrapping` delivers one byte per read, "and it will reach every
+no-op `#close` (3b plan, Tasks 1/2/8 — `Body#source` and a no-op `#close`, resolved 2026-09-08);
+`Dexpace::FileBody` exposing `#path`, `#offset` and `#count` and
+deliberately **not** `#to_path` (`P3-17`); `Body.buffer_bounded`. Two findings phase 8 inherits
+unresolved: **the `.wrapping` throughput defect** (3a plan, Task 10's `fill(count)` refill fix) —
+`BufferedSource.wrapping` delivers one byte per read, "and it will reach every
 transport phase 8 writes, since `BufferedSource.wrapping` is how a response body is built" — and
-**`OI-7`**, the decode recipe.
+**§3.1's decode sentence**, the decode recipe, which is on phase 10's inbound list.
 
 **Phase 4b/4c — the error taxonomy and the runtime a transport sits under.** `Dexpace::ProtocolError` flat
 beside where `Dexpace::TransportError` lands ("Putting either inside `Recovery` would make phase 8's
 branch and phase 4's branch of one taxonomy live in two different namespaces"); `Dexpace.each_cause`;
 `Dexpace::Suppressible` and `attach_suppressed`; `Stages`, `Cursor`, `Pipeline` / `AsyncPipeline`,
-`PIPE-26`/`PIPE-27`. **`OI-18` is open and its repair is named as phase 8's or a phase-2 amendment's**:
+`PIPE-26`/`PIPE-27`. **The `async_over` return-type check is open and its repair is named as phase 8's or
+a phase-2 amendment's — phase 2 plan, Task 11 owns it**:
 `Transport.async_over` accepts an *async* transport silently and yields a future of a future.
 
 **Phase 5a/5b/5c — configuration and observability, consumed and not re-decided.** `Dexpace::Clock` and
@@ -1227,7 +1235,8 @@ rather than assumed**; the sub-phase designs run the three-interpreter check thi
    **The redirect half is right** — `Net::HTTP` exposes no follow-redirects method at all
    (`(Net::HTTP.instance_methods + Net::HTTP.methods).grep(/redirect/i)` is `[]`). **The retry half is
    wrong**, and with it `TRANSPORT-2`, `TRANSPORT-17` and `TRANSPORT-18`'s dispositions. `8a` sets
-   `max_retries = 0` and the three become true; it is one line and three requirements. Filed as `OI-34`.
+   `max_retries = 0` and the three become true; it is one line and three requirements. The §12 correction
+   it implies is on phase 10's inbound list (this document's *Findings* section states it in full).
    *Commands:* `ruby -e 'require "net/http"; p Net::HTTP.new("x").max_retries'`;
    `sed -n '2401,2446p' /usr/lib/ruby/3.4.0/net/http.rb`;
    `ruby -e 'require "net/http"; p Net::HTTP.const_get(:IDEMPOTENT_METHODS_)'`.
@@ -1249,8 +1258,9 @@ rather than assumed**; the sub-phase designs run the three-interpreter check thi
    Chunks from `read_body` are `ASCII-8BIT` and unfrozen. **Design §3.2 states this construction satisfies
    `SEAM-11` and `TRANSPORT-25` "literally"**
    (`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md:167-171`); measured, it does not, which is
-   why `R1` is a deviation-or-erratum decision and not only an implementation choice, and why `OI-35` is
-   filed. This is `R1`, and it is the single hardest decision in the phase.
+   why `R1` is a deviation-or-erratum decision and not only an implementation choice, and why the
+   `read_body` finding below is raised at all. This is `R1`, and it is the single hardest decision in the
+   phase.
    *Command:* `ruby scratchpad/wire4.rb` (a `TCPServer` dribble fixture; the five probes above).
 
 3. **`async-http` solves the same problem natively, with no pump.** Against the same dribble fixture,
@@ -1337,7 +1347,7 @@ rather than assumed**; the sub-phase designs run the three-interpreter check thi
    failure channel" — a `rescue` clause written the obvious way will not run when a task is cancelled,
    so the close has to sit in an `ensure`. And because the two names are one class, `rescue Async::Cancel`
    and `rescue Async::Stop` catch **the same thing**; an adapter that writes both has written one.
-   `R13`, and filed as `OI-37`.
+   `R13`, and recorded as the `Async::Cancel` finding below (a knowledge note).
    *Command:* `ruby -e 'require "async"; p Async::Stop.equal?(Async::Cancel); p Async::Cancel.ancestors.take(3)'`
    → `true`, `[Async::Cancel, Exception, Object]`.
 
@@ -1379,7 +1389,7 @@ rather than assumed**; the sub-phase designs run the three-interpreter check thi
     `Thread.new { Fiber[:k] }.value` was `"outer"`; with `Thread.current[:tk] = "tl"` set,
     `Thread.new { Thread.current[:tk] }.value` was **`nil`**. A child thread rebinding `Fiber[:cow]` left
     the parent's slot unchanged. Two `Fiber.current.storage =` calls produced **two** warnings, category
-    `:experimental`, at the default warning level (re-verifying `OI-13` on 3.4.10), and
+    `:experimental`, at the default warning level (re-verifying the observability note on 3.4.10), and
     `Fiber.current.storage = nil` read back as `nil` here. `Thread::SizedQueue.new(2)` blocked a third push
     (`status == "sleep"`) and released it on a pop; `Thread::Queue#close` woke a blocked `#pop` with
     `nil`; `Thread::SizedQueue#close` raised `ClosedQueueError` in a blocked push; `Thread#join(0.1)`
@@ -1497,8 +1507,9 @@ motion than any earlier phase produced, which is what the last build phase shoul
   emitter; the per-attempt group is phase 6a's Task 9. Its remaining sentence: "The transport-milestone
   group follows in phase 8 with the first adapter." Phase 8 supplies no emitter — **subject to `R6`**,
   because no route exists by which a transport reaches a per-operation `HTTPTracer` through the
-  `NFR-4`-locked three-argument seam (filed as `OI-36`); `8a` declines under its `R6` and `8c` for the same
-  reason. `OI-32` records that the operation-lifecycle triple still waits on a `PRE_REDIRECT`-adjacent
+  `NFR-4`-locked three-argument seam (the finding below, on phase 10's inbound list); `8a` declines under
+  its `R6` and `8c` for the same
+  reason. Phase 10's inbound list also records that the operation-lifecycle triple still waits on a `PRE_REDIRECT`-adjacent
   step, which phase 8 neither ships nor can justify. Both residuals are one surface decision on phase 10's
   inbound list (the roadmap's 2026-09-13 status note).
 - **`BODY-12` clause 2 — the transport recognising a file-backed body by type and dispatching a true
@@ -1598,15 +1609,18 @@ motion than any earlier phase produced, which is what the last build phase shoul
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-**Seven, described here for a human to file. None is acted on by this document, the four proposed
-open-item numbers run contiguously from the register's own `next id`, and no register file is edited by
-it.**
+**Seven, in the words this document measured them in. None is acted on here; each is followed by the
+owner that carries it** *(the owner lines were added 2026-09-13, when the find-list was retired and every
+finding was routed to an owner instead of a register row — a numbered plan task, phase 10's inbound list,
+a knowledge note, or `docs/first-release.md`)*.
 
-**Target register: `docs/open-items.md`. Proposed id `OI-34`** (the register's `next id` is `OI-34`).
+**Owner: phase 10's inbound list in the roadmap — §12's `TRANSPORT` row and its MUST-level count, plus
+§3.2's and §11.18's sentences; `docs/deviations.md` carries the interim note. The code half is `8a`'s
+`http.max_retries = 0`.**
 
-> ### OI-34 — `Net::HTTP` has a built-in automatic retry that is on by default, and design §3.2, §11.18 and §12 all record that it has none
+> ### `Net::HTTP` has a built-in automatic retry that is on by default, and design §3.2, §11.18 and §12 all record that it has none
 >
 > - **Opened:** 2026-09-11, phase 8 segmentation design
 > - **Status:** open
@@ -1636,9 +1650,10 @@ it.**
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-35`.**
+**Owner: phase 10's inbound list in the roadmap — §3.2's `read_body` sentence; `docs/deviations.md`
+carries the interim note. The construction is already decided, as `8a`'s `P8-1`.**
 
-> ### OI-35 — design §3.2 prescribes a block-scoped `read_body` construction for `dexpace-transport-net_http` that cannot satisfy the two requirements it says it satisfies "literally"
+> ### design §3.2 prescribes a block-scoped `read_body` construction for `dexpace-transport-net_http` that cannot satisfy the two requirements it says it satisfies "literally"
 >
 > - **Opened:** 2026-09-11, phase 8 segmentation design
 > - **Status:** open
@@ -1659,7 +1674,7 @@ it.**
 > `TRANSPORT-25`'s lazily-read stream both violated by the design's own recipe. The construction that does
 > work keeps the block open across the return of `#call` (a `Fiber` or a producer thread), which §3.2
 > does not describe and which brings its own abandonment problem — an abandoned `Fiber` never runs its
-> `ensure`, so the connection leaks. This is `OI-34`'s species in the same paragraph of the same frozen
+> `ensure`, so the connection leaks. This is the retry finding's species in the same paragraph of the same frozen
 > section: a design sentence that is false about `Net::HTTP`. Phase 8a's `R1` decides the construction and
 > records whichever it takes as an implementation choice or a `P8-<n>` deviation; this row records that
 > the chapter it is departing from is wrong rather than merely silent. Nothing is broken today because
@@ -1667,13 +1682,15 @@ it.**
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-36`.**
+**Owner: phase 10's inbound list in the roadmap — one surface decision, together with `OBS-29`'s
+operation-lifecycle triple.**
 
-> ### OI-36 — no route exists by which a transport adapter reaches an `HTTPTracer`, so `OBS-29`'s transport-milestone group has a vocabulary and no reachable emitter
+> ### no route exists by which a transport adapter reaches an `HTTPTracer`, so `OBS-29`'s transport-milestone group has a vocabulary and no reachable emitter
 >
 > - **Opened:** 2026-09-11, phase 8 segmentation design
 > - **Status:** open
-> - **Cites:** OBS-28, OBS-29, OI-31, OI-32, SEAM-11, SEAM-16, PIPE-11, NFR-4
+> - **Cites:** OBS-28, OBS-29, SEAM-11, SEAM-16, PIPE-11, NFR-4; 6a plan Task 8's `Cursor` context-bundle
+>   widening, and `OBS-29`'s operation-lifecycle triple on phase 10's inbound list
 >
 > Phase 5c shipped `Dexpace::Instrumentation::HTTPTracer` with five transport methods whose argument lists
 > it fixed — `#request_url_resolved(context, url)`, `#connection_acquired(context, host, port)`,
@@ -1686,17 +1703,19 @@ it.**
 > (phase 5b's `P5-33` states both), the adapter is in a different gem, `PIPE-11` forbids ambient carriage,
 > and `NFR-4` locks the seam's three-argument shape. So an adapter can reach a tracer only through its own
 > constructor — which gives one tracer for the adapter's whole lifetime, not one per operation — or
-> through a widening of `RequestOptions`, which is a core type and a phase-1 surface. This is `OI-31`'s
-> shape one layer further out: `OI-31` records that a pipeline **step** cannot reach a context bundle;
+> through a widening of `RequestOptions`, which is a core type and a phase-1 surface. This is the shape of
+> 6a plan Task 8's `Cursor` context-bundle widening, one layer further out: that one records that a
+> pipeline **step** cannot reach a context bundle;
 > this records that a **transport in another gem** cannot reach a per-operation tracer at all. Phase 8a
 > decides and the decision may be "not wired, and `OBS-29`'s wiring stays open on this half too", which is what
-> `OI-32` already records for the operation-lifecycle triple.
+> phase 10's inbound list already records for the operation-lifecycle triple.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-37`.**
+**Owner: `docs/knowledge/notes/concurrency-and-async.md` — the entry recording that `Async::Cancel` is
+not a `StandardError`; the repair in code is `8c`'s `ensure` discipline (`R13`).**
 
-> ### OI-37 — a cancelled `Async` task raises an `Exception` that is not a `StandardError`, so `Dexpace.close_quietly` and every `rescue` written the obvious way are blind to it
+> ### a cancelled `Async` task raises an `Exception` that is not a `StandardError`, so `Dexpace.close_quietly` and every `rescue` written the obvious way are blind to it
 >
 > - **Opened:** 2026-09-11, phase 8 segmentation design
 > - **Status:** open
@@ -1719,7 +1738,8 @@ it.**
 > Because the two names are one class, `rescue Async::Cancel` and `rescue Async::Stop` catch the same
 > thing; an adapter that writes both has written one. Recorded rather than fixed here because
 > `close_quietly`'s contract is phase 2's and a second exit would
-> give the SDK two answers to one question. It is `OI-18`'s species: a core mechanism that is correct about
+> give the SDK two answers to one question. It is the species of phase 2 plan Task 11's `async_over`
+> return-type check: a core mechanism that is correct about
 > what it was designed for and silent about a case a later gem made reachable.
 >
 > **Resolution:** *(open)*
@@ -1736,14 +1756,15 @@ is `OBS-19` from the transport side, three modes for three modes. So the conditi
 first adapter that drops a caller-set header rather than raising on it — which is **`TRANSPORT-12`**'s
 subject, with **`TRANSPORT-13`** the transport-side twin of `OBS-19`'s three-mode policy — and is not
 `dexpace-transport-net_http`." The route the row describes is right and the requirement it names is wrong,
-which is the same species of error phase 7 found in `OI-5`'s resolution text. **The same wrong ID was
+which is the same species of error phase 7 found in the line-cap closure evidence 7b's plan Task 12 now owns. **The same wrong ID was
 repeated in phase 5b's forward table** — "**Phase 8**, on `TRANSPORT-8`"
 (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md:2110`) — and was
 corrected in the same change, because a corrected record pointing at an uncorrected phase document is how
 a correction gets lost. The correction also records that the condition **is now met**: `protocol-http1`
 rejects a header name `HTTP-17` accepts, so `dexpace-transport-async_http` must drop rather than raise.
 The IDs the item touches are `OBS-19`, `TRANSPORT-12`, `TRANSPORT-13`, `HTTP-17`, `HTTP-18`, `XCUT-19` and
-`NFR-4`, with the wire-boundary re-validation, `OI-8` and `OI-27` as its cross-references. Owner: `8c`'s
+`NFR-4`, with the wire-boundary re-validation, 3a plan Task 14's `#clear_tap` keep-or-drop decision and
+the phase-5 charter's `OBS-19` cell (corrected to `R10`) as its cross-references. Owner: `8c`'s
 Tasks 7, 9 and 15.
 
 **A narrowing of the `SEAM-24` entry — applied 2026-09-12, and now stated in `docs/first-release.md` § What
@@ -1759,7 +1780,7 @@ after phase 8, and a phase-9 audit would have to re-derive it from three sub-pha
 disposition: the bridge stays declined for v1 and is **not** declined *by phase 8*, because the condition
 it names — `dexpace-async-async` — is post-v1 and unmeetable here.
 
-**Target register: `docs/first-release.md`.** Two changes, both owed by the phase-level PR rather than by a
+**Owner: `docs/first-release.md`.** Two changes, both owed by the phase-level PR rather than by a
 sub-phase. **First**, the standing phase-8 blocker — "Phase 8's first transport adapter must wrap every
 stdlib I/O and timeout error it lets escape … in something answering `#retryable?`
 (`Dexpace::TransportError` or equivalent), defaulting to `true` per `XCUT-4` branch (b)" — is **closed by
@@ -1772,9 +1793,11 @@ off `no — 0.0.0` when phase 8 performs the workspace's first release, and the 
 `dexpace-conformance` suite passing across the full supported Ruby range, 3.2 through 4.0" becomes
 checkable for the first time.
 
-**Two rows explicitly do not close.** `OI-9`'s one-byte-per-read defect in `BufferedSource.wrapping`
-reaches every transport phase 8 writes and is phase 3a's code to fix, not phase 8's; `OI-22`'s missing
-`CFG-20` citation is phase 5a's and phase 8 adds no fourth unsatisfied MUST for it to point at.
+**Two inherited findings explicitly do not close.** The one-byte-per-read defect in
+`BufferedSource.wrapping` reaches every transport phase 8 writes and is phase 3a's code to fix, not phase
+8's — 3a plan, Task 10's `fill(count)` refill fix. The missing `CFG-20` citation is phase 5a's and now
+lives in `docs/first-release.md`'s unsatisfied MUSTs, where the `ASYNC-3`/`PIPE-33` entry names `CFG-20`'s
+fourth clause; phase 8 adds no fourth unsatisfied MUST for it to point at.
 
 ---
 
@@ -1852,8 +1875,8 @@ files it:
 > re-validation, `SEAM-25`'s lifecycle event, `OBS-19`'s header-drop policy), one partly (`OBS-29`'s
 > transport milestones), **two** declined (`BODY-12` clause 2, and moving core's test fakes into
 > `dexpace-conformance` — condition met, the literal move declined on a development-dependency-cycle
-> argument), nothing new postponed. Four open items proposed (`OI-34`–`OI-37`), of which
-> `OI-34` and `OI-35` both record that design §3.2 is wrong about `Net::HTTP` — the built-in retry it says
+> argument), nothing new postponed. Four findings raised and routed to owners, of which
+> two both record that design §3.2 is wrong about `Net::HTTP` — the built-in retry it says
 > does not exist, and the block-scoped streaming construction it says satisfies `SEAM-11` and
 > `TRANSPORT-25` "literally". No new unsatisfied MUST: `ASYNC-3` and `PIPE-33`'s interrupt clause are
 > §10.5's and the unsatisfied-MUST entry carries both unchanged, while `ASYNC-4` is on no such entry
@@ -1897,30 +1920,26 @@ exist yet" stays true until phase 0's scaffold lands as code; "There are 40 harv
 `docs/knowledge/harvested/`" is untouched; the MVP gem table's dependency column already states
 `net-http`, `async-http` and the zero-dependency adapters correctly.
 
-**What `ruby .claude/skills/housekeeping/probe.rb` reports until follow-through lands, so the next runner
-does not read it as drift.** Re-run on 2026-09-12 after all seven phase-8 documents were written and
-reconciled, the probe reports **18 findings across two checks**, all of them consequences of those
-documents existing and none fixable from inside them. (**Corrected in place**: this paragraph said
-"exactly five findings", counting only this document's own four proposed ids, before the three sub-phase
-designs proposed eleven more.)
+**What `ruby .claude/skills/housekeeping/probe.rb` reported when the phase-8 documents landed, and what
+is left of it** *(updated 2026-09-13)*. Re-run on 2026-09-12 after all seven phase-8 documents were
+written and reconciled, the probe reported **18 findings across two checks**, all of them consequences of
+those documents existing and none fixable from inside them. (**Corrected in place**: this paragraph said
+"exactly five findings", counting only this document's own four, before the three sub-phase designs
+raised eleven more.)
 
 - **`claims` (1)** — `CLAUDE.md:381`: states "eight phase directories" but the repository has 9 phase
   directories under `docs/work/`. Edit (a) above closes it.
-- **`citations` (17)** — **fifteen `OI-<n>` numbers are cited across phase 8 with no entry in
-  `docs/open-items.md` yet**, two of them (`OI-38` and `OI-41`) cited twice, which is where 15 becomes 17
-  lines. The register's `next id` is `OI-34` and the fifteen run contiguously from it: `OI-34`–`OI-37`
-  here, `OI-38`–`OI-41` in `8c`'s design, `OI-42`–`OI-45` in `8a`'s and `OI-46`–`OI-48` in `8b`'s, in
-  sub-phase order. Every one of the fifteen is written out in the register's own item format in the
-  document that proposes it, for pasting. Phase 7's findings deliberately carried no numbers and produced
-  no such finding; this phase files numbered rows so the follow-through is a paste rather than a
-  re-derivation, which is why the trade is different and why it is stated here rather than left to be
-  rediscovered. **A filer runs `--only citations` first** and, if any of the fifteen lands on a different
-  number, shifts the rest mechanically — nothing in phase 8 cites an `OI-3x`/`OI-4x` from source code.
+- **`citations` (17)** — register ids cited across phase 8 with no entry filed for them, four here and
+  eleven across the three sub-phase designs, in sub-phase order. **That group is gone rather than
+  pending** *(2026-09-13)*: the find-list was retired and every phase-8 finding was routed to an owner
+  instead — a numbered plan task, phase 10's inbound list, a knowledge note or `docs/first-release.md` —
+  so nothing in phase 8 waits on a paste. Phase 7's findings deliberately carried no numbers and produced
+  no such finding either.
 
 `links`, `inbox`, `root`, `readmes`, `registers` and `guard` are clean.
 
-**Once the follow-through above is applied**, edits (a) and (c)/(b) clear the `claims` finding and the
-fifteen pasted register rows clear the `citations` findings, leaving the probe clean. The four-digit trap
+**Once the follow-through above is applied**, edits (a) and (c)/(b) clear the `claims` finding, and the
+`citations` group is already cleared by the routing above, leaving the probe clean. The four-digit trap
 is edit (c)'s wording: paste it as given.
 
 ---
@@ -1996,12 +2015,13 @@ to implement the reachable half and mark `TRANSPORT-28` partially satisfied, or 
 as declined for v1 — and, either way, performs the `BODY-12` clause-2 disposition phase 3b handed to phase
 8, which this document recommends be **declined with phase 8 named**.
 
-**R6 — `8a`: whether `OBS-29`'s transport-milestone group is wired at all.** `OI-36`: no route exists by
+**R6 — `8a`: whether `OBS-29`'s transport-milestone group is wired at all.** The finding, now on phase
+10's inbound list: no route exists by
 which an adapter in another gem reaches a per-operation `HTTPTracer` through an `NFR-4`-locked
 three-argument seam. `8a` decides between a constructor keyword (one tracer per adapter lifetime, which
 `OBS-29`'s 1:1 clause does not describe), a widening of `RequestOptions` (a core type, a phase-1 surface,
 and a real `NFR-4` widening), and leaving the half unwired and saying so in the record — which is what
-`OI-32` already records for the operation-lifecycle triple and is the answer this document expects. It
+phase 10's inbound list already records for the operation-lifecycle triple and is the answer this document expects. It
 must not mark `OBS-29`'s transport group emitted on the strength of a method that is never called.
 
 **R7 — `8a`: the shape of the `TCPServer` fixture and the assertion protocol, so `8c` and phase 9 extend
@@ -2014,7 +2034,7 @@ phase 0's Steep-over-`test/` condition unmet) or `test/`; how a **vacuous** item
 and how §9.3's named-waiver mechanism for `ASYNC-3` is spelled. `8c` and phase 9 both inherit whatever
 this decides.
 
-**R8 — `8b`: `ASYNC-9`'s save/install/restore against `OI-13`'s warned setter.** `Fiber#storage=` is the
+**R8 — `8b`: `ASYNC-9`'s save/install/restore against `Fiber#storage=`'s warned setter.** `Fiber#storage=` is the
 only whole-map write API, it warns on every call at the default warning level (re-verified, two calls →
 two warnings, category `:experimental`), and the gate set fails the build on warnings. Three routes, all
 with a cost: a **per-key** save/install/restore in the shape 5c's `P5-49` already took (which collapses
@@ -2068,7 +2088,7 @@ await — which §3.7 already states for this gem: "close signals its queue and 
 workers under a `Kernel#sleep` or an unbounded `Thread#join`."
 
 **R13 — `8c`: where the orphan close lives, given that a cancelled task raises outside `StandardError`.**
-Verified fact 9 and `OI-37`. `SEAM-30`/`ASYNC-5`/`TRANSPORT-9`/`TRANSPORT-22` all require a response to be
+Verified fact 9, and the `Async::Cancel` finding below. `SEAM-30`/`ASYNC-5`/`TRANSPORT-9`/`TRANSPORT-22` all require a response to be
 closed on a path where nobody will receive it, and `Async::Cancel < Exception` — with `Async::Stop` a
 deprecated **alias** of that same class, not a subclass — means a `rescue` written the obvious way never
 runs on a cancellation while it does run on `Async::TimeoutError`. `8c` states that every such close sits
@@ -2088,8 +2108,8 @@ under the one-row-per-ID convention: `8c` *reports* whether the antecedent is li
 `8a` amends the row's stated reason if it is. **Every async probe in this document
 ran HTTP/1.1 against a local `TCPServer`; the HTTP/2 path was not exercised.** `8c` decides whether either
 antecedent is live for this adapter and, if `TRANSPORT-8` is, whether the port gains a requirement §12
-records as vacuous — which would be a correction to §12 of the same species as `OI-34` and must be filed
-as one.
+records as vacuous — which would be a correction to §12 of the same species as this document's retry
+finding and belongs with it on phase 10's inbound list.
 
 **R15 — `8c`: `NFR-2`'s budget against a fourteen-gem transitive closure with a native extension.**
 Verified fact 7. `dexpace-transport-async_http` declares one third-party dependency and installs fifteen
@@ -2149,19 +2169,22 @@ it, no id is reused, and `P8-41`–`P8-50` stay unallocated.
 built-in retry — does not make the port differ from the reference contract; it makes the port **conform**
 where three design sentences say conformance is free. Disabling `max_retries` is what `TRANSPORT-2`
 requires, and the design's error is an erratum about a library, not a decision about a requirement. That
-is why it is `OI-34` and not `P8-1`. The same reasoning covers verified facts 5, 9 and 12: each changes
+is why it is a finding against a frozen chapter and not `P8-1`. The same reasoning covers verified facts
+5, 9 and 12: each changes
 what a sub-phase must *do* and none changes what the port *claims*.
 
 **One refinement to the roadmap, stated here because the roadmap requires a corrected cell to be corrected
 in place with the correction stated.** It is a **correction**, not a refinement — phases 3, 4 and 6 each
 found a stated reason false and this one does too, at the level of the cut itself rather than of its
 rationale. The exact replacement text is under *Roadmap follow-through owed*; the argument is under *The
-roadmap's forecast, tested rather than deferred to*. **Filed as a roadmap correction and not as an open
-item, and the judgement is deliberate**, on the reasoning phases 6 and 7 both gave: `OI-1`, `OI-2`,
-`OI-12`, `OI-15`, `OI-21`, `OI-29` and `OI-31` each record a sentence that reads correctly and resolves to
+roadmap's forecast, tested rather than deferred to*. **Applied as a roadmap correction in place rather
+than routed to another document as a finding, and the judgement is deliberate**, on the reasoning phases 6 and 7 both gave: the roadmap gap
+paragraph's own findings, the phase-4 charter's exclusions row, phase 5a Task 4's status half, the
+HTTP-tracer factory-versus-bundle question and 6a plan Task 8's `Cursor` context-bundle widening each
+record a sentence that reads correctly and resolves to
 something that is not there. The phase-8 bullet resolves to something that *is* there and is wrong about
-it, which is what correction-in-place is for. `OI-34` is filed separately because its subject is a **frozen
-design chapter**, which no phase may correct in place.
+it, which is what correction-in-place is for. The retry finding is kept separate because its subject is a
+**frozen design chapter**, which no phase may correct in place.
 
 **Three consequences outside this document's own scope to fix, recorded so they are not discovered later.**
 

@@ -24,13 +24,14 @@ does not re-open it**: the contract is `Cursor#fork(state:)` plus `Cursor#state(
 tested by five negative assertions, and its phase-6 consumption is written into 4c's own forward table. There
 is no shared-contract sub-phase to land, because the shared contract already landed one phase early. The
 roadmap sentence is a correctly-worded pointer at a premise that went stale three days after it was written,
-and the correction is stated in this document's *Deviation Ledger* rather than filed as an open item — the
-reasoning for that choice is given there.
+and the correction is stated in this document's *Deviation Ledger* rather than routed to an owner as a
+finding — the reasoning for that choice is given there.
 
 Phase 6 adds **no new unsatisfied MUST**. It lands five items earlier phases postponed to it — the recovery-stack retry engine,
 `ProtocolError#retryable?`, `CFG-35`'s throwable half, the per-attempt half of `OBS-29`'s wiring and the `Pipeline.standard`
 constructors — postpones nothing new, and
-inherits a spec-reading budget of **fourteen** requirement IDs that exist only as appendix-C rows (`OI-12`).
+inherits a spec-reading budget of **fourteen** requirement IDs that exist only as appendix-C rows, exactly as
+the roadmap's gap paragraph records.
 
 ---
 
@@ -41,7 +42,8 @@ inherits a spec-reading budget of **fourteen** requirement IDs that exist only a
   lines), together with
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for the canonical text of all 111
   prefix IDs and of `RECOV-17`–`RECOV-34`. Appendix C is a **necessity** here and not a convenience: fourteen
-  of the fifteen `RECOV` IDs in scope appear in no prose chapter at all (`OI-12`).
+  of the fifteen `RECOV` IDs in scope appear in no prose chapter at all — the roadmap's gap paragraph records
+  `RECOV-17`–`34` as appendix-C only.
 - `docs/product-spec/08-execution-pipelines.md` §8.2 — the recovery-chain primitives the recovery-stack retry engine (phase 4's deferral, `6a`'s
   work) installs into, and the chapter that stops at `RECOV-16`.
 - `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` in full — §6.1 (single-sourcing, the open
@@ -65,7 +67,7 @@ inherits a spec-reading budget of **fourteen** requirement IDs that exist only a
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md` and
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md` as the two worked examples of this document's
   form.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md`.
+- `docs/deviations.md` and `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -309,7 +311,7 @@ accident.
    `ProtocolError#retryable?` (phase 4b's), `CFG-35`'s throwable half (phase 5a's) and the per-attempt half of `OBS-29`'s
    wiring (phase 5c's). Two of those (`#retryable?`, the throwable half) name objects phase 5a deliberately shipped half of, and
    the longer they stay half-shipped the more likely a second one gets built.
-3. **`6a` is the sub-phase this document assigns `OI-31`'s resolution to**, and the widening it lands is
+3. **`6a` is the sub-phase this document assigns the `Cursor` context-bundle widening to**, and the widening it lands is
    consumed by `6b` and `6c` if it exists and by nothing if it does not — see *Phase-level tasks* below.
 4. **`6b` before `6c` puts the marker's writer in place before its reader.** This is the reason most likely to
    be mistaken for a dependency and it is not one: each side is fully testable against 4c's probes, and the
@@ -342,7 +344,7 @@ both stacks.
 **Rejected cut C — splitting `6a` along its two stacks, or along sync/async.** Rejected under *Why `6a` is one
 segment*, on `RETRY-13`, `RETRY-14`, `RECOV-30`, the chapter's own introduction and `PIPE-28`'s precedent.
 
-**Rejected cut D — four ways, with a closing segment for `Pipeline.standard`, `OBS-29`'s wiring and `OI-31`.** The three
+**Rejected cut D — four ways, with a closing segment for `Pipeline.standard`, `OBS-29`'s wiring and the cursor widening.** The three
 phase-level items genuinely belong to no sub-phase. Rejected anyway: together they are a handful of tasks, a
 fourth segment is a fourth document set and not a fourth merge (a phase returns to `mvp` as one phase-level
 pull request, roadmap execution step 5), and a segment that can only run last is the definition of a linear
@@ -622,8 +624,8 @@ prevent, and it is a second instance of the arithmetic hazard phase 4's deferral
 - The intersection is **fourteen** — `RECOV-17`–`RECOV-30`.
 - `RECOV-31` is a gap and is **out of budget** (declined for v1). `RECOV-34` is in budget and is **not** a gap: it has
   substantive design-role entries drawn from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`
-  §6.1 and §10.18, and design §12's `RECOV` row places it there. `OI-12` states the same asymmetry from the
-  other side: "'the corpus cannot answer' and 'the specification cannot answer' are independent facts here, and
+  §6.1 and §10.18, and design §12's `RECOV` row places it there. The roadmap's gap paragraph states the same
+  asymmetry from the other side: "'the corpus cannot answer' and 'the specification cannot answer' are independent facts here, and
   `--gaps` measures only the first."
 
 **The spec-reading budget, stated explicitly the way phase 4's design did.**
@@ -632,13 +634,13 @@ prevent, and it is a second instance of the arithmetic hazard phase 4's deferral
    `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md`. Verified for this document:
    `docs/product-spec/08-execution-pipelines.md` §8.2 states `RECOV-1` through `RECOV-16` and stops, so the
    `--gaps` trailer's "read these out of docs/product-spec/08-execution-pipelines.md" is **unfollowable as an
-   instruction**. That is `OI-12`, already filed, and phase 6 discharges the *reading* without closing the
-   *item* — the item is about the derivation, and any fix belongs to `--gaps`, not to a phase.
+   instruction**. That is what the roadmap's gap paragraph records, and phase 6 discharges the *reading* without fixing the
+   *derivation* — the derivation belongs to `--gaps`'s trailing pointer, not to a phase.
 2. **The reading is cheap because chapter 09 states the same rules in prose under IDs it can read.** The deferral's
    twin-by-twin table is what makes that true, and it was derived and verified by the phase-4 segmentation
    design against appendix C. `6a` reads `docs/product-spec/09-retry-and-resilience.md` in full (36 lines) and
    the appendix-C canonical text of all 45 `RETRY` IDs and the fifteen `RECOV` ones. **Budget: one focused
-   pass, not a research task** — which is the sense in which `OI-12`'s "the reading budget the roadmap asks a
+   pass, not a research task** — which is the sense in which the gap paragraph's "the reading budget the roadmap asks a
    phase to plan for therefore largely transfers with the work" holds.
 3. **`6b` and `6c` budget no appendix-C-only reading at all.** Verified 2026-09-09: every one of
    `REDIR-1`–`REDIR-28` and `AUTH-1`–`AUTH-38` appears in its own prose chapter, and `--gaps` prints no "read
@@ -727,18 +729,18 @@ its pick-up condition targets. The site that works is `Stages::PRE_REDIRECT`, or
 slot, which 4c states is "outside every pillar's fork, so a step there is invoked once", and which `PIPE-37`
 already reserves for steps whose correctness depends on observing only the single terminal response. That is a
 **new step**, not a third slot on an existing one. This document does not decide whether phase 6 ships it; it
-records that phase 5c's stated mechanism does not work; the finding is `OI-32` (below). `6a` decides, and `R15`
+records that phase 5c's stated mechanism does not work; the finding is below. `6a` decides, and `R15`
 is where.
 
-### `OI-31` — the instrumentation step's first slot-precedence clause
+### The instrumentation step's first slot-precedence clause
 
 **Decision: widen `Dexpace::Pipeline::Cursor`. Executed by `6a`.** The full argument is the next section.
 
 ---
 
-## `OI-31`: widening the cursor, and what depends on it
+## Widening the cursor, and what depends on it
 
-`OI-31` (opened 2026-09-09, `docs/open-items.md:1341`) records that the reconciled `5b`/`5c` contract resolves
+The finding `6a`'s Task 8 now carries (found 2026-09-09) records that the reconciled `5b`/`5c` contract resolves
 the instrumentation step's tracer factory and meter in three clauses — "the request context's instrumentation
 bundle when it is not `Bundle::NONE`, else the step's constructor keyword, else the constant" — and that **the
 first clause has no implementation path**, because nothing in the shipped surface lets a pipeline step reach a
@@ -753,11 +755,11 @@ trace id and a span id onto the diagnostic context. Every one of those is per-op
 that pipeline ever serves. It cannot carry a per-request span or trace id, so it is not the object clause 1
 names. What it actually is, is clause 2 under a second name — a default the step could equally have taken as
 its own keyword — and choosing it would leave clause 1 permanently dead **including for the preset**, which is
-the opposite of what `OI-31` asks phase 6 to fix. The main session's stated objection (it leaves the clause
+the opposite of what the finding asks phase 6 to fix. The main session's stated objection (it leaves the clause
 dead for anything not built from the preset) is right and understates the case.
 
-**Candidate (a) — widen `Cursor` — is right, and this document states it completely, because as `OI-31` words
-it the producer side is missing.** The resolution is two additive changes:
+**Candidate (a) — widen `Cursor` — is right, and this document states it completely, because as the finding
+words it the producer side is missing.** The resolution is two additive changes:
 
 - a read-only `Cursor` accessor for the per-call instrumentation bundle, carried across `#fork` exactly as
   `#request` and `#options` are (`PIPE-16`, `PIPE-17`);
@@ -767,7 +769,7 @@ it the producer side is missing.** The resolution is two additive changes:
 Four supports:
 
 1. **`PIPE-11` names the cursor as the home and rules out every alternative.** "Per-request mutable state MUST
-   live in the per-call cursor (carried and forked by next), never on the step." `OI-31` itself uses that
+   live in the per-call cursor (carried and forked by next), never on the step." The finding itself uses that
    sentence to close off the ambient-storage route; the same sentence is a positive argument for the cursor.
    `CTX-13` closes the `ContextStore` back door.
 2. **The bundle is a frozen `Data` and rides like the options.** Nothing about it needs mutation, so `PIPE-17`'s
@@ -795,11 +797,11 @@ first, and both other designs state that they consume it and do not build it —
 **What `6a`'s `OBS-29` emission task (Task 9) depends on, stated because it is easy to get backwards.** It depends on
 5c's `Dexpace::Instrumentation::HTTPTracer`, its frozen `NULL` instance and the `CallableAdapter` bus, and on
 the retry step's own `http_tracer:` constructor keyword. **It does not depend on this widening, on
-`Pipeline.standard`, or on `6b` or `6c`.** `OI-29` is why: `CTX-14`'s `Bundle#tracer_factory` produces **span**
+`Pipeline.standard`, or on `6b` or `6c`.** The HTTP-tracer-factory-versus-bundle finding is why: `CTX-14`'s `Bundle#tracer_factory` produces **span**
 tracers and is legitimately shared or cached, while `OBS-29`'s factory produces **HTTP-tracers** — `OBS-28`'s
 eleven-method event vocabulary — and is legitimately per-operation. They are two different kinds of object, so
 a widened cursor carrying a `Bundle` does not supply `6a`'s emitter and `6a` must not read the emitter off
-`Bundle#tracer_factory`. Phase 6 is the first phase that needs them distinguished, exactly as `OI-29` predicted,
+`Bundle#tracer_factory`. Phase 6 is the first phase that needs them distinguished, exactly as that finding predicted,
 and `R3` is where `6a` decides what the separate HTTP-tracer slot is.
 
 ---
@@ -845,11 +847,12 @@ gives `XCUT-4`'s transport-error branch the flag by default. The residual is the
 
 **Consequence for the checklists.** Phase 5a's `CFG-35` row stays ⏳ pointing at `6a`'s Task 3 with its met half named,
 and `6a` carries a `CFG-35` row of its own outside its 60-ID budget, the same inherited-row treatment as the
-⏳ rows. The deferral is discharged when that row lands, and `6a`'s Task 13 says so in the phase status note. **`OI-21` closes with
-it**: 5a's `R1` supplied the cross-reference from the phase-5 end — "the status classifier is phase 5's and
+⏳ rows. The deferral is discharged when that row lands, and `6a`'s Task 13 says so in the phase status note. **The
+`CFG-35`/`XCUT-5` shared-classifier cross-reference closes with
+it**: 5a's `R1` (5a plan, Task 4) supplied the cross-reference from the phase-5 end — "the status classifier is phase 5's and
 lives in `Dexpace::Retryability`, phase 6 computes the baked `#retryable?` 4b postponed from it rather than building
-a second one" — and `6a` supplies the phase-6 end when it does exactly that. Nothing about `OI-21` is re-opened
-here.
+a second one" — and `6a`'s Task 3 supplies the phase-6 end when it does exactly that. Nothing about it is
+re-opened here.
 
 ---
 
@@ -934,7 +937,7 @@ so `6a` consumes `HTTPDate` and asserts `RETRY-15`'s tolerances against it (`R1`
 
 **From phase 5b and 5c** — `Dexpace::Instrumentation::Step` and `::AsyncStep` at `Stages::LOGGING`, built with
 `logger:`, `redactor:`, `level:`, `tracer_factory:`, `meter:`, `preview_bytes:` and `clock:`, whose private
-`bundle_for` is `OI-31`'s seam; `Dexpace::Instrumentation::Redactor` (`#url`, `#header_value`, `#header_name?`,
+`bundle_for` is the cursor widening's seam; `Dexpace::Instrumentation::Redactor` (`#url`, `#header_value`, `#header_name?`,
 `MALFORMED_URL`, `REDACTED_VALUE`, `REDACTED_USERINFO`, `REDACTED_HEADER`, `RELATIVE_MARKER`) and
 `Redactor::DEFAULT`; `Dexpace::Instrumentation::Severity` with `ERROR`/`WARNING`/`INFO`/`VERBOSE`, `ALL` and
 `.of`; `Instrumentation.contain`, the `Logger` facade and the `Keys`/`Events` vocabularies;
@@ -944,7 +947,7 @@ phase 6 inherits as a shape decision.
 
 **The independence statement each sub-phase design must make in its own Prerequisite section.** For every one
 of the three, the *real* dependencies are on phases 0–5 in the list above; the dependency on the other two
-sub-phases of phase 6 is **empty**, with the single exception of `OI-31`'s cursor widening, which `6b` and `6c`
+sub-phases of phase 6 is **empty**, with the single exception of the `Cursor` context-bundle widening, which `6b` and `6c`
 consume if present and neither requires. Anything else a plan schedules behind another sub-phase is
 convenience.
 
@@ -1076,9 +1079,10 @@ to one, and postpones nothing new.**
   shipped the `HTTPTracer` vocabulary and postponed the wiring because nothing in phase 5 could emit it: the per-attempt
   group has no emitter until a retry step exists, and the transport milestones none until an adapter opens a socket.
   The per-attempt group gets its emitter here (`6a` Task 9); the five transport milestones were to wait for phase 8's
-  first adapter, and phase 8 later found no route to them (`OI-36`). **Phase 5c's stated route also needs a
+  first adapter, and phase 8 later found no route to them — the transport-reachable-`HTTPTracer` half now on
+  phase 10's inbound list. **Phase 5c's stated route also needs a
   correction**: a third slot on 5b's step for the operation-lifecycle triple is unavailable, because that step is
-  pinned to `Stages::LOGGING`, which sits inside all three phase-6 loops. Recorded as `OI-32` (the finding below); both
+  pinned to `Stages::LOGGING`, which sits inside all three phase-6 loops. Recorded in the finding below; both
   residuals are on phase 10's inbound list in the roadmap's 2026-09-13 status note.
 - **`Pipeline.standard` / `AsyncPipeline.standard` with `redirect: :unsupported`, postponed by phase 4c on 2026-09-08 —
   picked up, by the phase-level task above (`6b` Task 13a).** Phase 4c postponed them because none of the three step
@@ -1114,12 +1118,12 @@ to one, and postpones nothing new.**
   locking, declined for v1) is the one worth naming: phase 6 installs three pillar steps and does **not** lock a
   stage, which is that entry's whole content, and nothing here changes its condition.
 
-### The findings proposed for the registers
+### Findings, and who owns them now
 
-Three, described here for a human to file. **None is acted on by this document, none carries a number, and no
-register file is edited by it.**
+Three, each named with the owner that carries it. **None is acted on by this document; a finding is routed to
+its owner when found, never to a standing register.**
 
-**Target register: `docs/open-items.md` (filed as `OI-32`).**
+**Owner: phase 10's inbound list in the roadmap.**
 **`OBS-29`'s operation-lifecycle triple cannot be emitted from `Stages::LOGGING`, and the wiring route phase 5c's
 deferral stated is therefore unavailable in the phase its pick-up condition names.** That deferral explains phase 5's decision
 not to wire the triple as "it needs a third slot on `5b`'s instrumentation step, which the phase-5 charter's
@@ -1133,9 +1137,10 @@ fires many times per operation, contradicting `OBS-29`'s "One tracer instance co
 logical operation lifecycle". The site that satisfies the clause is `Stages::PRE_REDIRECT`, order 100, which 4c
 states is "outside every pillar's fork, so a step there is invoked once" and which `PIPE-37` already reserves
 for terminal-response-only steps — and that is a **new step**, not a slot on an existing one. Nothing is broken
-today, because nothing emits the triple. It is the `OI-14`/`OI-27`/`OI-30`/`OI-31` family: a sentence that reads
-correctly and resolves to something that is not there. Cites: `OBS-28`, `OBS-29`, `PIPE-2`, `PIPE-37`,
-`OI-29`.
+today, because nothing emits the triple. It is the family the probe's unresolved cross-references, the phase-5
+charter's `OBS-19` cell and its `OBS-24` arithmetic, and `6a`'s Task 8 cursor widening all belong to: a
+sentence that reads correctly and resolves to something that is not there. Cites: `OBS-28`, `OBS-29`, `PIPE-2`,
+`PIPE-37`; the HTTP-tracer-factory-versus-bundle finding on phase 10's inbound list.
 
 **Finding: the phase-6 target phase 1 named for `HTTP-22`, `HTTP-48`, `HTTP-49` and `HTTP-50` does not fire, and the
 four need a new target or an event shape.** The
@@ -1150,23 +1155,28 @@ before first publish, which carries this verdict together with phase 7's (its ca
 names the reopening event — the first consumer that constructs a conditional request. Cites:
 `HTTP-22`, `HTTP-48`, `HTTP-49`, `HTTP-50`, `REDIR-3`, `REDIR-5`, `AUTH-30`.
 
-**Target register: `docs/open-items.md`, as a resolution on the existing `OI-31` row (not a new row).**
-**`OI-31` is resolved by widening `Dexpace::Pipeline::Cursor`, owned by `6a`.** The full argument is the
-`OI-31` section above; the resolution text a human writes into the row is: candidate (b) is rejected because a
+**Owner: `6a`'s plan, Task 8, which carries the whole finding and builds the mechanism.**
+**The instrumentation step's first slot-precedence clause is resolved by widening `Dexpace::Pipeline::Cursor`,
+owned by `6a`.** The full argument is the
+"Widening the cursor" section above; the resolution that task states is: candidate (b) is rejected because a
 bundle threaded at pipeline construction is per-pipeline and `CTX-14`'s bundle is per-operation, so (b) cannot
 carry a per-request span and merely re-spells clause 2; candidate (a) is adopted as a read-only per-call
 accessor on `Cursor` plus one optional seeding keyword on the pipeline's call path, both widenings under
 `NFR-4` per `api-design/1d9e6e0b`, with `PIPE-11` naming the cursor as the home and `PIPE-17` giving the fork
 semantics; `bundle_for` in 5b's step gains its first clause in the same task; and `6a`'s `OBS-29` emission task
-does **not** depend on it, because `OI-29` establishes that `OBS-29`'s HTTP-tracer is not `Bundle#tracer_factory`.
+does **not** depend on it, because the HTTP-tracer-factory-versus-bundle finding on phase 10's inbound list
+establishes that `OBS-29`'s HTTP-tracer is not `Bundle#tracer_factory`.
 
-**Two existing rows close as a consequence and are named so the closure is not lost.** `OI-21` closes when
-`6a` computes `ProtocolError#retryable?` from 5a's `Dexpace::Retryability`, which supplies the phase-6 end of
-the cross-reference 5a's `R1` supplied from the phase-5 end. `OI-29`'s resolution is decided by `6a` under
-`R3`. Neither is re-opened or re-argued here.
+**Two outstanding findings close as a consequence and are named so the closure is not lost.** The
+`CFG-35`/`XCUT-5` shared-classifier cross-reference — 5a plan Task 4's status half, `6a` Task 3's throwable
+half — closes when `6a` computes `ProtocolError#retryable?` from 5a's `Dexpace::Retryability`, which supplies
+the phase-6 end of the cross-reference 5a's `R1` supplied from the phase-5 end. The
+HTTP-tracer-factory-versus-bundle question is decided by `6a` under `R3`. Neither is re-opened or re-argued
+here.
 
-**One row explicitly does not close.** `OI-12` is about the derivation — "`--gaps` could say 'appendix C only'
-when the chapter does not carry the ID" — and phase 6 discharges the reading without touching the mechanism.
+**One finding explicitly does not close.** The roadmap's gap paragraph and `--gaps`'s trailing pointer are
+about the derivation — "`--gaps` could say 'appendix C only' when the chapter does not carry the ID" — and
+phase 6 discharges the reading without touching the mechanism.
 
 ---
 
@@ -1194,7 +1204,8 @@ backoff"), remembering that `RETRY-45` forbids the engine from ever shutting it 
 surface at the first backoff. `6a` picks one and states what a zero-length delay does (`RETRY-31`: "a
 zero-length delay completing inline and re-arming the active pump").
 
-**R3 — `6a`: where the retry step's `HTTPTracer` comes from, and `OI-29`'s separate slot.** `OI-29` establishes
+**R3 — `6a`: where the retry step's `HTTPTracer` comes from, and the separate slot it needs.** The
+HTTP-tracer-factory-versus-bundle finding on phase 10's inbound list establishes
 that `CTX-14`'s `Bundle#tracer_factory` and `OBS-29`'s per-operation HTTP-tracer factory are two different kinds
 of object and says "a separate HTTP-tracer factory slot … is phase 6's to shape when it has an emitter". `6a`
 decides whether the retry step takes an `HTTPTracer` instance, a factory, or a `CallableAdapter`-wrapped
@@ -1254,7 +1265,7 @@ off an off-thread background refresh" means in a library that owns no thread poo
 a scheduler — including whether `AUTH-38`'s "SHOULD be delivered through the asynchronous channel" makes the
 no-scheduler case a failed future rather than a synchronous raise.
 
-**R13 — phase-level: who executes `OI-31`'s cursor widening if the sub-phases run out of order.** This document
+**R13 — phase-level: who executes the `Cursor` context-bundle widening if the sub-phases run out of order.** This document
 assigns it to `6a`. If `6b` or `6c` runs first, the task travels with it and the other two designs state that
 they consume the reader and do not build it. A design that silently re-implements it is the failure this risk
 exists to name.
@@ -1268,7 +1279,7 @@ install the defaults."
 **R15 — `6a`: whether phase 6 ships a `PRE_REDIRECT` step for `OBS-29`'s operation-lifecycle triple.** The
 finding above establishes that phase 5c's stated route for the triple does not work. `6a` decides whether to ship the step
 (and take the `NFR-4` surface and the `PIPE-37` neighbourhood that comes with it), or to record the finding and
-leave the triple unwired with the record corrected (`OI-32`) — noting `OBS-29`'s own "pipeline/transport wiring to emit it
+leave the triple unwired with the record corrected on phase 10's inbound list — noting `OBS-29`'s own "pipeline/transport wiring to emit it
 is a follow-up, so it is not yet runtime-enforced", and `OBS-28`'s "Every event method SHOULD default to a
 no-op so adding a new event is a non-breaking change", which is what makes wiring a subset safe.
 
@@ -1304,12 +1315,15 @@ a designed contract rather than designing one.** Everything else in the bullet �
 `RECOV-31` exclusion, `RETRY`'s two stacks and the shared-calculator-before-either-stack rule — is confirmed
 unchanged and correct.
 
-**This is not filed as an open item, and the judgement is deliberate.** `OI-1`, `OI-2`, `OI-12`, `OI-15`,
-`OI-21`, `OI-29` and `OI-31` all record a sentence that reads correctly and resolves to something that is not
+**This is not routed to an owner as a finding, and the judgement is deliberate.** The roadmap's gap paragraph
+(the appendix-C-only `SEAM` IDs, `IO-6` and `RECOV-17`–`34`), the phase-4 charter's elapsed-time-counter
+exclusions row, the `CFG-35`/`XCUT-5` classifier cross-reference (5a plan Task 4's status half, `6a` Task 3's
+throwable half), the HTTP-tracer-factory-versus-bundle decision on phase 10's inbound list and `6a`'s Task 8
+cursor widening all record a sentence that reads correctly and resolves to something that is not
 there. This bullet's sentence resolves to something that *is* there and asks the right document to say so; it
 is a correction-in-place, which the roadmap has taken twice already (the phase-4 bullet on 2026-09-08, the
-phase-5 bullet on 2026-09-09), not a discovered inconsistency. Filing an open item for a sentence that
-correctly delegated a decision would dilute a register whose value is that every row is a real find.
+phase-5 bullet on 2026-09-09), not a discovered inconsistency. Handing an owner a sentence that correctly
+delegated a decision would be handing them work that is already done.
 
 **Three consequences outside this document's own scope to fix, recorded so they are not discovered later.**
 

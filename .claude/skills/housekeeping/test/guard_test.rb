@@ -101,7 +101,6 @@ class GuardTest < Minitest::Test
   def test_everything_the_skill_is_allowed_to_write_stays_writable
     [
       'docs/README.md',
-      'docs/open-items.md',
       'docs/sdk-documentation/architecture.md',
       'docs/work/mvp/phase1/2026-09-05-phase1-core-design.md',
       'docs/work/mvp/phase5/phase5a/2026-09-05-phase5a-plan.md',

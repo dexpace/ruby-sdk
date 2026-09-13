@@ -17,7 +17,8 @@ requirement IDs, `SSE-1`–`SSE-41`, of which forty are implemented and one (`SS
 ⏳ row as a v1 decline (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry). It is the second-largest sub-phase in the roadmap after `6a`'s
 sixty and phase 3b's forty-nine.
 
-It also owns the resolution of **`OI-5`**, the register row phase 3a opened against `#read_line_utf8`,
+It also owns the resolution of **the line-cap finding phase 3a opened against `#read_line_utf8`** — carried
+now by this sub-phase's plan, Task 12, with Task 6 —
 and the charter assigns it the mechanism for **spec-forced boundary 5** — the `SSE-37` require audit,
 extended over core's pagination layer — if it lands before `7c`.
 
@@ -34,14 +35,14 @@ document:
 > are contradictory grammars over the same three bytes. Phase 3a implemented `IO-14` faithfully — "a
 > lone `\r` is content" (`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md:659`)
 > — so the method design §7.2 says the SSE machine sits on cannot recognise the terminator `SSE-2`
-> requires. This is not a naming quibble: it changes what `OI-5` is resolving, which is why `R4` below
+> requires. This is not a naming quibble: it changes what that finding is resolving, which is why `R4` below
 > is three corrections rather than one.
 
 ## Governing documents
 
 - `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md` — the charter. It fixes `7b`'s 41
   IDs (`:700`), the twenty-four spec-forced boundaries (`:484`), the five rejected cuts, the single
-  convergence point (`:850`), the `OI-5` correction (`:900`) and risks `R4`, `R5`, `R6` and `R11`.
+  convergence point (`:850`), the line-cap correction (`:900`) and risks `R4`, `R5`, `R6` and `R11`.
   `R1`–`R3` and `R12` are `7a`'s; `R7`–`R10` are `7c`'s.
 - `docs/product-spec/13-server-sent-events-and-streaming.md`, read in full (72 lines), together with
   `docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` rows 410–450 for the
@@ -70,7 +71,10 @@ document:
   `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md` as the two worked
   examples of this document's form; 3b is the closer analogue, being the other streaming,
   lifetime-sensitive sub-phase.
-- `docs/open-items.md` (`OI-5` at `:224-268`, `OI-7`, `OI-10`, `OI-12`); the two deferrals that bear on this
+- The line-cap finding phase 3a opened against `#read_line_utf8` (now this sub-phase's plan, Task 12); phase
+  10's inbound-list entry on design §3.1's decode sentence; 3b's Tasks 1, 2 and 8, where `Body#source` and a
+  default no-op `#close` resolved the response-body surface on 2026-09-08; the roadmap's gap paragraph on the
+  appendix-C-only IDs; the two deferrals that bear on this
   sub-phase — `SSE-41`'s v1 decline (`docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level, the `SSE-41` entry) and `IO-38` on a Ruby without a GVL (its § Post-release
   triggers entry); `docs/deviations.md`, `docs/first-release.md`.
 - `CLAUDE.md` and `docs/README.md`.
@@ -123,7 +127,7 @@ asking for it is not mistaken for it having happened.
 ### The corpus-navigation defects this sub-phase found
 
 The charter named one and asked `7b` to check for others. There are **four**, and three of them point
-the same way — at the `SSE-11`/`SSE-19` conflation `OI-5` fell into.
+the same way — at the `SSE-11`/`SSE-19` conflation the line-cap finding fell into.
 
 1. **`sse-streaming/5f4803a0` files an SSE rule under `PAGE-14` only** (the charter's find). Its
    text — "An SSE `Enumerable` view must not be taken twice over the same source … the facade
@@ -137,7 +141,7 @@ the same way — at the `SSE-11`/`SSE-19` conflation `OI-5` fell into.
    <sub>design · `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md:86-87` · high · sha:4bf713047534</sub>
 3. **`sse-streaming/dff112ad` files the `retry` magnitude cap under `(SSE-11, SSE-19)`** — both IDs on
    one entry — so `--req SSE-19` returns an entry that is entirely about 2^31−1 **milliseconds** and
-   says nothing about line length. This is the corpus-level origin of `OI-5`'s mis-citation, and it is
+   says nothing about line length. This is the corpus-level origin of the line-cap finding's mis-citation, and it is
    the one navigation defect that has already cost the repository something.
    <sub>design · `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md:55-60` · high · sha:4bf713047534</sub>
 4. **`sse-streaming/7adc2212` files the BOM lookahead under `(SSE-12, SSE-11)`**, the same artefact in
@@ -222,7 +226,7 @@ here anyway on the pull-based path (`SSE-39`).
 Each is a row that will be marked ✅ and whose ✅ means something other than "a test asserts the
 behaviour". Recording them here is what stops a ✅ from being reconstructed later as a guess.
 
-- **`SSE-19` is a MAY the port takes, and it is `OI-5`'s resolution.** The row cites `R4` below, names
+- **`SSE-19` is a MAY the port takes, and it is what resolves the line-cap finding.** The row cites `R4` below, names
   both constants and their values, states that an over-long line is **rejected and never truncated**,
   and states in the same row that this is **not** `SSE-11`'s cap. `SSE-11`'s row stays a separate row
   and says the same thing from the other side, because two caps and one citation is how this got
@@ -344,12 +348,14 @@ Four bite here.
   `BufferedSource`.
 - **`gates:gemspec_audit`** — untouched; `7b` writes only into `dexpace-core`, whose
   `runtime_dependencies` stay empty.
-- **The five custom cops** — `Dexpace/SpdxHeader`, `Dexpace/NoTimeParse`, `Dexpace/NoUriDefaultParser`,
-  `Dexpace/NoLocaleCaseFold`, `Dexpace/NoThreadInterrupt` (`…phase0…:523`) — plus phase 2's sixth,
-  `Dexpace/QualifiedCoreConstant`. Only two have sites in `7b`: `SpdxHeader` on every file, and
-  `NoThreadInterrupt`, which is honoured by the subsystem containing no interrupt at all
-  (`SSE-31`'s cross-thread close tears the resource down and lets the blocked read fail; it does not
-  raise into the reading thread). **`NoLocaleCaseFold` has no site in `7b`** — see `P7-24`.
+- **The five original custom cops** — `Dexpace/SpdxHeader`, `Dexpace/NoTimeParse`,
+  `Dexpace/NoUriDefaultParser`, `Dexpace/NoLocaleCaseFold`, `Dexpace/NoThreadInterrupt`
+  (`…phase0…:523`) — plus phase 2's sixth, `Dexpace/QualifiedCoreConstant`, and
+  `Dexpace/NoKeywordSplat` (added 2026-09-13), which binds every public signature `7b` adds. Of the
+  five original, only two have sites in `7b`: `SpdxHeader` on every file, and `NoThreadInterrupt`,
+  which is honoured by the subsystem containing no interrupt at all (`SSE-31`'s cross-thread close
+  tears the resource down and lets the blocked read fail; it does not raise into the reading thread).
+  **`NoLocaleCaseFold` has no site in `7b`** — see `P7-24`.
 - **The clean-bundle isolation run** on every Ruby in the matrix, which `7b` must keep green on 4.0.
 
 ### From phase 1
@@ -496,14 +502,15 @@ begins — the precedent phases 3, 4, 5 and 6 all set.
 
 ---
 
-## `R4` — `OI-5`, the line cap, and the requirement ID its resolution names
+## `R4` — the line cap, the finding it closes, and the requirement ID its resolution names
 
-**Decision: `OI-5` is resolved here; the requirement that obliges the cap is `SSE-19` and not
+**Decision: the line-cap finding is resolved here; the requirement that obliges the cap is `SSE-19` and not
 `SSE-11`; the cap is two documented constants, `MAX_LINE_BYTES = 1 MiB` and `MAX_EVENT_BYTES = 8 MiB`,
-both rejecting loudly and never truncating and both settable per reader; and `OI-5`'s stated route is
+both rejecting loudly and never truncating and both settable per reader; and the finding's stated route is
 right while its stated *premise* is false, because `7b` cannot call `#read_line_utf8` at all.**
 
-`OI-5` (opened 2026-09-08, `docs/open-items.md:224-268`) records that phase 3a's `P3-4` widens `IO-9`'s
+The finding (found 2026-09-08 in phase 3a's I/O-contracts design review, and carried since 2026-09-13 by this
+sub-phase's plan, Task 12) records that phase 3a's `P3-4` widens `IO-9`'s
 SHOULD so `MAX_MATERIALIZED_BYTES` guards every operation producing one contiguous `String`, and that
 `#read_line_utf8` is the one drain-style read left outside the guard and cannot be inside it: "`IO-14`
 fixes no maximum line length, so there is neither a count to check up front nor an end to stop at but a
@@ -511,7 +518,7 @@ terminator that may never arrive."
 
 ### The first correction: `SSE-11` is not the requirement
 
-`OI-5`'s resolution text reads "Phase 7 supplying **`SSE-11`**'s cap at the line-machine level …", and
+Its resolution text reads "Phase 7 supplying **`SSE-11`**'s cap at the line-machine level …", and
 its `Cites:` line reads `IO-9, IO-14, SSE-11, SSE-12, BODY-32`. This was verified independently for
 this document against appendix C rather than taken from the charter:
 
@@ -522,13 +529,13 @@ this document against appendix C rather than taken from the charter:
   carries the port sanction; design §7.2 commits the port to taking it — "**SSE-19**'s optional
   line-length cap is implemented with a documented default, because an unbounded line from a hostile
   server is an unbounded allocation" (`sse-streaming/d935a6cd`).
-- **The failure mode is silent and specific.** A `7b` author reading `OI-5`, looking up `SSE-11` and
-  implementing the 2^31−1 ms retry cap has satisfied a MUST, ticked a checklist row, and left the line
-  read exactly as unbounded as `OI-5` found it — while `OI-5` looks discharged. The two rows are not
-  even at the same level of obligation.
+- **The failure mode is silent and specific.** A `7b` author reading the finding as phase 3a first worded it,
+  looking up `SSE-11` and implementing the 2^31−1 ms retry cap has satisfied a MUST, ticked a checklist row,
+  and left the line read exactly as unbounded as the finding found it — while the finding looks discharged.
+  The two requirements are not even at the same level of obligation.
 - **The same mis-citation is carried by phase 3a's `P3-4` row**, verbatim: "the caller that reads lines
   from a hostile stream is phase 7's SSE machine, which `SSE-11` obliges to carry its own documented
-  cap (`OI-5`)"
+  cap"
   (`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md:1109`), with the same
   sentence at `:1052` and in 3a's plan at `:1831` and `:2157`.
 - **The likely origin is now identifiable, and it is the corpus.** `sse-streaming/dff112ad` files the
@@ -539,7 +546,7 @@ this document against appendix C rather than taken from the charter:
 
 ### The second correction: `#read_line_utf8` is not the method, because `SSE-2` and `IO-14` disagree
 
-This is the finding neither `OI-5` nor the charter has, and it changes what the resolution is.
+This is the correction neither the line-cap finding nor the charter has, and it changes what the resolution is.
 
 **`IO-14` and `SSE-2` specify contradictory grammars over the same three bytes.** `IO-14`: "a lone
 `'\r'` not followed by `'\n'` MUST be kept as part of the line's content." `SSE-2`: "a CR not followed
@@ -554,28 +561,28 @@ terminating alone" (`docs/sdk-design-ruby/07-pagination-sse-and-serialization.md
 `sse-streaming/8c25db7d`). **The reason is right and the conclusion is wrong**: hand-writing was
 necessary, and what was hand-written follows `IO-14`'s grammar, which is not `SSE-2`'s.
 
-**Post-processing does not rescue it, and the reason is not the grammar but `SSE-39` and `OI-5`
+**Post-processing does not rescue it, and the reason is not the grammar but `SSE-39` and the line-cap finding
 itself.** Splitting a `#read_line_utf8` result on `\r` does reproduce `SSE-2`'s lines for every input
 tried. But a **conforming** SSE server that terminates with lone CRs — which `SSE-2` explicitly
 permits — emits a stream containing no `\n` at all, and `#read_line_utf8` would then buffer the entire
 stream into one `String` before returning anything. That breaks `SSE-39`'s "no eager read-ahead … no
 unbounded internal buffer accumulates", a MUST, and it manufactures the exact unbounded allocation
-`OI-5` exists to prevent, from a server that is not even hostile. So the route is closed twice over.
+the finding exists to prevent, from a server that is not even hostile. So the route is closed twice over.
 
 **Therefore `7b` builds `Dexpace::SSE::LineReader` over `BufferedSource#getbyte`**, recognising all
 three terminators natively and applying the cap to the accumulator as it grows. That is boundary 15's
 "a **different** machine over the same primitive" read strictly: the primitive is the *buffered source*,
 not `#read_line_utf8`. Recorded as **`P7-20`**.
 
-**What this does to `OI-5`, stated honestly rather than conveniently.** `OI-5`'s route is
+**What this does to the line-cap finding, stated honestly rather than conveniently.** Its route is
 right — the bound is one documented number in the layer that knows what a line means, and it is not "a
 second, lower, silent cap underneath" 3a's, because it is at a different layer and is documented. But
-`OI-5`'s premise — "the consumer that reads lines from a stream a server controls is **phase 7's SSE
+its premise — "the consumer that reads lines from a stream a server controls is **phase 7's SSE
 machine**", and "resolves it for the only consumer in the MVP" — is **false**: `7b` is not
 `#read_line_utf8`'s consumer, and after `7b` lands `#read_line_utf8` has **zero callers anywhere in
 this repository**. So the honest closure is two sentences, not one:
 
-> The bound `OI-5` asked for exists, in the layer `OI-5` named, as `Dexpace::SSE::MAX_LINE_BYTES`.
+> The bound the finding asked for exists, in the layer the finding named, as `Dexpace::SSE::MAX_LINE_BYTES`.
 > `#read_line_utf8` itself remains unbounded and now has no in-repository caller at all, which is
 > exactly where `IO-14` puts it and where phase 3a's own YARD says the bound is the caller's. The
 > residual risk is therefore an SDK author outside this repository calling a public, `NFR-4`-locked
@@ -643,18 +650,18 @@ release failure is attached as suppressed — the cap does not get its own lifec
 
 **Configurable — as two constructor keywords, and this is not the shape of the `deadline:` keyword phase 2
 declined.** `SSE-19`'s sanction
-says "a **configurable** cap", and `OI-5` explicitly rules out one route: "Adding a `max_line_bytes:`
+says "a **configurable** cap", and the line-cap finding explicitly rules out one route: "Adding a `max_line_bytes:`
 keyword to `#read_line_utf8` would not [resolve it]: phase 5 owns the configuration chain,
 `IO-40`-adjacent limits reaching this layer is what `docs/knowledge/notes/resource-management.md`
 already declines for timeouts, and a keyword with no configuration source behind it is the `deadline:` keyword's
 shape without the pick-up condition phase 2 gave it."
 
 Every clause of that objection is about the **I/O layer**. At the SSE layer the objection does not
-hold, and the distinction is exactly the one `OI-5` itself draws:
+hold, and the distinction is exactly the one the finding itself draws:
 
 - `IO-40` forbids **the streaming contracts** from imposing their own limits and `resource-management/d1f16cad`
   resolves that for timeouts. `Dexpace::SSE::Reader` is not a streaming contract; it is a consumer of
-  one, at the layer that knows what a line means — which is `OI-5`'s own criterion for where the bound
+  one, at the layer that knows what a line means — which is the finding's own criterion for where the bound
   belongs.
 - A keyword on `#read_line_utf8` has no configuration source because nothing constructs a
   `BufferedSource` for the caller's own reasons. A keyword on `Dexpace::SSE::Reader.new` /
@@ -675,8 +682,9 @@ places, each with a different reader in mind:
 
 1. **YARD on both constants**, stating the number, that it is chosen rather than derived, that it is a
    `SSE-19` divergence from the reference (which imposes no maximum), and — on `MAX_LINE_BYTES` — that
-   **this is the bound `OI-5` names**, so the relationship between 3a's ceiling and `7b`'s cap is
-   visible from the code and not only from a register. `OI-5`'s third obligation, discharged.
+   **this is the bound phase 3a's `#read_line_utf8` finding names**, so the relationship between 3a's ceiling
+   and `7b`'s cap is visible from the code and not only from a document. The finding's third obligation,
+   discharged.
 2. **`7b`'s Deviation Ledger**, `P7-21`, consolidated into design §10 by a human.
 3. **The §10.18 amendment text drafted in the findings below**, because §10 is frozen to this document.
    The recommendation is that both constants join §10.18's existing list rather than take a §10 row of
@@ -1244,13 +1252,13 @@ change that files all three.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P7-20 | `7b`'s line machine is built over `Dexpace::IO::BufferedSource#getbyte`, **not** over phase 3a's `#read_line_utf8`, and design §7.2's sentence naming that method as the SSE machine's primitive is wrong on the clause that matters | `SSE-2`; `IO-14`; design §7.2 (`:50-53`, `sse-streaming/8c25db7d`); `OI-5`; charter boundary 15 | `IO-14` requires a lone `\r` be **kept as content** and `SSE-2` requires it **terminate a line** — contradictory grammars over the same bytes, and phase 3a implemented `IO-14` (`…phase3a…-design.md:659`, plan `:2201`). Post-processing a `#read_line_utf8` result reproduces `SSE-2`'s lines but breaks `SSE-39`: a conforming CR-only stream contains no `\n`, so the method would buffer the whole stream before returning, which is both the read-ahead `SSE-39` forbids and the unbounded allocation `OI-5` exists to prevent. The correction is one clause in §7.2 and one premise in `OI-5`; nothing about `IO-14` or `P3-4` changes |
-| P7-21 | `SSE-19`'s MAY is taken as **two** documented bounds — `MAX_LINE_BYTES` 1 MiB and `MAX_EVENT_BYTES` 8 MiB — with an over-long line or event **rejected loudly and never truncated**, and both settable per reader through a constructor keyword | `SSE-19` (chapter `:33` and `…appendix-c…:428`); design §7.2, §10.18; `OI-5` | The chapter sanctions capping "oversized lines"; appendix C states the open surface as "no maximum line **or event** size". A line cap alone leaves 2^20 one-byte `data:` lines unbounded, so the MAY's inverse is taken over the whole of the subject the requirement names and no further — there is no cap on events per stream. Truncation silently corrupts a payload; §10.18's own sanction is "fails or ignores loudly". The keyword is not the declined `deadline:` keyword's shape because the caller constructs the reader and is therefore the configuration source, which is exactly the distinction `OI-5` draws when it rules the same keyword out one layer down |
+| P7-20 | `7b`'s line machine is built over `Dexpace::IO::BufferedSource#getbyte`, **not** over phase 3a's `#read_line_utf8`, and design §7.2's sentence naming that method as the SSE machine's primitive is wrong on the clause that matters | `SSE-2`; `IO-14`; design §7.2 (`:50-53`, `sse-streaming/8c25db7d`); the line-cap finding (this sub-phase's plan, Task 12); charter boundary 15 | `IO-14` requires a lone `\r` be **kept as content** and `SSE-2` requires it **terminate a line** — contradictory grammars over the same bytes, and phase 3a implemented `IO-14` (`…phase3a…-design.md:659`, plan `:2201`). Post-processing a `#read_line_utf8` result reproduces `SSE-2`'s lines but breaks `SSE-39`: a conforming CR-only stream contains no `\n`, so the method would buffer the whole stream before returning, which is both the read-ahead `SSE-39` forbids and the unbounded allocation that finding exists to prevent. The correction is one clause in §7.2 and one premise in the finding as phase 3a worded it; nothing about `IO-14` or `P3-4` changes |
+| P7-21 | `SSE-19`'s MAY is taken as **two** documented bounds — `MAX_LINE_BYTES` 1 MiB and `MAX_EVENT_BYTES` 8 MiB — with an over-long line or event **rejected loudly and never truncated**, and both settable per reader through a constructor keyword | `SSE-19` (chapter `:33` and `…appendix-c…:428`); design §7.2, §10.18; the line-cap finding | The chapter sanctions capping "oversized lines"; appendix C states the open surface as "no maximum line **or event** size". A line cap alone leaves 2^20 one-byte `data:` lines unbounded, so the MAY's inverse is taken over the whole of the subject the requirement names and no further — there is no cap on events per stream. Truncation silently corrupts a payload; §10.18's own sanction is "fails or ignores loudly". The keyword is not the declined `deadline:` keyword's shape because the caller constructs the reader and is therefore the configuration source, which is exactly the distinction the finding draws when it rules the same keyword out one layer down |
 | P7-22 | `SSE-15`'s end-of-stream sentinel is Ruby's `nil`, not a distinguished object | `SSE-15`; `api-design/6ea28c9c` | A stream terminator is the documented exception to never-`nil`-for-absent: `#gets`, `#getbyte` and `IO-14`'s own `#read_line_utf8` all use it, an `Event` is never `nil` so the sentinel is stable and distinct, and the facade — which is what nearly every caller uses — turns it into `Enumerator` termination and never surfaces it. Recorded because `RECOV-1`'s `#response_or_nil` set the precedent that this needs a row rather than a shrug |
 | P7-23 | `SSE-34`'s three outcomes are the mapper's decoded value returned **bare**, plus two frozen `Dexpace::SSE::Signal` singletons `SKIP` and `DONE`; `Dexpace::Outcome::Success`/`Failure` are **not** reused | `SSE-33`, `SSE-34`, `SSE-35`; `RECOV-1`; charter boundary 10; phase 4b's forward table (`…phase4b…-design.md:1528`) | `Outcome::Success = Data.define(:response)` with `build: (response: Dexpace::Response)` — a decoded model is not a response, and putting one there fails `steep check` and pulls toward widening a phase-4b type, which boundary 10 forbids. `Outcome`'s five derived methods answer success-versus-failure and Skip and Done are both successful. Returning the value bare also satisfies `SSE-33`'s "MUST yield the mapper's decoded value" literally, allocates nothing per event on a long-lived stream, and lets a mapper decode an explicit null. Boundary 10's two binding clauses are both honoured; only its "reused" framing is declined |
 | P7-24 | `SSE-7`'s field-name comparison is **case-sensitive**, so `7b` calls `downcase` nowhere and the charter's spec-forced boundary 19 has no site in this sub-phase | `SSE-7`; `HTTP-13`; charter boundary 19 | WHATWG compares SSE field names exactly, and `SSE-7` names four lowercase tokens and requires that "any other field name MUST be silently discarded". A fold would make `DATA:` an interpreted data field, which WHATWG discards and `SSE-7` requires be discarded. The boundary is honoured vacuously rather than at a site, and the charter's sentence naming `SSE-7` as one of three fold sites is corrected |
 | P7-25 | The facade's factories are `Stream.open(response)`, `Stream.owning(source)` and `Stream.borrowing(source)` — deliberately **not** `.over` | `SSE-23`, `SSE-32`; `SEAM-14`/`XCUT-22`; `message-bodies/f060d944` | `Dexpace::IO::BufferedSource.over` means **borrowing** and `.wrapping` means **owning**. A `Stream.over` in the neighbouring subsystem would read as the same polarity and mean the opposite, which is a name that is wrong in the one way review does not catch. `Closeable`'s ownership-at-construction rule is what the three names make legible at the call site |
-| P7-26 | The SSE decode is retag-then-transcode `UTF-8 → UTF-8` with `invalid: :replace, undef: :replace`, both encodings named, applied per extracted field value rather than per chunk | `io-and-byte-streams/6eb5155f`, `/a44b4de6`; design §3.1; `OI-7` | `text/event-stream` is UTF-8 by definition, so the declared source encoding is not a guess and no `MediaType#charset` is consulted. `String#b` first because `force_encoding` raises on a frozen chunk even when the target is the string's own encoding; both encodings named because `undef: :replace` with no target follows `Encoding.default_internal`, a process global the host sets. Per field value rather than per chunk so the caps count bytes and a multi-byte character cannot straddle a bound |
+| P7-26 | The SSE decode is retag-then-transcode `UTF-8 → UTF-8` with `invalid: :replace, undef: :replace`, both encodings named, applied per extracted field value rather than per chunk | `io-and-byte-streams/6eb5155f`, `/a44b4de6`; design §3.1; phase 10's inbound-list entry on §3.1's decode sentence | `text/event-stream` is UTF-8 by definition, so the declared source encoding is not a guess and no `MediaType#charset` is consulted. `String#b` first because `force_encoding` raises on a frozen chunk even when the target is the string's own encoding; both encodings named because `undef: :replace` with no target follows `Encoding.default_internal`, a process global the host sets. Per field value rather than per chunk so the caps count bytes and a multi-byte character cannot straddle a bound |
 | P7-27 | Public constants and methods design §7.2 does not name: `Dexpace::SSE` itself, `::LineReader`, `::Signal`, `::SKIP`, `::DONE`, `::LimitExceededError`, `::StreamStateError`, `::TypedStream`, `MAX_LINE_BYTES`, `MAX_EVENT_BYTES`, `MAX_RETRY_MS`; and the methods `LineReader#next_line`, `Reader#next_event`, `Stream.open`/`.owning`/`.borrowing`/`#each`/`#events`/`#typed`, `TypedStream#each`/`#close`, `Event#empty?` and `Event`'s five generated readers | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14, P4-23 and P4-24 precedent | `NFR-4` locks a public *name* before it locks a signature, and §7.2 names exactly one Ruby constant in the whole subsystem (`Dexpace::SSE::Event`). Each addition is deliberate rather than incidental: `LineReader` is public because `SSE-2`'s grammar has its own conformance clause and the cap lives on it; `Signal` is public because a caller writes `Dexpace::SSE::SKIP` in their own mapper; the three constants are public because `SSE-19` and `SSE-11` require them documented. `Event`'s `Data`-generated readers are public API too and are invisible to `rbs validate` — the runtime surface snapshot is what holds them, and the plan's last task regenerates both artifacts |
 
 ---
@@ -1299,43 +1307,45 @@ now.
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-**Seven, described here for a human to file. None is acted on by this document, none carries a number,
-and no register file, spec file, design file or corpus file is edited by it.** Findings 1 and 2 are the
+**Seven, each named with the owner that carries it. None is acted on by this document, and no spec file,
+design file, corpus file or register is edited by it.** Findings 1 and 2 are the
 charter's, restated because `7b` verified them independently and because `7b` adds a third correction to
 each that the charter does not have.
 
-**1. Target register: `docs/open-items.md`, as an amendment to the existing `OI-5` row (not a new row).**
-**`OI-5` needs three corrections, and the third changes what its resolution says.**
+**1. Owner: this sub-phase's plan, Task 12 (with Task 6), which carries the whole finding and builds the code
+half of its closure.**
+**The line-cap finding needs three corrections, and the third changes what its resolution says.**
 (a) Its resolution text names **`SSE-11`**, the `retry` field's magnitude cap (a MUST, `…appendix-c…:420`,
 cashed out as 2^31−1 ms and catalogued in §10.18). The requirement that obliges the line cap is
 **`SSE-19`**, a MAY (`…appendix-c…:428`; the sanction is in the chapter at `:33`), which design §7.2
 commits the port to taking. (b) Its `Cites:` line reads `IO-9, IO-14, SSE-11, SSE-12, BODY-32` and
 should read `IO-9, IO-14, SSE-2, SSE-11, SSE-12, SSE-19, SSE-39, BODY-32`. (c) Its **premise** is false:
-the row says "the consumer that reads lines from a stream a server controls is phase 7's SSE machine",
+it says "the consumer that reads lines from a stream a server controls is phase 7's SSE machine",
 and phase 7's SSE machine cannot call `#read_line_utf8` at all, because `IO-14` requires a lone `\r` be
 kept as content and `SSE-2` requires it terminate a line. So the closure text must say two things — that
-the bound `OI-5` asked for exists at the layer `OI-5` named, as `Dexpace::SSE::MAX_LINE_BYTES = 1 MiB`;
+the bound the finding asked for exists at the layer it named, as `Dexpace::SSE::MAX_LINE_BYTES = 1 MiB`;
 and that `#read_line_utf8` itself remains unbounded and finishes the MVP with **no in-repository caller
 at all**, which is where `IO-14` puts it and what phase 3a's own YARD says. A closure that said only the
 first would leave a reader believing a public method is now guarded. Cites: `IO-9`, `IO-14`, `SSE-2`,
 `SSE-11`, `SSE-12`, `SSE-19`, `SSE-39`, `BODY-32`.
 
-**2. Target register: `docs/deviations.md`, or wherever `P3-4`'s as-built text is audited.**
+**2. Owner: `docs/deviations.md`, or wherever `P3-4`'s as-built text is audited.**
 **Phase 3a's `P3-4` row carries the same mis-citation and the same false premise.** Its text reads "the
 caller that reads lines from a hostile stream is phase 7's SSE machine, which `SSE-11` obliges to carry
-its own documented cap (`OI-5`)"
+its own documented cap"
 (`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-design.md:1109`), with the same sentence
 at `:1052` and in 3a's plan at `:1831` and `:2157`. Two edits: `SSE-11` → `SSE-19`, and the clause "the
 caller … is phase 7's SSE machine" → a statement that phase 7's SSE machine builds its own line reader
 because `SSE-2` and `IO-14` disagree about a lone CR, so `#read_line_utf8` ends v1 with no caller.
 **Nothing about `P3-4` itself changes** — the widening it records is right and unaffected, and phase 3a
-implemented `IO-14` correctly; only the forward-looking clause is wrong. Recorded separately from the
-`OI-5` amendment because it is an edit to a phase document rather than a register, and because a
-corrected register row pointing at an uncorrected deviation row is how a correction gets lost.
+implemented `IO-14` correctly; only the forward-looking clause is wrong. Recorded separately from finding 1
+because it is an edit to a phase document rather than to this sub-phase's plan, and because a corrected
+statement in one place pointing at an uncorrected deviation row in another is how a correction gets lost.
 
-**3. Target register: `docs/open-items.md`, a new row.**
+**3. Owner: phase 10's inbound list in the roadmap — `docs/product-spec/` is frozen, so the repair is
+scheduled there and never made in place.**
 **Appendix C's `SSE-19` row drops the port sanction the chapter carries, and appendix C is what
 `CLAUDE.md` calls the index.** The chapter reads "…This is a potential unbounded-memory surface for
 untrusted servers; a port MAY add a configurable cap and reject/truncate oversized lines, **documenting
@@ -1349,18 +1359,20 @@ chapter says only "lines/values", and `P7-21` turns on the appendix-C half. Neit
 two together are the only complete statement of `SSE-19`, and nothing says so. `docs/product-spec/` is
 frozen, so this is a finding for a human rather than an edit. Cites: `SSE-19`.
 
-**4. Target register: `docs/open-items.md`, a new row (or an extension of the charter's own
-corpus-navigation finding, if that one is filed first).**
+**4. Owner: `docs/knowledge/notes/sse-streaming.md`, as `## Reference` entries naming the correct IDs for all
+four — `harvested/` is never hand-edited, so a note is the only correction available; or the charter's own
+corpus-navigation finding, extended, if that one is acted on first.**
 **Four corpus entries file a phase-7 rule where a phase-7 prefix query cannot reach it, and two of them
 are the origin of finding 1.** `sse-streaming/5f4803a0` (Rules) and `sse-streaming/b94ce49e`
 (Conclusions) both state the `@viewed` latch on the SSE `Enumerable` view and both carry **only
 `PAGE-14`**, so `--req SSE-26` and `--req SSE-40` return neither and `--req PAGE-14` returns two SSE
 rules to a pagination author; the charter found the first and not the second.
 `sse-streaming/dff112ad` files the 2^31−1 **millisecond** retry conclusion under `(SSE-11, SSE-19)`, so
-`--req SSE-19` returns the retry cap — which is the corpus-level origin of the conflation `OI-5` fell
-into. `sse-streaming/7adc2212` files the BOM lookahead under `(SSE-12, SSE-11)`, the same artefact in
+`--req SSE-19` returns the retry cap — which is the corpus-level origin of the conflation the line-cap
+finding fell into. `sse-streaming/7adc2212` files the BOM lookahead under `(SSE-12, SSE-11)`, the same artefact in
 the other direction. All four are attribution artefacts of harvesting a design sentence that mentions a
-neighbouring ID, the same species as `OI-16` and `OI-24`; none is a defect in the rule. Nothing is
+neighbouring ID, the same species as `knowledge.rb`'s `[cited by …]`/`[overridden by …]` conflation and the
+`--prefix` rules gap the knowledge-lookup skill owns; none is a defect in the rule. Nothing is
 broken today because nothing has been implemented. Cites: `SSE-11`, `SSE-12`, `SSE-19`, `SSE-26`,
 `SSE-40`, `PAGE-14`.
 
@@ -1385,8 +1397,7 @@ The correction belongs in `notes/`, never in `harvested/` (`CLAUDE.md`); `docs/k
 this document, so the note is drafted rather than filed. The underlying §7.2 sentence is a
 design-document error and is finding 6's neighbour, but §7 is frozen too.
 
-**6. Target: the phase-7 segmentation design, as a correction in place; or `docs/open-items.md` if a
-human prefers a row.**
+**6. Owner: the phase-7 segmentation design, as a correction in place.**
 **Two of the charter's own statements do not survive `7b`'s reading, and both are small.** Spec-forced
 boundary 19 names "`SSE-7`'s field-name comparison" as one of three sites where the no-argument
 `downcase` rule bites; `SSE-7`'s comparison is case-sensitive (WHATWG compares exactly; `SSE-7` names
@@ -1404,9 +1415,9 @@ exact content the charter gives at
 rule wants it in place before the first sub-phase runs the group; two phase-7 documents have now run it
 without the row existing. It is not a frozen tree, and this document is constrained to two files.
 
-**One row explicitly does not close.** `OI-7`'s subject is a sentence in the frozen §3.1, and `7b`
-consumes the corrected recipe (`P7-26`) without touching the mechanism; the item resolves when §3 is
-next deliberately amended by a human, as the row itself says.
+**One finding explicitly does not close.** The §3.1 decode sentence on phase 10's inbound list is a sentence
+in a frozen chapter, and `7b` consumes the corrected recipe (`P7-26`) without touching the mechanism; it
+resolves when §3 is next deliberately amended by a human, as that entry itself says.
 
 ---
 

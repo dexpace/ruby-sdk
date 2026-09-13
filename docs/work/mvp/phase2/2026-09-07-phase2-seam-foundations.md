@@ -16,7 +16,7 @@ under a `Thread::Mutex` on the write path and read with no lock on the read path
 three times, one per surviving seam.
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS + Steep,
-RuboCop with phase 0's five custom cops plus a sixth this phase adds, SimpleCov, YARD.
+RuboCop with phase 0's five original custom cops plus a sixth this phase adds, SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase2/2026-09-06-phase2-seam-foundations-design.md`
 
@@ -3974,6 +3974,7 @@ Expected: no output.
 bridges"; §3.3's check-after-resume rule; deviation P2-4.
 
 **Files:**
+- Modify: `gems/dexpace-core/lib/dexpace/bridge/async_over.rb` (the two amendments below)
 - Test: `gems/dexpace-core/test/dexpace/transport/async_over_test.rb`,
   `gems/dexpace-core/test/dexpace/async_transport/sync_over_test.rb`
 
@@ -3982,8 +3983,52 @@ bridges"; §3.3's check-after-resume rule; deviation P2-4.
   `Dexpace::AsyncTransport.sync_over` and `Dexpace::Bridge::SyncOver` (Task 10), `FakeTransport`,
   `OptionsIgnoringTransport`, `InlineExecutor` (Task 9), `FakeAsyncTransport` (Task 10),
   `Dexpace::Cancellation` (Task 4).
-- Produces: nothing in `lib/`. A separate task because `SEAM-18` is a MUST whose proof is the
-  deliverable, and a reviewer can accept both modules and reject the proof.
+- Produces: nothing new in `lib/` — the two amendments below are one branch each inside
+  `Dexpace::Bridge::AsyncOver`, which Task 9 already wrote. A separate task because `SEAM-18` is a
+  MUST whose proof is the deliverable, and a reviewer can accept both modules and reject the proof.
+
+**Amendment, 2026-09-13 — `Bridge::AsyncOver#deliver` type-checks the value it delivers, and this
+task proves it.** The two bridges are asymmetric, and it only shows once a caller has two core-owned
+objects with identical `#call(request, options, cancellation)` shapes and different **return types**
+in one namespace — which phase 4c creates as `Dexpace::Pipeline` and `Dexpace::AsyncPipeline`, and
+whose composition with exactly these two bridges its `R13`/`P4-35` tells callers to reach for.
+`.conforms?` cannot separate them: both seams' predicate is `Dexpace::Registry.callable?(object,
+arity: 3)`, and `#parameters` cannot see a return type — which Task 9 and Task 10 already record
+honestly. `AsyncTransport.sync_over(sync_pipeline)` is **loud**: `Bridge::SyncOver#call` checks
+`future.is_a?(Dexpace::Async::Future)` and raises `Dexpace::SeamError` naming the class it got, so
+the caller learns at the first send. `Transport.async_over(async_pipeline, executor:)` is **silent,
+at every layer and for ever**: `#deliver` posts the send and hands whatever comes back to
+`Completer#fulfil`, which passes it to `Settlement.success(response)`, whose only validation is
+"exactly one of response or error" (Tasks 5, 9 and 11). The outer `Future#value` then returns the
+**inner `Future`**, nothing raises anywhere, and the caller meets a `NoMethodError` on `#status` or
+`#body` at whatever distance from the mistake their code happens to put it — and the real response
+is never closed, because nothing on that path knows there is one inside. Repair, the narrowest of
+the three weighed: `#deliver` checks the delivered value the way `SyncOver#call` already checks the
+returned future, raising `Dexpace::SeamError` naming the class, at a cost of one `is_a?`. (The other
+two were a construction-time refusal driven by a marker predicate that `AsyncPipeline` and future
+async adapters answer, and leaving it while documenting the trap on both bridges.) Add the failing
+test to `async_over_test.rb` — an async transport handed to `Transport.async_over` raises at the
+first send instead of delivering a `Future` of a `Future` — and add its deliberate break to Step 2's
+list.
+
+**Amendment, 2026-09-13 — the posted block checks cancellation *before* the send as well as after
+it.** `Bridge::AsyncOver`'s block, as Task 9 writes it and as the design describes it, performs the
+blocking send and re-checks cancellation on return. The worker's `::Thread::Queue#pop` is one of the
+four suspension points `concurrency-and-async/611b9392` enumerates, so the block begins executing
+immediately after a resume — the earliest check-after-resume point a queued task has — and a single
+`cancellation&.cancelled?` test at the top of the block turns a wasted round-trip into no
+round-trip. **Nothing is broken without it**: `ASYNC-3`'s third clause requires only that a queued
+task not be *interrupted*, which holds because nothing here is ever interrupted; `SEAM-30`/`ASYNC-5`
+close the orphan through `Completer#fulfil`'s losing-race branch; and no response reaches a
+cancelled caller. What is lost is one network call, one connection from the pool, and — on a
+non-idempotent method — one **server-side side effect a caller believed they had cancelled**, which
+is the half that makes it worth an `if` rather than a micro-optimisation. It belongs to core rather
+than to the runtime adapter: `dexpace-async-thread` cannot see the token, because the pool posts an
+opaque block by design (`concurrency-and-async/08a0e08d`), which is also what lets the same object
+serve `Dexpace::Page::_Executor`. Prove it in `async_over_test.rb` with a token already cancelled
+before the executor runs the block and a transport that counts its calls: the future raises
+`Dexpace::CancelledError` and the transport was **never** called. Its deliberate break — remove the
+pre-dispatch check and watch that count go to one — joins Step 2's list.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5589,8 +5634,9 @@ temporarily, watching the gate go red, and removing it.
 Create `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md` from what was actually
 built, not from this plan. **Thirty rows**, `SEAM-1` through `SEAM-30`, each naming the numbered
 task above that satisfies it. Legend, verbatim from the roadmap: ✅ implemented and tested · 🚫 not
-built (permanent simplification, named reason) · ⏳ deferred (`DEF-<n>` with its pick-up condition)
-· N/A not applicable in this port. The rows that are not ✅:
+built (permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase, task
+number and path — that will do it, or the `docs/first-release.md` entry that owns it) · N/A not
+applicable in this port. The rows that are not ✅:
 
 | ID | Mark | Row must say |
 |---|---|---|
@@ -5607,26 +5653,28 @@ built (permanent simplification, named reason) · ⏳ deferred (`DEF-<n>` with i
 Add the audit-group section the roadmap requires: the six groups this phase ran (*Public API
 surface*; *Gem layout, zero-dependency core*; *RBS / Steep typing*; *Fiber scheduler, thread
 safety*; *Styleguide-vs-design conflicts*; *Minitest conventions*), the result of each, and the four
-notes filed. Record `OI-1` under whatever the checklist's findings heading is — never as an
-aggregate register section, which the probe's `registers` check reports.
+notes filed. Record this phase's own finding — that `SEAM-15`, `SEAM-20`, `SEAM-22`, `SEAM-23` and
+`SEAM-28` are stated in appendix C alone, so neither the roadmap's gap paragraph nor `--gaps SEAM`
+may be read as an instruction to open chapter 03 — under whatever the checklist's findings heading
+is, naming the roadmap's gap paragraph and `scripts/knowledge.rb` as where it was corrected. Never
+as an aggregate register section, which the probe's `registers` check reports.
 
-- [ ] **Step 6: Verify the open item, and record anything the implementation postponed**
+- [ ] **Step 6: Record anything the implementation postponed, and route anything it finds**
 
-```bash
-grep -n '^### OI-1 ' docs/open-items.md
-```
-
-Expected: `OI-1`, appended during planning. The six items phase 2 postponed are recorded in the
-design's "Work Phase 2 Postponed, and Who Owns It Now" section, each with its owner — `close_quietly`'s
-two routes (phase 4b, Task 2; phase 5b, Task 14), the `deadline:` keyword (phase 5a, Task 8), the
-fakes' move (declined by phase 8a), presence-gated activation (`docs/first-release.md` § What v1
-ships without), `Hooks.notify`'s dropped failures (phase 4b, Task 2) and `SEAM-25`'s lifecycle event
+The six items phase 2 postponed are recorded in the design's "Work Phase 2 Postponed, and Who Owns
+It Now" section, each with its owner — `close_quietly`'s two routes (phase 4b, Task 2; phase 5b,
+Task 14), the `deadline:` keyword (phase 5a, Task 8), the fakes' move (declined by phase 8a),
+presence-gated activation (`docs/first-release.md` § What v1 ships without), `Hooks.notify`'s
+dropped failures (phase 4b, Task 2) and `SEAM-25`'s lifecycle event
 (phase 8b, Tasks 6 and 10; phase 9, Task 11) — and the version-skew guard phase 0 postponed here is
 built by Tasks 7 and 8, which the phase status note says. Anything the implementation postpones
 beyond those is added to that design section with the reason and its owner — a numbered task in
 the plan of the phase that will do it, cited by path and task number, or, when no v1 phase will, an
-entry under the fitting `docs/first-release.md` section. Anything it finds is appended to
-`docs/open-items.md` at the next id.
+entry under the fitting `docs/first-release.md` section. Anything the implementation *finds* rather
+than postpones is routed the same way and to no register: to a numbered task in the plan of the
+phase whose scope it falls in, to phase 10's inbound list in the roadmap when it is audit or repair
+work on a phase already planned, to `docs/first-release.md` when it belongs to the release — or it
+is simply fixed.
 
 - [ ] **Step 7: Append the roadmap status note**
 
@@ -5671,9 +5719,10 @@ Expected: all four exit 0.
 - [ ] **Step 11: Hand over**
 
 Do not commit. Report to the manager: the twenty new `lib/` files with their `sig/` and `test/`
-mirrors (`lib/dexpace/hooks.rb` has neither, and is a `private_constant`), the sixth cop and its cases, the seventeen gates green on 3.2 and 4.0, the surface-manifest
-diff, the `DEF-` rows and `OI-1`, the checklist's thirty rows with every 🚫, ⏳ and N/A named, and
-the `CLAUDE.md` diff.
+mirrors (`lib/dexpace/hooks.rb` has neither, and is a `private_constant`), the sixth cop and its
+cases, the seventeen gates green on 3.2 and 4.0, the surface-manifest diff, the appendix-C-only
+SEAM IDs corrected in the roadmap's gap paragraph, the checklist's thirty rows with every 🚫, ⏳ and
+N/A named, and the `CLAUDE.md` diff.
 
 ---
 

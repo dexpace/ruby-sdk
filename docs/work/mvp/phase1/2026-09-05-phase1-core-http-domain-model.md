@@ -17,7 +17,7 @@ cross-field — `Headers`, `Query`, `RequestOptions`, `Request`, `Response` — 
 `Builder` classes in their own files; the rest expose `parse`/`of` factories and `#with`.
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS +
-Steep, RuboCop with five custom cops, SimpleCov, YARD — all stood up by phase 0.
+Steep, RuboCop with five original custom cops, SimpleCov, YARD — all stood up by phase 0.
 
 **Spec:** `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md`
 
@@ -111,8 +111,8 @@ because `SEAM-27`'s path-segment encoding (phase 2) calls it too.
 `lib/dexpace/http/response/builder.rb`. Last, because each consumes most of what precedes it.
 
 **Wiring and closing (Tasks 16–17).** `lib/dexpace.rb` and `sig/dexpace.rbs` (modified),
-then the repository-root `test/fixtures/surface/dexpace-core.txt`, the checklist, the registers and
-`CLAUDE.md`.
+then the repository-root `test/fixtures/surface/dexpace-core.txt`, the checklist, the roadmap
+status note and `CLAUDE.md`.
 
 ---
 
@@ -136,6 +136,30 @@ module shape and is phase 9's to disposition.
   `Dexpace::InvalidArgumentError < ::ArgumentError`, which includes it. Later phases add
   `Dexpace::TransportError < ::IOError`, `Dexpace::PipelineError` and `Dexpace::ClosedError` the
   same way.
+
+**Amendment, 2026-09-13 — this task also fixes the rule for when core re-wraps a stdlib exception at
+an argument boundary, and Step 4's YARD block states it.** `Dexpace::InvalidArgumentError` is
+declared here as the one class for "a caller mistake in an argument", and every later phase's Global
+Constraints restate that vocabulary — but nothing says **which** stdlib failures are converted into
+it, so each new factory decides again. Two measured examples, both found by probing rather than by a
+test, because no test passes the input that reaches them.
+`Dexpace::Body.string(text, encoding: ::Encoding::UTF_8)` calls `text.encode(encoding)`, which
+raises for a `String` whose bytes cannot be represented in the target: verified on 3.4.10,
+`Dexpace::Body.string("caf\xE9".b)` raises
+`Encoding::UndefinedConversionError: "\xE9" from ASCII-8BIT to UTF-8`. And
+`Dexpace::Body.multipart(parts, subtype:)` interpolates `subtype` into `MediaType.parse`, so a
+malformed subtype raises out of this phase's parser rather than naming `subtype`. Both are exactly
+caller mistakes in an argument, and `HTTP-4`/`SEAM-29`'s whole point is that such a failure names
+the field in one error class. This phase's own coercions already disagree with each other: Task 12's
+`URL.parse!` re-wraps, while Tasks 6, 7 and 8's `Status.of`, `Method.of` and `Protocol.parse` do
+not. So state the rule once, here, as the rule every factory in core follows: **a public factory or
+coercion that raises a stdlib exception *because of the argument it was given* rescues it and
+re-raises `Dexpace::InvalidArgumentError` naming the argument, in `SEAM-29`'s message form, with the
+original left as the `cause`** — and apply it in Tasks 6, 7 and 8 when their `of`/`parse` pairs are
+written. The narrow reading is available and is why this is a rule to state rather than a defect to
+fix: a caller could have encoded the `String` themselves. It is stated because a constraint that is
+true of most call sites and silently false at two is worse than one stated with its exceptions.
+Phase 3b's Tasks 1 and 7 cite this rule for the two `Body` factories above.
 
 - [ ] **Step 1: Write the failing tests**
 

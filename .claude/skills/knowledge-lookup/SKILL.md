@@ -55,7 +55,8 @@ Global Constraints may assert as settled something the implementation found to b
 second is every recorded design-vs-styleguide contradiction — a resolved one prints
 `[overridden by notes/…]` on its location line, and one with no such tag is **still open**. A plan
 that assumes an open conflict is settled is the failure both queries exist to catch, and nothing
-else in this workflow surfaces either.
+else in this workflow surfaces either. `[cited by notes/…]` is a different tag and not a weaker
+one: it says a note leans on that rule, and the rule stands unchanged.
 
 Different filters AND together; multiple values inside one filter OR. So
 `--req A --req B --topic headers` means "(cites A or B) and is in a headers file".
@@ -179,6 +180,16 @@ Every row below is **live**: the topic names resolve against the harvested corpu
 confirms them). The "today" column is the appendix-C-only substitute for when a narrower query is
 still the cheaper option.
 
+**Read the coverage line before counting what came back.** A `--prefix P --section rules` query
+answers a different question from `--prefix-info P`, and the two numbers read as one: `--section
+rules` returns the entries *filed as rules*, and an entry's section is a per-ID filing decision, so
+a prefix with 38 canonical IDs can come back with 36 (`CFG-14` and `CFG-29` are filed under
+`Reference`). The query now says so itself — a `NOTE:` footer naming every canonical ID the filters
+did not cover, and for each one whether the corpus carries it in another section (read it with
+`--req`) or nowhere at all (`--gaps`). A per-ID shortfall is the dangerous kind: the `OBS` half of
+an audit group can lose none of its 40 while the `CFG` half loses two, so comparing the halves
+gives no hint. Never take the entry count as the prefix's ID count.
+
 | Audit group | Query (once harvested) | Today | Status |
 |---|---|---|---|
 | Public API surface | `--topic api-design,http-domain-model,documentation,module-organization,error-handling --section rules --brief` | `--gaps HTTP` | live |
@@ -210,16 +221,27 @@ hundreds of entries and thousands of tokens; budget for it.
 
 1. **Read the notes first** — the phase-start query above. A rule that already carries a note is
    already known-broken; don't re-report it. A harvested entry that prints `[overridden by notes/…]`
-   is the same signal inline.
+   is the same signal inline. `[cited by notes/…]` is not that signal — it marks a rule a note
+   **rests on**, which stands as written, and a rule cited in support is usually a load-bearing one.
 2. **Read the group.** One query, `--section rules`, from the table above.
 3. **Check the system** against each rule.
 4. **Write a note for each broken rule**, in `docs/knowledge/notes/<topic>.md`, naming the rule by
    the key the query printed (`api-design/e0f4662b`). Backtick the key: that is how the CLI links
-   the two, so the harvested entry then prints `[overridden by notes/…]` and
-   `scripts/knowledge.rb --key api-design/e0f4662b` resolves it. The key changes exactly when the
-   rule's text changes — including on a re-harvest that rewords it, which is when the note needs
-   revisiting; `ruby scripts/knowledge_drift.rb` reports a citation that has gone stale, and
-   `ruby scripts/verify_knowledge_structure.rb` fails on one. Never edit the harvested entry.
+   the two, and `scripts/knowledge.rb --key api-design/e0f4662b` resolves it. The key changes
+   exactly when the rule's text changes — including on a re-harvest that rewords it, which is when
+   the note needs revisiting; `ruby scripts/knowledge_drift.rb` reports a citation that has gone
+   stale, and `ruby scripts/verify_knowledge_structure.rb` fails on one. Never edit the harvested
+   entry.
+5. **Say which relation each key carries**, because a note cites keys for two reasons and the CLI
+   reads the note's own verb to tell them apart. Put a relation verb — **Supersedes**, **Resolves**,
+   **Answers**, **Narrows**, **Corrects**, **Overrides**, **Replaces** — immediately before the key
+   or keys it governs, and those print `[overridden by notes/…]`. **Every other backticked key in
+   the entry prints `[cited by notes/…]`**, which is what a rule the note *rests on* should say;
+   write those with a leaning verb (`Adds to`, `Beside`, `Relates to`) or no verb at all. Naming the
+   same key twice is one relation, not two. Get this wrong in the overriding direction and every
+   later query reads a correct, load-bearing rule as overruled — which is why the older workaround,
+   leaving a supporting key unbackticked so it would not be marked, is no longer needed and should
+   not be copied.
 
 A note's shape: a topic heading, a section, one bullet, role `review`, a source path, a manual
 `sha:manual-<slug>` marker.
@@ -273,8 +295,8 @@ it has no section, role, or exact-token ID matching. Two exceptions, both narrow
 | `--chapter 6` | Styleguide chapter. The only way in from a "styleguide N.M" citation. |
 | `--grep <regex>` / bare words | Case-insensitive; regex is real, bare words are literal. |
 | `--phase 5a` | Every ID cited by `docs/work/*/phase5/phase5a/*.md`, queried as one `--req` set, with the per-document breakdown printed first. Exits 0 with a message when the phase has no documents yet. |
-| `--gaps HTTP` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited listed apart, in ID order. **Answers before any harvest.** |
-| `--prefix-info HTTP` | Subsystem, owning `docs/product-spec` chapter, ID count and level split, derived from appendix C. Replaces the old routing table. **Answers before any harvest.** |
+| `--gaps HTTP` / `--gaps all` | Canonical IDs with no substantive entry: roll-up-only and uncited listed apart, in ID order. The trailing pointer is checked against the chapters, not assumed from appendix C's subsystem cell: an ID no `docs/product-spec/` chapter states is reported as **appendix C only**, with the `grep` line for it. **Answers before any harvest.** |
+| `--prefix-info HTTP` | Subsystem, owning `docs/product-spec` chapter, ID count and level split, derived from appendix C. Replaces the old routing table. Its ID count is the canonical one — a narrowed `--prefix` query covers fewer, and says which. **Answers before any harvest.** |
 | `--brief` | Drop `<sub>` lines, ~30% smaller — but you lose the citation. |
 | `--json` | Records, each with `origin`, `key` and a `rollup` boolean (snake_case fields). |
 | `--list-topics` | Every topic with entry, distinct-ID and note counts. |

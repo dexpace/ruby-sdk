@@ -3704,8 +3704,12 @@ dated sentence per item that the work an earlier phase postponed here has landed
   them into design §10 is **not this task's edit** — `docs/sdk-design-ruby/` is frozen to this plan
   by its own Global Constraints and the consolidation is the manager's, following the phase. What
   this step does is record the as-built state of the fourteen rows in `docs/deviations.md`.
-- **Open items.** None filed. The two findings against committed phase-2 documents that the design
-  names go to the manager, and are not `OI-` rows: each is a sentence a named change rewrites.
+- **Findings.** None needing a new owner. A finding is routed to whoever will act on it at the moment
+  it is found — a numbered task in the plan of the phase whose scope it falls in, an entry in
+  `docs/first-release.md` when it belongs to the release, or a fix in the writable material. The two
+  findings against committed phase-2 documents that the design names go to the manager and need
+  nothing further: each is a sentence a named change rewrites.
+
 - **Release blockers.** None. Nothing is published and every gem stays at `0.0.0`.
 
 - [ ] **Step 9: Update `CLAUDE.md` claims sentence**

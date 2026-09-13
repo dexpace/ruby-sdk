@@ -95,7 +95,7 @@ class ProbeTest < Minitest::Test
   # --- root ------------------------------------------------------------------------------
 
   def test_root_catches_a_stray_register_at_the_repository_root
-    found = on_fixture(only: ['root'], overrides: { 'open-items.md' => "# open items\n" })
+    found = on_fixture(only: ['root'], overrides: { 'deviations.md' => "# deviations\n" })
 
     assert_fires found, /sits at the repository root/
   end
@@ -258,7 +258,7 @@ class ProbeTest < Minitest::Test
 
   def test_links_resolves_a_percent_encoded_target
     found = on_fixture(only: ['links'], overrides: {
-                         'docs/README.md' => "# docs\n\n[x](open%2Ditems.md)\n"
+                         'docs/README.md' => "# docs\n\n[x](sdk%2Ddocumentation/architecture.md)\n"
                        })
 
     assert_empty found
@@ -308,6 +308,59 @@ class ProbeTest < Minitest::Test
     assert_empty found
   end
 
+  # A normative chapter named in backticked prose is a claim about the tree, and
+  # Markdown link syntax is not how this repository writes one. Four cross-reference
+  # failures in four documents went unreported because nothing resolved them.
+
+  def test_links_catches_a_backticked_normative_chapter_path_that_does_not_exist
+    found = on_fixture(only: ['links'], overrides: {
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' =>
+                           "# phase 1\n\nThe reasoning is in `docs/sdk-design-ruby/03-seam-and-adapter-mapping.md` §3.7.\n"
+                       })
+
+    assert_fires found, %r{names `docs/sdk-design-ruby/03-seam-and-adapter-mapping\.md`, a path that does not exist}
+    assert_equal 3, found.first.line
+  end
+
+  def test_links_is_quiet_over_a_backticked_normative_chapter_path_that_exists
+    found = on_fixture(only: ['links'], overrides: {
+                         'docs/product-spec/04-core-http-domain-model.md' => "# four\n",
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' =>
+                           "# phase 1\n\nStated in `docs/product-spec/04-core-http-domain-model.md`.\n"
+                       })
+
+    assert_empty found
+  end
+
+  def test_links_ignores_a_backticked_path_that_is_a_placeholder_or_an_elision
+    found = on_fixture(only: ['links'], overrides: {
+                         'docs/README.md' =>
+                           "# docs\n\nEvery `docs/product-spec/NN-*.md` and `docs/sdk-design-ruby/11-…-ambiguities-….md`.\n"
+                       })
+
+    assert_empty found
+  end
+
+  def test_links_does_not_claim_a_path_outside_the_two_normative_trees
+    # `gems/`, a `Gemfile` and a `Rakefile` are deliberately not created yet; a
+    # backticked one is a plan, not a claim about what is on disk.
+    found = on_fixture(only: ['links'], overrides: {
+                         'docs/README.md' =>
+                           "# docs\n\nThe spine is `Gemfile`, `Rakefile` and `gems/dexpace-core/lib/dexpace.rb`.\n"
+                       })
+
+    assert_empty found
+  end
+
+  def test_links_ignores_a_backticked_chapter_path_inside_a_fence
+    found = on_fixture(only: ['links'], overrides: {
+                         'docs/README.md' =>
+                           "# docs\n\n```\ngrep -n x `docs/product-spec/99-nonexistent.md`\n```\n"
+                       })
+
+    assert_empty found
+  end
+
   # --- registers -------------------------------------------------------------------------
 
   def test_registers_catches_an_aggregate_register_in_a_phase_document
@@ -317,7 +370,7 @@ class ProbeTest < Minitest::Test
                        })
 
     assert_fires found, /carries "## Deferred Items Log"/
-    assert_fires found, %r{belongs in docs/open-items\.md, or, for postponed work, in the owning plan task or docs/first-release\.md}
+    assert_fires found, %r{No find-list register exists: an aggregate belongs with its owner}
     assert_equal 5, found.first.line
   end
 
@@ -339,35 +392,16 @@ class ProbeTest < Minitest::Test
 
   # --- citations -------------------------------------------------------------------------
 
-  def test_citations_catches_a_dangling_register_id
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nSee OI-9.\n"
-                       })
+  # Both register prefixes are retired: the deferral register on 2026-09-13, the open-items
+  # register the same day. A `DEF-<n>` or an `OI-<n>` citation is a leftover wherever it
+  # appears, and the check must say so even though neither file exists to resolve against --
+  # a per-prefix no-op there is precisely what would hide the leftovers.
 
-    assert_fires found, /cites OI-9, which has no entry in docs\/open-items\.md/
-    assert_equal 1, found.length
-  end
+  RETIRED_DEF = /cites DEF-99, an ID from the deferral register, retired 2026-09-13: cite the owning plan task or the docs\/first-release\.md entry instead\./
+  RETIRED_OI = /cites OI-99, an ID from the open-items register, retired 2026-09-13: cite the owning plan task, phase 10's inbound list or the docs\/first-release\.md entry instead\./
 
-  def test_citations_is_quiet_when_every_id_resolves
+  def test_citations_is_quiet_over_a_tree_that_cites_no_retired_id
     assert_empty on_fixture(only: ['citations'])
-  end
-
-  def test_citations_resolves_both_a_heading_and_a_table_row
-    # The fixture register defines OI-1 as a heading and OI-2 as a table row.
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nOI-1 and OI-2 both resolve.\n"
-                       })
-
-    assert_empty found
-  end
-
-  def test_citations_no_ops_when_the_register_is_absent
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/open-items.md' => nil,
-                         'docs/README.md' => "# docs\n\nOI-9 cited with no register at all.\n"
-                       })
-
-    assert_empty found
   end
 
   def test_citations_does_not_claim_a_requirement_id_is_a_register_item
@@ -378,77 +412,74 @@ class ProbeTest < Minitest::Test
     assert_empty found
   end
 
-  def test_citations_ignores_a_dangling_id_inside_a_fenced_block
+  def test_citations_reports_a_retired_oi_citation_with_no_open_items_file
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\n```\nSee OI-99 in this example.\n```\n"
+                         'docs/README.md' => "# docs\n\nSee OI-99 for the finding.\n"
                        })
 
-    assert_empty found
-  end
-
-  def test_citations_catches_the_same_dangling_id_outside_a_fence
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nSee OI-99 in prose.\n"
-                       })
-
-    assert_fires found, /cites OI-99, which has no entry in docs\/open-items\.md/
-  end
-
-  def test_citations_oi_style_heading_outside_the_register_does_not_resolve_oi
-    # The file, not just the pattern, has to match: a heading shaped like a definition in a
-    # document that is not the register defines nothing.
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/sdk-documentation/notes.md' => "# notes\n\n### OI-5 — wrong file\n",
-                         'docs/README.md' => "# docs\n\nSee OI-5.\n"
-                       })
-
-    assert_fires found, /cites OI-5, which has no entry in docs\/open-items\.md/
-    assert_includes found.map(&:path), 'docs/README.md'
-  end
-
-  # The deferral register was retired on 2026-09-13. A `DEF-<n>` citation is a leftover
-  # wherever it appears, and the check must say so even though no `docs/deferred-items.md`
-  # exists to resolve against -- a per-prefix no-op here is precisely what would hide it.
-
-  RETIRED_MESSAGE = /cites DEF-99, an ID from the deferral register, retired 2026-09-13: cite the owning plan task or the docs\/first-release\.md entry instead\./
-
-  def test_citations_reports_a_retired_def_citation_with_no_deferred_items_file
-    found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\nSee DEF-99 for the deferral.\n"
-                       })
-
-    assert_fires found, RETIRED_MESSAGE
+    assert_fires found, RETIRED_OI
     assert_equal ['docs/README.md'], found.map(&:path)
     assert_equal [3], found.map(&:line)
     assert_equal ['act'], found.map(&:severity)
   end
 
-  def test_citations_reports_a_retired_def_citation_in_a_phase_document_and_in_source
+  def test_citations_reports_both_retired_prefixes_in_a_phase_document_and_in_source
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nDeferred as DEF-99.\n",
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' => "# phase 1\n\nFound as OI-99.\n",
                          'lib/dexpace/thing.rb' => "# frozen_string_literal: true\n\n# See DEF-99.\n"
                        })
 
-    assert_equal 2, found.count { |f| RETIRED_MESSAGE.match?(f.message) }
+    assert_fires found, RETIRED_OI
+    assert_fires found, RETIRED_DEF
     assert_equal ['docs/work/mvp/phase1/2026-01-01-phase1-thing.md', 'lib/dexpace/thing.rb'], found.map(&:path).sort
   end
 
-  def test_citations_reports_a_retired_def_citation_even_when_no_register_exists_at_all
+  # A register ID is written BACKTICKED here -- `CLAUDE.md`'s own ID convention says so, and
+  # every document follows it -- and very often on a 4-space-indented line, which in this
+  # repository is list-item continuation rather than a code block. The citations check reads
+  # both. Only a fence is an example, and only a fence is blanked.
+
+  def test_citations_reports_a_backticked_retired_citation_in_prose
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/open-items.md' => nil,
-                         'docs/README.md' => "# docs\n\nSee DEF-99, and OI-9 which cannot be checked.\n"
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' =>
+                           "# phase 1\n\nFound as `OI-99`, and `DEF-99` with it.\n"
                        })
 
-    assert_fires found, RETIRED_MESSAGE
-    refute_includes messages(found).join, 'OI-9'
+    assert_fires found, RETIRED_OI
+    assert_fires found, RETIRED_DEF
+    assert_equal 2, found.length
   end
 
-  def test_citations_ignores_a_retired_def_citation_inside_a_fenced_block
+  def test_citations_ignores_a_retired_citation_inside_a_fenced_block
     found = on_fixture(only: ['citations'], overrides: {
-                         'docs/README.md' => "# docs\n\n```\nSee DEF-99 in this example.\n```\n\nSee `DEF-99` in code.\n"
+                         'docs/README.md' => "# docs\n\n```\nSee OI-99 and `DEF-99` here.\n```\n"
                        })
 
     assert_empty found
+  end
+
+  def test_citations_reports_a_retired_citation_on_an_indented_continuation_line
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/work/mvp/phase1/2026-01-01-phase1-thing.md' =>
+                           "# phase 1\n\n1. **A task.** Its first line runs on, and\n     the continuation cites `OI-99`.\n"
+                       })
+
+    assert_fires found, RETIRED_OI
+    assert_equal 1, found.length
+    assert_equal 4, found.first.line
+  end
+
+  def test_citations_reports_a_lingering_open_items_file_once_not_per_row
+    found = on_fixture(only: ['citations'], overrides: {
+                         'docs/open-items.md' =>
+                           "# Open items\n\nOI-1 was routed. OI-2 was fixed.\n\n### OI-3\n"
+                       })
+
+    assert_equal 1, found.length
+    assert_equal 'docs/open-items.md', found.first.path
+    assert_equal 1, found.first.line
+    assert_match(/still exists, but it was the open-items register, retired 2026-09-13/, found.first.message)
+    assert_match(/Delete it once no OI-<n> citation remains\./, found.first.message)
   end
 
   def test_citations_reports_a_lingering_deferred_items_file_once_not_per_row
@@ -463,17 +494,89 @@ class ProbeTest < Minitest::Test
     assert_match(/still exists, but it was the deferral register, retired 2026-09-13/, found.first.message)
   end
 
+  # The LIVE half of the check has nothing in this repository to exercise it -- both prefixes
+  # are retired and REGISTERS is empty -- and it is not dead code: a future register is one
+  # entry in REGISTERS. So it is driven through the constructor seam, over a prefix and a
+  # register file this fixture invents.
+
+  LIVE = { 'FIX' => 'docs/fixture-register.md' }.freeze
+
+  def citations_on(overrides, registers: LIVE)
+    Fixture.with(overrides: overrides) do |root|
+      Housekeeping::Checks::Citations.new(registers: registers).run(Repo.new(root))
+    end
+  end
+
+  def test_citations_resolves_a_live_prefix_from_a_heading_and_from_a_table_row
+    found = citations_on({
+                           'docs/fixture-register.md' =>
+                             "# fixture register\n\n### FIX-1 — a real item\n\nBody.\n\n| ID | State |\n|---|---|\n| `FIX-2` | open |\n",
+                           'docs/README.md' => "# docs\n\nFIX-1 and FIX-2 both resolve.\n"
+                         })
+
+    assert_empty found
+  end
+
+  def test_citations_catches_a_dangling_live_id_outside_a_fence
+    found = citations_on({
+                           'docs/fixture-register.md' => "# fixture register\n\n### FIX-1 — a real item\n",
+                           'docs/README.md' => "# docs\n\nSee FIX-9 in prose.\n"
+                         })
+
+    assert_fires found, %r{cites FIX-9, which has no entry in docs/fixture-register\.md}
+    assert_equal 1, found.length
+  end
+
+  def test_citations_ignores_a_dangling_live_id_inside_a_fenced_block
+    found = citations_on({
+                           'docs/fixture-register.md' => "# fixture register\n\n### FIX-1 — a real item\n",
+                           'docs/README.md' => "# docs\n\n```\nSee FIX-9 in this example.\n```\n"
+                         })
+
+    assert_empty found
+  end
+
+  def test_citations_reads_a_backticked_live_id_and_resolves_it_against_the_register
+    found = citations_on({
+                           'docs/fixture-register.md' => "# fixture register\n\n### FIX-1 — a real item\n",
+                           'docs/README.md' => "# docs\n\n`FIX-1` resolves; `FIX-9` does not.\n"
+                         })
+
+    assert_fires found, %r{cites FIX-9, which has no entry in docs/fixture-register\.md}
+    assert_equal 1, found.length
+  end
+
+  def test_citations_a_live_definition_outside_the_register_resolves_nothing
+    # The file, not just the pattern, has to match: a heading shaped like a definition in a
+    # document that is not the register defines nothing.
+    found = citations_on({
+                           'docs/fixture-register.md' => "# fixture register\n\nNo rows yet.\n",
+                           'docs/sdk-documentation/notes.md' => "# notes\n\n### FIX-5 — wrong file\n",
+                           'docs/README.md' => "# docs\n\nSee FIX-5.\n"
+                         })
+
+    assert_fires found, %r{cites FIX-5, which has no entry in docs/fixture-register\.md}
+    assert_includes found.map(&:path), 'docs/README.md'
+  end
+
+  def test_citations_no_ops_for_a_live_prefix_whose_register_does_not_exist
+    found = citations_on({ 'docs/README.md' => "# docs\n\nFIX-9 cited with no register at all.\n" })
+
+    assert_empty found
+  end
+
   # --- guard -----------------------------------------------------------------------------
 
   def test_guard_is_quiet_when_the_two_lists_do_not_overlap
     assert_empty on_fixture(only: ['guard'])
   end
 
-  def test_guard_writable_surface_no_longer_lists_the_retired_deferral_register
+  def test_guard_writable_surface_lists_neither_retired_register
     surface = Housekeeping::Checks::GuardCheck::WRITABLE_SURFACE
 
     refute_includes surface, 'docs/deferred-items.md'
-    assert_includes surface, 'docs/open-items.md'
+    refute_includes surface, 'docs/open-items.md'
+    assert_includes surface, 'docs/work'
   end
 
   def test_guard_catches_a_frozen_entry_that_became_a_symlink

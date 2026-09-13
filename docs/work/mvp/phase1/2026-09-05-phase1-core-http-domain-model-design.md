@@ -108,12 +108,13 @@ blocking gates, and is written under them from its first line. Specifically it r
   `#sample(count:, seed:)` for the bounded property-style tests styleguide 11.7 makes mandatory
   for value objects with parse-constructor invariants. `gems/dexpace-core/test/test_helper.rb`
   puts the gem's `lib/` on `$LOAD_PATH` and requires that base.
-- **The gates**, unchanged and unlowered: `rubocop` with the five custom cops
+- **The gates**, unchanged and unlowered: `rubocop` with the five original custom cops
   (`Dexpace/SpdxHeader`, `Dexpace/NoTimeParse`, `Dexpace/NoUriDefaultParser`,
-  `Dexpace/NoLocaleCaseFold`, `Dexpace/NoThreadInterrupt`), `rbs:validate`, `steep` with `core`
-  strict, `test:gems` under `-w -W:deprecated` with the SimpleCov floor,
-  `gates:require_allowlist`, `gates:rbs_surface`, `gates:surface_snapshot` against
-  `test/fixtures/surface/dexpace-core.txt`, and `gates:sig_diff`.
+  `Dexpace/NoLocaleCaseFold`, `Dexpace/NoThreadInterrupt`) and `Dexpace/NoKeywordSplat` (added
+  2026-09-13), `rbs:validate`, `steep` with `core` strict, `test:gems` under `-w -W:deprecated`
+  with the SimpleCov floor, `gates:require_allowlist`, `gates:rbs_surface`,
+  `gates:surface_snapshot` against `test/fixtures/surface/dexpace-core.txt`, and
+  `gates:sig_diff`.
 - **The require allowlist** — core may `require` only `monitor`, `uri`, `stringio`, `strscan`,
   `time`, `date`, `securerandom`, `digest`, `openssl`, `forwardable`, `set`, `singleton`. Phase 1
   uses exactly one of them, `uri`, and adds nothing to the list.

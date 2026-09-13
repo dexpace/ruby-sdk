@@ -25,7 +25,7 @@ caller-supplied one-method `#post` executor and **no thread, no pool and no `Fib
 
 **Tech Stack:** Ruby 3.2–4.0 (authored on 3.4.10), zero new runtime dependencies, **no new `require` in core's
 allowlist** (`uri` is already on it and is the only stdlib this plan touches), Minitest, RBS + Steep, RuboCop
-with phase 0's five custom cops plus phase 2's sixth, SimpleCov, YARD.
+with phase 0's five original custom cops plus phase 2's sixth, SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`, under the charter
 `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`.
@@ -188,7 +188,7 @@ built first would grow the state the rule forbids it from holding.
 15. `Dexpace::Page::Fetchers` (`PAGE-34`, `PAGE-35`) — needs Tasks 5, 10.
 16. **The lifetime inversion suite** (`PAGE-13`, `PAGE-15`, `PAGE-32`) — needs Tasks 11, 12, 14.
 17. Final wiring: the requires, the shadowing audit, the surface snapshot, the RBS baseline, the `Fiber[]`
-    assertion, and the four register-edit texts the design already drafted for a human to apply.
+    assertion, and the routing of the design's four findings to the owner each names.
 
 ---
 
@@ -1858,10 +1858,10 @@ audit in the task's notes.
 
 ---
 
-## Task 17: Final wiring, audits and the register texts
+## Task 17: Final wiring, audits, and routing the findings
 
 **Requirement IDs:** none new; `NFR-3`, `NFR-4`, `NFR-11`, `NFR-13` are exercised.
-**Design:** "Module layout"; `P7-2`; "The findings proposed for the registers".
+**Design:** "Module layout"; `P7-2`; "Findings, and who owns them now".
 
 **Files:**
 - Modify: `gems/dexpace-core/lib/dexpace.rb` (the thirteen requires)
@@ -1885,7 +1885,8 @@ ruby -e 'require "dexpace"; %w[Info QueryRewriter LinkHeader CursorStrategy Page
   puts "#{n}: core=#{Object.const_defined?(n)} dexpace=#{Dexpace.const_defined?(n, false)}" }'
 ```
 
-Any `true` in either column is a shadowing hazard of the species `OI-3`/`P3-7` records and must be renamed
+Any `true` in either column is a shadowing hazard of the species `P3-7` records — the `include Dexpace` shadow
+`docs/first-release.md` carries as a blocker — and must be renamed
 before the surface snapshot is regenerated.
 
 - [ ] **Step 3: The `block_given?` and `Timeout` audits**
@@ -1923,14 +1924,18 @@ generated readers are invisible to the first. Review the diff rather than accept
 should already appear in `P7-2`'s ledger row, and a name in the diff that is not in the row is a name that
 arrived by accident.
 
-- [ ] **Step 7: Hand the four register texts to a human**
+- [ ] **Step 7: Route the four findings to the owner each names**
 
-The design's *findings proposed for the registers* section carries all four in full. **This plan does not
-edit a register file.** They are: the `PAGE-15` vacuity addition to design §12's `PAGE` row and
-`docs/deviations.md`; the amendment to the charter's corpus-attribution finding (the SSE-under-`PAGE-14`
-defect is a **pair**, and `pagination/b2a85752` carries `BODY-11` rather than no ID); the new `docs/open-items.md`
-row for §12's serde-agnosticism being harvested nowhere; and the `docs/first-release.md` line requiring phase
-8's conformance suite to carry a per-call-options test for `PAGE-36`.
+The design's *Findings, and who owns them now* section carries all four in full, each with its owner. **This
+plan does not edit a register file.** They are: the `PAGE-15` vacuity addition to design §12's `PAGE` row and
+`docs/deviations.md`; the two corrections to the charter's corpus-attribution finding (the SSE-under-`PAGE-14`
+defect is a **pair**, and `pagination/b2a85752` carries `BODY-11` rather than no ID), which go to
+`docs/knowledge/notes/` as `## Reference` entries because `harvested/` is never hand-edited; a
+`docs/knowledge/notes/pagination.md` entry carrying §12's serde-agnosticism, which is harvested nowhere; and
+the `docs/first-release.md` line requiring phase 8's conformance suite to carry a per-call-options test for
+`PAGE-36`. A finding is routed to an owner when it is found — a numbered plan task in the phase whose scope it
+falls in, phase 10's inbound list when it is audit or repair work on an already-planned phase, or
+`docs/first-release.md` when it belongs to the release — never to a standing register.
 
 One pointer, not a fifth text (added 2026-09-13): **phase 7's verdict on the four unbuilt HTTP helpers was recorded on
 2026-09-13** — the charter's event-shape amendment (`HTTP-22`, `HTTP-48`–`HTTP-50` wait for the first consumer

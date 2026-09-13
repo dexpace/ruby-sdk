@@ -30,9 +30,9 @@ the executor to be caller-supplied with no default and there is no executor regi
 into (`P2-1`, `P8-21`).
 
 **Tech Stack:** Ruby 3.2–4.0 (authored on 3.4.10), Minitest, RBS + Steep, RuboCop with phase 0's
-five custom cops plus phase 2's `Dexpace/QualifiedCoreConstant` (`P2-8`, extended repository-wide by
-`P3-7`) — six by phase 8, of which three reach this gem and `Dexpace/NoThreadInterrupt` has
-everything to bite here — SimpleCov, YARD.
+five original custom cops plus phase 2's `Dexpace/QualifiedCoreConstant` (`P2-8`, extended
+repository-wide by `P3-7`) and phase 4a's seventh — seven by phase 8, of which three reach this
+gem and `Dexpace/NoThreadInterrupt` has everything to bite here — SimpleCov, YARD.
 `dexpace-async-thread` declares `dexpace-core` and **nothing else** — the gem's `NFR-2` budget is
 spent on nothing, by design (design §2.1's charter sentence).
 
@@ -78,7 +78,8 @@ C drops) for the exact assertion text six decisions below turn on.
 - **`Diagnostics.capture`/`.with` are phase 5b's, called and never reimplemented.** This plan writes
   exactly one new line against fiber storage — the worker's one-time inherited-storage clear
   (`::Fiber.current.storage&.each_key { |k| ::Fiber[k] = nil }`) — and calls `::Fiber#storage=`
-  nowhere, so `OI-13`'s warned setter is a call this gem never makes.
+  nowhere, so the warned `Fiber#storage=` setter — the one
+  `docs/knowledge/notes/observability.md` records — is a call this gem never makes.
 - **`Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`.** Every reference in this plan
   is fully qualified (`Dexpace::Instrumentation::Logger`), never a bare `Logger`.
 - **Domain model construction pattern, applied to a mutable class rather than a `Data`.** `Pool` is
@@ -1491,7 +1492,7 @@ pass has not been tested against failure.
 ## Task 5: Diagnostics conformance, and the break-it proof for `R8`/`R9`
 
 **Requirement IDs:** `ASYNC-8`, `ASYNC-9`, `ASYNC-10`, `ASYNC-11`, `ASYNC-12`.
-**Design:** "`R8` — `ASYNC-9`'s save/install/restore against `OI-13`'s warned setter"; "`R9` —
+**Design:** "`R8` — `ASYNC-9`'s save/install/restore against `Fiber#storage=`'s warned setter"; "`R9` —
 which clause of `ASYNC-12` is live"; testing strategy group 4.
 
 **Files:**
@@ -2832,7 +2833,7 @@ Expected: all seventeen gates clean on all three rows.
 ## Task 13: The `ASYNC-7` README, YARD, the knowledge note, the postponed-work mark, housekeeping
 
 **Requirement IDs:** `ASYNC-7`. **Design:** "What `8b` additionally ships, without owning a new
-ID"; "The knowledge note `8b` files"; "The findings proposed for the registers"; "Work phase 8b
+ID"; "The knowledge note `8b` files"; "Findings, and who owns them now"; "Work phase 8b
 postponed, and who owns what it inherited"; open question 4.
 
 **Files:**
@@ -2928,14 +2929,20 @@ post-v1 async gems, `Hooks.notify` and the `IO-38` trigger are all owned elsewhe
 says, and the decision to keep core's fakes in core is `8a`'s to confirm, not this plan's; this
 plan's `test/support/` doubles are exactly the evidence `8a`'s entry cites for why.
 
-- [ ] **Step 6: Hand the four open-item/deviation findings to a human**
+- [ ] **Step 6: Route the four findings to their owners**
+      *(reworded 2026-09-13: a finding goes to an owner when found, never to a register)*
 
-The design drafts all four verbatim under *The findings proposed for the registers* and this plan
-does **not** file them (numbers collide across `8a`/`8b`/`8c` until a human assigns all three sets
-at once): the pooled-worker-context-floor generalisation, `AsyncOver`'s check-after-resume-not-
-before-dispatch finding, `Thread#report_on_exception`'s blind spot in the warnings-fatal gate, and
-the `Completer#on_cancel` attribution correction to `docs/deviations.md`. Hand over the six `P8-20`
-through `P8-25` ledger rows for consolidation into design §10.
+The design states all four under *Findings, and who owns them now*, each with the owner that carries
+it, and this plan performs none of them itself: the pooled-worker-context-floor generalisation is the
+`## Reference` entry in `docs/knowledge/notes/observability.md` that Step 4 above verifies;
+`AsyncOver`'s check-after-resume-not-before-dispatch finding belongs to **phase 2's plan, Task 11**,
+whose two bridges gain a pre-dispatch cancellation check; `Thread#report_on_exception`'s blind spot in
+the warnings-fatal gate belongs to **phase 0's plan, Task 6**, whose shared test convention gains a
+thread-count assertion at `teardown`; and the `Completer#on_cancel` attribution correction is an entry
+in `docs/deviations.md`. Anything execution turns up goes the same way — a numbered task in the plan of
+the phase whose scope it falls in, phase 10's inbound list when it is audit or repair work on an
+already-planned phase, `docs/first-release.md` when it belongs to the release, or a fix. Hand over the
+six `P8-20` through `P8-25` ledger rows for consolidation into design §10.
 
 - [ ] **Step 7: Run housekeeping's probe**
 
@@ -3099,7 +3106,10 @@ once so a later edit has something to violate rather than a habit to forget.
    which binds `dexpace-core` and no adapter.
 
 **Design edits made by this pass** — verified fact 1's correction and the matching "From phase 0"
-bullet; "five custom cops" → six; `?queue_limit:` → `Integer?` in the `sig/` shape with its reason;
+bullet; the cop sentence, which names **phase 0's original five plus phase 2's
+`Dexpace/QualifiedCoreConstant`** and, beside them, the keyword-splat cop phase 0's Task 4 adds — the
+cops are named, not counted, and no ordinal and no count is renumbered *(reworded 2026-09-13)*;
+`?queue_limit:` → `Integer?` in the `sig/` shape with its reason;
 the `Pool.build` pseudo-signature's `nil` sentinel; a row in *The interface surface later phases may
 cite* stating `8b`'s side of the deadline-and-cancel contract for `8c`; and the ledger's reserved
 band narrowed from `P8-20`–`P8-39` to **`P8-20`–`P8-35`**, since `8b` uses six rows and `8c` takes
@@ -3108,11 +3118,11 @@ band narrowed from `P8-20`–`P8-39` to **`P8-20`–`P8-35`**, since `8b` uses s
 
 **Not changed, and why.** The six `P8-20`–`P8-25` ledger rows, `R8`–`R12`'s decisions, the object
 model, the module layout and the `sig/` shape are all consistent between plan and design and are
-left alone. The four register findings stay unfiled; three of them were **numbered `OI-46`–`OI-48` by
-the cross-sub-phase reconciliation pass later on 2026-09-12** (this pass deliberately left them blank
-because `8a` and `8c` were still concurrent, which they no longer are), and the fourth — the
-`docs/deviations.md` attribution note — stays unnumbered because that register does not use `OI-<n>`.
-Task 9's and Task 8's fixture calls into
+left alone. The four findings are routed to owners rather than filed: the pooled-worker context floor
+into `docs/knowledge/notes/observability.md`, `AsyncOver`'s pre-dispatch check into phase 2's plan
+Task 11, the thread-death blind spot into phase 0's plan Task 6, and the `Completer#on_cancel`
+attribution note into `docs/deviations.md` *(the routing replaced this pass's numbering on
+2026-09-13)*. Task 9's and Task 8's fixture calls into
 phase 7c's and 4c's landed signatures stay flagged as execution-time checks rather than pinned
 here — this sub-phase does not own those gems, and pinning a keyword list it cannot verify would be
 a worse failure than naming the check.
@@ -3136,17 +3146,15 @@ a mark this plan performs itself.
    (`name == "dexpace" || name.start_with?("dexpace/")`). It is a repository-wide file: `8a` and
    `8c` must not land the same widening a second time, and whichever sub-phase runs first owns it.
    The *Discrepancies* section carries the evidence and the decision not to open a `P8-<n>` for it.
-3. **The four register findings drafted in the 8b design are unfiled; three now carry numbers.**
-   `OI-46`, `OI-47` and `OI-48` for `docs/open-items.md`, assigned by the cross-sub-phase
-   reconciliation pass on 2026-09-12 after `8a`'s `OI-42`–`OI-45` and in sub-phase order, and each
-   rewritten there in the register's own row format so filing is a paste. **The fourth carries no
-   number and must not be given one**: it targets `docs/deviations.md`, which is a judgement register
-   rather than a mechanical append, and it is an attribution correction — design §10.5's mitigation
-   sentence names `Completer#on_cancel` as something "an adapter" does, and on the thread path no
-   adapter can, because the hook belongs to the transport that owns the socket. A filer runs
-   `ruby .claude/skills/housekeeping/probe.rb --only citations` first: fifteen numbers (`OI-34`–`OI-48`)
-   are cited across phase 8 with no row in the register yet, and if any is filed under a different
-   number every one after it shifts mechanically.
+3. **The four findings drafted in the 8b design each have an owner, and none of them is a register
+   row** *(restated 2026-09-13, when the find-list was retired)*. The pooled-worker context floor is
+   the `## Reference` entry in `docs/knowledge/notes/observability.md`; `AsyncOver`'s check before
+   dispatch is **phase 2's plan, Task 11**; `Thread#report_on_exception`'s invisibility to the
+   warnings-fatal gate is **phase 0's plan, Task 6**; and the fourth is an entry in
+   `docs/deviations.md`, which is a judgement register rather than a mechanical append — it is an
+   attribution correction, because design §10.5's mitigation sentence names `Completer#on_cancel` as
+   something "an adapter" does, and on the thread path no adapter can, since the hook belongs to the
+   transport that owns the socket. Nothing here waits on a human pasting a row.
 4. **`observability/65191069`'s single-interpreter caveat is cleared by this plan's Task 13, Step 4**
    and by nothing else in phase 8. If `8b` is re-scoped or dropped, the caveat outlives the phase
    that the charter says owns it.

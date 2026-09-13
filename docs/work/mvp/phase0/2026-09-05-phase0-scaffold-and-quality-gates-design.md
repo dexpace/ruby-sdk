@@ -203,15 +203,16 @@ Gemfile                           the development toolchain and six path referen
 Rakefile                          the default task: the whole gate set (NFR-17)
 Steepfile                         six named targets, core strict
 rbs_collection.yaml               empty `gems:` in phase 0; the lock is not committed
-.rubocop.yml                      the cop set, the metric caps, the five custom cops
+.rubocop.yml                      the cop set, the metric caps, the custom cops
 .yardopts                         YARD options shared by the doc task and the gate
 .rubocop/cops/dexpace/spdx_header.rb
 .rubocop/cops/dexpace/no_time_parse.rb
 .rubocop/cops/dexpace/no_uri_default_parser.rb
 .rubocop/cops/dexpace/no_locale_case_fold.rb
 .rubocop/cops/dexpace/no_thread_interrupt.rb
+.rubocop/cops/dexpace/no_keyword_splat.rb  (added 2026-09-13)
 .rubocop/test/cop_case.rb         the Minitest harness for a cop
-.rubocop/test/cops_test.rb        one data-driven suite over all five cops
+.rubocop/test/cops_test.rb        one data-driven suite over all of them
 tools/versions.rb                 the only parser of VERSIONS; every gemspec loads it
 tools/gemspec_audit.rb            }
 tools/require_allowlist.rb        }  the gate bodies, so a gate is unit-testable without rake
@@ -349,7 +350,7 @@ not wait behind a `bundle install`.
 | # | Task | Gate | IDs | Where CI runs it |
 |---|---|---|---|---|
 | 1 | `rubocop` | RuboCop, `--fail-level=convention`, no autocorrection | `NFR-7`, `NFR-13` | gates |
-| 2 | `cops:test` | the five custom cops' own suite | `NFR-13` | gates |
+| 2 | `cops:test` | the custom cops' own suite | `NFR-13` | gates |
 | 3 | `rbs:validate` | `rbs validate` per gem | `NFR-3` | gates |
 | 4 | `steep` | `steep check`, target-by-target | `NFR-3` | gates |
 | 5 | `test:gems` | every gem's Minitest suite, warnings fatal, SimpleCov floor | `NFR-5`, `NFR-6`, `NFR-10` | every matrix row |
@@ -501,7 +502,7 @@ The Ruby 4.0 column is where it actually bites, because that is where `logger`, 
 Ruby 4.0.6 is released and `ruby/setup-ruby` resolves `4.0`, so this is an ordinary required
 matrix row with no fallback.
 
-## `.rubocop.yml` and the five custom cops (`.rubocop.yml`, `.rubocop/cops/dexpace/*.rb`)
+## `.rubocop.yml` and the custom cops (`.rubocop.yml`, `.rubocop/cops/dexpace/*.rb`)
 
 **Satisfies:** `NFR-7` (findings fatal), `NFR-13` (SPDX), and mechanises `CLAUDE.md`'s ban list.
 **Corpus:** `tooling-and-quality-gates/cb18f9bd` fixes the baseline —
@@ -514,10 +515,11 @@ directly: double quotes, 2-space indent, 100 columns, `consistent_comma`, leadin
 `function-design/746002cc`). Every override in the file carries a comment naming the chapter and
 rule it came from (`tooling-and-quality-gates/d39dd7c6`).
 
-Five custom cops, in `RuboCop::Cop::Dexpace`, loaded by `require:` from `.rubocop.yml`. They live
-at `.rubocop/cops/` rather than under `gems/` because every directory under `gems/` is a published
-gem — the housekeeping probe's `readmes` check enforces exactly that — and a seventh directory
-there would be a seventh gem nobody publishes.
+Five original custom cops plus `Dexpace/NoKeywordSplat` (added 2026-09-13), in
+`RuboCop::Cop::Dexpace`, loaded by `require:` from `.rubocop.yml`. They live at `.rubocop/cops/`
+rather than under `gems/` because every directory under `gems/` is a published gem — the
+housekeeping probe's `readmes` check enforces exactly that — and a seventh directory there would be
+a seventh gem nobody publishes.
 
 | Cop | Bans | Source of the rule |
 |---|---|---|
@@ -526,6 +528,7 @@ there would be a seventh gem nobody publishes.
 | `Dexpace/NoUriDefaultParser` | `URI::DEFAULT_PARSER`, and the `URI.parse`/`URI.join`/`URI.split` family that routes through it | Design §3.5 — what `DEFAULT_PARSER` *is* changed at exactly Ruby 3.4.0, which straddles the floor. `URI::RFC3986_PARSER` is pinned explicitly for every parse and every resolution |
 | `Dexpace/NoLocaleCaseFold` | Any argument to `downcase`, `upcase`, `capitalize`, `swapcase` and their `!` forms — the locale symbol is the only argument they take — plus `casecmp?`, which applies Unicode full case folding where `casecmp` is ASCII-only | `HTTP-13`; `CLAUDE.md`'s domain-model section — `"I".downcase(:turkic)` is `"ı"`, and header-name folding must be ASCII |
 | `Dexpace/NoThreadInterrupt` | `Timeout.timeout`, `Thread#raise`, `Thread#kill`, `Thread#terminate`, `Thread#exit` | Design §8.3; modelled on `Airbnb/NoTimeout`. An async interrupt can land on any bytecode instruction, including inside an `ensure` releasing a pooled connection |
+| `Dexpace/NoKeywordSplat` (added 2026-09-13) | A `**` rest-keyword parameter, named or anonymous, in the signature of a public method under `gems/*/lib/**/*.rb` | `OBS-25` ("selecting a no-op path MUST NOT allocate per call") and `OBS-1`; the plan's Task 4 amendment, measured. A `**` splat allocates a `Hash` per call even when no keyword is passed, so a no-op path written with one cannot allocate nothing. It carries **no ordinal** and is never counted, so phase 2's sixth cop and phase 4a's seventh stand as written |
 
 `Dexpace/NoThreadInterrupt` is the one gate design §9's table does not carry. The roadmap made it
 a decision — cross-cutting constraint 6, "the `Timeout.timeout`/`Thread#raise`/`Thread#kill` cop
@@ -838,7 +841,7 @@ has to be a git repository with a tag).
 
 | Gate | Fixture that must make it fail |
 |---|---|
-| `cops:test` (the five custom cops) | Twenty-four rejected sources and eight accepted ones, as one data-driven suite: five header shapes (missing SPDX, wrong licence, one-line file, transposed lines 1 and 2, no blank line 3); `Time.parse` / `Date.parse` / `DateTime.parse` / `::Time.parse`; `URI::DEFAULT_PARSER` and `URI.parse` / `.join` / `.split`; `downcase` / `upcase` / `capitalize` / `swapcase` / `downcase!` with a locale symbol and a bare `casecmp?`; `Timeout.timeout` and `raise` / `kill` / `terminate` / `exit` on a Thread. The accepted half is the sanctioned form each ban points at, so a cop that rejects everything fails too |
+| `cops:test` (the five original custom cops) | Twenty-four rejected sources and eight accepted ones, as one data-driven suite: five header shapes (missing SPDX, wrong licence, one-line file, transposed lines 1 and 2, no blank line 3); `Time.parse` / `Date.parse` / `DateTime.parse` / `::Time.parse`; `URI::DEFAULT_PARSER` and `URI.parse` / `.join` / `.split`; `downcase` / `upcase` / `capitalize` / `swapcase` / `downcase!` with a locale symbol and a bare `casecmp?`; `Timeout.timeout` and `raise` / `kill` / `terminate` / `exit` on a Thread. The accepted half is the sanctioned form each ban points at, so a cop that rejects everything fails too |
 | `gates:gemspec_audit` | A gemspec with one `add_dependency`; an adapter with two third-party dependencies; an adapter whose core constraint is `~> 0.1` while `VERSIONS` says `0.0.0` |
 | `gates:require_allowlist` | `require "base64"` (bundled at 3.4); `require "logger"` (bundled at 4.0); `require "tsort"` (bundled at 4.1, default today — the case a range-based rule misses); `require "json"` (stable and denied by `SEAM-2`); `require "timeout"` (stable and denied by §8.3); plus a `require_relative` that escapes the gem's `lib/` and one that does not |
 | `gates:clean_bundle` | A **complete** miniature workspace — the gem plus `tools/` and `VERSIONS`, because the gemspec reads both — whose core file requires `logger` with no declaration. Must fail under Bundler on **4.0**, and is the fixture that proves the 4.0 row is load-bearing. Without the two copied files the gemspec would raise first and the assertion would pass for the wrong reason |
@@ -863,7 +866,7 @@ controls), `gates:surface_snapshot` (1), `gates:versions` (3), `gates:single_ins
 floor), `yard` (1) and `rbs:validate` (1).
 
 **Four gates carry no fixture of their own, and each has a reason.** `rubocop` is the runner for
-the five cops `cops:test` already proves case by case. `test:gates` is the runner for the gate
+the custom cops `cops:test` already proves case by case. `test:gates` is the runner for the gate
 suites themselves — the fixtures in this table *are* what it runs. `steep` and `bundler_audit`
 are the two below.
 

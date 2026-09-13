@@ -257,10 +257,12 @@ latch, not of anything 4c writes, which is why both are asserted here rather tha
 **From phase 4b** — `Dexpace::Recovery::Transform`, its `#phase` and `#apply(value)`, and the three transforms.
 The contract is R8's and is consumed rather than restated; see *The generic adapter*.
 
-**Two open items land in 4c's window and neither is 4c's to fix.** `OI-8` (`TeeSink#clear_tap`) and `OI-9`
-(`BufferedSource.wrapping`) both name a window that closes when phase 3's plans execute; 4c neither widens nor
-closes them. `OI-6` (RuboCop's own report is not clean under `.rubocop.yml` as phase 0 wrote it) is the one a 4c
-implementer will meet first, and it is phase 0's.
+**Two phase-3 findings land in 4c's window and neither is 4c's to fix.** 3a's plan owns both — Task 14's
+keep-or-drop decision on `TeeSink#clear_tap`, and Task 10's `fill(count)` refill fix for
+`BufferedSource.wrapping` — and both name a window that closes when phase 3's plans execute; 4c neither widens nor
+closes them. The repository-wide RuboCop offence set (its own report is not clean under `.rubocop.yml` as phase 0
+wrote it) is what a 4c implementer will meet first, and it belongs to phase 0's plan, Task 3, the reviewed
+`.rubocop.yml` baseline.
 
 ---
 
@@ -277,7 +279,8 @@ conflicts themselves; **all six print `[overridden by notes/…]`** —
 `/8c0687bf`, `tooling-and-quality-gates/86d763f1`, `type-system/93dc79aa`. **None is open**, so 4c inherits no
 unresolved conflict and owns no conflict decision of its own.
 
-**`OI-16`'s caution applies, was applied, and this document makes it worse before it makes it better.** The CLI
+**The `[overridden by notes/…]` caution applies, was applied, and this document makes it worse before it makes
+it better.** The CLI
 prints `[overridden by notes/…]` for every key a note backticks, including rules the note explicitly adopts.
 **Before** this document's own note landed, three markers inside this phase's material were adoptions rather
 than supersessions, and were read rather than assumed: `pipeline/c76ca402` and `pipeline/77de2b12` are named by
@@ -291,7 +294,8 @@ So seven keys in this phase's material now print the marker and **exactly one is
 evidence will conclude that phase 4 overturned **six** rules it in fact obeys. `concurrency-and-async/c0fab747`
 is the sharpest case and worth naming for the plan: it now carries **three** override markers, from
 `notes/concurrency-and-async.md`, `notes/execution-context.md` and `notes/pipeline.md`, and all three adopt it.
-`OI-16` is the row that records why the tool cannot say otherwise, and this phase is its fourth instance rather
+The tool cannot say otherwise until `scripts/knowledge.rb`'s `CITED_KEY` and `Corpus#link_overrides` separate
+`[cited by …]` from `[overridden by …]`, and this phase is that finding's fourth instance rather
 than its first.
 
 **Four note entries bind this sub-phase directly and are cited rather than restated.**
@@ -367,7 +371,8 @@ fact that is true and licenses nothing is how the last three reviews found a wro
    **Licenses:** `PIPE-26`'s "with and without per-call options" is Ruby's default arguments and needs no second
    entry point, and `Transport.conforms?(pipeline)` is `true` without `Pipeline` declaring anything. It does
    **not** license the converse — `conforms?` cannot tell a `Pipeline` from an `AsyncPipeline`, for the reason in
-   fact 1. That converse is **`OI-18`**, filed by this document's review, and it is asymmetric:
+   fact 1. That converse is the gap this document's review found — owed to **phase 2's plan, Task 11**, the two
+   bridges, as a return-type check in `async_over` — and it is asymmetric:
    `AsyncTransport.sync_over(sync_pipeline)` raises `Dexpace::SeamError` at the first send because
    `Bridge::SyncOver#call` type-checks the returned future, while `Transport.async_over(async_pipeline,
    executor:)` is silent for ever — `Completer#fulfil` and `Settlement.success` validate nothing about the
@@ -457,7 +462,8 @@ fact that is true and licenses nothing is how the last three reviews found a wro
 13. **A lambda's class is `Proc` and `instance_of?(Proc)` is `true` for every lambda.** On all three.
     **Licenses:** the honest statement of `PIPE-18`–`PIPE-21`'s reach: the surgical edits are keyed by *type*, and
     every lambda step in a pipeline shares one type, so a pipeline holding two lambdas cannot address one of them
-    surgically. Filed as **`OI-17`** and documented in the YARD; it is a tension between two requirements, not an
+    surgically. Documented in the YARD, and handed to **4c's own plan, Task 7** as a caller-supplied anchor name
+    for lambda steps; it is a tension between two requirements, not an
     implementation choice.
 
 ---
@@ -1535,9 +1541,9 @@ re-derives nothing.
 - **The store cap's configuration source and the no-op protocols (4a), the retryability flag (4b) — untouched.**
   Targeting phases 5 and 6 (5a, Task 13; 5c, Tasks 3–5; 6a, Task 6).
 
-### The findings filed against `docs/open-items.md`
+### Findings, and who owns them now
 
-**`OI-17` — the surgical edits are keyed by step *type*, and every lambda step shares one type, so a pipeline
+**The surgical edits are keyed by step *type*, and every lambda step shares one type, so a pipeline
 holding two lambdas cannot address either of them surgically.** `PIPE-18`, `PIPE-19`, `PIPE-20` and `PIPE-21` are
 four MUSTs whose subject is "an anchor type"; design §5.1 requires that "a `lambda` is a step" and Ruby gives
 every lambda the class `Proc` (verified fact 13, all three interpreters). The two requirements are individually
@@ -1546,15 +1552,19 @@ which is `PIPE-20`'s own semantics and is almost certainly not what a caller mea
 anchors on whichever lambda happens to be flattened first. Nothing in the specification or the design notices it.
 
 4c's mitigation is documentation — the YARD on each surgical edit states that a step intended as an anchor should
-be a named class — and the finding is filed rather than only documented for two reasons: a caller who meets it has
+be a named class — and it needs more than documentation for two reasons: a caller who meets it has
 no recourse in the API, and phase 9's conformance pass will test the four edits against class-typed steps and
-would never see it. It is the same shape as `OI-1`, `OI-2` and `OI-12` — a requirement that cannot be followed as
+would never see it. It is the same shape as the gap-paragraph pointers that send a reader to a chapter carrying
+neither the five `SEAM` IDs, nor `IO-6`, nor `RECOV-17`–`RECOV-34` — a requirement that cannot be followed as
 written for a case another requirement makes legal — with the difference that here both requirements are
 satisfiable in isolation and it is their conjunction that is thin.
+*Owner:* **4c's own plan, Task 7** (`Pipeline::Builder`), with Task 5 (`Entry`) — an optional caller-supplied
+anchor name the four edits may anchor on instead of a type, which is the only one of the three available repairs
+that makes the four MUSTs reach a lambda step at all.
 
-**`OI-18` — `Transport.async_over` accepts an *async* transport silently and yields a future of a future, while
-the mirror direction is loud.** Filed by this document's review rather than by its scope, on the model of the
-charter's `OI-13`. `Transport.conforms?` and `AsyncTransport.conforms?` are one predicate over `#parameters`
+**`Transport.async_over` accepts an *async* transport silently and yields a future of a future, while
+the mirror direction is loud.** Found by this document's review rather than by its scope, on the model of the
+charter's own out-of-scope findings. `Transport.conforms?` and `AsyncTransport.conforms?` are one predicate over `#parameters`
 (verified facts 1 and 2), and the two seams differ only in return type — phase 2's admitted gap, recorded there.
 What phase 4c adds is not the gap but its reach: `Dexpace::Pipeline` and `Dexpace::AsyncPipeline` are two
 core-owned classes with identical `#call` shapes one file apart, and R13's whole answer is "compose them with
@@ -1565,6 +1575,8 @@ phase 2's two bridges". `AsyncTransport.sync_over(sync_pipeline)` raises `Dexpac
 reviewed**, and 4c neither introduces nor widens the gap — which is why it is an item rather than a ledger row,
 and why the repair it recommends (one `is_a?` in `Bridge::AsyncOver#deliver`, making the bridges symmetric)
 belongs to whoever amends phase 2 rather than to this phase.
+*Owner:* **phase 2's plan, Task 11**, the two bridges — a return-type check on what `async_over` delivers.
+
 
 ---
 

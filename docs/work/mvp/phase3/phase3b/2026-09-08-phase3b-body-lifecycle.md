@@ -20,7 +20,8 @@ synchronised state in the sub-phase is four flag flips — `BODY-6`/`BODY-7`'s c
 across the flip and across nothing else.
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS + Steep,
-RuboCop with phase 0's five custom cops plus phase 2's sixth as 3a widened it, SimpleCov, YARD.
+RuboCop with phase 0's five original custom cops plus phase 2's sixth as 3a widened it, SimpleCov,
+YARD.
 
 **Spec:** `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-design.md`, under the
 charter `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, on top of
@@ -153,9 +154,9 @@ test that could not see the buffer being closed, and an `HTTP-45` test that neve
 accessor contend for the lock.
 
 **One thing that run was not.** It is not the seventeen gates: no Steep, SimpleCov, RuboCop or YARD
-is installed here. Task 14's steps are therefore real checks, not formalities, and `OI-6` records
-that RuboCop is clean for no phase under `.rubocop.yml` as phase 0 wrote it — 3b inherits that and
-does not resolve it.
+is installed here. Task 14's steps are therefore real checks, not formalities, and phase 0's plan,
+Task 3 — the reviewed `.rubocop.yml` baseline — owns the fact that RuboCop is clean for no phase
+under `.rubocop.yml` as phase 0 wrote it. 3b inherits that and does not resolve it.
 
 ### The verified Ruby facts this plan is built on
 
@@ -175,7 +176,7 @@ design's ten facts reproduced **identically on all three**, and two more were fo
 | 9 | `Tempfile#close` leaves the path on disk and `#unlink` removes it | `test/` only |
 | 10 | `byteslice` past the end returns `nil`, `byteslice(0, n)` past the end returns what exists, and `[Float::INFINITY, n].min` is an `Integer` | Tasks 8, 9 |
 | **11** | **`Encoding.default_internal = x` emits `warning: setting Encoding.default_internal` under `ruby -w`, and `DexpaceTestCase`'s `Warning.warn` override turns it into a failure — both the set AND the restore.** A `$VERBOSE = nil` around the two assignments only, restored immediately, suppresses exactly those two and leaves `-w` live for everything else. Verified both ways on all three | Task 8 |
-| **12** | **`Dexpace::IO::BufferedSource.wrapping(io)` delivers ONE BYTE per `#read_into` call and yields one-byte chunks from `#each`** — 200 000 chunks for 200 000 bytes, ~0.21 s where the `Buffer` and `.over` paths are unmeasurable. `#read(n)` is the only efficient path and it blocks for `n`. Uniform on all three | `OI-9`; no 3b test depends on the granularity |
+| **12** | **`Dexpace::IO::BufferedSource.wrapping(io)` delivers ONE BYTE per `#read_into` call and yields one-byte chunks from `#each`** — 200 000 chunks for 200 000 bytes, ~0.21 s where the `Buffer` and `.over` paths are unmeasurable. `#read(n)` is the only efficient path and it blocks for `n`. Uniform on all three | 3a's plan, Task 10 fixes it with `fill(count)`; no 3b test depends on the granularity |
 
 Fact 11 is a plan-level finding the design could not have had: **the design's own mandated test — "run
 half the decode property runs with `Encoding.default_internal = ::Encoding::ISO_8859_1` and restore
@@ -183,7 +184,9 @@ it in an `ensure`" — cannot be written that way**, because under `NFR-6` the a
 failure. Task 8 ships the narrow helper that makes it writable and asserts, in a test of its own,
 that `-w` is still live inside the block.
 
-Fact 12 is a cross-phase finding against 3a, filed as **`OI-9`**. It is a throughput defect and not
+Fact 12 is a cross-phase finding against 3a, and **3a's plan, Task 10 owns the fix** — the caller's
+count reaching the upstream, `fill(count)` in place of the hard-coded `fill(1)` refill. It is a
+throughput defect and not
 a correctness one — every read is correct — and it is not 3b's to fix. No test in this plan asserts
 a chunk granularity either way, so 3a's one-line fix lands without touching a line of 3b.
 
@@ -222,11 +225,12 @@ independent frozen copy for the same reason, which is why both return a `BytesBo
 returned.** `copy_exactly` asks `#read_into(dest, count: remaining)` for the whole remaining count
 and writes exactly what came back, so the upstream's own boundaries survive to the sink and
 `BODY-17`'s byte-exact mirroring sees them. `FileBody` delegates the question entirely to
-`::IO.copy_stream`. **This layer invents no block size**, which is also why fact 12 is `OI-9`'s and
-not this plan's to work around: when 3a's fill hint is fixed, 3b's chunking improves with it and no
+`::IO.copy_stream`. **This layer invents no block size**, which is also why fact 12 is 3a's plan,
+Task 10's and not this plan's to work around: when 3a's fill hint is fixed, 3b's chunking improves with it and no
 3b test changes.
 
-**5. `OI-4`'s measurement, run.** Task 13 is the measurement task the design asked for, and it is a
+**5. The view-retention measurement 3a asked for, run.** Task 13 is the measurement task the design
+asked for, and it is a
 task rather than a note because the number is the deliverable. Measured on all three interpreters,
 on the actual `BODY-23` drain:
 
@@ -241,11 +245,11 @@ Exactly one view is registered per `BODY-23` read and it stays registered until 
 a view holds **no bytes** until read (`@dexpace_buffered` is 0) and costs 9 allocated objects on
 3.2.11 and 3.4.10, 10 on 4.0.6. Deregistration is quadratic in the number of live views — ten times
 the views costs about a hundred times the close — and closing in reverse order (0.2373 s / 0.2684 s /
-0.3216 s at 10 000) only halves it. **The verdict: `OI-4`'s bound stops being obvious above roughly
+0.3216 s at 10 000) only halves it. **The verdict: the bound 3a named stops being obvious above roughly
 1 000 simultaneously-live, unclosed views on one captured body, and nothing in `BODY-22`–`BODY-29`
 produces that shape** — a fits-cap capture is read once and occasionally a handful of times, and at
-100 reads the cost is 0.1 ms. The plan changes nothing in 3a's view registry, which is what `OI-4`
-asked; it records the number in `OI-4`'s resolution field.
+100 reads the cost is 0.1 ms. The plan changes nothing in 3a's view registry, which is what 3a
+asked; the number is recorded here, in this paragraph, and Task 13 is the task that produced it.
 
 **6. `close: true` forces single-use, and it is `BODY-8` stated literally rather than an extra
 rule.** `BODY-8`'s own text says "the rewindable variant must keep it open to replay, and the
@@ -327,7 +331,7 @@ reviewer could reject it while approving Task 1.
 **The lazy typed response (Task 12).** `lib/dexpace/http/typed_response.rb`, and the
 `Dexpace::_ResponseHandler` interface in `sig/dexpace/http/body.rbs`.
 
-**The measurement (Task 13).** No `lib/` file. It records a number in `OI-4`.
+**The measurement (Task 13).** No `lib/` file. It produces the number decision 5 records.
 
 **Wiring and closing (Task 14).** `lib/dexpace.rb`, `sig/dexpace/http/{request,response}.rbs`, the
 repository-root `test/fixtures/surface/dexpace-core.txt`, the RBS baseline, and the checklist.
@@ -791,7 +795,7 @@ module Dexpace
       false
     end
 
-    # The READ side of the contract, and the counterpart to #write_to (OI-10, P3-23).
+    # The READ side of the contract, and the counterpart to #write_to (P3-23).
     # Response#close, #body_string and #body_bytes are written against #source and #close, so a
     # body that can occupy Response#body and answers neither is a NoMethodError one layer up --
     # which is exactly what BODY-30/HTTP-52's BufferBody was.
@@ -1026,8 +1030,8 @@ module Dexpace
   # HTTP-38/BODY-35's replayable byte-array and string body, and the simplest thing that satisfies
   # HTTP-36. Flat, and in a subdirectory, per P1-1 and 3a's Dexpace::StreamError precedent: a
   # Dexpace::Body:: namespace would want the member names File, Buffer and Response, three constants
-  # the body code uses constantly, and OI-3/P3-7 show that shadowing is silent for is_a? and
-  # case/when.
+  # the body code uses constantly, and the include-Dexpace shadow (docs/first-release.md, Blockers)
+  # and P3-7 show that shadowing is silent for is_a? and case/when.
   #
   # Body.string and Body.bytes both return one of these, because HTTP-38 classifies a string and a
   # byte array identically and two classes for one behaviour is one more than the requirement asks.
@@ -1347,7 +1351,7 @@ module Dexpace
     # same-handle rule: BODY-14 governs the single-use response body, and BODY-30 requires this
     # copy to be "readable independently and repeatably". Response#body_string reads through here.
     # #close is Dexpace::Body's documented no-op -- there is no transport resource behind a buffer
-    # core owns, and body_string's ensure-close must leave the copy readable (OI-10).
+    # core owns, and body_string's ensure-close must leave the copy readable (BODY-30, P3-23).
     def source
       @buffer.peek
     end
@@ -1358,7 +1362,7 @@ module Dexpace
 
     # Every view core takes, core closes: the view is closed in an ensure, which deregisters it
     # from the parent buffer so a repeatedly written body does not grow the parent's registry
-    # (OI-4).
+    # (3a's view registry; Task 13 measures what leaving views open costs).
     def write_to(sink)
       view = @buffer.peek
       begin
@@ -3633,7 +3637,7 @@ Expected: clean. `securerandom` is phase 0's, already on the twelve-name list; t
 `BODY-16`'s finally-style readers, `HTTP-42`'s decode, `HTTP-43`'s response close, `BODY-32`'s cap
 rules, `BODY-33`'s non-consuming preview, `HTTP-46`. **Design:** "`Dexpace::ResponseBody` — the
 single-use handle"; "The three additions to phase-1 types"; "Encoding, stated once for 3b";
-addendum **B1**; `OI-7`.
+addendum **B1**; the §3.1 decode sentence the roadmap's phase-10 inbound list carries.
 
 **Files:**
 - Create: `gems/dexpace-core/lib/dexpace/http/body/response_body.rb` and
@@ -3663,7 +3667,8 @@ from BINARY every high byte is undefined in the *source* encoding. And that call
 so it converts to `Encoding.default_internal` — a process global the **host** sets. Three steps,
 all load-bearing: resolve the charset from `MediaType#charset` (already `nil` for absent *or*
 unknown, so `Encoding.find` cannot raise), **retag** through 3a's `#read_string`, then transcode
-with **both** encodings named. `OI-7` and `docs/knowledge/notes/io-and-byte-streams.md` carry it.
+with **both** encodings named. The roadmap's phase-10 inbound list (§3.1's decode sentence) and
+`docs/knowledge/notes/io-and-byte-streams.md` carry it.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4052,7 +4057,7 @@ class DexpaceResponseBodyReaderTest < DexpaceTestCase
     end
   end
 
-  # ---- OI-10: every body a Response can hold answers #source and #close ----------------------
+  # ---- P3-23: every body a Response can hold answers #source and #close ----------------------
 
   # Response#close/#body_string/#body_bytes are written against #source and #close, and the body
   # BODY-30/HTTP-52 puts in an error response is a BufferBody. A suite that only ever builds a
@@ -4272,7 +4277,8 @@ Immediately after phase 1's six classification predicates and before `class Buil
     end
 
     # HTTP-42, and the ONE decode boundary in this SDK. Three steps, and all three are
-    # load-bearing (OI-7, `docs/knowledge/notes/io-and-byte-streams.md`).
+    # load-bearing: design §3.1's own recipe is wrong, see
+    # `docs/knowledge/notes/io-and-byte-streams.md`.
     #
     # 1. Resolve the charset from the body's media type. MediaType#charset already returns nil
     #    for an ABSENT or an UNKNOWN-to-this-Ruby charset, so Encoding.find cannot raise and
@@ -4691,8 +4697,9 @@ boundary a test cannot place.
 **`BODY-18` is satisfied by construction, not by clearing.** A **fresh** `TeeSink` per write cannot
 accumulate an earlier attempt's bytes, which is strictly stronger than clearing one — it also drops
 the previous attempt's memory. That is why 3a's `TeeSink#clear_tap` has **no caller in core**, and
-this plan deliberately writes none: `OI-8` names the window in which 3a's plan may drop the method
-before either plan executes, and this task is the confirmation `OI-8` asks for.
+this plan deliberately writes none: 3a's plan, Task 14 carries the keep-or-drop decision and the
+window in which the method may be dropped before either plan executes, and this task is the
+confirmation that decision waited on.
 
 **The wrapper calls neither `#close`, `#flush` nor `#emit` on the tee.** `IO-29` forwards all
 three to the **primary**, and the primary is the transport's sink, which a body does not own
@@ -4786,7 +4793,7 @@ class DexpaceRequestLoggingBodyTest < DexpaceTestCase
 
   # A fresh tee per write cannot accumulate an earlier attempt's bytes, which is strictly stronger
   # than clearing one -- it also drops the previous attempt's memory. It is why 3a's
-  # TeeSink#clear_tap has no caller in core (OI-8).
+  # TeeSink#clear_tap has no caller in core (3a's plan, Task 14 decides whether it stays).
   test "a retry against a replayable delegate does not accumulate the earlier attempt's bytes" do
     subject = wrapper(FakeBody.new("héllo", replayable: true))
     subject.write_to(FakeSink.new)
@@ -5017,7 +5024,7 @@ module Dexpace
     #
     # A FRESH tee per write, which is BODY-18 satisfied by construction and strictly stronger than
     # clearing one: it also drops the previous attempt's memory. It is why 3a's TeeSink#clear_tap
-    # has no caller in core (OI-8).
+    # has no caller in core (3a's plan, Task 14 decides whether it stays).
     #
     # The wrapper never calls #close, #flush or #emit on the tee: IO-29 forwards all three to the
     # PRIMARY, and the primary is the transport's sink, which a body does not own (BODY-8, §10.12).
@@ -6480,26 +6487,45 @@ Expected: PASS — **17 tests**.
 
 ---
 
-## Task 13: `OI-4`'s measurement on the `BODY-23` drain
+## Task 13: the view-retention measurement on the `BODY-23` drain
 
-**Requirement IDs:** none directly. It discharges the measurement `OI-4` asks for and records the
-number in that item's Resolution field. **Design:** "Open questions for 3b's own plan", item 2;
+**Requirement IDs:** none directly. `IO-19`, `IO-20`, `IO-22`, `IO-38`, `IO-42`, `BODY-22` and
+`BODY-29` are what the finding cites. It discharges the measurement 3a's plan asks for and records
+the number in this plan's decision 5. **Design:** "Open questions for 3b's own plan", item 2;
 §7.1 applied, point 4.
+
+**The finding this task answers, in full, because it lives nowhere else.** `Dexpace::IO::TypedReads`
+keeps `@dexpace_views`, an `Array` of every view built from the object, because `IO-22` requires that
+"closing the parent source MUST invalidate every outstanding slice derived from it so that subsequent
+reads on those slices fail loudly … never returning stale or arbitrary bytes", and `IO-38` requires
+that invalidation to be visible across threads. A view removes itself from that array on its own
+`#close`, through `#dexpace_forget_view`, and each such removal is an `Array#delete` — a linear scan.
+A caller that takes many views and closes none — which nothing in the contract forbids, and `IO-22`'s
+"closing a slice MUST NOT close its parent" positively invites — grows the array for the parent's
+whole lifetime. 3a recorded it rather than fixing it because it is bounded by construction everywhere
+3a can see: every `#peek` in this SDK is a bounded preview, and the parent is a response body whose
+lifetime is one request. **The first place that bound stops being obvious is this sub-phase**, whose
+`BODY-22`–`BODY-29` response-logging drain takes a view per read of a captured body and, on 3a's own
+reading, one per attempt on a retried request — and phase 6's retry loop is what decides how many
+attempts there are. What would **not** resolve it: a weak-reference table, which trades a real,
+measurable cost — an allocation and an indirection on every view — for a hypothetical one, and an
+`ObjectSpace` finalizer, which is barred twice over, by `resource-management/1676974d` ("never rely on
+finalizers or the garbage collector for deterministic resource cleanup") and by design §7.1's
+independent derivation of the same rule from the `Enumerator`/`ensure` asymmetry. What might: a `Hash`
+keyed by `object_id`, making deregistration O(1) at the cost of a second structure to keep in step.
+**The right first move is a measurement, on this drain, not a redesign in 3a** — which is this task.
 
 **Files:**
 - Create: `tools/measure_view_retention.rb` (repository root, not inside a gem)
-- Modify: `docs/open-items.md` — `OI-4`'s **Resolution** field only
+- Modify: this plan's decision 5 paragraph — the measured verdict only (Step 3)
 
 **Interfaces:**
 - Consumes: Task 11's `Dexpace::ResponseLoggingBody`; Task 8's `Dexpace::ResponseBody`.
 - Produces: nothing in `lib/`, `sig/` or `test/`. **It changes nothing in phase 3a's view
-  registry**, which is exactly what `OI-4` asks: "the right first move is a measurement, on phase
-  3b's actual drain, not a redesign here".
+  registry**, which is exactly what 3a asks.
 
-**Why it is a task and not a note: the number is the deliverable.** `OI-4` was filed by 3a against
-this drain by name — "the first place that bound stops being obvious is phase 3b, whose
-`BODY-22`–`BODY-29` response-logging drain takes a view **per attempt on a retried request**" —
-and an open item resolved by an opinion is not resolved.
+**Why it is a task and not a note: the number is the deliverable.** 3a named this drain when it
+recorded the cost, and a measurement answered by an opinion is not a measurement.
 
 It lives in `tools/` and **not** in `test/`, deliberately: a timing measurement inside a suite
 becomes a test that fails on a loaded CI machine, and phase 0's gate set has no place for one.
@@ -6510,9 +6536,10 @@ becomes a test that fails on a loaded CI machine, and phase 0's gate set has no 
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# OI-4's measurement, not a test: it prints numbers and asserts nothing, because OI-4 asks for a
-# measurement on phase 3b's actual BODY-23 drain rather than a redesign of phase 3a's view registry.
-# Run it by hand, record the table in OI-4's Resolution field, and delete nothing from 3a.
+# The view-retention measurement, not a test: it prints numbers and asserts nothing, because what 3a
+# asked for is a measurement on phase 3b's actual BODY-23 drain rather than a redesign of phase 3a's
+# view registry. Run it by hand, record the table in this plan's decision 5, and delete nothing
+# from 3a.
 #
 #   bundle exec ruby -Igems/dexpace-core/lib tools/measure_view_retention.rb
 #
@@ -6584,10 +6611,12 @@ Measured 2026-09-08 on 3.2.11 / 3.4.10 / 4.0.6:
 Reverse-order close at 10 000: 0.2373 / 0.2684 / 0.3216 s. Per-view allocation: **9 objects** on
 3.2.11 and 3.4.10, **10** on 4.0.6.
 
-- [ ] **Step 3: Write the finding into `OI-4`'s Resolution field**
+- [ ] **Step 3: Record the verdict in this plan's decision 5**
 
-The three sentences the item needs, and no more — `OI-4` stays **open** as a documented, measured,
-accepted cost rather than being closed by a phase that did not change the mechanism:
+The three sentences the record needs, and no more. The cost stays a **documented, measured and
+accepted** one rather than being declared closed by a phase that did not change the mechanism, and if
+the number ever falls the other way it is not re-filed anywhere: the first caller that exceeds the
+bound picks it up as a numbered task in its own phase's plan, against 3a's registry.
 
 > **Measured (2026-09-08, phase 3b plan, `tools/measure_view_retention.rb`).** Exactly one view is
 > registered per `BODY-23` read and stays registered until the caller closes it; a view holds zero
@@ -6598,13 +6627,14 @@ accepted cost rather than being closed by a phase that did not change the mechan
 > `BODY-22`–`BODY-29` produces that shape: a fits-cap capture is read once and occasionally a
 > handful of times, and phase 6's retry loop builds a **new** wrapper per attempt rather than
 > taking another view on the old one. The `Hash`-keyed-by-`object_id` alternative stays available
-> and unneeded; the item stays open against the first caller that exceeds the bound.
+> and unneeded; the first caller that exceeds the bound is the one that picks it up, as a numbered
+> task in its own phase's plan.
 
 - [ ] **Step 4: Confirm nothing under `docs/knowledge/harvested/` or phase 3a changed**
 
 Run: `ruby scripts/verify_knowledge_structure.rb` and `git status --short`
-Expected: exit 0, and the only changed files are `tools/measure_view_retention.rb` and
-`docs/open-items.md`.
+Expected: exit 0, and the only changed files are `tools/measure_view_retention.rb` and this plan
+itself, whose decision 5 carries the verdict.
 
 ---
 
@@ -6778,6 +6808,12 @@ their reasoning stands: `BODY-28` is `close_quietly`'s first call site and neith
 yet; `FakeBody` and `FakeResponseBody` are two more doubles that would move into `dexpace-conformance`
 when a consumer outside `dexpace-core` appears, which is phase 8 at the earliest.
 
+**A finding this phase's execution turns up goes the same way — to an owner, not to a list**: a
+numbered task in the plan of the phase whose scope it falls in, the roadmap's phase-10 inbound list
+when it is audit or repair work on an already-planned phase, or `docs/first-release.md` when it
+belongs to the release — named by path and task number, with the reason and the pick-up condition
+beside it.
+
 - [ ] **Step 8: Write the checklist**
 
 `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`, **one row per
@@ -6804,7 +6840,7 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `BODY-15` | 8 | |
 | `BODY-16` | 8 | both readers, both `ensure`d |
 | `BODY-17` | 10 | |
-| `BODY-18` | 10 | satisfied by construction; `OI-8` |
+| `BODY-18` | 10 | satisfied by construction; 3a's plan, Task 14 decides `#clear_tap`'s fate |
 | `BODY-19` | 10 | P3-18 |
 | `BODY-20` | 10 | `FakeBody` |
 | `BODY-21` | 10 | |
@@ -6830,7 +6866,7 @@ cross-reference row.** The mapping, so the checklist is a transcription and not 
 | `HTTP-39` | 1 | |
 | `HTTP-40` | 6 | |
 | `HTTP-41` | 8 | |
-| `HTTP-42` | 8 | `OI-7`; the one decode boundary |
+| `HTTP-42` | 8 | the one decode boundary; §3.1's own recipe goes to the phase-10 inbound list |
 | `HTTP-43` | 8 | a pure forward; idempotence lives in `ResponseBody`'s latch |
 | `HTTP-44` | 12 | |
 | `HTTP-45` | 12 | |
@@ -6848,9 +6884,10 @@ mise exec ruby@3.4.10 -- bundle exec rake
 mise exec ruby@4.0.6 -- bundle exec rake
 ```
 
-Expected: green. **`OI-6` is the honest caveat**: RuboCop's own report is clean for no phase under
-`.rubocop.yml` as phase 0 wrote it, so the RuboCop row here is unfalsifiable until whoever lands
-phase 0 resolves it. 3b inherits that and adds to it rather than pretending otherwise. The
+Expected: green. **Phase 0's `.rubocop.yml` baseline is the honest caveat**: RuboCop's own report is
+clean for no phase under `.rubocop.yml` as phase 0 wrote it, so the RuboCop row here is unfalsifiable
+until phase 0's plan, Task 3 lands the reviewed diff. 3b inherits that and adds to it rather than
+pretending otherwise. The
 clean-bundle isolation run is the row that matters most for this phase, because `securerandom` is
 the one `require` 3b adds and Ruby 4.0's column is what proves it is still a default gem there.
 
@@ -6956,11 +6993,10 @@ regime probe wrote its extra byte into the capture, making every over-cap snapsh
 
 ---
 
-## The finding filed against `docs/open-items.md`
+## The findings, and who owns them now
 
-**`OI-9` — `Dexpace::IO::BufferedSource.wrapping(io)` delivers one byte per read, so every
-`wrapping`-backed transfer is one syscall per byte.** Verified on 3.2.11, 3.4.10 and 4.0.6 while
-planning this phase. `#read_into(dest, count: N)` returns **1** for any positive `N` when the buffer
+**`Dexpace::IO::BufferedSource.wrapping(io)` delivers one byte per read, so every `wrapping`-backed
+transfer is one syscall per byte.** Verified on 3.2.11, 3.4.10 and 4.0.6 while planning this phase. `#read_into(dest, count: N)` returns **1** for any positive `N` when the buffer
 is empty, and `#each` yields **one-byte chunks**: 200 000 chunks and 200 001 `readpartial(1)` calls
 for 200 000 bytes, at ~0.21 s where the `Buffer` and `.over` paths are unmeasurable (0.000 s). The
 cause is one line: `#read_into` fills through `#fill_once_if_empty`, which is hard-coded to
@@ -6975,27 +7011,37 @@ correct order, which is why 3a's own suite is green and stays green. It reaches 
 `ResponseLoggingBody` drain, and it will reach every transport phase 8 writes, since
 `BufferedSource.wrapping` is how a response body is built.
 
-Why it is recorded rather than fixed here: it is phase 3a's code, phase 3a's plan is committed and
-adversarially reviewed, and this plan must not edit it — the same order-of-work argument `OI-8`
-makes. **The window is the same one `OI-8` names**: neither plan has been executed, no gem exists,
-every gem is at `0.0.0`, so the fix is one line in an unexecuted plan and no signature changes at
-all. **No test in phase 3b asserts a chunk granularity in either direction** — deliberately, and
-plan decision 4 says so — so 3a's fix lands without touching a line of 3b.
+Why it is reported rather than fixed here: it is phase 3a's code, phase 3a's plan is committed and
+adversarially reviewed, and this plan must not edit it — the same order-of-work argument the
+`#clear_tap` finding makes. **The window is the same one that finding names**: neither plan has been
+executed, no gem exists, every gem is at `0.0.0`, so the fix is one line in an unexecuted plan and no
+signature changes at all. **No test in phase 3b asserts a chunk granularity in either direction** —
+deliberately, and plan decision 4 says so — so 3a's fix lands without touching a line of 3b.
+**Owner now:** 3a's plan, **Task 10**, whose amendment makes the refill `fill(count)` and passes
+`#read_into`'s `count` and `#readpartial`'s `maxlen` through to the upstream.
 
-**`OI-11` — a caller mistake in an argument can still leave core through a stdlib exception class.**
+**A caller mistake in an argument can still leave core through a stdlib exception class.**
 `Dexpace::Body.string("caf\xE9".b)` raises `Encoding::UndefinedConversionError`, and
 `Dexpace::Body.multipart(parts, subtype: "not a subtype")` raises out of `MediaType.parse`, where the
 Global Constraints promise `Dexpace::InvalidArgumentError` for "a caller mistake in an argument".
-Filed rather than fixed here: the fix is a `rescue` at each site, the two sites are not the only
+Reported rather than fixed here: the fix is a `rescue` at each site, the two sites are not the only
 ones (phase 1's coercions have the same shape), and a rule about which stdlib exceptions core
-re-wraps is a cross-phase decision this sub-phase should not make alone. Recorded by phase 3b's
-plan review.
+re-wraps is a cross-phase decision this sub-phase should not make alone. Found by phase 3b's plan
+review. **Owner now:** phase 1's plan, **Task 1**, which owns the error root and the validation
+error and therefore the argument-boundary re-wrap rule. Tasks 1 and 7 here are the two sites this
+phase found it at: both already raise `Dexpace::InvalidArgumentError` at their own validation
+boundaries, and what escapes is what a stdlib call raises behind them.
 
-`OI-1` through `OI-8` remain open and unchanged. `OI-4` gains the measurement Task 13 produces, in
-its Resolution field, and stays open. `OI-7` is this phase's design's and is discharged in code by
-Task 8 without being closed as an item, because what would resolve it is one sentence in a frozen
-design chapter. `OI-10` is the design review's and is **resolved** by the contract widening
-`P3-23` records, which Tasks 1, 2, 8, 9 and 11 implement.
+The findings this sub-phase inherits are unchanged and none is 3b's to close: the appendix-C-only
+gap findings stay with the roadmap's gap paragraph, the `include Dexpace` shadow with
+`docs/first-release.md` § Blockers before first publish, the unbounded `#read_line_utf8` with phase
+7b's plan, Task 12, the RuboCop baseline with phase 0's plan, Task 3, and `#clear_tap`'s keep-or-drop
+decision with 3a's plan, Task 14. The view-retention cost gains the measurement Task 13 produces, in
+decision 5, and stays an accepted cost. The design's §3.1 decode-recipe finding is discharged in code
+by Task 8 and its documentation half belongs to the roadmap's phase-10 inbound list, because what
+would resolve it is one sentence in a frozen design chapter. The design review's response-body
+surface was **resolved on 2026-09-08** by the contract widening `P3-23` records, which Tasks 1, 2, 8,
+9 and 11 implement.
 
 ## Work Phase 3b Postpones
 
@@ -7009,8 +7055,9 @@ body-member narrowing picked up**; neither is a new postponement.
 ## Deviation Ledger
 
 The design's rows **P3-14** through **P3-21** stand unchanged and are not restated here, and
-**P3-23** — `#source`/`#close` on the contract, `OI-10`'s resolution — is the design review's and is
-carried there. This plan adds **P3-22**, and its own adversarial review added **P3-27**, **P3-28**
+**P3-23** — `#source`/`#close` on the contract, resolving the response-body surface the design review
+found missing on 2026-09-08 — is the design review's and is carried there. This plan adds **P3-22**,
+and its own adversarial review added **P3-27**, **P3-28**
 and **P3-29**; the provenance is kept visible because a row's owner is who answers for it.
 
 | # | Deviation | Requirement / document | Why |
@@ -7059,7 +7106,7 @@ and every later signature. `Dexpace::_ResponseHandler`, for phase 7 to supply in
 `TeeSink`-based capture surface, for phase 5 to construct.
 
 **Type consistency.** `#write_to(sink) -> Integer` is the one hook and every variant implements it
-with that arity; `#source` and `#close` are the read-side pair the contract adds (`P3-23`, `OI-10`),
+with that arity; `#source` and `#close` are the read-side pair the contract adds (`P3-23`),
 `#source` raising by default so the `sig/` declaration is true of every `Dexpace::Body` and the
 three bodies that can occupy `Response#body` overriding it. `copy_exactly(source, sink, count)` and `emit_exactly(sink, string)` keep their
 names and argument order in all six callers. `clamp_cap(cap)` is called by `Body.buffer_bounded` and

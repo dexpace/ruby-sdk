@@ -116,8 +116,12 @@ Five decisions the charter named and declined to make are made here — **`R8`, 
   `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`.
 - `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md` as the closest worked example
   of this document's form, and the most recent sub-phase design to ship a second real gem.
-- `docs/open-items.md` (`OI-8`, `OI-13`, `OI-18`, `OI-22`, `OI-26`), `docs/deviations.md`,
-  `docs/first-release.md` (the `SEAM-24`, unsatisfied-MUST, post-v1-gem and `IO-38` entries).
+- The five earlier findings that bear on this gem: 3a plan Task 14's `#clear_tap` keep-or-drop
+  decision, the observability note's warned `Fiber#storage=` setter, phase 2 plan Task 11's
+  `async_over` return-type check, `CFG-20`'s fourth clause under `docs/first-release.md`'s
+  unsatisfied MUSTs, and 5b plan Task 10's bare-`Logger` cop watch.
+- `docs/deviations.md`, `docs/first-release.md` (the `SEAM-24`, unsatisfied-MUST, post-v1-gem and
+  `IO-38` entries).
 - `CLAUDE.md` and `docs/README.md`.
 
 ---
@@ -209,7 +213,7 @@ sentence:
   narrows it.
   <sub>design · `docs/sdk-design-ruby/05-pipeline-architecture.md:210-213` · high · sha:6b7ebc1dfd1d</sub>
 - **`observability/698552b4`** and **`observability/65191069`** — the two notes that bind `8b` through its
-  own prefix. The first is `OI-13`'s warned setter; the second carries two findings `8b` would otherwise
+  own prefix. The first is the warned `Fiber#storage=` setter; the second carries two findings `8b` would otherwise
   get wrong (copy-on-write protects the slot, not the object in it; `Fiber#storage=` refuses a `String`
   key while `Fiber[]=` coerces one) and names `ASYNC-8`–`ASYNC-12` as its consumers. **Its own caveat is
   `8b`'s to clear**: it was verified on 3.4.10 only and says so.
@@ -240,7 +244,8 @@ budget reading time in its design document and say so there
 budget is zero and this sentence discharges the obligation.
 
 **What that does not license.** `--gaps` measures *corpus* coverage, not *specification* coverage
-(`OI-12` states the same asymmetry from the other side). Chapter 18 was read in full anyway, at 46 lines,
+(the roadmap's gap paragraph states the same asymmetry from the other side, where `RECOV-17`–`34` are
+appendix-C only). Chapter 18 was read in full anyway, at 46 lines,
 and the `*Conformance:*` clauses appendix C does not carry are load-bearing in six places, each quoted
 where a decision turns on it:
 
@@ -466,7 +471,7 @@ antecedent — never on `8b`'s convenience.
 | `PIPE-1`–`PIPE-40` | 4c. `8b` installs no step, adds no stage and ships no pipeline. `PIPE-33` is a cross-reference row |
 | `CTX-1`–`CTX-20`, `Instrumentation::Bundle`, `ContextStore` | 4a. **Nothing in `ASYNC` consumes any of it**: `ASYNC-8`–`ASYNC-12`'s subject is fiber storage, which is `OBS-23`/`OBS-24`'s carrier and not `CTX`'s store — phase 4a's own finding, re-confirmed from this side |
 | `RECOV-1`–`RECOV-34`, `Dexpace::Outcome`, `each_cause`, `attach_suppressed` | 4b. `8b` folds no outcome and walks no cause chain |
-| `CFG-15`–`CFG-21` — the clock, `Clock#sleep`, `Dexpace::Async.delay`, the `deadline:` keyword | 5a. `8b` consumes `Clock::SYSTEM#monotonic` for its own deadline arithmetic and re-decides nothing. **`CFG-20`'s unmet clause is `ASYNC-3`'s under a second ID (`OI-22`) and `8b` adds no fourth unsatisfied MUST for it** |
+| `CFG-15`–`CFG-21` — the clock, `Clock#sleep`, `Dexpace::Async.delay`, the `deadline:` keyword | 5a. `8b` consumes `Clock::SYSTEM#monotonic` for its own deadline arithmetic and re-decides nothing. **`CFG-20`'s unmet clause is `ASYNC-3`'s under a second ID — `docs/first-release.md`'s unsatisfied-MUSTs entry names that fourth clause — and `8b` adds no fourth unsatisfied MUST for it** |
 | `OBS-1`–`OBS-40`, `Diagnostics.capture`/`.with`, `Severity`, `Events`, `Logger`, `Instrumentation.contain` | 5b and 5c, built. `8b` calls four of them and builds none. **`OBS-23`/`OBS-24` are 5b's and 5c's; `ASYNC-9` is `8b`'s, and they are the same mechanism under two subsystems** |
 | `OBS-28`, `OBS-29` — the `HTTPTracer` vocabulary | 5c. `OBS-29`'s transport-milestone group is `8a`'s subject to `R6`, and `Events::INSTRUMENTATION_SHUTDOWN` is deliberately **not** a twelfth tracer method (5b settled it) |
 | `SERDE`, `SSE`, `PAGE` | 7. `8b` consumes **one** phase-7 artifact — `Dexpace::Page::_Executor` — and implements it; it ships no strategy, no codec and no event parser |
@@ -539,18 +544,19 @@ yet in this repository** — these are design commitments, and `8b` inherits the
 - **`gates:rbs_surface`** (`NFR-11`), **`gates:sig_diff`** and **`gates:surface_snapshot`** (`NFR-4`), and
   **`gates:single_instance`**.
 - **`ruby -w` plus `RUBYOPT=-W:deprecated` with warnings failing the build**, and a shared test case that
-  **overrides `Warning.warn` to raise**. This is the gate `OI-13`'s `Fiber#storage=` would fail, and `R8`
+  **overrides `Warning.warn` to raise**. This is the gate the warned `Fiber#storage=` setter would fail, and `R8`
   is where `8b` avoids it. Verified fact 11 adds the complement a naive reading would miss:
   `Thread#report_on_exception` writes to `$stderr` **directly and not through `Warning.warn`**, so a dying
   worker is stderr noise the gate cannot see — which is one of two reasons `8b`'s worker never dies.
-- **Five custom cops from phase 0, plus phase 2's `Dexpace/QualifiedCoreConstant` (`P2-8`, extended
-  by `P3-7`) — six in the repository by phase 8.** Three reach `8b`: **`Dexpace/SpdxHeader`** (`NFR-13`: line 1
-  `# frozen_string_literal: true`, line 2 `# SPDX-License-Identifier: MIT`, line 3 blank, in that order),
-  **`Dexpace/NoThreadInterrupt`** (`Timeout.timeout`, `Thread#raise`, `Thread#kill`, `Thread#terminate`,
-  `Thread#exit` — the cop that makes `ASYNC-3` a checklist row rather than a temptation), and
-  **`Dexpace/QualifiedCoreConstant`** (`P2-8`, extended by `P3-7` to be repository-wide over every gem's
-  `lib/` with a definition-site guard). `8b`'s gem is the **second definition site** in the repository
-  after `lib/dexpace/io.rb`, and the first in an adapter gem; verified fact 14 is why the guard matters.
+- **Five original custom cops from phase 0, plus phase 2's `Dexpace/QualifiedCoreConstant` (`P2-8`, extended
+  by `P3-7`) and phase 4a's `Dexpace/NoWeakReferences` — seven in the repository by phase 8.** Three reach
+  `8b`: **`Dexpace/SpdxHeader`** (`NFR-13`: line 1 `# frozen_string_literal: true`, line 2
+  `# SPDX-License-Identifier: MIT`, line 3 blank, in that order), **`Dexpace/NoThreadInterrupt`**
+  (`Timeout.timeout`, `Thread#raise`, `Thread#kill`, `Thread#terminate`, `Thread#exit` — the cop that makes
+  `ASYNC-3` a checklist row rather than a temptation), and **`Dexpace/QualifiedCoreConstant`** (`P2-8`,
+  extended by `P3-7` to be repository-wide over every gem's `lib/` with a definition-site guard). `8b`'s gem
+  is the **second definition site** in the repository after `lib/dexpace/io.rb`, and the first in an adapter
+  gem; verified fact 14 is why the guard matters.
 - **`Style/ClassAndModuleChildren: nested`** (`…phase0…-design.md:766`), which is what makes verified fact
   14's hazard live rather than hypothetical.
 
@@ -612,16 +618,18 @@ lets `Dexpace::Async::Thread::RejectedError` be a `::StandardError` that `rescue
   (`P5-9`) — `R11`'s starting point. `Future#value`/`#wait` gained `deadline:` and `clock:` (the keyword
   phase 2 postponed, built by 5a's Task 8), with **`deadline:` a monotonic instant and not a duration**. And 5a's own precedent for
   declining a keyword: `Async.delay` has no `clock:` because "a `clock:` here would be an `NFR-4`-locked
-  keyword with no consumer and no test that could drive it, which is `OI-8`'s shape".
+  keyword with no consumer and no test that could drive it" — the shape 3a plan Task 14's `#clear_tap`
+  keep-or-drop decision is about.
 - **5b**: `Instrumentation::Diagnostics.capture` (`(Fiber.current.storage || {}).freeze`) and
   `.with(snapshot) { }` (per key over the union of the captured and prior key sets, **never through
   `Fiber#storage=`**), which `P5-23` decided and which 5b's forward table hands to this gem in as many
   words: "`dexpace-async-thread`'s pooled-worker save/install/restore is the case `Diagnostics.with` was
-  shaped for, and `OI-13`'s warned setter is the call it does not have to make". Also
+  shaped for", and the warned `Fiber#storage=` setter is the call it does not have to make. Also
   `Instrumentation::Logger` and `Logger::NULL`, `Severity` (`ERROR`, `WARNING`, `INFO`, `VERBOSE`),
   `Instrumentation.contain(logger, event:)`, and `Events::INSTRUMENTATION_SHUTDOWN =
   "http.instrumentation.shutdown"` with `Events::INSTRUMENTATION_LOG` as the containment's own diagnostic
-  name. **`P5-38`/`OI-26` is inherited unchanged**: `Dexpace::Instrumentation::Logger` shadows the stdlib
+  name. **`P5-38` is inherited unchanged** (5b plan, Task 10's bare-`Logger` cop watch):
+  `Dexpace::Instrumentation::Logger` shadows the stdlib
   `Logger` and `8b` writes every reference fully qualified.
 - **5c**: `OBS-23`'s per-key push and restore through `Fiber[]=`, and the two facts its `R12` measured —
   `Fiber[:k] = nil` **deletes** the key, and `Fiber[]=` emits **no** warning. `P5-49`'s residual (a prior
@@ -845,7 +853,7 @@ this document states that without proposing a matrix row no v1 phase plans.
 
 ---
 
-## `R8` — `ASYNC-9`'s save/install/restore against `OI-13`'s warned setter
+## `R8` — `ASYNC-9`'s save/install/restore against `Fiber#storage=`'s warned setter
 
 **Decision: `8b` calls `Fiber#storage=` nowhere. Capture is phase 5b's `Diagnostics.capture`; install and
 restore are phase 5b's `Diagnostics.with`, unchanged; and `8b` adds exactly one thing 5b's route does not
@@ -898,13 +906,14 @@ it writes one clearing line and calls core's pair.
 **Why not the other two routes, restated for this sub-phase.** A scoped `Warning.warn` filter is a
 `prepend` on a process-global object, which this port refuses for `Regexp.timeout` and
 `Warning[:experimental]` alike and which a *library* may not do to its host unasked. An `NFR-7` waiver's
-re-enable condition would be a condition on MRI's roadmap. Both keep `OI-13`'s second problem —
+re-enable condition would be a condition on MRI's roadmap. Both keep the setter's second problem —
 `Fiber.current.storage = nil` reading back as `{}` on 3.2.11 and `nil` on 3.4.10 and 4.0.6 — and only
 silence the first. **The per-key route removes both problems rather than silencing one, and nothing in
 `8b` depends on `Fiber#storage=`'s behaviour on any version, which is the point.**
 
 **The supported-range risk, stated because the charter requires it.** `Fiber#storage=` carries "experimental
-and may be removed in the future" and `8b` never calls it, so the risk `OI-13` records does not reach this
+and may be removed in the future" and `8b` never calls it, so the risk
+`docs/knowledge/notes/observability.md` records does not reach this
 gem. `Fiber[]` and `Fiber[]=` carry no such warning and are 3.2+. What `8b` does inherit is
 `P5-49`'s residual — a prior key holding a literal `nil` restores as *absent* — and `8b` adds a second
 reason it is harmless here beside `OBS-10`'s null-skip clause: **after the one-time clear the worker's
@@ -1133,7 +1142,7 @@ mechanism, and the two that name `concurrent-ruby` APIs are answered by what tho
 |---|---|---|
 | `6764e0b5` | Use `Concurrent::FixedThreadPool` (never `CachedThreadPool` or raw `Thread.new`) for thread-based fan-out, and `Async::Semaphore` for Fiber-based fan-out, **declaring the bound as a named, documented constant** | **Adopted in substance; both named mechanisms are unavailable.** `concurrent-ruby` is barred by §2.1 and `f414b864`; `Async::Semaphore` would be a second third-party dependency and the gem's fan-out is threads, not fibers. The pool is **fixed-size and never grows**, which is the whole of what `FixedThreadPool`-over-`CachedThreadPool` buys. The `Thread.new` the rule calls "raw" is not raw here: it is one call, in one private method, bounded by a validated `size`, and it is the only `Thread.new` in the gem. **The bound is a required keyword rather than a constant**, argued below; the *derived* bound, `QUEUE_DEPTH_PER_WORKER`, is a named documented constant as the rule asks |
 | `dc345cae` | Use `SizedQueue` instead of `Queue` for producer-consumer channels, since an unbounded `Queue` lets producers race arbitrarily ahead of consumers while `SizedQueue` applies backpressure when the buffer is full | **Adopted for the mechanism, and its blocking behaviour deliberately not used.** The submission queue **is** a `::Thread::SizedQueue`, so the bound is real and enforced by the primitive. But `#post` uses the **non-blocking** push, so the backpressure signal is a *rejected future* rather than a *blocked producer* — argued in full below. The rule's purpose (a producer cannot race arbitrarily ahead) is met exactly; its mechanism's side effect (the producer parks) is what an async seam must not do |
-| `df658d73` | A custom RuboCop cop bans `Thread.new` inside loops; review rejects `Queue.new` where `SizedQueue.new` belongs; **pool size and queue bound must be named constants** | **Adopted; no new cop proposed.** This repository ships five custom cops and none of them is a `Thread.new`-in-loop cop. `8b` proposes no sixth: the single site is `Array.new(size) { ::Thread.new { … } }`, bounded construction in a private method, which is the one place the pattern is correct — a cop whose only firing site in the repository is a false positive costs more than it catches. The rule's purpose is met structurally and asserted: a test greps the gem's `lib/` for `Thread.new` and asserts **exactly one** occurrence, in the named private method. `Queue.new` where `SizedQueue` belongs is answered by there being exactly one submission queue and it being sized |
+| `df658d73` | A custom RuboCop cop bans `Thread.new` inside loops; review rejects `Queue.new` where `SizedQueue.new` belongs; **pool size and queue bound must be named constants** | **Adopted; no new cop proposed.** This repository ships five original custom cops and none of them is a `Thread.new`-in-loop cop. `8b` proposes no sixth: the single site is `Array.new(size) { ::Thread.new { … } }`, bounded construction in a private method, which is the one place the pattern is correct — a cop whose only firing site in the repository is a false positive costs more than it catches. The rule's purpose is met structurally and asserted: a test greps the gem's `lib/` for `Thread.new` and asserts **exactly one** occurrence, in the named private method. `Queue.new` where `SizedQueue` belongs is answered by there being exactly one submission queue and it being sized |
 | `3692970f` | Join threads, shut down pools, and close queues deterministically, since an unjoined thread or pool may be killed mid-operation by the OS at process exit, corrupting the operation | **Adopted, and verified fact 14 sharpens rather than weakens it.** On 3.4.10 a blocked worker's `ensure` *did* run at process exit — but that is the interpreter delivering a termination at a point the program did not choose, which is the hazard the rule names. `#close` is the deterministic path: it closes the submission queue, waits for every worker's exit sentinel and the timer within a bounded budget, and reports whether the drain completed. **8b installs no `at_exit` hook** (`concurrency-and-async/b667b6a4` offers one as an alternative to an `ensure`): a library that registers a process-global `at_exit` on its host is the same imposition this port refuses for `Regexp.timeout` and `Warning[:experimental]`, and it would make a pool the application forgot to close **also** the reason the process exits slowly. The `ensure` form belongs in the caller's code and the README shows it |
 | `047644ea` | Call **both** `shutdown` (stop accepting new work) and `wait_for_termination` (block until in-flight work drains) on every pool | **Adopted as one method, and the merge is deliberate.** `#close` is both: closing the `SizedQueue` is `shutdown` (verified fact 3 — a push on a closed queue raises and queued items still drain) and the bounded sentinel drain is `wait_for_termination`. One method because `Dexpace::Closeable` is this repository's single close vocabulary — `Dexpace.close_quietly(pool)` calls `#close` with no arguments, and a pool that needed two calls to shut down would be the one closeable in the SDK that does not work through the helper §3.7 makes the single sanctioned exit |
 | `dd8e6d2d` | Every pool must have a paired `shutdown` plus `wait_for_termination` **in an `ensure` block**, and every `SizedQueue` must be `close`d on exit | **Adopted at the call site and at the implementation.** The queue is closed by `#release`, so a closed pool has a closed queue by construction. The `ensure` is the *caller's* and the README's first example is `pool = Pool.build(size: 4); begin … ensure pool.close end` — because the object that must be in an `ensure` is the one the caller holds, and a gem cannot write its consumer's `ensure` |
@@ -1200,7 +1209,8 @@ Four reasons, in decreasing order of force.
 **The rejected alternatives, named.** A *caller-runs* policy (run the block inline when the queue is full)
 would execute a blocking HTTP send on the caller's thread inside an async call, which is reason 2 with the
 volume turned up. A *saturation-policy keyword* (`on_saturation: :block | :reject | :caller_runs`) is
-`OI-8`'s shape — an `NFR-4`-locked knob whose two extra values have no requirement behind them and whose
+the same shape 3a plan Task 14's `#clear_tap` keep-or-drop decision is about — an `NFR-4`-locked knob
+whose two extra values have no requirement behind them and whose
 tests would exist only to exercise the knob — and `api-design/b0e18938`'s minimal-surface rule argues
 against it. A caller who wants to wait sizes `queue_limit` to their burst, or rescues and retries; both are
 one line in their code and neither is a permanent surface in ours.
@@ -1271,7 +1281,8 @@ and `Tempfile` and a pool that returned a different kind of value from `#close` 
 not parked". `8b` takes the **bounded deadline** and declines the **token**, and the trade is `P8-24`: a
 keyword on `#close` cannot be passed by `Dexpace.close_quietly(resource)`, which is the single sanctioned
 exit §3.7 itself defines and which calls `#close` with no arguments — so the keyword would be unreachable
-from the one call site that matters, which is `OI-8`'s shape exactly. The bounded budget delivers the
+from the one call site that matters, which is exactly the shape 3a plan Task 14's `#clear_tap`
+keep-or-drop decision is about. The bounded budget delivers the
 clause's substance: a caller closing inside a cancelled scope waits at most `shutdown_timeout` and never
 forever, and the wait *is* a queue wait as the sentence asks. The budget is a construction-time property,
 which is also where `@owned` lives, so the pool's whole lifecycle policy is fixed in one place.
@@ -1287,7 +1298,7 @@ Every file `8b` creates or modifies. `sig/` mirrors `lib/` one file per file and
 gems/dexpace-async-thread/
   dexpace-async-thread.gemspec          UNCHANGED: dexpace-core and nothing else (P0-9), and a test asserts it
   README.md                             MODIFIED: ASYNC-7's required section, the ensure-form example,
-                                        the close-semantics table, and OI-13's caller-owned-object warning
+                                        the close-semantics table, and the caller-owned-object warning
   lib/dexpace/async/thread.rb           MODIFIED: require "dexpace", the require_relatives, CORE_REQUIREMENT,
                                         the skew assertion, and the module YARD block
   lib/dexpace/async/thread/pool.rb      Dexpace::Async::Thread::Pool  (+ private_constant Job)
@@ -1673,8 +1684,8 @@ Four things about the shape are decisions rather than mechanics.
 The plan's final task regenerates **both** the RBS baseline and the runtime surface snapshot, because
 `Data.define`'s generated readers on `Pool::Job` are invisible to `rbs validate` — `Job` is
 `private_constant` and should therefore appear in **neither** artifact, which is itself an assertion worth
-making once (`OI-19` is the standing record that the snapshot's treatment of `Data` readers is not
-automatic).
+making once (phase 0 plan, Task 14's `Data`-reader snapshot decision is the standing record that the
+snapshot's treatment of `Data` readers is not automatic).
 
 ---
 
@@ -1784,7 +1795,8 @@ listed as not `8b`'s so a reader can see the whole set was read.
 - **Regexp timeouts are per-pattern.** `8b` compiles no regexp.
 - **SPDX header and `# frozen_string_literal: true` on every file** (`NFR-13`), including the four test
   support files, which the cop does not treat differently.
-- **`Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`** (`OI-26`, `P5-38`). `8b` holds one and
+- **`Dexpace::Instrumentation::Logger` shadows the stdlib `Logger`** (`P5-38`, and 5b plan Task 10's
+  bare-`Logger` cop watch). `8b` holds one and
   writes every reference fully qualified. It is also, by verified fact 13's argument, the *second* shadow
   this gem must be careful about — the first being its own namespace.
 
@@ -1924,11 +1936,11 @@ step of the plan's Task 1, with a regression test, rather than as a `P8-<n>`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P8-20 | **A pooled worker clears its inherited fiber storage once, at thread start**, so the caller's captured context is *installed* rather than *merged onto* whatever the pool creator's fiber happened to hold. Design §8.1 describes the adapter as saving, installing and restoring and does not mention the floor underneath | `ASYNC-9`, `ASYNC-10`, `ASYNC-12`; design §8.1 (`:136-142`); `OBS-24`; `P5-23`; `observability/65191069`; verified facts 5, 7, 8 | Measured: a pool built while `Fiber[:tenant] = "assembly"` was set runs a caller's task with `tenant: "assembly"` visible, through phase 5b's `Diagnostics.with` exactly as written, because `::Thread.new` inherited it at construction and the caller's snapshot has no key to overwrite it with. That is `ASYNC-10`'s "stale snapshot from when it was assembled" reaching a log line the caller believes describes their own call, and it is **invisible in any test that builds the pool in the same context it submits from**. The repair is one line, once per worker, on a `Hash` `Fiber.current.storage` already returns fresh — not a change to 5b's `.with`, which is correct for its own consumer, and not `Fiber#storage=`, which `OI-13` and `P5-23` both rule out. The residual `P5-49` records (a prior key holding a literal `nil` restores as absent) is doubly harmless here: after the clear there is no prior key at all |
+| P8-20 | **A pooled worker clears its inherited fiber storage once, at thread start**, so the caller's captured context is *installed* rather than *merged onto* whatever the pool creator's fiber happened to hold. Design §8.1 describes the adapter as saving, installing and restoring and does not mention the floor underneath | `ASYNC-9`, `ASYNC-10`, `ASYNC-12`; design §8.1 (`:136-142`); `OBS-24`; `P5-23`; `observability/65191069`; verified facts 5, 7, 8 | Measured: a pool built while `Fiber[:tenant] = "assembly"` was set runs a caller's task with `tenant: "assembly"` visible, through phase 5b's `Diagnostics.with` exactly as written, because `::Thread.new` inherited it at construction and the caller's snapshot has no key to overwrite it with. That is `ASYNC-10`'s "stale snapshot from when it was assembled" reaching a log line the caller believes describes their own call, and it is **invisible in any test that builds the pool in the same context it submits from**. The repair is one line, once per worker, on a `Hash` `Fiber.current.storage` already returns fresh — not a change to 5b's `.with`, which is correct for its own consumer, and not `Fiber#storage=`, which the observability note and `P5-23` both rule out. The residual `P5-49` records (a prior key holding a literal `nil` restores as absent) is doubly harmless here: after the clear there is no prior key at all |
 | P8-21 | **The version-skew assertion is made directly in the gem's entry file**, with `Gem::Requirement` against `Dexpace::VERSION`, rather than through `Dexpace::Registry#register`'s required `core:` keyword | `SEAM-10`'s replacement (the version-skew guard's runtime half, `P2-7`); §2.3's version-skew guard; `P2-1`; charter boundary 8 | `P2-1` established that **there is no executor registry**, because `SEAM-18` requires the executor to be caller-supplied with no default and an auto-resolved executor is exactly that default. The boundary's substance is the assertion, not the call that usually carries it, so the assertion is kept and the vehicle is dropped. Two properties are preserved and one is added: the failure is at `require` time and names both versions (§2.3's whole purpose), the keyword is not optional because there is no keyword, and a test asserts `CORE_REQUIREMENT` equals the gemspec's declared string — the agreement `gates:gemspec_audit` checks from one side and nothing checked from the other. 7a's `P7-7` is the precedent for a require-time assertion in an adapter entry file |
 | P8-22 | **A pool worker rescues `::Exception` and never dies**, where `RECOV-2`'s rule (design §5.2) is "rescue `Exception`, immediately re-raise anything outside `StandardError`, convert the rest" | `RECOV-2`; design §5.2; `ASYNC-15`; `error-handling/3bfdf6f0`; verified facts 10, 11 | On a worker thread, "re-raise" means the thread dies, and three measurements say nothing would notice: a worker's `SystemExit` does not exit the process and `exit(3)` on a worker is swallowed entirely; `Thread#report_on_exception` writes to `$stderr` **directly and not through `Warning.warn`**, so phase 0's warnings-fatal gate cannot see it; and the pool is then permanently one worker smaller with no signal, which is a capacity invariant the caller depends on silently violated by one bad task. The rule's *purpose* — never demote a programmer error to a handled operational error — is served by a different mechanism rather than abandoned: the error is **not** routed into any caller's result (the block already settled the future through `Completer#fail` before the net could see anything), and what reaches the net is a defect in the block, emitted as an `http.instrumentation.*` diagnostic through §3.7's second disposal route, which phase 5b's facade made available and phase 2 and 4b did not have. `Interrupt` is the case worth naming: `Ctrl-C` is delivered to the main thread, so swallowing it on a worker discards nothing |
-| P8-23 | **`#post` never blocks the calling thread**: the submission queue is a bounded `::Thread::SizedQueue` used with the **non-blocking** push, so a full queue is a `RejectedError` rather than a parked producer — where `concurrency-and-async/dc345cae` names `SizedQueue`'s blocking backpressure as the mechanism | `ASYNC-2`; `SEAM-18`; `PAGE-30`; `concurrency-and-async/dc345cae`, `/171f800d`; verified fact 2 | Four reasons, of which the first is normative. `ASYNC-2` names "worker-pool rejection (**a saturated**/shut-down executor)" as a failure that MUST arrive through the future; a blocking `#post` gives this adapter **no saturated case at all** and kills half the requirement's antecedent. Second, `Transport.async_over#call` promises a future and phase 2 makes it return that future before doing anything fallible — a `#post` that parks moves the blocking from the transport, where the caller asked for it, to the submission, where they did not. Third, `PAGE-30` was designed against a raising `#post` ("every `#post` call site is wrapped"). Fourth, a task that posts back to the same pool would park a worker waiting for a worker. The rule's *purpose* — a producer cannot race arbitrarily ahead of consumers — is met exactly by the bound; only its side effect is declined. Rejected alternatives: a caller-runs policy runs a blocking send on the caller's thread inside an async call; a `on_saturation:` keyword is `OI-8`'s shape |
-| P8-24 | **`#close` takes no arguments**: the graceful-drain wait is bounded by a **construction-time** `shutdown_timeout:` and carries no `cancellation:` token, where design §3.7 writes the wait as "§8.3's cancellable queue wait **and** a bounded deadline" | `ASYNC-15`, `ASYNC-16`, `XCUT-13`; design §3.7 (`:493-497`); `OI-8` | The wait **is** a queue wait and it **is** bounded, so two of the sentence's three elements are taken literally. The token is declined for a mechanical reason: `Dexpace.close_quietly(resource)` is the single sanctioned exit §3.7 itself defines and it calls `#close` with **no arguments**, so a `cancellation:` keyword would be unreachable from the one call site that matters — an `NFR-4`-locked keyword with no caller, which is `OI-8`'s shape and what `P5-2` exists to keep deliberate. A second, differently named `#shutdown(cancellation:)` was considered and rejected: two names for one latch, and the `#close` duck type's whole value is that a `Response`, an `IO`, a `Tempfile` and a pool answer the same message. §3.7's stated harm — "a caller who closes inside a cancelled scope is not parked" — is prevented by the budget: such a caller waits at most `shutdown_timeout` and never forever |
+| P8-23 | **`#post` never blocks the calling thread**: the submission queue is a bounded `::Thread::SizedQueue` used with the **non-blocking** push, so a full queue is a `RejectedError` rather than a parked producer — where `concurrency-and-async/dc345cae` names `SizedQueue`'s blocking backpressure as the mechanism | `ASYNC-2`; `SEAM-18`; `PAGE-30`; `concurrency-and-async/dc345cae`, `/171f800d`; verified fact 2 | Four reasons, of which the first is normative. `ASYNC-2` names "worker-pool rejection (**a saturated**/shut-down executor)" as a failure that MUST arrive through the future; a blocking `#post` gives this adapter **no saturated case at all** and kills half the requirement's antecedent. Second, `Transport.async_over#call` promises a future and phase 2 makes it return that future before doing anything fallible — a `#post` that parks moves the blocking from the transport, where the caller asked for it, to the submission, where they did not. Third, `PAGE-30` was designed against a raising `#post` ("every `#post` call site is wrapped"). Fourth, a task that posts back to the same pool would park a worker waiting for a worker. The rule's *purpose* — a producer cannot race arbitrarily ahead of consumers — is met exactly by the bound; only its side effect is declined. Rejected alternatives: a caller-runs policy runs a blocking send on the caller's thread inside an async call; a `on_saturation:` keyword is an `NFR-4`-locked knob with no requirement behind it |
+| P8-24 | **`#close` takes no arguments**: the graceful-drain wait is bounded by a **construction-time** `shutdown_timeout:` and carries no `cancellation:` token, where design §3.7 writes the wait as "§8.3's cancellable queue wait **and** a bounded deadline" | `ASYNC-15`, `ASYNC-16`, `XCUT-13`; design §3.7 (`:493-497`); 3a plan Task 14's `#clear_tap` keep-or-drop decision | The wait **is** a queue wait and it **is** bounded, so two of the sentence's three elements are taken literally. The token is declined for a mechanical reason: `Dexpace.close_quietly(resource)` is the single sanctioned exit §3.7 itself defines and it calls `#close` with **no arguments**, so a `cancellation:` keyword would be unreachable from the one call site that matters — an `NFR-4`-locked keyword with no caller, which is the shape 3a plan Task 14's `#clear_tap` keep-or-drop decision is about and what `P5-2` exists to keep deliberate. A second, differently named `#shutdown(cancellation:)` was considered and rejected: two names for one latch, and the `#close` duck type's whole value is that a `Response`, an `IO`, a `Tempfile` and a pool answer the same message. §3.7's stated harm — "a caller who closes inside a cancelled scope is not parked" — is prevented by the budget: such a caller waits at most `shutdown_timeout` and never forever |
 | P8-25 | **`ASYNC-18`'s "without blocking a thread" is satisfied for the caller's thread and every worker thread, and not absolutely**: one timer thread per pool is parked for the interval, lazily created on the first positive delay | `ASYNC-18`; `CFG-18`; `P5-9`; design §8.3; verified facts 15, 16 | Phase 5a's `Dexpace::Async.delay` raises `Dexpace::SeamError` with no `Fiber.scheduler`, and `Fiber.scheduler` is **per-thread** (verified) — a pool worker sees `nil` however the caller's thread is configured, so core's delay is unavailable to this adapter unconditionally. Inheriting that raise would leave `ASYNC-18`, a **MUST**, unimplemented in the only adapter that has it, where `CFG-18` is a SHOULD and could afford it. What the clause protects is the *carrier*: "cancelling the future cancels the scheduled task **so no scheduler thread is held**". Both halves hold exactly — the caller is never parked, no pool worker is ever parked, and a cancelled delay is removed and the timer re-computes. What does not hold is the absolute reading, and one named thread (`"<name> timer"`, identifiable in a thread dump) is the cost. A thread per delay is unbounded creation; a pool worker starves the pool at `n = size`, which is `SEAM-18`'s own failure. A second code path delegating to core's delay under a scheduler was rejected: a delay that fires on the caller's reactor never completes for a caller who then blocks outside it |
 
 ---
@@ -2038,7 +2050,8 @@ once and is not repeated here. As with phases 3 through 7, this document **state
 - **`8a`'s and `8c`'s items** — the conformance assertion protocol (`8a` Tasks 4–8 and 20; phase 9
   Tasks 2–12a), the Steep-over-`test/` trigger (`docs/first-release.md` § Post-release triggers), the
   wire-boundary re-validation (`8a` Task 16, `8c` Task 9, phase 9 Task 7), `OBS-29`'s transport-milestone
-  group (`OI-36`, phase 10's inbound list), `BODY-12` clause 2 (`8a`'s decline), `TRANSPORT-28`'s
+  group (no adapter-reachable tracer; phase 10's inbound list), `BODY-12` clause 2 (`8a`'s decline),
+  `TRANSPORT-28`'s
   zero-copy clause and `TRANSPORT-30` (declined for v1, `docs/first-release.md` § What v1 ships without)
   and `OBS-19`'s header-drop policy (`8c` Tasks 7, 9 and 15). `8b` writes no conformance assertion
   object, no `TCPServer` fixture, no dispatch-path header re-validation, no tracer emitter, no file-body
@@ -2053,32 +2066,21 @@ once and is not repeated here. As with phases 3 through 7, this document **state
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-**Four, described here for a human to file. None is acted on by this document and no register file is
-edited by it.** Three target `docs/open-items.md` and **carry numbers as of 2026-09-12**; the fourth
-targets `docs/deviations.md` and carries none, because it is an attribution note against design §10.5 and
-`OI-<n>` is `docs/open-items.md`'s namespace, not that register's.
+**Four, in the words this design measured them in. None is acted on by this document; each is followed by
+the owner that carries it** *(the owner lines were added 2026-09-13, when the find-list was retired and
+every finding was routed to an owner instead of a register row — a numbered plan task, phase 10's inbound
+list, a knowledge note, or `docs/first-release.md`)*.
 
-**The numbers, and why they are safe to write down now.** This section previously left them blank, on the
-ground that the charter's `OI-34`–`OI-37` and two concurrent sibling sets made any choice a collision
-waiting to be renumbered. That reasoning was right while the three designs were being written
-independently and is now spent: all three sets are written and none has moved. **`8b`'s three are
-`OI-46`–`OI-48`**, following `8a`'s `OI-42`–`OI-45` — 8a before 8b, in sub-phase order, so the ordering
-rule is statable rather than incidental. A filer still checks before pasting, with
-`ruby .claude/skills/housekeeping/probe.rb --only citations`: fifteen numbers (`OI-34`–`OI-37` from the
-charter, `OI-38`–`OI-41` from `8c`, `OI-42`–`OI-45` from `8a` and these three) are cited across phase 8
-with no row in the register yet, which is the expected state and not drift. If any of the fifteen is filed
-under a different number, every one after it shifts and the shift is mechanical — nothing in phase 8 cites
-an `OI-4x` from source code, only from these documents.
+Each finding below keeps the shape it was drafted in — a title, the date and phase that found it, the
+requirement IDs it cites, the measured body, and what resolves it — because the body is the thing the
+owner has to be able to execute from.
 
-Each row below is written in `docs/open-items.md`'s own item format — `### OI-<n> — <title>`, then
-`Opened` (the register's found-by field: a date and the phase that found it), `Status`, `Cites`, the body,
-and a `**Resolution:**` line — so filing is a paste rather than a re-derivation.
+**Owner: `docs/knowledge/notes/observability.md` — the `## Reference` entry this sub-phase files (below),
+which already carries the rule that a pooled worker must start with empty fiber storage.**
 
-**Target register: `docs/open-items.md`. Proposed id `OI-46`.**
-
-> ### OI-46 — a pooled worker inherits the pool creator's fiber storage, so the repository's context-restore mechanism leaks assembly-time context into a caller's task
+> ### a pooled worker inherits the pool creator's fiber storage, so the repository's context-restore mechanism leaks assembly-time context into a caller's task
 >
 > - **Opened:** 2026-09-11, phase 8b design
 > - **Status:** open
@@ -2104,9 +2106,10 @@ note `8b` files below, which is the route taken. Nothing is broken today because
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-47`.**
+**Owner: phase 2's plan, Task 11 — the two bridges; the repair is a pre-dispatch cancellation check at the
+top of `AsyncOver`'s posted block.**
 
-> ### OI-47 — `Dexpace::Bridge::AsyncOver`'s posted block re-checks cancellation on return and not before dispatch, so a task cancelled while queued still performs its network round-trip
+> ### `Dexpace::Bridge::AsyncOver`'s posted block re-checks cancellation on return and not before dispatch, so a task cancelled while queued still performs its network round-trip
 >
 > - **Opened:** 2026-09-11, phase 8b design
 > - **Status:** open
@@ -2127,15 +2130,17 @@ micro-optimisation. **It is filed rather than fixed because it is `dexpace-core`
 phase 2's, committed and reviewed, and `dexpace-async-thread` cannot see the token — the pool posts an
 opaque block by design (`concurrency-and-async/08a0e08d`), which is also what lets the same object serve
 `Dexpace::Page::_Executor`. The repair is one `if` at the top of the posted block and belongs to whoever
-next amends phase 2. `OI-18` is the same species from the same object: a core mechanism correct about what
+next amends phase 2. Phase 2 plan Task 11's `async_over` return-type check is the same species from the
+same object: a core mechanism correct about what
 it was designed for and silent about a case a later gem made reachable. Nothing is broken today because
 nothing is implemented.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-48`.**
+**Owner: phase 0's plan, Task 6 — the shared test convention; the repair is a thread-count assertion at
+`teardown`.**
 
-> ### OI-48 — `Thread#report_on_exception` writes to `$stderr` directly, so a dying thread is invisible to the warnings-fatal gate that exists for exactly this
+> ### `Thread#report_on_exception` writes to `$stderr` directly, so a dying thread is invisible to the warnings-fatal gate that exists for exactly this
 >
 > - **Opened:** 2026-09-11, phase 8b design
 > - **Status:** open
@@ -2144,7 +2149,7 @@ nothing is implemented.
 **`Thread#report_on_exception` writes to `$stderr` directly, so a dying thread is invisible to the one gate
 that exists for exactly this.** Phase 0's gate set runs the real suite under `ruby -w` with warnings
 failing the build, and its shared test case **overrides `Warning.warn` to raise** — which is what catches
-`IO::Buffer`'s experimental warning (7a's `P7-5`) and `Fiber#storage=`'s (`OI-13`). Measured on 3.4.10: a
+`IO::Buffer`'s experimental warning (7a's `P7-5`) and `Fiber#storage=`'s. Measured on 3.4.10: a
 thread that dies with an exception prints `#<Thread:…> terminated with exception (report_on_exception is
 true)` to `$stderr` and the `Warning.warn` override captures **nothing**. So a suite that leaks a dying
 thread — a test double's worker, a helper's background thread, a future adapter's exporter — produces
@@ -2158,10 +2163,9 @@ is implemented.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/deviations.md`, as an entry to add when design §10 is next amended. No `OI-<n>`,
-deliberately** — `docs/deviations.md` is the as-built audit of design §10's ledger and is a judgement
-register rather than a mechanical append; an attribution note filed with an open item's number would
-resolve to a row in the wrong file.
+**Owner: `docs/deviations.md`, as an entry to add when design §10 is next amended** — it is the as-built
+audit of design §10's ledger and a judgement register rather than a mechanical append, which is why this
+one is a note there rather than a task anywhere.
 **§10.5's mitigation sentence names `Completer#on_cancel` as something "an adapter" does, and phase 8 has
 three adapters of which only one can.** §10.5 reads: "the check-after-resume rule (§3.3) aborts the worker
 at its next resume point, and `Completer#on_cancel` lets an adapter shorten that by **closing the socket
@@ -2175,10 +2179,11 @@ one clause naming the transport rather than "an adapter", recorded in `docs/devi
 audit of item 5 until §10 is deliberately amended by a human. Cites: `ASYNC-3`, `ASYNC-6`, `PIPE-33`,
 `TRANSPORT-3`; the unsatisfied-MUST entry in `docs/first-release.md` § What v1 ships without.
 
-**Two rows explicitly do not close.** `OI-13`'s subject is `Fiber#storage=`, a call `8b` does not make —
-`R8` removes the problem rather than resolving the row, and the row stays open for whoever does call it.
-`OI-22`'s missing `CFG-20` citation is phase 5a's; `CFG-20`'s unmet clause is `ASYNC-3`'s under a second ID
-and **`8b` adds no fourth unsatisfied MUST for it to point at**.
+**Two inherited findings explicitly do not close.** The warned `Fiber#storage=` setter is a call `8b` does
+not make — `R8` removes the problem rather than resolving the finding, which stays live for whoever does
+call it. The missing `CFG-20` citation is phase 5a's, and it now lives in `docs/first-release.md`'s
+unsatisfied MUSTs, where the `ASYNC-3`/`PIPE-33` entry names `CFG-20`'s fourth clause; that clause is
+`ASYNC-3`'s under a second ID and **`8b` adds no fourth unsatisfied MUST for it to point at**.
 
 ---
 

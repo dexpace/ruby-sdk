@@ -1869,11 +1869,11 @@ Confirm the new public surface is exactly: `Dexpace::Redirect::Step`, `::Conditi
 this step confirms no *second* copy was added). `Origin` and `Location` must **not** appear in the
 snapshot (`private_constant`).
 
-- [ ] **Step 5: Restate, do not file, the findings and register items this sub-phase's design names**
+- [ ] **Step 5: Restate, do not file, the findings this sub-phase's design names**
 
-This plan does not edit `docs/open-items.md`, `docs/knowledge/notes/`, or
-`.claude/skills/knowledge-lookup/SKILL.md` — the design document's *Findings for the registers*
-section already describes each in full, ready for a human to file. This step is a checklist
+This plan does not edit `docs/knowledge/notes/` or
+`.claude/skills/knowledge-lookup/SKILL.md` — the design document's *Findings, and who owns them now*
+section already describes each in full, with the owner that carries it, ready for a human to file. This step is a checklist
 reminder, not an action: confirm the design document still states all three before calling this
 sub-phase done.
 

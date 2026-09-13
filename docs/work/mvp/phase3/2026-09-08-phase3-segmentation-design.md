@@ -320,10 +320,11 @@ things follow, and they are why this ID gets its own paragraph rather than a lin
    attributes ownership-on-wrap to `SEAM-3`; so does the corpus (`message-bodies/8a1e7a7b`). A `3a` design
    auditing §10.1's retirement of `SEAM-3` and finding no surviving citation could reasonably conclude the rule
    retires with the seam. It does not: `IO-6` is its surviving normative home, and it is a MUST.
-3. **Read it out of appendix C, not out of ch.05.** This is the same shape as `OI-1`'s five `SEAM` IDs, and it
-   is filed as **`OI-2`** so the next reader of the roadmap's gap paragraph is not sent to the same empty
-   chapter. **Budget: `3a` reads `IO-6` from appendix C and reconciles it against §3.1's `SEAM-3` wording and
-   §10.12; one paragraph of design, not a chapter of reading.**
+3. **Read it out of appendix C, not out of ch.05.** This is the same shape as the five `SEAM` IDs the
+   roadmap's gap paragraph already carries as appendix-C only, and the correction belongs in that same
+   paragraph — `IO-6` named there as appendix-C only — so the next reader of the roadmap's gap paragraph is
+   not sent to the same empty chapter. **Budget: `3a` reads `IO-6` from appendix C and reconciles it
+   against §3.1's `SEAM-3` wording and §10.12; one paragraph of design, not a chapter of reading.**
 
 The corpus itself is otherwise complete for this phase — `--gaps IO,BODY` returns nothing beyond these five —
 so phase 3 budgets no further specification reading than the two chapters, which were read in full for this
@@ -536,11 +537,15 @@ subject, with the phase that postponed it and the place that owns it now.
   condition ("production-quality test support") phase 3's fakes do not meet, and it is event-gated under
   `docs/first-release.md` § Post-release triggers.
 
-### The finding filed against `docs/open-items.md`
+### The finding, and who owns it now
 
-**`OI-2` — `IO-6`, a MUST, exists only as an appendix-C row, and every statement of its content cites the
-retired `SEAM-3`.** Filed for the reasons under Gap IDs above. It is the same shape as `OI-1` and shares its
-resolution path, which is why the two are worth reading together.
+**`IO-6`, a MUST, exists only as an appendix-C row, and every statement of its content cites the retired
+`SEAM-3`.** Found for the reasons under Gap IDs above. It is the same shape as the five `SEAM` IDs the
+roadmap's gap paragraph already carries as appendix-C only, and it shares their resolution path, which is why
+the two are worth reading together. **Owner now:** the roadmap's gap paragraph
+(`docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` § "Gap IDs each phase must read from the spec
+chapter itself") and `scripts/knowledge.rb`'s `--gaps` trailing pointer, which name `IO-6` as appendix-C only
+and send the reader to appendix C rather than to §5.1.
 
 ---
 

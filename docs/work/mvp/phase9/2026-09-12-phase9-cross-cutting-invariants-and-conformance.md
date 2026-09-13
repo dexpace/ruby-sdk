@@ -77,7 +77,7 @@ supported matrix is 3.2 / 3.3 / 3.4 / 4.0 per `CLAUDE.md`, and **3.3.12 is now i
 (2026-09-13), so this task re-verifies every fact on all four rows. A fact that was true in planning and false at
 implementation time is what the note mechanism exists to catch, and four are load-bearing: the AST
 node types (Task 13), the **`:LIT` versus `:SYM`** divergence (Task 13's reflective scan), the
-Minitest version split (`OI-49`), and the `Data` reader split (`NFR-4`, Task 15).
+Minitest version split (phase 0 plan, Task 2's `minitest` `~> 5.25` pin), and the `Data` reader split (`NFR-4`, Task 15).
 
 - [ ] **Step 1: Write `test/support/warning_capture.rb` first, because the obvious shape does not work**
 
@@ -164,7 +164,8 @@ end
 # SPDX-License-Identifier: MIT
 
 # The four facts phase 9's machinery rests on, re-measured on the interpreter running this suite.
-# Design "The verified Ruby facts this phase is built on"; XCUT-9, XCUT-14, NFR-4, NFR-17, OI-49.
+# Design "The verified Ruby facts this phase is built on"; XCUT-9, XCUT-14, NFR-4, NFR-17, and
+# phase 0 Task 2's minitest pin.
 # GateCase is phase 0's gate base (phase 0 plan:263-298) and does not load FatalWarnings; the
 # "still raises" test below needs it, so DexpaceTestCase's file is required for that prepend.
 require_relative "../support/dexpace_test_case"
@@ -228,10 +229,11 @@ class Phase9RubyFactsTest < GateCase
   test "minitest is a bundled gem, never a default one, on every supported Ruby" do
     spec = ::Gem::Specification.find_by_name("minitest")
 
-    refute(spec.default_gem?, "OI-43: design 9.3 calls minitest a default gem; it is bundled")
+    refute(spec.default_gem?, "design 9.3 calls minitest a default gem; it is bundled, which is why " \
+                              "phase 0 Task 2's Gemfile names it")
   end
 
-  test "minitest ships mock below 6 and not at 6, which is what OI-49 records" do
+  test "minitest ships mock below 6 and not at 6, which is why phase 0 Task 2 pins it" do
     major = ::Gem::Version.new(::Minitest::VERSION).segments.first
     mock_available = begin
       require "minitest/mock"
@@ -279,14 +281,19 @@ for v in 3.2.11 3.3.12 3.4.10 4.0.6; do mise exec ruby@$v -- ruby -w test/gates/
 Expected: **8 runs, 16 assertions, 0 failures** on each — measured 2026-09-13 on 3.2.11, 3.3.12,
 3.4.10 and 4.0.6. **Two tests assert a different outcome per interpreter by design** —
 `mock_available` is true wherever Minitest is 5.x and false on 4.0.6 (Minitest 6.0.0), which is
-`OI-49`; and the Symbol node type is `:LIT` on 3.2.11 and 3.3.12 and `:SYM` on 3.4.10 and 4.0.6,
-which is `OI-52`.
+what phase 0 plan, Task 2's `minitest` `~> 5.25` pin answers; and the Symbol node type is `:LIT` on
+3.2.11 and 3.3.12 and `:SYM` on 3.4.10 and 4.0.6, which `docs/knowledge/notes/cross-cutting-invariants.md`
+records.
 
 - [ ] **Step 4: If any fact has changed, stop and file, do not adapt**
 
-A changed fact is a finding. Append to `docs/open-items.md` at the next id, note it under
-`docs/knowledge/notes/`, and say in the phase's checklist that the plan's premise moved. Do not
-quietly rewrite a later task around it.
+A changed fact is a finding, and a finding is **routed to its owner when it is found**, never parked in
+a register. Route it: to a numbered task in the plan of the phase whose scope it falls in — this plan's
+own, where the fact is phase 9's; to phase 10's inbound list in the roadmap when it is audit or repair
+work on an already-planned phase; or to `docs/first-release.md` when it belongs to the release. Note it
+under `docs/knowledge/notes/` as well whenever it is a fact about Ruby or a library the corpus states
+otherwise, and say in the phase's checklist that the plan's premise moved. Do not quietly rewrite a
+later task around it.
 
 - [ ] **Step 5: Stage the change**
 
@@ -1312,6 +1319,47 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance.rb \
 - Produces: seven more assertions, one per ID: `XCUT-4`, `XCUT-5`, `XCUT-6`, `XCUT-7`, `XCUT-8`,
   `XCUT-9`, `XCUT-10`
 
+**Amendment, 2026-09-13 — `XCUT-9`'s two measured blind spots, and what the suite does about them.**
+Two shapes of `Dexpace.each_cause` defeat the assertion Step 3 writes, and **this task decides how each
+is reported** rather than leaving the residue to be discovered at execution. **(1) A collect-then-yield
+walk hangs the suite.** An implementation that gathers the whole chain into an array before yielding
+never returns its first element on a cyclic chain, so the step-bounded `Enumerator#next` drive never
+gets a step to count — measured, the review's `collect` mutation was still running when a 20-second
+`timeout` killed it on 3.4.10. Bounding it would need an interrupt, which §8.3 bans outright, and
+`Thread#join(limit)` would return while leaving an unkillable thread spinning for the rest of the
+process. The suite therefore **cannot** report `:failed` on that shape: decide here how it reports a
+walk it cannot bound — a documented hang with the harness's own outer timeout as the only bound, or a
+`:vacuous` carrying that reason — and write the decision into the assertion's YARD comment beside the
+step bound, so the next reader does not re-derive it. **(2) A depth cap exactly equal to the cycle
+length passes.** A walk that stops after three steps reports `:passed` against the three-node cycle on
+3.2.11, 3.3.12, 3.4.10 and 4.0.6, because a black-box test over one finite input cannot tell a counter
+from a visited set. Decide whether driving **several** cycle lengths is worth its narrowing of the cap
+case — a cap of N survives only the N-node cycle — and either drive them or say in the comment why one
+length is enough. Task 13's `gates:cause_walk` keeps the walk in one file, which bounds where either
+defect could live and proves neither absent. **Whatever is decided, the residue is stated on the
+`XCUT-9` checklist row** in Task 16, not left implied by a green result.
+
+**Amendment, 2026-09-13 — factory visibility, and it binds Tasks 6 through 11.** `module_function`
+makes every assertion factory a **public** singleton method, and none of them has a `sig/` mirror —
+which `CLAUDE.md`'s public-surface rule ("public means a `Dexpace::` constant that has a YARD block and
+an RBS signature in its gem's `sig/`") and the `NFR-3` assertion this phase itself ships both refuse.
+Measured by walking each module's `singleton_methods(false)` over this plan's own fences on 3.2.11 and
+4.0.6: `InvariantSuite` exposes **15** factories besides `.assertions` and `.run` (14 before the
+2026-09-13 fix added `bounded_map_drains`; its new `XCUT-21` helpers are already `private_class_method`
+and do not appear), `ExecutorSuite` **6**, `PackagingSuite` **4**, `CodecSuite` **2**. **So every
+factory written in Tasks 6–11 gets `private_class_method` after its definition**, exactly as `Runner`
+already hides its helpers (Task 2), leaving `.assertions` and `.run` as each suite's only public
+singleton methods. `InvariantSuite`'s 15 is a whole-module count, so it includes the four factories
+Task 5 opened that file with: they take the same fix, applied here rather than in a task of their own,
+because the rule is one line per factory and not a task's worth of work. The same rule in the other
+direction is **one public class per file**: a case file's helper class is outside
+`module-organization/1828a984`'s only sanctioned exception, *a class-level **private** struct or
+`Data.define` used nowhere but that file*, unless it is marked
+`private_constant` — Task 10's `CodecCase::CountingSink` and Task 11's `ExecutorCase::EventRecorder`
+are the two instances, and each carries the fix in its own task. None of this is cosmetic: `rbs
+validate`, `steep check` and the runtime surface snapshot all run in Task 17, so a suite written the
+loose way reddens the phase's last task rather than shipping.
+
 - [ ] **Step 1: Write the failing test, one non-conforming double per assertion**
 
 The tests for the **two assertions Step 3 writes in full** are given — `XCUT-4`, and `XCUT-9`'s two
@@ -1519,6 +1567,11 @@ assertion — builds a `Request` through `send(:new, …)` (the documented Ruby 
 `#call` raises **before any wire activity**: the seam is handed a listener that records connections,
 and one accepted connection is the failure. With no `seam:` it is `:vacuous` with that reason, never
 `:passed`.
+
+**Amendment, 2026-09-13 — factory visibility.** Every assertion factory this task writes gets
+`private_class_method` after its definition: `module_function` makes them public singleton methods with
+no `sig/` mirror, which `CLAUDE.md`'s public-surface rule and this phase's own `NFR-3` assertion both
+refuse. Task 6's amendment carries the rule, the per-suite counts and the reasoning for Tasks 6–11.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2156,6 +2209,11 @@ is `:failed`. Measured before and after: `[:passed, :error]` then `[:passed, :fa
 item "names require-time registration as the discovery substrate" — and because the requirement is
 three ordered rules whose ordering is the content.
 
+**Amendment, 2026-09-13 — factory visibility.** Every assertion factory this task writes gets
+`private_class_method` after its definition: `module_function` makes them public singleton methods with
+no `sig/` mirror, which `CLAUDE.md`'s public-surface rule and this phase's own `NFR-3` assertion both
+refuse. Task 6's amendment carries the rule, the per-suite counts and the reasoning for Tasks 6–11.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ruby
@@ -2470,6 +2528,11 @@ repository's CI enforcing it"; the assertion answers "can a downstream porter ch
 *their own* reimplementation", which is the whole reason `dexpace-conformance` is a published gem.
 Design `R2` states the split; the nine assertions below are the portable half.
 
+**Amendment, 2026-09-13 — factory visibility.** Every assertion factory this task writes gets
+`private_class_method` after its definition: `module_function` makes them public singleton methods with
+no `sig/` mirror, which `CLAUDE.md`'s public-surface rule and this phase's own `NFR-3` assertion both
+refuse. Task 6's amendment carries the rule, the per-suite counts and the reasoning for Tasks 6–11.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ruby
@@ -2526,7 +2589,7 @@ class DexpaceConformancePackagingSuiteTest < DexpaceConformanceTestCase
     assert_equal(:passed, statuses(report)["NFR-2"])
     assert_equal(:passed, statuses(report)["NFR-15"])
     assert_equal(:vacuous, statuses(report)["NFR-13"])
-    assert_includes(report.to_s, "OI-50")
+    assert_includes(report.to_s, "cannot reach .rbs")
   end
 
   test "a core with one runtime dependency fails NFR-1" do
@@ -2606,7 +2669,8 @@ module Dexpace
     #
     # No `require` is needed: RubyGems is loaded before user code, so Gem::Specification is
     # available without one -- which is what keeps this gem's declared dependency set at
-    # dexpace-core and nothing else, and why OI-44's per-gem denylist question does not arise here.
+    # dexpace-core and nothing else, and why phase 0 plan Task 9's per-gem denylist scope does not
+    # arise here.
     class PackagingCase
       DEFAULT_RESOLVE = lambda do |name|
         ::Gem::Specification.find_by_name(name)
@@ -2659,9 +2723,10 @@ module Dexpace
         scope.const_get(:VERSION, false).to_s
       end
 
-      # OI-50's measurement, REPORTED rather than asserted on: the SPDX gate is a RuboCop cop and
-      # cannot reach .rbs. An assertion that asserted the ABSENCE of the header would turn red the
-      # day OI-50 is repaired, which is a gate that punishes its own fix.
+      # The SPDX-coverage measurement phase 10's inbound list owns, REPORTED rather than asserted on:
+      # the SPDX gate is a RuboCop cop and cannot reach .rbs. An assertion that asserted the ABSENCE
+      # of the header would turn red the day phase 10 repairs it, which is a gate that punishes its
+      # own fix.
       def shipped_rbs_without_header
         every_name.flat_map do |name|
           root = @resolve.call(name)&.full_gem_path
@@ -2776,9 +2841,10 @@ module Dexpace
       end
 
       # NFR-13 is recorded as VACUOUS carrying its reason, never as a positive assertion that the
-      # gap persists. OI-50: the SPDX gate is a RuboCop cop, so it covers .rb and cannot reach
-      # sig/**/*.rbs, which ships inside every gem. The count is reported so a reader sees the size
-      # of the gap; nothing here turns red when OI-50 is repaired.
+      # gap persists. The SPDX gate is a RuboCop cop, so it covers .rb and cannot reach sig/**/*.rbs,
+      # which ships inside every gem; SPDX coverage for sig/**/*.rbs is on phase 10's inbound list.
+      # The count is reported so a reader sees the size of the gap; nothing here turns red when
+      # phase 10 repairs it.
       def spdx_header_coverage
         Assertion.build(ids: ["NFR-13"], name: "every shipped source file carries the SPDX header",
                         body: lambda do |subject|
@@ -2786,7 +2852,8 @@ module Dexpace
 
                           raise Vacuous,
                                 "the SPDX gate is a RuboCop cop and cannot reach .rbs; " \
-                                "#{missing.size} shipped signature file(s) carry no header (OI-50)"
+                                "#{missing.size} shipped signature file(s) carry no header; " \
+                                "the repair is on phase 10's inbound list"
                         end)
       end
     end
@@ -2801,7 +2868,7 @@ must pass, which is why `Check` is its own file and `Runner`'s helpers are `priv
 **`NFR-10`** asserts `required_ruby_version` is declared and permits a **higher** floor for an
 isolated capability, which `NFR-10` explicitly allows ("a capability that genuinely requires a newer
 runtime MUST be isolated into its own unit that declares the higher floor explicitly") — this is
-`OI-38`'s `dexpace-transport-async_http` at `>= 3.3`, conforming by the requirement and non-conforming
+8c plan, Task 3's per-gem Ruby floor gate edit: `dexpace-transport-async_http` at `>= 3.3`, conforming by the requirement and non-conforming
 by phase 0's `gates:versions`, which is the finding and not a defect in the assertion.
 **`NFR-11`** scans every shipped `sig/` for a constant outside `Dexpace::` and a fixed stdlib
 allowlist; its named subject is 6c's hand-forward, **`Dexpace::Auth::BearerProvider`** — "the one
@@ -2868,6 +2935,8 @@ git add -- gems/dexpace-conformance/lib/dexpace/conformance.rb \
 for the conformance suite, written against the seam and never against `Dexpace::Serde::JSON` by
 name", and recorded the path in its checklist "so phase 9 inherits a target rather than a search".
 **This is the lift.** The `Tristate` and coercion items stay with 7a.
+
+**Amendment, 2026-09-13 — `CodecCase::CountingSink`'s placement.** `CountingSink` is a **second public class** in `codec_case.rb`, which is outside `module-organization/1828a984`'s one-class-per-file rule and outside its only sanctioned exception, *a class-level **private** struct or `Data.define` used nowhere but that file*. The class earns its place in this file — one constructor, one reader, and no meaning outside the case that hands it out — so the fix is to make it match the exception rather than to move it: **`private_constant :CountingSink`** immediately after the class body, which hides the name without hiding the object `#sink` returns. Task 11's `ExecutorCase::EventRecorder` is the same shape and takes the same fix; Task 6's factory-visibility amendment carries the rule for both, and `rbs validate`, `steep check` and the runtime surface snapshot (Task 17) catch either one mechanically once the gem exists.
 
 **Two requirement-level corrections to the first draft, both measured.**
 
@@ -3307,9 +3376,16 @@ returns `nil` on the losing call either way (phase 2 plan:558-568) and "the shut
 is visible only in the event. Measured: with a recorder the unlatched double is `:failed` on
 `XCUT-13` and `SEAM-25`; without one it is `:passed` on `XCUT-13` and `:vacuous` on `SEAM-25`.
 
-**`ExecutorCase::EventRecorder` is a second public class in `executor_case.rb`** — the same shape
-`OI-55` already records for `CodecCase::CountingSink`, and it lands the same way for the same
-reason: the sink has one constructor, one reader and no meaning outside the case that hands it out.
+**Amendment, 2026-09-13 — `ExecutorCase::EventRecorder`'s placement.** `EventRecorder` is a **second
+public class** in `executor_case.rb`, which is outside `module-organization/1828a984`'s
+one-class-per-file rule and outside its only sanctioned exception, *a class-level **private** struct or
+`Data.define` used nowhere but that file*. It is the same shape as Task 10's
+`CodecCase::CountingSink`, it lands here for the same reason — one constructor, one reader and no
+meaning outside the case that hands it out — and it takes the same fix: **`private_constant
+:EventRecorder`** immediately after the class body, which hides the name without hiding the object the
+case returns. Task 6's factory-visibility amendment carries the rule and the reasoning for both
+instances; `rbs validate`, `steep check` and the runtime surface snapshot (Task 17) catch either one
+mechanically once the gem exists.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -4788,7 +4864,7 @@ contains a `Hash` ivar. Six offences in five files, identically on 3.2.11, 3.3.1
 | same file | `@properties` | same |
 | `gems/dexpace-core/lib/dexpace/instrumentation/event.rb` (5b plan:2050-2181) | `@fields` | one log event's field bag, dropped at `#emit`. The closest call of the five: `http.response.header.*` keys **are** server-influenced, so it fails the key-space clause and passes only on lifetime |
 | `lib/dexpace/conformance/recording_span.rb` (8a plan:2102-2157) | `@attributes` | a per-span test double, inert after `#end` |
-| `lib/dexpace/transport/async_http/clients.rb` (8c plan:1683-1756) | `@by_origin` | **TRUE POSITIVE.** An instance-lived per-origin client cache, keyed by `Endpoints.origin_for(url)`, uncapped, and nothing evicts — `#close` (8c plan:1740-1744) reads `@by_origin.values`, closes each client's pool and never clears the map. `OI-57`; Task 16 files it, **phase 10 repairs it** — `R6`'s "a bug found in `Dexpace::BoundedMap` is filed here and fixed by phase 10" applies verbatim to another gem's map |
+| `lib/dexpace/transport/async_http/clients.rb` (8c plan:1683-1756) | `@by_origin` | **TRUE POSITIVE.** An instance-lived per-origin client cache, keyed by `Endpoints.origin_for(url)`, uncapped, and nothing evicts — `#close` (8c plan:1740-1744) reads `@by_origin.values`, closes each client's pool and never clears the map. Task 16 routes it to **phase 10's inbound list** as `Clients#@by_origin`'s missing cap, and **phase 10 repairs it** — `R6`'s "a bug found in `Dexpace::BoundedMap` is filed here and fixed by phase 10" applies verbatim to another gem's map |
 
 **The obvious generalising narrowing was written and measured and is rejected.** Filtering the
 report to ivars the file also reads *by key* — `@h[k]`, `@h.fetch(k)`, `@h.key?(k)`, `@h[k] ||= v`,
@@ -4806,6 +4882,35 @@ this kind of cleverness. **The rule is unchanged; only the allowlist and its def
 `bounded_map_drains` asserts it behaviourally and deterministically — a store pre-filled to cap + 5,
 then one `set`: a drain loop ends at 8, a check-then-evict at 13 — and `gates:drain_loop` checks the
 file's shape beside it. An earlier draft said the behaviour was undecidable; that premise was false.
+
+**Amendment, 2026-09-13 — the four gates' remaining statically decidable misses, and the disposition
+each one needs.** Every gate below already states an *undecidable* gap; what follows is the shapes it
+**could** decide and does not. Measured with the review's mutation battery against this task's
+`tools/ast_scan.rb` and `tools/invariant_gates.rb` **after** the 2026-09-13 corrections
+(argument-carrying sends skipped, `:FCALL` and `:BLOCK_PASS` added to `cause_walk`; adapter leaf
+namespaces in `seam_names`), **identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6**:
+
+| Gate | Caught / clean as required | Decidable misses |
+|---|---|---|
+| `cause_walk` | 10 of 12 decidable shapes — the 7 claimed plus `cause()`, receiverless `send(:cause)`, `errors.map(&:cause)`; clean on both argument-carrying builder shapes (5b's `Event#cause(e)`) | `e.send("cause")` (String argument); `Exception.instance_method(:cause).bind_call(e)` |
+| `bounded_map` | 5 of 9 decidable shapes — the 4 claimed plus `@h \|\|= {}` | `@h = Hash.new { \|h, k\| h[k] = [] }` (block form); `@@h = {}`; `NONCES = {}`; `instance_variable_set(:@h, {})` |
+| `drain_loop` | 1 of 3 non-conforming shapes caught; 3 of 4 conforming shapes clean (`while`, `until`, 4a's filed `BoundedMap`) | **False positive:** a `loop do … break … end` drain. **Misses:** a file whose `set` checks-then-evicts while `put` loops — 4a's two-path shape; a check-then-evict beside an unrelated looped `delete` |
+| `seam_names` | 5 of 7 decidable shapes — the 4 claimed plus `Dexpace::Serde::JSON::Codec`; clean on core's own `Instrumentation::Severity`, `Async::Future`, `Serde::DeserializationError` | `Object.const_get(:"Dexpace::Serde::JSON")` (dynamic Symbol); `Serde.const_get(:JSON)` (chained) |
+
+**This task disposes of every cell in the right-hand column**, one of two ways: widen the gate for it,
+or record it as accepted **inside that gate's own stated gap** — the gap sentence in the gate's source
+is the artifact, not a passing comment — and then state the result on the `XCUT-9`, `XCUT-14` and
+`SEAM-2` rows in Task 16. A miss that is neither widened nor written into the gap is the failure this
+amendment exists to prevent: a gate whose stated gap is narrower than its real one reads as stronger
+evidence than it is, which is the same defect as a gate reporting clean over a live violation. Two
+measurements bound the work. Over every parseable filed `lib/` fence of phases 1–8 (**199 of 202**; 165
+in core), `cause_walk` and `seam_names` report **zero** offences, so widening either costs nothing
+against the tree as filed. `bounded_map` with no allowlist reports **6 hits in 5 files**, which is what
+its allowlist-with-reasons exists for and is adjudicated in Step 5. And `drain_loop`'s behavioural
+twin, Task 7's `bounded_map_drains`, decides the same `XCUT-14` clause deterministically (8 against
+13), so `drain_loop`'s misses and its one false positive are a **second line's** and not the clause's —
+which is the reason its disposition may honestly be "accepted, stated in the gap" where the others'
+may not.
 
 - [ ] **Step 1: Write the seven fixtures**
 
@@ -5285,9 +5390,11 @@ module InvariantGates
   # is a variable; `@h = build_map` and any Hash arriving through a parameter or a constant `dup`;
   # and a constant reached through `const_get(dynamic)`. Each gate is a floor on its invariant
   # rather than proof of it, and the addendum for each states its measured catch rate. The
-  # statically DECIDABLE shapes each gate still misses, measured, are OI-56's table.
+  # statically DECIDABLE shapes each gate still misses are measured in this task's gate-miss
+  # dispositions amendment, and each is widened for or accepted in the gap above.
   #
-  # **bounded_map's sixth hit is NOT allowlisted and is the audit's one finding (Task 16, OI-57).**
+  # **bounded_map's sixth hit is NOT allowlisted and is the audit's one finding -- Task 16 routes it
+  # to phase 10's inbound list as Clients#@by_origin's missing cap.**
   # gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb:32's @by_origin is
   # an instance-lived per-origin Async::HTTP::Client cache with no cap and no eviction: the key is
   # Endpoints.origin_for(url), so a caller's URLs and a server's redirect Location headers both add
@@ -5382,9 +5489,11 @@ Expected: **11 runs, 42 assertions, 0 failures** on each — measured 2026-09-13
 3.4.10 and 4.0.6, the fences run straight out of this document with nothing adapted — and
 `gates:cause_walk`, `gates:drain_loop` and `gates:seam_names` green over the real tree, with
 `gates:bounded_map` reporting **exactly one** offence, `async_http/clients.rb`'s `@by_origin`, which
-Task 16 files as `OI-57`. Anything else from `bounded_map` is either a new file the adjudication
+Task 16 routes to phase 10's inbound list as `Clients#@by_origin`'s missing cap. Anything else from
+`bounded_map` is either a new file the adjudication
 never saw — adjudicate it and add an entry with its reason — or the sixth hit having been repaired,
-in which case the gate set is green and `OI-57` closes. **A fifth allowlist entry is a decision, not
+in which case the gate set is green and phase 10's inbound entry for that cache closes. **A fifth
+allowlist entry is a decision, not
 a chore**: design open question 2 says that past a dozen entries the gate is telling us the
 invariant is not held.
 
@@ -5421,8 +5530,8 @@ test file, and the status (`suite`, `by reference`, `restated per §9.3`, `scope
 closes. And a **ten-line-header check** on each referenced file cannot pass: `B.5`'s configuration
 items name around twenty `CFG` IDs each, and no ten-line header holds twenty IDs. Both are replaced
 by one check that *is* decidable — **every row names at least one requirement ID and an evidence path
-that exists** — and the weakening is filed as `OI-53` so the gap is visible rather than quietly
-absent.
+that exists** — and the amendment below puts the weakening in the map's own preamble, so the gap is
+visible rather than quietly absent.
 
 **The ID regex is restricted to the 19 known prefixes.** A bare `[A-Z]+-\d+` matches `ISO-8601`,
 which appears in `B.3`'s real text, and `RFC-3986`-shaped tokens elsewhere; the prefix list is
@@ -5438,13 +5547,41 @@ which appears in `B.3`'s real text, and `RFC-3986`-shaped tokens elsewhere; the 
   mechanical can, short of re-implementing the assertion. The map's preamble says so, and so does
   `Aggregate::PREAMBLE`.
 
+**Amendment, 2026-09-13 — the preamble states what the map leaves unproven, and names the condition
+that would close it.** Dropping the two undecidable checks is right, and it leaves a real gap; a gap
+that is merely *absent* from a document reads as a gap nobody found. So `APPENDIX_B.md` opens with a
+preamble saying both halves in its own voice, and **that wording is this task's deliverable**, not a
+reviewer's later addition:
+
+- **What the three checks establish.** The table has exactly 61 rows; each section's count matches the
+  count parsed from the specification's own appendix B; every row names at least one requirement ID
+  from the nineteen known prefixes and an evidence path that exists on disk.
+- **What they do not, first half: the union of the rows does not cover every requirement ID appendix B
+  names.** A distinct-ID coverage check is roughly **276 IDs against 22 hand-written by-reference
+  rows**, which is not arithmetic that closes, and it is dropped rather than carried as aspiration.
+- **What they do not, second half: a referenced test's header is not checked to declare the IDs its row
+  claims**, and cannot be — `B.5`'s configuration items name around **twenty `CFG` IDs each**, and
+  `CLAUDE.md`'s convention that "a test file's header comment names the IDs it exercises" was never
+  written for a twenty-ID item. So a `by reference` row establishes that an ID is claimed and that a
+  file exists, **never** that the referenced test asserts the described behaviour (design `P9-7`).
+- **The closing condition, named rather than left open.** The gap shrinks when the by-reference rows
+  do, and the event that makes shrinking them worth its cost is the one `docs/first-release.md` §
+  Post-release triggers already records for lifting `B.1`, `B.2` and `B.5`: **a second implementation**.
+  Until that trigger fires, the only other route is a per-section ID reconciliation done by hand once
+  and then checked — a piece of work rather than a line, and phase 9 does not take it. The preamble
+  says so, so that a later reader knows the gap was priced and deferred, not overlooked.
+
+`Aggregate::PREAMBLE` (Task 12) makes the same statement about a green suite run; a reader who meets
+only one of the two documents must still be told.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ruby
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
-# The appendix-B coverage map. Design R7, P9-7, P9-8; OI-53 records what these checks do not reach.
+# The appendix-B coverage map. Design R7, P9-7, P9-8; the map's preamble states what these checks
+# do not reach.
 require_relative "../support/gate_case"
 require_relative "../../tools/appendix_b"
 
@@ -5543,7 +5680,8 @@ module AppendixB
 
     Generated by `tools/appendix_b.rb --generate`. `suite` rows are regenerated from each suite's declared
     assertions; every other row is hand-written and carried over. A `by reference` row proves an ID is
-    claimed and a file exists, not that the behaviour is asserted (design P9-7, OI-53).
+    claimed and a file exists, not that the behaviour is asserted (design P9-7; see the preamble's
+    "what these checks do not establish").
 
     | Section | Item | IDs | Evidence | Status |
     |---|---|---|---|---|
@@ -5655,7 +5793,8 @@ git add -- gems/dexpace-conformance/APPENDIX_B.md tools/appendix_b.rb test/gates
 
 **Files:**
 - Create: `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-checklist.md` — the `NFR` half
-- Modify: `docs/open-items.md`, `docs/first-release.md` as findings require
+- Modify: `docs/first-release.md` as findings require, plus the plan of the phase that owns each
+  finding or the roadmap's phase-10 inbound list — **a finding is routed to its owner, not registered**
 
 **Interfaces:**
 - Consumes: every gate phase 0 built, plus Task 9's `PackagingSuite` and Task 13's four new gates
@@ -5702,17 +5841,17 @@ ruby -e 'require "dexpace"; require "dexpace/transport/net_http"; require "dexpa
 `net_http` → `NetHTTP` is not a mechanical casing; with no map every gem's `NFR-15` would report
 `:vacuous`. A `:vacuous` `NFR-15` in this output therefore means a require above is missing, not
 that a version is right. On the 3.2 row, drop `dexpace-transport-async_http` from both lists and its
-require (`OI-38`).
+require — the per-gem Ruby floor 8c plan, Task 3 gates.
 
 `P9-2`'s whole argument is that a source gemspec and a published one can differ, so reading the source here would falsify the phase's own deviation.
 
 - [ ] **Step 3: Write one checklist row per `NFR`, with the evidence named**
 
-Each row: the ID, the legend mark (✅ / 🚫 / ⏳ / N/A), the disposition artifact from the design's `R2` table, and either the observed number or the finding. Six marks are **predicted ⏳** and they divide two ways — four pending an open item (`NFR-7`/`OI-6`, `NFR-10`/`OI-38`, `NFR-13`/`OI-50`, `NFR-17`/`OI-49`) and two pending a release rather than a finding (`NFR-4`, no `v*` tag to diff against, `P0-8`'s pre-release branch; `NFR-16`, no release path — `docs/first-release.md` § Release path). **A prediction is not an observation.** If a gate passes where the design predicted ⏳, mark it ✅ **and say the design's prediction was wrong**, naming which. If it fails where ✅ was predicted, the same in the other direction.
+Each row: the ID, the legend mark (✅ / 🚫 / ⏳ / N/A), the disposition artifact from the design's `R2` table, and either the observed number or the finding. Six marks are **predicted ⏳** and they divide two ways — four pending a finding another task or phase owns (`NFR-7` / phase 0 plan, Task 3's reviewed `.rubocop.yml` baseline; `NFR-10` / 8c plan, Task 3's per-gem Ruby floor gate edit; `NFR-13` / phase 10's inbound list, SPDX coverage for `sig/**/*.rbs`; `NFR-17` / phase 0 plan, Task 2's `minitest` `~> 5.25` pin) and two pending a release rather than a finding (`NFR-4`, no `v*` tag to diff against, `P0-8`'s pre-release branch; `NFR-16`, no release path — `docs/first-release.md` § Release path). **A prediction is not an observation.** If a gate passes where the design predicted ⏳, mark it ✅ **and say the design's prediction was wrong**, naming which. If it fails where ✅ was predicted, the same in the other direction.
 
 - [ ] **Step 4: File what the pass found, and repair nothing**
 
-Per design `R6`: `:failed` stays `:failed`; the row is ⏳ or 🚫 with the reason; an `OI-<n>` is filed; a MUST additionally gains a `docs/first-release.md` blocker. **Do not lower `--fail-level`, add an `Exclude:`, relax a metric cop or make a gate report-only** — `NFR-17`'s entire content is that no gate is advisory, and relaxing one while dispositioning it falsifies the evidence.
+Per design `R6`: `:failed` stays `:failed`; the row is ⏳ or 🚫 with the reason; the finding is **routed to its owner** — a numbered task in the owning phase's plan, or phase 10's inbound list in the roadmap when the repair belongs to a phase already planned; a MUST additionally gains a `docs/first-release.md` blocker. **Do not lower `--fail-level`, add an `Exclude:`, relax a metric cop or make a gate report-only** — `NFR-17`'s entire content is that no gate is advisory, and relaxing one while dispositioning it falsifies the evidence.
 
 **An un-waived `:vacuous` on a MUST-level ID is a report blocker, not a pass.** The mechanism is
 **Task 12a** — `Levels::OF` generated from appendix C, `Report#blocking_vacuities`, `#passed?` false
@@ -5733,7 +5872,7 @@ apart as design-sanctioned and does not block; a SHOULD-level vacuity is recorde
 
 ```bash
 git add -- docs/work/mvp/phase9/ \
-        docs/open-items.md \
+        docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md \
         docs/first-release.md
 ```
 
@@ -5743,7 +5882,9 @@ git add -- docs/work/mvp/phase9/ \
 
 **Files:**
 - Modify: the phase-9 checklist — the `XCUT` half
-- Modify: `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` as findings require
+- Modify: `docs/deviations.md` and `docs/first-release.md` as findings require, plus the plan of the
+  phase that owns each finding or the roadmap's phase-10 inbound list — **a finding is routed to its
+  owner, not registered**
 
 **Interfaces:**
 - Consumes: `InvariantSuite` (28 assertions), `TransportSuite` (8a, two drivers), `CodecSuite`, `ExecutorSuite` (seven assertions, `ASYNC-3` among them), `Levels` and the MUST-level vacuity section (Task 12a), the four repository gates
@@ -5796,7 +5937,8 @@ and are expected clean here. **`gates:bounded_map` is expected to report exactly
 adjudicated in Task 13 as the one true positive of the six. It is `XCUT-14`'s `:failed`, not the
 gate's: an uncapped instance-lived cache keyed by an origin caller URLs and server redirect
 `Location`s both choose, never evicted — `#close` (8c plan:1740-1744) clears no key. Record it as
-`OI-57`, mark `XCUT-14`'s row ⏳ with the reason, and — because `XCUT-14` is a **MUST** — add the
+an entry on **phase 10's inbound list** — `Clients#@by_origin`'s missing cap — mark `XCUT-14`'s row ⏳
+with the reason, and — because `XCUT-14` is a **MUST** — add the
 `docs/first-release.md` blocker line design `R6` requires, then hand the repair to **phase 10**.
 **Do not add a cap here.** `R6`'s exception covers a defect inside `dexpace-conformance` and nothing
 else, and this is `dexpace-transport-async_http`'s; `8c` is the sub-phase whose fence introduced it
@@ -5824,7 +5966,7 @@ Four, from 4c and 7c, recorded in the aggregate report's preamble and **not** as
 
 ```bash
 git add -- docs/work/mvp/phase9/ \
-        docs/open-items.md \
+        docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md \
         docs/deviations.md \
         docs/first-release.md
 ```
@@ -5838,14 +5980,14 @@ git add -- docs/work/mvp/phase9/ \
 - Modify: the runtime surface manifest
 - Modify: this phase's checklist and the roadmap's phase status note — the marks Step 3 performs for
   the work earlier phases postponed here and for the MUST-level vacuity blocker
-- Modify: `docs/knowledge/notes/` — the three notes
+- Modify: `docs/knowledge/notes/` — the three notes, four entries (the new file carries two)
 - Modify: `CLAUDE.md`, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`
 
 **Interfaces:**
 - Consumes: everything above
 - Produces: a green `bundle exec rake` on every matrix row, or a recorded reason it is not
 
-**Both baselines are regenerated, not one.** `Data.define`'s generated readers on `Assertion` and `Result` are public API `rbs validate` cannot see, and `OI-19` measured that the runtime snapshot does not see them either for this repository's `class X < Data.define(...)` convention — so the two catch different things and neither alone covers `Report#to_h`, `Aggregate::PREAMBLE` and eleven new constants.
+**Both baselines are regenerated, not one.** `Data.define`'s generated readers on `Assertion` and `Result` are public API `rbs validate` cannot see, and phase 0 plan, Task 14's `Data`-reader snapshot decision rests on the measurement that the runtime snapshot does not see them either for this repository's `class X < Data.define(...)` convention — so the two catch different things and neither alone covers `Report#to_h`, `Aggregate::PREAMBLE` and eleven new constants.
 
 - [ ] **Step 1: Regenerate both**
 
@@ -5861,8 +6003,8 @@ bundle exec rake
 for v in 3.2.11 3.3.12 3.4.10 4.0.6; do echo "== $v =="; mise exec ruby@$v -- bundle exec rake test:gems; done
 ```
 
-Expected: green, **with the 3.2 row excluding `dexpace-transport-async_http`** (`OI-38`, `P8-36`:
-`async-http` 0.104.0 declares `>= 3.3`) and with whatever `OI-49`'s `minitest` pin decision produced
+Expected: green, **with the 3.2 row excluding `dexpace-transport-async_http`** (8c plan, Task 3's per-gem Ruby floor gate edit; `P8-36`:
+`async-http` 0.104.0 declares `>= 3.3`) and with what phase 0 plan, Task 2's `minitest` `~> 5.25` pin produces
 on the 4.0 row. Both exclusions are recorded, not silent. The same four rows run locally: 3.2.11,
 3.3.12, 3.4.10 and 4.0.6.
 
@@ -5872,9 +6014,9 @@ acquired a cap since `8c` filed it, `gates:bounded_map` is red, `bundle exec rak
 content is that no gate is advisory. **The fix is not an allowlist entry.** Adding one would leave a
 gate reporting clean over a live `XCUT-14` violation, which is the failure mode phase 0's
 failing-fixture discipline and `notes/cross-cutting-invariants.md` both exist to prevent. Record the
-red run, its one offence, `OI-57` and the `docs/first-release.md` blocker, and say in the phase's
+red run, its one offence, its entry on phase 10's inbound list and the `docs/first-release.md` blocker, and say in the phase's
 closing note that the gate set is green **except** that row. If the map has been bounded in the
-meantime, the run is green and `OI-57` closes naming the change that bounded it.
+meantime, the run is green and phase 10's inbound entry for that cache closes, naming the change that bounded it.
 
 - [ ] **Step 3: Mark the work earlier phases postponed here as landed**
 
@@ -5907,13 +6049,19 @@ in the roadmap's phase status note, and one confirmation:
   triggers, the `NFR-12`/`NFR-16` assertions under its § Release path, and the `XCUT-12` fiber form on
   phase 10's inbound list in the roadmap's 2026-09-13 status note. A missing entry is a defect to
   report, not one to re-file elsewhere.
+- **Route, do not register.** Anything this phase turns up that it is not acting on now goes to its
+  owner the moment it is found: a numbered task in the owning phase's plan, phase 10's inbound list in
+  the roadmap when it is audit or repair work on an already-planned phase, or `docs/first-release.md`
+  when it belongs to the release — with the reason and the pick-up condition written beside the
+  pointer. There is no register to append to, and a finding with no owner named is a finding nothing
+  will act on.
 - Decline **nothing**: the one item that invites it, the Steep target over a `test/` tree, has an
   unmet condition because phase 9's suites go in `lib/`, and that reasoning is inherited from 8a
   rather than re-derived; it stays under `docs/first-release.md` § Post-release triggers.
 
 - [ ] **Step 4: File the three knowledge notes**
 
-`notes/testing.md` (`## Superseded`, `testing/e27df4c7` and `testing/70473c9d` — Minitest 6 on 4.0.6 ships no `minitest/mock`); `notes/tooling-and-quality-gates.md` (`## Superseded`, `tooling-and-quality-gates/3085561e` — the SPDX cop cannot reach `.rbs`); `notes/cross-cutting-invariants.md`, a new file (`## Reference`, `cross-cutting-invariants/89eb6533` — the `XCUT-11` predicate and the AST-based gates). Each: role `review`, a manual `sha:manual-phase9-<slug>` marker, the backticked key on one line at column 0, the `<sub>` indented.
+`notes/testing.md` (`## Superseded`, `testing/e27df4c7` and `testing/70473c9d` — Minitest 6 on 4.0.6 ships no `minitest/mock`); `notes/tooling-and-quality-gates.md` (`## Superseded`, `tooling-and-quality-gates/3085561e` — the SPDX cop cannot reach `.rbs`); `notes/cross-cutting-invariants.md`, a new file carrying **two** `## Reference` entries — the `XCUT-11` predicate (`cross-cutting-invariants/89eb6533`) and, separately, the AST-based gates. Each: role `review`, a manual `sha:manual-phase9-<slug>` marker, the backticked key on one line at column 0, the `<sub>` indented.
 
 ```bash
 ruby scripts/verify_knowledge_structure.rb

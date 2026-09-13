@@ -45,8 +45,8 @@ three invert something the charter had to reason around:
   and `async 2.38.0` both raised `required_ruby_version` to `>= 3.3`, and the installed 0.104.0 carries it
   (verified fact 1). Phase 0's `gates:versions` asserts that *every* gemspec's `required_ruby_version`
   equals `>= ` plus `VERSIONS`'s single `ruby floor` line. This is the sharpest finding in the sub-phase,
-  it is mechanised on both sides, and it is settled under `R15` as deviation `P8-36` with `OI-38` filed
-  against the gate that has to change.
+  it is mechanised on both sides, and it is settled under `R15` as deviation `P8-36`; the gate that has
+  to change is owned by the plan's Task 3, the per-gem Ruby floor gate edit.
 
 ---
 
@@ -63,7 +63,7 @@ three invert something the charter had to reason around:
   clauses, which appendix C drops, are load-bearing in six places named below.
 - `docs/product-spec/03-pluggable-seams-and-extension-model.md` — `SEAM-11`, `SEAM-13`, `SEAM-14`,
   `SEAM-15`, `SEAM-16`, `SEAM-17`, `SEAM-24`, `SEAM-25`, `SEAM-30`.
-- `docs/product-spec/05-io-streaming-contracts.md` — `IO-40`, which keeps every deadline in this gem and
+- `docs/product-spec/05-i-o-contracts.md` — `IO-40` (`:50`), which keeps every deadline in this gem and
   out of `Dexpace::IO::BufferedSource`.
 - `docs/product-spec/13-server-sent-events-and-streaming.md` — `SSE-39`'s pull-based delivery, the
   property this adapter's response body must feed, and `SSE-37`'s serde-independence, which 7b made a
@@ -99,8 +99,9 @@ three invert something the charter had to reason around:
   **21** (`:73-78`, `ASYNC-21`'s adapter-scoped MUST — 8c's `ASYNC-21` row and its whole reason).
 - `docs/sdk-design-ruby/12-appendix-requirement-coverage-index.md` — the `TRANSPORT` row (`:41`), the
   `ASYNC` row (`:42`) and the MUST-level summary (`:49-55`). `R14` changes what the `TRANSPORT` row should
-  say about `TRANSPORT-8`; the charter's `OI-34` already records that the same row is wrong about
-  `Net::HTTP`'s retry, and this document adds a second, independent correction to it.
+  say about `TRANSPORT-8`; the charter's own finding — on phase 10's inbound list — already records that
+  the same row is wrong about `Net::HTTP`'s retry, and this document adds a second, independent
+  correction to it.
 - The predecessor designs 8c consumes rather than re-derives:
   `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md`,
   `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-design.md`,
@@ -116,8 +117,9 @@ three invert something the charter had to reason around:
   `docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-design.md`.
 - `docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-design.md` as the closest worked example
   of this document's form, and the most recent sub-phase design to ship a gem.
-- `docs/open-items.md`, `docs/deviations.md`, `docs/first-release.md` (the post-v1 and unsatisfied-MUST
-  entries under § What v1 ships without, and § Post-release triggers).
+- `docs/deviations.md` and `docs/first-release.md` (the post-v1 and unsatisfied-MUST
+  entries under § What v1 ships without, and § Post-release triggers), plus the plan tasks, knowledge
+  notes and phase-10 inbound entries that carry the findings earlier phases raised.
 - `CLAUDE.md` and `docs/README.md`.
 
 **Not read, deliberately:** `docs/work/mvp/phase8/phase8a/` and `docs/work/mvp/phase8/phase8b/`. Both were
@@ -231,7 +233,8 @@ sentence discharges the obligation.
 
 **What that does not license**, restated for 8c specifically:
 
-1. **`--gaps` measures corpus coverage, not specification coverage** (`OI-12` from the other side). Both
+1. **`--gaps` measures corpus coverage, not specification coverage** (the roadmap's gap paragraph says
+   the same from the other side, where `RECOV-17`–`34` are appendix-C only). Both
    chapters were read in full anyway, at 51 and 46 lines.
 2. **The `*Conformance:*` clauses appendix C drops are load-bearing in six places here.** `TRANSPORT-7`'s
    "cancel an in-flight future and assert the native call is cancelled"; `TRANSPORT-8`'s "trigger a
@@ -243,10 +246,12 @@ sentence discharges the obligation.
    `ASYNC-22`'s "fire many concurrent executeAsync calls on one client and assert each future resolves to
    its own correct Response **with no cross-talk**". A sub-phase reading only appendix C writes none of
    those six tests.
-3. **Corpus coverage says nothing about whether a *design* sentence is true.** The charter's `OI-34` and
-   `OI-35` are both design sentences that are wrong about `Net::HTTP`; this document adds a third and a
-   fourth about `async-http` (`OI-39`, `OI-40`). Only running Ruby finds them, and only against the exact
-   versions the gemspec will declare.
+3. **Corpus coverage says nothing about whether a *design* sentence is true.** The charter's two
+   findings — §12's `Net::HTTP` retry rows and §3.2's `read_body` sentence, both on phase 10's inbound
+   list — are design sentences that are wrong about `Net::HTTP`; this document adds a third and a fourth
+   about `async-http` (§12's `TRANSPORT-14` scoping, also for phase 10's inbound list, and
+   `Async::Task#cancel` superseding the deprecated `#stop`, which is a knowledge note). Only running Ruby
+   finds them, and only against the exact versions the gemspec will declare.
 
 ---
 
@@ -260,7 +265,7 @@ sentence discharges the obligation.
 | **Total in budget** | | **10** |
 
 Level split, derived from appendix C on 2026-09-11: **nine MUST, one SHOULD (`TRANSPORT-13`)**. No `MAY`
-and no `MUST NOT`. **No `DEF-<n>` moves an ID into 8c and none moves one out.** `TRANSPORT-1`,
+and no `MUST NOT`. **No postponed item moves an ID into 8c and none moves one out.** `TRANSPORT-1`,
 `TRANSPORT-2`, `TRANSPORT-11`, `TRANSPORT-14`, `TRANSPORT-18`, `TRANSPORT-24`–`TRANSPORT-27`,
 `TRANSPORT-29` and the rest of §17 are **`8a`'s rows**, satisfied again here through a second driver of the
 same assertion; the charter's assignment rule (`:635-643`) gives them no second row and this document
@@ -277,8 +282,8 @@ fact — never on 8c's convenience.
   `async-http` the antecedent is live and measured (verified fact 8): a cancellation delivered from the
   caller's own structured-concurrency scope — a parent `Async::Task` being cancelled, or the reactor being
   torn down — reaches the in-flight exchange as `Async::Cancel` while the pivot is still live and nothing
-  in the SDK asked for it. The row says **satisfied**, cites verified fact 8, and names `OI-41` as the §12
-  correction it cannot make. `R14`.
+  in the SDK asked for it. The row says **satisfied**, cites verified fact 8, and names the §12
+  correction it cannot make — phase 10's inbound list carries it. `R14`.
 - **`TRANSPORT-12` has a live antecedent on one protocol and none on the other, and 8c drops on both.**
   `protocol-http1` raises `Protocol::HTTP1::BadHeader` on `"Bad Name"`, which `HTTP-17` accepts;
   `protocol-http2` transmits it (verified facts 4 and 5). The row states that 8c applies the RFC 7230
@@ -384,7 +389,7 @@ cleanest reading available, and one the requirement asks for in as many words.
 | `dexpace-conformance`'s gemspec, the assertion protocol, the `TCPServer` fixture, the first release | **`8a`** and the phase. `R16`. |
 | `dexpace-async-thread`'s pool | **`8b`.** `async-http` uses none (charter, *Why none of the three leads another*), and `NFR-2` would not permit a third declaration anyway. |
 | `SEAM-24`'s second sentence — a caller-facing cancellation bridge over the host's own primitive | **Post-v1, riding on `dexpace-async-async`** — `docs/first-release.md` § What v1 ships without, the `SEAM-24` entry. 8c satisfies `ASYNC-6` for the `Async::Task` **it creates itself** and bridges no caller-held task. |
-| `OBS-29`'s operation-lifecycle tracer triple, and its transport-milestone group | `OI-32` and `OI-36`, both on phase 10's inbound list. 8c's position under *Work phase 8c postponed* below: no route exists, so 8c wires no emitter and says so. |
+| `OBS-29`'s operation-lifecycle tracer triple, and its transport-milestone group | One surface decision on phase 10's inbound list — the operation-lifecycle triple, and the fact that no transport adapter can reach an `HTTPTracer`. 8c's position under *Work phase 8c postponed* below: no route exists, so 8c wires no emitter and says so. |
 | `SSE-1`–`SSE-41`, `PAGE`, `SERDE` | **Phase 7**, built. 7b's own words: "A transport hands back a `Dexpace::Response`; `Dexpace::SSE::Stream.open(response)` is the whole integration." 8c adds no SSE code and ships one property SSE needs (`SSE-39`'s pull). |
 | `BODY-12` clause 2 and `TRANSPORT-28`/`TRANSPORT-30` | **`8a`'s dispositions** (its design's `R5` and *Work phase 8a postponed*; the v1 declines are stated in `docs/first-release.md` § What v1 ships without). 8c reports that `protocol-http` ships `Protocol::HTTP::Body::File` with `#offset`, `#rewind` and `#rewindable?` (charter fact 15), so `TRANSPORT-28`'s reachable half is *more* reachable here — a report to `8a`'s `R5`, not a row. |
 
@@ -428,7 +433,7 @@ four of them in anger: **`gates:gemspec_audit`** (one third-party dependency, an
 negative fixture is its proof), **`gates:require_allowlist`** (the scan covers the adapters too),
 **`gates:clean_bundle`** (a scratch `Gemfile` holding only this gem), and — the one that breaks —
 **`gates:versions`**, which asserts "every gemspec's `required_ruby_version` equals `>= ` plus the `ruby
-floor` line". `R15` and `OI-38`.
+floor` line". `R15`, and the plan's Task 3 owns the gate edit.
 
 ### From phase 1
 `Dexpace::HeaderSyntax`, "a module of pure functions, and **the public entry point every transport adapter
@@ -463,18 +468,19 @@ satisfied for every adapter that routes through `Completer` rather than by each 
 `MAX_MATERIALIZED_BYTES`; `Dexpace::StreamError < ::IOError` as a **sibling** of `Dexpace::TransportError`
 and never a subclass (`P3-3`); `Dexpace::EndOfStreamError < ::EOFError`; `Dexpace::Body` with `#source`
 and a default no-op `#close`; `Body.buffer_bounded`; `Response#close`/`#body_string`/`#body_bytes`.
-**Two open items 8c inherits unresolved:** `OI-9` (`BufferedSource.wrapping` delivers one byte per read,
-"and it will reach every transport phase 8 writes") — 8c's response body is built with
-`BufferedSource.over`, over an `#each`-yielding wrapper, **not** `.wrapping`, which is why `OI-9` does not
-bite here and why that is a decision rather than luck; and `OI-7`, the decode recipe, which 8c does not
-touch because it decodes nothing.
+**Two unresolved findings 8c inherits:** `BufferedSource.wrapping` delivers one byte per read ("and it
+will reach every transport phase 8 writes"), which 3a plan Task 10's `fill(count)` refill fix repairs —
+8c's response body is built with `BufferedSource.over`, over an `#each`-yielding wrapper, **not**
+`.wrapping`, which is why that defect does not bite here and why that is a decision rather than luck; and
+§3.1's decode sentence, on phase 10's inbound list, which 8c does not touch because it decodes nothing.
 
 ### From phase 4b/4c — the taxonomy and the runtime a transport sits under
 `Dexpace::ProtocolError` flat beside where `Dexpace::TransportError` lands; `Dexpace.each_cause`;
 `Dexpace::Suppressible` and `attach_suppressed`; `Stages`, `Cursor`, `Pipeline`/`AsyncPipeline`;
 `PIPE-26`/`PIPE-27` — a pipeline is a transport and closing one never closes the transport it wraps, so 8c
-may not assume its caller is a pipeline. **`OI-18` is open and named as phase 8's or a phase-2
-amendment's**: `Transport.async_over` accepts an *async* transport silently and yields a future of a
+may not assume its caller is a pipeline. **The `async_over` return-type check is open and named as phase
+8's or a phase-2 amendment's — phase 2 plan, Task 11 owns it**: `Transport.async_over` accepts an *async*
+transport silently and yields a future of a
 future. 8c is the first real async transport and therefore the first object that can be fed to it by
 mistake; 8c does not fix it (the repair is in `dexpace-core`) and its README says so.
 
@@ -535,7 +541,7 @@ to `>= 3.3`.** For `async` the boundary is **2.37.0 (`>= 3.2`) / 2.38.0 (`>= 3.3
 `>= ` plus the `ruby floor` line" of the repo-root `VERSIONS` file, whose `ruby floor` is `3.2` and whose
 `ruby matrix` is `3.2 3.3 3.4 4.0`
 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-design.md:291-303`). Two mechanised
-constraints in direct contradiction. `R15`, deviation `P8-36`, `OI-38`.
+constraints in direct contradiction. `R15`, deviation `P8-36`; the plan's Task 3 owns the gate edit.
 *Commands:* `ruby scratchpad/p8c/deps.rb` under the scratchpad `GEM_HOME`;
 `https://rubygems.org/api/v1/versions/async-http.json` and `/async.json`.
 
@@ -740,7 +746,7 @@ under the scratchpad `GEM_HOME`.
 - `async-2.45.1/lib/async/node.rb` carries `# @deprecated Use {#cancel} instead.` immediately above
   `def stop(...) = cancel(...)`. Design §3.3 `:252-254` and the corpus entry
   `concurrency-and-async/f75816b6` both name `Async::Task#stop` as the primitive. **8c calls `#cancel`.**
-  `OI-40`.
+  Recorded in `docs/knowledge/notes/concurrency-and-async.md`.
 - `Async::Task#with_timeout(0.2) { client.get("/slowhdr") }` against a server that sleeps 2 s raised
   `Async::TimeoutError` after **200 ms**, with `ancestors.take(4) == [Async::TimeoutError, StandardError,
   Exception, Object]`, and the enclosing `ensure` ran. So one deadline value maps onto one
@@ -789,7 +795,8 @@ Inbound headers, measured against a raw server:
 - **a non-ASCII byte in a header *name* (`X-B\xE9d: v`) raises `Protocol::HTTP1::BadHeader: Could not
   parse header` and fails the whole response.** `TRANSPORT-14` requires that case to "drop only that
   header … while the body and remaining headers are still delivered". **It is unreachable on this
-  adapter.** `OI-39`, deviation `P8-38`, and a named waiver in the conformance run.
+  adapter.** Deviation `P8-38`, a named waiver in the conformance run, and §12's `TRANSPORT-14` scoping
+  on phase 10's inbound list.
 
 Status mapping is total: `520` and `499` both surfaced faithfully with readable bodies. A malformed
 inbound `Content-Type` (`not a/;;media type`) passed through untouched, so `TRANSPORT-27`'s media-type
@@ -862,7 +869,8 @@ reference to the constant. So `TRANSPORT-1` is satisfied by not wrapping and `TR
 **The charter's question.** `SEAM-30`, `ASYNC-5`, `TRANSPORT-9` and `TRANSPORT-22` all require a response
 to be closed on a path where nobody will receive it, and `Async::Cancel < Exception` — with `Async::Stop`
 a deprecated *alias* of that same class, not a subclass — means a `rescue` written the obvious way never
-runs on a cancellation while it does run on `Async::TimeoutError`. `OI-37`.
+runs on a cancellation while it does run on `Async::TimeoutError`.
+`docs/knowledge/notes/concurrency-and-async.md` records it.
 
 **The decision, in four parts.**
 
@@ -893,14 +901,15 @@ end
 The `ensure` runs on **every** exit: a normal return, a wrapped failure, an `Async::TimeoutError`, an
 `Async::Cancel`, a `NoMemoryError`. That is the whole repair, and it is one line.
 
-**2. `Dexpace.close_quietly` is still correct and 8c adds no second exit.** `OI-37` is careful about this
-and 8c agrees: `close_quietly` rescues `StandardError` **from `#close`**, which is a different question
+**2. `Dexpace.close_quietly` is still correct and 8c adds no second exit.** The concurrency note is
+careful about this and 8c agrees: `close_quietly` rescues `StandardError` **from `#close`**, which is a different question
 from what reaches the call site. `Protocol::HTTP::Body::Readable#close` raises `StandardError`s or
 nothing; it does not raise `Async::Cancel` of its own. So the helper's rescue is unaffected, and a second
 helper would give the SDK two answers to one question.
 
 **3. `rescue Async::Cancel` and `rescue Async::Stop` name one class; 8c writes neither.** An adapter that
-writes both has written one (`OI-37`). 8c writes *no* rescue of either: a cancellation propagates out of
+writes both has written one, as `docs/knowledge/notes/concurrency-and-async.md` records. 8c writes *no*
+rescue of either: a cancellation propagates out of
 the exchange task untouched, and the `ensure` closes the undelivered response and calls
 `Completer#request_cancel(reason)`, which is what settles the pivot cancelled. Inspecting `$!` inside that
 `ensure` is how the branch is taken — an inspection, never a rescue, so the exception still propagates and
@@ -982,8 +991,9 @@ discrimination is free because `async` put the two exceptions in different halve
 among the requirements "adapter-scoped and vacuous for `Net::HTTP`", and the MUST-level summary counts it
 among "eight [that] hold vacuously". §9.3 is the more careful of the two — "**TRANSPORT-8** and
 **TRANSPORT-18** vacuous for `Net::HTTP` and **mandatory for any adapter whose client has those paths**" —
-and `async-http` has the path. §12 is frozen. **`OI-41`** records the correction, which is the same
-species as the charter's `OI-34` and must be filed as one; the difference, and it is in the port's favour,
+and `async-http` has the path. §12 is frozen. **Phase 10's inbound list** carries the correction, which
+is the same species as the charter's finding on §12's `Net::HTTP` retry rows and is routed the same way;
+the difference, and it is in the port's favour,
 is that this correction *adds* a satisfied MUST rather than removing a vacuous one.
 
 **What 8c does not claim.** `TRANSPORT-8` says "a transport with no internal-cancel path need not support
@@ -1022,7 +1032,7 @@ as `max_retries = 0` on `Net::HTTP`, so §11.18's "`Net::HTTP` has no resend hoo
 | `TRANSPORT-27`'s invalid-`Content-Length` clause is unreachable **on this adapter** — `Protocol::HTTP1::BadRequest` is raised out of the read and no response object exists to downgrade. **Corrected 2026-09-12**: this row said "on **both** adapters, for the same reason", which `8a` measured to be false of `Net::HTTP` — under the block form `8a` uses, the head arrives in full and the raise comes later, from `Net::HTTPResponse#content_length`, so `8a` implements the clause. The waiver is 8c's driver's alone | fact 11; `8a` design's verified fact 12 | `R4` (resolved there as satisfied whole) |
 | `TRANSPORT-28`'s reachable half is *more* reachable here — `protocol-http` ships `Protocol::HTTP::Body::File` with `#offset`, `#rewind` and `#rewindable?` | charter fact 15 | `R5` |
 | `TRANSPORT-11`'s drop set is **security-critical** on this adapter, because a caller-set framing header is duplicated rather than recomputed | fact 5 | `R2` |
-| `TRANSPORT-14`'s malformed-**name** clause is unreachable here; `8a`'s row should say the requirement is satisfied on `Net::HTTP` and waived on `async-http`, not satisfied outright | fact 11 | `OI-39`, `P8-38` |
+| `TRANSPORT-14`'s malformed-**name** clause is unreachable here; `8a`'s row should say the requirement is satisfied on `Net::HTTP` and waived on `async-http`, not satisfied outright | fact 11 | `P8-38`, and §12's `TRANSPORT-14` scoping on phase 10's inbound list |
 
 ---
 
@@ -1118,7 +1128,7 @@ broken — a gate reporting green over a real defect.
    than one maintainer's whim.
 
 **What has to change, named so it is not discovered at execution time.** Three edits, none of them 8c's to
-make alone, all recorded as `OI-38`:
+make alone, all owned by the plan's Task 3:
 
 - **`VERSIONS` gains a per-gem floor key**, in the shape phase 0 already uses for the other rows —
   `ruby floor dexpace-transport-async_http   3.3` beside the global `ruby floor   3.2`.
@@ -1390,7 +1400,7 @@ Inbound header handling, from fact 11:
 |---|---|---|
 | obs-text / non-ASCII in a **value** | **preserved**, BINARY | `TRANSPORT-14`'s SHOULD, satisfied by the library |
 | control byte in a **value** | **dropped, that header only**, logged verbose | `TRANSPORT-14`, and required because `XCUT-18` makes `Dexpace::Headers::Builder` reject it — a header that reached the builder would fail the whole response |
-| control / non-ASCII in a **name** | **unreachable**: `protocol-http1` raises `BadHeader` out of the read and the response never materialises | `TRANSPORT-14` waived here; `OI-39`, `P8-38` |
+| control / non-ASCII in a **name** | **unreachable**: `protocol-http1` raises `BadHeader` out of the read and the response never materialises | `TRANSPORT-14` waived here; `P8-38`, and §12's scoping of the ID on phase 10's inbound list |
 
 **16. The response body — `TRANSPORT-25`, `SEAM-11`, `IO-40`, `SSE-39`.** `ResponseBody` is a
 `Dexpace::Body` whose `#each` calls the native `Protocol::HTTP::Body::Readable#read` **once per yield**
@@ -1409,7 +1419,8 @@ Four properties, each measured:
   `TRANSPORT-16`'s "no unbounded await" holds at the response level as well as the adapter level.
 
 The `Dexpace::IO::BufferedSource` is built with **`.over(body)`**, which takes no ownership, and never
-with `.wrapping(io)` — which is what keeps `OI-9`'s one-byte-per-read defect out of this adapter. §7.1's
+with `.wrapping(io)` — which is what keeps `.wrapping`'s one-byte-per-read defect, the subject of 3a plan
+Task 10's `fill(count)` refill fix, out of this adapter. §7.1's
 rule is honoured by construction: the resource lives on the object with `#close`, never inside an
 `Enumerator` block.
 
@@ -1466,7 +1477,8 @@ inherited by a child task with copy-on-write** (fact 10) — the child read the 
 child writing its own left the parent's slot unchanged. So the diagnostic context crosses 8c's boundary
 for free, and none of `ASYNC-9`'s save/install/restore machinery has an antecedent here: there is no
 reused or pooled carrier whose prior context could be clobbered. **8c calls neither `Diagnostics.with` nor
-`Fiber#storage=`**, which means `OI-13`'s warned setter — the hazard that dominates `8b`'s `R8` — does not
+`Fiber#storage=`**, which means the warned setter `docs/knowledge/notes/observability.md` records
+(`Fiber#storage=` warns; use per-key writes) — the hazard that dominates `8b`'s `R8` — does not
 reach this gem at all. The checklist states this as a property the suite asserts (a `Fiber[]` slot set
 before `#call` is visible to a log emitted inside the exchange), not as an absence.
 
@@ -1617,7 +1629,8 @@ A `Dexpace::Body` over `Protocol::HTTP::Body::Readable`.
 
 ```
 #each { |chunk| … }   # one native #read per yield; BINARY; stops at nil
-#source               -> Dexpace::IO::BufferedSource          (built with .over, never .wrapping — OI-9)
+#source               -> Dexpace::IO::BufferedSource          (built with .over, never .wrapping — one
+                                                               byte per read)
 #content_length       -> Integer                              (native #length, with nil mapped to -1 —
                                                                TRANSPORT-27's and BODY-35's sentinel, never nil)
 #close                -> nil                                  (idempotent; closes the native body, releases the connection)
@@ -1844,7 +1857,8 @@ cancellation test assert the *native* side of `ASYNC-6`, not only the pivot's.
 a `Sync { }` wrapper. Two **named waivers** (§9.3's mechanism, listing the requirement ID so the gap stays
 visible):
 
-- **`TRANSPORT-14`** — the malformed-inbound-**name** clause, unreachable (fact 11, `P8-38`, `OI-39`).
+- **`TRANSPORT-14`** — the malformed-inbound-**name** clause, unreachable (fact 11, `P8-38`; §12's
+  scoping of the ID is on phase 10's inbound list).
   The obs-text and control-byte-in-a-value halves pass normally.
 - **`TRANSPORT-27`** — the invalid-`Content-Length` clause, unreachable **on this adapter only**
   (`Protocol::HTTP1::BadRequest` out of the read, fact 11). **Corrected 2026-09-12**: this bullet said it
@@ -1890,7 +1904,8 @@ else from this gem. Everything not listed is internal, whatever its Ruby visibil
 manifest, which is this repository's definition of internal.
 
 **What phase 9 will want and should take from here:** the two named waivers, the `TRANSPORT-8` inversion
-(`OI-41`), and the HTTP/2 fixture, which is the only thing in the MVP that can drive an `XCUT` audit over
+(§12's vacuity claim for it, corrected on phase 10's inbound list), and the HTTP/2 fixture, which is the
+only thing in the MVP that can drive an `XCUT` audit over
 a second protocol.
 
 ---
@@ -1922,7 +1937,7 @@ stack none of this document's thirteen verified facts covers. `NFR-2`'s own sepa
 narrowing supported rather than a fracture: a consumer on 3.2 composes core plus
 `dexpace-transport-net_http` and loses only the reactor transport. *Consequence:* `VERSIONS` gains a
 per-gem floor key, `gates:versions` reads it, and the 3.2 CI row excludes this gem. *Not* a change to
-`dexpace-core`'s floor or to any other gem's. `R15`, `OI-38`.
+`dexpace-core`'s floor or to any other gem's. `R15`; the plan's Task 3 owns the gate edit.
 
 ### `P8-37` — the adapter's `#close` releases the connection pool directly rather than calling `Async::HTTP::Client#close`
 
@@ -1950,7 +1965,7 @@ reimplementing the HTTP/1.1 response parser inside the adapter, and `NFR-2`'s wh
 adapter is thin over one library. *Mitigation:* none available; the gap is a **single malformed inbound
 header name fails the whole response**, which is bounded (the response, not the connection, and not other
 requests) and is reported by the conformance suite as a **named waiver listing `TRANSPORT-14`**, so it
-stays visible. `OI-39`.
+stays visible. §12's `TRANSPORT-14` scoping is on phase 10's inbound list.
 
 ### `P8-39` — the async transport is usable only from inside a reactor, and says so through a failed future
 
@@ -2051,14 +2066,16 @@ disposition the charter recorded, which is four items, each written so a reader 
   same adapter**, and 8c drops on both anyway (`P8-40`), so "the first adapter that drops" is true of the
   gem and not of every exchange it performs.
 - **`OBS-29`'s transport-milestone group — postponed by phase 5c (2026-09-09) to "phase 8 with the first
-  adapter"; not wired by 8c, and the reason is `OI-36`.** The charter makes 8c's emitter call sites
-  conditional on `R6` ("once `R6` settles the route"), and `R6` is `8a`'s. `OI-36` records that **no route
+  adapter"; not wired by 8c, and the reason is that no adapter can reach a tracer.** The charter makes
+  8c's emitter call sites conditional on `R6` ("once `R6` settles the route"), and `R6` is `8a`'s. The
+  charter's finding, on phase 10's inbound list, records that **no route
   exists** by which an adapter in another gem reaches a per-operation `HTTPTracer` through an
   `NFR-4`-locked three-argument seam. 8c does not invent one: a constructor keyword gives one tracer per
   adapter lifetime, which is not what `OBS-29`'s 1:1 clause describes, and widening `RequestOptions` is a
   phase-1 core surface and a real `NFR-4` widening. **8c wires no emitter and says so**, which is the
-  answer the charter says it expects and the same answer `OI-32` already records for the
-  operation-lifecycle triple. The per-attempt group is phase 6a's Task 9; both residuals (`OI-32`, `OI-36`)
+  answer the charter says it expects and the same answer phase 10's inbound list already records for
+  `OBS-29`'s operation-lifecycle triple. The per-attempt group is phase 6a's Task 9; both residuals — the
+  operation-lifecycle triple and the transport-reachable `HTTPTracer` —
   are one surface decision on phase 10's inbound list (the roadmap's 2026-09-13 status note). If `8a`
   settles `R6` the other way, 8c's plan gains one task and this paragraph is what it amends.
 - **`SEAM-24`'s cancellation bridge — declined for v1 by the MVP scope design (2026-09-05); 8c confirms
@@ -2095,17 +2112,17 @@ disposition the charter recorded, which is four items, each written so a reader 
 
 ---
 
-## The findings proposed for the registers
+## Findings, and who owns them now
 
-**Four, described here for a human to file. None is acted on by this document, and no register file is
-edited by it.** The register's `next id` is `OI-34`; **the charter already proposes `OI-34` through
-`OI-37` and has not been filed**, so 8c's numbers run from **`OI-38`** and the two documents' proposals
-are contiguous rather than colliding. If the charter's four are filed with different numbers, these four
-shift with them and the shift is mechanical.
+**Four, in the words this design measured them in. None is acted on by this document; each is followed by
+the owner that carries it** *(the owner lines were added 2026-09-13, when the find-list was retired and
+every finding was routed to an owner instead of a register row — a numbered plan task, phase 10's inbound
+list, a knowledge note, or `docs/first-release.md`)*.
 
-**Target register: `docs/open-items.md`. Proposed id `OI-38`.**
+**Owner: this sub-phase's plan, Task 3 — the per-gem Ruby floor gate edit, with Task 18's two
+`docs/first-release.md` lines.**
 
-> ### OI-38 — `dexpace-transport-async_http` cannot declare the repository-wide Ruby 3.2 floor, and a phase-0 gate asserts that it must
+> ### `dexpace-transport-async_http` cannot declare the repository-wide Ruby 3.2 floor, and a phase-0 gate asserts that it must
 >
 > - **Opened:** 2026-09-11, phase 8c design
 > - **Status:** open
@@ -2138,9 +2155,10 @@ shift with them and the shift is mechanical.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-39`.**
+**Owner: phase 10's inbound list in the roadmap — §12's `TRANSPORT` row gains `TRANSPORT-14` to its
+adapter-scoped list; `docs/deviations.md` carries the interim note beside `P8-38`.**
 
-> ### OI-39 — `TRANSPORT-14`'s malformed-inbound-header-**name** clause is unreachable on `dexpace-transport-async_http`, and §12 records `TRANSPORT-14` as satisfied without qualification
+> ### `TRANSPORT-14`'s malformed-inbound-header-**name** clause is unreachable on `dexpace-transport-async_http`, and §12 records `TRANSPORT-14` as satisfied without qualification
 >
 > - **Opened:** 2026-09-11, phase 8c design
 > - **Status:** open
@@ -2168,9 +2186,10 @@ shift with them and the shift is mechanical.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-40`.**
+**Owner: `docs/knowledge/notes/concurrency-and-async.md` — an entry beside
+`concurrency-and-async/f75816b6` recording that `Async::Task#cancel` replaces `#stop`.**
 
-> ### OI-40 — design §3.3 and the corpus name `Async::Task#stop`, which `async` 2.45.1 deprecates in favour of `#cancel`
+> ### design §3.3 and the corpus name `Async::Task#stop`, which `async` 2.45.1 deprecates in favour of `#cancel`
 >
 > - **Opened:** 2026-09-11, phase 8c design
 > - **Status:** open
@@ -2187,7 +2206,8 @@ shift with them and the shift is mechanical.
 > `cause:` keyword is materially better for this port than `#stop` was: a `Dexpace::Cancellation#reason`
 > passed as `cause:` is readable back off the raised `Async::Cancel` as `#cause`, which is the out-of-band
 > discrimination `XCUT-2` and `TRANSPORT-3` require and which `#stop` gives no channel for. This is the
-> same species as the charter's `OI-34` and `OI-35` — a frozen design chapter that is wrong about a
+> same species as the charter's two findings — §12's `Net::HTTP` retry rows and §3.2's `read_body`
+> sentence — a frozen design chapter that is wrong about a
 > library — and it is smaller than either: the *mapping* §3.3 describes is right, only the method name has
 > moved. Phase 8c calls `#cancel` everywhere. What would resolve it: `dexpace-async-async` (post-v1) is
 > written against `#cancel`; §3.3's sentence is corrected the next time §3 is deliberately
@@ -2197,9 +2217,10 @@ shift with them and the shift is mechanical.
 >
 > **Resolution:** *(open)*
 
-**Target register: `docs/open-items.md`. Proposed id `OI-41`.**
+**Owner: phase 10's inbound list in the roadmap — §12's `TRANSPORT` row and its MUST-level vacuity count;
+`docs/deviations.md` carries the interim note.**
 
-> ### OI-41 — `TRANSPORT-8` is satisfiable on `dexpace-transport-async_http`, and §12 counts it among the eight MUSTs that hold vacuously
+> ### `TRANSPORT-8` is satisfiable on `dexpace-transport-async_http`, and §12 counts it among the eight MUSTs that hold vacuously
 >
 > - **Opened:** 2026-09-11, phase 8c design
 > - **Status:** open
@@ -2221,7 +2242,8 @@ shift with them and the shift is mechanical.
 > were tested and **rejected** as the antecedent: a graceful HTTP/2 GOAWAY mid-stream did not abort the
 > open stream (the client read it to completion), and `Protocol::HTTP::RefusedError` is a retryable
 > transport failure rather than a cancellation. So the port gains a **satisfied** MUST where §12 records a
-> vacuous one — the inverse direction from `OI-34`, and equally a defect in a frozen chapter. What would
+> vacuous one — the inverse direction from the charter's finding on §12's `Net::HTTP` retry rows, and
+> equally a defect in a frozen chapter. What would
 > resolve it: phase 8c implements and asserts the discrimination and its checklist row states it;
 > §12's `TRANSPORT` row and the MUST-level count are corrected the next time §12 is deliberately amended
 > by a human, and `docs/deviations.md` carries the interim note. Nothing is broken today because nothing is
@@ -2241,11 +2263,12 @@ protocols anyway, so "the first adapter that drops" is true of the gem rather th
 performs.* Without that sentence a reader of the closed row will conclude that any `async-http`-based
 adapter must drop, which is true, and that the wire forces it, which is only half true.
 
-**Target register: `docs/first-release.md`.** Two lines, both owed by the phase-level PR rather than by
+**Owner: `docs/first-release.md`.** Two lines, both owed by the phase-level PR rather than by
 this sub-phase:
 
 - **A supported-Ruby line.** `dexpace-transport-async_http` requires Ruby **>= 3.3**, narrower than every
-  other gem in the workspace (`P8-36`, `OI-38`). A consumer on Ruby 3.2 composes `dexpace-core`,
+  other gem in the workspace (`P8-36`; the plan's Task 3 makes the gates accept it). A consumer on Ruby
+  3.2 composes `dexpace-core`,
   `dexpace-transport-net_http`, `dexpace-serde-json`, `dexpace-async-thread` and `dexpace-conformance`, and
   loses only the reactor transport — which is `NFR-2`'s separability paying for itself and should be
   stated as such rather than discovered at `bundle install`.
@@ -2253,32 +2276,29 @@ this sub-phase:
   (`ext/extconf.rb`). A platform with no toolchain and no precompiled `io-event` cannot install this gem.
   The same sentence covers it.
 
-**What `ruby .claude/skills/housekeeping/probe.rb` reports until these are filed, so the next runner does
-not read it as drift.** Re-run on 2026-09-12 with all seven phase-8 documents in place, the probe reports
-**18 findings across two checks**, every one of them a consequence of those documents existing and none
-fixable from inside this one. (**Corrected in place**: this paragraph said "ten findings", counting only
-the charter's four ids and this document's four, before `8a` and `8b` numbered seven more.)
+**What `ruby .claude/skills/housekeeping/probe.rb` reported while these findings were carried as register
+rows, and why it no longer does** *(updated 2026-09-13)*. Re-run on 2026-09-12 with all seven phase-8
+documents in place, the probe reported **18 findings across two checks**, every one of them a consequence
+of those documents existing and none fixable from inside this one.
 
 - **`claims` (1)** — `CLAUDE.md:381`: states "eight phase directories" but the repository has 9. That is
   the **charter's** to clear, not 8c's; the charter writes the three `CLAUDE.md` edits out verbatim.
-- **`citations` (17)** — **fifteen `OI-<n>` numbers cited across phase 8 with no row in
-  `docs/open-items.md`**, two of them (`OI-38` and `OI-41`) cited twice, which is where 15 becomes 17
-  lines: `OI-34`–`OI-37` by the charter, `OI-38`–`OI-41` here, `OI-42`–`OI-45` by `8a` and
-  `OI-46`–`OI-48` by `8b`, in sub-phase order. The register's `next id` is `OI-34`, so the fifteen run
-  contiguously from it, and every document writes its own rows out in the register's own format for
-  pasting. Phase 7's findings deliberately carried no numbers and produced no such finding; phase 8 files
-  numbered rows so the follow-through is a paste rather than a re-derivation, which is the trade the
-  charter states and 8c follows for consistency rather than re-deciding.
+- **`citations` (17)** — register ids cited across phase 8 with no row filed for them, the charter's four
+  findings and each sub-phase's in sub-phase order. **That group is gone rather than pending**: the
+  find-list was retired on 2026-09-13 and every phase-8 finding was routed to an owner instead — a
+  numbered plan task, phase 10's inbound list, a knowledge note or `docs/first-release.md` — so nothing
+  about phase 8 waits on a paste. Phase 7's findings deliberately carried no numbers and produced no such
+  finding.
 
-`links`, `inbox`, `root`, `readmes`, `registers` and `guard` are clean. **Once the fifteen rows are
-pasted and `CLAUDE.md`'s numeral is corrected, the probe is clean.**
+`links`, `inbox`, `root`, `readmes`, `registers` and `guard` were clean.
 
 
-**Two rows explicitly do not close.** `OI-9`'s one-byte-per-read defect in `BufferedSource.wrapping` is
-phase 3a's code to fix; 8c avoids it by using `.over` and says so rather than closing it. `OI-18`'s
-`Transport.async_over` accepting an async transport silently is phase 2's or a phase-8 amendment's; 8c is
-the first object that can be fed to it by mistake and does not fix it — the repair is in `dexpace-core`
-and belongs with `OI-18`'s owner.
+**Two inherited findings explicitly do not close.** The one-byte-per-read defect in
+`BufferedSource.wrapping` is phase 3a's code to fix — 3a plan, Task 10's `fill(count)` refill fix; 8c
+avoids it by using `.over` and says so rather than closing it. `Transport.async_over` accepting an async
+transport silently is phase 2's or a phase-8 amendment's; 8c is the first object that can be fed to it by
+mistake and does not fix it — the repair is in `dexpace-core` and belongs with phase 2 plan, Task 11's
+return-type check.
 
 ---
 
@@ -2390,7 +2410,7 @@ re-opens.
    `sig/` section's three clauses keep every foreign constant out of it. The plan's first task checks and
    writes the row it finds.
 2. **What exactly does `VERSIONS` gain, and who edits `gates:versions`?** `R15` fixes the shape
-   (`ruby floor dexpace-transport-async_http  3.3`) and `OI-38` records that the gate is phase-0
+   (`ruby floor dexpace-transport-async_http  3.3`) and records that the gate itself is phase-0
    machinery. The plan decides whether 8c's own PR carries the three-line gate change or whether it is a
    phase-level task beside `Dexpace::TransportError`. **This document's recommendation: phase-level**, on
    the same reasoning the charter gives for `TransportError` — it lands in a file none of the three
@@ -2403,8 +2423,9 @@ re-opens.
 4. **Does `DropPolicy` live in this gem or in `dexpace-core`?** Phase 5b's hand-forward says "Phase 8 writes a small
    `Data` over both [5b ingredients], at the one call site that actually drops a header", which reads as
    the adapter. But `TRANSPORT-13` binds *any* adapter that drops, and a second adapter would want the
-   same object. **This document's recommendation: this gem**, because `OI-8`'s shape — public,
-   `NFR-4`-locked API with no caller — is exactly what a core-resident policy with one external caller
+   same object. **This document's recommendation: this gem**, because the shape `TeeSink#clear_tap` is
+   in — public, `NFR-4`-locked API with no caller, which is what 3a plan Task 14's keep-or-drop decision
+   is about — is exactly what a core-resident policy with one external caller
    would be, and moving it to core later widens rather than narrows. The plan states the decision either
    way, and this document's postponed-work entry for the policy records it.
 5. **HTTP/2 multiplexing under window pressure.** Facts 2, 3 and 4 exercise the h2 path functionally but

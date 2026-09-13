@@ -18,8 +18,8 @@ transport, no socket: the whole test surface is value objects, one synchronised 
 three execution carriers (thread, fiber, enumerator-fiber).
 
 **Tech Stack:** Ruby 3.2–4.0 (development on 4.0.6), no runtime dependencies, Minitest, RBS +
-Steep, RuboCop with phase 0's five custom cops and phase 2's sixth, plus a new seventh this phase
-adds, SimpleCov, YARD.
+Steep, RuboCop with phase 0's five original custom cops and phase 2's sixth, plus a new seventh this
+phase adds, SimpleCov, YARD.
 
 **Spec:** `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-design.md`, under the
 charter `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`. `docs/product-spec/07-execution-context-model.md`
@@ -67,8 +67,9 @@ carries the canonical `CTX` text quoted below.
 - **Formatting:** double quotes, 2-space indent, 100 columns, `consistent_comma` trailing commas,
   leading-dot chains, `MethodLength: 25`, `ParameterLists: 4`, `BlockNesting: 3`. Every `lib/` and
   `test/` fence below was run through **RuboCop 1.90.0** against phase 0's `.rubocop.yml` as that
-  plan writes it and reports **no offense** outside the set `OI-6` already records as firing
-  repository-wide before this phase existed (`Layout/EmptyLineAfterMagicComment`,
+  plan writes it and reports **no offense** outside the set phase 3a found firing
+  repository-wide before this phase existed — the set phase 0's plan, Task 3 carries as its reviewed
+  `.rubocop.yml` baseline (`Layout/EmptyLineAfterMagicComment`,
   `Style/DataInheritance`, `Layout/EmptyLinesAfterModuleInclusion`, `Metrics/AbcSize`,
   `Metrics/ClassLength`, `Metrics/CyclomaticComplexity`, `Metrics/PerceivedComplexity`,
   `Naming/RescuedExceptionsVariableName`, `Naming/PredicateMethod`,
@@ -81,8 +82,10 @@ carries the canonical `CTX` text quoted below.
   design fixes. Each site carries `# rubocop:disable Metrics/ParameterLists` with the reason,
   which is phase 0's own convention for an inline directive; `NO_TRACER_FACTORY#tracer` (5) is
   disabled with `Lint/UnusedMethodArgument` for `P4-8`'s separate reason. Whether the repository
-  should instead set `CountKeywordArgs: false` once is `OI-20`, filed by this plan and **not**
-  decided here — a `.rubocop.yml` diff belongs to whoever closes `OI-6`.
+  should instead set `CountKeywordArgs: false` once is **not** decided here: it is a `.rubocop.yml`
+  diff, and it belongs with **phase 0's plan, Task 3** — the reviewed `.rubocop.yml` baseline — beside
+  the repository-wide offence set. The seven measured counts are this plan's contribution to that
+  decision and are restated in Task 9's Step 8.
 - **Tests:** Minitest only, `FooTest < DexpaceTestCase`, `test "..." do` blocks, `test/` mirroring
   `lib/` one file per file, every test passing alone and in any order, the seed never overridden.
   Each test file's header comment names the requirement IDs it exercises. Every public constant
@@ -171,7 +174,8 @@ than one standing in for the other.
 The design (line 1292) left four for the plan to close, each with a recommendation. All four are
 resolved below rather than deferred a second time, and two more the plan itself opened are
 resolved beside them — the second of those, question 5, is the one place a design claim did not
-survive contact with a shipped test, and it is filed as `OI-20` rather than restated.
+survive contact with a shipped test, and it is handed to `docs/first-release.md` § Post-release
+triggers — the existing non-CRuby (`IO-38`) row — rather than restated.
 
 **1. `#tracer`'s exact arity in `opentelemetry-api`.** The design's own recommendation —
 `#tracer(name = nil, version = nil)` — **does not match the gem's current source and is not what
@@ -234,8 +238,9 @@ inserts at `cap` 8 and **never reported above 8**, six runs, against six identic
 shipped one-`synchronize` form. The design's `9`-at-`cap`-8 observation was taken from inside a
 prototype's own hash, which no test written against this class's public surface can reach. The
 one-`synchronize` discipline is therefore held by the source, the constant's comment and the
-corpus note — not by a test — and that is filed as `OI-20` rather than papered over with a
-sampler test that would pass against the defect it names.
+corpus note — not by a test — and that goes to `docs/first-release.md` § Post-release triggers,
+extending the existing non-CRuby (`IO-38`) row with the `CTX-7`/`CTX-8` drain proof, rather than
+being papered over with a sampler test that would pass against the defect it names.
 
 **6. `while` versus a single `if`, which no test reaches at all.** Recorded next to the above so
 nobody looks for the missing case: under one `synchronize` the two are behaviourally identical —
@@ -768,7 +773,8 @@ class DexpaceContextStoreTest < DexpaceTestCase
   # XCUT-14 makes it a MUST), and the split-lock overshoot the note measures is invisible through
   # this class's public surface -- #size takes the same mutex. Verified: a split-lock BoundedMap
   # sampled by four concurrent #size readers across 64 000 inserts at cap 8 never reports above 8
-  # on CRuby. OI-20.
+  # on CRuby. Proving CTX-7/CTX-8's drain needs a GVL-free interpreter: first-release.md,
+  # Post-release triggers, the non-CRuby row.
   test "CTX-12/XCUT-14: from cap, each insert evicts exactly one, and size never exceeds cap" do
     store = Dexpace::ContextStore.new(cap: 8)
     seeds = Array.new(8) { |i| "seed-#{i}" }
@@ -2430,6 +2436,21 @@ this phase's suite is a literal; `sample(seed:)`'s own two uses (`trace_id_flavo
 **Requirement IDs:** `CTX-19`'s prohibition, mechanised. **Design:** "R1 — `CTX-19`'s
 weak-reference prohibition, resolved."
 
+**Amendment, 2026-09-13 — a new cop joins the suite, and it carries no ordinal.** Phase 0's plan,
+Task 4 gains **the keyword-splat cop, added to phase 0's Task 4 on 2026-09-13** — it forbids a `**`
+keyword splat in a public signature under `lib/`, and it exists because `OBS-25`'s "selecting a no-op
+path MUST NOT allocate per call" and `OBS-1`'s "MUST allocate nothing" are both unsatisfiable for a
+method written with a splat (measured on 3.4.10: `def m(x, **attributes)` called as `m(e)`, with no
+keyword argument passed at all, allocates one `Hash` per call — 1002–1005 objects over 1000
+iterations with `GC` disabled — against 2–4 in total for the named form `def m(x, attributes: nil)`).
+
+**It is deliberately unnumbered, and that is the rule to follow here.** The cop ordinals in this
+repository are names, not a running count: phase 0's original five keep theirs, phase 2's
+`Dexpace/QualifiedCoreConstant` stays **the sixth**, and this task's `Dexpace/NoWeakReferences` stays
+**the seventh**. The keyword-splat cop is referred to by that phrase and never by a position, so **no
+ordinal written before today changes**, in this plan or anywhere else. Nothing about this task changes.
+
+
 **Files:**
 - Create: `.rubocop/cops/dexpace/no_weak_references.rb`
 - Modify: `.rubocop/test/cops_test.rb`, `.rubocop.yml`
@@ -2443,7 +2464,7 @@ weak-reference prohibition, resolved."
 
 - [ ] **Step 1: Write the failing cop cases**
 
-Add to `.rubocop/test/cops_test.rb`'s `REJECTED` array (the existing five cops' rows are
+Add to `.rubocop/test/cops_test.rb`'s `REJECTED` array (the existing cops' rows are
 unmodified):
 
 ```ruby
@@ -2466,7 +2487,7 @@ unmodified):
 ```
 
 Add to the `ACCEPTED` array (a plain array of `[cop, source]` pairs elsewhere in the same file —
-match the existing five cops' `ACCEPTED` shape):
+match the existing cops' `ACCEPTED` shape):
 
 ```ruby
     [D::NoWeakReferences, "ObjectSpace.count_objects\n"],
@@ -2599,9 +2620,10 @@ the cop against it rather than weakening a case** — phase 2's own stated rule 
 
 Run: `bundle exec rubocop --fail-level=convention`
 Expected: `Dexpace/NoWeakReferences` reports 0 offenses over every `lib/` tree this phase adds.
-Per `OI-6` (filed by phase 3a, still open), the whole-repository run is not expected to be clean
-for reasons unrelated to this phase — this step's claim is scoped to this phase's own files, per
-that item's own precedent.
+Per phase 3a's finding — the repository-wide offence set phase 0's plan, Task 3 carries as its
+reviewed `.rubocop.yml` baseline — the whole-repository run is not expected to be clean
+for reasons unrelated to this phase; this step's claim is scoped to this phase's own files, per
+that precedent.
 
 ---
 
@@ -2692,8 +2714,8 @@ Dexpace::RequestContext# promote_to_exchange
 diff even though they hold no new class — the walker's `else` branch renders every
 non-`Module` constant, typed by its value's class, and these are the ones this phase adds.)
 
-**This table corrects an assumption `P4-11` states as settled, and that correction is filed as
-`OI-19` below rather than silently written around.** `P4-11` (design, already committed) says: "The
+**This table corrects an assumption `P4-11` states as settled, and that correction is recorded
+below and handed to phase 0's plan, Task 14 rather than silently written around.** `P4-11` (design, already committed) says: "The
 `Data`-generated readers on all five value types … are public API too and are invisible to `rbs
 validate`; the runtime surface snapshot is what holds them." **Verified directly against phase 0's
 own walker method, on all three interpreters: it does not.** `mod.public_instance_methods(false)`
@@ -2735,11 +2757,11 @@ all: it defines no method of its own beyond what `Data` and `Context` supply, ne
 second and independent rendering of `CTX-1`'s terminality: the type that ends the chain is the one
 with no owned methods.
 
-**`OI-19`, filed here.** *Title:* the runtime surface snapshot does not hold a `Data`-generated
+**The finding, recorded here, owned by phase 0's plan, Task 14.** *What it is:* the runtime surface
+snapshot does not hold a `Data`-generated
 reader for any type built with this repository's `class X < Data.define(...)` subclassing
 convention, contrary to `P4-11`'s and `CLAUDE.md`'s stated rationale ("the RBS diff is paired with
-a runtime surface snapshot … Each catches what the other cannot see"). *Why filed rather than
-fixed:* `tools/surface.rb` is phase 0's file (Task 14), already committed and reviewed, and every
+a runtime surface snapshot … Each catches what the other cannot see"). *Why it is not fixed here:* `tools/surface.rb` is phase 0's file (Task 14), already committed and reviewed, and every
 `Data`-based type since phase 1 is affected identically — this is not 4a's gap to fix, and fixing
 it by walking `mod.superclass.instance_methods(false)` as well would change what a `sig_diff`-style
 manifest asserts for **every** gem, which is a phase-0-owned decision. *What it means for `NFR-4` in
@@ -2748,8 +2770,11 @@ noticing (the RBS diff still catches it, since every reader is written out expli
 per phase 1's own stated reason for doing so) — so `NFR-4`'s "each catches what the other cannot
 see" is true for `sig_diff` against RBS omissions, but the runtime snapshot's contribution for a
 `Data`-generated reader specifically is nothing, not a backstop. **This plan does not act on it
-beyond filing it and stating the corrected expectation above** — acting on it (changing the walker)
-is outside a sub-phase's remit over a phase-0-owned tool.
+beyond recording it and stating the corrected expectation above** — acting on it (changing the
+walker) is outside a sub-phase's remit over a phase-0-owned tool, and the decision between the two
+available repairs belongs to that task: walk `mod.superclass.instance_methods(false)` too when the
+superclass is itself a `Data.define` return value, or accept the split and amend the stated
+rationale to say the snapshot's role is method definitions only, never member accessors.
 
 - [ ] **Step 4: Regenerate the RBS baseline and run the API lock**
 
@@ -2768,7 +2793,9 @@ This phase contributes 17 of them (8 rejected, 9 accepted; 50 assertions), verif
 RuboCop 1.90.0; the total is whatever the live table holds once phase 0's and phase 2's rows are
 counted with them, and is deliberately not asserted here. Also expected:
 `Dexpace/NoWeakReferences` reporting 0 offenses over the finished tree. The whole-repository
-RuboCop run inherits `OI-6`'s already-open caveat and is not re-litigated here.
+RuboCop run inherits the same repository-wide caveat — the offence set phase 0's plan, Task 3
+carries — and is not re-litigated here.
+
 
 - [ ] **Step 6: Run every gate on every matrix row**
 
@@ -2801,20 +2828,46 @@ This step is where the row-by-row table is actually written — not here, per th
   5a, Task 13) and the no-op span and tracer protocols (phase 5c, Tasks 3–5); this plan postpones
   nothing further. Every item earlier phases postponed was read at the design stage and that reading
   is not repeated here.
-- **Open items.** `OI-13`, `OI-15`, `OI-16` were filed by the design and stay open; none is this
-  plan's to close. This plan files **two** new items. `OI-20` (`docs/open-items.md`, and open
-  question 5 above): the design's second discriminating drain measurement — "the maximum size ever
-  observed" — is not reachable through `ContextStore`'s public surface, verified against a
-  split-lock `BoundedMap` sampled by four concurrent `#size` readers across 64 000 inserts, so the
-  one-`synchronize` insert-and-drain is held by review rather than by the suite; the same item
-  carries the `Metrics/ParameterLists` / `CountKeywordArgs` tension the Global Constraints name,
-  because both are things this phase measured and neither is a sub-phase's to settle. And `OI-19`
-  (Step 3 above and `docs/open-items.md`): the runtime surface snapshot does not hold a `Data`-generated reader for
-  any type using this repository's `class X < Data.define(...)` convention, contrary to `P4-11`'s
-  and `CLAUDE.md`'s stated rationale for pairing it with the RBS diff — discovered while deriving
-  this task's own expected snapshot content against phase 0's real walker rather than by
-  inspection. It is filed, not fixed, because `tools/surface.rb` is phase 0's and every `Data`-based
-  type in every gem is affected identically.
+- **Findings.** A finding is not registered anywhere; it is routed, when found, to the owner that
+  will act on it — a numbered task in the phase whose scope it falls in, `docs/first-release.md`
+  when it belongs to the release, or a fix in the writable material. Three the design found are
+  already routed and none is this plan's to close: `Fiber#storage=`'s per-call warning
+  (`docs/knowledge/notes/observability.md` — use per-key writes); the charter's exclusions row,
+  which now names the **elapsed-time counter** (`CFG-16`) rather than "the monotonic counter", so it
+  can no longer be read as claiming `CTX-4`'s call-sequence counter is phase 5's; and the corpus
+  CLI's `[overridden by notes/…]` marker printing for every backticked key (`scripts/knowledge.rb`'s
+  `CITED_KEY` and `Corpus#link_overrides`). This plan adds **three**, each routed here:
+  - *The drain's second discriminating measurement* → **`docs/first-release.md` § Post-release
+    triggers**, extending the existing non-CRuby (`IO-38`) row. The design's "maximum size ever
+    observed" is not reachable through `ContextStore`'s public surface: `#size` takes the same
+    `Thread::Mutex` as the insert, so a split-lock `BoundedMap` sampled by four concurrent `#size`
+    readers across 64 000 inserts from 32 threads at `cap` 8 reported a maximum of exactly 8 on six
+    consecutive runs, identical to six runs of the shipped one-`synchronize` form (open question 5
+    above). `CTX-7`'s "registered, overwritten, and removed concurrently without external locking"
+    and `CTX-8`'s "deterministically admit exactly one winner" therefore rest on source, comment and
+    corpus note — on no test — and narrowing the lock would be invisible to the suite on CRuby. A
+    GVL-free interpreter is what makes an unsynchronised read-modify-write observable, which is
+    exactly the trigger `IO-38` already records.
+  - *`Metrics/ParameterLists` versus keywords everywhere* → **phase 0's plan, Task 3**, the reviewed
+    `.rubocop.yml` baseline, beside the repository-wide offence set. RuboCop counts keyword arguments
+    by default (`CountKeywordArgs: true`) and `api-design/1d9e6e0b` makes every public parameter a
+    keyword, so `Max: 4` is unsatisfiable for any model with more than four members. Seven methods
+    here trip it — `Bundle.build` and `#initialize` at 8, `ExchangeContext`'s pair at 6,
+    `RequestContext`'s pair at 5, `NO_TRACER_FACTORY#tracer` at 5 — each carrying exactly the member
+    set the design fixes. This phase pays it with named inline disables; the alternative, one
+    reviewed `CountKeywordArgs: false` line, is a `.rubocop.yml` diff and not a sub-phase's to make.
+    The measured counts are recorded here so that task decides against numbers rather than an
+    impression.
+  - *The runtime surface snapshot's `Data` readers* → **phase 0's plan, Task 14**
+    (`gates:surface_snapshot`), with the evidence in Step 3 above. `public_instance_methods(false)`
+    does not hold a `Data`-generated reader for any type using this repository's
+    `class X < Data.define(...)` convention, contrary to `P4-11`'s and `CLAUDE.md`'s stated rationale
+    for pairing the snapshot with the RBS diff — discovered while deriving this task's own expected
+    snapshot content against phase 0's real walker rather than by inspection. Not fixed here because
+    `tools/surface.rb` is phase 0's and every `Data`-based type in every gem is affected identically;
+    the choice between walking `mod.superclass.instance_methods(false)` too and amending the stated
+    rationale belongs to that task.
+
 - **Release blockers.** None. Nothing is published and every gem stays at `0.0.0`.
 
 - [ ] **Step 9: Update `CLAUDE.md`'s claims sentences if what they must say has changed**

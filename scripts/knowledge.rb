@@ -340,7 +340,8 @@ module Knowledge
     # chapter 4. `roles[i]` pairs with `sources[i]`.
     STYLEGUIDE_CHAPTER = %r{/(\d{2})-[^/]*\.md(?::|\z)}
 
-    attr_reader :file, :topic, :origin, :line, :section, :roles, :sources, :overridden_by, :overrides
+    attr_reader :file, :topic, :origin, :line, :section, :roles, :sources,
+                :overridden_by, :overrides, :cited_by, :cites
     attr_accessor :text, :key, :reqs, :confidence, :sha, :sub_line
 
     def initialize(file:, topic:, origin:, line:, section:, text:)
@@ -359,6 +360,8 @@ module Knowledge
       @sub_line = nil
       @overridden_by = []
       @overrides = []
+      @cited_by = []
+      @cites = []
     end
 
     def role = @roles.first
@@ -420,6 +423,7 @@ module Knowledge
         source: source, sources: @sources, confidence: @confidence, sha: @sha,
         sub_line: @sub_line, reqs: @reqs, rollup: rollup?,
         overridden_by: @overridden_by, overrides: @overrides,
+        cited_by: @cited_by, cites: @cites,
       }
     end
   end
@@ -510,6 +514,23 @@ module Knowledge
     # A key inside an entry's prose, backticked: `pagination/81881061`.
     CITED_KEY = %r{`([a-z0-9-]+/[0-9a-f]{8})`}
 
+    # A note names a harvested rule for two different reasons, and they are not the
+    # same relation. It OVERRIDES the rule it corrects; it CITES the rules it leans
+    # on -- the general, cross-cutting ones a decision rests on are exactly the ones
+    # most often cited in support, and marking those "overridden" tells every later
+    # reader the opposite of what the note says.
+    #
+    # The signal is the note's own relation verb, immediately before the key it
+    # governs. That is not a new convention: it is the vocabulary every note already
+    # writes ("Supersedes `x`", "Resolves `x` and `y`", "Answers `x`", "Narrows
+    # `x`"), and the skill's own example uses it ("superseding `pagination/…`").
+    # Every other backticked key in the entry is a citation in support.
+    RELATION_VERB = /\b(?:supersed|resolv|answer|narrow|overrid|replac|correct)(?:e|es|ed|ing|s)?\b/i
+    # The run of keys a verb governs: keys, separators and `and`, and nothing else.
+    # Local rather than sentence-scoped, so no sentence splitter has to be right
+    # about a quoted rule that carries its own punctuation.
+    RELATION_RUN = %r{\A(?:[\s,]|\band\b|`[a-z0-9-]+/[0-9a-f]{8}`)+}
+
     attr_reader :entries
 
     def self.load(paths, prefixes)
@@ -551,7 +572,7 @@ module Knowledge
 
     def initialize(entries)
       @entries = entries
-      link_overrides
+      link_relations
     end
 
     def empty? = @entries.empty?
@@ -586,26 +607,45 @@ module Knowledge
       dangling
     end
 
+    # Every key `note` names after a relation verb: the rules it overrides. A key
+    # the note mentions anywhere else is a citation in support.
+    def self.overridden_keys(text)
+      found = []
+      text.to_enum(:scan, RELATION_VERB).each do
+        run = Regexp.last_match.post_match[RELATION_RUN]
+        found.concat(run.to_s.scan(CITED_KEY).flatten)
+      end
+      found.uniq
+    end
+
     private
 
-    # A note names the harvested rule it overrides by that rule's key. Resolve
-    # those references once, at load, and hang the answer on both ends.
+    # A note names harvested rules by key. Resolve those references once, at load,
+    # split them by relation, and hang the answer on both ends.
     #
-    # Without this the override is prose inside one note and nothing else: a
-    # query that lands on the harvested entry -- by `--section reference`, by a
-    # bare word, by anything that does not also return the note -- hands back a
-    # rule the implementation has already overruled, with no sign that it did.
-    def link_overrides
+    # Without this the relation is prose inside one note and nothing else: a query
+    # that lands on the harvested entry -- by `--section reference`, by a bare word,
+    # by anything that does not also return the note -- hands back a rule the
+    # implementation has already overruled, with no sign that it did. Splitting the
+    # relation is the other half: a rule a note leans on must not read as a rule the
+    # note overruled, and the same key named twice is one relation, not two.
+    def link_relations
       by_key = @entries.to_h { |entry| [entry.key, entry] }
       @entries.each do |note|
         next unless note.note?
 
-        note.text.scan(CITED_KEY) do |(cited)|
+        overridden = self.class.overridden_keys(note.text)
+        note.text.scan(CITED_KEY).flatten.uniq.each do |cited|
           target = by_key[cited]
           next if target.nil? || target.equal?(note)
 
-          target.overridden_by << note.location
-          note.overrides << cited
+          if overridden.include?(cited)
+            target.overridden_by << note.location
+            note.overrides << cited
+          else
+            target.cited_by << note.location
+            note.cites << cited
+          end
         end
       end
     end
@@ -993,6 +1033,9 @@ module Knowledge
       end
       out << summary
 
+      coverage = prefix_coverage(results, query)
+      out.concat(["", coverage]) unless coverage.nil?
+
       # The silent wrong answer this tool can give: a `--req` that "hits" but
       # whose every hit merely names the ID in a conformance-checklist sentence.
       # Exit 0 makes it look answered, so say so loudly instead.
@@ -1108,8 +1151,7 @@ module Knowledge
           out << "  uncited (no entry in either tree names them):"
           out << "    #{uncited.join(" ")}"
         end
-        chapter = @appendix.chapter_for(prefix)
-        out << "  read these out of docs/product-spec/#{chapter}" if chapter && (!rollup.empty? || !uncited.empty?)
+        out.concat(gap_pointer(prefix, rollup + uncited))
         out << ""
       end
 
@@ -1118,6 +1160,53 @@ module Knowledge
              "(#{totals[:rollup]} roll-up only, #{totals[:uncited]} uncited). Those are the ones a " \
              "phase has to read out of the specification rather than out of the corpus."
       out.join("\n")
+    end
+
+    # Where to read the IDs this prefix cannot answer from the corpus.
+    #
+    # The old pointer named the prefix's owning chapter and stopped. It is derived
+    # from appendix C's subsystem cell, so it is right about the SUBSYSTEM and says
+    # nothing about whether the chapter states the ID -- and appendix C is a
+    # superset of the prose chapters, which are not obliged to state every row they
+    # own. Measured across three prefixes: five `SEAM` IDs, `IO-6` and eighteen
+    # `RECOV` IDs live in appendix C alone, and for every one of them the pointer
+    # sent a reader to a chapter the ID is not in. A reader following it either
+    # reads the wrong requirement or concludes the specification lost one.
+    #
+    # So check the chapters instead of assuming them, and say which of the two
+    # sources actually carries each ID.
+    def gap_pointer(prefix, ids)
+      return [] if ids.empty?
+
+      chapter = @appendix.chapter_for(prefix)
+      in_prose, appendix_only = ids.partition { |id| spec_prose_ids.include?(id) }
+      lines = []
+      if chapter && !in_prose.empty?
+        listing = appendix_only.empty? ? "" : ": #{in_prose.join(" ")}"
+        lines << "  read these out of docs/product-spec/#{chapter}#{listing}"
+      end
+      return lines if appendix_only.empty?
+
+      listing = in_prose.empty? ? "" : ": #{appendix_only.join(" ")}"
+      lines << "  appendix C is their only normative statement — no docs/product-spec/ " \
+               "chapter states them#{listing}"
+      lines << "    grep -n '^| #{appendix_only.first} ' #{@paths.relative(@paths.appendix_c)}"
+      lines
+    end
+
+    # Every canonical ID any specification chapter states in its prose, appendix C
+    # excluded -- it is the index, not a statement. Whole-token matching, because
+    # `HTTP-7` and `HTTP-70` are different requirements.
+    def spec_prose_ids
+      @spec_prose_ids ||= begin
+        found = Set.new
+        Dir.glob(File.join(@paths.product_spec_dir, "*.md")).sort.each do |path|
+          next if path == @paths.appendix_c
+
+          found.merge(Ids.extract(File.read(path), @appendix.prefixes))
+        end
+        found
+      end
     end
 
     # Replaces the hand-maintained prefix -> chapter routing table: subsystem,
@@ -1202,10 +1291,56 @@ module Knowledge
       prefix
     end
 
+    # `--prefix P --section rules` and `--prefix-info P` answer different questions
+    # and print two numbers a reader naturally reads as one. An ID's section is a
+    # per-ID filing decision, so a narrowed prefix query can return 36 rules for a
+    # prefix that has 38 canonical IDs with nothing in either output saying so --
+    # and a per-ID shortfall is worse than a systematic one, because comparing two
+    # halves of the same audit group gives no hint of it.
+    #
+    # So a prefix query states its own coverage and separates the two reasons an ID
+    # is missing: filed in a section this query filtered out (read it, it is there),
+    # or absent from the corpus entirely (read the specification, `--gaps` agrees).
+    # `nil` when there is no prefix filter, or when the query covered every ID.
+    LISTED_UNCOVERED = 12
+
+    def prefix_coverage(results, query)
+      return nil if query.prefixes.empty?
+
+      covered = results.flat_map(&:reqs).to_set
+      lines = []
+      query.prefixes.each do |prefix|
+        ids = @appendix.ids_for(prefix)
+        uncovered = ids.reject { |id| covered.include?(id) }
+        next if uncovered.empty?
+
+        lines << "NOTE: these filters cover #{ids.size - uncovered.size} of #{prefix}'s " \
+                 "#{plural(ids.size, "canonical ID")}. Not covered:"
+        uncovered.first(LISTED_UNCOVERED).each { |id| lines << "  #{uncovered_line(id)}" }
+        if uncovered.size > LISTED_UNCOVERED
+          lines << "  ... and #{uncovered.size - LISTED_UNCOVERED} more"
+        end
+        lines << "  --gaps #{prefix} separates the roll-up-only from the uncited."
+      end
+      lines.empty? ? nil : lines.join("\n")
+    end
+
+    # Why one canonical ID is not in this result: elsewhere in the corpus, or
+    # nowhere in it.
+    def uncovered_line(id)
+      elsewhere = @corpus.citation_index[id].to_a.reject(&:rollup?)
+      return "#{id} — no substantive entry anywhere in the corpus" if elsewhere.empty?
+
+      sections = elsewhere.map(&:section).uniq.sort.join(", ")
+      "#{id} — in the corpus under #{sections}: read it with --req #{id}"
+    end
+
     # The tags an entry can carry, in the order that matters to a reader: an
-    # override first, because it changes whether the entry is still true.
+    # override first, because it changes whether the entry is still true; then a
+    # citation in support, which does not.
     def tags_of(entry)
       tags = entry.overridden_by.map { |at| " [overridden by #{at}]" }
+      tags.concat(entry.cited_by.map { |at| " [cited by #{at}]" })
       tags << " [appendix-B roll-up]" if entry.rollup?
       tags.join
     end
@@ -1365,7 +1500,10 @@ module Knowledge
     text. Name a rule by that key in a note: it survives a re-order, and it changes
     exactly when the rule's text does — including on a re-harvest that rewords it,
     which is when the note needs revisiting. Resolve one with --key. A harvested
-    entry a note overrides prints [overridden by notes/...].
+    entry a note corrects prints [overridden by notes/...]; one a note only leans
+    on prints [cited by notes/...]. The relation is the note's own verb before the
+    key -- Supersedes, Resolves, Answers, Narrows, Corrects -- and every other key
+    in the entry is a citation in support.
 
     An unknown --role, --section, --chapter, --origin, --prefix or --gaps exits 2:
     a typo there is a silent empty result. An unknown --req only warns, because a
