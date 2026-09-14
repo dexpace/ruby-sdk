@@ -1,0 +1,6 @@
+# Gate fixture: a method RETURN TYPE naming an async-framework class (NFR-11).
+module Dexpace
+  module Fixture
+    def spawn: () -> Async::Task
+  end
+end

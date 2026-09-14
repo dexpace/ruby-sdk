@@ -1,0 +1,3 @@
+# Gate fixture, with as_class.rbs: the other half of the unresolvable pair.
+module Dexpace::Twice
+end

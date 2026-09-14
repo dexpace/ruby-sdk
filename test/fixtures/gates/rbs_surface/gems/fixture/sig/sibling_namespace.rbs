@@ -1,0 +1,7 @@
+# Gate fixture: a namespace that merely STARTS WITH the letters Dexpace (NFR-11). DexpaceX is
+# not Dexpace, and a prefix test that stops at the letters would let it through.
+module Dexpace
+  module Sibling
+    def thing: () -> DexpaceX::Thing
+  end
+end

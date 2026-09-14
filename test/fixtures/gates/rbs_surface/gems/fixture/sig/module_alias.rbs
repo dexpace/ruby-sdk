@@ -1,0 +1,4 @@
+# Gate fixture: a MODULE ALIAS publishing an async-framework module under a Dexpace:: name (NFR-11).
+module Dexpace
+  module Helpers = Async::Helpers
+end

@@ -1,0 +1,5 @@
+# Gate fixture: a GENERIC UPPER BOUND naming an async-framework class (NFR-11).
+module Dexpace
+  class Box[T < Async::Task]
+  end
+end

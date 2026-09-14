@@ -1,0 +1,13 @@
+# Gate fixture: an async-framework class in every type CONSTRUCTOR a bare return type is not --
+# an optional, a union, a tuple, a record, a proc, a type argument and a block's own type (NFR-11).
+module Dexpace
+  module Nested
+    def optional: () -> Async::Task?
+    def union: () -> (String | Async::Task)
+    def tuple: () -> [String, Async::Task]
+    def record: () -> { task: Async::Task }
+    def callable: () -> ^(Async::Task) -> void
+    def argument: () -> Array[Async::Task]
+    def blocked: () { (Async::Task) -> void } -> void
+  end
+end

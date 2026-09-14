@@ -1,0 +1,4 @@
+# Gate fixture: a CLASS ALIAS publishing an async-framework class under a Dexpace:: name (NFR-11).
+module Dexpace
+  class Runner = Async::Task
+end

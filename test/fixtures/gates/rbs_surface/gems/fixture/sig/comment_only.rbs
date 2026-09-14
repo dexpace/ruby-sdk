@@ -1,0 +1,7 @@
+# Gate fixture: the positive control. Async::Task appears only in this comment, and a scan
+# that read raw text rather than parsed declarations would report it.
+module Dexpace
+  module Fixture
+    def name: () -> String
+  end
+end

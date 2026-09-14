@@ -1,0 +1,31 @@
+# Gate fixture: the positive control for RESOLUTION. Every name here is a type variable or a
+# relative reference to a sibling Dexpace type -- the normal RBS style, and what rbs validate
+# accepts -- and a scan that read names as written rather than resolved would report
+# Headers, Request, Body, Result, T and U as foreign.
+module Dexpace
+  class Headers
+  end
+
+  class Body
+  end
+
+  class Request
+    def headers: () -> Headers
+    def with: (headers: Headers) -> Request
+    attr_reader body: Body?
+    @cache: Hash[String, Headers]
+    def each: [T] () { (Headers) -> T } -> Result[T]
+  end
+
+  class Result[T]
+    def get: () -> T
+    def map: [U] () { (T) -> U } -> Result[U]
+  end
+
+  module Transport
+    module Fixture
+      def call: (Request) -> Request
+      def owner: () -> singleton(Dexpace)
+    end
+  end
+end

@@ -1,0 +1,4 @@
+# Gate fixture: a SUPERCLASS naming an async-framework class (NFR-11). Its own name, because
+# the fixture tree resolves as one signature set and Dexpace::Fixture is a module elsewhere in it.
+class Dexpace::Subclass < Async::Task
+end
