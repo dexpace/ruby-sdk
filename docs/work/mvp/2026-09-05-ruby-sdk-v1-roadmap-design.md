@@ -2327,6 +2327,18 @@ design.
   **Code half: the two lines and the four files.** Touches `NFR-7`, `NFR-13`. Added after phase 10's
   planning pass, so it is the thirty-third bullet and is not yet in its design's disposition table; phase 10
   dispositions it at execution.
+- **`rake rubocop` passes vacuously in a worktree nested under the parent checkout's `.claude/`.** Found by
+  phase 1's implementation on 2026-09-14, the first time the gate ran from such a worktree: RuboCop takes
+  `AllCops/Exclude` from the topmost `.rubocop.yml` on the path — here the parent checkout's, whose
+  `.claude/**/*` line (the P0-11 exception above) contains the whole worktree — so `bundle exec rake rubocop`
+  inspected 8 files of 126 and reported no offenses on a tree that, inspected honestly with
+  `--ignore-parent-exclusion`, had two. CI and a plain checkout have no parent `.rubocop.yml` and are
+  unaffected; the exposure is the agent worktree layout this repository actually uses. The repair is one
+  token in the strict direction — `--ignore-parent-exclusion` on the gate's command in `tasks/quality.rake`,
+  with `test/gates/rubocop_config_test.rb` asserting it — and it is a change to a phase-0 gate, so it is
+  phase 10's. **Code half: the one flag and its assertion.** Touches `NFR-7`, `NFR-17`. Added after phase
+  10's planning pass, so it is the thirty-fourth bullet and is not yet in its design's disposition table;
+  phase 10 dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2551,3 +2563,32 @@ owning branch, every gate change with a fixture that turns it red (checklist dev
 The two counts that changed: `gems/` from zero to six; the phase-directory count is unchanged at eleven, since
 every directory already existed as planning documents. `CLAUDE.md`'s "After scaffold — planned" block is
 rewritten from what was built.
+
+**2026-09-15** — **Phase 1 implemented**, as three stacked branches against issue #8: code, tests,
+documentation. `dexpace-core` now carries the HTTP domain model — twenty-two new `lib/` files under
+`lib/dexpace/`, each with its `sig/` and `test/` mirror, exactly the layout the design's Module Layout
+section names — and the other five gems are still phase-0 skeletons at `0.0.0`. The checklist is at
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`: forty-two rows, 36 ✅ (`HTTP-3`
+split three ways, `HTTP-46`'s body half deferred to 3b), 4 ⏳ (`HTTP-22`, `HTTP-48`–`HTTP-50`, all under
+`docs/first-release.md`), none 🚫. `bundle exec rake` is green on 4.0.6 with 100% line coverage against the
+80% floor; the matrix set is green on 3.2.11 and `test:gems` on 3.3.12 and 3.4.10 as well. **The two
+interpreter findings the design was built on held**: `Model#with` is proven load-bearing by removing it and
+watching the floor fail while 4.0.6 passes, and every validator reads bytes, so `"a\0"`, `"a\r\nb"` and
+invalid UTF-8 are rejected with the SDK's error rather than the regexp engine's. **One finding reversed a
+ledger row**: `Request` and `Response` *are* `Ractor.shareable?` as built, because `URL.parse!` had to freeze
+the URI's component Strings anyway (`URI#freeze` is shallow and `URI#dup` shares them, an `XCUT-15` alias
+the plan's `dup.freeze` left open) and `URI::RFC3986_PARSER` is already frozen by the uri gem on both
+interpreters (given a `nil` or frozen body; the opaque body is carried as given) — `P1-9` is retired, `P1-13` records the ownership rule, and the corpus note that carried
+`P1-9` gains a correcting entry. Two more ledger rows added at implementation: `P1-11`, `HeaderName`'s fold
+is a derived attribute rather than a second member, and `P1-12`, `Query` equality compares encodings, which
+is `HTTP-30` stated literally. Seventeen departures from the plan's text are itemised in the checklist, none
+lowering a gate; five are gate or tool corrections the first real signatures forced, each pinned by a fixture
+on the tests branch: `gates:rbs_surface`'s stdlib list gains `Data`, `ArgumentError` and `StringScanner`;
+`rbs:validate` loads the allowlisted stdlib signature sets; `gates:single_instance` survives — and names —
+the `superclass mismatch` a second copy of a `Data.define` model raises; `tools/surface.rb` stops listing a
+reader the model made private; and `.rubocop.yml` admits Steep's `#: Type` annotation, which strict Steep
+requires on an empty literal. The four notes the design filed stand; the phase-10 inbound list gains a
+thirty-fourth bullet, the vacuous `rake rubocop` in a nested worktree. The three postponed items keep their
+owners. The counts that changed: `gems/` is still six but `dexpace-core` is no longer a skeleton; the
+phase-directory count is unchanged at eleven; `CLAUDE.md`'s "no domain code" paragraph, its construction
+pattern and its gem sentence are rewritten from what was built.

@@ -99,12 +99,14 @@ a different namespace and the probe does not confuse them.
 
 ## What the tree beside `docs/` holds
 
-Six gems exist under `gems/`, all at `0.0.0` and none published — phase 0's skeletons, each a
-namespace, a `VERSION`, a gemspec reading the root `VERSIONS` file, a `sig/` mirror and a smoke
-suite. The as-built documentation for them lands in [`sdk-documentation/`](./sdk-documentation/)
-as each gem gains code; the one page written so far is
+Six gems exist under `gems/`, all at `0.0.0` and none published — each a gemspec reading the
+root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds phase 1's HTTP
+domain model; the other five are phase 0's skeletons, a namespace and a `VERSION`. The as-built
+documentation lands in [`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the
+two pages written so far are
 [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the gate
-set is the thing phase 0 actually built.
+set is the thing phase 0 built, and [`sdk-documentation/http.md`](./sdk-documentation/http.md),
+because the domain model is the thing phase 1 built.
 
 ## Keeping this file true
 
