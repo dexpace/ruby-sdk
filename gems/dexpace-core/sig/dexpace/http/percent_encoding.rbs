@@ -1,0 +1,16 @@
+module Dexpace
+  module PercentEncoding
+    UNRESERVED: Array[Integer]
+    ENCODED: Hash[Integer, String]
+    HEX_VALUES: Hash[Integer, Integer]
+    PERCENT: Integer
+
+    def self?.encode_component: (String text) -> String
+    def self?.decode_component: (String text) -> String
+
+    private
+
+    def passthrough: (Integer byte) -> String?
+    def escape_at: (String bytes, Integer index) -> Integer?
+  end
+end

@@ -1,0 +1,11 @@
+module Dexpace
+  interface _Builder[T]
+    def build: () -> T
+  end
+
+  module Builder
+    def self.build_all: (Array[Builder] builders) -> Array[untyped]
+
+    def build: () -> untyped
+  end
+end

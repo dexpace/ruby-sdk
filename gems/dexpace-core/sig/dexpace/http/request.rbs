@@ -1,0 +1,24 @@
+module Dexpace
+  class Request < Data
+    include Model
+
+    attr_reader method: Method
+    attr_reader url: URI::Generic
+    attr_reader headers: Headers
+    attr_reader body: untyped
+
+    private def self.new: (method: String | Symbol | Method, url: String | URI::Generic,
+                           headers: Headers, body: untyped) -> instance
+    def initialize: (method: String | Symbol | Method, url: String | URI::Generic,
+                     headers: Headers, body: untyped) -> void
+
+    def self.build: (method: String | Symbol | Method, url: String | URI::Generic,
+                     headers: Headers, ?body: untyped) -> Request
+    def self.builder: () -> Request::Builder
+
+    def new_builder: () -> Request::Builder
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+  end
+end

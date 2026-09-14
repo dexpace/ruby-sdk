@@ -1,0 +1,19 @@
+module Dexpace
+  class RequestOptions
+    class Builder
+      include Dexpace::Builder
+
+      def initialize: (?timeout: Numeric?, ?max_retries: Integer?, ?tags: Hash[String, String]) -> void
+      def timeout=: (Numeric? seconds) -> Numeric?
+      def max_retries=: (Integer? count) -> Integer?
+      def tag: (String key, String value) -> self
+      def build: () -> RequestOptions
+
+      private
+
+      @timeout: Numeric?
+      @max_retries: Integer?
+      @tags: Hash[String, String]
+    end
+  end
+end

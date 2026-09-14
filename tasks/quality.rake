@@ -32,16 +32,22 @@ namespace :cops do
   end
 end
 
+require_relative "../tools/require_allowlist"
+
 namespace :rbs do
   desc "NFR-3: rbs validate, per gem"
   task :validate do
     # `--no-collection`: the collection is resolved from the whole Gemfile.lock, development
     # group included, and a dev tool's own shipped sig/ is not this repository's to validate.
     # A gem's environment is its own sig/, core's sig/ for an adapter (as the Steepfile's targets
-    # say), and rbs's stdlib -- nothing else.
+    # say), and rbs's stdlib -- nothing else. The stdlib half is the signature sets for the
+    # features the require allowlist admits, loaded explicitly with `-r` because `--no-collection`
+    # loads none of them; `set` is left out as the Steepfile's core target leaves it out, since
+    # rbs 4 ships Set under core/ rather than stdlib/.
+    stdlib = (RequireAllowlist::ALLOWED - %w[set]).flat_map { |name| ["-r", name] }
     Dir.glob("gems/*").each do |dir|
       core = dir.end_with?("/dexpace-core") ? [] : ["-I", "gems/dexpace-core/sig"]
-      sh(bundle, "exec", "rbs", "-I", "#{dir}/sig", *core, "--no-collection", "validate")
+      sh(bundle, "exec", "rbs", "-I", "#{dir}/sig", *core, *stdlib, "--no-collection", "validate")
     end
   end
 end

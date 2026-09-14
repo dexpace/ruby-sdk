@@ -1,0 +1,25 @@
+module Dexpace
+  class RequestOptions < Data
+    include Model
+
+    EMPTY: RequestOptions
+
+    attr_reader timeout: Float?
+    attr_reader max_retries: Integer?
+    attr_reader tags: Hash[String, String]
+
+    private def self.new: (timeout: Numeric?, max_retries: Integer?, tags: Hash[String, String]) -> instance
+    def initialize: (timeout: Numeric?, max_retries: Integer?, tags: Hash[String, String]) -> void
+
+    def self.build: (timeout: Numeric?, max_retries: Integer?, tags: Hash[String, String]) -> RequestOptions
+    def self.builder: () -> RequestOptions::Builder
+
+    def new_builder: () -> RequestOptions::Builder
+
+    private
+
+    def validate_timeout!: (untyped timeout) -> void
+    def validate_max_retries!: (untyped max_retries) -> void
+    def validate_tags!: (untyped tags) -> void
+  end
+end

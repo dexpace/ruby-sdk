@@ -64,10 +64,14 @@ module Surface
   end
 
   # The readers on the anonymous Data.define return value a model subclasses; [] otherwise.
+  # Only the ones still public on the model itself: a model that hides a member with
+  # `private :values` makes the reader private on its own class while the superclass's copy
+  # stays public, and the surface is what a caller can reach, which `public_method_defined?`
+  # answers from the model's point of view (phase 1's Headers and Query do exactly this).
   def data_readers(mod)
     return [] unless mod.is_a?(Class) && anonymous_data?(mod.superclass)
 
-    mod.superclass.public_instance_methods(false)
+    mod.superclass.public_instance_methods(false).select { |name| mod.public_method_defined?(name) }
   end
 
   def anonymous_data?(klass)

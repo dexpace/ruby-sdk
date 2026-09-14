@@ -1,0 +1,10 @@
+module Dexpace
+  module URL
+    def self?.parse!: (String | URI::Generic input) -> URI::Generic
+    def self?.external_form: (URI::Generic uri) -> String
+
+    private
+
+    def own: (URI::Generic uri) -> URI::Generic
+  end
+end

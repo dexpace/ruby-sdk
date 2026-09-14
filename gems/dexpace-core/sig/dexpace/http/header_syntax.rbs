@@ -1,0 +1,23 @@
+module Dexpace
+  module HeaderSyntax
+    HTAB: Integer
+    SPACE: Integer
+    DEL: Integer
+    TRIMMABLE: Array[Integer]
+    TCHAR: Array[Integer]
+
+    def self?.trim: (String name) -> String
+    def self?.valid_name?: (String name) -> bool
+    def self?.valid_outbound_value?: (String value) -> bool
+    def self?.valid_inbound_value?: (String value) -> bool
+    def self?.validate_name!: (String name) -> String
+    def self?.validate_outbound_value!: (String value, name: String) -> String
+    def self?.validate_inbound_value!: (String value, name: String) -> String
+    def self?.token?: (String text) -> bool
+    def self?.escape: (String name) -> String
+
+    private
+
+    def trimmable?: (Integer? byte) -> bool
+  end
+end

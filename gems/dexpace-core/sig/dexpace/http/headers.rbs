@@ -1,0 +1,45 @@
+module Dexpace
+  class Headers < Data
+    include Model
+
+    DIRECTIONS: Array[Symbol]
+    EMPTY: Headers
+    EMPTY_INBOUND: Headers
+
+    attr_reader direction: Symbol
+
+    private def self.new: (values: Hash[String, Array[String]], casing: Hash[String, String],
+                           direction: Symbol) -> instance
+    def initialize: (values: Hash[String, Array[String]], casing: Hash[String, String],
+                     direction: Symbol) -> void
+
+    def self.build: (values: Hash[String, Array[String]], casing: Hash[String, String],
+                     ?direction: Symbol) -> Headers
+    def self.builder: () -> Headers::Builder
+    def self.inbound_builder: () -> Headers::Builder
+
+    def []: (String | HeaderName name) -> Array[String]?
+    def include?: (String | HeaderName name) -> bool
+    def names: () -> Array[String]
+    def entries: () -> Array[[String, String]]
+    def each_entry: () { ([String, String]) -> void } -> Headers
+                  | () -> Enumerator[[String, String], Headers]
+    def size: () -> Integer
+    def empty?: () -> bool
+    def new_builder: () -> Headers::Builder
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    attr_reader values: Hash[String, Array[String]]
+    attr_reader casing: Hash[String, String]
+
+    def validate_direction!: (Symbol direction) -> void
+    def validate_names!: (Hash[String, Array[String]] values, Hash[String, String] casing) -> void
+    def validate_name!: (String folded, String? original) -> void
+    def validate_values!: (Hash[String, Array[String]] values, Hash[String, String] casing,
+                           Symbol direction) -> void
+  end
+end

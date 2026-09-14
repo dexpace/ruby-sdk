@@ -1,0 +1,23 @@
+module Dexpace
+  class Response
+    class Builder
+      include Dexpace::Builder
+
+      def initialize: (?request: Request?, ?protocol: (String | Protocol)?,
+                       ?status: (Integer | Status)?, ?reason: String?, ?headers: Headers?,
+                       ?body: untyped) -> void
+      attr_writer protocol: (String | Protocol)?
+      attr_writer status: (Integer | Status)?
+      attr_writer reason: String?
+      attr_writer body: untyped
+      def request=: (Request request) -> Request
+      def headers=: (Headers headers) -> Headers
+      def build: () -> Response
+
+      private
+
+      @request: Request?
+      @headers: Headers?
+    end
+  end
+end

@@ -1,0 +1,24 @@
+module Dexpace
+  class Headers
+    class Builder
+      include Dexpace::Builder
+
+      attr_reader direction: Symbol
+
+      def initialize: (?direction: Symbol, ?values: Hash[String, Array[String]],
+                       ?casing: Hash[String, String]) -> void
+      def add: (String | HeaderName name, String value) -> self
+      def set: (String | HeaderName name, String? value) -> self
+      def remove: (String | HeaderName name) -> self
+      def build: () -> Headers
+
+      private
+
+      @values: Hash[String, Array[String]]
+      @casing: Hash[String, String]
+
+      def record: (HeaderName header) -> void
+      def validate_value: (String value, HeaderName header) -> String
+    end
+  end
+end
