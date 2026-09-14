@@ -1,0 +1,31 @@
+# Third-party RBS, resolved from the gems the bundle actually holds. No third-party row exists
+# in phase 0 because no gemspec declares a third-party dependency yet: json arrives with
+# dexpace-serde-json's codec in phase 7, net-http and async-http with the transports in phase 8,
+# and each adds its own row here then. Core never gets one -- its allowlist is stdlib only, and
+# stdlib signatures ship with rbs itself.
+sources:
+  - type: git
+    name: ruby/gem_rbs_collection
+    remote: https://github.com/ruby/gem_rbs_collection.git
+    revision: main
+    repo_dir: gems
+
+path: .gem_rbs_collection
+
+# The workspace's own gems are in the bundle by `path:` and each ships sig/, so the collection
+# would load every signature a second time beside the Steepfile's explicit `signature` dirs and
+# report each declaration as duplicated. Ignored here, so the Steepfile is the only source of
+# a gem's own signatures and a target sees exactly the sig/ trees it names.
+gems:
+  - name: dexpace-core
+    ignore: true
+  - name: dexpace-transport-net_http
+    ignore: true
+  - name: dexpace-transport-async_http
+    ignore: true
+  - name: dexpace-serde-json
+    ignore: true
+  - name: dexpace-async-thread
+    ignore: true
+  - name: dexpace-conformance
+    ignore: true

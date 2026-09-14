@@ -1,0 +1,165 @@
+# The baseline is fixed by docs/knowledge/notes/tooling-and-quality-gates.md, key
+# `tooling-and-quality-gates/cb18f9bd`: rubocop + rubocop-minitest + rubocop-performance,
+# --fail-level=convention, and rubocop-airbnb deliberately not inherited (its inherit_gem
+# incantation does not run, and the baseline it delivers is weaker). Every cop setting the
+# styleguide names by hand is transcribed here directly, so its rules are enforced even though
+# its distribution mechanism is not used.
+#
+# Every override below carries a comment naming the chapter and rule it came from
+# (`tooling-and-quality-gates/d39dd7c6`); an unexplained `Enabled: false` is rejected in review.
+plugins:
+  - rubocop-minitest
+  - rubocop-performance
+
+require:
+  - ./.rubocop/cops/dexpace/spdx_header.rb
+  - ./.rubocop/cops/dexpace/no_time_parse.rb
+  - ./.rubocop/cops/dexpace/no_uri_default_parser.rb
+  - ./.rubocop/cops/dexpace/no_locale_case_fold.rb
+  - ./.rubocop/cops/dexpace/no_thread_interrupt.rb
+  - ./.rubocop/cops/dexpace/no_keyword_splat.rb
+
+AllCops:
+  NewCops: enable
+  # The plugin set is fixed by the note above; a per-run tip proposing more is noise in a gate.
+  SuggestExtensions: false
+  # styleguide 01 rule 1.1, as resolved by package-and-dependency-layout/35a6cd13: the cop
+  # targets the FLOOR (NFR-10), not .ruby-version's development pin.
+  TargetRubyVersion: 3.2
+  # RuboCop skips hidden directories unless a pattern names one. The custom cops and their suite
+  # live under .rubocop/ (design: every directory under gems/ is a published gem), and a cop
+  # that is not itself linted is a cop that may carry the very header it enforces on nobody.
+  Include:
+    - "**/*.rb"
+    - "**/*.rake"
+    - "**/*.gemspec"
+    - "**/Gemfile"
+    - "**/Rakefile"
+    - "**/Steepfile"
+    - ".rubocop/**/*.rb"
+  Exclude:
+    - "vendor/**/*"
+    - "tmp/**/*"
+    - "doc/**/*"
+    # Gate fixtures are deliberately non-conforming source; they are inputs to a gate, not code.
+    - "test/fixtures/**/*"
+    # NFR-7's narrowly-scoped, documented exception. scripts/ and .claude/skills/ are the
+    # repository's process tooling -- the knowledge CLI and the housekeeping probe -- written
+    # before this baseline existed, shipped in no gem, and covered by their own `ruby -w` suites
+    # (CLAUDE.md, Commands). Measured on 2026-09-14: 303 findings across four files, against 7
+    # in everything phase 0 wrote. Re-enable condition: the tooling is brought under this
+    # baseline in a change of its own, reviewed as such, and these two lines are deleted.
+    - "scripts/**/*"
+    - ".claude/**/*"
+
+# styleguide 01 rule 1.4 -- the frozen-string-literal comment is mandatory on every file.
+Style/FrozenStringLiteralComment:
+  EnforcedStyle: always
+
+# styleguide 01 rule 1.4 as resolved by docs/knowledge/notes/formatting-and-tooling.md (key
+# `formatting-and-tooling/840bbd43`): line 2 of every file is `# SPDX-License-Identifier: MIT`,
+# so the blank line this cop wants directly after the magic comment cannot exist. The blank line
+# is enforced on line 3 instead, by Dexpace/SpdxHeader, which owns the whole header block.
+Layout/EmptyLineAfterMagicComment:
+  Enabled: false
+
+# styleguide 01 rule 1.7 -- double quotes always; %q/%Q/%{} banned for ordinary strings.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# styleguide 01 rule 1.6 -- 100 columns, comments and YARD strings included.
+Layout/LineLength:
+  Max: 100
+
+# styleguide 01 rule 1.10 -- trailing comma mandatory, chains break with a leading dot.
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: consistent_comma
+Layout/DotPosition:
+  EnforcedStyle: leading
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+# styleguide 01 rule 1.11 -- metric caps live in config, not in prose. Metrics/AbcSize,
+# Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/ClassLength and
+# Metrics/ModuleLength are deliberately NOT set: the same rule leaves them at RuboCop's defaults
+# "unless a specific exception is recorded", and a recorded exception is an inline directive
+# with its reason, never a raised cap.
+Metrics/MethodLength:
+  Max: 25
+  CountAsOne:
+    - array
+    - hash
+    - heredoc
+Metrics/ParameterLists:
+  Max: 4
+  # styleguide 10 (`api-design/1d9e6e0b`) puts a keyword on every public parameter, and the cap
+  # exists to limit positional order-dependence, which keywords do not have. With keywords
+  # counted, every model with more than four members trips it while carrying exactly the member
+  # set its design fixes (phase 4a measured seven such methods, from 5 to 8 keywords). So
+  # positional parameters are capped at four and keywords are not counted.
+  CountKeywordArgs: false
+Metrics/BlockNesting:
+  Max: 3
+
+# styleguide 08 -- rescue-bound exception variables are named `error`, never `e`.
+Naming/RescuedExceptionsVariableName:
+  PreferredName: error
+
+# styleguide 12 rule 12.3 -- nested module/class form, never the compact path syntax.
+Style/ClassAndModuleChildren:
+  EnforcedStyle: nested
+
+# styleguide 06 -- `extend self` or `class << self`, never module_function
+# (data-modeling/3775e9d7).
+Style/ModuleFunction:
+  EnforcedStyle: extend_self
+
+# docs/sdk-design-ruby/04-domain-model-construction.md fixes `class Status < Data.define(:code)`
+# as the construction pattern for every core model: the subclass form is what lets a validating
+# `initialize` override, `private_class_method :new` and a `.build` factory sit on a named,
+# YARD-documented class. This cop proposes the block form instead, which is the one the design
+# rejects, so it is off rather than waived at every model.
+Style/DataInheritance:
+  Enabled: false
+
+# A rake task file is a DSL of long blocks; the metric cops measure the wrong thing there.
+Metrics/BlockLength:
+  Exclude:
+    - "tasks/*.rake"
+    - "Rakefile"
+    - "*.gemspec"
+    - "**/*_test.rb"
+
+# styleguide 11 -- a test exercises exactly one BEHAVIOUR, and a property is pair-asserted two
+# independent ways so a bug surfaces at the assertion. A cap on the assertion count measures
+# neither: it splits a test by arithmetic rather than by behaviour, and it forbids the
+# pair-assert the chapter mandates. The one-behaviour rule is enforced in review, not by count.
+# Minitest/AssertPredicate and Minitest/RefutePredicate stay ON, as the same chapter asks for
+# descriptive assertions; the one case they must not rewrite -- a visibility check, because
+# `assert_predicate` sends past `private` -- is written with `respond_to?`, which they do not
+# touch.
+Minitest/MultipleAssertions:
+  Enabled: false
+
+Dexpace/SpdxHeader:
+  Enabled: true
+Dexpace/NoTimeParse:
+  Enabled: true
+Dexpace/NoUriDefaultParser:
+  Enabled: true
+Dexpace/NoLocaleCaseFold:
+  Enabled: true
+Dexpace/NoThreadInterrupt:
+  Enabled: true
+# Library code only, as plan Task 4's amendment scopes it: OBS-25 and OBS-1 are allocation
+# assertions on the SDK's own no-op paths, and a test helper's or a tool's `**opts` is not one.
+Dexpace/NoKeywordSplat:
+  Enabled: true
+  Include:
+    - "gems/*/lib/**/*.rb"

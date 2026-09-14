@@ -1,0 +1,8 @@
+--markup markdown
+--no-private
+--output-dir doc
+--exclude test/
+--exclude tasks/
+--exclude tools/
+--exclude .rubocop/
+gems/*/lib/**/*.rb

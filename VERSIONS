@@ -1,0 +1,40 @@
+# NFR-14's single source of truth. Format: `<kind> <name> <value>`, one record per line.
+#
+#   gem   <gem name>   <semver>       read by that gem's gemspec and by tools/versions.rb
+#   tool  <gem name>   <constraint>   read by the root Gemfile
+#   ruby  floor        <version>      required_ruby_version in every gemspec (NFR-10)
+#   ruby  matrix       <versions>     the CI matrix; asserted against .github/workflows/ci.yml
+#   ruby  dev          <version>      the development pin; asserted against .ruby-version
+#
+# `rake gates:versions` asserts every consumer agrees with this file. A bump is one edit here
+# and a failing gate everywhere it was not propagated.
+
+gem  dexpace-core                 0.0.0
+gem  dexpace-transport-net_http   0.0.0
+gem  dexpace-transport-async_http 0.0.0
+gem  dexpace-serde-json           0.0.0
+gem  dexpace-async-thread         0.0.0
+gem  dexpace-conformance          0.0.0
+
+# Each `tool` constraint admits the newest minor that resolves on every Ruby in the matrix, as
+# measured on 2026-09-14: the 3.2 floor resolves rbs 4.1, steep 2.0 and simplecov 1.2, so those
+# three are constrained at the floor's minor and `~>` admits the newer ones 4.0 resolves. minitest
+# is `~> 5.25` by decision, not by measurement: 6.0.0 ships no minitest/mock (plan Task 2).
+# prism is the parser behind `gates:require_allowlist`; it is a default gem only from 3.3 and
+# not the version the gate was written against, so the bundle names it rather than inheriting
+# it from rubocop-ast.
+tool rake                         ~> 13.4
+tool minitest                     ~> 5.25
+tool rubocop                      ~> 1.91
+tool rubocop-minitest             ~> 0.40
+tool rubocop-performance          ~> 1.27
+tool rbs                          ~> 4.1
+tool steep                        ~> 2.0
+tool simplecov                    ~> 1.2
+tool yard                         ~> 0.9
+tool bundler-audit                ~> 0.9
+tool prism                        ~> 1.9
+
+ruby floor                        3.2
+ruby matrix                       3.2 3.3 3.4 4.0
+ruby dev                          4.0.6
