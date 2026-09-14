@@ -1,0 +1,7 @@
+module Dexpace
+  module Transport
+    module NetHTTP
+      VERSION: String
+    end
+  end
+end

@@ -1,0 +1,7 @@
+module Dexpace
+  module Serde
+    module JSON
+      VERSION: String
+    end
+  end
+end

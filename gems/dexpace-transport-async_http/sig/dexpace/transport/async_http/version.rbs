@@ -1,0 +1,7 @@
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      VERSION: String
+    end
+  end
+end

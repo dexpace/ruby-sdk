@@ -1,0 +1,6 @@
+module Dexpace
+  module Serde
+    module JSON
+    end
+  end
+end
