@@ -1,6 +1,8 @@
 # Phase 0 — Scaffold and Quality Gates
 
-**Status:** Draft, approved for planning.
+**Status:** Approved for planning; implemented 2026-09-14 — the checklist beside this document,
+`2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`, records what was built, and the
+Deviation Ledger below gained P0-11 at implementation.
 
 ## Purpose
 
@@ -931,6 +933,7 @@ Each row is consolidated into design §10 and audited by `docs/deviations.md`.
 | P0-8 | `NFR-4`'s `sig` diff has a **pre-release branch** that exits 0 with no `v*` tag | `NFR-4`; design §9.1 | There is no previous release to diff against. The branch is reachable only while no `v*` tag exists, and the gate asserts that rather than assuming it, so the first tag arms it with no code change |
 | P0-9 | Every adapter gemspec declares **`dexpace-core` only**; the third-party half of each `NFR-2` budget is declared by the phase that writes the code needing it | `NFR-2`; design §2.1's dependency table | A dependency declared before any line of code requires it is a dependency nothing can justify: the require-allowlist would have nothing to permit it for, the clean-bundle run would install a gem no `require` reaches, and the `>= ` floor would be a version chosen without a caller. `json >= 2.19.9` lands in phase 7, `net-http` and `async-http` in phase 8. The audit still enforces the full budget, and its `two_third_party` fixture is the negative proof |
 | P0-10 | `NFR-5`'s coverage floor is **armed and green**, not switched off, where the roadmap says "inert until phase 1" | `NFR-5`; the roadmap's phase-0 row | Both describe the same observable state and a reader is entitled to know which the build implements. `minimum_coverage 80` is unconditional; the tracked set is the twelve entry and version files, all executed by the smoke suites, so it passes at 100% on its merits. What phase 1 changes is the denominator, not the gate |
+| P0-11 (added at implementation, 2026-09-14) | The RuboCop gate **excludes the repository's process tooling** — `scripts/**/*` and `.claude/**/*` — as `NFR-7`'s narrowly-scoped, documented exception | `NFR-7`; `tooling-and-quality-gates/2a386a28` | The first full `rubocop --fail-level=convention` run found 303 of 310 findings in the four pre-existing `scripts/` files, which ship in no gem, carry their own `ruby -w` suites and predate the baseline; the hidden `.claude/skills/` tree was never inspected. Rewriting them is a change of its own, not this phase's. The exclusion is written in `.rubocop.yml` with its reason and its re-enable condition, and the repair is routed to phase 10's inbound list in the roadmap. Not a narrowing of the gate over anything a gem ships: every file under `gems/`, `tasks/`, `tools/`, `test/` and `.rubocop/` is inspected, and `.rubocop/` was *added* to the inspected set at the same time |
 
 ## Work Phase 0 Postponed, and Who Owns It Now
 

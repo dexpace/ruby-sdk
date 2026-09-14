@@ -8,8 +8,9 @@ and four of its items came here: two blockers before first publish (documenting 
 constant shadow, and the `AuthDescriptor` carrier decision), `CFG-20`'s cancel-with-interrupt clause
 under the unsatisfied MUSTs, and the `CTX-7`/`CTX-8` drain proof under the post-release triggers. Two
 more left a second home here beside their primary owner: the Minitest 6 trigger, and the red
-`gates:bounded_map` blocker phase 10's repair clears. **Nothing has been published.** There is no `gems/`
-directory yet, no tag, and no version beyond the `0.0.0` every gem will start at.
+`gates:bounded_map` blocker phase 10's repair clears. **Nothing has been published.** Since phase 0 landed
+(2026-09-14) `gems/` holds the six skeletons; there is still no tag, and no version beyond the `0.0.0` every
+gem starts at.
 
 ## Gems, once they exist
 
