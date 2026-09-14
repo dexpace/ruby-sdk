@@ -142,7 +142,7 @@ coherent: `3c` would be `BODY-17`–`BODY-34`, `BODY-37`, `HTTP-44`, `HTTP-45` a
 isolate the one cluster with an external dependency on phase 5 (`BODY-19`/`BODY-34`'s cap and enablement).
 It is rejected because it buys nothing the split exists to buy: `3c` depends on both `3a` and `3b`, so the
 result is three segments in a strict line over what the specification writes as one lifecycle, and a phase
-returns to `mvp` as **one phase-level pull request** (roadmap execution step 5) — so a third sub-phase is a
+returns to `main` as **one phase-level pull request** (roadmap execution step 5) — so a third sub-phase is a
 third document set, not a third merge. The sequencing `3c` would have enforced is `3b`'s plan's job, and this
 document requires it of that plan below rather than of a segment boundary.
 

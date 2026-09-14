@@ -348,7 +348,9 @@ day, once every row named an owner): grep the plans for this phase's name to fin
 scheduled here, and read the three `docs/first-release.md` sections — what v1 ships without, the release path and
 the post-release triggers — so nothing scheduled here is re-derived or dropped.
 
-**2. Brainstorm on a branch off `mvp`.** `mvp` is the starting point for every phase. The `brainstorming` skill
+**2. Brainstorm on a branch off `main`** (**corrected in place 2026-09-14**; as first written this step branched
+off `mvp`, an integration branch retired that day — `mvp` survives only as the delivery name under `docs/work/`).
+`main` is the starting point for every phase. The `brainstorming` skill
 writes the design document; if the segmentation rule applies, the segmentation design comes first and the
 sub-phase designs follow it.
 
@@ -367,8 +369,9 @@ sub-phase nests one deeper as `phaseN/phaseNx`.
 
 **5. Implement against the plan's numbered tasks, TDD.** Write the failing test, confirm it fails, implement,
 confirm it passes. Read design, plan and checklist before touching code. The implementation branch is
-`<issue>-phase-<N[letter]>-<slug>` off `mvp`, and a phase returns to `mvp` as **one phase-level pull request**,
-not one per sub-phase.
+`<issue>-phase-<N[letter]>-<slug>` off `main`, and a phase returns to `main` as **one phase-level pull request**,
+not one per sub-phase (**corrected in place 2026-09-14**; as first written, off and back to `mvp`, the
+integration branch retired that day).
 
 **6. Write the checklist at execution time,** not at planning time — it records what was actually built. One row
 per requirement ID in scope, with the legend fixed in cross-cutting constraint 3.
@@ -584,7 +587,7 @@ and rejected twice: a request-side/response-side pair, the only candidate offeri
 independence, is crossed by four MUSTs (`HTTP-52`/`BODY-30` re-serving an error body as a
 *replayable* body, `BODY-34`'s one shared preview size across both sides, `BODY-32`, and the shared
 short-write/zero-read helper); a model-then-capture pair is coherent but strictly linear and buys no
-merge, since a phase returns to `mvp` as one pull request. 3b at 49 IDs is the largest sub-phase the
+merge, since a phase returns to `main` as one pull request. 3b at 49 IDs is the largest sub-phase the
 expectations contain, and the mitigation is a stated constraint on 3b's plan — model before wrappers
 — rather than a third document. Scope reconciles exactly: 42 + 49 = 91, the roadmap's 79 prefix IDs
 plus 12 jointly numbered, verified mechanically against appendix C (`IO` 42 contiguous rows, `BODY`

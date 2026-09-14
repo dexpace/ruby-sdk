@@ -240,7 +240,7 @@ runtime; the two MUST NOT each re-derive ordering independently." Design §5.3 s
 — "there is one `Dexpace::Pipeline::Stages` module holding the frozen ordering and the pillar set, and both
 runtimes flatten through the same code" — which is precisely the property a segment boundary would put at
 risk. A split there would also be strictly linear (the async runtime needs `Stages`), so it buys no
-independence, and a phase returns to `mvp` as **one phase-level pull request** (roadmap execution step 5), so
+independence, and a phase returns to `main` as **one phase-level pull request** (roadmap execution step 5), so
 a fourth sub-phase is a fourth document set and not a fourth merge. Rejected, and `PIPE-28` is recorded below
 as a spec-forced boundary so `4c`'s own design cannot re-open it.
 

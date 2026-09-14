@@ -333,8 +333,9 @@ all three read the corpus first.
    design-versus-styleguide conflict is settled is the failure both queries exist to catch. Before the harvest,
    `--prefix-info` and `--gaps` are the substitutes, and a phase whose IDs come back as gaps must budget for
    reading the specification itself and say so in its design doc.
-2. **Brainstorm on a branch off `mvp`.** `mvp` stays the starting point for every phase; brainstorming happens on
-   its own branch so an exploratory design does not land on the delivery branch.
+2. **Brainstorm on a branch off `main`.** `main` is the starting point for every phase — the `mvp` integration
+   branch was retired on 2026-09-14, and `mvp` is now only the delivery name under `docs/work/`; brainstorming
+   happens on its own branch so an exploratory design does not land on `main`.
 3. **Three documents per (sub)phase**, all under `docs/work/<delivery>/phaseN[/phaseNx]/`, each keeping its
    `YYYY-MM-DD-` prefix: `…-design.md`, the plain plan `….md`, and `…-checklist.md`. A phase directory is
    `phaseN` with no hyphen; a sub-phase nests one deeper as `phaseN/phaseNx`. A document spanning a whole phase
