@@ -1,0 +1,4 @@
+# Gate fixture: a mixin whose TYPE ARGUMENT, not its name, is the async-framework type (NFR-11).
+module Dexpace::Fixture
+  include Enumerable[Async::Task]
+end

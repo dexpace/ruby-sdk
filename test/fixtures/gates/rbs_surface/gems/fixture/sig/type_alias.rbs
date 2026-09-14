@@ -1,0 +1,4 @@
+# Gate fixture: a TYPE ALIAS naming an async-framework class (NFR-11).
+module Dexpace
+  type handle = Async::Task
+end

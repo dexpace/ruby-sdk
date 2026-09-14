@@ -1,0 +1,5 @@
+# Gate fixture: a miniature VERSIONS.
+gem  dexpace-core                 0.0.0
+ruby floor                        3.2
+ruby matrix                       3.2 3.3 3.4 4.0
+ruby dev                          4.0.6

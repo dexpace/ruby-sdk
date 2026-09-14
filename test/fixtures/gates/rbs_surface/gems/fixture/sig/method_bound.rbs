@@ -1,0 +1,7 @@
+# Gate fixture: a METHOD-LEVEL generic bound naming an async-framework class (NFR-11). The
+# bound is the leak; the parameter T it bounds is a variable, not a constant.
+module Dexpace
+  module Bounded
+    def spawn: [T < Async::Task] () -> T
+  end
+end

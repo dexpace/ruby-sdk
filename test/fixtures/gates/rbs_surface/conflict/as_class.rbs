@@ -1,0 +1,4 @@
+# Gate fixture, with as_module.rbs: one name declared as a class here and as a module there is
+# a set RBS cannot resolve, and a set the scan cannot resolve is one it cannot vouch for.
+class Dexpace::Twice
+end

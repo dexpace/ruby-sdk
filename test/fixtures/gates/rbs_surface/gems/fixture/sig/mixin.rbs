@@ -1,0 +1,4 @@
+# Gate fixture: a MIXIN naming an async-framework module (NFR-11).
+module Dexpace::Fixture
+  include Async::Task
+end

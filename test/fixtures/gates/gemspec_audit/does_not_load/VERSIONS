@@ -1,0 +1,3 @@
+# Fixture: a miniature VERSIONS, so the audit needs no special mode to read it.
+gem  dexpace-core                 0.0.0
+ruby floor                        3.2
