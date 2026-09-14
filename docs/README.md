@@ -97,6 +97,15 @@ anything, neither prefix is reused, and the probe reports every surviving citati
 from a source comment, a test, or anywhere under `docs/`. Requirement IDs (`HTTP-7`, `SEAM-1`) are
 a different namespace and the probe does not confuse them.
 
+## What the tree beside `docs/` holds
+
+Six gems exist under `gems/`, all at `0.0.0` and none published — phase 0's skeletons, each a
+namespace, a `VERSION`, a gemspec reading the root `VERSIONS` file, a `sig/` mirror and a smoke
+suite. The as-built documentation for them lands in [`sdk-documentation/`](./sdk-documentation/)
+as each gem gains code; the one page written so far is
+[`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the gate
+set is the thing phase 0 actually built.
+
 ## Keeping this file true
 
 ```bash

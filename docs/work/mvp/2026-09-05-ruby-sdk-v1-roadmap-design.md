@@ -2313,6 +2313,20 @@ design.
   3.4 row is now affected in a different way from the 4.0 row. Carried to
   `docs/first-release.md` § Post-release triggers, the Minitest 6 entry, dated. Touches `NFR-6`, `NFR-17`,
   `NFR-10`, `NFR-2`.
+- **The process tooling is outside the RuboCop baseline.** Found by phase 0's implementation on 2026-09-14,
+  the first time `rubocop --fail-level=convention` ran against the whole tree: 303 of the 310 findings were in
+  the four pre-existing files under `scripts/` — the knowledge CLI, its structure and drift verifiers and their
+  test — against 7 in everything phase 0 wrote, and the hidden `.claude/skills/housekeeping/` tree was never
+  inspected at all. Neither ships in a gem, both carry their own `ruby -w` suites, and both predate the
+  baseline, so phase 0 excluded `scripts/**/*` and `.claude/**/*` in `.rubocop.yml` as `NFR-7`'s
+  narrowly-scoped, documented exception, with the re-enable condition beside it (design ledger row P0-11).
+  The exception is not a phase's product to close and no build phase's scope reaches it; bringing the tooling
+  under the baseline is a change of its own — a `rubocop --autocorrect` pass over four files plus the
+  findings that are not autocorrectable, including two `Dexpace/NoLocaleCaseFold` and two
+  `Dexpace/NoKeywordSplat` hits — reviewed as such, after which the two `Exclude` lines are deleted.
+  **Code half: the two lines and the four files.** Touches `NFR-7`, `NFR-13`. Added after phase 10's
+  planning pass, so it is the thirty-third bullet and is not yet in its design's disposition table; phase 10
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2500,3 +2514,40 @@ to eleven with this filing, and its phase-6 sentence loses "the largest phase in
 largest **build** phase", which phase 10's 124 own rows make true. Its "Eight checks" sentences stay at
 eight until the ninth is built — phase 10's plan, Task 7 — because a count that anticipates a check is
 the kind of claim this phase exists to catch. The "Zero gems exist under `gems/`" sentence is unaffected.
+
+**2026-09-14** — **Phase 0 implemented**, as three stacked branches against issue #7: code and configuration,
+tests, documentation. `gems/` now exists with the six MVP gem skeletons, every one at `0.0.0` — a gemspec
+reading `VERSIONS`, `lib/` holding the namespace and a `VERSION` literal and nothing else, `sig/` mirroring it
+one file per file, a README, a LICENSE copy and a per-gem `Rakefile` — and the root carries `VERSIONS`,
+`Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, six custom cops under
+`.rubocop/cops/dexpace/`, eight gate bodies and the require scanner under `tools/`, three rake files and
+`.github/workflows/ci.yml`. **Seventeen gates**, all in the default task and all seen to go red: 99 deliberately
+failing inputs against a floor of 56 (62 before the round-1 review, 80 before the round-2), counted in the
+checklist at `docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`. `bundle exec
+rake` is green on 4.0.6 in 2 min 51 s; the matrix set is green on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. No requirement is
+dispositioned: the checklist's nineteen rows say which gate answers each `NFR`, with `NFR-8`/`NFR-9` 🚫
+retargeted per design §10 item 19 and `NFR-16` ⏳ under `docs/first-release.md` § Release path. The four
+postponed items keep the owners the design records. **One deviation added at implementation, P0-11**: the
+RuboCop gate excludes `scripts/` and `.claude/` as `NFR-7`'s documented exception, and the repair is the new
+thirty-third bullet on phase 10's inbound list above. Thirty-one departures from the plan's text are itemised
+in the checklist, none narrowing a gate; the two worth reading first are that `gem build` writes every tar mtime
+as the fixed `SOURCE_DATE_EPOCH` the gate sets (so `gates:reproducible`'s negative input is a clock-dependent
+gemspec, not a touched file — and the fallback with the variable unset is fixed only from RubyGems 3.6, the 3.4
+and 4.0 rows, which an earlier draft of this note got wrong), and that the rbs collection resolves the
+workspace's own gems from the lockfile (so `rbs_collection.yaml` ignores all six by name and `rbs validate` runs
+with `--no-collection`). The round-1 review of the three branches found six gates accepting an input the design
+says they must refuse — a parenthesised or `Kernel.`-prefixed `require`, one core feature loaded from two
+directories, `URI(...)`, a dropped RBS overload or a method moved under `private`, a class alias of
+`Async::Task`, and a gemspec listing its files through `git ls-files` — and each was repaired on the branch that
+owns it before merge, with a fixture that turns the gate red (checklist deviations 17–24). The round-2 review
+found four more — the four ban cops blind to a safe-navigation call (`@thread&.kill`), `URI::Parser` unflagged
+beside `URI::DEFAULT_PARSER`, `gates:rbs_surface` reporting a type variable and a relative `Headers` inside
+`module Dexpace` as foreign (green only while every signature is `VERSION: String`; red on phase 1's first real
+one), and `CLAUDE.md` still saying every checklist was unwritten — and four nits taken, each either in the
+strict direction or back to the plan's text: `require "dexpace"` accepted for an adapter, the transport denial's
+scope narrowed to `socket` alone, the gemspec audit following `require_relative` helpers, and
+`Dexpace/NoKeywordSplat` scoped to `gems/*/lib` as the plan's Task 4 amendment states. Each was repaired on its
+owning branch, every gate change with a fixture that turns it red (checklist deviations 25–31).
+The two counts that changed: `gems/` from zero to six; the phase-directory count is unchanged at eleven, since
+every directory already existed as planning documents. `CLAUDE.md`'s "After scaffold — planned" block is
+rewritten from what was built.

@@ -13,10 +13,14 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Nothing is implemented yet.** Zero gems exist under `gems/`; there is no `Gemfile`, `Rakefile`, `Steepfile`
-or `.rubocop.yml`. What exists is the specification, the port design, the process tooling and the register,
-`docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec); CI runs a 3.2 /
-3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against 3.4.10.
+**Phase 0 is built; no domain code is.** Six gem skeletons exist under `gems/`, every one at `0.0.0`, and each
+gem's `lib/` holds its namespace module and a `VERSION` constant and nothing else. The workspace root carries the
+`Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and the
+seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
+Beyond that, what exists is the specification, the port design, the process tooling and the register,
+`docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec, asserted by
+`gates:versions`); CI runs a 3.2 / 3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against
+3.4.10 and the ones the gates rest on were re-verified against 3.2.11, 3.4.10 and 4.0.6.
 
 Top-level namespace is `Dexpace`. Gem names are hyphenated and map segment-for-segment onto the constant path:
 `dexpace-transport-net_http` → `lib/dexpace/transport/net_http.rb` → `Dexpace::Transport::NetHTTP`.
@@ -44,7 +48,45 @@ constants are process-global — so the residual risk is version skew, caught by
 
 ## Commands
 
-All run from the repository root. **This first set is everything that exists today.**
+All run from the repository root. The build is Bundler-driven: `bundle install` first, on the Ruby you mean to
+test with. `Gemfile.lock` is **not committed** and is gitignored — a lockfile is a resolution against one
+interpreter and the supported range spans a boundary where 26 names stop being default gems, so every
+interpreter resolves its own (`docs/knowledge/notes/tooling-and-quality-gates.md`, key
+`tooling-and-quality-gates/f638625d`). Remove the lock before switching interpreters: one written by Bundler 4
+makes an older Bundler try to install Bundler 4.
+
+```bash
+bundle install
+bundle exec rake                                  # the default task: all seventeen gates, in order (NFR-17)
+bundle exec rake gates:list                       # the seventeen names, in the order CI and `rake` both use
+bundle exec rake rubocop                          # NFR-7, findings fatal, no autocorrection
+bundle exec rake rubocop:fix                      # safe autocorrections only, never the gate
+bundle exec rake cops:test                        # the custom cops' own suite (.rubocop/test/)
+bundle exec rake rbs:validate steep               # NFR-3: per-gem rbs validate, then steep over six targets
+bundle exec rake test:gems                        # gem suites: warnings fatal, SimpleCov floor (NFR-5, NFR-6)
+bundle exec rake test:gates                       # the repository's gate suites (test/gates/)
+bundle exec rake gates:gemspec_audit              # SEAM-1, NFR-1, NFR-2
+bundle exec rake gates:require_allowlist          # SEAM-1, SEAM-2: the allowlist and the denylist
+bundle exec rake gates:clean_bundle               # the scratch-Gemfile isolation run, all six gems
+bundle exec rake gates:rbs_surface                # NFR-11
+bundle exec rake gates:sig_diff                   # NFR-4, RBS half (vacuous until the first v* tag)
+bundle exec rake gates:surface_snapshot           # NFR-4, runtime half
+bundle exec rake surface:regenerate               # deliberate: regenerate BOTH this and sig/
+bundle exec rake gates:single_instance            # design §2.4
+bundle exec rake gates:versions                   # NFR-14, NFR-10
+bundle exec rake gates:reproducible               # NFR-12
+bundle exec rake yard bundler_audit
+(cd gems/dexpace-core && bundle exec rake test)   # one suite per gem, under `ruby -w`, no coverage floor
+```
+
+The matrix rows run `test:gems gates:gemspec_audit gates:require_allowlist gates:clean_bundle
+gates:single_instance` on every Ruby; everything else runs once on the development Ruby
+(`.github/workflows/ci.yml`, whose split `test/gates/ci_workflow_test.rb` asserts). Every gate body that is more
+than a subprocess and a message lives in `tools/` — `gates:clean_bundle` and `gates:single_instance` are inline in
+`tasks/gates.rake` — and every gate is tested from `test/gates/` against a deliberately failing fixture under
+`test/fixtures/gates/`; a repository-reading gate accepts `DEXPACE_GATE_ROOT` to point it at such a fixture.
+
+The process tooling has its own commands and its own tests:
 
 ```bash
 ruby .claude/skills/housekeeping/probe.rb                   # read-only documentation drift. Eight checks.
@@ -63,11 +105,8 @@ ruby scripts/verify_knowledge_structure.rb                  # the gate: harveste
 ruby scripts/knowledge_drift.rb                             # hand-run: source drift and stale note citations
 ```
 
-`docs/knowledge/` does not exist yet — the harvest runs next. Until it does, every corpus query exits 1 with a
-message saying so; `--prefix-info` and `--gaps` answer from appendix C alone and work now, and the two verifiers
-exit 0 stating there is nothing to check. Do not read an exit 1 here as "the corpus knows nothing".
-
-The tooling has its own tests, and they are the only suites in the repository:
+`docs/knowledge/` was harvested on 2026-09-05 (see "Querying `docs/knowledge/`" below); `--prefix-info` and
+`--gaps` answer from appendix C alone, and the two verifiers exit 0 when the trees are sound.
 
 ```bash
 ruby -w scripts/test/knowledge_test.rb
@@ -75,37 +114,31 @@ ruby -w .claude/skills/housekeeping/test/run.rb
 ruby -w .claude/skills/housekeeping/test/run.rb -n /guard/   # Minitest flags pass through
 ```
 
-### After scaffold — planned, none of these exist yet
-
-Do not run, cite or add these until the phase that scaffolds them has landed. That phase owns the exact task
-names and rewrites this block from what it actually built.
-
-```bash
-bundle install
-bundle exec rake                       # the default task: the whole gate set, locally (NFR-17)
-bundle exec rubocop --fail-level=convention
-bundle exec steep check
-bundle exec rbs validate
-bundle exec yard
-bundle exec bundler-audit check --update
-(cd gems/dexpace-core && bundle exec rake test)             # one suite per gem, under `ruby -w`
-(cd gems/dexpace-transport-net_http && bundle exec rake test)  # runs dexpace-conformance's suite
-```
+`scripts/` and `.claude/` are outside the RuboCop gate — `NFR-7`'s one documented exception, with its re-enable
+condition in `.rubocop.yml` and its repair on phase 10's inbound list in the roadmap.
 
 The gate table is `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`: RuboCop (`rubocop-minitest`,
 `rubocop-performance`, findings fatal), `ruby -w` plus `RUBYOPT=-W:deprecated` with warnings failing the build,
 `rbs validate` + `steep check`, `sig/**/*.rbs` diffed against the previous release tag, a runtime surface
 snapshot, SimpleCov `minimum_coverage 80`, the three zero-dependency checks below, `bundler-audit`, YARD with an
 undocumented-public-method gate, and a CI matrix that runs the **real suite** on each Ruby — not a syntax check,
-because `TargetRubyVersion` catches syntax and not stdlib availability (§9.2).
+because `TargetRubyVersion` catches syntax and not stdlib availability (§9.2). Phase 0's design adds three the
+table does not carry: the interrupt-ban cop, the require audit over every gem and both require forms, and an
+explicit denylist beside the allowlist.
 
 ### HARD RULE — core requires only stdlib that stays stdlib
 
 **Ruby's standard library is not a fixed set; it shrinks between releases.** Verified from
-`Gem::BUNDLED_GEMS::SINCE`: `base64` became a bundled gem in Ruby 3.4, and `logger`, `ostruct`, `benchmark`,
-`fiddle` and `pstore` become bundled gems in Ruby 4.0. A bundled gem needs an explicit `Gemfile`/gemspec entry
-under Bundler, so a core file that innocently writes `require "base64"` acquires an undeclared dependency that
-fails on a supported Ruby.
+`Gem::BUNDLED_GEMS::SINCE` on a real 4.0.6 interpreter (`docs/knowledge/notes/package-and-dependency-layout.md`,
+key `package-and-dependency-layout/70fbcaee`): the table has 23 entries, not the five or six usually cited.
+`racc` left the default set at 3.3; `abbrev`, `base64`, `bigdecimal`, `csv`, `drb`, `getoptlong`, `mutex_m`,
+`nkf`, `observer`, `resolv-replace`, `rinda` and `syslog` at 3.4; `benchmark`, `fiddle`, `irb`, `logger`,
+`ostruct`, `pstore`, `rdoc`, `reline` and `win32ole` at 4.0; and `tsort` leaves at **4.1** — default on every
+Ruby in the supported range and still a trap, which is why the allowlist is a name list checked against the
+whole table rather than a category query. `Gem::BUNDLED_GEMS::SINCE` is undefined on the 3.2 floor, so the
+4.0 row is the authority for the *reason* a name is refused while the refusal holds on every row. A bundled gem
+needs an explicit `Gemfile`/gemspec entry under Bundler, so a core file that innocently writes
+`require "base64"` acquires an undeclared dependency that fails on a supported Ruby.
 
 The rule, stated exactly (§2.4): **`dexpace-core` may `require` only (a) non-gemified stdlib and (b) default
 gems that remain default gems on every Ruby in the supported range, 3.2 through 4.0.** `dexpace-core.gemspec`
@@ -113,16 +146,19 @@ contains **zero `add_dependency` lines** — that assertion *is* the `SEAM-1` de
 no compile-versus-runtime dependency scope to lean on. The concrete consequences: Basic auth is
 `["u:p"].pack("m0")` and never `Base64` (§6.3); the logging sink is a duck type and core never `require`s
 `logger` (§8.1). `lib/dexpace.rb` issues explicit `require`s for the whole tree rather than using an autoloader,
-because every autoloader worth using is a gem — which also makes the require audit a text scan rather than a
-runtime trace.
+because every autoloader worth using is a gem — which also makes the require audit a static scan of the source
+rather than a runtime trace. The scan is parsed, not pattern-matched (`tools/require_scan.rb`): `require("json")`,
+`Kernel.require "json"`, a require after a `;` and `autoload :JSON, "json"` all reach the same feature and are all
+seen.
 
 Three mechanised checks enforce it (§9.2), and all three are blocking:
 
 1. **Gemspec audit** — `runtime_dependencies` empty for core; `dexpace-core` plus at most one other gem for each
    adapter (`SEAM-1`, `NFR-1`, `NFR-2`).
-2. **Require-allowlist audit** — scans core's `lib/**/*.rb` for every `require`/`require_relative` and fails on
-   anything outside an explicit allowlist of non-gemified stdlib plus default gems that remain default on the
-   *highest* Ruby in the matrix. This gate has no counterpart in the reference build.
+2. **Require-allowlist audit** — scans core's `lib/**/*.rb` for every `require`/`require_relative`/`autoload`,
+   in every spelling that reaches `Kernel#require`, and fails on anything outside an explicit allowlist of
+   non-gemified stdlib plus default gems that remain default on the *highest* Ruby in the matrix — and on any
+   feature it cannot read as a string literal. This gate has no counterpart in the reference build.
 3. **Clean-bundle isolation run** — a scratch `Gemfile` holding only `gem "dexpace-core", path: ...`, then
    `bundle exec ruby -e` requiring core and exercising a smoke path, on every Ruby in the matrix. Bundler refuses
    to activate a gem outside the bundle, which is what makes the Ruby 4.0 column load-bearing.
@@ -315,8 +351,9 @@ gem**, so a consumer's `steep check` sees it.
 - **RBS describes what someone wrote, not what Ruby defines.** `Data.define`'s generated readers,
   `define_method`, `method_missing` and a require-time `register` call are all invisible to it. So the RBS diff is
   paired with a **runtime surface snapshot**: a test that walks `Dexpace`'s constant tree and each class's
-  `public_instance_methods(false)`, sorts, and diffs against a committed manifest. Each catches what the other
-  cannot see; changing exports means regenerating **both**.
+  `public_instance_methods(false)`, sorts, and diffs against a committed manifest — one per gem, each walked
+  from `Dexpace` itself, so an adapter's manifest is what its entry file adds inside *or beside* its own
+  namespace. Each catches what the other cannot see; changing exports means regenerating **both**.
 - `NFR-11` is mechanised as an RBS scan asserting that no constant outside `Dexpace::` and a fixed stdlib
   allowlist appears in any public signature under `sig/` — which is why the async pivot had to be core-owned.
 - YARD has an undocumented-public-method gate. A YARD block explains *why*; it never restates a signature.
@@ -392,11 +429,18 @@ Frozen to every maintenance tool: `docs/knowledge/`, `docs/product-spec/`, `docs
 **The counts the `claims` check reads out of this file.** Keep these sentences here and keep them true; the
 probe compares each against the live tree, and a count written anywhere else in this file must match.
 
-- Zero gems exist under `gems/` — the directory itself does not exist yet.
+- Six gems exist under `gems/`, all at `0.0.0` and none published: `dexpace-core`,
+  `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
+  and `dexpace-conformance`. Each is a phase-0 skeleton — a gemspec reading `VERSIONS`, a `lib/` holding the
+  namespace module and a `VERSION` constant and nothing else, a `sig/` mirroring it one file per file, a
+  smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. Every adapter gemspec declares
+  `dexpace-core` and no third-party gem yet (design P0-9); the third-party half of each `NFR-2` budget arrives
+  with the phase that writes the code needing it.
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. The first three carry that phase's
-  design and plan; `phase3/` carries its segmentation design,
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/` carries its design,
+  plan and checklist — the one checklist written so far, at implementation; `phase1/` and `phase2/` carry
+  that phase's design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
   carries its segmentation design,
@@ -467,5 +511,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist is still to be written at execution time.
+  Every checklist but phase 0's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

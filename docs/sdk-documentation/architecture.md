@@ -1,8 +1,10 @@
 # Architecture
 
-**As-built docs land here gem by gem, as they land in `gems/`.** Nothing has been built yet, so
-this page is a stub: it names the pages this tree will eventually hold and where each one's
-content will come from, so the plan for the documentation exists before the documentation does.
+**As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
+skeletons and the gate set and no domain code, so this page is still a stub: it names the pages
+this tree will eventually hold and where each one's content will come from, so the plan for the
+documentation exists before the documentation does. One page is real already, because its subject
+is: [`quality-gates.md`](./quality-gates.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -28,8 +30,9 @@ build a standard pipeline. Derives from `docs/sdk-design-ruby/05-pipeline-archit
 auth.md — tiers, credentials, schemes, challenges, and the redirect-safe re-issue rule. Derives
 from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`.
 
-quality-gates.md — every blocking gate this SDK will run, what each protects, and how to run it
-locally. Derives from `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
+[quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
+and how to run it locally. Written against the build phase 0 shipped; derives from
+`docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
 
 write-a-transport.md — implementing the `Transport` seam, and proving an implementation against
 `dexpace-conformance`. Derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
