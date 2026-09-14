@@ -1,0 +1,59 @@
+# The gate set, in CI (NFR-17). Two jobs, and the split is asserted rather than maintained:
+# test/gates/ci_workflow_test.rb reads `rake gates:list` and fails if any gate appears in no
+# job. `rake gates:versions` asserts the matrix below equals the `ruby matrix` line in VERSIONS.
+name: CI
+
+on:
+  push:
+    branches: [main, mvp]
+  pull_request:
+
+jobs:
+  # Interpreter-independent by construction -- they read text, signatures and build output --
+  # so running them four times would buy nothing.
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gates:sig_diff needs tags and history
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ".ruby-version"
+          # There is no committed lockfile to cache against; each row resolves for itself.
+          bundler-cache: false
+      - run: bundle install
+      - run: bundle exec rake rubocop
+      - run: bundle exec rake cops:test
+      - run: bundle exec rake rbs:validate
+      - run: bundle exec rake steep
+      - run: bundle exec rake test:gates
+      - run: bundle exec rake gates:rbs_surface
+      - run: bundle exec rake gates:sig_diff
+      - run: bundle exec rake gates:surface_snapshot
+      - run: bundle exec rake gates:versions
+      - run: bundle exec rake gates:reproducible
+      - run: bundle exec rake yard
+      - run: bundle exec rake bundler_audit
+
+  # NFR-10: the real suite on every supported Ruby. The 3.2 row is where a method present on the
+  # developer's 4.0 and absent on the declared floor produces a NoMethodError that
+  # TargetRubyVersion cannot see; the 4.0 row is where the bundled-gem trap fires.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.2", "3.3", "3.4", "4.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: false
+      - run: bundle install
+      - run: bundle exec rake test:gems
+      - run: bundle exec rake gates:gemspec_audit
+      - run: bundle exec rake gates:require_allowlist
+      - run: bundle exec rake gates:clean_bundle
+      - run: bundle exec rake gates:single_instance
