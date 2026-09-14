@@ -1,0 +1,3 @@
+Dexpace::Serde
+Dexpace::Serde::JSON
+Dexpace::Serde::JSON::VERSION : String

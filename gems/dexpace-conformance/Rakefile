@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require "rake/testtask"
+
+# Local iteration only. NFR-5's coverage floor is an aggregate across the library units, so
+# it belongs to the root `rake test:gems`, not here.
+Rake::TestTask.new(:test) do |task|
+  task.libs = %w[lib test]
+  task.test_files = FileList["test/**/*_test.rb"]
+  task.warning = true
+end
+
+task default: :test

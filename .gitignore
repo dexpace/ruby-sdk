@@ -57,3 +57,12 @@ build-iPhoneSimulator/
 
 ## Editor and IDE directories:
 /.idea/
+
+# Bundler resolves per-interpreter across the 3.2/3.3/3.4/4.0 matrix, so a single committed
+# lockfile cannot be --frozen-installed on every row. See
+# docs/knowledge/notes/tooling-and-quality-gates.md, key tooling-and-quality-gates/f638625d.
+/Gemfile.lock
+
+# Resolved per interpreter, like Gemfile.lock. `rbs collection install` runs fresh on every row.
+/.gem_rbs_collection/
+/rbs_collection.lock.yaml

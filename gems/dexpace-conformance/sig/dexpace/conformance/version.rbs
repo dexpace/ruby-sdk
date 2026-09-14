@@ -1,0 +1,5 @@
+module Dexpace
+  module Conformance
+    VERSION: String
+  end
+end

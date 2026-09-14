@@ -1,0 +1,6 @@
+module Dexpace
+  module Transport
+    module AsyncHTTP
+    end
+  end
+end

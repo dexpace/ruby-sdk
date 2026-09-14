@@ -1,0 +1,7 @@
+module Dexpace
+  module Async
+    module Thread
+      VERSION: String
+    end
+  end
+end
