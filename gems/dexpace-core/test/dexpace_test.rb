@@ -42,4 +42,35 @@ class DexpaceTest < DexpaceTestCase
     assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL], "constants added under Dexpace")
     assert_includes(Dexpace.constants(false), :VERSION)
   end
+
+  # A consumer requires "dexpace" and nothing else.
+  test "requiring dexpace alone makes the whole domain model resolve" do
+    assert_equal(Dexpace::Request, Dexpace.const_get(:Request))
+    assert_equal(Dexpace::Headers, Dexpace.const_get(:Headers))
+    assert_equal(Dexpace::Status, Dexpace.const_get(:Status))
+    assert_equal(200, Dexpace::Status::OK.code)
+  end
+
+  test "every constant the manifest records is reachable from Dexpace" do
+    DOMAIN_MODEL.each { |name| assert(Dexpace.const_defined?(name, false), "#{name} missing") }
+    assert_empty(DOMAIN_MODEL - Dexpace.constants(false))
+    %i[Headers Query RequestOptions Request Response].each do |name|
+      assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
+    end
+  end
+
+  # The shadowing name this SDK never defines: it would make a bare `rescue ArgumentError`
+  # inside `module Dexpace` stop catching Ruby's own (deviation P1-3).
+  test "never defines Dexpace::ArgumentError" do
+    refute_includes(Dexpace.constants(false), :ArgumentError)
+  end
+
+  # Dexpace::Method shadows ::Method only inside core (the entry file's YARD block says so);
+  # a consumer's top-level Method is still Ruby's, even after `include Dexpace`.
+  test "Dexpace::Method does not shadow Ruby's Method for a consumer" do
+    consumer = Class.new { include Dexpace }
+
+    assert_equal(::Method, consumer.class_eval { Method })
+    assert_instance_of(::Method, consumer.new.method(:to_s))
+  end
 end

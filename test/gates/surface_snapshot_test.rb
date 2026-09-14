@@ -16,6 +16,14 @@ class SurfaceSnapshotTest < GateCase
       def extra = nil
     end
 
+    # Design §4's two-parallel-hashes model hides its members: the readers stay public on the
+    # anonymous superclass and are private on the model, and the surface is the model's.
+    class Hidden < Data.define(:values, :casing)
+      private :values, :casing
+
+      def names = casing.values
+    end
+
     module Plain
       def self.build = nil
     end
@@ -90,6 +98,14 @@ class SurfaceSnapshotTest < GateCase
       lines, "SurfaceSnapshotTest::Fixture::Sample#with",
       "Data's own #with is Ruby's surface, not this repository's",
     )
+  end
+
+  test "a generated reader the model makes private is not in the manifest" do
+    lines = Surface.manifest("SurfaceSnapshotTest::Fixture").lines.map(&:chomp)
+
+    assert_includes(lines, "SurfaceSnapshotTest::Fixture::Hidden#names")
+    refute_includes(lines, "SurfaceSnapshotTest::Fixture::Hidden#values")
+    refute_includes(lines, "SurfaceSnapshotTest::Fixture::Hidden#casing")
   end
 
   # An adapter's manifest is what its entry file adds, and nothing the tree already held: with

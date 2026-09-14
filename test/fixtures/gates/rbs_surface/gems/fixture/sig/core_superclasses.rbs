@@ -1,0 +1,15 @@
+# Gate fixture: the positive control for the STDLIB allowlist. A model is `class X < Data`
+# (design §4), the validation error is `class Y < ::ArgumentError` (HTTP-47, phase 1's P1-3) and
+# a parser's private helper takes a StringScanner (`strscan`, on the require allowlist); all
+# three are stdlib, and a scan that read the allowlist as it stood before phase 1 reported each
+# as foreign. None is a leak.
+module Dexpace
+  class CoreModel < Data
+    private def self.new: (code: Integer) -> instance
+    def initialize: (code: Integer) -> void
+    private def self.scan: (StringScanner scanner) -> String
+  end
+
+  class CoreError < ::ArgumentError
+  end
+end
