@@ -959,7 +959,7 @@ gems that are none of them `dexpace-core`.
    "its gemspec, its version and its first release"; phase 9 "adds the remaining suites, owning neither
    its gemspec nor its release". The gemspec and the suite are `8a`'s; the release is the phase's, and it
    lands with `docs/first-release.md`'s table.
-3. **The phase-level pull request.** The roadmap's execution step 5: "a phase returns to `mvp` as **one
+3. **The phase-level pull request.** The roadmap's execution step 5: "a phase returns to `main` as **one
    phase-level pull request**, not one per sub-phase."
 4. **The roadmap's phase-8 row link and the segmentation bullet's correction**, plus a dated entry in
    `## Phase Status Notes`. Written out verbatim under *Roadmap follow-through owed*.

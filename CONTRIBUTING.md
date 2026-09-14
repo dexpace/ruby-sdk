@@ -41,8 +41,9 @@ Run it before claiming any of `docs/` is current.
 The full convention set lives in [`CLAUDE.md`](CLAUDE.md). The essentials that already apply, code
 or not:
 
-- **Branch off `mvp`, not `main`.** `mvp` is the integration branch and merges into `main` when
-  the MVP is complete; GitHub still offers `main` as the base, so change it.
+- **Branch off `main`, and target `main`.** There is no integration branch: phase work goes on the
+  issue's linked branch (`<n>-<slug>`) and returns to `main` by pull request. The `mvp` integration
+  branch was retired on 2026-09-14; `mvp` survives only as the delivery name under `docs/work/`.
 - **`docs/product-spec/` and `docs/sdk-design-ruby/` are read-only to routine work.** They are the
   yardstick and the binding design, respectively. See `docs/README.md`'s "Frozen means frozen".
 - **The zero-dependency invariant is not negotiable once there is code.** `dexpace-core`'s

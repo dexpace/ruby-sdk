@@ -5,7 +5,7 @@
 Nothing has shipped yet: there is no `gems/` directory in this repository yet, and once it exists
 every gem in it will start at `0.0.0` with nothing published to RubyGems. There is therefore no
 released version to support and no patched release to point at. Until the first release, the
-supported revision is the tip of `mvp` — report against a commit SHA.
+supported revision is the tip of `main` — report against a commit SHA.
 
 ## Reporting a vulnerability
 
