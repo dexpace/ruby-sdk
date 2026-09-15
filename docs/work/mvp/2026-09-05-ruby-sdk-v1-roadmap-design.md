@@ -2327,6 +2327,47 @@ design.
   **Code half: the two lines and the four files.** Touches `NFR-7`, `NFR-13`. Added after phase 10's
   planning pass, so it is the thirty-third bullet and is not yet in its design's disposition table; phase 10
   dispositions it at execution.
+- **`rake rubocop` passes vacuously in a worktree nested under the parent checkout's `.claude/`.** Found by
+  phase 1's implementation on 2026-09-14, the first time the gate ran from such a worktree: RuboCop takes
+  `AllCops/Exclude` from the topmost `.rubocop.yml` on the path — here the parent checkout's, whose
+  `.claude/**/*` line (the P0-11 exception above) contains the whole worktree — so `bundle exec rake rubocop`
+  inspected 8 files of 126 and reported no offenses on a tree that, inspected honestly with
+  `--ignore-parent-exclusion`, had two. CI and a plain checkout have no parent `.rubocop.yml` and are
+  unaffected; the exposure is the agent worktree layout this repository actually uses. The repair is one
+  token in the strict direction — `--ignore-parent-exclusion` on the gate's command in `tasks/quality.rake`,
+  with `test/gates/rubocop_config_test.rb` asserting it — and it is a change to a phase-0 gate, so it is
+  phase 10's. **Code half: the one flag and its assertion.** Touches `NFR-7`, `NFR-17`. Added after phase
+  10's planning pass, so it is the thirty-fourth bullet and is not yet in its design's disposition table;
+  phase 10 dispositions it at execution.
+- **Nine later-phase design documents cite a retired corpus key, `data-modeling/5bc538ba`, as narrowing the
+  wire model's Ractor-shareability claim.** The phase 3, 4, 5 and 7 segmentation designs and the 4a, 4b, 5a,
+  5b and 8a designs each lean on that note — "`data-modeling/5bc538ba` narrows the shareability claim" — and
+  on phase 1's ledger row `P1-9`. Phase 1's build reversed both on 2026-09-15: `Request` and `Response` are
+  `Ractor.shareable?` as built, `P1-9` is retired for `P1-13`, and the planning-time note is rewritten as built
+  under `## Conflicts` in `docs/knowledge/notes/data-modeling.md` (key digested from the new text; the old key
+  resolves to nothing, which is what `scripts/knowledge.rb --key` reports). Every one of those phases re-reads
+  the notes at its start, so none is misled at execution; what is stale is the prose of nine already-planned
+  documents, which is audit work against planned phases and therefore phase 10's. **Documentation half only:
+  repoint each citation and reword each sentence to the as-built claim.** Touches `HTTP-1`, `XCUT-15`. Added
+  after phase 10's planning pass, so it is the thirty-fifth bullet and is not yet in its design's disposition
+  table; phase 10 dispositions it at execution.
+- **`Dexpace::URL.parse!` accepts a host-less `http:` and any absolute non-HTTP URI, so a `Request` can carry a
+  URL no transport can dispatch, and nothing owns the rejection.** Found by the round-3 review of phase 1's
+  stack on 2026-09-15: `URI::Generic#absolute?` is only "a scheme is present", so `URL.parse!("http:")`
+  yields a `URI::HTTP` with a `nil` host and `URL.parse!("mailto:x@y")` a `URI::MailTo`, while `"/rel"` and
+  `"example.test/a"` are correctly refused. `HTTP-47`'s letter — malformed or non-absolute — is met; its
+  rationale, failing at construction "rather than surfacing a lower-level or transport-specific error later",
+  is not, for those two shapes, which today surface as whatever `Net::HTTP.new(nil, …)` raises inside phase
+  8a's `Adapter`. Phase 1 changed nothing: which schemes and shapes are dispatchable is a transport's
+  knowledge, not the wire model's, and the two candidate owners are both already planned — phase 8a's
+  `RequestMapper` and `Adapter` (Tasks 16 and 19,
+  `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`), where a
+  `TransportError` naming the URL would be the natural shape, or `URL.parse!` itself if a
+  transport-independent "http or https with a host" rule is preferred and recorded against `HTTP-47`.
+  **Code half: one check in one of those two places, with its negative tests; documentation half: the
+  choice, in the owning phase's checklist row.** Touches `HTTP-47`. Added after phase 10's
+  planning pass, so it is the thirty-sixth bullet and is not yet in its design's disposition table; phase 10
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2551,3 +2592,62 @@ owning branch, every gate change with a fixture that turns it red (checklist dev
 The two counts that changed: `gems/` from zero to six; the phase-directory count is unchanged at eleven, since
 every directory already existed as planning documents. `CLAUDE.md`'s "After scaffold — planned" block is
 rewritten from what was built.
+
+**2026-09-15** — **Phase 1 implemented**, as three stacked branches against issue #8: code, tests,
+documentation. `dexpace-core` now carries the HTTP domain model — twenty-two new `lib/` files under
+`lib/dexpace/`, each with its `sig/` and `test/` mirror, exactly the layout the design's Module Layout
+section names — and the other five gems are still phase-0 skeletons at `0.0.0`. The checklist is at
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`: forty-two rows, 38 ✅ (two by
+construction — `HTTP-1`, `HTTP-2` — and two split with a deferred half — `HTTP-3` three ways, `HTTP-46`'s body
+half deferred to 3b), 4 ⏳ (`HTTP-22`, `HTTP-48`–`HTTP-50`, all under `docs/first-release.md`), none 🚫. `bundle exec rake` is green on 4.0.6 with 100% line coverage against the
+80% floor; the matrix set is green on 3.2.11 and `test:gems` on 3.3.12 and 3.4.10 as well. **The two
+interpreter findings the design was built on held**: `Model#with` is proven load-bearing by removing it and
+watching the floor fail while 4.0.6 passes, and every validator reads bytes, so `"a\0"`, `"a\r\nb"` and
+invalid UTF-8 are rejected with the SDK's error rather than the regexp engine's. **One finding reversed a
+ledger row**: `Request` and `Response` *are* `Ractor.shareable?` as built, because `URL.parse!` had to freeze
+the URI's component Strings anyway (`URI#freeze` is shallow and `URI#dup` shares them, an `XCUT-15` alias
+the plan's `dup.freeze` left open) and `URI::RFC3986_PARSER` is already frozen by the uri gem on both
+interpreters (given a `nil` or frozen body; the opaque body is carried as given, and the reason phrase is copied
+and frozen at build) — `P1-9` is retired, `P1-13` records the ownership rule, and the corpus note that carried
+`P1-9` is rewritten as built, under `## Conflicts`, confirming `data-modeling/996c0b12` rather than superseding
+it. Two more ledger rows added at implementation: `P1-11`, `HeaderName`'s fold
+is a derived attribute rather than a second member, and `P1-12`, `Query` equality compares encodings, which
+is `HTTP-30` stated literally. Twenty-one departures from the plan's text are itemised in the checklist, none
+lowering a gate; five are gate or tool corrections the first real signatures forced, each pinned by a fixture
+on the tests branch: `gates:rbs_surface`'s stdlib list gains `Data`, `ArgumentError` and `StringScanner`;
+`rbs:validate` loads the allowlisted stdlib signature sets; `gates:single_instance` survives — and names —
+the `superclass mismatch` a second copy of a `Data.define` model raises; `tools/surface.rb` stops listing a
+reader the model made private; and `.rubocop.yml` admits Steep's `#: Type` annotation, which strict Steep
+requires on an empty literal. Three of the four notes the design filed stand and the fourth is rewritten;
+the phase-10 inbound list gains two bullets, the thirty-fourth — the vacuous `rake rubocop` in a nested
+worktree — and the thirty-fifth — nine later-phase design documents citing the retired note key
+`data-modeling/5bc538ba`. The three postponed items keep their owners. The counts that changed: `gems/` is
+still six but `dexpace-core` is no longer a skeleton; the phase-directory count is unchanged at eleven;
+`CLAUDE.md`'s "no domain code" paragraph, its construction pattern and its gem sentence are rewritten from
+what was built. **The round-1 review of the stack** found two
+plan-level gaps the implementation had inherited — `Response` aliased the caller's `reason` String, and
+`Headers.build` let a non-`Hash` reach the name walk as a `NoMethodError` — and one corpus mistake, the
+planning-time note still marking `data-modeling/996c0b12` as superseded after the build had confirmed it; all
+three are repaired on the branch they belong to (checklist deviations 15 and 18–19, the note above), with
+`test:gems` at 256 runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards. **The round-2 review**
+found one more inherited gap and closed it the same way: a `Request` accepted a `Headers` the inbound
+grammar had validated, so obs-text `HTTP-18` forbids could reach the model that represents an outbound
+message through `.build`, `#with` or `headers=` followed by `#header` — `Request#initialize` and
+`Request::Builder#headers=` now require the outbound direction (checklist deviation 20, the `HTTP-18` row).
+Two nits were taken with it — `Model.own` moved from `.build` into each `initialize` after the shape
+checks, so a non-copyable object is the SDK's error rather than `Ractor.make_shareable`'s `TypeError`
+(deviation 21), and `Query.parse` refuses a non-`String` as its sibling factories do (deviation 17) — one
+ledger row was added, `P1-14`, naming the `String`-only tag values of `RequestOptions` as a deliberate
+reading of `HTTP-34`, and `URL.own`'s comment stopped asserting the retired `P1-9`. `test:gems` is at 260
+runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards. **The round-3 review** found the mirror image of
+the design's finding 3: every validator reads bytes, so a String whose bytes are ASCII under a tag Ruby cannot
+fold under — `"Accept".encode("ISO-2022-JP")`, the same bytes as the literal — passed every check and then
+crashed the fold, the upcase or the scanner with `Encoding::CompatibilityError`, escaping `rescue
+Dexpace::Error` from eight public entry points. `HeaderSyntax.ascii_compatible` is the one normalisation,
+applied before every fold, upcase and scan in core (checklist deviation 22; one new public method, the
+manifest regenerated deliberately); `HTTP-19`'s third clause — inbound names stay strict — gained the tests
+the code already satisfied; the checklist's own roll-up sentence and this note's copy of it were recounted from
+the table (38 ✅, not 36); two nits were taken — a non-finite or non-real timeout and a non-`Hash` argument to
+`#with` are the SDK's error — and one was routed, `URL.parse!`'s host-less and non-HTTP shapes, as the
+thirty-sixth phase-10 inbound bullet above. `test:gems` is at 273 runs and 100% line coverage on 4.0.6 and
+3.2.11 afterwards.

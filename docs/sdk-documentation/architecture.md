@@ -1,10 +1,11 @@
 # Architecture
 
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
-skeletons and the gate set and no domain code, so this page is still a stub: it names the pages
-this tree will eventually hold and where each one's content will come from, so the plan for the
-documentation exists before the documentation does. One page is real already, because its subject
-is: [`quality-gates.md`](./quality-gates.md).
+skeletons and the gate set, and phase 1 the HTTP domain model in `dexpace-core`; the pipeline,
+seams and adapters are still to come, so this page is still a stub: it names the pages this tree
+will eventually hold and where each one's content will come from, so the plan for the
+documentation exists before the documentation does. Two pages are real already, because their
+subjects are: [`quality-gates.md`](./quality-gates.md) and [`http.md`](./http.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -12,8 +13,9 @@ actually written against source.
 
 ## Planned pages
 
-http.md — the domain model: `Request`, `Response`, `Headers`, `Status`, `QueryParams`, and their
-kin, and how each is frozen at construction and reachable only through a builder. Derives from
+[http.md](./http.md) — the domain model: `Request`, `Response`, `Headers`, `Status`, `Query`, and
+their kin, and how each is frozen at construction and reachable only through a builder or a
+validating factory. Written against the model phase 1 shipped; derives from
 `docs/sdk-design-ruby/04-domain-model-construction.md`.
 
 bodies.md — request bodies as duck-typed producers, response bodies as owned resources the caller

@@ -13,14 +13,18 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phase 0 is built; no domain code is.** Six gem skeletons exist under `gems/`, every one at `0.0.0`, and each
-gem's `lib/` holds its namespace module and a `VERSION` constant and nothing else. The workspace root carries the
-`Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and the
-seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
+**Phases 0 and 1 are built; the domain model is the only domain code.** Six gems exist under `gems/`, every one
+at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`, `Response`, `Headers`, `Status`,
+`Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the `HeaderSyntax`, `PercentEncoding`
+and `URL` function modules, and the construction contract `Dexpace::Model` / `Dexpace::Builder` under one error
+root, `Dexpace::Error` (`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`); every
+other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. The workspace root
+carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
+the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
 `docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec, asserted by
 `gates:versions`); CI runs a 3.2 / 3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against
-3.4.10 and the ones the gates rest on were re-verified against 3.2.11, 3.4.10 and 4.0.6.
+3.4.10 and the ones the gates and the domain model rest on were re-verified against 3.2.11, 3.4.10 and 4.0.6.
 
 Top-level namespace is `Dexpace`. Gem names are hyphenated and map segment-for-segment onto the constant path:
 `dexpace-transport-net_http` → `lib/dexpace/transport/net_http.rb` → `Dexpace::Transport::NetHTTP`.
@@ -302,6 +306,15 @@ invariants no tool catches.
 - **`downcase` is called with no arguments, everywhere in core.** Ruby's fold is opt-in-locale
   (`"I".downcase(:turkic)` → `"ı"`), and the same lint rule that forbids `Time.parse` forbids a locale symbol on
   `downcase`/`upcase`/`casecmp` repository-wide, so `HTTP-13` is enforced rather than assumed.
+- **`#with` routes through the type's validating `.build`, never through `Data#with`.** `Data#with` does not call
+  an `initialize` override on Ruby 3.2 (it does on 3.4 and 4.0), so the inherited derivation skips every
+  `HTTP-4`/`SEAM-29` check on the declared floor; `Dexpace::Model#with` is the one override, every model gets it by
+  `include Model`, and `test:gems` on 3.2.11 is the run that proves it (phase 1's design, addendum A1).
+- **`Dexpace::Error` is a module, included by every core error class, not a base class**, so `XCUT-4`'s
+  `Dexpace::TransportError < ::IOError` stays reachable under single inheritance; `rescue Dexpace::Error` matches
+  through `Module#===`. Phase 1's only error is `Dexpace::InvalidArgumentError < ::ArgumentError`, and
+  `Dexpace::ArgumentError` is never defined, because it would shadow Ruby's inside `module Dexpace` (phase 1's
+  design, addendum A3).
 
 ## Constraints that will bite
 
@@ -431,16 +444,18 @@ probe compares each against the live tree, and a count written anywhere else in 
 
 - Six gems exist under `gems/`, all at `0.0.0` and none published: `dexpace-core`,
   `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
-  and `dexpace-conformance`. Each is a phase-0 skeleton — a gemspec reading `VERSIONS`, a `lib/` holding the
-  namespace module and a `VERSION` constant and nothing else, a `sig/` mirroring it one file per file, a
-  smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. Every adapter gemspec declares
-  `dexpace-core` and no third-party gem yet (design P0-9); the third-party half of each `NFR-2` budget arrives
-  with the phase that writes the code needing it.
+  and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
+  per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
+  the phase-1 HTTP domain model — twenty-two files under `lib/dexpace/`, every one mirrored in `sig/` and
+  `test/`; every other gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION`
+  constant and nothing else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
+  (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code
+  needing it.
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
-  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/` carries its design,
-  plan and checklist — the one checklist written so far, at implementation; `phase1/` and `phase2/` carry
-  that phase's design and plan; `phase3/` carries its segmentation design,
+  `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/` and `phase1/` each carry
+  that phase's design, plan and checklist — the two checklists written so far, each at implementation;
+  `phase2/` carries its design and plan; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
   carries its segmentation design,
@@ -511,5 +526,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's is still to be written at execution time.
+  Every checklist but phase 0's and phase 1's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
