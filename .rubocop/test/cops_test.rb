@@ -5,8 +5,9 @@ require_relative "cop_case"
 
 # The original five cops and Dexpace/NoKeywordSplat, which between them mechanise CLAUDE.md's
 # ban list and NFR-13. One row per case, one generated Minitest method per row, so a failure
-# names exactly one input. Phase 2's sixth cop has its own tables in the nested class below,
-# because Metrics/ClassLength caps one class at 100 lines and counts a table row as a line.
+# names exactly one input. Phase 2's seventh cop has its own tables in the nested classes below,
+# because Metrics/ClassLength caps one class at 100 lines and counts a table row as a line;
+# phase 3a's extension of it (P3-7) has a second nested class for the same reason.
 class CopsTest < CopCase
   D = RuboCop::Cop::Dexpace
   HEADER = "# frozen_string_literal: true\n# SPDX-License-Identifier: MIT\n\n"
@@ -132,7 +133,7 @@ class CopsTest < CopCase
   # Design §9 Addendum A1 (phase 2): a bare Thread/Queue/Mutex/JSON inside Dexpace::Async or
   # Dexpace::Serde rebinds to the adapter gem's constant the moment that gem is required, and
   # core's own suite never requires it. The compact `module Dexpace::Async` form is the same
-  # lexical path and is flagged too; one SHADOWED list serves both namespaces, so a bare JSON
+  # lexical path and is flagged too; one SHADOWED list serves every namespace, so a bare JSON
   # inside Dexpace::Async is flagged even though only Dexpace::Serde reopens JSON.
   class QualifiedCoreConstantTest < CopCase
     ASYNC = "module Dexpace\n  module Async\n    %s\n  end\nend\n"
@@ -153,6 +154,10 @@ class CopsTest < CopCase
       # A class nested inside the namespace is still lexically inside it, and `Thread::Queue`
       # is a bare `Thread` with `Queue` hanging off it.
       [format(NESTED, "Thread::Queue.new"), "Write `::Thread` here"],
+      # Phase 2 accepted this row: nothing reopens Dexpace::Transport::Thread. Phase 3a's
+      # one-segment watch (P3-7) rejects it, because the rule is now "inside module Dexpace,
+      # anywhere" -- a tightening, never a narrowing, and the row moved rather than vanished.
+      ["module Dexpace\n  module Transport\n    Thread.new\n  end\nend\n", "Write `::Thread` here"],
     ].freeze
 
     # The accepted half is what proves the cop does not reject every occurrence of the six names.
@@ -160,11 +165,69 @@ class CopsTest < CopCase
       format(ASYNC, "::Thread.new"),
       format(ASYNC, "::Queue.new"),
       format(SERDE, "::JSON.generate(value)"),
-      "module Dexpace\n  module Transport\n    Thread.new\n  end\nend\n",
       "Thread.new\n",
       format(ASYNC, "Dexpace::Async::Thread.new"),
       format(NESTED, "::Thread::Queue.new"),
       format(SERDE, "class << self\n      def a = ::JSON\n    end"),
+    ].freeze
+
+    REJECTED.each_with_index do |(source, fragment), index|
+      test "rejects case #{index}: #{source.lines.first.strip}" do
+        assert_offense(D::QualifiedCoreConstant, source, fragment)
+      end
+    end
+
+    ACCEPTED.each_with_index do |source, index|
+      test "accepts case #{index}: #{source.lines.first.strip}" do
+        assert_no_offense(D::QualifiedCoreConstant, source)
+      end
+    end
+  end
+
+  # Phase 3a (P3-7): SHADOWED gains `IO` and WATCHED becomes the one-segment `Dexpace`, so the rule
+  # is "inside `module Dexpace`, anywhere". Dexpace::IO is defined by CORE, so the hazard is live
+  # from the first require: inside `module Dexpace`, `x.is_a?(IO)` is silently false for a real
+  # ::IO. Its own nested class, for the same 100-line cap phase 2's rows sit under.
+  class QualifiedCoreConstantIOTest < CopCase
+    DEXPACE = "module Dexpace\n  %s\nend\n"
+    IN_IO = "module Dexpace\n  module IO\n    %s\n  end\nend\n"
+    IN_HTTP = "module Dexpace\n  module Http\n    %s\n  end\nend\n"
+
+    # [source, the fragment the message must carry]
+    REJECTED = [
+      [format(DEXPACE, "IO.pipe"), "Write `::IO` here"],
+      [format(IN_IO, "x.is_a?(IO)"), "Write `::IO` here"],
+      [format(IN_HTTP, "x.is_a?(IO)"), "Write `::IO` here"],
+      ["module Dexpace::Async\n  IO.pipe\nend\n", "Write `::IO` here"],
+      # Phase 2's constants, still rejected under the widened one-segment watch.
+      ["module Dexpace\n  module Async\n    Thread.new\n  end\nend\n", "Write `::Thread` here"],
+      ["module Dexpace\n  module Serde\n    JSON.generate(x)\n  end\nend\n", "Write `::JSON` here"],
+      # The widening itself: a bare Mutex or Queue anywhere inside module Dexpace, not only in the
+      # two namespaces phase 2 watched.
+      [format(DEXPACE, "Mutex.new"), "Write `::Mutex` here"],
+      [format(IN_HTTP, "Queue.new"), "Write `::Queue` here"],
+    ].freeze
+
+    # The accepted half is what proves the cop does not reject every occurrence of the name.
+    ACCEPTED = [
+      format(DEXPACE, "::IO.pipe"),
+      format(IN_IO, "x.is_a?(::IO)"),
+      format(IN_HTTP, "::IO.pipe"),
+      "module Dexpace::Async\n  ::IO.pipe\nend\n",
+      # No enclosing module at all.
+      "IO.pipe\n",
+      # An unrelated namespace: nothing named Elsewhere::IO exists.
+      "module Elsewhere\n  IO.pipe\nend\n",
+      # File, StringIO and Tempfile are deliberately NOT in SHADOWED: no Dexpace:: constant of
+      # those names exists, so a rule covering them would only flag correct code.
+      format(DEXPACE, "File.read(path)\n  StringIO.new\n  Tempfile.create"),
+      # Written out in full.
+      format(DEXPACE, "Dexpace::IO::Buffer.new"),
+      # THE definition site. `module Dexpace; module IO` DECLARES the shadowing constant rather
+      # than referring to Ruby's, so lib/dexpace/io.rb -- the file that creates the hazard -- is
+      # not itself an offense. Without these two rows the cop rejects the phase that ships it.
+      "module Dexpace\n  module IO\n    X = 1\n  end\nend\n",
+      "module Dexpace\n  module IO\n    class Buffer\n    end\n  end\nend\n",
     ].freeze
 
     REJECTED.each_with_index do |(source, fragment), index|
