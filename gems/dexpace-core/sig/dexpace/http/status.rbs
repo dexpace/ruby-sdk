@@ -1,0 +1,40 @@
+module Dexpace
+  class Status < Data
+    include Model
+
+    CANONICAL_NAMES: Hash[Integer, String]
+
+    OK: Status
+    CREATED: Status
+    NO_CONTENT: Status
+    NOT_MODIFIED: Status
+    BAD_REQUEST: Status
+    UNAUTHORIZED: Status
+    FORBIDDEN: Status
+    NOT_FOUND: Status
+    REQUEST_TIMEOUT: Status
+    TOO_MANY_REQUESTS: Status
+    INTERNAL_SERVER_ERROR: Status
+    NOT_IMPLEMENTED: Status
+    BAD_GATEWAY: Status
+    SERVICE_UNAVAILABLE: Status
+    GATEWAY_TIMEOUT: Status
+
+    attr_reader code: Integer
+
+    private def self.new: (code: Integer) -> instance
+    def initialize: (code: Integer) -> void
+
+    def self.build: (code: Integer) -> Status
+    def self.of: (Integer | Status code) -> Status
+    def self.canonical_name: (Integer code) -> String?
+
+    def canonical_name: () -> String?
+    def informational?: () -> bool
+    def success?: () -> bool
+    def redirect?: () -> bool
+    def client_error?: () -> bool
+    def server_error?: () -> bool
+    def error?: () -> bool
+  end
+end

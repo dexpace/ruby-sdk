@@ -1,0 +1,24 @@
+module Dexpace
+  class Query
+    class Builder
+      include Dexpace::Builder
+
+      type scalar = String | Symbol | Integer | Float | bool
+
+      SCALARS: Array[Class]
+
+      def initialize: (?pairs: Array[[String, String]]) -> void
+      def add: (scalar name, scalar? value) -> self
+      def set: (scalar name, Array[scalar?] values) -> self
+      def remove: (scalar name) -> self
+      def build: () -> Query
+
+      private
+
+      @pairs: Array[[String, String]]
+
+      def pair: (String key, scalar? value) -> [String, String]
+      def coerce: (untyped value, String label) -> String
+    end
+  end
+end

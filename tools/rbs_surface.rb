@@ -17,10 +17,14 @@ require "rbs"
 module RbsSurface
   extend self
 
+  # Core Ruby and the stdlib names the allowlist in RequireAllowlist admits. `Data` is the base
+  # of every core model (design §4), `ArgumentError` is the superclass HTTP-47 gives the
+  # validation error (phase 1, P1-3) and `StringScanner` is `strscan`, which the require
+  # allowlist admits; all three were added when the first real signatures needed them.
   STDLIB_ALLOWED = %w[
-    Array Bool Class Comparable Enumerable Enumerator Exception Float Hash IO Integer Method
-    Module Mutex Numeric Object Proc Range Rational Regexp Set StandardError String StringIO
-    Symbol Thread Time URI
+    ArgumentError Array Bool Class Comparable Data Enumerable Enumerator Exception Float Hash IO
+    Integer Method Module Mutex Numeric Object Proc Range Rational Regexp Set StandardError
+    String StringIO StringScanner Symbol Thread Time URI
   ].freeze
 
   # The type constructors that carry a name. RBS::Types::Variable does not: `T` is a parameter.

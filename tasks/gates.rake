@@ -265,7 +265,20 @@ namespace :gates do
     root = gate_root
     gemspec_path = File.join(root, "gems/dexpace-core/dexpace-core.gemspec")
     script = <<~RUBY
-      require "dexpace"
+      # A second copy of core cannot even finish loading: every model is
+      # `class X < Data.define(...)`, and re-opening one from another copy of its file hands
+      # Ruby a fresh anonymous superclass, which it refuses with `superclass mismatch`. That
+      # refusal is the single-instance violation itself, one file earlier than the tally below
+      # would see it, so it is caught and reported in the tally's own terms rather than as a
+      # stack trace -- the features loaded before it are already on $LOADED_FEATURES twice.
+      reopened = nil
+      begin
+        require "dexpace"
+      rescue TypeError => error
+        raise unless error.message.include?("superclass mismatch")
+
+        reopened = error.message
+      end
 
       # The duplicate a nested-resolution package manager would create; Ruby cannot produce it,
       # so the gate simulates one to prove it would be caught.
@@ -280,8 +293,9 @@ namespace :gates do
       paths = $LOADED_FEATURES.grep(%r{/dexpace(/.*)?\\.rb\\z})
       duplicated = paths.group_by { |path| path[feature_key, 1] || path }
         .select { |_, found| found.length > 1 }
-      unless duplicated.empty?
+      unless duplicated.empty? && reopened.nil?
         listed = duplicated.map { |feature, found| "\#{feature} from \#{found.join(" and ")}" }
+        listed << "a model re-opened from the second copy (\#{reopened})" unless reopened.nil?
         abort("loaded twice: \#{listed.join("; ")}")
       end
 

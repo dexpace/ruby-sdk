@@ -1,0 +1,18 @@
+module Dexpace
+  class HeaderName < Data
+    include Model
+
+    attr_reader original: String
+    attr_reader folded: String
+
+    private def self.new: (original: String) -> instance
+    def initialize: (original: String) -> void
+
+    def self.build: (original: String) -> HeaderName
+    def self.of: (String | HeaderName name) -> HeaderName
+    def to_s: () -> String
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+  end
+end

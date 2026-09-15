@@ -24,6 +24,10 @@ class SingleInstanceTest < GateCase
   # core's lib/ -- a vendored copy beside a gem-installed one -- preloaded through RUBYOPT, so
   # the gate's subprocess holds two resolved paths for each core feature. Ruby's require never
   # records one path twice, which is why the tally is keyed on the feature and not the path.
+  # Since phase 1 the second copy cannot finish loading at all: its first `Data.define` model
+  # re-opens a class with a fresh superclass and Ruby raises `superclass mismatch`, so the gate
+  # names that as well, and the top-level entry file is never provided twice -- the features
+  # loaded before the mismatch are.
   test "the same core feature loaded from two directories fails the gate" do
     Dir.mktmpdir("dexpace-vendored-core") do |dir|
       FileUtils.cp_r(File.join(ROOT, "gems/dexpace-core/lib"), dir)
@@ -31,8 +35,11 @@ class SingleInstanceTest < GateCase
       _out, err, status = rake("gates:single_instance", "RUBYOPT" => preload)
 
       refute_predicate(status, :success?)
-      assert_includes(err, "loaded twice: dexpace/version.rb from #{dir}/lib/dexpace/version.rb")
-      assert_includes(err, "dexpace.rb from #{dir}/lib/dexpace.rb")
+      both = "#{dir}/lib/dexpace/version.rb and #{ROOT}/gems/dexpace-core/lib/dexpace/version.rb"
+
+      assert_includes(err, "loaded twice: dexpace/version.rb from #{both}")
+      assert_includes(err, "a model re-opened from the second copy")
+      assert_includes(err, "superclass mismatch")
     end
   end
 

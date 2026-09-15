@@ -1,0 +1,33 @@
+module Dexpace
+  class Query < Data
+    include Model
+
+    EMPTY: Query
+
+    private def self.new: (pairs: Array[[String, String]]) -> instance
+    def initialize: (pairs: Array[[String, String]]) -> void
+
+    def self.build: (pairs: Array[[String, String]]) -> Query
+    def self.builder: () -> Query::Builder
+    def self.parse: (String? text) -> Query
+    private def self.decode_segment: (String segment) -> [String, String]
+
+    def names: () -> Array[String]
+    def entries: () -> Array[[String, String]]
+    def []: (String name) -> Array[String]?
+    def include?: (String name) -> bool
+    def empty?: () -> bool
+    def encode: () -> String
+    def to_s: () -> String
+    def new_builder: () -> Query::Builder
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    attr_reader pairs: Array[[String, String]]
+
+    def pair?: (untyped pair) -> bool
+  end
+end

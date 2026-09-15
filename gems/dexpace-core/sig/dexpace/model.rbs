@@ -1,0 +1,29 @@
+module Dexpace
+  # What an object that includes Model must be: a Data, so `to_h` yields its members, whose class
+  # carries a validating `.build` taking those members as keywords. That factory's keyword list
+  # is the type's own and no module can name it for every includer, so the class is left untyped
+  # here and each model's own signature types its `.build`.
+  interface _ModelInstance
+    def to_h: () -> Hash[Symbol, untyped]
+    def class: () -> untyped
+  end
+
+  module Model : _ModelInstance
+    def self.required!: (String name, untyped value) -> untyped
+    def self.own: [T] (T collection) -> T
+    def self.frozen_string: (String value) -> String
+
+    # `self` is the receiver's own type, so a derivation such as `Status::OK.with(code: 404)` is
+    # typed as a Status for a consumer's own steep check rather than as untyped. (`instance`
+    # does not hold here: Steep cannot prove `self <: instance` for a module whose self-type is
+    # an interface, and says so.)
+    def with: (?Hash[Symbol, untyped]? changes) -> self
+
+    # Not a method Model defines. Every includer is a Data whose `initialize` override ends in
+    # `super(member: ...)`, and rbs's core signatures declare no Data#initialize, so without this
+    # the super call resolves to BasicObject#initialize and its keywords are rejected. Model sits
+    # between each model and Data in the ancestor chain, which makes this the one place the
+    # contract can be stated for all of them.
+    def initialize: (**untyped members) -> void
+  end
+end

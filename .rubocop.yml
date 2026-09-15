@@ -73,6 +73,14 @@ Style/StringLiteralsInInterpolation:
 Layout/LineLength:
   Max: 100
 
+# The Steepfile's `core` target is strict, and strict Steep refuses an empty collection literal
+# with no type annotation (Ruby::UnannotatedEmptyCollection); the annotation is Steep's own
+# `#: Type` trailing comment, which this cop's default rejects for lacking a space after the
+# hash. Every ordinary comment is still held to the space rule; only the annotation form passes
+# (phase 1, at the first model that accumulates into a `[]`).
+Layout/LeadingCommentSpace:
+  AllowRBSInlineAnnotation: true
+
 # styleguide 01 rule 1.10 -- trailing comma mandatory, chains break with a leading dot.
 Style/TrailingCommaInArrayLiteral:
   EnforcedStyleForMultiline: consistent_comma

@@ -1,0 +1,22 @@
+module Dexpace
+  class Protocol < Data
+    include Model
+
+    WIRE_FORMS: Array[String]
+    ALIASES: Hash[String, String]
+
+    HTTP_1_1: Protocol
+    HTTP_2: Protocol
+
+    attr_reader wire: String
+
+    private def self.new: (wire: String) -> instance
+    def initialize: (wire: String) -> void
+
+    def self.build: (wire: String) -> Protocol
+    def self.parse: (String | Protocol text) -> Protocol
+    private def self.printable_ascii?: (String identifier) -> bool
+
+    def to_s: () -> String
+  end
+end

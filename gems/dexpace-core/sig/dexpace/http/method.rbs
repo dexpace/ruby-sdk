@@ -1,0 +1,30 @@
+module Dexpace
+  class Method < Data
+    include Model
+
+    IDEMPOTENT: Array[String]
+    BODY_FORBIDDEN: Array[String]
+
+    GET: Method
+    HEAD: Method
+    POST: Method
+    PUT: Method
+    PATCH: Method
+    DELETE: Method
+    OPTIONS: Method
+    TRACE: Method
+    CONNECT: Method
+
+    attr_reader token: String
+
+    private def self.new: (token: String | Symbol) -> instance
+    def initialize: (token: String | Symbol) -> void
+
+    def self.build: (token: String | Symbol) -> Method
+    def self.of: (String | Symbol | Method token) -> Method
+
+    def to_s: () -> String
+    def idempotent?: () -> bool
+    def body_forbidden?: () -> bool
+  end
+end

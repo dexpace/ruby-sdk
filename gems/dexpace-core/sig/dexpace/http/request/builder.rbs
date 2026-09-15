@@ -1,0 +1,20 @@
+module Dexpace
+  class Request
+    class Builder
+      include Dexpace::Builder
+
+      def initialize: (?method: (String | Symbol | Method)?, ?url: (String | URI::Generic)?,
+                       ?headers: Headers?, ?body: untyped) -> void
+      attr_writer method: (String | Symbol | Method)?
+      attr_writer url: (String | URI::Generic)?
+      attr_writer body: untyped
+      def headers=: (Headers headers) -> Headers
+      def header: (String | HeaderName name, String value) -> self
+      def build: () -> Request
+
+      private
+
+      @headers: Headers?
+    end
+  end
+end

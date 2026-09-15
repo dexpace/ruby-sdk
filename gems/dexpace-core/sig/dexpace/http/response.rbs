@@ -1,0 +1,29 @@
+module Dexpace
+  class Response < Data
+    include Model
+
+    attr_reader request: Request
+    attr_reader protocol: Protocol
+    attr_reader status: Status
+    attr_reader reason: String?
+    attr_reader headers: Headers
+    attr_reader body: untyped
+
+    private def self.new: (request: Request, protocol: String | Protocol, status: Integer | Status,
+                           reason: String?, headers: Headers, body: untyped) -> instance
+    def initialize: (request: Request, protocol: String | Protocol, status: Integer | Status,
+                     reason: String?, headers: Headers, body: untyped) -> void
+
+    def self.build: (request: Request, protocol: String | Protocol, status: Integer | Status,
+                     headers: Headers, ?reason: String?, ?body: untyped) -> Response
+    def self.builder: () -> Response::Builder
+
+    def new_builder: () -> Response::Builder
+    def informational?: () -> bool
+    def success?: () -> bool
+    def redirect?: () -> bool
+    def client_error?: () -> bool
+    def server_error?: () -> bool
+    def error?: () -> bool
+  end
+end

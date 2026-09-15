@@ -1,2 +1,212 @@
 Dexpace
+Dexpace::Builder
+Dexpace::Builder#build
+Dexpace::Builder.build_all
+Dexpace::Error
+Dexpace::HeaderName
+Dexpace::HeaderName#==
+Dexpace::HeaderName#eql?
+Dexpace::HeaderName#folded
+Dexpace::HeaderName#hash
+Dexpace::HeaderName#original
+Dexpace::HeaderName#to_s
+Dexpace::HeaderName.build
+Dexpace::HeaderName.of
+Dexpace::HeaderSyntax
+Dexpace::HeaderSyntax#ascii_compatible
+Dexpace::HeaderSyntax#escape
+Dexpace::HeaderSyntax#token?
+Dexpace::HeaderSyntax#trim
+Dexpace::HeaderSyntax#valid_inbound_value?
+Dexpace::HeaderSyntax#valid_name?
+Dexpace::HeaderSyntax#valid_outbound_value?
+Dexpace::HeaderSyntax#validate_inbound_value!
+Dexpace::HeaderSyntax#validate_name!
+Dexpace::HeaderSyntax#validate_outbound_value!
+Dexpace::HeaderSyntax::DEL : Integer
+Dexpace::HeaderSyntax::HTAB : Integer
+Dexpace::HeaderSyntax::SPACE : Integer
+Dexpace::HeaderSyntax::TCHAR : Array
+Dexpace::Headers
+Dexpace::Headers#==
+Dexpace::Headers#[]
+Dexpace::Headers#direction
+Dexpace::Headers#each_entry
+Dexpace::Headers#empty?
+Dexpace::Headers#entries
+Dexpace::Headers#eql?
+Dexpace::Headers#hash
+Dexpace::Headers#include?
+Dexpace::Headers#names
+Dexpace::Headers#new_builder
+Dexpace::Headers#size
+Dexpace::Headers.build
+Dexpace::Headers.builder
+Dexpace::Headers.inbound_builder
+Dexpace::Headers::Builder
+Dexpace::Headers::Builder#add
+Dexpace::Headers::Builder#build
+Dexpace::Headers::Builder#direction
+Dexpace::Headers::Builder#remove
+Dexpace::Headers::Builder#set
+Dexpace::Headers::DIRECTIONS : Array
+Dexpace::Headers::EMPTY : Dexpace::Headers
+Dexpace::Headers::EMPTY_INBOUND : Dexpace::Headers
+Dexpace::InvalidArgumentError
+Dexpace::MediaType
+Dexpace::MediaType#charset
+Dexpace::MediaType#matches?
+Dexpace::MediaType#parameters
+Dexpace::MediaType#render
+Dexpace::MediaType#subtype
+Dexpace::MediaType#to_s
+Dexpace::MediaType#type
+Dexpace::MediaType.build
+Dexpace::MediaType.parse
+Dexpace::MediaType::KNOWN_CHARSETS : Array
+Dexpace::MediaType::PSEUDO_CHARSETS : Array
+Dexpace::Method
+Dexpace::Method#body_forbidden?
+Dexpace::Method#idempotent?
+Dexpace::Method#to_s
+Dexpace::Method#token
+Dexpace::Method.build
+Dexpace::Method.of
+Dexpace::Method::BODY_FORBIDDEN : Array
+Dexpace::Method::CONNECT : Dexpace::Method
+Dexpace::Method::DELETE : Dexpace::Method
+Dexpace::Method::GET : Dexpace::Method
+Dexpace::Method::HEAD : Dexpace::Method
+Dexpace::Method::IDEMPOTENT : Array
+Dexpace::Method::OPTIONS : Dexpace::Method
+Dexpace::Method::PATCH : Dexpace::Method
+Dexpace::Method::POST : Dexpace::Method
+Dexpace::Method::PUT : Dexpace::Method
+Dexpace::Method::TRACE : Dexpace::Method
+Dexpace::Model
+Dexpace::Model#with
+Dexpace::Model.frozen_string
+Dexpace::Model.own
+Dexpace::Model.required!
+Dexpace::PercentEncoding
+Dexpace::PercentEncoding#decode_component
+Dexpace::PercentEncoding#encode_component
+Dexpace::PercentEncoding::UNRESERVED : Array
+Dexpace::Protocol
+Dexpace::Protocol#to_s
+Dexpace::Protocol#wire
+Dexpace::Protocol.build
+Dexpace::Protocol.parse
+Dexpace::Protocol::ALIASES : Hash
+Dexpace::Protocol::HTTP_1_1 : Dexpace::Protocol
+Dexpace::Protocol::HTTP_2 : Dexpace::Protocol
+Dexpace::Protocol::WIRE_FORMS : Array
+Dexpace::Query
+Dexpace::Query#==
+Dexpace::Query#[]
+Dexpace::Query#empty?
+Dexpace::Query#encode
+Dexpace::Query#entries
+Dexpace::Query#eql?
+Dexpace::Query#hash
+Dexpace::Query#include?
+Dexpace::Query#names
+Dexpace::Query#new_builder
+Dexpace::Query#to_s
+Dexpace::Query.build
+Dexpace::Query.builder
+Dexpace::Query.parse
+Dexpace::Query::Builder
+Dexpace::Query::Builder#add
+Dexpace::Query::Builder#build
+Dexpace::Query::Builder#remove
+Dexpace::Query::Builder#set
+Dexpace::Query::Builder::SCALARS : Array
+Dexpace::Query::EMPTY : Dexpace::Query
+Dexpace::Request
+Dexpace::Request#==
+Dexpace::Request#body
+Dexpace::Request#eql?
+Dexpace::Request#hash
+Dexpace::Request#headers
+Dexpace::Request#method
+Dexpace::Request#new_builder
+Dexpace::Request#url
+Dexpace::Request.build
+Dexpace::Request.builder
+Dexpace::Request::Builder
+Dexpace::Request::Builder#body=
+Dexpace::Request::Builder#build
+Dexpace::Request::Builder#header
+Dexpace::Request::Builder#headers=
+Dexpace::Request::Builder#method=
+Dexpace::Request::Builder#url=
+Dexpace::RequestOptions
+Dexpace::RequestOptions#max_retries
+Dexpace::RequestOptions#new_builder
+Dexpace::RequestOptions#tags
+Dexpace::RequestOptions#timeout
+Dexpace::RequestOptions.build
+Dexpace::RequestOptions.builder
+Dexpace::RequestOptions::Builder
+Dexpace::RequestOptions::Builder#build
+Dexpace::RequestOptions::Builder#max_retries=
+Dexpace::RequestOptions::Builder#tag
+Dexpace::RequestOptions::Builder#timeout=
+Dexpace::RequestOptions::EMPTY : Dexpace::RequestOptions
+Dexpace::Response
+Dexpace::Response#body
+Dexpace::Response#client_error?
+Dexpace::Response#error?
+Dexpace::Response#headers
+Dexpace::Response#informational?
+Dexpace::Response#new_builder
+Dexpace::Response#protocol
+Dexpace::Response#reason
+Dexpace::Response#redirect?
+Dexpace::Response#request
+Dexpace::Response#server_error?
+Dexpace::Response#status
+Dexpace::Response#success?
+Dexpace::Response.build
+Dexpace::Response.builder
+Dexpace::Response::Builder
+Dexpace::Response::Builder#body=
+Dexpace::Response::Builder#build
+Dexpace::Response::Builder#headers=
+Dexpace::Response::Builder#protocol=
+Dexpace::Response::Builder#reason=
+Dexpace::Response::Builder#request=
+Dexpace::Response::Builder#status=
+Dexpace::Status
+Dexpace::Status#canonical_name
+Dexpace::Status#client_error?
+Dexpace::Status#code
+Dexpace::Status#error?
+Dexpace::Status#informational?
+Dexpace::Status#redirect?
+Dexpace::Status#server_error?
+Dexpace::Status#success?
+Dexpace::Status.build
+Dexpace::Status.canonical_name
+Dexpace::Status.of
+Dexpace::Status::BAD_GATEWAY : Dexpace::Status
+Dexpace::Status::BAD_REQUEST : Dexpace::Status
+Dexpace::Status::CANONICAL_NAMES : Hash
+Dexpace::Status::CREATED : Dexpace::Status
+Dexpace::Status::FORBIDDEN : Dexpace::Status
+Dexpace::Status::GATEWAY_TIMEOUT : Dexpace::Status
+Dexpace::Status::INTERNAL_SERVER_ERROR : Dexpace::Status
+Dexpace::Status::NOT_FOUND : Dexpace::Status
+Dexpace::Status::NOT_IMPLEMENTED : Dexpace::Status
+Dexpace::Status::NOT_MODIFIED : Dexpace::Status
+Dexpace::Status::NO_CONTENT : Dexpace::Status
+Dexpace::Status::OK : Dexpace::Status
+Dexpace::Status::REQUEST_TIMEOUT : Dexpace::Status
+Dexpace::Status::SERVICE_UNAVAILABLE : Dexpace::Status
+Dexpace::Status::TOO_MANY_REQUESTS : Dexpace::Status
+Dexpace::Status::UNAUTHORIZED : Dexpace::Status
+Dexpace::URL
+Dexpace::URL#external_form
+Dexpace::URL#parse!
 Dexpace::VERSION : String
