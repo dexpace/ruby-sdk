@@ -10,13 +10,15 @@ require "dexpace"
 # keeps all five precedence branches. State is one frozen Data snapshot swapped under a
 # Thread::Mutex, so a reader takes one unsynchronised reference read and sees a consistent picture.
 #
-# Five classes because Metrics/ClassLength caps one at 100 lines: the five resolution branches
-# here, then Installation (SEAM-6/SEAM-8), Concurrency (SEAM-9), Reentrancy (a factory that
-# reaches back into a registry) and Swap (the unchecked override seam).
+# Six classes because Metrics/ClassLength caps one at 100 lines: the five resolution branches
+# here, then Callable (the #call duck type's runtime half), Installation (SEAM-6/SEAM-8),
+# Concurrency (SEAM-9), Reentrancy (a factory that reaches back into a registry) and Swap (the
+# unchecked override seam).
 class DexpaceRegistryTest < DexpaceTestCase
   CORE = "~> 0.0"
 
-  # One shared factory for the four classes, so every registry under test is shaped the same.
+  # One shared factory for the registry-driving classes, so every registry under test is shaped
+  # the same.
   module Builds
     def registry(conforms: ->(_object) { true })
       Dexpace::Registry.new(
@@ -120,32 +122,53 @@ class DexpaceRegistryTest < DexpaceTestCase
     refute_same(subject.registered_keys, subject.registered_keys)
   end
 
-  test "callable? accepts every callable shape that can take three positional arguments" do
-    assert(Dexpace::Registry.callable?(->(_a, _b, _c) {}, arity: 3))
-    assert(Dexpace::Registry.callable?(proc { |_a, _b, _c| }, arity: 3))
-    assert(Dexpace::Registry.callable?(->(*) {}, arity: 3))
-    assert(Dexpace::Registry.callable?(->(_a, _b = 1, _c = 2) {}, arity: 3))
-    refute(Dexpace::Registry.callable?(->(_a) {}, arity: 3))
-    refute(Dexpace::Registry.callable?(->(_a, _b, _c, _d) {}, arity: 3))
-    refute(Dexpace::Registry.callable?(Object.new, arity: 3))
-    refute(Dexpace::Registry.callable?(nil, arity: 3))
-  end
+  # The runtime half of the #call duck type both transport seams share (SEAM-11, SEAM-16): what
+  # Transport.conforms? and AsyncTransport.conforms? are made of.
+  class Callable < DexpaceTestCase
+    test "callable? accepts every callable shape that can take three positional arguments" do
+      assert(Dexpace::Registry.callable?(->(_a, _b, _c) {}, arity: 3))
+      assert(Dexpace::Registry.callable?(proc { |_a, _b, _c| }, arity: 3))
+      assert(Dexpace::Registry.callable?(->(*) {}, arity: 3))
+      assert(Dexpace::Registry.callable?(->(_a, _b = 1, _c = 2) {}, arity: 3))
+      refute(Dexpace::Registry.callable?(->(_a) {}, arity: 3))
+      refute(Dexpace::Registry.callable?(->(_a, _b, _c, _d) {}, arity: 3))
+      refute(Dexpace::Registry.callable?(Object.new, arity: 3))
+      refute(Dexpace::Registry.callable?(nil, arity: 3))
+    end
 
-  # An object whose #call comes from method_missing has no introspectable parameters and is
-  # admitted rather than refused, because refusing it would reject a legitimate delegator. So is
-  # one that answers respond_to?(:call) without respond_to_missing?, whose #method raises
-  # NameError: the predicate admits what it cannot read rather than refusing it.
-  test "callable? admits a call reached through method_missing or an unreadable one" do
-    ghost = Class.new do
-      def respond_to_missing?(name, include_private = false) = name == :call || super
-      def method_missing(name, *args) = name == :call ? args : super
-    end.new
-    liar = Class.new do
-      def respond_to?(name, *) = name == :call || super
-    end.new
+    # "Admits exactly `arity` positional arguments" has to mean the call succeeds with exactly
+    # those and nothing else. A required keyword makes that call ArgumentError: missing keyword,
+    # so a near-miss with three positionals and a `must:` would pass registration and fail at the
+    # first send -- the outcome the predicate exists to prevent, and a stdlib error where the seam
+    # promises InvalidArgumentError. An optional keyword, a keyword rest and a block parameter all
+    # leave the positional call intact and stay admitted.
+    test "callable? refuses a required keyword and admits the optional keyword shapes" do
+      keyword_object = Class.new { def call(_request, _options, _cancellation, must:) = must }.new
 
-    assert(Dexpace::Registry.callable?(ghost, arity: 3))
-    assert(Dexpace::Registry.callable?(liar, arity: 3))
+      refute(Dexpace::Registry.callable?(->(_a, _b, _c, must:) {}, arity: 3))
+      refute(Dexpace::Registry.callable?(->(*, must:) {}, arity: 3))
+      refute(Dexpace::Registry.callable?(keyword_object, arity: 3))
+      assert(Dexpace::Registry.callable?(->(_a, _b, _c, may: nil) {}, arity: 3))
+      assert(Dexpace::Registry.callable?(->(_a, _b, _c, **) {}, arity: 3))
+      assert(Dexpace::Registry.callable?(->(_a, _b, _c, &_block) {}, arity: 3))
+    end
+
+    # An object whose #call comes from method_missing has no introspectable parameters and is
+    # admitted rather than refused, because refusing it would reject a legitimate delegator. So is
+    # one that answers respond_to?(:call) without respond_to_missing?, whose #method raises
+    # NameError: the predicate admits what it cannot read rather than refusing it.
+    test "callable? admits a call reached through method_missing or an unreadable one" do
+      ghost = Class.new do
+        def respond_to_missing?(name, include_private = false) = name == :call || super
+        def method_missing(name, *args) = name == :call ? args : super
+      end.new
+      liar = Class.new do
+        def respond_to?(name, *) = name == :call || super
+      end.new
+
+      assert(Dexpace::Registry.callable?(ghost, arity: 3))
+      assert(Dexpace::Registry.callable?(liar, arity: 3))
+    end
   end
 
   # SEAM-6's conflict rule and SEAM-8's warning, by the prior-state table design §3.6 fixes.

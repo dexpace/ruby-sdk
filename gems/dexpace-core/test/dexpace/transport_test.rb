@@ -24,6 +24,7 @@ class DexpaceTransportTest < DexpaceTestCase
 
   test "conforms? refuses the wrong arity and anything that is not callable" do
     refute(Dexpace::Transport.conforms?(->(_request) {}))
+    refute(Dexpace::Transport.conforms?(->(_request, _options, _cancellation, must:) {}))
     refute(Dexpace::Transport.conforms?(Object.new))
     refute(Dexpace::Transport.conforms?(nil))
   end

@@ -208,6 +208,21 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
       assert_equal(:outbound, request.headers.direction)
     end
 
+    # The header side takes the query side's reading of nil, not the path side's: a header can be
+    # left out where a placeholder cannot, and a generated client passing an unset optional header
+    # as nil must not send `X-Trace:` with an empty value. An empty String is a value and goes out.
+    test "an absent or nil optional header input contributes nothing; an empty one is sent" do
+      subject = operation(projections: { trace: [:header, "X-Trace"] })
+
+      unset = subject.build_request(base_url: "https://host")
+      nil_input = subject.build_request(base_url: "https://host", inputs: { trace: nil })
+      empty = subject.build_request(base_url: "https://host", inputs: { trace: "" })
+
+      refute_includes(unset.headers, "X-Trace")
+      refute_includes(nil_input.headers, "X-Trace")
+      assert_equal([""], empty.headers["X-Trace"])
+    end
+
     test "a header projection carrying a CRLF is rejected by phase 1's validation, here" do
       subject = operation(projections: { trace: [:header, "X-Trace"] })
 

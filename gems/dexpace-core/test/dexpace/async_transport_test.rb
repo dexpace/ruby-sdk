@@ -18,6 +18,7 @@ class DexpaceAsyncTransportTest < DexpaceTestCase
     assert(Dexpace::AsyncTransport.conforms?(FakeAsyncTransport.new))
     assert(Dexpace::AsyncTransport.conforms?(->(_r, _o, _c) {}))
     refute(Dexpace::AsyncTransport.conforms?(Object.new))
+    refute(Dexpace::AsyncTransport.conforms?(->(_r, _o, _c, must:) {}))
     # The two seams differ only in return type, which no predicate can check before the first
     # call. They are two registries, and an adapter names which it registers into.
     assert(Dexpace::Transport.conforms?(FakeAsyncTransport.new))

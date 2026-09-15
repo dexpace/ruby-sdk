@@ -4,7 +4,8 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# Design §9 Addendum A1 and verified fact 2. dexpace-async-thread defines Dexpace::Async::Thread,
+# SEAM-16, SEAM-17 -- the pivot's implementation under the adapter namespace; design §9 Addendum
+# A1 and verified fact 2. dexpace-async-thread defines Dexpace::Async::Thread,
 # after which a bare `Thread` written inside module Dexpace::Async resolves to that module rather
 # than to Ruby's class -- and dexpace-core's own suite never requires that gem, so this is the only
 # place core can catch it. Task 3's cop is the other half: the cop catches it on a file nobody ran,
