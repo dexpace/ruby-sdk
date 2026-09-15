@@ -12,8 +12,8 @@ require "dexpace"
 #
 # Six classes because Metrics/ClassLength caps one at 100 lines: the five resolution branches
 # here, then Callable (the #call duck type's runtime half), Installation (SEAM-6/SEAM-8),
-# Concurrency (SEAM-9), Reentrancy (a factory that reaches back into a registry) and Swap (the
-# unchecked override seam).
+# Concurrency (SEAM-9), Reentrancy (a factory, or an #inspect, that reaches back into a
+# registry) and Swap (the unchecked override seam).
 class DexpaceRegistryTest < DexpaceTestCase
   CORE = "~> 0.0"
 
@@ -438,6 +438,44 @@ class DexpaceRegistryTest < DexpaceTestCase
 
       assert(retried.join(5), "the registry wedged into a spin instead of re-evaluating")
       assert_equal(:recovered, retried.value)
+    end
+
+    # Both conflict messages interpolate #inspect of two user objects. Built under @write, an
+    # #inspect that reaches back into the registry -- here one that registers a second key, which
+    # takes the lock -- met `ThreadError: deadlock; recursive locking` instead of the argument
+    # error, on every supported Ruby; the messages are built after the block, as the warning is.
+    test "a registration conflict's message is built outside the lock" do
+      subject = registry
+      subject.register(:key, -> { :first }, core: CORE)
+
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        subject.register(:key, reaching_into(subject), core: CORE)
+      end
+
+      assert_match(/reaching/, error.message)
+      assert_equal(%i[key probe], subject.registered_keys.sort)
+    end
+
+    test "an install conflict's message is built outside the lock" do
+      subject = registry
+      subject.install(Object.new)
+
+      error = assert_raises(Dexpace::InvalidArgumentError) { subject.install(reaching_into(subject)) }
+
+      assert_match(/reaching/, error.message)
+      assert_equal([:probe], subject.registered_keys)
+    end
+
+    private
+
+    # An object whose #inspect registers a key on `subject`, taking its write lock.
+    def reaching_into(subject)
+      reaching = Object.new
+      reaching.define_singleton_method(:inspect) do
+        subject.register(:probe, -> { :probe }, core: CORE)
+        "reaching"
+      end
+      reaching
     end
   end
 
