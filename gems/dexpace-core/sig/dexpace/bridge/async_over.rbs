@@ -1,0 +1,20 @@
+module Dexpace
+  module Bridge
+    class AsyncOver
+      include Dexpace::Closeable
+
+      @transport: untyped
+      @executor: untyped
+
+      def initialize: (untyped transport, untyped executor) -> void
+      def call: (untyped request, untyped options, Dexpace::Cancellation? cancellation) -> Dexpace::Async::Future
+
+      private
+
+      def deliver: (
+        Dexpace::Async::Completer completer, untyped request, untyped options,
+        Dexpace::Cancellation? cancellation,
+      ) -> bool
+    end
+  end
+end

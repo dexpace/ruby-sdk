@@ -1,0 +1,61 @@
+module Dexpace
+  class Operation < Data
+    include Dexpace::Model
+
+    # Three private_constants with no visibility in RBS; declared so Steep can type the scans.
+    TARGETS: Array[Symbol]
+    PLACEHOLDER: Regexp
+    BRACE: Regexp
+
+    attr_reader method: Dexpace::Method
+    attr_reader template: String
+    attr_reader projections: Hash[untyped, [Symbol, String]]
+
+    private def self.new: (
+      method: Dexpace::Method | String | Symbol, template: String,
+      projections: Hash[untyped, untyped],
+    ) -> instance
+    def initialize: (
+      method: Dexpace::Method | String | Symbol, template: String,
+      projections: Hash[untyped, untyped],
+    ) -> void
+
+    def self.build: (
+      method: Dexpace::Method | String | Symbol,
+      template: String,
+      ?projections: Hash[untyped, untyped],
+    ) -> Dexpace::Operation
+    def self.placeholders_in: (untyped text) -> Array[String]
+
+    def placeholders: () -> Array[String]
+    def build_request: (
+      base_url: String | URI::Generic,
+      ?inputs: Hash[untyped, untyped],
+    ) -> Dexpace::Request
+
+    private
+
+    def render_path: (Hash[untyped, untyped] inputs) -> String
+    def render_query: (Hash[untyped, untyped] inputs) -> String
+    def render_headers: (Hash[untyped, untyped] inputs) -> Dexpace::Headers
+    def validated_base: (untyped base_url) -> URI::Generic
+    def body_input: (Hash[untyped, untyped] inputs) -> untyped
+
+    # Two private_constants with no visibility in RBS; declared so Steep can type the checks
+    # and the composition.
+    module Validation
+      def self?.projections: (untyped projections) -> Hash[untyped, [Symbol, String]]
+      def self?.projection: (untyped key, untyped projection) -> [Symbol, String]
+      def self?.target: (untyped key, untyped target) -> Symbol
+      def self?.wire_name: (untyped key, untyped name) -> String
+      def self?.template!: (String text, Hash[untyped, [Symbol, String]] table) -> void
+      def self?.placeholders: (String text) -> Array[String]
+    end
+
+    module Composition
+      def self?.compose: (URI::Generic base, String path, String query) -> URI::Generic
+      def self?.compose_path: (String base_path, String operation_path) -> String
+      def self?.compose_query: (String base_query, String operation_query) -> String?
+    end
+  end
+end

@@ -1,0 +1,24 @@
+module Dexpace
+  # Differs from _Transport in exactly one position, the return type -- the whole of what
+  # .conforms? cannot check and the reason both interfaces are declared at all.
+  interface _AsyncTransport
+    def call: (
+      Dexpace::Request request,
+      Dexpace::RequestOptions options,
+      Dexpace::Cancellation? cancellation,
+    ) -> Dexpace::Async::Future
+  end
+
+  module AsyncTransport
+    # A private_constant with no visibility in RBS; declared so Steep can type the delegations.
+    REGISTRY: Dexpace::Registry
+
+    def self.conforms?: (untyped object) -> bool
+    def self.register: (untyped key, untyped factory, core: String) -> singleton(Dexpace::AsyncTransport)
+    def self.install: (untyped transport) -> singleton(Dexpace::AsyncTransport)
+    def self.resolve: () -> untyped
+    def self.registered_keys: () -> Array[untyped]
+    def self.swap: (untyped transport) { (untyped) -> void } -> void
+    def self.sync_over: (untyped transport) -> Dexpace::Bridge::SyncOver
+  end
+end

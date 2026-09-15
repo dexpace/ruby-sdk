@@ -1,0 +1,67 @@
+module Dexpace
+  class Registry
+    # Two private_constants with no visibility in RBS, declared so Steep can type the snapshot
+    # swap. `untyped` on every provider-shaped member is deliberate and is what NFR-11 wants: a
+    # seam's provider is whatever an adapter supplies, and naming a type here would either be
+    # `Object` or a constant outside Dexpace::.
+    CORE_REQUIREMENT: Regexp
+    EMPTY: State
+
+    class State < Data
+      attr_reader factories: Hash[untyped, untyped]
+      attr_reader resolved: untyped
+      attr_reader handed_out: bool
+      attr_reader explicit: bool
+      attr_reader resolving: Claim?
+
+      def self.new: (
+        factories: Hash[untyped, untyped], resolved: untyped, handed_out: bool, explicit: bool,
+        resolving: Claim?,
+      ) -> instance
+      def with: (
+        ?factories: Hash[untyped, untyped], ?resolved: untyped, ?handed_out: bool,
+        ?explicit: bool, ?resolving: Claim?,
+      ) -> State
+    end
+
+    # The owner is a Fiber, typed untyped so no constant outside Dexpace:: and the stdlib
+    # allowlist enters a signature (NFR-11); nothing outside the claim swap reads it.
+    class Claim < Data
+      attr_reader gate: Thread::Queue
+      attr_reader owner: untyped
+
+      def self.new: (gate: Thread::Queue, owner: untyped) -> instance
+    end
+
+    @installer: String
+    @conforms: ^(untyped) -> bool
+    @write: Thread::Mutex
+    @state: State
+
+    attr_reader seam: String
+
+    def self.callable?: (untyped object, arity: Integer) -> bool
+    private def self.accepts_positionals?: (Method::param_types parameters, Integer arity) -> bool
+
+    def initialize: (seam: String, installer: String, conforms: ^(untyped) -> bool) -> void
+    def registered_keys: () -> Array[untyped]
+    def register: (untyped key, untyped factory, core: String) -> self
+    def install: (untyped provider) -> self
+    def resolve: () -> untyped
+    def swap: (untyped provider) { (untyped) -> void } -> void
+
+    private
+
+    def take_or_join_claim: () -> [Claim?, bool]
+    def wait_on: (Claim? claim) -> void
+    def conflict!: (State state, untyped provider) -> bot
+    def raise_reentrant!: () -> bot
+    def complete_resolution: (Thread::Queue gate) -> untyped
+    def hand_out: (untyped provider) -> untyped
+    def build_sole_provider: () -> untyped
+    def sole_key: () -> untyped
+    def refuse: (untyped provider) -> bot
+    def warn_replaced: (untyped provider) -> void
+    def assert_core_version!: (untyped key, untyped requirement) -> void
+  end
+end
