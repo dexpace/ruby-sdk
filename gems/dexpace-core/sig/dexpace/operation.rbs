@@ -2,10 +2,11 @@ module Dexpace
   class Operation < Data
     include Dexpace::Model
 
-    # Three private_constants with no visibility in RBS; declared so Steep can type the scans.
+    # Four private_constants with no visibility in RBS; declared so Steep can type the scans.
     TARGETS: Array[Symbol]
     PLACEHOLDER: Regexp
     BRACE: Regexp
+    PATH_LITERAL: Regexp
 
     attr_reader method: Dexpace::Method
     attr_reader template: String
@@ -50,6 +51,7 @@ module Dexpace
       def self?.wire_name: (untyped key, untyped name) -> String
       def self?.template!: (String text, Hash[untyped, [Symbol, String]] table) -> void
       def self?.placeholders: (String text) -> Array[String]
+      def self?.literal!: (String text) -> void
     end
 
     module Composition

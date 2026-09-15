@@ -46,6 +46,16 @@ module Dexpace
     BRACE = Regexp.new("[{}]", timeout: 1.0)
     private_constant :BRACE
 
+    # RFC 3986 `path` with the placeholders removed: every character a pchar -- unreserved,
+    # sub-delims, ":" or "@" -- or "/", and every "%" opening a two-hex-digit escape. The same
+    # grammar URI::Generic#path= enforces at assembly, checked here so the failure is the SDK's own
+    # argument error at construction rather than a stdlib URI::InvalidComponentError at the first
+    # #build_request (SEAM-27's "resolving to a malformed URL is rejected with a context-bearing
+    # error"). The set is spelled out rather than borrowed from URI: phase 1's URL is the one
+    # place core reaches URI, and rbs declares its parser as an empty class.
+    PATH_LITERAL = Regexp.new("\\A(?:%\\h\\h|[A-Za-z0-9\\-._~!$&'()*+,;=:@/])*\\z", timeout: 1.0)
+    private_constant :PATH_LITERAL
+
     private_class_method :new
 
     # The validating factory every construction path goes through.
@@ -86,8 +96,8 @@ module Dexpace
     #   pins URI::RFC3986_PARSER and rejects a non-absolute or malformed URL with the offending
     #   input in the message (HTTP-47)
     # @param inputs [Hash] operation arguments, keyed as the projection table is
-    # @raise [Dexpace::InvalidArgumentError] a base carrying a fragment, or a projected path input
-    #   with no value
+    # @raise [Dexpace::InvalidArgumentError] a base carrying a fragment or no hierarchical part,
+    #   or a projected path input with no value
     def build_request(base_url:, inputs: {})
       base = validated_base(base_url)
       builder = Dexpace::Request.builder
@@ -100,10 +110,18 @@ module Dexpace
 
     private
 
-    # Phase 1's URL.parse! rejects the malformed and non-absolute case naming the input; the one
-    # rule it does not carry is SEAM-27's: a base carrying a fragment is refused, naming the base.
+    # Phase 1's URL.parse! rejects the malformed and non-absolute case naming the input; the two
+    # rules it does not carry are SEAM-27's. A base carrying a fragment is refused, naming the
+    # base. So is one with no hierarchical part -- "mailto:x@y", "urn:isbn:123" -- because there
+    # is no path to compose onto: URI::Generic#path= on such a base raises a stdlib
+    # "path conflicts with opaque", which is the leak this method exists to convert.
     def validated_base(base_url)
       base = Dexpace::URL.parse!(base_url)
+      unless base.hierarchical?
+        raise Dexpace::InvalidArgumentError,
+              "a base URL must have a hierarchical part to compose onto: " \
+              "#{Dexpace::URL.external_form(base)}"
+      end
       return base if base.fragment.nil?
 
       raise Dexpace::InvalidArgumentError,
@@ -248,18 +266,33 @@ module Dexpace
       end
 
       # The placeholder names, once the template is known to be well-formed: every brace paired,
-      # and no placeholder empty.
+      # the literal text a URI path, and no placeholder empty.
       def placeholders(text)
-        if BRACE.match?(text.gsub(PLACEHOLDER, ""))
-          raise Dexpace::InvalidArgumentError, "template has an unbalanced brace: #{text}"
-        end
-
+        literal!(text)
         declared = Operation.placeholders_in(text)
         if declared.any?(&:empty?)
           raise Dexpace::InvalidArgumentError, "template has an empty placeholder: #{text}"
         end
 
         declared
+      end
+
+      # The template with its placeholders removed: every brace must be paired, and what is left
+      # must be an RFC 3986 path. A placeholder's value is not the literal's concern -- it is
+      # encoded to pchars at assembly -- but the literal text between placeholders is copied onto
+      # the wire as it stands, so "/x?y", "/a b", "/pets/ü" and "/100%" are refused here, naming
+      # the template, rather than surfacing as URI::InvalidComponentError from the first
+      # #build_request. An already-encoded literal such as "/a%20b" is a path and passes.
+      def literal!(text)
+        literal = text.gsub(PLACEHOLDER, "")
+        if BRACE.match?(literal)
+          raise Dexpace::InvalidArgumentError, "template has an unbalanced brace: #{text}"
+        end
+        return if PATH_LITERAL.match?(literal)
+
+        raise Dexpace::InvalidArgumentError,
+              "template #{text.inspect} is not a URI path: outside a placeholder every " \
+              "character must be a pchar or \"/\", and every \"%\" must open a two-digit escape"
       end
     end
     private_constant :Validation
