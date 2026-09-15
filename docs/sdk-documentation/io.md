@@ -125,15 +125,19 @@ BINARY chunks, so it can be handed to anything that consumes one.
 A view is a `BufferedSource` over another source that reads without advancing its parent's
 cursor. `#peek` covers the whole remaining source; `#slice(offset:, count:)` covers at most `count`
 bytes starting `offset` ahead of the cursor. Both drive the parent's fill as needed, so a view can
-read bytes the parent has not pulled from its upstream yet.
+read bytes the parent has not pulled from its upstream yet — and they drive it the way the root
+does: `#read_into`, `#readpartial` and `#each` on a view fill the parent once, until a byte the
+view wants has arrived, and return what came with it, while `#read(n)` and `#read_exactly(n)` fill
+to the count. A peek over a live response body returns what the peer has sent so far rather than
+waiting for `count` bytes that may never come.
 
 ```ruby
 source = Dexpace::IO::BufferedSource.of_bytes("abcdef")
 source.peek.read                     # => "abcdef"
 source.read_exactly(2)               # => "ab" -- the peek consumed nothing
-slice = source.slice(offset: 1, count: 2)
-slice.read                           # => "de"
-source.read                          # => "cdef"
+slice = source.slice(offset: 1, count: 3)
+slice.read_exactly(1)                # => "d" -- "ef" still unread in the window
+source.read                          # => "cdef" -- the parent passes the slice's next byte
 slice.read                           # raises Dexpace::ClosedError: the window is "behind" the cursor
 ```
 
@@ -150,7 +154,8 @@ this port fixes:
 - **The parent holds nothing back for a view.** Its retention floor is its own cursor: a view
   reading ahead of the parent retains what it reads ahead, and a view whose next byte the parent
   has already consumed fails loudly rather than serving bytes from somewhere else. Bytes a view
-  has already read are behind it and the parent may pass them freely.
+  has already read are behind it and the parent may pass them freely: a slice that has pulled its
+  whole window keeps answering `""` at its end whatever the parent reads afterwards.
 
 ## The buffer
 

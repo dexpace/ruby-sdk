@@ -22,7 +22,7 @@ Forty-two: `IO-1`–`IO-42`.
 
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
-| `IO-1` | MUST | ✅ | 5 | `Dexpace::IO::TypedReads#read_into(dest, count:)` — the primitive, deliberately not `#read` (P3-1): it appends to the tail of a BINARY `dest`, returns at least 1 when `count` is positive and the source is not exhausted, exactly 0 for a zero count, `-1` when exhausted before any byte, never more than `count`, and fills at most once before serving. The count the caller asked for is the count the fill hook receives, so a wrapped stream is asked for `count` bytes and not for one (the plan's 2026-09-13 amendment; guard run red below). Asserted against `#read` on the same non-empty buffer in one test, so a later merge of the two turns red (`dexpace/io/typed_reads_test.rb`, the primitive rows and `Bridge`) |
+| `IO-1` | MUST | ✅ | 5 | `Dexpace::IO::TypedReads#read_into(dest, count:)` — the primitive, deliberately not `#read` (P3-1): it appends to the tail of a BINARY `dest`, returns at least 1 when `count` is positive and the source is not exhausted, exactly 0 for a zero count, `-1` when exhausted before any byte, never more than `count`, and fills at most once before serving — through a view too, since review round 0: a `#peek` or `#slice` fills its parent until a byte past the view's own position has arrived and returns what came with it, never looping to `count` (R0-1; `ViewFills`, and `dexpace/io/buffered_source_test.rb`, `Views`, over a live `IO.pipe` with the writer still open; guard run red below). The count the caller asked for is the count the fill hook receives, so a wrapped stream is asked for `count` bytes and not for one, through a view as well (the plan's 2026-09-13 amendment; guards run red below). Asserted against `#read` on the same non-empty buffer in one test, so a later merge of the two turns red (`dexpace/io/typed_reads_test.rb`, the primitive rows and `Bridge`) |
 | `IO-2` | MUST | ✅ | 5 | A zero count returns 0 and never `-1`, on an exhausted source too, and touches neither the buffer nor the fill hook. The check sits after `IO-42`'s close check, so a closed stream-backed source refuses a zero-count read as it refuses every other (plan decision 5) (`dexpace/io/typed_reads_test.rb`; `dexpace/io/buffered_source_test.rb`, `Close`) |
 | `IO-3` | MUST | ✅ | 5, 6, 9, 11, 12 | A negative or non-`Integer` count, offset, length or maxlen is `Dexpace::InvalidArgumentError` naming the argument and the value, before any I/O and with no partial side effect — asserted for `#read_into`, `#read`, `#readpartial`, `#read_exactly`, `#skip`, `#read_string`, `#slice`, `#write_from` and `#copy_to`; `#read_into` also refuses a non-`String`, frozen or non-BINARY destination the same way (`dexpace/io/typed_reads_test.rb`, `Rejections`; `dexpace/io/typed_writes_test.rb`, `WriteFrom`; `dexpace/io/buffer_test.rb`, `CopyTo`) |
 | `IO-4` | MUST | ✅ | 11, 13, 14 | `TypedWrites#write_from(buffer, count:)` removes exactly `count` bytes from the head of a `Dexpace::IO::Buffer` and pushes them; a buffer holding fewer raises `Dexpace::StreamError.short_transfer` naming both counts and consumes nothing; a zero count is a no-op; a non-`Buffer` is refused. Re-tested against a real `Buffer` into a `BufferedSink` over a `StringIO` and through a `TeeSink` (`dexpace/io/typed_writes_test.rb`, `WriteFrom`; `dexpace/io/buffered_sink_test.rb`; `dexpace/io/tee_sink_test.rb`, `Vocabulary`) |
@@ -37,13 +37,13 @@ Forty-two: `IO-1`–`IO-42`.
 | `IO-13` | MUST | ✅ | 6, 11 | Read side: `#read_utf8` and `#read_string(encoding)` retag the drained BINARY bytes with the named `Encoding` (or name), validate nothing — `#valid_encoding?` is the caller's question and `HTTP-42`'s replacement policy is 3b's — and refuse an unknown name before touching the stream. Write side: `#write_utf8(string, range: nil)` with a character range, and `#write_string(string, encoding:)`, which encodes into the named charset and refuses text it cannot represent. Every fixture is non-ASCII (`dexpace/io/typed_reads_test.rb`, `Charsets`; `dexpace/io/typed_writes_test.rb`, `Charsets`) |
 | `IO-14` | MUST | ✅ | 7 | `#read_line_utf8`, hand-implemented over the chunk store and never `#gets`: `"\n"` and `"\r\n"` terminate and are consumed, a lone `"\r"` is content, a final unterminated line comes back as-is, `nil` when exhausted before any byte, a terminator split across two chunks is one terminator, the result is UTF-8-tagged. A 48-sample property over a pool including `"a\rb"`, `"é"` and `"hé\rllo"` mixes both terminators, an optional missing final one, and random chunk splits (`dexpace/io/typed_reads_test.rb`, `Lines`) |
 | `IO-15` | MUST | ✅ | 6 | `#skip(count)` advances past exactly `count` bytes across chunk boundaries, raises `Dexpace::EndOfStreamError` consuming nothing when fewer remain, and `#skip(0)` is a no-op at and after EOF (`dexpace/io/typed_reads_test.rb`, `Typed`) |
-| `IO-16` | SHOULD | ✅ | 8, 10, 11, 13 | The bridge is the source (R4): `#read(length = nil, outbuf = nil)`, `#readpartial(maxlen, outbuf = nil)`, `#getbyte`, `#readbyte` and `#each` carry Ruby's own semantics, end of stream the host-native way — `nil` from `#read`/`#getbyte`, `Dexpace::EndOfStreamError < ::EOFError` from `#readpartial`/`#readbyte` (P3-2) — and `outbuf` comes back BINARY whatever it arrived as (P3-13). Proved rather than restated: `IO.copy_stream` over a `BufferedSource.wrapping(pipe_end)` delivers the payload intact, terminates on the `EOFError` subclass, and closing the source afterwards closes the pipe; `#read(2, buf)` overwrites where `#read_into(buf, count: 2)` appends, in one test. The writable half: `TypedWrites#write(*strings)` returns the byte count, and `IO.copy_stream` writes into a `BufferedSink.wrapping(io)` and into a `TeeSink` (`dexpace/io/typed_reads_test.rb`, `Bridge`; `dexpace/io/buffered_source_test.rb`, `Bridge`; `dexpace/error/end_of_stream_error_test.rb`; `dexpace/io/buffered_sink_test.rb`; `dexpace/io/tee_sink_test.rb`, `Vocabulary`) |
+| `IO-16` | SHOULD | ✅ | 8, 10, 11, 13 | The bridge is the source (R4): `#read(length = nil, outbuf = nil)`, `#readpartial(maxlen, outbuf = nil)`, `#getbyte`, `#readbyte` and `#each` carry Ruby's own semantics, end of stream the host-native way — `nil` from `#read`/`#getbyte`, `Dexpace::EndOfStreamError < ::EOFError` from `#readpartial`/`#readbyte` (P3-2) — and `outbuf` comes back BINARY whatever it arrived as (P3-13). Proved rather than restated: `IO.copy_stream` over a `BufferedSource.wrapping(pipe_end)` delivers the payload intact, terminates on the `EOFError` subclass, and closing the source afterwards closes the pipe; `#read(2, buf)` overwrites where `#read_into(buf, count: 2)` appends, in one test. Through a view the bridge keeps Ruby's semantics too, since review round 0: on a peek over a live `IO.pipe` with the writer open, `#readpartial(100)` returns the ten bytes that have arrived and `#each` yields them, as the root does, where before R0-1 both blocked to the count (`dexpace/io/buffered_source_test.rb`, `Views`; `dexpace/io/typed_reads_test.rb`, `ViewFills`). The writable half: `TypedWrites#write(*strings)` returns the byte count, and `IO.copy_stream` writes into a `BufferedSink.wrapping(io)` and into a `TeeSink` (`dexpace/io/typed_reads_test.rb`, `Bridge`; `dexpace/io/buffered_source_test.rb`, `Bridge`; `dexpace/error/end_of_stream_error_test.rb`; `dexpace/io/buffered_sink_test.rb`; `dexpace/io/tee_sink_test.rb`, `Vocabulary`) |
 | `IO-17` | MUST | ✅ | 11, 13 | `TypedWrites#write_all(source)` pumps anything responding to `#read_into` through 64 KiB reads, terminates only on `-1`, returns the total, and raises `Dexpace::StreamError.zero_read` on a read of 0 for a positive count — unconditionally, because §10.1 retired the adapter and "adapter-native" has no subject here — without spinning; a source's own failure propagates unchanged. `FakeSource` scripts the violation no real stream produces. The symmetric write-side rule: an underlying `#write` that reports fewer bytes than it was handed is `Dexpace::StreamError.short_transfer` (`dexpace/io/typed_writes_test.rb`, `Pump`; `dexpace/io/buffered_sink_test.rb`, `Staging`) |
 | `IO-18` | SHOULD | ✅ | 11, 12, 13, 14 | `#emit` pushes one level and never calls the underlying `#flush`; `#flush` does both. `BufferedSink` stages and pushes in the same `#deliver`, so the staging buffer is empty between calls (plan decision 4); `Buffer`'s two are the no-ops the requirement permits, returning `self`; `TeeSink`'s forward to the primary only (`dexpace/io/buffered_sink_test.rb`, `Staging`; `dexpace/io/buffer_test.rb`; `dexpace/io/tee_sink_test.rb`, `Lifecycle`) |
-| `IO-19` | MUST | ✅ | 9, 10 | `#peek` returns a `BufferedSource` in view mode over the whole remaining source — an unbounded window, never "whatever happens to be buffered" — that drives the parent's fill without advancing the parent's cursor (`dexpace/io/typed_reads_test.rb`, `Views`; `dexpace/io/buffer_test.rb`, `Close`; `dexpace/io/buffered_source_test.rb`, `Counts`) |
+| `IO-19` | MUST | ✅ | 9, 10 | `#peek` returns a `BufferedSource` in view mode over the whole remaining source — an unbounded window, never "whatever happens to be buffered" — that drives the parent's fill without advancing the parent's cursor, one fill per read and returning what arrived, as on the root (review round 0, R0-1) (`dexpace/io/typed_reads_test.rb`, `Views`, `ViewFills`; `dexpace/io/buffer_test.rb`, `Close`; `dexpace/io/buffered_source_test.rb`, `Counts`, `Views`) |
 | `IO-20` | MUST | ✅ | 9, 10 | `#slice(offset:, count:)` exposes at most `count` bytes starting `offset` ahead of the cursor, never advances the parent, and reading past the window behaves as end of window for every read form (`dexpace/io/typed_reads_test.rb`, `Views`) |
 | `IO-21` | MUST | ✅ | 9, 10 | An offset past the end constructs successfully and surfaces on first read as empty/EOF; a negative or non-`Integer` offset or count is refused at construction (`dexpace/io/typed_reads_test.rb`, `Views` and `Ceiling`) |
-| `IO-22` | MUST | ✅ | 5, 9, 10, 12 | Closing a view closes neither its parent nor the parent's cursor and releases its registration; closing the parent — a `BufferedSource` or a `Buffer` — invalidates every outstanding view so that every later read on one raises `Dexpace::ClosedError`, **transitively through a view's own views**, and the two parent-side entry points a view drives (`#dexpace_ensure_buffered`, `#dexpace_window_copy`) check the parent's readability first, so a closed or invalidated intermediate serves nothing (deviation 3 below). P3-5's retention rule: a parent read past a live view's pin makes that view fail loudly naming "behind", never serving other bytes; a view that already pulled its window is unaffected (`dexpace/io/typed_reads_test.rb`, `ViewLifecycle`; `dexpace/io/buffer_test.rb`, `Close`) |
+| `IO-22` | MUST | ✅ | 5, 9, 10, 12 | Closing a view closes neither its parent nor the parent's cursor and releases its registration; closing the parent — a `BufferedSource` or a `Buffer` — invalidates every outstanding view so that every later read on one raises `Dexpace::ClosedError`, **transitively through a view's own views**, and the two parent-side entry points a view drives (`#dexpace_fill_beyond`, `#dexpace_window_copy`) check the parent's readability first, so a closed or invalidated intermediate serves nothing (deviation 3 below). P3-5's retention rule: a parent read past a live view's pin makes that view fail loudly naming "behind", never serving other bytes; a view that already pulled its window is unaffected (`dexpace/io/typed_reads_test.rb`, `ViewLifecycle`; `dexpace/io/buffer_test.rb`, `Close`) |
 | `IO-23` | MUST | ✅ | 9, 10 | Two slices of one source have independent cursors and budgets; a slice of a slice composes offsets additively from the outer view's cursor and is capped at the outer window's remaining bytes, over a partially read outer view too, and a 48-sample property pins it over random offsets and budgets. Reading the outer view past the inner view's pin invalidates the inner one (P3-5 applied recursively) (`dexpace/io/typed_reads_test.rb`, `Views` and `ViewLifecycle`) |
 | `IO-24` | MUST | ✅ | 9, 10 | Every read form on an explicitly closed view — thirteen of them, `#peek` and `#slice` included — raises `Dexpace::ClosedError`, a `StandardError` that is neither an `EOFError` nor a `StreamError` (P3-3) (`dexpace/io/typed_reads_test.rb`, `ViewLifecycle`; `dexpace/io/buffered_source_test.rb`, `Close`) |
 | `IO-25` | MUST | ✅ | 14 | `Dexpace::IO::TeeSink.new(primary:)` mirrors every write into a `Buffer` tap and forwards the full payload to the primary, whose writes are byte-for-byte identical with or without a tap limit; a 48-sample property asserts tap and primary agree over random chunk sequences (`dexpace/io/tee_sink_test.rb`) |
@@ -97,11 +97,11 @@ streaming layer. The gemspec is untouched — zero `add_dependency` lines — an
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15), on the tests tip: green, exit
 0 — `cops:test` 100 runs / 326 assertions, `steep` no type error over the strict `core` target,
-`test:gems` 774 runs / 4,630 assertions across the six gems, 757 / 4,559 of them `dexpace-core`'s,
-with **99.95% line coverage (2,218 / 2,219)** against the 80% floor — the one uncovered line is the
+`test:gems` 783 runs / 4,669 assertions across the six gems, 766 / 4,598 of them `dexpace-core`'s,
+with **99.95% line coverage (2,222 / 2,223)** against the 80% floor — the one uncovered line is the
 same one phase 2 recorded, the registry claim swap's race-only branch — `test:gates` 129 runs, the
-nine `gates:*` tasks, `yard` 100.00% documented (262 methods, 0 undocumented), `bundler_audit`
-clean. On the code tip alone `test:gems` is 530 runs, 0 failures, 0 errors and **78.00%** line
+nine `gates:*` tasks, `yard` 100.00% documented (261 methods, 0 undocumented), `bundler_audit`
+clean. On the code tip alone `test:gems` is 530 runs, 0 failures, 0 errors and **77.91%** line
 coverage, red on the SimpleCov floor and on nothing else, since the suites that raise it are the
 tests tip's; every other gate is green there. The same caveat about `rubocop` that phases 1 and 2 recorded: run
 through `rake` from a worktree nested under the parent checkout's `.claude/` it inspects 9 files;
@@ -115,9 +115,10 @@ on `BufferedSource`, and `store_take`/`store_peek`/`copy_to` reshaped under `Met
 
 The matrix set (`test:gems gates:gemspec_audit gates:require_allowlist gates:clean_bundle
 gates:single_instance`) is green on **3.2.11**, **3.3.12** and **3.4.10** at the tests tip, each
-with its own lockfile resolved fresh — 774 runs / 4,630 assertions on each, 99.95% line coverage —
-and on the code tip `test:gems` on 3.2.11 is 530 runs, 0 failures, 78.83%, the floor again the only
-red. The five interpreter-sensitive assertions Task 15 Step 6 names are green on every row:
+with its own lockfile resolved fresh — 783 runs / 4,669 assertions on each, 99.95% line coverage —
+and on the code tip `test:gems` on 3.2.11 is 530 runs, 0 failures, 78.74%, the floor again the only
+red. Every number in this section is the round-1 tip's, re-measured after review round 0's fixes
+(the round-0 tip's were 774 / 4,630, 2,218 / 2,219, 262 methods, 78.00% and 78.83%). The five interpreter-sensitive assertions Task 15 Step 6 names are green on every row:
 the `StringIO`-backed BINARY read (`buffered_source_test.rb`, `Bridge`, "a StringIO-backed source
 returns BINARY on every interpreter in the matrix"), the frozen-chunk ingress retag (`Over`, "over
 survives a body that yields frozen literals"), the `Enumerator` `ensure` asymmetry (`Over`, "closing
@@ -129,10 +130,11 @@ the block form of `module_eval` resolves a constant in the block's own lexical s
 interpreters, so the `Dexpace::IO` shadow is probed with string evals (`io_test.rb`).
 
 The surface manifest `test/fixtures/surface/dexpace-core.txt` grew from 318 to 367 lines through
-`bundle exec rake surface:regenerate`, once, after Task 14; the 49 added lines were read one by one
-against the plan's Task 15 Step 3 list and are exactly it, with two differences stated below:
-`Dexpace::IO::TeeSink#clear_tap` is absent (deviation 1) and
-`Dexpace::IO::BufferedSource.__dexpace_view` is present (deviation 7). `Dexpace::IO::Buffer#` carries
+`bundle exec rake surface:regenerate`, once, after Task 14, and is 366 since review round 0; the 48
+added lines were read one by one against the plan's Task 15 Step 3 list and are exactly it, with
+two differences stated below: `Dexpace::IO::TeeSink#clear_tap` is absent (deviation 1) and
+`Dexpace::IO::BufferedSource.__dexpace_view`, present at the round-0 tip, is absent since the view
+constructor became a private class method (deviation 7). `Dexpace::IO::Buffer#` carries
 four names and `TypedReads#` fifteen, which is P3-8's whole reason for keeping the two vocabularies
 public. No `private_constant` appears: `BufferedSource::View`, `TypedReads::READ_SEGMENT_BYTES` and
 `TypedWrites::WRITE_ALL_SEGMENT_BYTES` are absent, and the three RBS interfaces carry no runtime
@@ -166,6 +168,17 @@ also run red on 3.2.11 and 3.4.10. What each said:
 The stage-9 failure is the transitive-invalidation test that Task 10's protocol change closes
 (deviation 3); the shape is the plan's ladder, with the plan's pre-amendment counts replaced by the
 built tree's.
+
+Review round 0 (2026-09-15) found that a view's fill asked its parent to buffer `behind + count`, so
+`#read_into`, `#readpartial` and `#each` on a `#peek` or `#slice` blocked until the whole count had
+arrived where the root returned at once (R0-1; deviation 18). The fix landed on the code branch and
+nine tests on the tests branch; the five that distinguish the two shapes were run red against the
+pre-fix `ensure_buffered(behind + want)` on 4.0.6 and green on 4.0.6 and 3.2.11 after it:
+
+| Fix not yet applied | Guard | What it said |
+|---|---|---|
+| the parent-side view fill back to `ensure_buffered(behind + want)` | `typed_reads_test.rb`, `ViewFills` | four failures: `Expected: 10 Actual: 13` (`#read_into` on a peek took the second chunk too), `"0123456789abc"` for `#readpartial(100)`, `"abcd"` for `#each`'s first chunk, and `Expected: 1 Actual: 2` on the slice past the buffered bytes; the two `#read(n)`/`#read_exactly` rows stayed green, as Ruby's contract says they must |
+| the same | `buffered_source_test.rb`, `Views`, "a view over a live pipe returns what has arrived, like the root" | `Expected #<IO:(closed)> to not be closed?` — the peek's `read_into(count: 100)` over ten bytes returned only after the two-second watchdog closed the writer |
 
 ## Audit groups run
 
@@ -216,7 +229,7 @@ accepted to rejected (item 2).
    outer view into the root's store — or, for a `.of_bytes` root, pulled fresh bytes from the root's
    enumerator after the root had been closed. `IO-22`'s "every outstanding slice derived from it"
    reaches a slice of a slice, so `#dexpace_invalidate` now releases the view's own views, and
-   `#dexpace_ensure_buffered`/`#dexpace_window_copy` call `#ensure_readable` first, so a closed
+   `#dexpace_fill_beyond`/`#dexpace_window_copy` call `#ensure_readable` first, so a closed
    stream-backed parent or an invalidated intermediate serves nothing to any view. Found by a test
    the plan did not have ("closing the parent invalidates a slice of a slice, transitively"), run
    red before the change.
@@ -244,16 +257,22 @@ accepted to rejected (item 2).
    Ruby names the first I/O signatures needed. The fixture `test/fixtures/gates/rbs_surface/gems/
    fixture/sig/io_superclasses.rbs` and a pinning test in `test/gates/rbs_surface_test.rb` keep
    them admitted; the gate was watched red on all three before and green after.
-7. **`BufferedSource.__dexpace_view` is a public singleton method with an RBS declaration and a
-   YARD block**, where the design calls the view constructor "internal — no RBS signature, no YARD
-   block". Strict Steep treats an undeclared `def self.` as a diagnostic that fails the gate, and the
-   caller (`TypedReads#build_view`) is outside the class, so a private class method cannot serve. It
-   appears in the surface manifest under its underscore name, its YARD block says it is not public
-   API, and it is documented nowhere else.
+7. **`BufferedSource.__dexpace_view` is a `private_class_method` with a `private def self.` RBS
+   declaration, reached through `send`**, where the plan's Task 10 fence defined it as a public
+   singleton method called by name and the design calls the view constructor "internal — no RBS
+   signature, no YARD block". Strict Steep treats an undeclared `def self.` as a diagnostic that
+   fails the gate, so the declaration exists, and `tools/sig_diff.rb` reads its `private` modifier
+   and keeps it out of the `NFR-4` diff; `private_class_method` keeps it out of the surface
+   manifest; its comment is not a YARD block under `.yardopts`'s `--no-private`; and the caller,
+   `TypedReads#build_view`, outside the class, reaches it with `send` as phase 1's `Headers#==`
+   reaches `#values` — the hole design §4's P8 records, used from inside core. At the round-0 tip it
+   was public with a manifest row; review round 0's R0-3 made it private before the first tag locks
+   the underscore name, and `buffered_source_test.rb`, `Views` pins the absence.
 8. **Test files nest a class per behaviour group** for the 100-line cap (phase 2's deviation 4):
    `typed_reads_test.rb` (`Rejections`, `Typed`, `Charsets`, `Ceiling`, `Lines`, `Bridge`, `Each`,
-   `Views`, `ViewLifecycle`, `Includer`), `buffered_source_test.rb` (`Bridge`, `Over`, `Close`,
-   `Threads`, `Counts`), `typed_writes_test.rb` (`WriteFrom`, `Pump`, `Charsets`, `Includer`),
+   `Views`, `ViewFills`, `ViewLifecycle`, `Includer`), `buffered_source_test.rb` (`Bridge`, `Over`,
+   `Close`, `Threads`, `Counts`, `Views`), `typed_writes_test.rb` (`WriteFrom`, `Pump`, `Charsets`,
+   `Includer`),
    `buffer_test.rb` (`Snapshot`, `CopyTo`, `Close`), `buffered_sink_test.rb` (`Staging`, `Close`),
    `tee_sink_test.rb` (`Failure`, `Lifecycle`, `Vocabulary`), each over a shared factory module.
 9. **`store_take` and `store_peek` are reshaped under `Metrics/AbcSize`**: `#take_from_head` is
@@ -271,8 +290,10 @@ accepted to rejected (item 2).
     `error/stream_error`, `error/invalid_argument_error` and `error/closed_error` where each is
     raised — are present, so every file names what it raises; the require audit sees only
     `require_relative`.
-12. **Run counts exceed the plan's.** The `IO` suites are 245 runs where the plan's built-tree run
-    was 209 for the whole tree, because the nested classes carry extra cases the plan did not have
+12. **Run counts exceed the plan's.** The `IO` suites — `io_test.rb` and the six files under
+    `test/dexpace/io/` — are 240 runs since review round 0 (231 before its nine; the 245 first
+    written here was not this seven-file count) where the plan's built-tree run was 209 for the
+    whole tree, because the nested classes carry extra cases the plan did not have
     (the readability checks, the count-passing guards on the vocabulary's own side, the pipe-end
     sink, the transitive invalidation, the consumer-side shadow probe); the plan's step-level
     expected counts ("PASS, 14 tests", "PASS, 3 tests") are therefore not matched and were not
@@ -287,8 +308,10 @@ accepted to rejected (item 2).
     the one written first used `Dexpace.module_eval { IO }`, which resolves `IO` in the block's own
     lexical scope — to `::IO` — on 3.2.11, 3.4.10 and 4.0.6 alike, and was caught by the floor run
     after Task 12 (the first run of that file on any row after Task 4). `module_eval("IO", __FILE__,
-    __LINE__)` and a consumer class's `class_eval("…is_a?(IO)…")` state exactly the design's
-    finding, both halves.
+    __LINE__)` and a consumer class's `class_eval` state exactly the design's finding, both
+    halves. Since review round 0 (R0-4) each probe evals a lambda, `->(x) { x.is_a?(IO) }`, in the
+    receiver's scope and hands it the pipe end the test creates and closes in its `ensure`, where
+    the first shape created an `IO.pipe` inside the eval'd string and never closed it.
 15. **`Buffer#snapshot` reuses `TypedReads#guard_materialization!`** rather than a private
     `#ensure_snapshot_within_ceiling` of its own, so the six guarded sites share one message form.
 16. **The entry file's nine `require_relative`s are one block appended after phase 2's**, in
@@ -298,6 +321,24 @@ accepted to rejected (item 2).
     on the forward references to `Dexpace::IO::BufferedSource` and `Dexpace::IO::Buffer` that the
     plan's own signatures carry; the plan's per-task "then `rake rbs:validate steep`" cannot pass
     there. Steep was green at every task where `rbs:validate` was.
+18. **A view's fill is one fill past its position, never a loop to the count** (review round 0,
+    R0-1). The plan's Task 10 fence for `#fill_from_parent` called
+    `parent.dexpace_ensure_buffered(behind + want)`, whose loop blocks until the whole count is
+    buffered — the shape the same task's 2026-09-13 amendment forbids for the root ("must **not**
+    become `ensure_buffered(count)`") and the design's R2 ("fills ONCE") and R4 ("keeps the bridge
+    claim true of views") rule out. Measured: a peek over an `IO.pipe` holding ten bytes with the
+    writer open hung on `read_into(count: 100)` and `readpartial(100)` where the root returned the
+    ten at once. As built the parent-side entry point is `#dexpace_fill_beyond(behind, want)`,
+    replacing `#dexpace_ensure_buffered`: fill until at least one byte past `behind` is buffered or
+    the upstream is done, each fill asking the upstream for the rest of what the view wants, and
+    the view takes what is there up to `want`. `#read(n)` and `#read_exactly(n)` on a view still
+    fill to `n` through the view's own `#ensure_buffered` loop, which is Ruby's contract. The
+    protected declaration in `sig/dexpace/io/typed_reads.rbs` follows; guard run red above.
+19. **Two `.rbs` declarations are wrapped** (R0-5): `buffered_source.rbs`'s view constructor and
+    `#initialize` lines were 127 and 105 columns against the plan's 100-column rule, which RuboCop
+    does not read for `.rbs`; both now take the multi-line parameter shape phase 2's
+    `registry.rbs` and `operation.rbs` use. `async_transport.rbs:17`, 105 columns since phase 2, is
+    not this phase's and is left as it is.
 
 ## Findings routed
 
@@ -311,6 +352,15 @@ accepted to rejected (item 2).
   not a finding against any gate; recorded in the sig comments where a later phase meets it.
 - **`rake rubocop` is vacuous in a worktree nested under the parent checkout's `.claude/`** —
   already on phase 10's inbound list from phase 1; the honest run is recorded above.
+- **Review round 0's five findings** (2026-09-15) were each in material this phase may write and
+  were fixed in place, on the branch that owns the file: R0-1 (a view blocked to the count; deviation
+  18), R0-3 (the view constructor was public surface; deviation 7) and R0-5 (two `.rbs` lines over
+  100 columns; deviation 19) on the code branch, R0-4 (the shadow probes leaked a pipe pair each;
+  deviation 14) on the tests branch, and R0-2 on the docs branch: `docs/sdk-documentation/io.md`'s
+  views example claimed the final `slice.read` raised `Dexpace::ClosedError` when the built code
+  returned `""`, because the slice had already pulled its whole window and P3-5's "behind" failure
+  needs a byte still unread; the example now leaves one, and was re-run on 4.0.6 and 3.2.11. Nothing
+  was routed elsewhere.
 
 ## Postponed work
 

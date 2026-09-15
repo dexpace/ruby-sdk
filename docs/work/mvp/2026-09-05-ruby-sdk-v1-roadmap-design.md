@@ -2707,8 +2707,8 @@ to a socket. The checklist is at `docs/work/mvp/phase3/phase3a/2026-09-08-phase3
 forty-two rows, 34 ✅ and 8 🚫 (`IO-30`–`IO-36`, `IO-39`, the retired provider apparatus citing design
 §10.1, with `IO-30`'s independent-copy clause kept as a property of `.of_bytes`), nothing ⏳, nothing N/A.
 `bundle exec rake` is green on 4.0.6 at the tests tip with 99.95% line coverage against the 80% floor and
-774 runs across the six gems; the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the core suite is green
-under three further seeds; the code tip is red on the SimpleCov floor alone (78.00%, 0 failures). **Every guard the
+783 runs across the six gems; the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the core suite is green
+under further seeds; the code tip is red on the SimpleCov floor alone (77.91%, 0 failures). **Every guard the
 plan asks to be run red was run red** — P3-6's fiber-held-mutex assertion against phase 2's reader on all
 three interpreters (`ThreadError expected but nothing was raised`), the cop's six new rejections before the
 widening, the `fill(1)` amendment's count guards (`Expected: 4096 Actual: 1`), and the Tasks 5–9 ladder
@@ -2719,8 +2719,12 @@ outer view from a closed `.of_bytes` root; `#dexpace_invalidate` now releases a 
 parent-side entry points check readability first (checklist deviation 3). **Two decisions the plan left open
 were taken in the open**: `TeeSink#clear_tap` is dropped — 3b builds a fresh tee per write, so the method had
 no caller in core while being `NFR-4`-locked surface (deviation 1) — and `BufferedSource.__dexpace_view` is a
-declared public singleton method because strict Steep refuses an undeclared `def self.` (deviation 7).
-Seventeen departures from the plan's text are itemised in the checklist, none lowering a gate; one widens
+`private_class_method` with a `private def self.` RBS declaration, reached through `send`, so the underscore
+name is in neither the manifest nor the `NFR-4` diff (deviation 7). **Review round 0 (2026-09-15) found a
+view's fill blocking to the count where the root fills once** — a peek over a pipe holding ten bytes hung on
+`read_into(count: 100)` — and it was closed on the code branch with `#dexpace_fill_beyond`, nine tests and a
+guard run red (deviation 18). Nineteen departures from the plan's text are itemised in the checklist, none
+lowering a gate; one widens
 `tools/rbs_surface.rb`'s `NFR-11` allowlist by `EOFError`, `IOError` and `Encoding` — the false positive phase
 1 fixed for `Data`, `ArgumentError` and `StringScanner`, fixed the same way with a fixture and a pinning gate
 test (deviation 6) — and one moves phase 2's accepted cop row `module Dexpace; module Transport; Thread.new`
@@ -2733,7 +2737,7 @@ nothing. The design's ledger gains P3-13 and an "As built" addendum; the one pos
 documentation half is written in `docs/sdk-documentation/io.md` and the core README with the consumer case
 pinned in `io_test.rb`, and its release-decision half stays open. The counts that changed: `gems/` is still
 six; `dexpace-core`'s `lib/dexpace/` is fifty-one phase-1, phase-2 and phase-3a files beside phase 0's
-`version.rb`; `phase3/phase3a/` now carries its checklist, the fourth written; the surface manifest is 367
+`version.rb`; `phase3/phase3a/` now carries its checklist, the fourth written; the surface manifest is 366
 lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the constraints-that-bite
 line on the seventh cop are rewritten from what was built. The consolidation of P3-1–P3-13 into design §10 is a
 human's, as it was for phases 1 and 2: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as

@@ -1136,7 +1136,7 @@ consolidation into design §10:
 |---|---|---|---|
 | P3-13 | `#read` and `#readpartial` leave `outbuf` tagged `Encoding::BINARY` whatever tag it arrived with, where `::IO#read` preserves the destination's tag | `IO-16`; design §3.1's BINARY rule; verified fact 11 | The bridge's contract is "Ruby's semantics", and on this one point Ruby's own readers disagree with each other and across this port's floor: `::IO#read(n, buf)` preserves a UTF-8 destination's tag on 3.2.11, 3.4.10 and 4.0.6, while `StringIO#read(n, buf)` gives ASCII-8BIT on 3.2.11 and UTF-8 from 3.4.10. Pinning BINARY is the one answer identical on every matrix row and behind every backing stream. `IO.copy_stream` never reads the destination's tag, so R4's bridge claim is unaffected — asserted end to end in `buffered_source_test.rb` |
 
-Five rows and two statements above read slightly differently against the source; the difference
+Five rows and three statements above read slightly differently against the source; the difference
 is recorded here rather than by rewriting the text it corrects. The checklist's "Deviations from
 the plan" is the itemised list.
 
@@ -1144,18 +1144,30 @@ the plan" is the itemised list.
   the keep-or-drop decision, and it was dropped, because phase 3b satisfies `BODY-18` by building a
   fresh tee per write — forced by `TeeSink` binding its primary at construction — so the method had
   no caller anywhere in core while being `NFR-4`-locked surface. The 3a→3b contract table above
-  and P3-8's list name it; the surface manifest, the RBS signature and the test do not. The row
-  gains one name it did not list: `BufferedSource.__dexpace_view`, the view constructor, is a public
-  singleton method with an RBS declaration and a YARD block (which says it is not public API),
-  because strict Steep refuses an undeclared `def self.` and the caller lives in `TypedReads`,
-  outside the class; the object model's "internal — no RBS signature, no YARD block" sentence does
-  not hold and is corrected by this note.
+  and P3-8's list name it; the surface manifest, the RBS signature and the test do not. The view
+  constructor, `BufferedSource.__dexpace_view`, is internal as the object model says — a
+  `private_class_method` with a `private def self.` RBS declaration, in neither the surface
+  manifest nor the `NFR-4` diff — with one correction to that sentence: the declaration exists,
+  because strict Steep refuses an undeclared `def self.`, and its caller `TypedReads#build_view`,
+  outside the class, reaches it through `send` as `Headers#==` reaches `#values`. At the round-0
+  tip it was a declared public singleton method with a manifest row; review round 0's R0-3 made it
+  private before the first tag locks the underscore name (checklist deviation 7).
 - **P3-5, as built.** Invalidation cascades: a view's `#dexpace_invalidate` releases the view's own
   views, and the two protected entry points a view drives its parent through check the parent's
   readability first, so a slice of a slice is invalidated when the root closes and an invalidated
   intermediate serves nothing. The plan's single-flag protocol let an inner view pull fresh bytes
   through an invalidated outer one from a closed `.of_bytes` root; `IO-22`'s "every outstanding
   slice derived from it" reaches transitively. The retention rule is unchanged.
+- **The view fill, as built (review round 0).** The plan's `#fill_from_parent` fence asked the
+  parent for `dexpace_ensure_buffered(behind + want)`, whose loop blocks until the whole count is
+  buffered, so a view's `#read_into`, `#readpartial` and `#each` waited for `count` bytes where the
+  root returns what its one fill brought — a peek over a pipe holding ten bytes hung on
+  `read_into(count: 100)` (R0-1). R2's "fills ONCE" and R4's "keeps the bridge claim true of views"
+  are the rule, so the parent-side entry point is `#dexpace_fill_beyond(behind, want)`: fill until
+  one byte past the view's position is buffered or the upstream is done, asking the upstream for
+  the view's own count each time, and the view takes what is there. `#read(n)` on a view blocks to
+  `n` only through the view's own `#ensure_buffered` loop. The retention rule is unchanged
+  (checklist deviation 18; guard run red there).
 - **P3-7, as built.** The widening moved one phase-2 cop case from accepted to rejected — a bare
   `Thread` inside `Dexpace::Transport`, accepted in phase 2 because nothing reopens that name, and
   an offense under the one-segment watch by the rule's own words. A tightening, recorded because
