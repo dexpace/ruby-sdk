@@ -2595,7 +2595,7 @@ and frozen at build) — `P1-9` is retired, `P1-13` records the ownership rule, 
 `P1-9` is rewritten as built, under `## Conflicts`, confirming `data-modeling/996c0b12` rather than superseding
 it. Two more ledger rows added at implementation: `P1-11`, `HeaderName`'s fold
 is a derived attribute rather than a second member, and `P1-12`, `Query` equality compares encodings, which
-is `HTTP-30` stated literally. Nineteen departures from the plan's text are itemised in the checklist, none
+is `HTTP-30` stated literally. Twenty-one departures from the plan's text are itemised in the checklist, none
 lowering a gate; five are gate or tool corrections the first real signatures forced, each pinned by a fixture
 on the tests branch: `gates:rbs_surface`'s stdlib list gains `Data`, `ArgumentError` and `StringScanner`;
 `rbs:validate` loads the allowlisted stdlib signature sets; `gates:single_instance` survives — and names —
@@ -2612,4 +2612,14 @@ plan-level gaps the implementation had inherited — `Response` aliased the call
 `Headers.build` let a non-`Hash` reach the name walk as a `NoMethodError` — and one corpus mistake, the
 planning-time note still marking `data-modeling/996c0b12` as superseded after the build had confirmed it; all
 three are repaired on the branch they belong to (checklist deviations 15 and 18–19, the note above), with
-`test:gems` at 256 runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards.
+`test:gems` at 256 runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards. **The round-2 review**
+found one more inherited gap and closed it the same way: a `Request` accepted a `Headers` the inbound
+grammar had validated, so obs-text `HTTP-18` forbids could reach the model that represents an outbound
+message through `.build`, `#with` or `headers=` followed by `#header` — `Request#initialize` and
+`Request::Builder#headers=` now require the outbound direction (checklist deviation 20, the `HTTP-18` row).
+Two nits were taken with it — `Model.own` moved from `.build` into each `initialize` after the shape
+checks, so a non-copyable object is the SDK's error rather than `Ractor.make_shareable`'s `TypeError`
+(deviation 21), and `Query.parse` refuses a non-`String` as its sibling factories do (deviation 17) — one
+ledger row was added, `P1-14`, naming the `String`-only tag values of `RequestOptions` as a deliberate
+reading of `HTTP-34`, and `URL.own`'s comment stopped asserting the retired `P1-9`. `test:gems` is at 260
+runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards.

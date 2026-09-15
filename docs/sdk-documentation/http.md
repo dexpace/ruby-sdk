@@ -14,10 +14,13 @@ private and a public, validating `.build`. That buys four properties at once, an
 same for `Status` as for `Request`:
 
 - **Frozen on construction.** A model never changes; a collection member is copied and
-  deep-frozen once, at build (`Model.own`), so an accessor hands back the model's own frozen
-  object with no per-call copy, and a `Hash` or `Array` the caller keeps a reference to cannot
-  reach the model afterwards, and a caller-supplied `String` member (`Response#reason`, a
-  `Method` token, a `HeaderName`) is copied and frozen the same way (`Model.frozen_string`).
+  deep-frozen once, at construction and only after its shape has been validated (`Model.own`,
+  called from each `initialize`), so an accessor hands back the model's own frozen object with
+  no per-call copy, a `Hash` or `Array` the caller keeps a reference to cannot reach the model
+  afterwards, and an object that cannot be copied — a `Proc` where a `Hash` belongs, a `Thread`
+  inside a value list — is refused as `InvalidArgumentError` rather than escaping as the
+  stdlib's `TypeError`; a caller-supplied `String` member (`Response#reason`, a `Method` token,
+  a `HeaderName`) is copied and frozen the same way (`Model.frozen_string`).
   Every model — `Request` and `Response` included, when the opaque body they carry is `nil` or
   frozen — is `Ractor.shareable?`, which is the one-line proof the freeze reached every level and
   is not otherwise relied on.
@@ -74,6 +77,12 @@ method nor body is a `GET`; a body with no method reports `method is required` r
 defaulting to `GET` and then rejecting the body; a `GET`, `HEAD`, `TRACE` or `CONNECT` with a body
 is refused at build, and so is `get_request.with(body: "…")`, because the model checks too.
 
+A request's headers are always outbound-validated. `Request.build`, `Request#with` and
+`Request::Builder#headers=` refuse a `Headers` built by `Headers.inbound_builder` — whatever it
+holds, because the direction is what every later `#header` and `#new_builder` would inherit — so
+a response's headers cannot be copied onto a request without going back through the outbound
+grammar (`HTTP-18`, `XCUT-18`).
+
 ## Headers, names and bytes
 
 `Dexpace::Headers` folds names for lookup, containment, equality and hashing and keeps the first
@@ -118,9 +127,10 @@ casing, accepted everywhere a `String` name is.
   component encoder (`Dexpace::PercentEncoding`: space is `%20`, `+` is `%2B`, `~` is bare) and
   `Query.parse` is its lenient inverse. Two queries are equal exactly when they encode
   identically.
-- **`RequestOptions`** — per-call `timeout` (a `Float` of seconds), `max_retries` and string
-  `tags`, every field `nil`/empty by default and `RequestOptions::EMPTY` the shared "override
-  nothing". These are operational knobs and deliberately not part of `Request`.
+- **`RequestOptions`** — per-call `timeout` (a `Float` of seconds), `max_retries` and `tags`, a
+  `String`-to-`String` map (values too — a deliberate narrowing of `HTTP-34`'s "opaque", ledger
+  row `P1-14`), every field `nil`/empty by default and `RequestOptions::EMPTY` the shared
+  "override nothing". These are operational knobs and deliberately not part of `Request`.
 - **`URL`** — a module, not a type: `URL.parse!` pins `URI::RFC3986_PARSER`, refuses a relative
   URI, and returns a `URI::Generic` frozen through its components; `URL.external_form` is the
   textual key `Request` compares by, with no name resolution.

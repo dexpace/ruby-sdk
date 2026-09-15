@@ -57,8 +57,10 @@ module Dexpace
     private
 
     # Freezes the URI's String components, then the URI. Only Strings: a URI also references
-    # its parser, a process-global object that must never be frozen from here (deviation P1-9),
-    # and that reference is why the result is frozen without being Ractor-shareable.
+    # its parser, a process-global object this method leaves alone -- the uri gem freezes
+    # URI::RFC3986_PARSER at definition on every supported Ruby, so nothing here needs to touch
+    # it -- which is why the result is frozen AND Ractor-shareable with no global frozen from
+    # here (deviation P1-13; the request and response suites assert it).
     def own(uri)
       uri.instance_variables.each do |name|
         value = uri.instance_variable_get(name)

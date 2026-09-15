@@ -38,7 +38,7 @@ Forty-two: `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` and `SEAM-29`.
 | `HTTP-15` | MUST | ✅ | 5 | `Headers::Builder#set(name, nil)` removes the header entirely — no value list, no casing entry (`headers/builder_test.rb`) |
 | `HTTP-16` | SHOULD | ✅ | 5 | Ruby's insertion-ordered `Hash`; `#names` and `#entries` come back in insertion order with original casing, and the first casing added is the one emitted (`headers_test.rb`, `headers/builder_test.rb`) |
 | `HTTP-17` | MUST | ✅ | 3, 4, 5 | `HeaderSyntax.trim` removes SP and HTAB only, on bytes (`P1-5`: `String#strip` strips NUL); `valid_name?` rejects empty, every byte below 0x21, DEL and every byte ≥ 0x80 by reading `name.b.each_byte`, so `"a\0"`, `"a\r"`, `"a\r\nb"`, `"  "`, an interior space and invalid UTF-8 are all rejected with the SDK's error, never the regexp engine's; `"  X-Trace  "` is accepted as `X-Trace`. `HeaderName#initialize` and `Headers#initialize` run it again on every stored name, so `.build` and `#with` meet it too (`header_syntax_test.rb`, `header_name_test.rb`, `headers_test.rb`) |
-| `HTTP-18` | MUST | ✅ | 3, 5 | `HeaderSyntax.valid_outbound_value?`: HTAB plus 0x20–0x7E, read as bytes; `"v\xC3\xA5lue"` rejected, `"a\tb"` accepted. `Headers::Builder` and `Headers#initialize` apply it for `:outbound`. A 128-sample property test proves the outbound grammar is strictly narrower than the inbound one (`header_syntax_test.rb`, `headers_test.rb`) |
+| `HTTP-18` | MUST | ✅ | 3, 5 | `HeaderSyntax.valid_outbound_value?`: HTAB plus 0x20–0x7E, read as bytes; `"v\xC3\xA5lue"` rejected, `"a\tb"` accepted. `Headers::Builder` and `Headers#initialize` apply it for `:outbound`, and a `Request` carries **only** an outbound-validated collection: `Request#initialize` and `Request::Builder#headers=` (which the pre-filled constructor routes through) refuse a `Headers` whose `direction` is `:inbound`, whatever it holds, so an obs-text value cannot reach a request through `.build`, `#with` or `headers=` followed by `#header` — the last of which would otherwise derive a lenient builder from the inbound collection. `XCUT-18`'s "validated at the model layer BEFORE reaching any transport" therefore holds for the model that represents an outbound message, not only for the collection type (deviation 20; a round-2 review finding). A 128-sample property test proves the outbound grammar is strictly narrower than the inbound one (`header_syntax_test.rb`, `headers_test.rb`, `request_test.rb`, `request/builder_test.rb`) |
 | `HTTP-19` | MUST | ✅ | 3, 5, 15 | `HeaderSyntax.valid_inbound_value?` admits obs-text and refuses C0-except-HTAB and DEL; inbound names go through `validate_name!` unchanged. `direction` is a **member** of `Headers`, so `#new_builder` on an inbound model is inbound and `Headers::EMPTY_INBOUND` is `Response::Builder`'s default — asserted both ways, an inbound model deriving a lenient builder and an outbound one still refusing obs-text (`headers_test.rb`, `response_test.rb`) |
 | `HTTP-20` | MUST | ✅ | 3, 5 | A rejected value never appears in a message in any form (`"secret\r\ntoken"` under `Authorization`: the message names the header and not `secret`); a rejected name is echoed with its control bytes escaped as `\xNN` through `HeaderSyntax.escape`, which itself reads bytes (`header_syntax_test.rb`, `headers/builder_test.rb`) |
 | `HTTP-21` | MUST | ✅ | 4, 5 | `HeaderName` compares and hashes by `#folded`, keeps `#original` for emission, interoperates with the string-keyed API (`HeaderName.of` accepts a `String` or a `HeaderName`; every `Headers` method accepts either), and enforces `HTTP-17`. The fold is a derived attribute set before `super`, not a second member (`P1-11`) (`header_name_test.rb`) |
@@ -54,7 +54,7 @@ Forty-two: `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` and `SEAM-29`.
 | `HTTP-31` | MUST | ✅ | 10, 11 | `Query.parse`: `nil` or blank → `Query::EMPTY`, a leading `?` tolerated, a segment with no `=` or a trailing `=` → `""`, a stray `&` skipped, a malformed escape kept raw; `PercentEncoding.decode_component` is lenient and total. Both read bytes, so a query carrying invalid UTF-8 parses and re-encodes byte-exactly (`query_test.rb`, `percent_encoding_test.rb`) |
 | `HTTP-32` | SHOULD | ✅ | 10 | `PercentEncoding.encode_component`: unreserved set exactly `A-Za-z0-9-._~`, everything else uppercase-escaped — `a b*~+/!()'` → `a%20b%2A~%2B%2F%21%28%29%27` byte for byte; `decode_component("a+b")` is `"a+b"`; `%FF` round-trips (`percent_encoding_test.rb`) |
 | `HTTP-33` | MUST | ✅ | 8 | `Protocol` over the canonical forms `http/1.1` and `http/2`; `Protocol.parse` accepts those and the aliases `HTTP/2` and `HTTP/2.0` case-insensitively (`downcase`, no argument, after a byte check) and raises naming an unrecognised identifier; `.build` accepts only a canonical form, so `#with` cannot admit an alias (`protocol_test.rb`) |
-| `HTTP-34` | MUST | ✅ | 13 | `RequestOptions` — `timeout` (a `Float` of seconds), `max_retries`, `tags` — every field `nil`/empty by default, `RequestOptions::EMPTY` one shared frozen instance, `tags` `Model.own`ed at build and a map of `String` to `String` (`request_options_test.rb`) |
+| `HTTP-34` | MUST | ✅ | 13 | `RequestOptions` — `timeout` (a `Float` of seconds), `max_retries`, `tags` — every field `nil`/empty by default, `RequestOptions::EMPTY` one shared frozen instance, `tags` `Model.own`ed at construction and a map of `String` to `String`. **Tag values are `String` only, and that is a reading, not an oversight**: `HTTP-34` says "opaque string-keyed tags" and `HTTP-1`'s carve-out leaves a tag value's own mutability to the caller, so an arbitrary object would be admissible; the design fixed `String → String` so `Model.own` can deep-copy and deep-freeze the map without meeting an object it cannot copy (a `Thread`, a `Proc` — the failure deviation 21 removes for collections generally), and the conservative direction is the safe one to widen later. Ledger row `P1-14`; a phase that needs a non-`String` tag value reopens it there (`request_options_test.rb`) |
 | `HTTP-35` | MUST | ✅ | 13 | In the model's `initialize`, so `.build` and `#with` meet it: a non-nil timeout that is zero or negative raises, a negative `max_retries` raises, `0` is accepted and means "disable retries for this call" (`request_options_test.rb`) |
 | `HTTP-46` | MUST | ✅ (URL and method/headers), ⏳ (body by value) | 12, 14 | `Request#==`/`#hash` compare `URL.external_form(url)` — a textual key; Ruby's `URI` resolves nothing, and the test compares two textually different URLs naming one host without touching the network — plus method, headers and body by `==` (`P1-6`). The body half is opaque here and was built by phase 3b (`P3-15`, `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md`) (`url_test.rb`, `request_test.rb`) |
 | `HTTP-47` | SHOULD | ✅ | 12, 14 | `URL.parse!` pins `::URI::RFC3986_PARSER`, refuses a non-absolute URI naming it, and converts `URI::InvalidURIError` into a `Dexpace::InvalidArgumentError` carrying the offending input with the original as `cause`; `Request::Builder#build` and `Request#initialize` both route the URL through it, so `"::bad"` is named from either (`url_test.rb`, `request/builder_test.rb`) |
@@ -78,8 +78,8 @@ Module Layout section names, file for file. `require "uri"` and `require "strsca
 and both are on the require allowlist). The gemspec still has zero `add_dependency` lines.
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15): green, exit 0 — `cops:test` 65 runs,
-`steep` no type error over the strict `core` target, `test:gems` 256 runs / 1873 assertions with **100.00% line
-coverage (775/775)** against the 80% floor, `test:gates` 128 runs / 523 assertions, the nine `gates:*` tasks,
+`steep` no type error over the strict `core` target, `test:gems` 260 runs / 1897 assertions with **100.00% line
+coverage (780/780)** against the 80% floor, `test:gates` 128 runs / 523 assertions, the nine `gates:*` tasks,
 `yard` 100.00% documented (15 modules, 16 classes, 50 constants, 8 attributes, 122 methods), `bundler_audit`
 clean. **One caveat about `rubocop`, stated in full under "Findings routed"**: run through `rake` from this
 worktree it inspected 8 files, because RuboCop inherits `AllCops/Exclude` from the topmost `.rubocop.yml` on
@@ -126,7 +126,8 @@ wrong is the one the ledger row `P1-9` rested on. The rewrite retires the planni
 ## Deviations from the plan
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate; three
-change a gate or tool in the strict or the corrected direction, each with a fixture.
+change a gate or tool in the strict or the corrected direction, each with a fixture. Items 20 and 21
+are the round-2 review's repairs, landed on 2026-09-15 with the test counts above re-derived afterwards.
 
 1. **`Dexpace::Model#with(changes = nil)` takes a positional `Hash`, not `**changes`.** `Dexpace/NoKeywordSplat`
    flags every public `def` in `gems/*/lib` with a `**` parameter, and an inline disable would special-case a
@@ -195,16 +196,21 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
     `nil`) reason and, per `XCUT-15`, stores a frozen copy of it through `Model.frozen_string` rather than the
     caller's object — the plan's Task 15 code carried `reason: reason` straight to `super`, an alias the
     round-1 review found; `MediaType#matches?` requires a `MediaType` operand; the builders' writers refuse a
-    wrong-typed value where they are set. Each pre-empts a `NoMethodError` that would otherwise escape
-    `rescue Dexpace::Error` — the Task 1 rule applied.
+    wrong-typed value where they are set; and `Request#initialize`, `Request::Builder#headers=` and the
+    builder's pre-filled constructor require the `Headers` to be outbound-validated (deviation 20). Each
+    pre-empts a `NoMethodError` that would otherwise escape `rescue Dexpace::Error` — the Task 1 rule
+    applied — except the last, which closes a grammar gap rather than an error-class one.
 16. **Test layout**: every domain test file `require "dexpace"` itself (the shared helper cannot, or the smoke
-    suite's namespace snapshot would be vacuous); `headers_test.rb`, `query_test.rb` and `response_test.rb` nest a
-    second (and third) test class per behaviour group; the smoke suite snapshots the top level after
+    suite's namespace snapshot would be vacuous); `headers_test.rb`, `query_test.rb`, `request_test.rb` and `response_test.rb`
+    nest a second (and third) test class per behaviour group; the smoke suite snapshots the top level after
     `require "uri"` and `require "strscan"`, whose constants are theirs. Run counts exceed the plan's expected
     numbers throughout.
 17. **Minor defaults**: `Request.build(body: nil)` and `Response.build(reason: nil, body: nil)` default their
-    optional members; `MediaType.build(parameters: {})` defaults; `Protocol.parse` and `MediaType.parse` require a
-    `String`.
+    optional members; `MediaType.build(parameters: {})` defaults; `Protocol.parse`, `MediaType.parse` and — since the
+    round-2 review — `Query.parse` require a `String` (`Query.parse` still maps `nil` to `Query::EMPTY`, as
+    `HTTP-31` asks), so a non-`String` is the SDK's error from every parse factory and never a
+    `NoMethodError` from `.b`. `Query.parse`'s blank-input branch went with it: a blank query has no
+    segment left after the strip and the split, so it reaches `EMPTY` through the same path as `"?"`.
 18. **Ten parser and codec constants are `private_constant`** — `MediaType::UNTIL_SEPARATOR`, `SEPARATOR`,
     `KEY`, `QUOTED`, `QUOTED_PAIR` and `TO_ESCAPE`; `PercentEncoding::ENCODED`, `HEX_VALUES` and `PERCENT`;
     `HeaderSyntax::TRIMMABLE` — so the manifest `NFR-4` locks at the first release tag carries none of them
@@ -216,6 +222,32 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
     hold: Steep cannot prove `self <: instance` for a module whose self-type is the `_ModelInstance`
     interface (deviation 5), and reports `Ruby::ReturnTypeMismatch` on `return self`; `self` is the receiver's
     type by definition and is what the derivation returns.
+20. **A `Request` carries only an outbound-validated `Headers`.** The plan's Task 14 checked
+    `headers.is_a?(Headers)` and nothing more, and the design's Request section is silent on direction,
+    so `Request.build(headers: Headers.inbound_builder.add("X-Trace", "v\xC3\xA5lue").build)` succeeded
+    and `builder.headers = inbound; builder.header("X-Other", "\xE9")` accepted a byte
+    `Request.builder.header` alone rejects, because `#header` derives its builder from the collection it
+    was handed. `Request#initialize` and `Request::Builder#headers=` now require `direction == :outbound`
+    — the direction, not the content, because the direction is what every later derivation inherits — and
+    the builder's pre-filled constructor routes its `headers:` through the writer. Not a ledger row: it is
+    `HTTP-18` and `XCUT-18` stated for the model that represents an outbound message, an inherited gap
+    the round-2 review found rather than a departure from either. Control bytes were refused by both
+    grammars throughout, so the gap was obs-text, never request splitting; phase 8a's dispatch re-check
+    would have stopped it at the wire, but `HTTP-18` is this phase's row.
+21. **`Model.own` runs in each model's `initialize`, after the shape checks, not in `.build` before
+    `new`.** The plan's Tasks 5 and 11 wrote `Model.own` inside `.build`, and the build gave all four
+    collection-holding models that shape (Tasks 5, 9, 11 and 13) — ahead of the container check
+    `initialize` carries, so `Headers.build(values: -> {}, casing: {})`,
+    `Query.build(pairs: -> {})`, `MediaType.build(parameters: -> {})` and
+    `RequestOptions.build(tags: -> {})` — and a `Thread` nested inside a value list or a tag map — escaped as
+    the stdlib's `TypeError: allocator undefined for Proc` from `Ractor.make_shareable(copy: true)` before
+    any check ran (a round-2 review nit). Moving the copy to the `super` call, after `initialize` has
+    validated every container and every element, means `make_shareable` only ever meets a `Hash`, an `Array`
+    and `String`s, which it always copies; nothing is copied before it is validated, so an `IO` handed where
+    a `Hash` belongs is refused before `dup` would have opened a second descriptor. The design's rule —
+    collections duplicated and frozen exactly once, at construction — is unchanged; only the line within
+    construction moved. The forged `send(:new, …)` path now owns its collections too, which narrows `HTTP-2`'s
+    admitted gap by one aliasing hazard without claiming to close it.
 
 ## Findings routed
 
