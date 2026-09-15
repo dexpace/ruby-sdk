@@ -68,8 +68,11 @@ module Dexpace
     # Computed from #parameters rather than from #arity: a non-lambda Proc reports its parameters
     # as :opt where a lambda reports :req (verified on 3.2.11, 3.4.10 and 4.0.6), so an #arity
     # equality would reject `proc { |a, b, c| }`, which SEAM-11's "a bare send lambda works as a
-    # transport" is meant to admit. An object whose #call comes from method_missing has no
-    # introspectable parameters, and is admitted rather than refused.
+    # transport" is meant to admit. A required keyword refuses: the positional count can be right
+    # and the call still fail, and a callable admitted here that raises ArgumentError at the first
+    # send is the failure-at-use this predicate exists to move to registration. An object whose
+    # #call comes from method_missing has no introspectable parameters, and is admitted rather
+    # than refused.
     def self.callable?(object, arity:)
       return false unless object.respond_to?(:call)
 
@@ -79,9 +82,12 @@ module Dexpace
       true
     end
 
-    # Whether a parameter list admits exactly `arity` positional arguments.
+    # Whether a parameter list admits a call with exactly `arity` positional arguments and nothing
+    # else: no required keyword, and the positional slots fit.
     def self.accepts_positionals?(parameters, arity)
       kinds = parameters.map(&:first)
+      return false if kinds.include?(:keyreq)
+
       required = kinds.count(:req)
       optional = kinds.count(:opt)
       required <= arity && (kinds.include?(:rest) || required + optional >= arity)

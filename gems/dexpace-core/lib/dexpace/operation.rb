@@ -148,13 +148,17 @@ module Dexpace
 
     # The outbound direction, so HTTP-17/HTTP-18 validation happens here rather than at the
     # transport -- a header value carrying a CRLF is rejected while the request is being assembled.
+    #
+    # A nil input is absent, as it is for a query projection and unlike a path placeholder: a
+    # header can be left out where a placeholder cannot, and a generated client passing an unset
+    # optional header as nil must not send an empty one. An empty String is a value and goes out.
     def render_headers(inputs)
       builder = Dexpace::Headers.builder
       projections.each do |key, (target, name)|
         next unless target == :header
-        next unless inputs.key?(key)
 
-        builder.add(name, inputs.fetch(key).to_s)
+        value = inputs[key]
+        builder.add(name, value.to_s) unless value.nil?
       end
       builder.build
     end

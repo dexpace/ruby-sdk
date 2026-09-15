@@ -41,7 +41,7 @@ module Dexpace
     attr_reader seam: String
 
     def self.callable?: (untyped object, arity: Integer) -> bool
-    private def self.accepts_positionals?: (Method::param_types parameters, Integer arity) -> bool
+    private def self.accepts_positionals?: (::Method::param_types parameters, Integer arity) -> bool
 
     def initialize: (seam: String, installer: String, conforms: ^(untyped) -> bool) -> void
     def registered_keys: () -> Array[untyped]
