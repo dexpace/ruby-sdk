@@ -13,7 +13,11 @@ module Dexpace
     def self.own: [T] (T collection) -> T
     def self.frozen_string: (String value) -> String
 
-    def with: (?Hash[Symbol, untyped]? changes) -> untyped
+    # `self` is the receiver's own type, so a derivation such as `Status::OK.with(code: 404)` is
+    # typed as a Status for a consumer's own steep check rather than as untyped. (`instance`
+    # does not hold here: Steep cannot prove `self <: instance` for a module whose self-type is
+    # an interface, and says so.)
+    def with: (?Hash[Symbol, untyped]? changes) -> self
 
     # Not a method Model defines. Every includer is a Data whose `initialize` override ends in
     # `super(member: ...)`, and rbs's core signatures declare no Data#initialize, so without this

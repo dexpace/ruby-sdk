@@ -25,8 +25,11 @@ module Dexpace
     SPACE = 0x20
     # DEL: rejected in every position by both grammars.
     DEL = 0x7F
-    # The two bytes #trim removes from around a name, and the only two.
+    # The two bytes #trim removes from around a name, and the only two. An implementation detail
+    # of #trim rather than part of the grammar a transport re-checks, so it is kept out of the
+    # public surface NFR-4 locks at the first release tag.
     TRIMMABLE = [SPACE, HTAB].freeze
+    private_constant :TRIMMABLE
     # RFC 7230 tchar, as BYTES: the grammar of a method token, a media-type component and a
     # bare parameter value. tchar is ASCII-only, so a byte test is exact as well as total.
     TCHAR = [

@@ -3,6 +3,7 @@ module Dexpace
     HTAB: Integer
     SPACE: Integer
     DEL: Integer
+    # `private_constant` in Ruby; RBS has no way to say so.
     TRIMMABLE: Array[Integer]
     TCHAR: Array[Integer]
 

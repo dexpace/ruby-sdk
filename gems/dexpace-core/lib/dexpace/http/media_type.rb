@@ -44,6 +44,9 @@ module Dexpace
     QUOTED_PAIR = Regexp.new("\\\\(.)", timeout: 1.0)
     # The two characters #render escapes inside a quoted-string.
     TO_ESCAPE = Regexp.new("([\"\\\\])", timeout: 1.0)
+    # The parser's patterns are an implementation detail, kept out of the public surface NFR-4
+    # locks at the first release tag; only the charset tables are part of the contract.
+    private_constant :UNTIL_SEPARATOR, :SEPARATOR, :KEY, :QUOTED, :QUOTED_PAIR, :TO_ESCAPE
 
     # The validating factory; `parameters` is copied and deep-frozen, never aliased.
     def self.build(type:, subtype:, parameters: {})
@@ -63,10 +66,7 @@ module Dexpace
       scanner = StringScanner.new(text)
       type, subtype = parse_essence(scanner)
       parameters = {} #: Hash[String, String]
-      until scanner.eos?
-        key, value = parse_parameter(scanner)
-        parameters[key] = value
-      end
+      parse_parameter(scanner, parameters) until scanner.eos?
       build(type: type, subtype: subtype, parameters: parameters)
     end
 
@@ -78,10 +78,12 @@ module Dexpace
     end
     private_class_method :parse_essence
 
-    # HTTP-25 and HTTP-53: a parameter is a separator, a key, "=" and a value.
-    def self.parse_parameter(scanner)
+    # HTTP-25 and HTTP-53: a parameter is a separator, a key, "=" and a value, stored into
+    # `parameters` as parsed. Ruby evaluates the index before the assigned value, so the key is
+    # scanned first.
+    def self.parse_parameter(scanner, parameters)
       malformed!(scanner) unless scanner.skip(SEPARATOR)
-      [parse_key(scanner), parse_value(scanner)]
+      parameters[parse_key(scanner)] = parse_value(scanner)
     end
     private_class_method :parse_parameter
 
@@ -144,8 +146,10 @@ module Dexpace
     alias to_s render
 
     # HTTP-27: `*/*` matches everything; a wildcard subtype matches any subtype of its type;
-    # parameters take no part.
+    # parameters take no part. The operand is checked first so a caller mistake is reported as
+    # the SDK's error rather than as a NoMethodError from reading `type` off it.
     def matches?(other)
+      raise InvalidArgumentError, "matches? requires a MediaType" unless other.is_a?(MediaType)
       return true if type == "*"
 
       type == other.type && (subtype == "*" || subtype == other.subtype)

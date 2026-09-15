@@ -1,6 +1,7 @@
 module Dexpace
   module PercentEncoding
     UNRESERVED: Array[Integer]
+    # The three tables below are `private_constant` in Ruby; RBS has no way to say so.
     ENCODED: Hash[Integer, String]
     HEX_VALUES: Hash[Integer, Integer]
     PERCENT: Integer

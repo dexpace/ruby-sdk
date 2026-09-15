@@ -4,6 +4,8 @@ module Dexpace
 
     PSEUDO_CHARSETS: Array[String]
     KNOWN_CHARSETS: Array[String]
+    # The six patterns below are `private_constant` in Ruby; RBS has no way to say so, and Steep
+    # needs them declared to type the parser.
     UNTIL_SEPARATOR: Regexp
     SEPARATOR: Regexp
     KEY: Regexp
@@ -21,7 +23,7 @@ module Dexpace
     def self.build: (type: String, subtype: String, ?parameters: Hash[String, String]) -> MediaType
     def self.parse: (String text) -> MediaType
     private def self.parse_essence: (StringScanner scanner) -> [String, String]
-    private def self.parse_parameter: (StringScanner scanner) -> [String, String]
+    private def self.parse_parameter: (StringScanner scanner, Hash[String, String] parameters) -> String
     private def self.parse_key: (StringScanner scanner) -> String
     private def self.parse_value: (StringScanner scanner) -> String
     private def self.malformed!: (StringScanner scanner, ?String what) -> bot

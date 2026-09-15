@@ -24,6 +24,9 @@ module Dexpace
       .to_h { |digit| [digit.ord, digit.to_i(16)] }.freeze
     # The "%" byte that opens an escape.
     PERCENT = 0x25
+    # The codec's tables are an implementation detail, kept out of the public surface NFR-4
+    # locks at the first release tag; the unreserved set is the one constant that is contract.
+    private_constant :ENCODED, :HEX_VALUES, :PERCENT
 
     # HTTP-29 / HTTP-32: every byte outside the unreserved set is percent-encoded, uppercase --
     # space to %20, "+" to %2B, "/" to %2F, "*" to %2A -- and "~" is left bare.

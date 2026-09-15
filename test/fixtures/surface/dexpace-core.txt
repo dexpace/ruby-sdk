@@ -26,7 +26,6 @@ Dexpace::HeaderSyntax::DEL : Integer
 Dexpace::HeaderSyntax::HTAB : Integer
 Dexpace::HeaderSyntax::SPACE : Integer
 Dexpace::HeaderSyntax::TCHAR : Array
-Dexpace::HeaderSyntax::TRIMMABLE : Array
 Dexpace::Headers
 Dexpace::Headers#==
 Dexpace::Headers#[]
@@ -63,14 +62,8 @@ Dexpace::MediaType#to_s
 Dexpace::MediaType#type
 Dexpace::MediaType.build
 Dexpace::MediaType.parse
-Dexpace::MediaType::KEY : Regexp
 Dexpace::MediaType::KNOWN_CHARSETS : Array
 Dexpace::MediaType::PSEUDO_CHARSETS : Array
-Dexpace::MediaType::QUOTED : Regexp
-Dexpace::MediaType::QUOTED_PAIR : Regexp
-Dexpace::MediaType::SEPARATOR : Regexp
-Dexpace::MediaType::TO_ESCAPE : Regexp
-Dexpace::MediaType::UNTIL_SEPARATOR : Regexp
 Dexpace::Method
 Dexpace::Method#body_forbidden?
 Dexpace::Method#idempotent?
@@ -97,9 +90,6 @@ Dexpace::Model.required!
 Dexpace::PercentEncoding
 Dexpace::PercentEncoding#decode_component
 Dexpace::PercentEncoding#encode_component
-Dexpace::PercentEncoding::ENCODED : Hash
-Dexpace::PercentEncoding::HEX_VALUES : Hash
-Dexpace::PercentEncoding::PERCENT : Integer
 Dexpace::PercentEncoding::UNRESERVED : Array
 Dexpace::Protocol
 Dexpace::Protocol#to_s
