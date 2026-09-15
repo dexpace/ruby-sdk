@@ -31,15 +31,21 @@ class DexpaceTest < DexpaceTestCase
   end
 
   # Every public constant the surface manifest records, and the check that catches a file added
-  # to lib/ and forgotten in the entry point.
+  # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer;
+  # Dexpace::Hooks is a private_constant and does not appear in Dexpace.constants(false).
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
   ].freeze
+  SEAM_LAYER = %i[
+    SeamError ClosedError CancelledError Closeable Cancellation Async Registry Bridge Transport
+    AsyncTransport Serde Operation
+  ].freeze
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
-    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL], "constants added under Dexpace")
+    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER],
+                 "constants added under Dexpace",)
     assert_includes(Dexpace.constants(false), :VERSION)
   end
 
@@ -52,11 +58,27 @@ class DexpaceTest < DexpaceTestCase
   end
 
   test "every constant the manifest records is reachable from Dexpace" do
-    DOMAIN_MODEL.each { |name| assert(Dexpace.const_defined?(name, false), "#{name} missing") }
-    assert_empty(DOMAIN_MODEL - Dexpace.constants(false))
+    (DOMAIN_MODEL + SEAM_LAYER).each do |name|
+      assert(Dexpace.const_defined?(name, false), "#{name} missing")
+    end
+    assert_empty((DOMAIN_MODEL + SEAM_LAYER) - Dexpace.constants(false))
     %i[Headers Query RequestOptions Request Response].each do |name|
       assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
     end
+  end
+
+  # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).
+  test "requiring dexpace alone makes the whole seam layer resolve" do
+    assert_equal(Dexpace::Transport, Dexpace.const_get(:Transport))
+    assert_equal(Dexpace::AsyncTransport, Dexpace.const_get(:AsyncTransport))
+    assert_equal(Dexpace::Serde, Dexpace.const_get(:Serde))
+    assert_equal(Dexpace::Operation, Dexpace.const_get(:Operation))
+    assert_equal(Dexpace::Registry, Dexpace.const_get(:Registry))
+    assert_equal(Dexpace::Cancellation, Dexpace.const_get(:Cancellation))
+    assert_equal(Dexpace::Async::Future, Dexpace::Async.const_get(:Future))
+    assert_equal(Dexpace::Closeable, Dexpace.const_get(:Closeable))
+    refute_includes(Dexpace.constants(false), :Hooks, "Dexpace::Hooks is a private_constant")
+    assert_raises(::NameError) { Dexpace::Hooks }
   end
 
   # The shadowing name this SDK never defines: it would make a bare `rescue ArgumentError`

@@ -31,9 +31,11 @@ class SurfaceSnapshotTest < GateCase
     LIMIT = 3
   end
 
-  # Each adapter's manifest and the namespace it shares with its siblings, which is where its
-  # manifest begins: an adapter's lines are what it adds to the tree, and core's own `Dexpace`
-  # line is core's.
+  # Each adapter's manifest and the namespace it shares with its siblings. An adapter's lines are
+  # what it adds to the tree, and core's lines are core's: since phase 2 core defines all three
+  # shared namespaces (Dexpace::Transport, Dexpace::Serde, Dexpace::Async), so an adapter's
+  # manifest begins at its own constant inside the namespace, and the namespace line itself --
+  # like the `Dexpace` line -- belongs to core's manifest.
   SHARED_NAMESPACES = {
     "dexpace-transport-net_http" => "Dexpace::Transport",
     "dexpace-transport-async_http" => "Dexpace::Transport",
@@ -70,11 +72,12 @@ class SurfaceSnapshotTest < GateCase
     refute_includes(err, "would not load")
   end
 
-  test "each adapter's committed manifest starts at the namespace it shares, not its own" do
+  test "each adapter's committed manifest starts inside the namespace it shares, none of core's" do
     SHARED_NAMESPACES.each do |name, namespace|
       lines = File.readlines(File.join(ROOT, "test/fixtures/surface/#{name}.txt"), chomp: true)
 
-      assert_equal(namespace, lines.first, name)
+      assert(lines.first.start_with?("#{namespace}::"), "#{name}: #{lines.first.inspect}")
+      refute_includes(lines, namespace, "#{name}: the shared namespace is core's since phase 2")
       refute_includes(lines, "Dexpace", "#{name}: core's own line belongs to core's manifest")
     end
   end

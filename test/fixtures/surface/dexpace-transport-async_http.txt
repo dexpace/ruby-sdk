@@ -1,3 +1,2 @@
-Dexpace::Transport
 Dexpace::Transport::AsyncHTTP
 Dexpace::Transport::AsyncHTTP::VERSION : String
