@@ -1,0 +1,25 @@
+module Dexpace
+  module Async
+    class Future
+      @completer: Dexpace::Async::Completer
+
+      def initialize: (Dexpace::Async::Completer completer) -> void
+      def settled?: () -> bool
+      def cancelled?: () -> bool
+      def wait: (?cancellation: Dexpace::Cancellation?) -> self
+      def value: (?cancellation: Dexpace::Cancellation?) -> untyped
+      def on_settle: () { (Dexpace::Async::Settlement) -> void } -> self
+      def cancel: (?untyped reason) -> self
+      def then: () { (untyped) -> untyped } -> Dexpace::Async::Future
+
+      private
+
+      def forward: (
+        Dexpace::Async::Settlement settlement,
+        Dexpace::Async::Completer derived,
+        ^(untyped) -> untyped block,
+      ) -> void
+      def map: (untyped response, Dexpace::Async::Completer derived, ^(untyped) -> untyped block) -> bool
+    end
+  end
+end
