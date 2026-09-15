@@ -98,9 +98,13 @@ validated them, are equal. Every name and every value is validated **as bytes** 
 | a value with a byte ≥ 0x80 (obs-text) | rejected | accepted |
 | a value with CR, LF or DEL | rejected | rejected |
 | a `String` whose bytes are not valid UTF-8 | rejected with `InvalidArgumentError` | as the rows above |
+| a name whose bytes are ASCII under a tag that cannot carry ASCII (`"Accept".encode("ISO-2022-JP")`, UTF-16) | accepted; stored and folded under US-ASCII | same |
 
 A rejected value never appears in the error message; a rejected name is echoed with its control
-bytes escaped. `Headers.builder` validates by the outbound grammar and `Headers.inbound_builder`
+bytes escaped. The last row is `HeaderSyntax.ascii_compatible`, the one normalisation core applies before
+it folds, upcases or scans anything a byte check has passed — `Method.of`, `Protocol.parse` and
+`MediaType.parse` go through it too — so a legal tag Ruby refuses to fold under never reaches a caller
+as `Encoding::CompatibilityError`. `Headers.builder` validates by the outbound grammar and `Headers.inbound_builder`
 by the inbound one; the direction is a member of the built collection, so a builder derived from
 a response's headers stays lenient.
 

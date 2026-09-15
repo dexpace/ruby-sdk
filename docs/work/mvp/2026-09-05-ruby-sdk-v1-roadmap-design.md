@@ -2351,6 +2351,23 @@ design.
   repoint each citation and reword each sentence to the as-built claim.** Touches `HTTP-1`, `XCUT-15`. Added
   after phase 10's planning pass, so it is the thirty-fifth bullet and is not yet in its design's disposition
   table; phase 10 dispositions it at execution.
+- **`Dexpace::URL.parse!` accepts a host-less `http:` and any absolute non-HTTP URI, so a `Request` can carry a
+  URL no transport can dispatch, and nothing owns the rejection.** Found by the round-3 review of phase 1's
+  stack on 2026-09-15: `URI::Generic#absolute?` is only "a scheme is present", so `URL.parse!("http:")`
+  yields a `URI::HTTP` with a `nil` host and `URL.parse!("mailto:x@y")` a `URI::MailTo`, while `"/rel"` and
+  `"example.test/a"` are correctly refused. `HTTP-47`'s letter — malformed or non-absolute — is met; its
+  rationale, failing at construction "rather than surfacing a lower-level or transport-specific error later",
+  is not, for those two shapes, which today surface as whatever `Net::HTTP.new(nil, …)` raises inside phase
+  8a's `Adapter`. Phase 1 changed nothing: which schemes and shapes are dispatchable is a transport's
+  knowledge, not the wire model's, and the two candidate owners are both already planned — phase 8a's
+  `RequestMapper` and `Adapter` (Tasks 16 and 19,
+  `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`), where a
+  `TransportError` naming the URL would be the natural shape, or `URL.parse!` itself if a
+  transport-independent "http or https with a host" rule is preferred and recorded against `HTTP-47`.
+  **Code half: one check in one of those two places, with its negative tests; documentation half: the
+  choice, in the owning phase's checklist row.** Touches `HTTP-47`. Added after phase 10's
+  planning pass, so it is the thirty-sixth bullet and is not yet in its design's disposition table; phase 10
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2580,9 +2597,9 @@ rewritten from what was built.
 documentation. `dexpace-core` now carries the HTTP domain model — twenty-two new `lib/` files under
 `lib/dexpace/`, each with its `sig/` and `test/` mirror, exactly the layout the design's Module Layout
 section names — and the other five gems are still phase-0 skeletons at `0.0.0`. The checklist is at
-`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`: forty-two rows, 36 ✅ (`HTTP-3`
-split three ways, `HTTP-46`'s body half deferred to 3b), 4 ⏳ (`HTTP-22`, `HTTP-48`–`HTTP-50`, all under
-`docs/first-release.md`), none 🚫. `bundle exec rake` is green on 4.0.6 with 100% line coverage against the
+`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`: forty-two rows, 38 ✅ (two by
+construction — `HTTP-1`, `HTTP-2` — and two split with a deferred half — `HTTP-3` three ways, `HTTP-46`'s body
+half deferred to 3b), 4 ⏳ (`HTTP-22`, `HTTP-48`–`HTTP-50`, all under `docs/first-release.md`), none 🚫. `bundle exec rake` is green on 4.0.6 with 100% line coverage against the
 80% floor; the matrix set is green on 3.2.11 and `test:gems` on 3.3.12 and 3.4.10 as well. **The two
 interpreter findings the design was built on held**: `Model#with` is proven load-bearing by removing it and
 watching the floor fail while 4.0.6 passes, and every validator reads bytes, so `"a\0"`, `"a\r\nb"` and
@@ -2622,4 +2639,15 @@ checks, so a non-copyable object is the SDK's error rather than `Ractor.make_sha
 (deviation 21), and `Query.parse` refuses a non-`String` as its sibling factories do (deviation 17) — one
 ledger row was added, `P1-14`, naming the `String`-only tag values of `RequestOptions` as a deliberate
 reading of `HTTP-34`, and `URL.own`'s comment stopped asserting the retired `P1-9`. `test:gems` is at 260
-runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards.
+runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards. **The round-3 review** found the mirror image of
+the design's finding 3: every validator reads bytes, so a String whose bytes are ASCII under a tag Ruby cannot
+fold under — `"Accept".encode("ISO-2022-JP")`, the same bytes as the literal — passed every check and then
+crashed the fold, the upcase or the scanner with `Encoding::CompatibilityError`, escaping `rescue
+Dexpace::Error` from eight public entry points. `HeaderSyntax.ascii_compatible` is the one normalisation,
+applied before every fold, upcase and scan in core (checklist deviation 22; one new public method, the
+manifest regenerated deliberately); `HTTP-19`'s third clause — inbound names stay strict — gained the tests
+the code already satisfied; the checklist's own roll-up sentence and this note's copy of it were recounted from
+the table (38 ✅, not 36); two nits were taken — a non-finite or non-real timeout and a non-`Hash` argument to
+`#with` are the SDK's error — and one was routed, `URL.parse!`'s host-less and non-HTTP shapes, as the
+thirty-sixth phase-10 inbound bullet above. `test:gems` is at 273 runs and 100% line coverage on 4.0.6 and
+3.2.11 afterwards.
