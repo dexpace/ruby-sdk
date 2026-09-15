@@ -37,6 +37,10 @@ module Dexpace
     # through #with or through the builder. Protocol and status are coerced through their own
     # factories rather than trusted, as Request does with its method and URL; both factories are
     # idempotent on their own type so a builder pays nothing for it.
+    #
+    # The reason phrase is the one caller-supplied String this model carries, so it is copied and
+    # frozen here (XCUT-15): stored as given, a later mutation of the caller's String would change
+    # the model in place, and the model would not be Ractor-shareable either.
     def initialize(request:, protocol:, status:, reason:, headers:, body:)
       unless Model.required!("request", request).is_a?(Request)
         raise InvalidArgumentError, "request must be a Dexpace::Request"
@@ -47,9 +51,12 @@ module Dexpace
       unless Model.required!("headers", headers).is_a?(Headers)
         raise InvalidArgumentError, "headers must be a Dexpace::Headers"
       end
+      unless reason.nil? || reason.is_a?(String)
+        raise InvalidArgumentError, "reason must be a String"
+      end
 
-      super(request: request, protocol: negotiated, status: code, reason: reason,
-            headers: headers, body: body)
+      super(request: request, protocol: negotiated, status: code,
+            reason: reason.nil? ? nil : Model.frozen_string(reason), headers: headers, body: body)
     end
 
     # HTTP-3: a builder pre-filled from this instance.

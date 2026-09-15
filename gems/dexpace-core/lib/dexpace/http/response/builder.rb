@@ -32,7 +32,8 @@ module Dexpace
       attr_writer :protocol
       # The status, as a code or a Status.
       attr_writer :status
-      # The reason phrase; nil clears it.
+      # The reason phrase; nil clears it. The model copies and freezes it at build, so the
+      # builder may hold the caller's live String.
       attr_writer :reason
       # The body, opaque in phase 1; nil clears it.
       attr_writer :body

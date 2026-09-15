@@ -48,8 +48,15 @@ module Dexpace
     # HTTP-2's gap makes this necessary rather than paranoid: `.build` is public, `new` is
     # reachable through `send`, and #with routes every derivation back through `.build`. A model
     # whose only validation lived in Builder#add would accept a CRLF name from any of the three.
+    #
+    # The container types are checked before anything reads them: a wrong-shaped collection is a
+    # caller mistake in an argument and fails with the SDK's error, never as a NoMethodError from
+    # inside the name walk, which would escape `rescue Dexpace::Error`.
     def initialize(values:, casing:, direction:)
       validate_direction!(direction)
+      raise InvalidArgumentError, "values must be a Hash" unless values.is_a?(Hash)
+      raise InvalidArgumentError, "casing must be a Hash" unless casing.is_a?(Hash)
+
       validate_names!(values, casing)
       validate_values!(values, casing, direction)
       super
