@@ -1,0 +1,33 @@
+module Dexpace
+  module Async
+    class Completer
+      # The two callback lists #settle steals under the lock, as one tuple.
+      type stolen = [Array[^(Dexpace::Async::Settlement) -> void], Array[^(untyped) -> void]]
+
+      @mutex: Thread::Mutex
+      @gate: Thread::Queue
+      @outcome: Dexpace::Async::Settlement?
+      @on_settle: Array[^(Dexpace::Async::Settlement) -> void]
+      @on_cancel: Array[^(untyped) -> void]
+      @future: Dexpace::Async::Future?
+
+      attr_reader outcome: Dexpace::Async::Settlement?
+
+      def initialize: () -> void
+      def future: () -> Dexpace::Async::Future
+      def settled?: () -> bool
+      def fulfil: (untyped response) -> bool
+      def fail: (Exception error) -> bool
+      def request_cancel: (?untyped reason) -> bool
+      def on_cancel: () { (untyped) -> void } -> self
+      def on_settle: () { (Dexpace::Async::Settlement) -> void } -> self
+      def await: (?Dexpace::Cancellation? cancellation) -> self
+
+      private
+
+      def cancel_reason: (Dexpace::Async::Settlement settlement) -> untyped
+      def arm: (Dexpace::Cancellation? cancellation) -> Dexpace::Cancellation::Subscription?
+      def settle: (Dexpace::Async::Settlement settlement) -> bool
+    end
+  end
+end

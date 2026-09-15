@@ -1,0 +1,9 @@
+module Dexpace
+  class CancelledError < ::StandardError
+    include Dexpace::Error
+
+    attr_reader reason: untyped
+
+    def initialize: (?untyped reason) -> void
+  end
+end

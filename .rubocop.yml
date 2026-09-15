@@ -18,6 +18,7 @@ require:
   - ./.rubocop/cops/dexpace/no_locale_case_fold.rb
   - ./.rubocop/cops/dexpace/no_thread_interrupt.rb
   - ./.rubocop/cops/dexpace/no_keyword_splat.rb
+  - ./.rubocop/cops/dexpace/qualified_core_constant.rb
 
 AllCops:
   NewCops: enable
@@ -171,3 +172,14 @@ Dexpace/NoKeywordSplat:
   Enabled: true
   Include:
     - "gems/*/lib/**/*.rb"
+# Design §9 Addendum A1 (phase 2): a bare Thread/Queue/Mutex/JSON inside these two namespaces
+# rebinds to the adapter gem's constant the moment that gem is required, and core's own suite
+# never requires it.
+Dexpace/QualifiedCoreConstant:
+  Enabled: true
+  Include:
+    - "gems/dexpace-core/lib/dexpace/async/**/*.rb"
+    - "gems/dexpace-core/lib/dexpace/serde/**/*.rb"
+    # The seam module itself reopens Dexpace::Serde from one directory up, so a bare JSON there
+    # is the same hazard as one inside serde/.
+    - "gems/dexpace-core/lib/dexpace/serde.rb"

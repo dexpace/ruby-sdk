@@ -1,0 +1,26 @@
+module Dexpace
+  # The static half of the codec seam: the six methods, typed. `value` and the witness are
+  # untyped because the witness protocol is phase 7's (§7.3) and a codec's value space is its own.
+  interface _Codec
+    def media_type: () -> String
+    def dump_string: (untyped value) -> String
+    def dump_bytes: (untyped value) -> String
+    def dump_to: (untyped value, untyped sink) -> untyped
+    def dump_into: (untyped value, String buffer, offset: Integer) -> Integer
+    def load: (untyped source, untyped witness) -> untyped
+  end
+
+  module Serde
+    # Two private_constants with no visibility in RBS; declared so Steep can type the module.
+    CONTRACT: Array[Symbol]
+    REGISTRY: Dexpace::Registry
+
+    def self.conforms?: (untyped object) -> bool
+    def self.missing_methods: (untyped object) -> Array[Symbol]
+    def self.register: (untyped key, untyped factory, core: String) -> singleton(Dexpace::Serde)
+    def self.install: (untyped codec) -> singleton(Dexpace::Serde)
+    def self.resolve: () -> untyped
+    def self.registered_keys: () -> Array[untyped]
+    def self.swap: (untyped codec) { (untyped) -> void } -> void
+  end
+end

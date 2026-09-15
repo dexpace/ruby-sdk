@@ -1,0 +1,26 @@
+module Dexpace
+  # The static half of the seam -- what a consumer's own `steep check` sees at a parameter -- and
+  # the artifact that replaces the styleguide's Sorbet abstract module
+  # (docs/knowledge/notes/data-modeling.md). Typed, not untyped: every name is a Dexpace::
+  # constant, so NFR-11 holds, and an untyped interface would carry no information.
+  interface _Transport
+    def call: (
+      Dexpace::Request request,
+      Dexpace::RequestOptions options,
+      Dexpace::Cancellation? cancellation,
+    ) -> Dexpace::Response
+  end
+
+  module Transport
+    # A private_constant with no visibility in RBS; declared so Steep can type the delegations.
+    REGISTRY: Dexpace::Registry
+
+    def self.conforms?: (untyped object) -> bool
+    def self.register: (untyped key, untyped factory, core: String) -> singleton(Dexpace::Transport)
+    def self.install: (untyped transport) -> singleton(Dexpace::Transport)
+    def self.resolve: () -> untyped
+    def self.registered_keys: () -> Array[untyped]
+    def self.swap: (untyped transport) { (untyped) -> void } -> void
+    def self.async_over: (untyped transport, executor: untyped) -> Dexpace::Bridge::AsyncOver
+  end
+end

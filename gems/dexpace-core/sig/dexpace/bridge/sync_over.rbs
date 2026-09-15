@@ -1,0 +1,12 @@
+module Dexpace
+  module Bridge
+    class SyncOver
+      include Dexpace::Closeable
+
+      @transport: untyped
+
+      def initialize: (untyped transport) -> void
+      def call: (untyped request, untyped options, Dexpace::Cancellation? cancellation) -> untyped
+    end
+  end
+end

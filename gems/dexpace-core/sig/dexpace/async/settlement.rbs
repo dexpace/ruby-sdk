@@ -1,0 +1,24 @@
+module Dexpace
+  module Async
+    class Settlement < Data
+      include Dexpace::Model
+
+      # `response` is untyped for the reason phase 1's Request#body is: a transport's response is
+      # what a seam returns, and narrowing it here would fix the async seam's return type ahead of
+      # phase 8's first adapter.
+      attr_reader response: untyped
+      attr_reader error: Exception?
+      attr_reader cancelled: bool
+
+      private def self.new: (response: untyped, error: Exception?, cancelled: untyped) -> instance
+      def initialize: (response: untyped, error: Exception?, cancelled: untyped) -> void
+
+      def self.build: (?response: untyped, ?error: Exception?, ?cancelled: untyped) -> Settlement
+      def self.success: (untyped response) -> Settlement
+      def self.failure: (Exception error) -> Settlement
+      def self.cancellation: (Exception error) -> Settlement
+
+      def success?: () -> bool
+    end
+  end
+end

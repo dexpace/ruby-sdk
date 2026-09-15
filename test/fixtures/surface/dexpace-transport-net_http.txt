@@ -1,3 +1,2 @@
-Dexpace::Transport
 Dexpace::Transport::NetHTTP
 Dexpace::Transport::NetHTTP::VERSION : String

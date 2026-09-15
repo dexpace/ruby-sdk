@@ -1,0 +1,39 @@
+module Dexpace
+  class Cancellation
+    # A private_constant with no visibility in RBS; declared so Steep can type .none.
+    NONE: Dexpace::Cancellation
+
+    private def self.new: (Array[Dexpace::Cancellation::Source] sources) -> instance
+    def initialize: (Array[Dexpace::Cancellation::Source] sources) -> void
+
+    def self.none: () -> Dexpace::Cancellation
+    def self.source: () -> Dexpace::Cancellation::Source
+    def self.over: (*Dexpace::Cancellation::Source) -> Dexpace::Cancellation
+    def self.any: (*Dexpace::Cancellation) -> Dexpace::Cancellation
+
+    def cancelled?: () -> bool
+    def reason: () -> untyped
+    def check!: () -> nil
+    def on_cancel: () { (untyped) -> void } -> Dexpace::Cancellation::Subscription
+    def merged_with: (*Dexpace::Cancellation) -> Dexpace::Cancellation
+
+    # Protected in Ruby: only another token composes on it, through #merged_with.
+    attr_reader sources: Array[Dexpace::Cancellation::Source]
+
+    private
+
+    def once_only: () { () -> void } -> ^(untyped) -> void
+    def winner: () -> Dexpace::Cancellation::Source?
+
+    class Subscription
+      @sources: Array[Dexpace::Cancellation::Source]
+      @hook: (^(untyped) -> void)?
+
+      def initialize: (
+        Array[Dexpace::Cancellation::Source] sources,
+        (^(untyped) -> void)? hook,
+      ) -> void
+      def detach: () -> nil
+    end
+  end
+end

@@ -25,6 +25,28 @@ require_relative "dexpace/http/request/builder"
 require_relative "dexpace/http/response"
 require_relative "dexpace/http/response/builder"
 
+# Phase 2: the seam layer, in dependency order (see the block below for why the order matters).
+require_relative "dexpace/error/seam_error"
+require_relative "dexpace/error/closed_error"
+require_relative "dexpace/error/cancelled_error"
+require_relative "dexpace/closeable"
+require_relative "dexpace/hooks"
+require_relative "dexpace/cancellation"
+require_relative "dexpace/cancellation/source"
+require_relative "dexpace/async/settlement"
+require_relative "dexpace/async/completer"
+require_relative "dexpace/async/future"
+require_relative "dexpace/registry"
+require_relative "dexpace/bridge/async_over"
+require_relative "dexpace/bridge/sync_over"
+require_relative "dexpace/transport"
+require_relative "dexpace/async_transport"
+require_relative "dexpace/serde/error"
+require_relative "dexpace/serde/serialization_error"
+require_relative "dexpace/serde/deserialization_error"
+require_relative "dexpace/serde"
+require_relative "dexpace/operation"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

@@ -1,0 +1,28 @@
+module Dexpace
+  class Cancellation
+    class Source
+      # A private_constant snapshot; declared so Steep can type the swap.
+      class State < Data
+        attr_reader cancelled: bool
+        attr_reader reason: untyped
+        attr_reader cancelled_at: Integer?
+
+        def self.new: (cancelled: bool, reason: untyped, cancelled_at: Integer?) -> instance
+      end
+
+      @mutex: Thread::Mutex
+      @state: State
+      @hooks: Array[^(untyped) -> void]
+
+      attr_reader token: Dexpace::Cancellation
+
+      def initialize: () -> void
+      def cancelled?: () -> bool
+      def reason: () -> untyped
+      def cancelled_at: () -> Integer?
+      def cancel: (?untyped reason) -> bool
+      def on_cancel: () { (untyped) -> void } -> self
+      def off_cancel: (^(untyped) -> void hook) -> self
+    end
+  end
+end

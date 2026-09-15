@@ -1,0 +1,7 @@
+module Dexpace
+  module Serde
+    class Error < ::StandardError
+      include Dexpace::Error
+    end
+  end
+end
