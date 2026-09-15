@@ -2692,3 +2692,49 @@ its checklist, the third written; the surface manifest is 318 lines, and the fou
 lost the one namespace line core now owns.
 `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and three new constraints-that-bite
 lines are rewritten from what was built.
+
+**2026-09-15** — **Phase 3a implemented**, as three stacked branches against issue #11: code, tests,
+documentation. `dexpace-core` now carries the byte-streaming layer beside phase 1's domain model and phase 2's
+seam layer — nine new `lib/` files under `lib/dexpace/`, exactly the design's Module Layout: two flat failure
+types, `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamError < ::EOFError`, and seven under
+`Dexpace::IO` — the namespace with `MAX_MATERIALIZED_BYTES`, the `TypedReads` and `TypedWrites` vocabularies,
+`BufferedSource`, `Buffer`, `BufferedSink` and `TeeSink` — each with its `sig/` mirror declaring every method
+and its `test/` mirror, plus three fakes (`fake_chunked.rb`, `fake_source.rb`, `fake_sink.rb`); two files
+changed as the design said (`Closeable#closed?` reads the latch under the mutex, P3-6; the entry file's nine
+`require_relative`s), the seventh cop gained `IO`, the one-segment `Dexpace` watch and a definition-site guard
+over every gem's `lib/` (P3-7), and the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks
+to a socket. The checklist is at `docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-checklist.md`:
+forty-two rows, 34 ✅ and 8 🚫 (`IO-30`–`IO-36`, `IO-39`, the retired provider apparatus citing design
+§10.1, with `IO-30`'s independent-copy clause kept as a property of `.of_bytes`), nothing ⏳, nothing N/A.
+`bundle exec rake` is green on 4.0.6 at the tests tip with 99.95% line coverage against the 80% floor and
+774 runs across the six gems; the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the core suite is green
+under three further seeds; the code tip is red on the SimpleCov floor alone (78.00%, 0 failures). **Every guard the
+plan asks to be run red was run red** — P3-6's fiber-held-mutex assertion against phase 2's reader on all
+three interpreters (`ThreadError expected but nothing was raised`), the cop's six new rejections before the
+widening, the `fill(1)` amendment's count guards (`Expected: 4096 Actual: 1`), and the Tasks 5–9 ladder
+against the finished suite (12/57, 4/47, 4/38, 1/20, 1/0, then 0/0 failures/errors). **One correctness defect
+the plan's fences carried was found and closed by a test the plan did not have**: view invalidation did not
+cascade, so a slice of a slice survived its root's close and could pull fresh bytes through an invalidated
+outer view from a closed `.of_bytes` root; `#dexpace_invalidate` now releases a view's own views and the
+parent-side entry points check readability first (checklist deviation 3). **Two decisions the plan left open
+were taken in the open**: `TeeSink#clear_tap` is dropped — 3b builds a fresh tee per write, so the method had
+no caller in core while being `NFR-4`-locked surface (deviation 1) — and `BufferedSource.__dexpace_view` is a
+declared public singleton method because strict Steep refuses an undeclared `def self.` (deviation 7).
+Seventeen departures from the plan's text are itemised in the checklist, none lowering a gate; one widens
+`tools/rbs_surface.rb`'s `NFR-11` allowlist by `EOFError`, `IOError` and `Encoding` — the false positive phase
+1 fixed for `Data`, `ArgumentError` and `StringScanner`, fixed the same way with a fixture and a pinning gate
+test (deviation 6) — and one moves phase 2's accepted cop row `module Dexpace; module Transport; Thread.new`
+to rejected, a tightening the one-segment watch implies (deviation 2). The unbounded window is `nil` rather
+than `Float::INFINITY` and three RBS interface-typed parameters are `untyped`, because strict Steep refused
+the plan's shapes (deviations 4 and 5). The plan's RuboCop-baseline finding does not reproduce against the
+built tree — 200 files, no offenses with `--ignore-parent-exclusion` — so phase 0's plan, Task 3 gains
+nothing. The design's ledger gains P3-13 and an "As built" addendum; the one postponed item keeps its owner
+(`IO-38` on a GVL-free Ruby, `docs/first-release.md` § Post-release triggers), the `include Dexpace` blocker's
+documentation half is written in `docs/sdk-documentation/io.md` and the core README with the consumer case
+pinned in `io_test.rb`, and its release-decision half stays open. The counts that changed: `gems/` is still
+six; `dexpace-core`'s `lib/dexpace/` is fifty-one phase-1, phase-2 and phase-3a files beside phase 0's
+`version.rb`; `phase3/phase3a/` now carries its checklist, the fourth written; the surface manifest is 367
+lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the constraints-that-bite
+line on the seventh cop are rewritten from what was built. The consolidation of P3-1–P3-13 into design §10 is a
+human's, as it was for phases 1 and 2: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as
+phase 2 left it for phase 10 to flip.

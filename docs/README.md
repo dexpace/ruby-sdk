@@ -101,14 +101,15 @@ a different namespace and the probe does not confuse them.
 
 Six gems exist under `gems/`, all at `0.0.0` and none published — each a gemspec reading the
 root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds phase 1's HTTP
-domain model and phase 2's seam layer; the other five are phase 0's skeletons, a namespace and a
-`VERSION`. The as-built documentation lands in [`sdk-documentation/`](./sdk-documentation/) as
-each gem gains code; the three pages written so far are
-[`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the gate
+domain model, phase 2's seam layer and phase 3a's byte-streaming layer; the other five are phase
+0's skeletons, a namespace and a `VERSION`. The as-built documentation lands in
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the four pages written so far
+are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the gate
 set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
-because the domain model is the thing phase 1 built, and
+because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
-phase 2 built.
+phase 2 built, and [`sdk-documentation/io.md`](./sdk-documentation/io.md), because the
+byte-streaming layer is the thing phase 3a built.
 
 ## Keeping this file true
 

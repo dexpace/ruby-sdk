@@ -15,12 +15,14 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1 and 2 are built.** Nothing is published. The repository holds six gems under `gems/`,
-every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen, validated wire
-types every later phase stands on (`docs/sdk-documentation/http.md`) — and the seam layer: the
-provider registry, the transport and codec seams, the core-owned async pivot, cancellation, the
-close contract and the operation projection (`docs/sdk-documentation/seams.md`); nothing talks to
-a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
+**Phases 0, 1, 2 and 3a are built.** Nothing is published. The repository holds six gems under
+`gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
+validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
+layer: the provider registry, the transport and codec seams, the core-owned async pivot,
+cancellation, the close contract and the operation projection (`docs/sdk-documentation/seams.md`)
+— and the byte-streaming layer every body will stand on: the FIFO buffer, the buffered source and
+sink with typed reads and non-consuming views, and the tee sink
+(`docs/sdk-documentation/io.md`); nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |

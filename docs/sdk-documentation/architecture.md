@@ -1,12 +1,13 @@
 # Architecture
 
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
-skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, and phase 2 the seam
-layer in the same gem; the pipeline and the adapters are still to come, so this page is still a
-stub: it names the pages this tree will eventually hold and where each one's content will come
-from, so the plan for the documentation exists before the documentation does. Three pages are real
-already, because their subjects are: [`quality-gates.md`](./quality-gates.md),
-[`http.md`](./http.md) and [`seams.md`](./seams.md).
+skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
+layer in the same gem, and phase 3a the byte-streaming layer beneath every body; the body model,
+the pipeline and the adapters are still to come, so this page is still a stub: it names the pages
+this tree will eventually hold and where each one's content will come from, so the plan for the
+documentation exists before the documentation does. Four pages are real already, because their
+subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
+[`seams.md`](./seams.md) and [`io.md`](./io.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -24,6 +25,12 @@ async transport and a codec are, how a provider is registered, installed and res
 core-owned future and cancellation token, the close contract, and how an `Operation` becomes a
 `Request`. Written against the layer phase 2 shipped; derives from
 `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
+
+[io.md](./io.md) — the byte-streaming layer every body stands on: the FIFO buffer, the buffered
+source and sink with their typed reads and non-consuming views, the tee sink, the one ownership
+rule, and the `Dexpace::IO` shadow a consumer that includes `Dexpace` has to know about. Written
+against the layer phase 3a shipped; derives from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1.
 
 bodies.md — request bodies as duck-typed producers, response bodies as owned resources the caller
 must close. Derives from `docs/sdk-design-ruby/04-domain-model-construction.md`, read together
