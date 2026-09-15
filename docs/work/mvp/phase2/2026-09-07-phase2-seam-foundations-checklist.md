@@ -78,8 +78,8 @@ order; `sig/dexpace.rbs` needed nothing. `require "uri"` and `require "strscan"`
 lines.
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15): green, exit 0 —
-`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 525 runs /
-3265 assertions with **99.93% line coverage (1512/1513)** against the 80% floor (the one uncovered
+`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 529 runs /
+3376 assertions with **99.93% line coverage (1521/1522)** against the 80% floor (the one uncovered
 line is the race-only branch of the registry's claim swap, reachable only when a resolution
 completes between a resolver's unsynchronised read and its locked claim), `test:gates` 128 runs, the
 nine `gates:*` tasks, `yard` 100.00% documented, `bundler_audit` clean. The same caveat about
@@ -88,7 +88,7 @@ the parent checkout's `.rubocop.yml` excludes `.claude/**/*`; run as
 `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` it inspected **179 files, no
 offenses**, and that is the run these rows rest on (already on phase 10's inbound list from phase 1).
 
-`test:gems` green on **3.2.11** (525 runs, 99.93% line coverage), with its own lockfile resolved
+`test:gems` green on **3.2.11** (529 runs, 99.93% line coverage), with its own lockfile resolved
 fresh; the seeded order-independence runs are recorded in the roadmap's status note. The 3.2.11 run
 is the one that proves phase 1's `Model#with` still carries this phase's two public `Data` types —
 `Settlement` and `Operation` both assert that `#with` re-validates.
@@ -303,7 +303,7 @@ changes a gate's own test in the corrected direction (item 24).
     the namespace line is absent, and that `Dexpace` is absent; it goes red against the phase-0
     manifests and green against the regenerated ones. On the code branch, because that branch's
     `test:gates` must be green on its own tree.
-25. **Run counts exceed the plan's.** `test:gems` is 525 runs where the plan's built-tree run was
+25. **Run counts exceed the plan's.** `test:gems` is 529 runs where the plan's built-tree run was
     179; Minitest is 5.27.0 on 4.0.6 here, not the 6.0.0 the plan mentions, and assertion counts
     match across 3.2.11 and 4.0.6.
 26. **`Registry.accepts_positionals?` refuses a required keyword** (review round 1). The design's
