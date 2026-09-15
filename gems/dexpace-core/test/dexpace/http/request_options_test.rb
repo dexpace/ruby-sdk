@@ -47,6 +47,20 @@ class DexpaceRequestOptionsTest < DexpaceTestCase
     assert_nil(Dexpace::RequestOptions.builder.build.timeout)
   end
 
+  # A Complex is a Numeric with no #positive?, so it would escape as a NoMethodError from inside
+  # the check; an infinite or NaN timeout is a positive-looking value no socket API can take.
+  # All three are the caller's mistake and the SDK's error reports them (the Task 1 rule).
+  test "rejects a timeout that is not a finite real number with the SDK's error" do
+    [Complex(1, 0), Float::INFINITY, Float::NAN].each do |timeout|
+      assert_raises(Dexpace::InvalidArgumentError, timeout.to_s) do
+        Dexpace::RequestOptions.build(timeout: timeout, max_retries: nil, tags: {})
+      end
+    end
+    rational = Dexpace::RequestOptions.build(timeout: 3r / 2, max_retries: nil, tags: {})
+
+    assert_in_delta(1.5, rational.timeout)
+  end
+
   test "holds the timeout as a Float of seconds, whatever numeric it was given" do
     builder = Dexpace::RequestOptions.builder
     builder.timeout = 2

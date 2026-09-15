@@ -46,6 +46,17 @@ class DexpaceModelTest < DexpaceTestCase
     sample = Sample.build(code: 1)
 
     assert_same(sample, sample.with)
+    assert_same(sample, sample.with({}))
+  end
+
+  # The positional form (checklist deviation 1) admits any object where the keyword form would
+  # have raised ArgumentError at the call site; a non-Hash is the SDK's error, never a
+  # NoMethodError from reading `empty?` off it.
+  test "with refuses a positional argument that is not a Hash with the SDK's error" do
+    sample = Sample.build(code: 1)
+
+    assert_raises(Dexpace::InvalidArgumentError) { sample.with(5) }
+    assert_raises(Dexpace::InvalidArgumentError) { sample.with([[:code, 2]]) }
   end
 
   test "with produces a new validated instance when something changes" do

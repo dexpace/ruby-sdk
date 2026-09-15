@@ -51,6 +51,18 @@ class DexpaceHeaderNameTest < DexpaceTestCase
     assert_equal("Accept", Dexpace::HeaderName.of("  Accept  ").original)
   end
 
+  # The bytes are ASCII and every byte check passes; only the tag is one Ruby refuses to fold.
+  # Without the retag the fold raises Encoding::CompatibilityError from inside Ruby, which
+  # escapes `rescue Dexpace::Error` -- a validator that crashes has not accepted its input either.
+  test "folds a name whose tag is a stateful encoding rather than crashing on it" do
+    name = Dexpace::HeaderName.of("Accept".encode("ISO-2022-JP"))
+
+    assert_equal("accept", name.folded)
+    assert_equal(Dexpace::HeaderName.of("Accept"), name)
+    assert_equal("Accept", name.to_s)
+    assert_equal(Encoding::US_ASCII, name.original.encoding)
+  end
+
   test "is frozen and does not alias the caller's mutable string" do
     source = +"Accept"
     name = Dexpace::HeaderName.of(source)

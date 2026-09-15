@@ -63,14 +63,6 @@ class DexpaceMediaTypeTest < DexpaceTestCase
     assert_equal("media type is required", error.message)
   end
 
-  test "rejects a control or non-ASCII byte anywhere, using the outbound header-value predicate" do
-    ["text/pl\rain", "text/pl\xC3\xA5in", "text/plain; q=\"\x7F\"", "text/pl\xE9in"].each do |bad|
-      error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::MediaType.parse(bad) }
-
-      refute_match(/invalid byte sequence/, error.message)
-    end
-  end
-
   test "with re-validates, so a derived media type cannot carry an unfolded type" do
     json = Dexpace::MediaType.parse("application/json")
 
@@ -130,6 +122,36 @@ class DexpaceMediaTypeTest < DexpaceTestCase
 
       assert_equal(value, parsed.parameters.fetch("key"))
       assert_equal(parsed, Dexpace::MediaType.parse(parsed.render))
+    end
+  end
+
+  # HTTP-26: what the bytes decide, and what the tag does not. Nested so the file keeps one
+  # top-level suite per lib file.
+  class EncodingTest < DexpaceTestCase
+    test "rejects a control or non-ASCII byte anywhere, by the outbound header-value predicate" do
+      ["text/pl\rain", "text/pl\xC3\xA5in", "text/plain; q=\"\x7F\"", "text/pl\xE9in"].each do |bad|
+        error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::MediaType.parse(bad) }
+
+        refute_match(/invalid byte sequence/, error.message)
+      end
+    end
+
+    # HTTP-26's byte predicate passes a stateful-encoding tag over ASCII bytes, and every
+    # character operation after it -- the scanner, the fold, #render's interpolation, #charset's
+    # fold -- would raise Encoding::CompatibilityError. The parser and the constructor both retag.
+    test "parses and builds from Strings whose tag is a stateful encoding" do
+      parsed = Dexpace::MediaType.parse("Text/Plain; Charset=UTF-8".encode("ISO-2022-JP"))
+
+      assert_equal(Dexpace::MediaType.parse("text/plain; charset=UTF-8"), parsed)
+      assert_equal("utf-8", parsed.charset)
+      assert_equal("text/plain; charset=UTF-8", parsed.render)
+      built = Dexpace::MediaType.build(
+        type: "text".encode("ISO-2022-JP"), subtype: "plain".encode("ISO-2022-JP"),
+        parameters: { "q".encode("ISO-2022-JP") => "a b".encode("ISO-2022-JP") },
+      )
+
+      assert_equal(%(text/plain; q="a b"), built.render)
+      assert_equal(Dexpace::MediaType.parse(%(text/plain; q="a b")), built)
     end
   end
 end

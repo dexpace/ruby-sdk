@@ -34,12 +34,6 @@ class DexpaceHeaderSyntaxTest < DexpaceTestCase
     end
   end
 
-  test "rejects a name carrying invalid UTF-8 with the SDK's error, not the regexp engine's" do
-    error = assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_name!("h\xE9der") }
-
-    refute_match(/invalid byte sequence/, error.message)
-  end
-
   test "rejects CRLF in a name, which is the request-splitting vector" do
     assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_name!("a\r\nb") }
   end
@@ -113,5 +107,52 @@ class DexpaceHeaderSyntaxTest < DexpaceTestCase
 
   test "the trim helper is internal, not public surface" do
     refute_respond_to(Syntax, :trimmable?)
+  end
+
+  # The tag of a String decides nothing here: every predicate reads bytes, so invalid UTF-8 is
+  # rejected rather than crashed on, and a tag that cannot carry the proven-ASCII bytes -- a
+  # stateful encoding, a wide one -- is normalised before any character operation meets it.
+  class EncodingTest < DexpaceTestCase
+    test "rejects a name carrying invalid UTF-8 with the SDK's error, not the regexp engine's" do
+      error = assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_name!("h\xE9der") }
+
+      refute_match(/invalid byte sequence/, error.message)
+    end
+
+    # A String whose bytes are ASCII but whose tag cannot carry ASCII -- a stateful encoding such
+    # as ISO-2022-JP, or a wide one such as UTF-16 -- passes every byte check, and the fold that
+    # follows would raise Encoding::CompatibilityError from inside Ruby. The name is retagged to
+    # the narrowest label the bytes are proven to fit, and the caller's own String is untouched.
+    test "keeps an ASCII-compatible tag on a valid name and retags US-ASCII from one that is not" do
+      assert_equal(Encoding::UTF_8, Syntax.validate_name!("Accept").encoding)
+      stateful = "Accept".encode("ISO-2022-JP")
+      retagged = Syntax.validate_name!(stateful)
+
+      assert_equal("Accept", retagged)
+      assert_equal(Encoding::US_ASCII, retagged.encoding)
+      assert_equal(Encoding::ISO_2022_JP, stateful.encoding)
+      wide = Syntax.validate_name!("Accept".b.force_encoding("UTF-16LE"))
+
+      assert_equal("Accept", wide)
+      assert_equal(Encoding::US_ASCII, wide.encoding)
+    end
+
+    test "ascii_compatible returns the String itself under an ASCII-compatible tag, else a copy" do
+      text = "text/plain"
+      bytes = text.b
+
+      assert_same(text, Syntax.ascii_compatible(text))
+      assert_same(bytes, Syntax.ascii_compatible(bytes))
+      retagged = Syntax.ascii_compatible("text/plain".encode("ISO-2022-JP"))
+
+      assert_equal("text/plain", retagged)
+      assert_equal(Encoding::US_ASCII, retagged.encoding)
+      # Bytes that are not ASCII under such a tag come back BINARY, which every character
+      # operation accepts, rather than as an invalid US-ASCII String.
+      binary = Syntax.ascii_compatible("caf\xC3\xA9".b.force_encoding("UTF-16LE"))
+
+      assert_equal(Encoding::BINARY, binary.encoding)
+      assert_predicate(binary, :valid_encoding?)
+    end
   end
 end

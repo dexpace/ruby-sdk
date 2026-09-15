@@ -59,6 +59,15 @@ class DexpaceHeadersTest < DexpaceTestCase
     refute_includes(headers, "X-Absent")
   end
 
+  # The lookup key is folded through HeaderName, so a name whose tag is a stateful encoding is
+  # looked up by its bytes rather than crashing the fold.
+  test "looks a name up under a stateful encoding tag as under any other" do
+    stateful = "Content-Type".encode("ISO-2022-JP")
+
+    assert_equal(["application/json"], build_headers[stateful])
+    assert_includes(build_headers, stateful)
+  end
+
   test "does not expose its internal hashes" do
     refute_respond_to(build_headers, :values)
     refute_respond_to(build_headers, :casing)
@@ -256,6 +265,19 @@ class DexpaceHeadersTest < DexpaceTestCase
       assert_equal(["v\xC3\xA5lue"], built["X-A"])
       assert_raises(Dexpace::InvalidArgumentError) do
         Dexpace::Headers.build(values: { "x-a" => ["v\xC3\xA5lue"] }, casing: { "x-a" => "X-A" })
+      end
+    end
+
+    # HTTP-19: "header names on the inbound path remain strictly validated" -- the direction
+    # relaxes the value grammar and nothing else, so a stored name the outbound grammar refuses
+    # is refused inbound too.
+    test "build validates inbound names by the one strict grammar" do
+      ["h\xC3\xA9der", "a\r\nb"].each do |name|
+        assert_raises(Dexpace::InvalidArgumentError, name.inspect) do
+          Dexpace::Headers.build(
+            values: { name => ["v"] }, casing: { name => name }, direction: :inbound,
+          )
+        end
       end
     end
 

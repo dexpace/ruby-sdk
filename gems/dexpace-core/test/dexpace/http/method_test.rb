@@ -66,6 +66,16 @@ class DexpaceMethodTest < DexpaceTestCase
     assert_same(Dexpace::Method::GET, Dexpace::Method.of(Dexpace::Method::GET))
   end
 
+  # The token grammar is checked as bytes, so a tag Ruby cannot upcase under -- a stateful
+  # encoding -- passes the check and would then crash the upcase with Encoding::CompatibilityError.
+  test "accepts a token whose tag is a stateful encoding, since the bytes are what is checked" do
+    stateful = Dexpace::Method.of("get".encode("ISO-2022-JP"))
+
+    assert_equal(Dexpace::Method::GET, stateful)
+    assert_equal("GET", stateful.token)
+    assert_equal(Encoding::US_ASCII, stateful.token.encoding)
+  end
+
   test "with re-validates, so a derived method cannot carry a separator" do
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Method::GET.with(token: "GE T") }
     assert_equal(Dexpace::Method::POST, Dexpace::Method::GET.with(token: "post"))

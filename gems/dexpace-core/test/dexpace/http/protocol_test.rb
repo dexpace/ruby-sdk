@@ -44,6 +44,14 @@ class DexpaceProtocolTest < DexpaceTestCase
     assert_same(Dexpace::Protocol::HTTP_2, Dexpace::Protocol.parse(Dexpace::Protocol::HTTP_2))
   end
 
+  # The byte check passes a stateful-encoding tag over ASCII bytes; the fold is what would raise.
+  test "parses an identifier whose tag is a stateful encoding" do
+    stateful = "HTTP/2.0".encode("ISO-2022-JP")
+
+    assert_equal(Dexpace::Protocol::HTTP_2, Dexpace::Protocol.parse(stateful))
+    assert_equal(Encoding::ISO_2022_JP, stateful.encoding)
+  end
+
   test "with re-validates, so a derived protocol cannot carry an unknown wire form" do
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Protocol::HTTP_2.with(wire: "http/9") }
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Protocol::HTTP_2.with(wire: "HTTP/2") }

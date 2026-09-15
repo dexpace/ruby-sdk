@@ -102,6 +102,12 @@ class DexpaceRequestTest < DexpaceTestCase
       assert_equal("https://example.test/a", Dexpace::URL.external_form(built.url))
     end
 
+    test "build coerces a method token whose tag is a stateful encoding" do
+      built = build(method: "get".encode("ISO-2022-JP"), body: nil)
+
+      assert_equal(Dexpace::Method::GET, built.method)
+    end
+
     test "build rejects a method token, a URL and a headers value it cannot coerce" do
       assert_raises(Dexpace::InvalidArgumentError) { build(method: "GE T") }
       assert_raises(Dexpace::InvalidArgumentError) { build(url: "::bad", body: nil) }

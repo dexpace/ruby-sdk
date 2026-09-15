@@ -56,6 +56,23 @@ class DexpaceHeadersBuilderTest < DexpaceTestCase
     end
   end
 
+  # HTTP-19's third clause: the inbound grammar relaxes VALUES only. A transport ingesting raw
+  # response headers must not find a lenient path for a NAME here, whatever it would save.
+  test "the inbound builder validates a name as strictly as the outbound one" do
+    ["h\xC3\xA9der", "a\r\nb", "a\0", "X Trace", ""].each do |name|
+      assert_raises(Dexpace::InvalidArgumentError, name.inspect) do
+        Dexpace::Headers.inbound_builder.add(name, "v")
+      end
+    end
+  end
+
+  test "add accepts a name whose tag is a stateful encoding and stores it under its fold" do
+    headers = Dexpace::Headers.builder.add("Accept".encode("ISO-2022-JP"), "a").build
+
+    assert_equal(["Accept"], headers.names)
+    assert_equal(["a"], headers["accept"])
+  end
+
   test "a nil value on add names the missing field" do
     error = assert_raises(Dexpace::InvalidArgumentError) do
       Dexpace::Headers.builder.add("Accept", nil)
