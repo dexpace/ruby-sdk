@@ -14,10 +14,11 @@ require "dexpace"
 # docs/knowledge/notes/url-and-query-encoding.md); reference resolution keeps its place at REDIR-13
 # in phase 6, where the spelling is URI::RFC3986_PARSER.join because URI.join is cop-banned.
 #
-# Two classes because Metrics/ClassLength caps one at 100 lines: the composition rules here, and
-# the four projections plus the property test in Projections.
+# Three classes because Metrics/ClassLength caps one at 100 lines: the composition rules here,
+# the four projections plus the path-value property test in Projections, and the template
+# property test in Templates.
 class DexpaceOperationBuildRequestTest < DexpaceTestCase
-  # The one operation shape every case builds, shared by both classes.
+  # The one operation shape every case builds, shared by all three classes.
   module Builds
     def operation(template: "/pets", projections: {}, method: "GET")
       Dexpace::Operation.build(method: method, template: template, projections: projections)
@@ -87,6 +88,20 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { operation.build_request(base_url: "/c") }
     assert_raises(Dexpace::InvalidArgumentError) { operation.build_request(base_url: "ht tp://x") }
     assert_raises(Dexpace::InvalidArgumentError) { operation.build_request(base_url: nil) }
+  end
+
+  # An opaque URI is absolute, so URL.parse! admits it, and it carries no fragment; without its
+  # own check URI::Generic#path= leaks a stdlib "path conflicts with opaque" from the composition.
+  test "a base with no hierarchical part is rejected with a context-bearing error" do
+    %w[mailto:x@y urn:isbn:123].each do |base|
+      error = assert_raises(Dexpace::InvalidArgumentError, base) do
+        operation.build_request(base_url: base)
+      end
+
+      assert_kind_of(Dexpace::Error, error, base)
+      assert_match(/hierarchical/, error.message, base)
+      assert_includes(error.message, base)
+    end
   end
 
   test "already-encoded octets in the base survive the composition verbatim" do
@@ -264,6 +279,32 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
         # exactly one segment however many slashes it contains: "", "c", "pets", <value>.
         assert_equal(4, url.path.split("/").length,
                      "value #{value.inspect} produced #{url.path.inspect}",)
+      end
+    end
+  end
+
+  # The template literal, from the composition's side.
+  class Templates < DexpaceTestCase
+    include Builds
+
+    # The literal's twin of the path-value property in Projections, and the guard on the class
+    # of leak the construction-time check closes: whatever the template, either .build refuses
+    # it as the SDK's argument error or #build_request composes a URL that re-parses to itself
+    # -- no stdlib URI error escapes from either. Only Dexpace::InvalidArgumentError is rescued,
+    # so a URI::InvalidComponentError from the composition fails the test as an error.
+    test "any template either fails construction as the SDK's error or composes cleanly" do
+      alphabet = ["a", "/", "?", "#", "%", "2", "F", " ", "{", "}", "~", ":", "\xC3\xBC"].freeze
+
+      sample(count: 200, seed: 20_260_915) do |random|
+        template = Array.new(random.rand(0..8)) { alphabet.sample(random: random) }.join
+        begin
+          subject = operation(template: template)
+        rescue Dexpace::InvalidArgumentError
+          next
+        end
+        url = subject.build_request(base_url: "https://host/c?sig=1").url
+
+        assert_equal(url.to_s, Dexpace::URL.parse!(url.to_s).to_s, "template #{template.inspect}")
       end
     end
   end

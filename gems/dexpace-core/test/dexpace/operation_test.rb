@@ -103,6 +103,36 @@ class DexpaceOperationTest < DexpaceTestCase
     end
   end
 
+  # The literal text between placeholders is copied onto the wire as it stands, so it is checked
+  # against RFC 3986 `path` here, at construction, rather than surfacing as
+  # URI::InvalidComponentError -- a stdlib error, outside `rescue Dexpace::Error` -- from
+  # URI::Generic#path= at the first #build_request (SEAM-27's "resolving to a malformed URL is
+  # rejected with a context-bearing error"). A literal query is the likeliest generator mistake.
+  test "a template literal that is not a URI path is refused at construction, naming it" do
+    ["/x?y", "/x#f", "/a b", "/pets/ü", "/100%", "/%2", "/%G1", "/a<b", "/[x]", "/a\"b",
+     "/a\tb", "/a\nb", "/{id}?q",].each do |template|
+      projections = template.include?("{id}") ? { id: [:path, "id"] } : {}
+      error = assert_raises(Dexpace::InvalidArgumentError, template.inspect) do
+        Dexpace::Operation.build(method: "GET", template: template, projections: projections)
+      end
+
+      assert_kind_of(Dexpace::Error, error, template.inspect)
+      assert_includes(error.message, template.inspect)
+      assert_match(/not a URI path/, error.message, template.inspect)
+    end
+  end
+
+  test "every pchar, a slash and an already-encoded octet are legal template literals" do
+    ["/a%20b", "/a:b@c!$&'()*+,;=", "/A-Z_a-z_0-9.~", "pets", "", "{id}",
+     "/owners/{id}/pets",].each do |template|
+      projections = template.include?("{id}") ? { id: [:path, "id"] } : {}
+      operation = Dexpace::Operation.build(method: "GET", template: template,
+                                           projections: projections,)
+
+      assert_equal(template, operation.template)
+    end
+  end
+
   # Validation, from the projections table's side.
   class Projections < DexpaceTestCase
     test "a projection targeting something other than the four parts is refused, naming them" do
