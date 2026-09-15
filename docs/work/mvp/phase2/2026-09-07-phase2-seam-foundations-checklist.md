@@ -46,7 +46,7 @@ Thirty: `SEAM-1`–`SEAM-30`.
 | `SEAM-24` | SHOULD | ⏳ | — | Post-v1, riding on `dexpace-async-async` — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `SEAM-24` entry. Tasks 4 and 5 fix the contract its bidirectional mapping will map: `Dexpace::Cancellation` in one direction and `Completer#on_cancel` in the other |
 | `SEAM-25` | MUST | ✅ with a named gap | 2, 9, 10 | The idempotent, ownership-aware release is `Dexpace::Closeable` (Task 2) and both bridges take it (Tasks 9, 10): only the first close runs `#release`, a caller-supplied transport or executor is never touched. The clause "**and emits the lifecycle event**" has no event to emit until §8.1's instrumentation facade exists — emitted by phase 8b, Tasks 6 and 10 (`docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter.md`), harnessed by phase 9, Task 11 (`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`). Named rather than claimed |
 | `SEAM-26` | MUST | ✅ | 13, 14 | `Dexpace::Operation = Data.define(:method, :template, :projections)` including `Dexpace::Model`: `private_class_method :new`, a validating `.build(method:, template:, projections: {})`, `method` coerced through `Dexpace::Method.of`, the template a frozen `String`, the projections table copied and deep-frozen through `Model.own`. A parameterless GET is the default construction. Validation at construction: a projection is a `[target, wire name]` pair, the target one of `:path`/`:query`/`:header`/`:body` (the error names all four), the wire name non-empty, at most one body projection, and the set of `:path` wire names equal to the set of `{name}` placeholders in both directions. `#with` re-validates on the 3.2 floor through phase 1's `Model#with`. The body is carried, not encoded — the input object arrives on the request as itself (`dexpace/operation_test.rb`, `dexpace/operation_build_request_test.rb`) |
-| `SEAM-27` | MUST | ✅ | 14 | `#build_request(base_url:, inputs: {})`. Path values go through phase 1's `PercentEncoding.encode_component`, so `"a/b"` becomes `a%2Fb` and never a second segment — a 40-sample property over an alphabet including `/`, `?`, `#`, `&`, a space, `%` and invalid UTF-8 asserts the assembled URL re-parses through `URL.parse!` with exactly one segment added; a `nil` path input is missing and raises naming the input key and the placeholder, `false` is a value. The query is phase 1's `Query#encode`, one parameter per value of a repeated projection, a structured value refused rather than rendered as an inspect string. Headers go through the outbound `Headers::Builder`, so a CRLF is rejected at assembly. The composition is hand-built (P2-3): the specification's own example `https://host/c?sig=abc` + `/pets` + `limit=1` → `https://host/c/pets?sig=abc&limit=1`, trailing and leading slashes normalised to one separator, an empty operation path leaving the base untouched, a dangling `&` dropped, already-encoded octets surviving verbatim, a fragment on the base rejected naming it, and the base URI left untouched. The two places a stdlib `URI` error could otherwise escape the composition are closed (review round 2): a template whose literal text between placeholders is not an RFC 3986 path — `/x?y`, `/a b`, `/pets/ü`, `/100%`, a bare `%`, `<`, `[`, a quote, a tab, a newline — is refused at construction naming the template, and a base with no hierarchical part to compose onto (`mailto:x@y`, `urn:isbn:123`) is refused naming the base; a 200-sample property over templates drawn from pchars, `/`, `?`, `#`, `%`, braces, a space and `ü` asserts that every template either fails `.build` as `Dexpace::InvalidArgumentError` or composes a URL that re-parses to itself. `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` was re-verified as `https://host/pets` on 3.2.11 and 4.0.6 during the build (`dexpace/operation_build_request_test.rb`) |
+| `SEAM-27` | MUST | ✅ | 14 | `#build_request(base_url:, inputs: {})`. Path values go through phase 1's `PercentEncoding.encode_component`, so `"a/b"` becomes `a%2Fb` and never a second segment — a 40-sample property over an alphabet including `/`, `?`, `#`, `&`, a space, `%` and invalid UTF-8 asserts the assembled URL re-parses through `URL.parse!` with exactly one segment added; a `nil` path input is missing and raises naming the input key and the placeholder, `false` is a value. The query is phase 1's `Query#encode`, one parameter per value of a repeated projection, a structured value refused rather than rendered as an inspect string. Headers go through the outbound `Headers::Builder`, so a CRLF is rejected at assembly. The composition is hand-built (P2-3): the specification's own example `https://host/c?sig=abc` + `/pets` + `limit=1` → `https://host/c/pets?sig=abc&limit=1`, trailing and leading slashes normalised to one separator, an empty operation path leaving the base untouched, a dangling `&` dropped, already-encoded octets surviving verbatim, a fragment on the base rejected naming it, and the base URI left untouched. The three places a stdlib `URI` error could otherwise escape the composition are closed (review rounds 2 and 3): a template whose literal text between placeholders is not an RFC 3986 path — `/x?y`, `/a b`, `/pets/ü`, `/100%`, a bare `%`, `<`, `[`, a quote, a tab, a newline — is refused at construction naming the template, a base with no hierarchical part to compose onto (`mailto:x@y`, `urn:isbn:123`) is refused naming the base, and a base whose query is not RFC 3986 — `?sig=100%`, `?;~%`, `?a=%z`, `?a=[1]`, all of which `URL.parse!` admits — is refused naming the base whether or not an operation query is appended (`?sig=100%25` composes); two 200-sample properties, one over templates drawn from pchars, `/`, `?`, `#`, `%`, braces, a space and `ü` and one over base queries drawn from the same plus `&`, `=`, `;`, `[` and `]`, assert that every input either fails as `Dexpace::InvalidArgumentError` or composes a URL that re-parses to itself. `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` was re-verified as `https://host/pets` on 3.2.11 and 4.0.6 during the build (`dexpace/operation_build_request_test.rb`) |
 | `SEAM-28` | MAY | ⏳ | — | Phase 5c, Task 4 (`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`), over phase 4a, Task 7's `RequestContext#operation_name` — a target this phase supplied. Both halves need machinery phase 2 does not have: the context chain (`CTX`, phase 4) and a consumer for the identifier (phase 5). Read out of appendix C row 34 verbatim |
 | `SEAM-29` | MUST | ✅ in phase 1 | — | A cross-reference row: phase 1's `Dexpace::Model.required!` (the uniform `<name> is required` message, which `Operation.build(method: nil, …)` and `(template: nil)` produce) and `Dexpace::Builder` (the generic contract `Operation#build_request` builds through, via `Request::Builder`). Not re-satisfied here; `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md` is its row |
 | `SEAM-30` | MUST | ✅ | 5, 11 | `Completer#fulfil` on an already-settled future returns `false` **and** closes the response it was handed, exactly once, through `Dexpace.close_quietly` — so the rule holds for every adapter that settles through a `Completer`, and for a mapped value that loses the race in `Future#then`. `Bridge::AsyncOver`'s posted block is the one place phase 2 itself produces a response nobody will receive: it re-checks the token after the send and closes the response before settling through the failure channel, and it checks before dispatch too, so a token already cancelled never reaches the transport. A registry build that loses to a concurrent `#install` is closed the same way (`dexpace/async/completer_test.rb`, `dexpace/async/future_test.rb`, `dexpace/bridge/async_over_test.rb`) |
@@ -153,6 +153,14 @@ code branch's tip before the fix, green on 4.0.6 and 3.2.11 after it (deviation 
 | `validated_base` admits an opaque base | `operation_build_request_test.rb` | "mailto:x@y. `[Dexpace::InvalidArgumentError]` exception expected, not `Class: <URI::InvalidURIError>` Message: <"path conflicts with opaque">" |
 | both, under the 200-sample template property | `operation_build_request_test.rb`, `Templates` | `URI::InvalidComponentError: bad component(expected absolute path component): /c/F/ #ü` escaping `#build_request` |
 
+Review round 3 (2026-09-15) added three more, run the same way (deviations 29 and 30):
+
+| Fix not yet applied | Guard | What it said |
+|---|---|---|
+| `validated_base` admits a base query ending in a bare `%` | `operation_build_request_test.rb` | "https://host/c?sig=100%. `[Dexpace::InvalidArgumentError]` exception expected, not `Class: <URI::InvalidURIError>` Message: <"invalid percent escape: %&l">" from `operation.rb:318` `Composition#compose` |
+| the same, under the 200-sample base property | `operation_build_request_test.rb`, `Bases` | `URI::InvalidURIError: invalid percent escape: %&l` escaping `#build_request` |
+| `Registry#register` and `#install` build their conflict message under `@write` | `registry_test.rb`, `Reentrancy` | "`[Dexpace::InvalidArgumentError]` exception expected, not `Class: <ThreadError>` Message: <"deadlock; recursive locking">" from `registry.rb:120` `Registry#register`, and from `registry.rb:144` via `conflict!` inside `#install`'s block |
+
 ## Audit groups run
 
 The phase-start pair first, at implementation: `--section conflicts --brief` returns the six
@@ -166,7 +174,7 @@ two that bite were re-checked against the built code rather than re-run in full:
 
 | Group | Result at implementation |
 |---|---|
-| Fiber scheduler, thread safety | Clean against the built code: every mutex is held across a flag flip or a snapshot swap and nothing else (`Closeable#close`, `Cancellation::Source#cancel`, `Cancellation#once_only`, `Completer#settle`, `Registry#register`/`#install`/`#take_or_join_claim`/`#swap`/`#complete_resolution`/`#hand_out`); no factory, predicate, callback or `warn` runs under one; the pivot's wait and the registry's gate are both `Thread::Queue#pop`; `Timeout.timeout`, `Thread#raise` and `Thread#kill` appear nowhere and phase 0's cop stands guard |
+| Fiber scheduler, thread safety | Clean against the built code: every mutex is held across a flag flip or a snapshot swap and nothing else (`Closeable#close`, `Cancellation::Source#cancel`, `Cancellation#once_only`, `Completer#settle`, `Registry#register`/`#swap_in`/`#take_or_join_claim`/`#swap`/`#complete_resolution`/`#hand_out`); no factory, predicate, callback, `warn` or — since review round 3, deviation 30 — conflict message's `#inspect` runs under one; the pivot's wait and the registry's gate are both `Thread::Queue#pop`; `Timeout.timeout`, `Thread#raise` and `Thread#kill` appear nowhere and phase 0's cop stands guard |
 | Public API surface | One rule bit at implementation and is answered in place: `module-organization/1828a984` (one public constant per file) is honoured by the twenty files; the two extra `private_constant` modules inside `Operation` and the three snapshot `Data` types are not public constants. `api-design/b0e18938` is why every public name that arrived by accident is in P2-11 |
 
 `data-modeling/677b01de`'s `Data`-everywhere rule and P2-9's boundary held: the three snapshots are
@@ -337,8 +345,50 @@ changes a gate's own test in the corrected direction (item 24).
     through to leak `URI::InvalidURIError: path conflicts with opaque` from the same `#path=`;
     `validated_base` refuses it beside the fragment, naming the base (`#hierarchical?`, which the
     rbs stdlib signature declares). Verified identical on 3.2.11 and 4.0.6 before and after; the
-    red runs are recorded in the tests commit. No rescue was added to `Composition.compose`: with
-    both inputs validated it cannot raise, and an unreachable rescue is dead code.
+    red runs are recorded in the tests commit. No rescue was added to `Composition.compose`, on
+    the claim that with both inputs validated it could not raise — a claim round 3 found false on
+    the query side (deviation 29), and which now rests on both writers' grammars rather than on
+    the path side alone.
+29. **A base URL whose query is not RFC 3986 is refused as `Dexpace::InvalidArgumentError`**
+    (review round 3), before anything is composed onto it. Deviation 28 validated the template
+    literal and the opaque base and then claimed the composition could not raise; the base's
+    *query* was validated by nothing phase 2 owns. Phase 1's `URL.parse!` reaches
+    `URI::Generic#query=`, whose percent check is `/(%\H\H)/` — a `%` followed by two *non-hex*
+    characters — so a query ending in a bare `%` or in `%z` (`https://host/c?sig=100%`,
+    `https://host/c?;~%`, `https://host/c?a=%z`) is accepted at parse time; `compose_query` then
+    appends `&limit=1`, `composed.query=` sees `%&l` and `URI::InvalidURIError: invalid percent
+    escape: %&l` escapes `#build_request` — a stdlib class, outside `rescue Dexpace::Error`,
+    where `SEAM-27` requires a composition resolving to a malformed URL to be rejected with a
+    context-bearing error and where deviation 28's round-2 property could not see it, because it
+    fixes the base at `https://host/c?sig=1`. `Operation::QUERY_LITERAL` is RFC 3986 `query` —
+    `PATH_LITERAL`'s set plus `?`, every `%` a two-hex escape — and `validated_base` checks the
+    parsed base's query against it beside the fragment and hierarchical-part rules, naming the
+    base. The check runs whether or not the operation query is empty, so a base malformed on its
+    own (`?sig=100%` with no `limit`) is refused rather than composed into a malformed URL
+    silently; `?sig=100%25` composes as before. The fix is validation and not the belt-and-braces
+    `rescue ::URI::Error` round 1 offered, for the reason deviation 28 gave and with the argument
+    it lacked: RFC 3986 `query` is strictly tighter than `#query=`'s check, the operation query is
+    `Query#encode`'s and RFC 3986 by construction, and the `&` between them can complete no
+    escape; on the path side the parser's `segment` set is `#path=`'s `ABS_PATH` set, the
+    operation path is `PATH_LITERAL` literal plus `encode_component` values, and one `/` joins
+    them — so neither writer can reach its raise, and `Composition.compose`'s comment now says
+    so. Measured rather than argued as well: a 40,000-base fuzz over nine base shapes (`https`,
+    `http:` with no authority, `ftp`, `file`, an IPv6 literal) and four operations, on 3.2.11
+    and 4.0.6, 29,738 bases accepted by `URL.parse!`, 5,031 stdlib leaks before and 0 after,
+    identical on both. The 200-sample `Bases` property — the base-varying twin of the `Templates`
+    one, with a non-empty operation query so the append runs on every sample — pins it.
+30. **`Registry#register` and `#install` raise their conflict outside the lock** (review round
+    3). Both messages interpolate `#inspect` of two user objects — the incumbent and the rejected
+    factory or provider — and both were built inside `@write.synchronize`, so a factory or
+    provider whose `#inspect` reached back into the registry (an install, a registration) met
+    `ThreadError: deadlock; recursive locking` instead of the documented
+    `Dexpace::InvalidArgumentError`: the file's own rule that a synchronize body is a snapshot
+    swap and nothing else, broken on its two conflict paths while `warn_replaced` already obeyed
+    it. `#register`'s block now returns the incumbent and the raise follows it; `#install`'s swap
+    moved into a private `#swap_in` that reports the conflicting incumbent and the handed-out
+    flag out of the block, and `conflict!` takes the incumbent rather than the snapshot. A
+    class's or a lambda's `#inspect` is trivial, which is why this was filed as a nit; the guard
+    (`registry_test.rb`, `Reentrancy`) uses an object whose `#inspect` registers a second key.
 
 ## Findings routed
 

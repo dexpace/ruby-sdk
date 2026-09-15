@@ -67,9 +67,10 @@ naming both, so two gems claiming one key are loud and a double `require` is qui
 Under contention the registry is safe by shape rather than by discipline: its state is one frozen
 snapshot swapped under a mutex held across the swap and nothing else, so reads never block; a
 concurrent first access runs the factory exactly once, later arrivals park on the winner's gate
-(a `Thread::Queue`, so a fiber scheduler sees the wait); and no factory or `.conforms?` call ever
-runs under the lock — a factory may install, swap or resolve *another* registry freely, and one
-that resolves *its own* registry gets a `Dexpace::SeamError` at that call rather than a hang.
+(a `Thread::Queue`, so a fiber scheduler sees the wait); and no factory, `.conforms?` call or
+`#inspect` (a conflict message names both objects) ever runs under the lock — a factory may
+install, swap or resolve *another* registry freely, and one that resolves *its own* registry gets
+a `Dexpace::SeamError` at that call rather than a hang.
 
 For a test, `Dexpace::Transport.swap(fake) { … }` overrides the resolved provider for the block
 and restores the prior state afterwards, with no conflict check. Two things are taken from the
@@ -210,10 +211,11 @@ out; an empty `String` is a value on every side.
 The base-URL composition is a concatenation, **not** RFC 3986 reference resolution: a trailing
 slash normalises to one separator, an empty operation path leaves the base untouched, an existing
 base query is kept with the operation's appended (a dangling `&` dropped), already-encoded octets
-survive verbatim, and a base carrying a fragment, or one with no hierarchical part to compose onto
-(`mailto:x@y`, `urn:isbn:123`), is refused naming it. The template's own literal text is held to
-the same path grammar at construction — `/x?y`, `/a b` and `/100%` are refused naming the
-template, while `/a%20b` is a path and passes — so whatever the inputs, the failure is
+survive verbatim, and a base carrying a fragment, one with no hierarchical part to compose onto
+(`mailto:x@y`, `urn:isbn:123`), or one whose query is not RFC 3986 (`?sig=100%`, `?a=[1]` — a
+bare `%` or a bracket, which the parser admits) is refused naming it. The template's own literal
+text is held to the same path grammar at construction — `/x?y`, `/a b` and `/100%` are refused
+naming the template, while `/a%20b` is a path and passes — so whatever the inputs, the failure is
 `Dexpace::InvalidArgumentError` and never a stdlib `URI` error escaping the composition.
 `URI#merge` would have dropped both the `/c` and the `sig=abc` that a signed base URL needs to
 keep.

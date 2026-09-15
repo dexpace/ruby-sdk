@@ -1416,6 +1416,34 @@ the source; the difference is recorded here rather than by rewriting the text it
   `URL.parse!` admits as absolute and which leaked `URI::InvalidURIError: path conflicts with
   opaque` from the same setter. Path values were never at risk: `encode_component` yields pchars,
   and the property test proves it. Verified identical on 3.2.11 and 4.0.6.
+- **The composition's malformed-URL rule, the query side (review round 3, 2026-09-15).** Round 2
+  validated the template literal and the opaque base and then claimed `Composition.compose`
+  could not raise; the base's *query* was validated by nothing this phase owns. `URL.parse!`
+  reaches `URI::Generic#query=`, whose percent check is `/(%\H\H)/` — a `%` followed by two
+  *non-hex* characters — so a base query ending in a bare `%` or in `%z` (`https://host/c?sig=100%`)
+  is accepted at parse time, and the composition's `&limit=1` then puts `%&l` in front of the
+  same check: `URI::InvalidURIError: invalid percent escape: %&l` escaped `#build_request`, the
+  round-2 property blind to it because it fixes the base at `https://host/c?sig=1`.
+  `validated_base` now checks the parsed base's query against RFC 3986 `query` (`PATH_LITERAL`'s
+  set plus `?`, every `%` a two-hex escape) beside the fragment and hierarchical-part rules,
+  naming the base, whether or not the operation query is empty — so the composition row's four
+  rules are enforced by three checks of this phase's own plus `URL.parse!`, not by `URL.parse!`
+  alone. The "cannot raise" claim now rests on both writers' grammars, stated in `compose`'s
+  comment: RFC 3986 `query` is strictly tighter than `#query=`'s check and `Query#encode` is RFC
+  3986 by construction, so no `&` can complete an escape; the parser's `segment` set is
+  `#path=`'s `ABS_PATH` set and the operation path is `PATH_LITERAL` plus `encode_component`
+  values, so `#path=` cannot refuse either. Measured as well as argued: a 40,000-base fuzz over
+  nine base shapes and four operations on 3.2.11 and 4.0.6 found 29,738 bases `URL.parse!`
+  accepts, 5,031 stdlib leaks before the check and 0 after, identical on both; a 200-sample
+  base-varying property with a non-empty operation query pins it. Checklist deviation 29.
+- **The registry's conflict paths, as built (review round 3, 2026-09-15).** The rule stated
+  under `Dexpace::Registry` — a mutex held across the snapshot swap and nothing else — was broken
+  on `#register`'s and `#install`'s conflict paths, whose messages interpolate `#inspect` of two
+  user objects inside `@write.synchronize`; an `#inspect` reaching back into the registry met
+  `ThreadError: deadlock; recursive locking` instead of `Dexpace::InvalidArgumentError`. Both now
+  raise after the block, as `warn_replaced` already did; `#install`'s swap is a private
+  `#swap_in` reporting the conflicting incumbent and the handed-out flag out. Checklist
+  deviation 30.
 
 ## Work Phase 2 Postponed, and Who Owns It Now
 

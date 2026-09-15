@@ -2676,7 +2676,7 @@ and against a core at `0.0.0` that cannot tell `>=` from `==` on the minor — t
 stayed green — so the test now swaps the running `Dexpace::VERSION` across six versions and adds an
 exhaustive square (checklist deviation 8); and the method-level-`else` guard's `:not_a_token` scenario is
 rescued in the body once the pre-dispatch check exists, so it drives a `nil`-returning transport instead,
-which is `SEAM-16`'s null-success rule arriving as a real raise (deviation 12). Twenty-seven departures from
+which is `SEAM-16`'s null-success rule arriving as a real raise (deviation 12). Thirty departures from
 the plan's text are itemised in the checklist, none lowering a gate; two are structural — `Completer#settle`
 steals the abort hooks in the same swap that publishes the outcome, so a producer's abort hook fires only
 when the cancellation actually won (deviation 2), and `Operation`'s checks and composition live in two
