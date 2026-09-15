@@ -1,0 +1,32 @@
+module Dexpace
+  module IO
+    class TeeSink
+      include Dexpace::IO::TypedWrites
+      include Dexpace::Closeable
+
+      # `primary` is untyped for BufferedSink.wrapping's reason: anything responding to #write,
+      # checked at runtime as a duck. `tap_limit` is a non-negative Integer, nil for unbounded,
+      # or Float::INFINITY as the other spelling of unbounded.
+      def initialize: (primary: untyped, ?tap_limit: (Integer | Float)?) -> void
+      def tap_snapshot: () -> String
+      def tap_bytesize: () -> Integer
+      def buffer: () -> bot
+
+      private
+
+      @dexpace_primary: untyped
+      @dexpace_tap_limit: Integer?
+      @dexpace_tap: Dexpace::IO::Buffer
+      @dexpace_staged: String
+
+      def validated_tap_limit: (untyped limit) -> Integer?
+      def deliver: (String string) -> nil
+      def forward: (String payload) -> untyped
+      def check_full_write: (untyped reported, Integer expected) -> nil
+      def mirror: (String payload) -> nil
+      def push_one_level: () -> nil
+      def push_all: () -> nil
+      def release: () -> nil
+    end
+  end
+end

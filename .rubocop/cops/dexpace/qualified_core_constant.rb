@@ -4,50 +4,63 @@
 module RuboCop
   module Cop
     module Dexpace
-      # Inside `module Dexpace::Async` and `module Dexpace::Serde`, a bare `Thread`, `Queue`,
-      # `Mutex`, `SizedQueue`, `ConditionVariable` or `JSON` is a silent time bomb: it resolves to
-      # Ruby's class until the adapter gem that defines `Dexpace::Async::Thread` or
-      # `Dexpace::Serde::JSON` is required, and to that module afterwards.
+      # Inside `module Dexpace`, anywhere, a bare `Thread`, `Queue`, `Mutex`, `SizedQueue`,
+      # `ConditionVariable`, `JSON` or `IO` is a silent time bomb: it resolves to Ruby's class
+      # until the `Dexpace::` constant that shadows it is defined, and to that constant
+      # afterwards.
       #
-      # Verified on Ruby 3.2.11 and 4.0.6: before the adapter loads, a bare `Thread` inside
-      # `module Dexpace; module Async` is `Thread`; after, it is `Dexpace::Async::Thread`, and
-      # `Thread.new` raises `NoMethodError: undefined method 'new' for module
-      # Dexpace::Async::Thread`. dexpace-core's own suite never requires that gem, so this is a bug
-      # that cannot fail in the tree that contains it -- which is what a cop is for.
+      # Phase 2 verified the adapter-gem half on 3.2.11 and 4.0.6: a bare `Thread` inside
+      # `module Dexpace; module Async` is `Thread` before `dexpace-async-thread` is required and
+      # `Dexpace::Async::Thread` after, and core's own suite never requires that gem.
       #
-      # Scoped by `Include:` in .rubocop.yml to gems/dexpace-core/lib/dexpace/{async,serde}/**/*.rb.
+      # Phase 3a adds `IO`, and it is worse, because `Dexpace::IO` is defined by CORE. Verified on
+      # 3.2.11, 3.4.10 and 4.0.6: inside `module Dexpace`, `x.is_a?(IO)` and `IO === x` are
+      # silently `false` for a real `::IO`, and a `case/when IO` falls through -- while a bare
+      # `IO.pipe` is a loud NoMethodError. The silent case is exactly the shape design §3.1 reaches
+      # for, and `Response#body_string`, which phase 3b adds under lib/dexpace/http/, is the
+      # counter-example that forbids scoping this rule to lib/dexpace/io/**.
       #
-      # The enclosing namespace is checked here rather than left to `Include:` in .rubocop.yml.
-      # Phase 0's cop harness runs a bare Commissioner over a fixed path with a Config carrying
-      # only TargetRubyVersion, so no `Include:` ever applies to a cop under test -- a cop that
-      # relied on path scoping would flag its own accepted case and the suite would say so.
-      # `Include:` stays in .rubocop.yml anyway, because it is what keeps the cop off the other
-      # five gems during a real run.
+      # The standing rule, for every later phase: a constant joins SHADOWED in the same change
+      # that creates the `Dexpace::` constant which shadows it -- never earlier, never later.
+      # `File`, `StringIO` and `Tempfile` are deliberately absent: no `Dexpace::` constant of those
+      # names exists, a bare `File` inside `module Dexpace` resolves to `::File` (verified), and a
+      # rule guarding nothing only flags correct code.
       #
-      # SHADOWED is one list for both watched namespaces rather than one list each, so a bare
-      # `JSON` inside Dexpace::Async is flagged even though only Dexpace::Serde reopens JSON. Two
-      # per-namespace lists would be a second rule to keep in step for no gain, and the false
-      # positive costs one `::`.
+      # Scoped by `Include:` in .rubocop.yml to gems/*/lib/**/*.rb -- every gem, because an
+      # adapter gem also writes inside `module Dexpace`. test/** is deliberately left out: a test
+      # file's classes are top level, not inside `module Dexpace`, so the lexical check below
+      # would find nothing there.
+      #
+      # The enclosing namespace is checked here rather than left to `Include:`. Phase 0's cop
+      # harness runs a bare Commissioner over a fixed path with a Config carrying only
+      # TargetRubyVersion, so no `Include:` ever applies to a cop under test -- a cop that relied
+      # on path scoping would flag its own accepted case and the suite would say so.
       #
       # @example
-      #   # bad -- inside module Dexpace; module Async
-      #   Queue.new
+      #   # bad -- inside module Dexpace
+      #   IO.pipe
       #
       #   # good
-      #   ::Queue.new
+      #   ::IO.pipe
       #
-      #   # good -- a different namespace; nothing reopens Dexpace::Transport::Thread
-      #   Thread.new
+      #   # good -- a different namespace; nothing named Elsewhere::IO exists
+      #   IO.pipe
       class QualifiedCoreConstant < Base
-        MSG = "Write `::%<name>s` here: a bare `%<name>s` inside %<namespace>s rebinds to the " \
-              "adapter gem's constant once that gem is required."
+        MSG = "Write `::%<name>s` here: a bare `%<name>s` inside %<namespace>s resolves to the " \
+              "shadowing `Dexpace::` constant instead of Ruby's."
 
-        SHADOWED = %w[Thread Queue Mutex SizedQueue ConditionVariable JSON].freeze
+        SHADOWED = %w[Thread Queue Mutex SizedQueue ConditionVariable JSON IO].freeze
 
-        WATCHED = [%w[Dexpace Async], %w[Dexpace Serde]].freeze
+        # One segment, which subsumes phase 2's two: the rule is now "inside `module Dexpace`,
+        # anywhere". Phase 2 deliberately kept ONE SHADOWED list for both namespaces rather than
+        # one list each, and widening the watch rather than adding a per-constant scope keeps that
+        # decision intact. The cost is one `::` on every `::Thread::Mutex` core already writes in
+        # that form.
+        WATCHED = [%w[Dexpace]].freeze
 
         def on_const(node)
-          return if node.namespace # already qualified: `A::Thread` or `::Thread`
+          return if node.namespace # already qualified: `A::IO` or `::IO`
+          return if definition_name?(node)
           return unless SHADOWED.include?(node.short_name.to_s)
 
           namespace = watched_namespace(node)
@@ -58,6 +71,18 @@ module RuboCop
 
         private
 
+        # `module Dexpace; module IO` DECLARES the shadowing constant; it does not refer to Ruby's.
+        # Without this, the cop flags lib/dexpace/io.rb -- the very file that creates the hazard
+        # the rule exists to guard. Phase 2 never met this because no file declares
+        # `module Dexpace::Async::Thread`.
+        def definition_name?(node)
+          parent = node.parent
+          return false if parent.nil?
+          return false unless parent.module_type? || parent.class_type?
+
+          parent.identifier.equal?(node)
+        end
+
         # @return [String, nil] the watched namespace this node is lexically inside, or nil
         def watched_namespace(node)
           path = lexical_path(node)
@@ -66,7 +91,7 @@ module RuboCop
         end
 
         # Outermost-first, with a compact `module A::B` split into its segments, so that both
-        # `module Dexpace; module Async` and `module Dexpace::Async` read the same. A
+        # `module Dexpace; module IO` and `module Dexpace::IO` read the same. A
         # `class << self` is an sclass node, not a class node, so it contributes no segment.
         def lexical_path(node)
           node.each_ancestor(:module, :class)

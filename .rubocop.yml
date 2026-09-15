@@ -172,14 +172,12 @@ Dexpace/NoKeywordSplat:
   Enabled: true
   Include:
     - "gems/*/lib/**/*.rb"
-# Design §9 Addendum A1 (phase 2): a bare Thread/Queue/Mutex/JSON inside these two namespaces
-# rebinds to the adapter gem's constant the moment that gem is required, and core's own suite
-# never requires it.
+# Design §9 Addendum A1 (phase 2), widened by phase 3a's P3-7: a bare Thread/Queue/Mutex/JSON/IO
+# inside module Dexpace resolves to the shadowing Dexpace:: constant -- the adapter gem's once that
+# gem is required, and core's own Dexpace::IO from the first require. Every gem, because an adapter
+# gem also writes inside module Dexpace. test/** is deliberately absent: a test file's classes are
+# top level, so the cop's own lexical check would find nothing there.
 Dexpace/QualifiedCoreConstant:
   Enabled: true
   Include:
-    - "gems/dexpace-core/lib/dexpace/async/**/*.rb"
-    - "gems/dexpace-core/lib/dexpace/serde/**/*.rb"
-    # The seam module itself reopens Dexpace::Serde from one directory up, so a bare JSON there
-    # is the same hazard as one inside serde/.
-    - "gems/dexpace-core/lib/dexpace/serde.rb"
+    - "gems/*/lib/**/*.rb"

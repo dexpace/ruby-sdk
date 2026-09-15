@@ -47,6 +47,18 @@ require_relative "dexpace/serde/deserialization_error"
 require_relative "dexpace/serde"
 require_relative "dexpace/operation"
 
+# Phase 3a: the byte-streaming layer, in dependency order -- the two failure types, the namespace
+# with its ceiling, the read vocabulary, the reader, the write vocabulary, then the three sinks.
+require_relative "dexpace/error/stream_error"
+require_relative "dexpace/error/end_of_stream_error"
+require_relative "dexpace/io"
+require_relative "dexpace/io/typed_reads"
+require_relative "dexpace/io/buffered_source"
+require_relative "dexpace/io/typed_writes"
+require_relative "dexpace/io/buffer"
+require_relative "dexpace/io/buffered_sink"
+require_relative "dexpace/io/tee_sink"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

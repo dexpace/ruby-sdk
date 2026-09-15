@@ -1,0 +1,40 @@
+module Dexpace
+  module IO
+    module TypedWrites
+      # A private_constant with no visibility in RBS, declared so Steep can type the pump.
+      WRITE_ALL_SEGMENT_BYTES: Integer
+
+      def initialize_typed_writes: () -> nil
+      def write_from: (Dexpace::IO::Buffer buffer, count: Integer) -> nil
+      def write: (*String strings) -> Integer
+      # `source` is untyped for BufferedSource.over's reason: the runtime test is a duck test, and
+      # _Source names the shape a consumer's own steep check can type a source against.
+      def write_all: (untyped source) -> Integer
+      def write_utf8: (String string, ?range: Range[Integer]?) -> nil
+      def write_string: (String string, encoding: Encoding | String) -> nil
+      def emit: () -> self
+      def flush: () -> self
+
+      private
+
+      @dexpace_writes_ready: bool
+
+      # The one hook an includer supplies.
+      def deliver: (String string) -> void
+
+      # Closeable's, which an includer must also include (asserted at #initialize_typed_writes).
+      def closed?: () -> bool
+
+      def ensure_writable: () -> void
+      def writes_survive_close?: () -> bool
+      def ensure_typed_writes_initialized: () -> void
+      def push_one_level: () -> nil
+      def push_all: () -> nil
+      def sliced: (untyped string, Range[Integer] range) -> String
+      def encode_to: (String string, Encoding target) -> String
+      def binary_of: (untyped string) -> String
+      def validate_count!: (untyped value, name: String) -> void
+      def resolve_encoding: (Encoding | String encoding) -> Encoding
+    end
+  end
+end

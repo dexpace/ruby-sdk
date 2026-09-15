@@ -20,11 +20,14 @@ module RbsSurface
   # Core Ruby and the stdlib names the allowlist in RequireAllowlist admits. `Data` is the base
   # of every core model (design §4), `ArgumentError` is the superclass HTTP-47 gives the
   # validation error (phase 1, P1-3) and `StringScanner` is `strscan`, which the require
-  # allowlist admits; all three were added when the first real signatures needed them.
+  # allowlist admits; all three were added when the first real signatures needed them. Phase 3a
+  # added `EOFError` and `IOError` -- the superclasses IO-16 and IO-4/IO-17/IO-42 give the two
+  # stream failure types (P3-3), both core Ruby -- and `Encoding`, which IO-13's charset reads
+  # take, for the same reason.
   STDLIB_ALLOWED = %w[
-    ArgumentError Array Bool Class Comparable Data Enumerable Enumerator Exception Float Hash IO
-    Integer Method Module Mutex Numeric Object Proc Range Rational Regexp Set StandardError
-    String StringIO StringScanner Symbol Thread Time URI
+    ArgumentError Array Bool Class Comparable Data Encoding Enumerable Enumerator EOFError
+    Exception Float Hash IO IOError Integer Method Module Mutex Numeric Object Proc Range
+    Rational Regexp Set StandardError String StringIO StringScanner Symbol Thread Time URI
   ].freeze
 
   # The type constructors that carry a name. RBS::Types::Variable does not: `T` is a parameter.

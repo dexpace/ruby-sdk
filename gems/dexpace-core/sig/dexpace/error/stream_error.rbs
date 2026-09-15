@@ -1,0 +1,8 @@
+module Dexpace
+  class StreamError < ::IOError
+    include Dexpace::Error
+
+    def self.short_transfer: (transferred: Integer, expected: Integer) -> Dexpace::StreamError
+    def self.zero_read: (requested: Integer) -> Dexpace::StreamError
+  end
+end

@@ -1,0 +1,57 @@
+module Dexpace
+  module IO
+    class BufferedSource
+      include Dexpace::IO::TypedReads
+      include Dexpace::Closeable
+
+      # A private_constant with no visibility in RBS, declared so Steep can type the view path.
+      class View < Data
+        attr_reader parent: Dexpace::IO::TypedReads
+        attr_reader pin: Integer
+        attr_reader window: Integer?
+
+        def self.new: (parent: Dexpace::IO::TypedReads, pin: Integer, window: Integer?) -> instance
+      end
+
+      # `io` is untyped on purpose: it accepts anything responding to #readpartial OR #read, and
+      # an RBS union of two structural interfaces would claim a narrowness the runtime check
+      # does not have.
+      def self.wrapping: (untyped io) -> Dexpace::IO::BufferedSource
+                       | [T] (untyped io) { (Dexpace::IO::BufferedSource) -> T } -> T
+      def self.of_bytes: (String string) -> Dexpace::IO::BufferedSource
+      # `chunked` is untyped for the same reason: the runtime test is a duck test, and _Chunked
+      # names the shape a consumer's own steep check can type its bodies against.
+      def self.over: (untyped chunked) -> Dexpace::IO::BufferedSource
+      # The view constructor: private_class_method in lib/, private here, so neither the surface
+      # manifest nor the sig diff carries it; declared because strict Steep types its body.
+      private def self.__dexpace_view: (
+        parent: Dexpace::IO::TypedReads, pin: Integer, window: Integer?,
+      ) -> Dexpace::IO::BufferedSource
+
+      def initialize: (
+        ?upstream: untyped, ?owns_upstream: bool, ?chunked: untyped, ?view: View?,
+      ) -> void
+      def view?: () -> bool
+      def owns_upstream?: () -> bool
+
+      private
+
+      @dexpace_upstream: untyped
+      @dexpace_owns_upstream: bool
+      @dexpace_enumerator: Enumerator[String, untyped]?
+      @dexpace_view: View?
+      @dexpace_pulled: Integer
+      @dexpace_upstream_exhausted: bool
+
+      def freeze_construction_facts: () -> nil
+      def fill: (Integer min_bytes) -> Integer
+      def fill_from_upstream: (Integer min_bytes) -> Integer
+      def pull_from_upstream: (Integer want) -> String?
+      def fill_from_enumerator: (Enumerator[String, untyped] enumerator) -> Integer
+      def window_budget: (View view, Integer min_bytes) -> Integer
+      def fill_from_parent: (View view, Integer min_bytes) -> Integer
+      def offset_into_parent: (View view, Dexpace::IO::TypedReads parent) -> Integer
+      def release: () -> nil
+    end
+  end
+end
