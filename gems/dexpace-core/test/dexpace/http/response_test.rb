@@ -111,6 +111,22 @@ class DexpaceResponseTest < DexpaceTestCase
     assert(Ractor.shareable?(response))
   end
 
+  # XCUT-15: the reason phrase is a caller-supplied String, so the model owns a frozen copy
+  # rather than the caller's object -- otherwise a mutation after build would change the model
+  # in place, and a Response carrying a live String is not shareable either.
+  test "owns a frozen copy of the reason, so the caller's String cannot reach the model" do
+    reason = +"OK"
+    builder = response.new_builder
+    builder.reason = reason
+    built = builder.build
+    reason << " (mutated after build)"
+
+    assert_equal("OK", built.reason)
+    refute_same(reason, built.reason)
+    assert_predicate(built.reason, :frozen?)
+    assert(Ractor.shareable?(built))
+  end
+
   # HTTP-4: what `.build` coerces and what it refuses, whichever path reached it. Nested so the
   # file keeps one top-level suite per lib file.
   class BuildTest < DexpaceTestCase
@@ -158,6 +174,19 @@ class DexpaceResponseTest < DexpaceTestCase
       assert_raises(Dexpace::InvalidArgumentError) do
         Dexpace::Response.build(request: request, protocol: "http/1.1", status: 200, headers: {})
       end
+    end
+
+    # A non-String reason is a caller mistake in an argument, so it fails with the SDK's error
+    # rather than surfacing later as a NoMethodError from whatever first reads it.
+    test "build rejects a reason that is not a String, whichever path reached it" do
+      assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Response.build(
+          request: request, protocol: "http/1.1", status: 200,
+          headers: Dexpace::Headers::EMPTY_INBOUND, reason: :ok,
+        )
+      end
+      assert_raises(Dexpace::InvalidArgumentError) { response.with(reason: 200) }
+      assert_equal("Not Found", response.with(reason: "Not Found").reason)
     end
   end
 end

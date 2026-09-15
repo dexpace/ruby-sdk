@@ -105,6 +105,15 @@ class DexpaceMediaTypeTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::MediaType.parse("*/json") }
   end
 
+  # A non-MediaType operand is a caller mistake, and the SDK's error is what reports it -- not a
+  # NoMethodError from reading `type` off whatever was passed.
+  test "matches? refuses an operand that is not a MediaType" do
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::MediaType.parse("*/*").matches?(nil) }
+    assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::MediaType.parse("text/plain").matches?("text/plain")
+    end
+  end
+
   # testing/f36a19cd: a round-trip property is mandatory for a parser.
   test "parse(render(parse(text))) == parse(text) over a bounded alphabet" do
     alphabet = [*"a".."f", *"0".."3", ";", "=", '"', "\\", " ", "-", "/"]

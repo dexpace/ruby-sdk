@@ -217,6 +217,25 @@ class DexpaceHeadersTest < DexpaceTestCase
       assert_equal("values is required", error.message)
     end
 
+    # The container type is checked before anything reads it, so a wrong-shaped collection is a
+    # Dexpace::InvalidArgumentError and never a NoMethodError escaping `rescue Dexpace::Error`
+    # from inside the name validation -- through `.build` and through #with alike.
+    test "build and with reject a collection that is not a Hash with the SDK's error" do
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Headers.build(values: "x", casing: {})
+      end
+
+      assert_includes(error.message, "values")
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Headers.build(values: {}, casing: [])
+      end
+
+      assert_includes(error.message, "casing")
+      assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Headers::EMPTY.with(values: [], casing: {})
+      end
+    end
+
     test "build validates inbound values by the inbound grammar" do
       built = Dexpace::Headers.build(
         values: { "x-a" => ["v\xC3\xA5lue"] }, casing: { "x-a" => "X-A" }, direction: :inbound,
