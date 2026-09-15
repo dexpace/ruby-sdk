@@ -16,9 +16,11 @@ same for `Status` as for `Request`:
 - **Frozen on construction.** A model never changes; a collection member is copied and
   deep-frozen once, at build (`Model.own`), so an accessor hands back the model's own frozen
   object with no per-call copy, and a `Hash` or `Array` the caller keeps a reference to cannot
-  reach the model afterwards. Every model — `Request` and `Response` included, when the opaque
-  body they carry is `nil` or frozen — is `Ractor.shareable?`, which is the one-line proof the
-  freeze reached every level and is not otherwise relied on.
+  reach the model afterwards, and a caller-supplied `String` member (`Response#reason`, a
+  `Method` token, a `HeaderName`) is copied and frozen the same way (`Model.frozen_string`).
+  Every model — `Request` and `Response` included, when the opaque body they carry is `nil` or
+  frozen — is `Ractor.shareable?`, which is the one-line proof the freeze reached every level and
+  is not otherwise relied on.
 - **Validated wherever it was built.** Validation lives in each type's `initialize`, so
   `.build`, `#with` and a builder's `#build` all meet it, and a missing required member fails with
   the one message form `<name> is required` (`Dexpace::Model.required!`).
@@ -60,6 +62,7 @@ response = Dexpace::Response.builder
 response.request = request
 response.protocol = "HTTP/1.1"
 response.status = 429
+response.reason = +"Too Many Requests"      # copied and frozen at build (XCUT-15)
 built = response.build
 built.status                                # => Dexpace::Status::TOO_MANY_REQUESTS
 built.error?                                # => true, derived from the status

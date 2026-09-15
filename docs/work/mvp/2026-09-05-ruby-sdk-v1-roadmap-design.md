@@ -2339,6 +2339,18 @@ design.
   phase 10's. **Code half: the one flag and its assertion.** Touches `NFR-7`, `NFR-17`. Added after phase
   10's planning pass, so it is the thirty-fourth bullet and is not yet in its design's disposition table;
   phase 10 dispositions it at execution.
+- **Nine later-phase design documents cite a retired corpus key, `data-modeling/5bc538ba`, as narrowing the
+  wire model's Ractor-shareability claim.** The phase 3, 4, 5 and 7 segmentation designs and the 4a, 4b, 5a,
+  5b and 8a designs each lean on that note — "`data-modeling/5bc538ba` narrows the shareability claim" — and
+  on phase 1's ledger row `P1-9`. Phase 1's build reversed both on 2026-09-15: `Request` and `Response` are
+  `Ractor.shareable?` as built, `P1-9` is retired for `P1-13`, and the planning-time note is rewritten as built
+  under `## Conflicts` in `docs/knowledge/notes/data-modeling.md` (key digested from the new text; the old key
+  resolves to nothing, which is what `scripts/knowledge.rb --key` reports). Every one of those phases re-reads
+  the notes at its start, so none is misled at execution; what is stale is the prose of nine already-planned
+  documents, which is audit work against planned phases and therefore phase 10's. **Documentation half only:
+  repoint each citation and reword each sentence to the as-built claim.** Touches `HTTP-1`, `XCUT-15`. Added
+  after phase 10's planning pass, so it is the thirty-fifth bullet and is not yet in its design's disposition
+  table; phase 10 dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2578,17 +2590,26 @@ invalid UTF-8 are rejected with the SDK's error rather than the regexp engine's.
 ledger row**: `Request` and `Response` *are* `Ractor.shareable?` as built, because `URL.parse!` had to freeze
 the URI's component Strings anyway (`URI#freeze` is shallow and `URI#dup` shares them, an `XCUT-15` alias
 the plan's `dup.freeze` left open) and `URI::RFC3986_PARSER` is already frozen by the uri gem on both
-interpreters (given a `nil` or frozen body; the opaque body is carried as given) — `P1-9` is retired, `P1-13` records the ownership rule, and the corpus note that carried
-`P1-9` gains a correcting entry. Two more ledger rows added at implementation: `P1-11`, `HeaderName`'s fold
+interpreters (given a `nil` or frozen body; the opaque body is carried as given, and the reason phrase is copied
+and frozen at build) — `P1-9` is retired, `P1-13` records the ownership rule, and the corpus note that carried
+`P1-9` is rewritten as built, under `## Conflicts`, confirming `data-modeling/996c0b12` rather than superseding
+it. Two more ledger rows added at implementation: `P1-11`, `HeaderName`'s fold
 is a derived attribute rather than a second member, and `P1-12`, `Query` equality compares encodings, which
-is `HTTP-30` stated literally. Seventeen departures from the plan's text are itemised in the checklist, none
+is `HTTP-30` stated literally. Nineteen departures from the plan's text are itemised in the checklist, none
 lowering a gate; five are gate or tool corrections the first real signatures forced, each pinned by a fixture
 on the tests branch: `gates:rbs_surface`'s stdlib list gains `Data`, `ArgumentError` and `StringScanner`;
 `rbs:validate` loads the allowlisted stdlib signature sets; `gates:single_instance` survives — and names —
 the `superclass mismatch` a second copy of a `Data.define` model raises; `tools/surface.rb` stops listing a
 reader the model made private; and `.rubocop.yml` admits Steep's `#: Type` annotation, which strict Steep
-requires on an empty literal. The four notes the design filed stand; the phase-10 inbound list gains a
-thirty-fourth bullet, the vacuous `rake rubocop` in a nested worktree. The three postponed items keep their
-owners. The counts that changed: `gems/` is still six but `dexpace-core` is no longer a skeleton; the
-phase-directory count is unchanged at eleven; `CLAUDE.md`'s "no domain code" paragraph, its construction
-pattern and its gem sentence are rewritten from what was built.
+requires on an empty literal. Three of the four notes the design filed stand and the fourth is rewritten;
+the phase-10 inbound list gains two bullets, the thirty-fourth — the vacuous `rake rubocop` in a nested
+worktree — and the thirty-fifth — nine later-phase design documents citing the retired note key
+`data-modeling/5bc538ba`. The three postponed items keep their owners. The counts that changed: `gems/` is
+still six but `dexpace-core` is no longer a skeleton; the phase-directory count is unchanged at eleven;
+`CLAUDE.md`'s "no domain code" paragraph, its construction pattern and its gem sentence are rewritten from
+what was built. **The round-1 review of the stack** found two
+plan-level gaps the implementation had inherited — `Response` aliased the caller's `reason` String, and
+`Headers.build` let a non-`Hash` reach the name walk as a `NoMethodError` — and one corpus mistake, the
+planning-time note still marking `data-modeling/996c0b12` as superseded after the build had confirmed it; all
+three are repaired on the branch they belong to (checklist deviations 15 and 18–19, the note above), with
+`test:gems` at 256 runs and 100% line coverage on 4.0.6 and 3.2.11 afterwards.

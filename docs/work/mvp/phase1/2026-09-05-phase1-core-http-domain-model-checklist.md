@@ -21,7 +21,7 @@ Forty-two: `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` and `SEAM-29`.
 
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
-| `HTTP-1` | MUST | ✅ by construction | 2, 4–15 | Every model is `class X < Data.define(...)` including `Dexpace::Model`: frozen on construction, collections deep-frozen once through `Model.own`, `#with` the only derivation. `Ractor.shareable?` is asserted on every collection-holding model — `Headers`, `MediaType`, `Query`, `RequestOptions`, **and** `Request`/`Response` with a `nil` body (see `P1-9` as built, below; the opaque body is carried as given) — as the one-line proof the freeze reached every level (`dexpace/model_test.rb`, each model's suite) |
+| `HTTP-1` | MUST | ✅ by construction | 2, 4–15 | Every model is `class X < Data.define(...)` including `Dexpace::Model`: frozen on construction, collections deep-frozen once through `Model.own`, `#with` the only derivation. `Ractor.shareable?` is asserted on every collection-holding model — `Headers`, `MediaType`, `Query`, `RequestOptions`, **and** `Request`/`Response` with a `nil` body (see `P1-9` as built, below; the opaque body is carried as given, and the reason phrase — the one caller-supplied `String` a model carries — is copied and frozen at build through `Model.frozen_string`, so it is never the caller's live object) — as the one-line proof the freeze reached every level (`dexpace/model_test.rb`, each model's suite) |
 | `HTTP-2` | MUST | ✅ by construction, gap stated | 2, 14 | `private_class_method :new` plus a validating `.build` on every model. The residual gap is asserted, not hidden: `dexpace/http/request_test.rb` proves `Request.send(:new, …)` reaches the constructor and that `Request.new` does not, and names the mitigation — wire-boundary re-validation, phase 8a Task 16 / 8c Task 9 / phase 9 Task 7 (design §10.10). Because validation lives in `initialize`, a forged instance is still a *valid* one; the gap is bypassing the builder's cross-field defaulting, not validation |
 | `HTTP-3` | MUST | ✅ / ⏳ / vacuous — split three ways | 5, 11, 13, 14, 15 | ✅ for the five models phase 1 builds: `Headers#new_builder` dups every value list and carries the direction, `Query#new_builder` dups every pair, `RequestOptions#new_builder` dups the tags, `Request#new_builder` and `Response#new_builder` carry frozen members; each suite derives, mutates the builder, builds a second instance and asserts the first unchanged. Value types with no builder derive through `Model#with`, which routes through `.build`. ⏳ for **the multipart body**: phase 1 ships no body, so `newBuilder()`-style derivation for it is `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle.md` Task 7's. **`RequestConditions` is vacuous**: the type is `HTTP-50`'s and `HTTP-50` is ⏳ under `docs/first-release.md`, so there is no instance for the clause to bind to |
 | `HTTP-4` | MUST | ✅ | 1, 2, 5, 11, 13, 14, 15 | `Model.required!(name, value)` raises `Dexpace::InvalidArgumentError` with the one message form `<name> is required`; every model's `initialize` calls it for each required member — `Request` for method, url and headers, `Response` for request, protocol, status and headers in `HTTP-4`'s own order — so the field is named whether the model was reached through `.build`, `#with` or a builder (`dexpace/model_test.rb`; the "names a missing member" cases in `request_test.rb`, `response_test.rb`, `headers_test.rb`, `query_test.rb`, `request_options_test.rb`) |
@@ -47,7 +47,7 @@ Forty-two: `HTTP-1`–`HTTP-35`, `HTTP-46`–`HTTP-50`, `HTTP-53` and `SEAM-29`.
 | `HTTP-24` | MUST | ✅ | 9 | `MediaType#charset` looks `charset` up under the folded key, folds the value, and returns it only when this Ruby's `Encoding.name_list` (minus the four process-relative pseudo-aliases) knows it; `nil` otherwise, never a raise; the `nil` is documented at the accessor (`media_type_test.rb`) |
 | `HTTP-25` | MUST | ✅ | 9 | A `StringScanner` parser over the byte-validated input: parameters split on `;` outside a quoted-string, each on its **first** `=`, quotes stripped and quoted-pairs unescaped; `#render` emits a value bare when it is a token and quoted-and-escaped otherwise. `parse(render(x)) == x` is a 64-sample property over an alphabet including `;`, `=`, `"` and `\` (`media_type_test.rb`) |
 | `HTTP-26` | MUST | ✅ | 3, 9 | `MediaType.parse` runs `HeaderSyntax.valid_outbound_value?` — the same predicate, not a copy — on the raw input before any character-oriented work, and `initialize` runs it on every parameter value; CR, DEL, non-ASCII and invalid UTF-8 are rejected with the SDK's error (`media_type_test.rb`) |
-| `HTTP-27` | SHOULD | ✅ | 9 | `#matches?`: `*/*` matches everything, `type/*` any subtype of the type, parameters ignored; `*/json` is rejected at construction (`media_type_test.rb`) |
+| `HTTP-27` | SHOULD | ✅ | 9 | `#matches?`: `*/*` matches everything, `type/*` any subtype of the type, parameters ignored; `*/json` is rejected at construction, and a non-`MediaType` operand is refused with the SDK's error rather than a `NoMethodError` (`media_type_test.rb`) |
 | `HTTP-28` | MUST | ✅ | 11 | `Query` is a list of `[name, value]` pairs: case-sensitive names, insertion order across names, multiple values per name, and `Query::Builder#add(name, nil)` stores `""` — one empty-string value, distinct from an absent name (`query_test.rb`, `query/builder_test.rb`) |
 | `HTTP-29` | MUST | ✅ | 10, 11 | `Query#encode` renders every name and value through `PercentEncoding.encode_component`, one occurrence per value, in insertion order, no leading `?`, `""` when empty (`query_test.rb`) |
 | `HTTP-30` | MUST | ✅ | 11 | `Query#==`/`#hash` compare the encodings, which is the requirement stated literally (`P1-12`); order-sensitive, and `parse(q.encode) == q` is a 64-sample property. An empty value list cannot reach the model: `Query::Builder#set(name, [])` removes the name (`query_test.rb`, `query/builder_test.rb`) |
@@ -78,9 +78,9 @@ Module Layout section names, file for file. `require "uri"` and `require "strsca
 and both are on the require allowlist). The gemspec still has zero `add_dependency` lines.
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15): green, exit 0 — `cops:test` 65 runs,
-`steep` no type error over the strict `core` target, `test:gems` 252 runs / 1853 assertions with **100.00% line
-coverage (768/768)** against the 80% floor, `test:gates` 128 runs / 523 assertions, the nine `gates:*` tasks,
-`yard` 100.00% documented (15 modules, 16 classes, 60 constants, 8 attributes, 122 methods), `bundler_audit`
+`steep` no type error over the strict `core` target, `test:gems` 256 runs / 1873 assertions with **100.00% line
+coverage (775/775)** against the 80% floor, `test:gates` 128 runs / 523 assertions, the nine `gates:*` tasks,
+`yard` 100.00% documented (15 modules, 16 classes, 50 constants, 8 attributes, 122 methods), `bundler_audit`
 clean. **One caveat about `rubocop`, stated in full under "Findings routed"**: run through `rake` from this
 worktree it inspected 8 files, because RuboCop inherits `AllCops/Exclude` from the topmost `.rubocop.yml` on
 the path and the parent checkout's excludes `.claude/**/*`, under which this worktree sits; run as
@@ -95,10 +95,11 @@ the override removed (`Dexpace::Model.send(:remove_method, :with)` after load) `
 the design's finding 1 reproduced against the built code.
 
 The surface manifest `test/fixtures/surface/dexpace-core.txt` grew from two lines to 221 through
-`bundle exec rake surface:regenerate`, once, after the last task; the diff was read line by line and holds
-exactly the constants and methods the twenty-two files define — `Headers::EMPTY_INBOUND` beside
-`Headers::EMPTY`, `Method::IDEMPOTENT` (`P1-10`), and no private reader (deviation 10 below). `gates:sig_diff`
-still prints "no release tag yet".
+`bundle exec rake surface:regenerate`, once, after the last task, and to 211 after the round-1 review made
+ten parser and codec constants `private_constant` (deviation 18); each diff was read line by line and the
+manifest holds exactly the public constants and methods the twenty-two files define —
+`Headers::EMPTY_INBOUND` beside `Headers::EMPTY`, `Method::IDEMPOTENT` (`P1-10`), and no private reader
+(deviation 10 below). `gates:sig_diff` still prints "no release tag yet".
 
 ## Audit groups run
 
@@ -113,12 +114,14 @@ contradicts this plan. `--req` was run for each task's IDs before that task. The
 | Minitest conventions | Clean. `testing/62f8f4ec`'s error-boundary pairing is applied to every builder — class, field-naming message, no partial side effect — and `testing/f36a19cd`'s bounded property tests exist for `HeaderName`'s fold, `Status`'s totality, `HeaderSyntax`'s grammar ordering, `PercentEncoding`, `MediaType` and `Query`. Three suites carry a nested test class per behaviour group (deviation 16), because `Style/OneClassPerFile` forbids a second top-level class and `Metrics/ClassLength` caps one at 100 lines |
 | Encoding and binary strings | Clean and load-bearing: every validator reads `value.b.each_byte`; `PercentEncoding` accumulates into a BINARY buffer and retags UTF-8 at the end; `Query.parse` and `HeaderSyntax.trim` work on `.b`; `HeaderSyntax.validate_name!` retags a *valid* name with the caller's encoding because its bytes are proven printable ASCII, which is `io-and-byte-streams/0a4773a6`'s "retag only where the bytes are known to conform" (deviation 4) |
 
-The four notes the design filed are unchanged by implementation, with one correction filed as a fifth entry:
-`docs/knowledge/notes/data-modeling.md` gains a `## Superseded` entry recording that `Request` and `Response`
-**are** `Ractor.shareable?` as built, because `URL.parse!` freezes the URI's component strings it owns and the
-uri gem already freezes `URI::RFC3986_PARSER` on 3.2.11 and 4.0.6 — the phase-1 entry's mechanism (shallow
-`URI#freeze`, `make_shareable` freezing the global parser) was half right, and the half that was wrong is the
-one the ledger row `P1-9` rested on.
+Three of the four notes the design filed are unchanged by implementation. The fourth — the Ractor entry in
+`docs/knowledge/notes/data-modeling.md` — is rewritten as built: it now stands under `## Conflicts`, records
+that `Request` and `Response` **are** `Ractor.shareable?` because `URL.parse!` freezes the URI's component
+strings it owns and the uri gem already freezes `URI::RFC3986_PARSER` on 3.2.11 and 4.0.6, and **confirms**
+`data-modeling/996c0b12` (design §4's claim) rather than superseding it — the planning-time entry's mechanism
+(shallow `URI#freeze`, `make_shareable` freezing the global parser) was half right, and the half that was
+wrong is the one the ledger row `P1-9` rested on. The rewrite retires the planning-time entry's key,
+`data-modeling/5bc538ba`; the later-phase design documents that cite it are routed below.
 
 ## Deviations from the plan
 
@@ -177,7 +180,8 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
     (probed on both interpreters), so the plan's form aliased externally-mutable state through `request.url.host`
     (`XCUT-15`). Consequence: **`Request` and `Response` are `Ractor.shareable?`** without any global touched,
     which retires the narrowing in `P1-9`; both suites assert shareability (with a `nil` body — the opaque
-    body is carried as given, so an unfrozen one is the caller's). Ledger row `P1-13`.
+    body is carried as given, so an unfrozen one is the caller's; the reason phrase is copied and frozen at
+    build, so it never is). Ledger row `P1-13`.
 13. **The media-type parser is a `StringScanner` over per-pattern-timeout regexps**, not the plan's character
     loops, which tripped `Metrics/ClassLength`, `AbcSize` and the complexity cops. Every regexp runs only after
     `HeaderSyntax` proved the input printable ASCII, so none meets invalid UTF-8. It is lenient about a bare
@@ -186,9 +190,13 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
     two Strings with the same non-ASCII bytes under different encoding tags are not `String#==` yet encode to
     one wire query, and `HTTP-30` is stated in terms of the encoding. Ledger row `P1-12`.
 15. **Eager type checks the plan did not have**: `Method.of` accepts `String` or `Symbol` and refuses anything
-    else; `HeaderName` requires a `String`; `Headers.build` requires a list of Strings per name; the builders'
-    writers refuse a wrong-typed value where they are set. Each pre-empts a `NoMethodError` that would otherwise
-    escape `rescue Dexpace::Error` — the Task 1 rule applied.
+    else; `HeaderName` requires a `String`; `Headers.build` requires a `Hash` for `values` and for `casing`
+    before anything reads them, and a list of Strings per name; `Response.build` requires a `String` (or
+    `nil`) reason and, per `XCUT-15`, stores a frozen copy of it through `Model.frozen_string` rather than the
+    caller's object — the plan's Task 15 code carried `reason: reason` straight to `super`, an alias the
+    round-1 review found; `MediaType#matches?` requires a `MediaType` operand; the builders' writers refuse a
+    wrong-typed value where they are set. Each pre-empts a `NoMethodError` that would otherwise escape
+    `rescue Dexpace::Error` — the Task 1 rule applied.
 16. **Test layout**: every domain test file `require "dexpace"` itself (the shared helper cannot, or the smoke
     suite's namespace snapshot would be vacuous); `headers_test.rb`, `query_test.rb` and `response_test.rb` nest a
     second (and third) test class per behaviour group; the smoke suite snapshots the top level after
@@ -197,6 +205,17 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
 17. **Minor defaults**: `Request.build(body: nil)` and `Response.build(reason: nil, body: nil)` default their
     optional members; `MediaType.build(parameters: {})` defaults; `Protocol.parse` and `MediaType.parse` require a
     `String`.
+18. **Ten parser and codec constants are `private_constant`** — `MediaType::UNTIL_SEPARATOR`, `SEPARATOR`,
+    `KEY`, `QUOTED`, `QUOTED_PAIR` and `TO_ESCAPE`; `PercentEncoding::ENCODED`, `HEX_VALUES` and `PERCENT`;
+    `HeaderSyntax::TRIMMABLE` — so the manifest `NFR-4` locks at the first release tag carries none of them
+    (`Surface` walks `constants(false)`, which honours `private_constant`, so no gate changed). They stay
+    declared in `sig/`, where RBS has no visibility for a constant and Steep needs them to type the parser; each
+    `.rbs` says so beside them. A round-1 review nit, taken because it is cheapest before the tag.
+19. **`Model#with` is typed `-> self` in RBS**, not the plan's `-> untyped`, so a consumer's own `steep check`
+    sees `Status::OK.with(code: 404)` as a `Status`. `-> instance`, the type the review suggested, does not
+    hold: Steep cannot prove `self <: instance` for a module whose self-type is the `_ModelInstance`
+    interface (deviation 5), and reports `Ruby::ReturnTypeMismatch` on `return self`; `self` is the receiver's
+    type by definition and is what the derivation returns.
 
 ## Findings routed
 
@@ -209,6 +228,13 @@ change a gate or tool in the strict or the corrected direction, each with a fixt
   as-built note on `P1-9`, and as a corpus note; `docs/deviations.md` is phase 10's to flip and is untouched.
 - **`Dexpace::Protocol` has no alias for `http/1.0`** — already on phase 10's inbound list from phase 8a; phase 1
   builds `HTTP-33` as stated and leaves the widening to that decision.
+- **Nine later-phase design documents cite `data-modeling/5bc538ba` as narrowing the shareability claim** —
+  the phase 3, 4, 5 and 7 segmentation designs, 4a, 4b, 5a, 5b and 8a — and that key no longer resolves: the
+  planning-time note it named is withdrawn, as built, by the `## Conflicts` entry above, which says the
+  opposite (the whole wire model is shareable; the narrowing is retired with `P1-9`). None of those documents
+  is phase 1's to rewrite, and each of those phases re-reads the notes at its start (`--origin note --brief`,
+  which now surfaces the rewritten entry), so the repair is audit work against already-planned phases: routed
+  to phase 10's inbound list in `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`.
 
 ## Postponed work
 
