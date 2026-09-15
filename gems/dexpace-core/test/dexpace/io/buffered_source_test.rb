@@ -13,7 +13,7 @@ require "stringio"
 # IO-38 test real rather than simulated -- a reader really does block.
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: ownership
-# here, then Bridge, Over, Close, Threads and Counts below.
+# here, then Bridge, Over, Close, Threads, Counts and Views below.
 class DexpaceBufferedSourceTest < DexpaceTestCase
   # A pipe whose two ends are closed however the block leaves.
   module Pipes
@@ -575,6 +575,64 @@ class DexpaceBufferedSourceTest < DexpaceTestCase
 
       assert_equal("héllo".b, source.slice(offset: 0, count: 6).read)
       assert_equal("héllo wörld".b, source.read)
+    end
+  end
+
+  # ---- IO-1, IO-16, IO-19: a view over a LIVE stream returns what has arrived ------------------
+  class Views < DexpaceTestCase
+    include Pipes
+
+    # Review round 0, R0-1: a view asked its parent to buffer `behind + count`, so a peek over a
+    # pipe holding 10 bytes with the writer still open blocked on read_into(count: 100) where the
+    # root returned the 10 at once. The pipe is what makes it real: a reader really does block.
+    # If a view's read blocks for the count rather than the first byte, the watchdog closes the
+    # writer after two seconds so this fails on `writer.closed?` instead of hanging the run.
+    test "a view over a live pipe returns what has arrived, like the root" do
+      pipe do |reader, writer|
+        writer.write("0123456789")
+        source = Dexpace::IO::BufferedSource.wrapping(reader)
+        done = ::Thread::Queue.new
+        watchdog = ::Thread.new { writer.close if done.pop(timeout: 2).nil? }
+        dest = +"".b
+
+        assert_equal(10, source.peek.read_into(dest, count: 100))
+        assert_equal("0123456789".b, dest)
+        assert_equal("0123456789".b, source.peek.readpartial(100))
+        assert_equal("0123456789".b, source.peek.each.first)
+        done.push(:done)
+        watchdog.join
+
+        refute_predicate(writer, :closed?)
+        assert_equal("0123456789".b, source.read(10))
+      end
+    end
+
+    # The plan's Task 10 amendment holds through a view: the upstream is asked for the view's
+    # own count, and for a slice the bytes up to its offset on top, never for one byte.
+    test "a view passes its own count through to the upstream, offset included" do
+      asked = []
+      upstream = Object.new
+      upstream.define_singleton_method(:readpartial) do |want|
+        asked << want
+        raise ::EOFError if asked.size > 2
+
+        "z" * want
+      end
+      source = Dexpace::IO::BufferedSource.wrapping(upstream)
+      dest = +"".b
+
+      assert_equal(100, source.peek.read_into(dest, count: 100))
+      assert_equal(50, source.slice(offset: 150, count: 50).read_into(dest, count: 4096))
+      assert_equal([100, 100], asked)
+    end
+
+    # The view constructor is internal (design: "internal -- no RBS signature, no YARD block"),
+    # so a caller cannot reach it by name; #peek and #slice are the only way to a view.
+    test "the view constructor is a private class method, not public surface" do
+      assert_raises(NoMethodError) do
+        Dexpace::IO::BufferedSource.__dexpace_view(parent: nil, pin: 0, window: nil)
+      end
+      refute_includes(Dexpace::IO::BufferedSource.singleton_methods, :__dexpace_view)
     end
   end
 end

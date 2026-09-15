@@ -11,7 +11,8 @@ require "dexpace"
 # vocabulary over a real stream.
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: the
-# primitive here, then Typed, Ceiling, Lines, Bridge, Each, Views and Includer below.
+# primitive here, then Typed, Ceiling, Lines, Bridge, Each, Views, ViewFills, ViewLifecycle and
+# Includer below.
 class DexpaceTypedReadsTest < DexpaceTestCase
   # The Ruby shape of the reference's BufferedSource interface: supply #fill, get everything.
   class Scripted
@@ -691,6 +692,73 @@ class DexpaceTypedReadsTest < DexpaceTestCase
 
       assert_equal("de", outer.slice(offset: 0, count: 2).read)
       assert_equal("def", outer.read)
+    end
+  end
+
+  # ---- IO-1, IO-16, IO-19, IO-20: the one-fill contract holds through a view -----------------
+  #
+  # The primitive fills ONCE and returns what arrived (design R2), and the bridge carries Ruby's
+  # semantics through a view (R4). Before review round 0's R0-1 a view asked its parent to
+  # buffer `behind + count`, so #read_into, #readpartial and #each on a view blocked until the
+  # whole count had arrived where the root returned at once. The parent's #fills counter is the
+  # assertion: one fill for one read, however large the count.
+  class ViewFills < DexpaceTestCase
+    include Sources
+
+    test "read_into on a view fills the parent once and returns what arrived" do
+      subject = source("0123456789", "abc")
+      dest = +"".b
+
+      assert_equal(10, subject.peek.read_into(dest, count: 100))
+      assert_equal("0123456789", dest)
+      assert_equal(1, subject.fills)
+    end
+
+    # IO-16: #readpartial on a view returns what is available, never blocking to maxlen.
+    test "readpartial on a view returns what the parent has, not maxlen" do
+      subject = source("0123456789", "abc")
+
+      assert_equal("0123456789", subject.peek.readpartial(100))
+      assert_equal(1, subject.fills)
+    end
+
+    test "each on a view yields the parent's first chunk before filling again" do
+      subject = source("ab", "cd")
+
+      assert_equal("ab", subject.peek.each.first)
+      assert_equal(1, subject.fills)
+    end
+
+    # A slice whose offset lies past what is buffered fills until its first byte is reachable,
+    # and no further: two fills reach byte 3, the read returns the one byte that arrived with it,
+    # and a third fill -- for the rest of the window -- would be the count-blocking shape.
+    test "a slice fills its parent past its offset before serving, never reporting a false EOF" do
+      subject = source("ab", "cd", "ef")
+      dest = +"".b
+      view = subject.slice(offset: 3, count: 2)
+
+      assert_equal(1, view.read_into(dest, count: 100))
+      assert_equal("d", dest)
+      assert_equal(2, subject.fills)
+      assert_equal(1, view.read_into(dest, count: 100))
+      assert_equal("de", dest)
+      assert_equal(3, subject.fills)
+    end
+
+    # Ruby's contract on the bridge's bulk read is untouched: #read(n) on a view blocks to n
+    # through the view's own #ensure_buffered loop, one parent fill per pass.
+    test "read(n) on a view still fills to n, which is Ruby's contract" do
+      subject = source("ab", "cd", "ef")
+
+      assert_equal("abcd", subject.peek.read(4))
+      assert_equal(2, subject.fills)
+    end
+
+    test "read_exactly on a view still fills to the count" do
+      subject = source("ab", "cd", "ef")
+
+      assert_equal("abcde", subject.peek.read_exactly(5))
+      assert_equal(3, subject.fills)
     end
   end
 
