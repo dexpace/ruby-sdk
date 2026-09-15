@@ -52,6 +52,14 @@ class RbsSurfaceTest < GateCase
     assert_empty(RbsSurface.violations([fixture("relative_and_generic.rbs")]))
   end
 
+  # Every core model is `class X < Data`, the validation error is `< ::ArgumentError` and the
+  # media-type parser's helpers take a StringScanner; all three are stdlib, and the allowlist as
+  # phase 0 wrote it named none of them, so phase 1's first real signatures turned the gate red
+  # on correct code. Pinned so the three names stay admitted.
+  test "a Data superclass, an ArgumentError superclass and a StringScanner are stdlib" do
+    assert_empty(RbsSurface.violations([fixture("core_superclasses.rbs")]))
+  end
+
   test "rejects a foreign method-level generic bound, and not the parameter it bounds" do
     found = RbsSurface.violations([fixture("method_bound.rbs")]).join("\n")
 
