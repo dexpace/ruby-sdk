@@ -134,7 +134,6 @@ Dexpace::IO::BufferedSink.wrapping
 Dexpace::IO::BufferedSource
 Dexpace::IO::BufferedSource#owns_upstream?
 Dexpace::IO::BufferedSource#view?
-Dexpace::IO::BufferedSource.__dexpace_view
 Dexpace::IO::BufferedSource.of_bytes
 Dexpace::IO::BufferedSource.over
 Dexpace::IO::BufferedSource.wrapping

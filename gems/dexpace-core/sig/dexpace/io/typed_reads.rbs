@@ -25,7 +25,7 @@ module Dexpace
 
       # The view protocol: protected in lib/, so a view drives its parent and nothing else may.
       def dexpace_consumed: () -> Integer
-      def dexpace_ensure_buffered: (Integer target) -> Integer
+      def dexpace_fill_beyond: (Integer behind, Integer want) -> Integer
       def dexpace_window_copy: (Integer offset, Integer count) -> String
       def dexpace_register_view: (Dexpace::IO::TypedReads view) -> nil
       def dexpace_forget_view: (Dexpace::IO::TypedReads view) -> nil

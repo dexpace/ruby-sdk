@@ -294,9 +294,25 @@ module Dexpace
       # The two entry points a view drives its parent through check the parent's own readability
       # first (IO-22, IO-42): a closed stream-backed parent, or an invalidated intermediate view,
       # serves nothing to a view derived from it, however the view was reached.
-      def dexpace_ensure_buffered(target)
+      #
+      # This one is a view's fill seen from the parent's side, and it keeps the primitive's
+      # one-fill contract through #peek and #slice: fill until at least one byte past `behind` --
+      # the byte the view is waiting for -- is buffered, or the upstream is done, and never to
+      # `behind + want`. A root's #readpartial blocks for its first byte and returns whatever
+      # arrived with it; a view over the same stream does exactly that and no more, so IO-1's
+      # primitive and IO-16's host-native bridge return what is there through a view as they do
+      # on the root, and #read(n) on a view blocks to n only because the view's own
+      # #ensure_buffered loops over this. Each fill asks the upstream for the rest of what the
+      # view wants, so the count reaching readpartial is the view's own and never a 1 (the plan's
+      # Task 10 amendment holds through a view). Returns this object's buffered total, for the
+      # caller to subtract `behind` from.
+      def dexpace_fill_beyond(behind, want)
         ensure_readable
-        ensure_buffered(target)
+        while @dexpace_buffered <= behind
+          added = fill(behind + want - @dexpace_buffered)
+          break if added.nil? || added <= 0
+        end
+        @dexpace_buffered
       end
 
       def dexpace_window_copy(offset, count)
@@ -622,8 +638,8 @@ module Dexpace
           headroom = [remaining - offset, 0].max
           window = window.nil? ? headroom : [window, headroom].min
         end
-        view = Dexpace::IO::BufferedSource.__dexpace_view(
-          parent: self, pin: @dexpace_consumed + offset, window: window,
+        view = Dexpace::IO::BufferedSource.send(
+          :__dexpace_view, parent: self, pin: @dexpace_consumed + offset, window: window,
         )
         dexpace_register_view(view)
         view

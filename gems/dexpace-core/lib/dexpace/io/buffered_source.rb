@@ -97,11 +97,18 @@ module Dexpace
         new(chunked: chunked)
       end
 
-      # The view constructor #peek and #slice reach. Not public API: a view is a BufferedSource in
-      # view mode, which makes IO-23's slice-of-a-slice free and adds no NFR-4-locked constant.
+      # The view constructor #peek and #slice reach. Internal, and kept so: a view is a
+      # BufferedSource in view mode, which makes IO-23's slice-of-a-slice free and adds no
+      # NFR-4-locked constant. It is a private class method with a private RBS declaration, so it
+      # sits in neither the surface manifest nor the sig diff; its one caller,
+      # TypedReads#build_view, lives outside this class and reaches it through #send, as
+      # Headers#== reaches #values -- the hole design §4's P8 records, used from inside core
+      # rather than opened as a door.
       def self.__dexpace_view(parent:, pin:, window:)
         new(view: View.new(parent: parent, pin: pin, window: window))
       end
+
+      private_class_method :__dexpace_view
 
       def initialize(upstream: nil, owns_upstream: false, chunked: nil, view: nil)
         @dexpace_upstream = upstream
@@ -207,13 +214,18 @@ module Dexpace
       # parent's #fill without advancing the parent's cursor. If the parent consumes past the
       # window, the view's later reads fail loudly rather than returning bytes from somewhere
       # else -- IO-22's "never returning stale or arbitrary bytes" is the anchor.
+      #
+      # One fill, like the root's: the parent fills until it holds a byte past `behind` or is
+      # done, and this view takes what is there up to `want`. Asking the parent to buffer
+      # `behind + want` instead would block a view's #read_into, #readpartial and #each until the
+      # whole count arrived, which a root never does (review round 0, R0-1).
       def fill_from_parent(view, min_bytes)
         want = window_budget(view, min_bytes)
         return 0 if want.zero?
 
         parent = view.parent
         behind = offset_into_parent(view, parent)
-        available = parent.dexpace_ensure_buffered(behind + want) - behind
+        available = parent.dexpace_fill_beyond(behind, want) - behind
         return 0 if available <= 0
 
         take = [available, want].min

@@ -22,9 +22,15 @@ module Dexpace
       # `chunked` is untyped for the same reason: the runtime test is a duck test, and _Chunked
       # names the shape a consumer's own steep check can type its bodies against.
       def self.over: (untyped chunked) -> Dexpace::IO::BufferedSource
-      def self.__dexpace_view: (parent: Dexpace::IO::TypedReads, pin: Integer, window: Integer?) -> Dexpace::IO::BufferedSource
+      # The view constructor: private_class_method in lib/, private here, so neither the surface
+      # manifest nor the sig diff carries it; declared because strict Steep types its body.
+      private def self.__dexpace_view: (
+        parent: Dexpace::IO::TypedReads, pin: Integer, window: Integer?,
+      ) -> Dexpace::IO::BufferedSource
 
-      def initialize: (?upstream: untyped, ?owns_upstream: bool, ?chunked: untyped, ?view: View?) -> void
+      def initialize: (
+        ?upstream: untyped, ?owns_upstream: bool, ?chunked: untyped, ?view: View?,
+      ) -> void
       def view?: () -> bool
       def owns_upstream?: () -> bool
 
