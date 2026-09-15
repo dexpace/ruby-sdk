@@ -19,6 +19,7 @@ module Dexpace
     private
 
     def validate_timeout!: (untyped timeout) -> void
+    def finite_positive?: (untyped timeout) -> bool
     def validate_max_retries!: (untyped max_retries) -> void
     def validate_tags!: (untyped tags) -> void
   end

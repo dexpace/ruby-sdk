@@ -50,12 +50,20 @@ module Dexpace
     # not.
     #
     # Zero is refused as well as a negative: zero means "no timeout" in one transport and
-    # "fail at once" in another, so it cannot be a portable override.
+    # "fail at once" in another, so it cannot be a portable override. So are the Numerics that
+    # are not a finite real number: a Complex has no #positive? and would escape as a
+    # NoMethodError, and an infinite timeout is "no timeout" spelled as a number that a socket
+    # API is then handed -- the same non-portable reading HTTP-35 refuses zero for.
     def validate_timeout!(timeout)
-      return if timeout.nil? || (timeout.is_a?(Numeric) && timeout.positive?)
+      return if timeout.nil? || finite_positive?(timeout)
 
       raise InvalidArgumentError,
-            "timeout must be a positive number of seconds, or nil to use the default (HTTP-35)"
+            "timeout must be a positive, finite number of seconds, or nil to use the default " \
+            "(HTTP-35)"
+    end
+
+    def finite_positive?(timeout)
+      timeout.is_a?(Numeric) && timeout.real? && timeout.finite? && timeout.positive?
     end
 
     # 0 is legal and means "disable retries for this call"; only a negative count is a mistake.
@@ -71,7 +79,7 @@ module Dexpace
       raise InvalidArgumentError, "tags must be a Hash of String keys to String values (HTTP-34)"
     end
 
-    private :validate_timeout!, :validate_max_retries!, :validate_tags!
+    private :validate_timeout!, :finite_positive?, :validate_max_retries!, :validate_tags!
 
     # The canonical "override nothing" (HTTP-34).
     EMPTY = build(timeout: nil, max_retries: nil, tags: {})

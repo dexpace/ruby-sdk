@@ -47,9 +47,13 @@ module Dexpace
     # Ruby passes keywords to a method that declares none as one positional Hash, on every Ruby
     # in the supported range. A splat allocates a Hash even on the empty call, which is what
     # Dexpace/NoKeywordSplat forbids on a public library method; this form allocates nothing when
-    # nothing changes and only what the caller passed otherwise.
+    # nothing changes and only what the caller passed otherwise. What the splat form would have
+    # refused at the call site -- a positional that is not a Hash -- is refused here with the
+    # SDK's error, so it cannot escape as a NoMethodError from reading `empty?` off it.
     def with(changes = nil)
-      return self if changes.nil? || changes.empty?
+      return self if changes.nil?
+      raise InvalidArgumentError, "with takes a Hash of member changes" unless changes.is_a?(Hash)
+      return self if changes.empty?
 
       self.class.build(**to_h, **changes)
     end
