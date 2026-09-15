@@ -1,11 +1,12 @@
 # Architecture
 
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
-skeletons and the gate set, and phase 1 the HTTP domain model in `dexpace-core`; the pipeline,
-seams and adapters are still to come, so this page is still a stub: it names the pages this tree
-will eventually hold and where each one's content will come from, so the plan for the
-documentation exists before the documentation does. Two pages are real already, because their
-subjects are: [`quality-gates.md`](./quality-gates.md) and [`http.md`](./http.md).
+skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, and phase 2 the seam
+layer in the same gem; the pipeline and the adapters are still to come, so this page is still a
+stub: it names the pages this tree will eventually hold and where each one's content will come
+from, so the plan for the documentation exists before the documentation does. Three pages are real
+already, because their subjects are: [`quality-gates.md`](./quality-gates.md),
+[`http.md`](./http.md) and [`seams.md`](./seams.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -17,6 +18,12 @@ actually written against source.
 their kin, and how each is frozen at construction and reachable only through a builder or a
 validating factory. Written against the model phase 1 shipped; derives from
 `docs/sdk-design-ruby/04-domain-model-construction.md`.
+
+[seams.md](./seams.md) — the interface layer everything else plugs into: what a transport, an
+async transport and a codec are, how a provider is registered, installed and resolved, the
+core-owned future and cancellation token, the close contract, and how an `Operation` becomes a
+`Request`. Written against the layer phase 2 shipped; derives from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
 
 bodies.md — request bodies as duck-typed producers, response bodies as owned resources the caller
 must close. Derives from `docs/sdk-design-ruby/04-domain-model-construction.md`, read together
@@ -37,7 +44,8 @@ and how to run it locally. Written against the build phase 0 shipped; derives fr
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
 
 write-a-transport.md — implementing the `Transport` seam, and proving an implementation against
-`dexpace-conformance`. Derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
+`dexpace-conformance`. Derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`;
+the seam's contract itself is already on [seams.md](./seams.md).
 
 write-a-serde.md — implementing the `Serde` seam: the serializer/deserializer pair, the
 `Tristate` PATCH convention, and the four encode profiles. Derives from

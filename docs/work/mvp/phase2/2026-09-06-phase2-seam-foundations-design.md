@@ -1365,6 +1365,86 @@ design §10; it is frozen.
 | P2-14 | `Cancellation#on_cancel` returns a `Cancellation::Subscription` handle rather than `self`, and `Cancellation::Source` gains a public `#off_cancel(hook)` | design §3.3; `SEAM-13`, `SEAM-18`; `NFR-4` | The design describes registration and says nothing about withdrawing one, which leaves `Completer#await` no way to detach the hook it arms on the caller's token. That hook reaches the `Completer` and through it the response the future settled with, so `.any(client_token, per_call_token)` with `future.value(cancellation:)` — what phase 5a's `deadline:` keyword does on every request — retained one closure and one response per request on the client-lifetime source: measured 200 of 200, and 500 100 KB responses still reachable after `GC.start`, on 3.2.11, 3.4.10 and 4.0.6. Composing without subscribing fixes only the composition half of that leak. The cost is one public constant and one public method, both locked by `NFR-4` at the first release tag, which is why they are here and not in a comment |
 | P2-15 | `Dexpace::Hooks`, a `private_constant` module supplying the one `notify(hooks, argument)` loop `Cancellation::Source#cancel`, `Completer#settle` and `Completer#request_cancel` all run | design §3.3, §3.7; `SEAM-18` | The design describes the notification three times and names no home for it, and a bare `hooks.each { |hook| hook.call(…) }` at each site drops every handler after a raising one and propagates to whoever published the state — the `SEAM-18` "a second waiter blocks forever" failure from the write side, verified on all three interpreters. One implementation runs the whole list and then re-raises the first failure; re-raising rather than dropping, because phase 2 has neither of §3.7's disposal routes (the suppressed trail, phase 4b; §8.1, phase 5) and a handler raising into a void is a bug nothing reports. The failures after the first are attached to the trail by phase 4b, Task 2. It is a `private_constant` and therefore not public API: no `sig/` mirror, no YARD gate entry, no surface-manifest row |
 
+### As built, 2026-09-15
+
+Four rows, one predicate and one composition rule stated above read slightly differently against
+the source; the difference is recorded here rather than by rewriting the text it corrects.
+
+- **P2-15, as built.** `lib/dexpace/hooks.rb` *does* have a `sig/` declaration: the strict `core`
+  Steep target checks every file under `lib/` and refuses an undeclared module, and that target
+  never relaxes. `sig/dexpace/hooks.rbs` declares the module and its one method with a comment
+  saying the declaration exists for Steep alone; `Dexpace::Hooks` is still a `private_constant`,
+  absent from the surface manifest and unreachable from outside `module Dexpace` (asserted in
+  `dexpace_test.rb`). The row's "no YARD gate entry" holds trivially — the file carries a YARD block
+  anyway. And `Completer#settle` steals the abort hooks in the same snapshot swap that publishes
+  the outcome, so a producer's abort hook fires only when the cancellation actually won the race
+  against its own `#fulfil`; `#request_cancel` is one `settle` call.
+- **P2-9, as built.** Two further `private_constant`s exist that are not snapshots:
+  `Operation::Validation` and `Operation::Composition`, function modules that hold the descriptor's
+  construction-time checks and `SEAM-27`'s four composition rules so each half is reviewable alone
+  and the class stays under the length cap. Neither is a `Data`, neither is public, and the rule
+  the row states — a public `Data` follows phase 1's construction rule without exception — is
+  unaffected.
+- **P2-12, as built.** `WarningCapture` is exactly the block-scoped module the row describes,
+  prepended after phase 0's raising module; the one `SEAM-8` warning test observes it and the
+  negative case asserts silence.
+- **P2-8, as built.** The cop is the **seventh** in `.rubocop/cops/dexpace/`, not the sixth:
+  phase 1 added `Dexpace/NoKeywordSplat` after this design was written. The row and the §9
+  addendum's title stay as written; `CLAUDE.md`, `docs/sdk-documentation/quality-gates.md` and the
+  roadmap's status note count seven.
+- **The transport predicate, as built (review round 1, 2026-09-15).** The `.conforms?` predicate
+  stated under `Dexpace::Transport` — "required count ≤ 3 and (a rest parameter is present or
+  required + optional ≥ 3)" — omits keywords, and as written it admitted
+  `->(request, options, cancellation, must:) {}`: registration succeeded and the first send raised
+  Ruby's `ArgumentError: missing keyword` from inside the seam, the failure-at-use the predicate
+  exists to move to registration. `Registry.accepts_positionals?` now also refuses any `:keyreq`
+  parameter; an optional keyword, a keyword rest and a block parameter leave the three-positional
+  call intact and stay admitted. Verified on 3.2.11 and 4.0.6, asserted on both transport seams
+  and on `Registry.callable?`. The admitted gap stays admitted: the predicate still cannot see the
+  return type, and `Dexpace::Serde.conforms?` is still presence-only, so a codec whose
+  `#load(source)` takes no witness registers and fails at the first decode.
+- **The composition's malformed-URL rule, as built (review round 2, 2026-09-15).** The
+  composition table above maps "resolving to a malformed URL" to `URL.parse!` — the base only —
+  and the construction-time checks it describes are brace balance and placeholder/projection
+  agreement, so the literal text between placeholders reached `URI::Generic#path=` unchecked:
+  `Operation.build(method: :get, template: "/x?y")`, `"/a b"`, `"/pets/ü"` and `"/100%"` all
+  constructed and raised `URI::InvalidComponentError` from `Composition.compose` at the first
+  `#build_request`, a stdlib error where the plan promises `Dexpace::InvalidArgumentError` for a
+  malformed template. `Validation.literal!` now checks the template with its placeholders removed
+  against RFC 3986 `path` at construction, naming the template; the four rules' "a base carrying a
+  fragment" gained its sibling, a base with no hierarchical part (`mailto:`, `urn:`), which
+  `URL.parse!` admits as absolute and which leaked `URI::InvalidURIError: path conflicts with
+  opaque` from the same setter. Path values were never at risk: `encode_component` yields pchars,
+  and the property test proves it. Verified identical on 3.2.11 and 4.0.6.
+- **The composition's malformed-URL rule, the query side (review round 3, 2026-09-15).** Round 2
+  validated the template literal and the opaque base and then claimed `Composition.compose`
+  could not raise; the base's *query* was validated by nothing this phase owns. `URL.parse!`
+  reaches `URI::Generic#query=`, whose percent check is `/(%\H\H)/` — a `%` followed by two
+  *non-hex* characters — so a base query ending in a bare `%` or in `%z` (`https://host/c?sig=100%`)
+  is accepted at parse time, and the composition's `&limit=1` then puts `%&l` in front of the
+  same check: `URI::InvalidURIError: invalid percent escape: %&l` escaped `#build_request`, the
+  round-2 property blind to it because it fixes the base at `https://host/c?sig=1`.
+  `validated_base` now checks the parsed base's query against RFC 3986 `query` (`PATH_LITERAL`'s
+  set plus `?`, every `%` a two-hex escape) beside the fragment and hierarchical-part rules,
+  naming the base, whether or not the operation query is empty — so the composition row's four
+  rules are enforced by three checks of this phase's own plus `URL.parse!`, not by `URL.parse!`
+  alone. The "cannot raise" claim now rests on both writers' grammars, stated in `compose`'s
+  comment: RFC 3986 `query` is strictly tighter than `#query=`'s check and `Query#encode` is RFC
+  3986 by construction, so no `&` can complete an escape; the parser's `segment` set is
+  `#path=`'s `ABS_PATH` set and the operation path is `PATH_LITERAL` plus `encode_component`
+  values, so `#path=` cannot refuse either. Measured as well as argued: a 40,000-base fuzz over
+  nine base shapes and four operations on 3.2.11 and 4.0.6 found 29,738 bases `URL.parse!`
+  accepts, 5,031 stdlib leaks before the check and 0 after, identical on both; a 200-sample
+  base-varying property with a non-empty operation query pins it. Checklist deviation 29.
+- **The registry's conflict paths, as built (review round 3, 2026-09-15).** The rule stated
+  under `Dexpace::Registry` — a mutex held across the snapshot swap and nothing else — was broken
+  on `#register`'s and `#install`'s conflict paths, whose messages interpolate `#inspect` of two
+  user objects inside `@write.synchronize`; an `#inspect` reaching back into the registry met
+  `ThreadError: deadlock; recursive locking` instead of `Dexpace::InvalidArgumentError`. Both now
+  raise after the block, as `warn_replaced` already did; `#install`'s swap is a private
+  `#swap_in` reporting the conflicting incumbent and the handed-out flag out. Checklist
+  deviation 30.
+
 ## Work Phase 2 Postponed, and Who Owns It Now
 
 Phase 2 postponed six things. Each entry is self-contained — what was postponed, why phase 2 did not
