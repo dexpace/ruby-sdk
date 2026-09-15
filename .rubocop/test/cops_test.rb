@@ -5,7 +5,8 @@ require_relative "cop_case"
 
 # The original five cops and Dexpace/NoKeywordSplat, which between them mechanise CLAUDE.md's
 # ban list and NFR-13. One row per case, one generated Minitest method per row, so a failure
-# names exactly one input.
+# names exactly one input. Phase 2's sixth cop has its own tables in the nested class below,
+# because Metrics/ClassLength caps one class at 100 lines and counts a table row as a line.
 class CopsTest < CopCase
   D = RuboCop::Cop::Dexpace
   HEADER = "# frozen_string_literal: true\n# SPDX-License-Identifier: MIT\n\n"
@@ -125,6 +126,57 @@ class CopsTest < CopCase
   ACCEPTED.each_with_index do |(cop, source), index|
     test "#{cop.badge} accepts case #{index}: #{source.lines.first.strip}" do
       assert_no_offense(cop, source)
+    end
+  end
+
+  # Design §9 Addendum A1 (phase 2): a bare Thread/Queue/Mutex/JSON inside Dexpace::Async or
+  # Dexpace::Serde rebinds to the adapter gem's constant the moment that gem is required, and
+  # core's own suite never requires it. The compact `module Dexpace::Async` form is the same
+  # lexical path and is flagged too; one SHADOWED list serves both namespaces, so a bare JSON
+  # inside Dexpace::Async is flagged even though only Dexpace::Serde reopens JSON.
+  class QualifiedCoreConstantTest < CopCase
+    ASYNC = "module Dexpace\n  module Async\n    %s\n  end\nend\n"
+    SERDE = "module Dexpace\n  module Serde\n    %s\n  end\nend\n"
+    NESTED = "module Dexpace\n  module Async\n    class Completer\n      def initialize\n        " \
+             "@gate = %s\n      end\n    end\n  end\nend\n"
+
+    # [source, the fragment the message must carry]
+    REJECTED = [
+      [format(ASYNC, "Thread.new"), "Write `::Thread` here"],
+      [format(ASYNC, "Queue.new"), "Write `::Queue` here"],
+      [format(ASYNC, "Mutex.new"), "Write `::Mutex` here"],
+      [format(ASYNC, "SizedQueue.new(2)"), "Write `::SizedQueue` here"],
+      [format(ASYNC, "ConditionVariable.new"), "Write `::ConditionVariable` here"],
+      [format(SERDE, "JSON.generate(value)"), "Write `::JSON` here"],
+      ["module Dexpace::Async\n  Thread.new\nend\n", "Write `::Thread` here"],
+      [format(ASYNC, "JSON.parse(text)"), "Write `::JSON` here"],
+      # A class nested inside the namespace is still lexically inside it, and `Thread::Queue`
+      # is a bare `Thread` with `Queue` hanging off it.
+      [format(NESTED, "Thread::Queue.new"), "Write `::Thread` here"],
+    ].freeze
+
+    # The accepted half is what proves the cop does not reject every occurrence of the six names.
+    ACCEPTED = [
+      format(ASYNC, "::Thread.new"),
+      format(ASYNC, "::Queue.new"),
+      format(SERDE, "::JSON.generate(value)"),
+      "module Dexpace\n  module Transport\n    Thread.new\n  end\nend\n",
+      "Thread.new\n",
+      format(ASYNC, "Dexpace::Async::Thread.new"),
+      format(NESTED, "::Thread::Queue.new"),
+      format(SERDE, "class << self\n      def a = ::JSON\n    end"),
+    ].freeze
+
+    REJECTED.each_with_index do |(source, fragment), index|
+      test "rejects case #{index}: #{source.lines.first.strip}" do
+        assert_offense(D::QualifiedCoreConstant, source, fragment)
+      end
+    end
+
+    ACCEPTED.each_with_index do |source, index|
+      test "accepts case #{index}: #{source.lines.first.strip}" do
+        assert_no_offense(D::QualifiedCoreConstant, source)
+      end
     end
   end
 end
