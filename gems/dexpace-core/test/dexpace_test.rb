@@ -31,8 +31,9 @@ class DexpaceTest < DexpaceTestCase
   end
 
   # Every public constant the surface manifest records, and the check that catches a file added
-  # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer;
-  # Dexpace::Hooks is a private_constant and does not appear in Dexpace.constants(false).
+  # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
+  # then phase 3a's byte-streaming layer; Dexpace::Hooks is a private_constant and does not
+  # appear in Dexpace.constants(false).
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -41,10 +42,11 @@ class DexpaceTest < DexpaceTestCase
     SeamError ClosedError CancelledError Closeable Cancellation Async Registry Bridge Transport
     AsyncTransport Serde Operation
   ].freeze
+  IO_LAYER = %i[StreamError EndOfStreamError IO].freeze
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
-    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER],
+    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER],
                  "constants added under Dexpace",)
     assert_includes(Dexpace.constants(false), :VERSION)
   end
@@ -58,10 +60,10 @@ class DexpaceTest < DexpaceTestCase
   end
 
   test "every constant the manifest records is reachable from Dexpace" do
-    (DOMAIN_MODEL + SEAM_LAYER).each do |name|
+    (DOMAIN_MODEL + SEAM_LAYER + IO_LAYER).each do |name|
       assert(Dexpace.const_defined?(name, false), "#{name} missing")
     end
-    assert_empty((DOMAIN_MODEL + SEAM_LAYER) - Dexpace.constants(false))
+    assert_empty((DOMAIN_MODEL + SEAM_LAYER + IO_LAYER) - Dexpace.constants(false))
     %i[Headers Query RequestOptions Request Response].each do |name|
       assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
     end
@@ -81,10 +83,24 @@ class DexpaceTest < DexpaceTestCase
     assert_raises(::NameError) { Dexpace::Hooks }
   end
 
-  # The shadowing name this SDK never defines: it would make a bare `rescue ArgumentError`
-  # inside `module Dexpace` stop catching Ruby's own (deviation P1-3).
-  test "never defines Dexpace::ArgumentError" do
+  # A consumer requires "dexpace" and nothing else: the byte-streaming layer resolves too
+  # (phase 3a).
+  test "requiring dexpace alone makes the whole streaming layer resolve" do
+    assert_equal(Dexpace::IO::Buffer, Dexpace::IO.const_get(:Buffer))
+    assert_equal(Dexpace::IO::BufferedSource, Dexpace::IO.const_get(:BufferedSource))
+    assert_equal(Dexpace::IO::BufferedSink, Dexpace::IO.const_get(:BufferedSink))
+    assert_equal(Dexpace::IO::TeeSink, Dexpace::IO.const_get(:TeeSink))
+    assert_equal(Dexpace::StreamError, Dexpace.const_get(:StreamError))
+    assert_equal(Dexpace::EndOfStreamError, Dexpace.const_get(:EndOfStreamError))
+  end
+
+  # The shadowing names this SDK never defines: each would make a bare `rescue ArgumentError`,
+  # `rescue IOError` or `rescue EOFError` inside `module Dexpace` stop catching Ruby's own
+  # (deviation P1-3; phase 3a's design for the two I/O names).
+  test "never defines Dexpace::ArgumentError, Dexpace::IOError or Dexpace::EOFError" do
     refute_includes(Dexpace.constants(false), :ArgumentError)
+    refute_includes(Dexpace.constants(false), :IOError)
+    refute_includes(Dexpace.constants(false), :EOFError)
   end
 
   # Dexpace::Method shadows ::Method only inside core (the entry file's YARD block says so);

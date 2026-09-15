@@ -1,0 +1,16 @@
+# Phase 3a's shapes: the two stream failure types subclass core Ruby's EOFError and IOError
+# (P3-3), and IO-13's charset reads take an Encoding. All three are core Ruby and need no
+# require; the allowlist as phase 1 left it named none of them.
+module Dexpace
+  class EndOfStreamError < ::EOFError
+  end
+
+  class StreamError < ::IOError
+  end
+
+  module IO
+    module TypedReads
+      def read_string: (Encoding | String encoding, ?count: Integer?) -> String
+    end
+  end
+end

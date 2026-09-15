@@ -72,6 +72,7 @@ Dexpace::Closeable#closed?
 Dexpace::Closeable#initialize_closeable
 Dexpace::Closeable#owned?
 Dexpace::ClosedError
+Dexpace::EndOfStreamError
 Dexpace::Error
 Dexpace::HeaderName
 Dexpace::HeaderName#==
@@ -122,6 +123,51 @@ Dexpace::Headers::Builder#set
 Dexpace::Headers::DIRECTIONS : Array
 Dexpace::Headers::EMPTY : Dexpace::Headers
 Dexpace::Headers::EMPTY_INBOUND : Dexpace::Headers
+Dexpace::IO
+Dexpace::IO::Buffer
+Dexpace::IO::Buffer#bytesize
+Dexpace::IO::Buffer#clear
+Dexpace::IO::Buffer#copy_to
+Dexpace::IO::Buffer#snapshot
+Dexpace::IO::BufferedSink
+Dexpace::IO::BufferedSink.wrapping
+Dexpace::IO::BufferedSource
+Dexpace::IO::BufferedSource#owns_upstream?
+Dexpace::IO::BufferedSource#view?
+Dexpace::IO::BufferedSource.__dexpace_view
+Dexpace::IO::BufferedSource.of_bytes
+Dexpace::IO::BufferedSource.over
+Dexpace::IO::BufferedSource.wrapping
+Dexpace::IO::MAX_MATERIALIZED_BYTES : Integer
+Dexpace::IO::TeeSink
+Dexpace::IO::TeeSink#buffer
+Dexpace::IO::TeeSink#tap_bytesize
+Dexpace::IO::TeeSink#tap_snapshot
+Dexpace::IO::TypedReads
+Dexpace::IO::TypedReads#each
+Dexpace::IO::TypedReads#eof?
+Dexpace::IO::TypedReads#getbyte
+Dexpace::IO::TypedReads#initialize_typed_reads
+Dexpace::IO::TypedReads#peek
+Dexpace::IO::TypedReads#read
+Dexpace::IO::TypedReads#read_exactly
+Dexpace::IO::TypedReads#read_into
+Dexpace::IO::TypedReads#read_line_utf8
+Dexpace::IO::TypedReads#read_string
+Dexpace::IO::TypedReads#read_utf8
+Dexpace::IO::TypedReads#readbyte
+Dexpace::IO::TypedReads#readpartial
+Dexpace::IO::TypedReads#skip
+Dexpace::IO::TypedReads#slice
+Dexpace::IO::TypedWrites
+Dexpace::IO::TypedWrites#emit
+Dexpace::IO::TypedWrites#flush
+Dexpace::IO::TypedWrites#initialize_typed_writes
+Dexpace::IO::TypedWrites#write
+Dexpace::IO::TypedWrites#write_all
+Dexpace::IO::TypedWrites#write_from
+Dexpace::IO::TypedWrites#write_string
+Dexpace::IO::TypedWrites#write_utf8
 Dexpace::InvalidArgumentError
 Dexpace::MediaType
 Dexpace::MediaType#charset
@@ -304,6 +350,9 @@ Dexpace::Status::REQUEST_TIMEOUT : Dexpace::Status
 Dexpace::Status::SERVICE_UNAVAILABLE : Dexpace::Status
 Dexpace::Status::TOO_MANY_REQUESTS : Dexpace::Status
 Dexpace::Status::UNAUTHORIZED : Dexpace::Status
+Dexpace::StreamError
+Dexpace::StreamError.short_transfer
+Dexpace::StreamError.zero_read
 Dexpace::Transport
 Dexpace::Transport.async_over
 Dexpace::Transport.conforms?
