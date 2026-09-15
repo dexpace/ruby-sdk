@@ -210,8 +210,13 @@ out; an empty `String` is a value on every side.
 The base-URL composition is a concatenation, **not** RFC 3986 reference resolution: a trailing
 slash normalises to one separator, an empty operation path leaves the base untouched, an existing
 base query is kept with the operation's appended (a dangling `&` dropped), already-encoded octets
-survive verbatim, and a base carrying a fragment is refused naming it. `URI#merge` would have
-dropped both the `/c` and the `sig=abc` that a signed base URL needs to keep.
+survive verbatim, and a base carrying a fragment, or one with no hierarchical part to compose onto
+(`mailto:x@y`, `urn:isbn:123`), is refused naming it. The template's own literal text is held to
+the same path grammar at construction — `/x?y`, `/a b` and `/100%` are refused naming the
+template, while `/a%20b` is a path and passes — so whatever the inputs, the failure is
+`Dexpace::InvalidArgumentError` and never a stdlib `URI` error escaping the composition.
+`URI#merge` would have dropped both the `/c` and the `sig=abc` that a signed base URL needs to
+keep.
 
 ## What is deliberately absent
 

@@ -2659,7 +2659,7 @@ files under `lib/dexpace/`, exactly the design's Module Layout, each with its `s
 (the three in-memory fakes the roadmap's constraint 4 asks for, three companions one class per file, the
 probe scheduler and the warning capture) and the seventh custom cop, `Dexpace/QualifiedCoreConstant` — and
 the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket. The checklist is at
-`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`: thirty rows, 22 ✅ (`SEAM-15` and
+`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`: thirty rows, 23 ✅ (`SEAM-15` and
 `SEAM-25` with a named gap each — no raise site, no lifecycle event — and `SEAM-29` in phase 1), 3 ⏳
 (`SEAM-12` to phase 8a's `TransportSuite`, `SEAM-24` post-v1, `SEAM-28` to phase 5c Task 4), 3 🚫 (`SEAM-3`,
 `SEAM-4`, `SEAM-22`'s mechanism with its surviving clause ✅), 1 N/A (`SEAM-10`, the version-skew guard
@@ -2687,7 +2687,8 @@ property the test's own comment states (deviation 24, on the code branch because
 must be green). `sig/dexpace/hooks.rbs` exists after all, because the strict `core` Steep target checks every
 `lib/` file and never relaxes (deviation 1). The four notes the design filed stand; no fifth was needed. The
 six postponed items keep their owners. The counts that changed: `gems/` is still six; `dexpace-core`'s
-`lib/dexpace/` is forty-two files; `phase2/` now carries its checklist, the third written; the surface
-manifest is 318 lines, and the four adapter manifests each lost the one namespace line core now owns.
+`lib/dexpace/` is forty-two phase-1 and phase-2 files beside phase 0's `version.rb`; `phase2/` now carries
+its checklist, the third written; the surface manifest is 318 lines, and the four adapter manifests each
+lost the one namespace line core now owns.
 `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and three new constraints-that-bite
 lines are rewritten from what was built.

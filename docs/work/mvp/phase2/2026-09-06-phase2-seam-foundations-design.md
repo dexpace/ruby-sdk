@@ -1367,8 +1367,8 @@ design §10; it is frozen.
 
 ### As built, 2026-09-15
 
-Four rows, and one predicate stated above, read slightly differently against the source; the
-difference is recorded here rather than by rewriting the text it corrects.
+Four rows, one predicate and one composition rule stated above read slightly differently against
+the source; the difference is recorded here rather than by rewriting the text it corrects.
 
 - **P2-15, as built.** `lib/dexpace/hooks.rb` *does* have a `sig/` declaration: the strict `core`
   Steep target checks every file under `lib/` and refuses an undeclared module, and that target
@@ -1403,6 +1403,19 @@ difference is recorded here rather than by rewriting the text it corrects.
   and on `Registry.callable?`. The admitted gap stays admitted: the predicate still cannot see the
   return type, and `Dexpace::Serde.conforms?` is still presence-only, so a codec whose
   `#load(source)` takes no witness registers and fails at the first decode.
+- **The composition's malformed-URL rule, as built (review round 2, 2026-09-15).** The
+  composition table above maps "resolving to a malformed URL" to `URL.parse!` — the base only —
+  and the construction-time checks it describes are brace balance and placeholder/projection
+  agreement, so the literal text between placeholders reached `URI::Generic#path=` unchecked:
+  `Operation.build(method: :get, template: "/x?y")`, `"/a b"`, `"/pets/ü"` and `"/100%"` all
+  constructed and raised `URI::InvalidComponentError` from `Composition.compose` at the first
+  `#build_request`, a stdlib error where the plan promises `Dexpace::InvalidArgumentError` for a
+  malformed template. `Validation.literal!` now checks the template with its placeholders removed
+  against RFC 3986 `path` at construction, naming the template; the four rules' "a base carrying a
+  fragment" gained its sibling, a base with no hierarchical part (`mailto:`, `urn:`), which
+  `URL.parse!` admits as absolute and which leaked `URI::InvalidURIError: path conflicts with
+  opaque` from the same setter. Path values were never at risk: `encode_component` yields pchars,
+  and the property test proves it. Verified identical on 3.2.11 and 4.0.6.
 
 ## Work Phase 2 Postponed, and Who Owns It Now
 

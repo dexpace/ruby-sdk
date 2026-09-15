@@ -46,15 +46,15 @@ Thirty: `SEAM-1`–`SEAM-30`.
 | `SEAM-24` | SHOULD | ⏳ | — | Post-v1, riding on `dexpace-async-async` — `docs/first-release.md` § What v1 ships without › SHOULD- and MAY-level requirements declined for v1, the `SEAM-24` entry. Tasks 4 and 5 fix the contract its bidirectional mapping will map: `Dexpace::Cancellation` in one direction and `Completer#on_cancel` in the other |
 | `SEAM-25` | MUST | ✅ with a named gap | 2, 9, 10 | The idempotent, ownership-aware release is `Dexpace::Closeable` (Task 2) and both bridges take it (Tasks 9, 10): only the first close runs `#release`, a caller-supplied transport or executor is never touched. The clause "**and emits the lifecycle event**" has no event to emit until §8.1's instrumentation facade exists — emitted by phase 8b, Tasks 6 and 10 (`docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter.md`), harnessed by phase 9, Task 11 (`docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`). Named rather than claimed |
 | `SEAM-26` | MUST | ✅ | 13, 14 | `Dexpace::Operation = Data.define(:method, :template, :projections)` including `Dexpace::Model`: `private_class_method :new`, a validating `.build(method:, template:, projections: {})`, `method` coerced through `Dexpace::Method.of`, the template a frozen `String`, the projections table copied and deep-frozen through `Model.own`. A parameterless GET is the default construction. Validation at construction: a projection is a `[target, wire name]` pair, the target one of `:path`/`:query`/`:header`/`:body` (the error names all four), the wire name non-empty, at most one body projection, and the set of `:path` wire names equal to the set of `{name}` placeholders in both directions. `#with` re-validates on the 3.2 floor through phase 1's `Model#with`. The body is carried, not encoded — the input object arrives on the request as itself (`dexpace/operation_test.rb`, `dexpace/operation_build_request_test.rb`) |
-| `SEAM-27` | MUST | ✅ | 14 | `#build_request(base_url:, inputs: {})`. Path values go through phase 1's `PercentEncoding.encode_component`, so `"a/b"` becomes `a%2Fb` and never a second segment — a 40-sample property over an alphabet including `/`, `?`, `#`, `&`, a space, `%` and invalid UTF-8 asserts the assembled URL re-parses through `URL.parse!` with exactly one segment added; a `nil` path input is missing and raises naming the input key and the placeholder, `false` is a value. The query is phase 1's `Query#encode`, one parameter per value of a repeated projection, a structured value refused rather than rendered as an inspect string. Headers go through the outbound `Headers::Builder`, so a CRLF is rejected at assembly. The composition is hand-built (P2-3): the specification's own example `https://host/c?sig=abc` + `/pets` + `limit=1` → `https://host/c/pets?sig=abc&limit=1`, trailing and leading slashes normalised to one separator, an empty operation path leaving the base untouched, a dangling `&` dropped, already-encoded octets surviving verbatim, a fragment on the base rejected naming it, and the base URI left untouched. `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` was re-verified as `https://host/pets` on 3.2.11 and 4.0.6 during the build (`dexpace/operation_build_request_test.rb`) |
+| `SEAM-27` | MUST | ✅ | 14 | `#build_request(base_url:, inputs: {})`. Path values go through phase 1's `PercentEncoding.encode_component`, so `"a/b"` becomes `a%2Fb` and never a second segment — a 40-sample property over an alphabet including `/`, `?`, `#`, `&`, a space, `%` and invalid UTF-8 asserts the assembled URL re-parses through `URL.parse!` with exactly one segment added; a `nil` path input is missing and raises naming the input key and the placeholder, `false` is a value. The query is phase 1's `Query#encode`, one parameter per value of a repeated projection, a structured value refused rather than rendered as an inspect string. Headers go through the outbound `Headers::Builder`, so a CRLF is rejected at assembly. The composition is hand-built (P2-3): the specification's own example `https://host/c?sig=abc` + `/pets` + `limit=1` → `https://host/c/pets?sig=abc&limit=1`, trailing and leading slashes normalised to one separator, an empty operation path leaving the base untouched, a dangling `&` dropped, already-encoded octets surviving verbatim, a fragment on the base rejected naming it, and the base URI left untouched. The two places a stdlib `URI` error could otherwise escape the composition are closed (review round 2): a template whose literal text between placeholders is not an RFC 3986 path — `/x?y`, `/a b`, `/pets/ü`, `/100%`, a bare `%`, `<`, `[`, a quote, a tab, a newline — is refused at construction naming the template, and a base with no hierarchical part to compose onto (`mailto:x@y`, `urn:isbn:123`) is refused naming the base; a 200-sample property over templates drawn from pchars, `/`, `?`, `#`, `%`, braces, a space and `ü` asserts that every template either fails `.build` as `Dexpace::InvalidArgumentError` or composes a URL that re-parses to itself. `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` was re-verified as `https://host/pets` on 3.2.11 and 4.0.6 during the build (`dexpace/operation_build_request_test.rb`) |
 | `SEAM-28` | MAY | ⏳ | — | Phase 5c, Task 4 (`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics.md`), over phase 4a, Task 7's `RequestContext#operation_name` — a target this phase supplied. Both halves need machinery phase 2 does not have: the context chain (`CTX`, phase 4) and a consumer for the identifier (phase 5). Read out of appendix C row 34 verbatim |
 | `SEAM-29` | MUST | ✅ in phase 1 | — | A cross-reference row: phase 1's `Dexpace::Model.required!` (the uniform `<name> is required` message, which `Operation.build(method: nil, …)` and `(template: nil)` produce) and `Dexpace::Builder` (the generic contract `Operation#build_request` builds through, via `Request::Builder`). Not re-satisfied here; `docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md` is its row |
 | `SEAM-30` | MUST | ✅ | 5, 11 | `Completer#fulfil` on an already-settled future returns `false` **and** closes the response it was handed, exactly once, through `Dexpace.close_quietly` — so the rule holds for every adapter that settles through a `Completer`, and for a mapped value that loses the race in `Future#then`. `Bridge::AsyncOver`'s posted block is the one place phase 2 itself produces a response nobody will receive: it re-checks the token after the send and closes the response before settling through the failure channel, and it checks before dispatch too, so a token already cancelled never reaches the transport. A registry build that loses to a concurrent `#install` is closed the same way (`dexpace/async/completer_test.rb`, `dexpace/async/future_test.rb`, `dexpace/bridge/async_over_test.rb`) |
 
-Thirty rows: 22 ✅ (two of them with a named gap — `SEAM-15`, `SEAM-25`; one in phase 1 —
+Thirty rows: 23 ✅ (two of them with a named gap — `SEAM-15`, `SEAM-25`; one in phase 1 —
 `SEAM-29`), 3 ⏳ (`SEAM-12`, `SEAM-24`, `SEAM-28`), 3 🚫 (`SEAM-3`, `SEAM-4`, and `SEAM-22`'s
 mechanism, whose surviving clause is ✅), 1 N/A (`SEAM-10`, with the version-skew guard built in
-its place) — 22 + 3 + 3 + 1 = 30, recounted from the table. `XCUT-13`, `XCUT-22` and `XCUT-23`
+its place) — 23 + 3 + 3 + 1 = 30, recounted from the table. `XCUT-13`, `XCUT-22` and `XCUT-23`
 are implemented here — the latch, the ownership rule and the deterministic three-registry
 resolution — and are phase 9's to disposition; none is a row.
 
@@ -78,8 +78,8 @@ order; `sig/dexpace.rbs` needed nothing. `require "uri"` and `require "strscan"`
 lines.
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15): green, exit 0 —
-`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 521 runs /
-3128 assertions with **99.93% line coverage (1503/1504)** against the 80% floor (the one uncovered
+`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 525 runs /
+3265 assertions with **99.93% line coverage (1512/1513)** against the 80% floor (the one uncovered
 line is the race-only branch of the registry's claim swap, reachable only when a resolution
 completes between a resolver's unsynchronised read and its locked claim), `test:gates` 128 runs, the
 nine `gates:*` tasks, `yard` 100.00% documented, `bundler_audit` clean. The same caveat about
@@ -88,7 +88,7 @@ the parent checkout's `.rubocop.yml` excludes `.claude/**/*`; run as
 `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` it inspected **179 files, no
 offenses**, and that is the run these rows rest on (already on phase 10's inbound list from phase 1).
 
-`test:gems` green on **3.2.11** (521 runs, 99.93% line coverage), with its own lockfile resolved
+`test:gems` green on **3.2.11** (525 runs, 99.93% line coverage), with its own lockfile resolved
 fresh; the seeded order-independence runs are recorded in the roadmap's status note. The 3.2.11 run
 is the one that proves phase 1's `Model#with` still carries this phase's two public `Data` types —
 `Settlement` and `Operation` both assert that `#with` re-validates.
@@ -143,6 +143,15 @@ fix landed, on 4.0.6, and green on 4.0.6 and 3.2.11 after it:
 |---|---|---|
 | `accepts_positionals?` ignores `:keyreq` | `registry_test.rb`, `Callable`; `transport_test.rb`; `async_transport_test.rb` | "callable? refuses a required keyword and admits the optional keyword shapes: Expected true to not be truthy" |
 | `render_headers` renders a `nil` input as `""` | `operation_build_request_test.rb`, `Projections` | "Expected `#<data Dexpace::Headers values={"x-trace" => [""]} …>` to not include "X-Trace"" |
+
+Review round 2 (2026-09-15) added three more, run the same way — red against an export of the
+code branch's tip before the fix, green on 4.0.6 and 3.2.11 after it (deviation 28):
+
+| Fix not yet applied | Guard | What it said |
+|---|---|---|
+| the template literal is not checked against the path grammar | `operation_test.rb` | ""/x?y". `Dexpace::InvalidArgumentError` expected but nothing was raised" |
+| `validated_base` admits an opaque base | `operation_build_request_test.rb` | "mailto:x@y. `[Dexpace::InvalidArgumentError]` exception expected, not `Class: <URI::InvalidURIError>` Message: <"path conflicts with opaque">" |
+| both, under the 200-sample template property | `operation_build_request_test.rb`, `Templates` | `URI::InvalidComponentError: bad component(expected absolute path component): /c/F/ #ü` escaping `#build_request` |
 
 ## Audit groups run
 
@@ -207,7 +216,9 @@ changes a gate's own test in the corrected direction (item 24).
 7. **`Dexpace::Operation`'s checks and composition live in two `private_constant` modules,
    `Operation::Validation` and `Operation::Composition`**, so the descriptor's body reads as the
    contract and each half is reviewable alone — the split Tasks 13 and 14 draw — and the class
-   stays under the length cap. `validated_base` carries the fragment rule. A template must be a
+   stays under the length cap. `validated_base` carries the fragment rule and, since review
+   round 2, the no-hierarchical-part rule; `Validation.literal!` holds the brace check and the
+   path-grammar check on the template's literal text (deviation 28). A template must be a
    `String`; a projection must be a two-element `Array`. Both modules are declared in `sig/` and
    absent from the manifest.
 8. **The version-skew grid varies the running version.** With every gem at `0.0.0` the plan's
@@ -284,7 +295,7 @@ changes a gate's own test in the corrected direction (item 24).
     the namespace line is absent, and that `Dexpace` is absent; it goes red against the phase-0
     manifests and green against the regenerated ones. On the code branch, because that branch's
     `test:gates` must be green on its own tree.
-25. **Run counts exceed the plan's.** `test:gems` is 521 runs where the plan's built-tree run was
+25. **Run counts exceed the plan's.** `test:gems` is 525 runs where the plan's built-tree run was
     179; Minitest is 5.27.0 on 4.0.6 here, not the 6.0.0 the plan mentions, and assertion counts
     match across 3.2.11 and 4.0.6.
 26. **`Registry.accepts_positionals?` refuses a required keyword** (review round 1). The design's
@@ -305,6 +316,29 @@ changes a gate's own test in the corrected direction (item 24).
     silently. The path side still makes `nil` an error, because a placeholder cannot be left out,
     and an empty `String` is a value on every side. `docs/sdk-documentation/seams.md` states the
     three readings together.
+28. **A template literal that is not a URI path, and a base with no hierarchical part, are
+    refused as `Dexpace::InvalidArgumentError`** (review round 2). The design's construction-time
+    checks were brace balance and placeholder/projection agreement, and its composition row maps
+    "resolving to a malformed URL" to `URL.parse!` — the base only. The literal text between
+    placeholders was never checked, so `Operation.build(method: :get, template: "/x?y")` — a
+    generator putting a literal query in the template — and `"/a b"`, `"/pets/ü"`, `"/100%"`
+    constructed and then raised `URI::InvalidComponentError` from `URI::Generic#path=` inside
+    `Composition.compose` at the first `#build_request`: a stdlib error, outside `rescue
+    Dexpace::Error`, where the plan's global constraints promise `InvalidArgumentError` for a
+    malformed template and `SEAM-27` a context-bearing error. Path *values* were never at risk
+    (`encode_component` yields pchars; the 40-sample property proves it). `Validation.literal!`
+    now checks the template with its placeholders removed against RFC 3986 `path` — every
+    character a pchar or `/`, every `%` opening a two-hex-digit escape, the grammar `#path=`
+    enforces at assembly — at construction, naming the template; `/a%20b`, `pets` and `""` pass
+    as before. The set is spelled out in a per-pattern-timeout `Regexp` rather than borrowed from
+    `URI`, because phase 1's `URL` is the one place core reaches `URI`. The probe that found the
+    literal found its sibling: an opaque base (`mailto:x@y`, `urn:isbn:123`) is absolute, so
+    `URL.parse!` admits it, and carries no fragment, so the one rule `validated_base` had let it
+    through to leak `URI::InvalidURIError: path conflicts with opaque` from the same `#path=`;
+    `validated_base` refuses it beside the fragment, naming the base (`#hierarchical?`, which the
+    rbs stdlib signature declares). Verified identical on 3.2.11 and 4.0.6 before and after; the
+    red runs are recorded in the tests commit. No rescue was added to `Composition.compose`: with
+    both inputs validated it cannot raise, and an unreachable rescue is dead code.
 
 ## Findings routed
 
