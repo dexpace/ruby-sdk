@@ -144,6 +144,63 @@ class DexpaceCloseableTest < DexpaceTestCase
     assert_respond_to(spy, :owned?)
   end
 
+  # ---- IO-38, phase 3a's P3-6: the one change phase 3a makes to this module ------------------
+
+  # THE assertion that distinguishes the synchronised reader from phase 2's unsynchronised one on
+  # CRuby, and the only one that does: it FAILS against phase 2's version, where #closed? never
+  # touches the mutex. Verified on 3.2.11, 3.4.10 and 4.0.6 that a Thread::Mutex held across a
+  # fiber suspension raises ThreadError for a second fiber of the same thread, so holding the
+  # latch mutex from one fiber and reading #closed? from another proves the read acquires it.
+  #
+  # IO-38 is the requirement that forces this. Design §3.1 fixes the mechanism -- the flag is
+  # "written and read through a Thread::Mutex rather than relying on the GVL, so the guarantee
+  # survives JRuby and TruffleRuby" -- and 3a's design records ("Work Phase 3a Postpones") that no
+  # such interpreter is in the matrix, which is precisely why this assertion carries the weight
+  # the behavioural IO-38 test in buffered_source_test.rb cannot.
+  test "closed? acquires the close mutex" do
+    spy = Spy.new
+    latch = spy.instance_variable_get(:@dexpace_close_mutex)
+
+    holder = ::Fiber.new { latch.synchronize { ::Fiber.yield } }
+    holder.resume
+
+    assert_raises(::ThreadError) { ::Fiber.new { spy.closed? }.resume }
+  ensure
+    holder&.resume if holder&.alive?
+  end
+
+  # The counterpart: with the mutex free, #closed? is an ordinary read from any fiber.
+  test "closed? reads normally when the mutex is free" do
+    spy = Spy.new
+    answers = []
+
+    ::Fiber.new { answers << spy.closed? }.resume
+    spy.close
+    ::Fiber.new { answers << spy.closed? }.resume
+
+    assert_equal([false, true], answers)
+  end
+
+  # The mutex is held across the flag flip and NOTHING else -- never across #release. A #release
+  # that reads #closed? would deadlock on a non-reentrant Mutex if it were.
+  test "the close mutex is not held across release" do
+    reader = Class.new do
+      include Dexpace::Closeable
+
+      attr_reader :seen
+
+      def initialize = initialize_closeable(owned: true)
+
+      private
+
+      def release = (@seen = closed?)
+    end.new
+
+    reader.close
+
+    assert(reader.seen)
+  end
+
   private
 
   def assert_predicate_by_respond_to(object, name)
