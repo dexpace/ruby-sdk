@@ -14,9 +14,9 @@ require "dexpace"
 # docs/knowledge/notes/url-and-query-encoding.md); reference resolution keeps its place at REDIR-13
 # in phase 6, where the spelling is URI::RFC3986_PARSER.join because URI.join is cop-banned.
 #
-# Three classes because Metrics/ClassLength caps one at 100 lines: the composition rules here,
-# the four projections plus the path-value property test in Projections, and the template
-# property test in Templates.
+# Four classes because Metrics/ClassLength caps one at 100 lines: the composition rules here,
+# the four projections plus the path-value property test in Projections, the template property
+# test in Templates and the base-URL property test in Bases.
 class DexpaceOperationBuildRequestTest < DexpaceTestCase
   # The one operation shape every case builds, shared by all three classes.
   module Builds
@@ -102,6 +102,32 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
       assert_match(/hierarchical/, error.message, base)
       assert_includes(error.message, base)
     end
+  end
+
+  # URL.parse! goes through URI::Generic#query=, whose percent check is /(%\H\H)/ -- a "%"
+  # followed by two NON-hex characters -- so a query ending in a bare "%" or in "%z" is accepted
+  # at parse time; appending "&limit=1" then puts "%&l" in front of the same check, and the
+  # composition leaks a stdlib URI::InvalidURIError. The base's query is validated here against
+  # RFC 3986 `query` (every character a pchar, "/" or "?", every "%" a two-hex escape), naming
+  # the base, whether or not an operation query is appended: a base that is malformed on its
+  # own must not compose into a malformed URL silently either.
+  test "a base whose query is not RFC 3986 is rejected with a context-bearing error" do
+    subject = operation(projections: { limit: [:query, "limit"] })
+
+    ["https://host/c?sig=100%", "https://host/c?;~%", "https://host/c?a=%z",
+     "https://host/c?a=[1]",].each do |base|
+      error = assert_raises(Dexpace::InvalidArgumentError, base) do
+        subject.build_request(base_url: base, inputs: { limit: 1 })
+      end
+
+      assert_kind_of(Dexpace::Error, error, base)
+      assert_match(/query/, error.message, base)
+      assert_includes(error.message, base)
+      assert_raises(Dexpace::InvalidArgumentError, base) { subject.build_request(base_url: base) }
+    end
+    assert_equal("https://host/c/pets?sig=100%25&limit=1",
+                 subject.build_request(base_url: "https://host/c?sig=100%25", inputs: { limit: 1 })
+                        .url.to_s,)
   end
 
   test "already-encoded octets in the base survive the composition verbatim" do
@@ -305,6 +331,36 @@ class DexpaceOperationBuildRequestTest < DexpaceTestCase
         url = subject.build_request(base_url: "https://host/c?sig=1").url
 
         assert_equal(url.to_s, Dexpace::URL.parse!(url.to_s).to_s, "template #{template.inspect}")
+      end
+    end
+  end
+
+  # The base URL, from the composition's side: the input the template property above holds
+  # fixed at "https://host/c?sig=1".
+  class Bases < DexpaceTestCase
+    include Builds
+
+    # Whatever the base query, either #build_request refuses the base as the SDK's argument error
+    # -- URL.parse!'s or the composition's own -- or the composition yields a URL that re-parses
+    # to itself; no stdlib URI error escapes. The operation query is non-empty because that is
+    # the append that turns a parse!-accepted "...%" into URI::Generic#query='s "invalid percent
+    # escape". Only Dexpace::InvalidArgumentError is rescued, so a leaking URI::Error fails the
+    # test as an error.
+    test "any base either fails as the SDK's error or composes cleanly" do
+      subject = operation(projections: { limit: [:query, "limit"] })
+      alphabet = ["a", "/", "?", "#", "%", "2", "F", "&", "=", ";", "~", "[", "]", " ", "\xC3\xBC"]
+      alphabet.freeze
+
+      sample(count: 200, seed: 20_260_915) do |random|
+        query = Array.new(random.rand(0..8)) { alphabet.sample(random: random) }.join
+        base = "https://host/c?#{query}"
+        begin
+          url = subject.build_request(base_url: base, inputs: { limit: 1 }).url
+        rescue Dexpace::InvalidArgumentError
+          next
+        end
+
+        assert_equal(url.to_s, Dexpace::URL.parse!(url.to_s).to_s, "base #{base.inspect}")
       end
     end
   end
