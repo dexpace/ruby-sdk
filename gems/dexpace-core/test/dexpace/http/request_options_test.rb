@@ -84,6 +84,14 @@ class DexpaceRequestOptionsTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) do
       Dexpace::RequestOptions.build(timeout: nil, max_retries: nil, tags: { "tenant" => 1 })
     end
+    # A non-copyable object, as the map or as a value, is refused before anything is copied, so
+    # the stdlib's TypeError from Ractor.make_shareable never escapes `rescue Dexpace::Error`.
+    assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::RequestOptions.build(timeout: nil, max_retries: nil, tags: -> {})
+    end
+    assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::RequestOptions.build(timeout: nil, max_retries: nil, tags: { "t" => Thread.current })
+    end
     error = assert_raises(Dexpace::InvalidArgumentError) do
       Dexpace::RequestOptions.build(timeout: nil, max_retries: nil, tags: nil)
     end

@@ -236,6 +236,18 @@ class DexpaceHeadersTest < DexpaceTestCase
       end
     end
 
+    # The shape is checked before anything is copied: an object Ractor.make_shareable cannot
+    # copy -- a Proc where the Hash belongs, a Thread inside a value list -- is refused as a
+    # caller mistake and never escapes as the stdlib's TypeError.
+    test "build refuses a non-copyable object at the top level and nested, with the SDK's error" do
+      assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Headers.build(values: -> {}, casing: {})
+      end
+      assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::Headers.build(values: { "x-a" => [Thread.current] }, casing: { "x-a" => "X-A" })
+      end
+    end
+
     test "build validates inbound values by the inbound grammar" do
       built = Dexpace::Headers.build(
         values: { "x-a" => ["v\xC3\xA5lue"] }, casing: { "x-a" => "X-A" }, direction: :inbound,

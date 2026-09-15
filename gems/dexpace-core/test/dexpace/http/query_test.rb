@@ -72,6 +72,9 @@ class DexpaceQueryTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.build(pairs: [["a"]]) }
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.build(pairs: [%w[a b], nil]) }
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.build(pairs: [["a", 1]]) }
+    # A non-copyable object where the list belongs is refused before anything is copied, so
+    # the stdlib's TypeError from Ractor.make_shareable never escapes `rescue Dexpace::Error`.
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.build(pairs: -> {}) }
     error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.build(pairs: nil) }
 
     assert_equal("pairs is required", error.message)
@@ -146,6 +149,14 @@ class DexpaceQueryTest < DexpaceTestCase
 
       assert_equal(["caf\xE9".b], query["a"].map(&:b))
       assert_equal("a=caf%E9", query.encode)
+    end
+
+    # Total over nil and every String; anything else is a caller mistake reported as the SDK's
+    # error, as Protocol.parse and MediaType.parse do, never as a NoMethodError from `.b`.
+    test "parse refuses an input that is neither nil nor a String with the SDK's error" do
+      error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Query.parse(5) }
+
+      assert_includes(error.message, "String")
     end
   end
 end

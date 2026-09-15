@@ -92,6 +92,11 @@ class DexpaceMediaTypeTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) do
       Dexpace::MediaType.build(type: "text", subtype: "plain", parameters: { "q" => "a\rb" })
     end
+    # A non-copyable object where the Hash belongs is refused before anything is copied, so
+    # the stdlib's TypeError from Ractor.make_shareable never escapes `rescue Dexpace::Error`.
+    assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::MediaType.build(type: "text", subtype: "plain", parameters: -> {})
+    end
   end
 
   test "matches a wildcard only in the sanctioned positions, ignoring parameters" do

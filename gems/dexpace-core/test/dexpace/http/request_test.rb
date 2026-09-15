@@ -4,7 +4,8 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# HTTP-1, HTTP-2, HTTP-3, HTTP-4, HTTP-5, HTTP-6, HTTP-7, HTTP-46, HTTP-47, XCUT-15.
+# HTTP-1, HTTP-2, HTTP-3, HTTP-4, HTTP-5, HTTP-6, HTTP-7, HTTP-18, HTTP-46, HTTP-47, XCUT-15,
+# XCUT-18.
 class DexpaceRequestTest < DexpaceTestCase
   def request(url: "https://example.test/a")
     builder = Dexpace::Request.builder
@@ -84,53 +85,66 @@ class DexpaceRequestTest < DexpaceTestCase
     assert_equal(Dexpace::Method::POST, request.with(method: "POST", body: "x").method)
   end
 
-  test "build coerces a method token and a URL string into their types" do
-    built = Dexpace::Request.build(
-      method: "post", url: "https://example.test/a", headers: Dexpace::Headers::EMPTY, body: nil,
-    )
-
-    assert_equal(Dexpace::Method::POST, built.method)
-    assert_equal("https://example.test/a", Dexpace::URL.external_form(built.url))
-  end
-
-  test "build rejects a method token, a URL and a headers value it cannot coerce" do
-    empty = Dexpace::Headers::EMPTY
-
-    assert_raises(Dexpace::InvalidArgumentError) do
-      Dexpace::Request.build(method: "GE T", url: "https://example.test/", headers: empty)
+  # HTTP-2, HTTP-4, HTTP-18, HTTP-47, XCUT-18: what `.build` owes a caller who never met a
+  # Builder. Nested so the file keeps one top-level suite per lib file; these are the proof that
+  # the validation lives in the model, where #with and send(:new, ...) also have to meet it.
+  class BuildTest < DexpaceTestCase
+    def build(**changes)
+      Dexpace::Request.build(
+        method: "GET", url: "https://example.test/a", headers: Dexpace::Headers::EMPTY, **changes,
+      )
     end
-    assert_raises(Dexpace::InvalidArgumentError) do
-      Dexpace::Request.build(method: "GET", url: "::bad", headers: empty, body: nil)
-    end
-    assert_raises(Dexpace::InvalidArgumentError) do
-      Dexpace::Request.build(method: "GET", url: "https://example.test/", headers: {}, body: nil)
-    end
-  end
 
-  test "build names a missing member through the shared required-field helper" do
-    %w[method url headers].each do |name|
-      members = { method: "GET", url: "https://example.test/", headers: Dexpace::Headers::EMPTY }
-      members[name.to_sym] = nil
-      error = assert_raises(Dexpace::InvalidArgumentError) do
-        Dexpace::Request.build(**members, body: nil)
+    test "build coerces a method token and a URL string into their types" do
+      built = build(method: "post", body: nil)
+
+      assert_equal(Dexpace::Method::POST, built.method)
+      assert_equal("https://example.test/a", Dexpace::URL.external_form(built.url))
+    end
+
+    test "build rejects a method token, a URL and a headers value it cannot coerce" do
+      assert_raises(Dexpace::InvalidArgumentError) { build(method: "GE T") }
+      assert_raises(Dexpace::InvalidArgumentError) { build(url: "::bad", body: nil) }
+      assert_raises(Dexpace::InvalidArgumentError) { build(headers: {}, body: nil) }
+    end
+
+    # HTTP-18 and XCUT-18: a request's headers are caller-set, so they are outbound by
+    # definition, and a collection the INBOUND grammar validated admits the obs-text HTTP-18
+    # forbids. The direction member is what is checked, not the content: an empty inbound
+    # collection is refused too, because #new_builder on it would derive a lenient builder for
+    # every later #header.
+    test "build and with refuse a Headers validated by the inbound grammar" do
+      inbound = Dexpace::Headers.inbound_builder.add("X-Trace", "v\xC3\xA5lue").build
+      error = assert_raises(Dexpace::InvalidArgumentError) { build(headers: inbound) }
+
+      assert_includes(error.message, "outbound")
+      assert_raises(Dexpace::InvalidArgumentError) { build.with(headers: inbound) }
+      assert_raises(Dexpace::InvalidArgumentError) do
+        build(headers: Dexpace::Headers::EMPTY_INBOUND)
       end
-
-      assert_equal("#{name} is required", error.message)
     end
-  end
 
-  # HTTP-2's residual gap, asserted rather than papered over (design §10.10, §11.6). `send`
-  # bypassing `private` is a documented Ruby feature and cannot be closed; the mitigation is that
-  # HTTP-17/HTTP-18 are re-validated at the model-to-wire boundary inside every transport (phase
-  # 8a Task 16, phase 8c Task 9), which makes this a correctness-of-shape gap and not a
-  # request-splitting one. A test asserting this path is blocked would be a lie that passes.
-  test "send reaches the private constructor, and that hole is documented not closed" do
-    url = Dexpace::URL.parse!("https://example.test/")
-    forged = Dexpace::Request.send(
-      :new, method: Dexpace::Method::GET, url: url, headers: Dexpace::Headers::EMPTY, body: nil,
-    )
+    test "build names a missing member through the shared required-field helper" do
+      %i[method url headers].each do |name|
+        error = assert_raises(Dexpace::InvalidArgumentError) { build(name => nil, body: nil) }
 
-    assert_instance_of(Dexpace::Request, forged)
-    assert_raises(NoMethodError) { Dexpace::Request.new(method: nil, url: nil, headers: nil) }
+        assert_equal("#{name} is required", error.message)
+      end
+    end
+
+    # HTTP-2's residual gap, asserted rather than papered over (design §10.10, §11.6). `send`
+    # bypassing `private` is a documented Ruby feature and cannot be closed; the mitigation is
+    # that HTTP-17/HTTP-18 are re-validated at the model-to-wire boundary inside every transport
+    # (phase 8a Task 16, phase 8c Task 9), which makes this a correctness-of-shape gap and not a
+    # request-splitting one. A test asserting this path is blocked would be a lie that passes.
+    test "send reaches the private constructor, and that hole is documented not closed" do
+      url = Dexpace::URL.parse!("https://example.test/")
+      forged = Dexpace::Request.send(
+        :new, method: Dexpace::Method::GET, url: url, headers: Dexpace::Headers::EMPTY, body: nil,
+      )
+
+      assert_instance_of(Dexpace::Request, forged)
+      assert_raises(NoMethodError) { Dexpace::Request.new(method: nil, url: nil, headers: nil) }
+    end
   end
 end

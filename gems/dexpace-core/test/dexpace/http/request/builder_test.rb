@@ -4,7 +4,7 @@
 require_relative "../../../test_helper"
 require "dexpace"
 
-# HTTP-4, HTTP-7, HTTP-8, HTTP-47, SEAM-29.
+# HTTP-4, HTTP-7, HTTP-8, HTTP-18, HTTP-47, SEAM-29.
 class DexpaceRequestBuilderTest < DexpaceTestCase
   def builder(url: "https://example.test/")
     Dexpace::Request.builder.tap { |b| b.url = url }
@@ -83,6 +83,21 @@ class DexpaceRequestBuilderTest < DexpaceTestCase
 
     assert_equal(%w[Accept X-Trace], built.headers.names)
     assert_raises(Dexpace::InvalidArgumentError) { with_headers.headers = {} }
+  end
+
+  # HTTP-18: an inbound-validated collection is refused where it is set, not only at build,
+  # because #header derives its builder from @headers -- an inbound one would hand back a lenient
+  # builder that accepts a byte Request.builder.header alone rejects. The rejection leaves no
+  # partial state: the next #header still validates by the outbound grammar.
+  test "headers= and the pre-filled constructor refuse inbound-validated headers" do
+    inbound = Dexpace::Headers.inbound_builder.add("X-Trace", "v\xC3\xA5lue").build
+    with_headers = builder
+    error = assert_raises(Dexpace::InvalidArgumentError) { with_headers.headers = inbound }
+
+    assert_includes(error.message, "outbound")
+    assert_raises(Dexpace::InvalidArgumentError) { with_headers.header("X-Other", "\xE9") }
+    assert_same(Dexpace::Headers::EMPTY, with_headers.build.headers)
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Request::Builder.new(headers: inbound) }
   end
 
   test "an empty request carries the outbound empty headers" do
