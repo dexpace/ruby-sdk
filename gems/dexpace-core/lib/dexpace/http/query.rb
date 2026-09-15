@@ -18,9 +18,9 @@ module Dexpace
     private_class_method :new
     private :pairs
 
-    # The validating factory; the list is copied and deep-frozen, never aliased.
+    # The validating factory; the list is copied and deep-frozen at construction, never aliased.
     def self.build(pairs:)
-      new(pairs: Model.own(Model.required!("pairs", pairs)))
+      new(pairs: Model.required!("pairs", pairs))
     end
 
     # A builder with no pairs.
@@ -29,14 +29,19 @@ module Dexpace
     end
 
     # HTTP-31: lenient and total, and the exact inverse of #encode for well-formed input. A nil
-    # or blank query is empty, a leading "?" is tolerated, a segment with no "=" or a trailing "="
-    # is an empty-string value, a stray "&" is skipped, and a malformed escape is kept raw.
+    # or blank query is empty -- a blank one has no segment left after the strip and the split,
+    # so it needs no branch of its own -- a leading "?" is tolerated, a segment with no "=" or a
+    # trailing "=" is an empty-string value, a stray "&" is skipped, and a malformed escape is
+    # kept raw.
     #
     # `text.b` before `strip`, `sub` and `split`, for the same reason as HeaderSyntax.trim: a
     # query string arrives from the wire and may not be valid UTF-8, and a character operation
-    # on such a String raises instead of parsing it.
+    # on such a String raises instead of parsing it. Total over nil and every String; anything
+    # else is a caller mistake and is refused as the SDK's error, as the other parse factories
+    # do, rather than as a NoMethodError from `.b`.
     def self.parse(text)
-      return EMPTY if text.nil? || text.b.strip.empty?
+      return EMPTY if text.nil?
+      raise InvalidArgumentError, "query must be a String or nil" unless text.is_a?(String)
 
       pairs = [] #: Array[[String, String]]
       text.b.strip.delete_prefix("?").split("&").each do |segment|
@@ -53,13 +58,15 @@ module Dexpace
     private_class_method :decode_segment
 
     # .build is public and #with routes through it, so the shape is checked here rather than
-    # trusted from Builder#build: every pair is a [name, value] pair of Strings.
+    # trusted from Builder#build: every pair is a [name, value] pair of Strings. The check runs
+    # before Model.own copies the list, so Ractor.make_shareable never meets an object it cannot
+    # copy and its TypeError never escapes `rescue Dexpace::Error`.
     def initialize(pairs:)
       unless pairs.is_a?(Array) && pairs.all? { |pair| pair?(pair) }
         raise InvalidArgumentError, "every query pair must be a [name, value] pair of strings"
       end
 
-      super
+      super(pairs: Model.own(pairs))
     end
 
     # HTTP-5, first tier: a fresh per-call snapshot of the distinct names, in insertion order.

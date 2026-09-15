@@ -10,9 +10,12 @@ module Dexpace
   # An HTTP request: exactly method, target URL, headers and an optional body (HTTP-6).
   #
   # `url` is the frozen URI::Generic that URL.parse! returned; `headers` is a Headers, never nil
-  # and possibly empty; `body` is opaque in phase 1 -- the BODY model is phase 3's, so the member
-  # is carried, HTTP-7's presence check is the only thing asked of it, and its signature is
-  # `untyped` until phase 3b narrows it.
+  # and possibly empty, and always one the OUTBOUND grammar validated -- a request's headers are
+  # caller-set, which is what HTTP-18 governs, and XCUT-18 puts that check at the model layer
+  # before any transport; an inbound-validated collection admits obs-text and would hand every
+  # later derivation a lenient builder, so it is refused whatever it holds; `body` is opaque in
+  # phase 1 -- the BODY model is phase 3's, so the member is carried, HTTP-7's presence check is
+  # the only thing asked of it, and its signature is `untyped` until phase 3b narrows it.
   #
   # #method deliberately shadows Object#method, exactly as Net::HTTPGenericRequest#method does;
   # Object#instance_method remains available to anyone who needs the callable. And the second
@@ -50,6 +53,9 @@ module Dexpace
       target = URL.parse!(url)
       unless Model.required!("headers", headers).is_a?(Headers)
         raise InvalidArgumentError, "headers must be a Dexpace::Headers"
+      end
+      unless headers.direction == :outbound
+        raise InvalidArgumentError, "headers must be validated by the outbound grammar (HTTP-18)"
       end
       if http_method.body_forbidden? && !body.nil?
         raise InvalidArgumentError, "a #{http_method} request must not carry a body (HTTP-7)"

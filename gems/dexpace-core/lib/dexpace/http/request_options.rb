@@ -16,10 +16,10 @@ module Dexpace
 
     private_class_method :new
 
-    # The validating factory; `tags` is copied and deep-frozen, never aliased (HTTP-34).
+    # The validating factory; `tags` is copied and deep-frozen at construction, never aliased
+    # (HTTP-34).
     def self.build(timeout:, max_retries:, tags:)
-      Model.required!("tags", tags)
-      new(timeout: timeout, max_retries: max_retries, tags: Model.own(tags))
+      new(timeout: timeout, max_retries: max_retries, tags: Model.required!("tags", tags))
     end
 
     # A builder overriding nothing.
@@ -29,12 +29,15 @@ module Dexpace
 
     # HTTP-35's two rejections live here, not in the builder, because `.build` is public and
     # #with routes through it: a rule enforced only in Builder#build would let
-    # `options.with(timeout: -1)` produce a model the builder would have refused.
+    # `options.with(timeout: -1)` produce a model the builder would have refused. The tags are
+    # checked before Model.own copies them, so Ractor.make_shareable never meets an object it
+    # cannot copy and its TypeError never escapes `rescue Dexpace::Error`.
     def initialize(timeout:, max_retries:, tags:)
       validate_timeout!(timeout)
       validate_max_retries!(max_retries)
       validate_tags!(tags)
-      super(timeout: timeout.nil? ? nil : Float(timeout), max_retries: max_retries, tags: tags)
+      super(timeout: timeout.nil? ? nil : Float(timeout), max_retries: max_retries,
+            tags: Model.own(tags))
     end
 
     # HTTP-3: a builder pre-filled from this instance, with a copy of the tags.

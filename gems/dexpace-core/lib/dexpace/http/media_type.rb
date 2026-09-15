@@ -48,9 +48,10 @@ module Dexpace
     # locks at the first release tag; only the charset tables are part of the contract.
     private_constant :UNTIL_SEPARATOR, :SEPARATOR, :KEY, :QUOTED, :QUOTED_PAIR, :TO_ESCAPE
 
-    # The validating factory; `parameters` is copied and deep-frozen, never aliased.
+    # The validating factory; `parameters` is copied and deep-frozen at construction, never
+    # aliased.
     def self.build(type:, subtype:, parameters: {})
-      new(type: type, subtype: subtype, parameters: Model.own(parameters))
+      new(type: type, subtype: subtype, parameters: parameters)
     end
 
     # HTTP-26: the same predicate as an outbound header value, so a media type is always
@@ -118,7 +119,9 @@ module Dexpace
 
     # `.build` validates too, and does not trust `.parse` to have done it: type and subtype
     # present, token-shaped and already folded, a `*` type only beside a `*` subtype (HTTP-27),
-    # every parameter key folded and token-shaped, and every value header-safe (HTTP-26).
+    # every parameter key folded and token-shaped, and every value header-safe (HTTP-26). The
+    # parameters are checked before Model.own copies them, so Ractor.make_shareable never meets
+    # an object it cannot copy and its TypeError never escapes `rescue Dexpace::Error`.
     def initialize(type:, subtype:, parameters:)
       validate_component!("type", type)
       validate_component!("subtype", subtype)
@@ -128,7 +131,7 @@ module Dexpace
 
       validate_parameters!(parameters)
       super(type: Model.frozen_string(type), subtype: Model.frozen_string(subtype),
-            parameters: parameters)
+            parameters: Model.own(parameters))
     end
 
     # HTTP-24: the charset parameter, folded, when this Ruby knows an encoding of that name; nil

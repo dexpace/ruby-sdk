@@ -18,11 +18,13 @@ module Dexpace
       include Dexpace::Builder
 
       # HTTP-3: a builder pre-filled from a model. The headers are a frozen Headers, so holding
-      # the reference aliases nothing a later #header can reach into.
+      # the reference aliases nothing a later #header can reach into; they go through #headers=
+      # so a pre-filled builder meets the same direction rule as an assigned one.
       def initialize(method: nil, url: nil, headers: nil, body: nil)
         @method = method
         @url = url
-        @headers = headers
+        @headers = nil
+        self.headers = headers unless headers.nil?
         @body = body
       end
 
@@ -34,9 +36,16 @@ module Dexpace
       attr_writer :body
 
       # A Headers built elsewhere -- phase 2 assigns one directly -- replacing what #header set.
+      #
+      # HTTP-18: only an outbound-validated collection, and refused here rather than left to
+      # Request.build, because #header derives its builder from @headers -- an inbound one would
+      # hand back a lenient builder that accepts a byte Request.builder.header alone rejects.
       def headers=(headers)
         unless headers.is_a?(Headers)
           raise InvalidArgumentError, "headers must be a Dexpace::Headers"
+        end
+        unless headers.direction == :outbound
+          raise InvalidArgumentError, "headers must be validated by the outbound grammar (HTTP-18)"
         end
 
         @headers = headers

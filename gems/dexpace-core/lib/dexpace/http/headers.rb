@@ -26,11 +26,11 @@ module Dexpace
     DIRECTIONS = %i[outbound inbound].freeze
 
     # The validating factory. `values` maps folded name to value list and `casing` maps folded
-    # name to the casing to emit; both are copied and deep-frozen here, never aliased.
+    # name to the casing to emit; both are copied and deep-frozen at construction, never aliased.
     def self.build(values:, casing:, direction: :outbound)
       new(
-        values: Model.own(Model.required!("values", values)),
-        casing: Model.own(Model.required!("casing", casing)),
+        values: Model.required!("values", values),
+        casing: Model.required!("casing", casing),
         direction: direction,
       )
     end
@@ -51,7 +51,10 @@ module Dexpace
     #
     # The container types are checked before anything reads them: a wrong-shaped collection is a
     # caller mistake in an argument and fails with the SDK's error, never as a NoMethodError from
-    # inside the name walk, which would escape `rescue Dexpace::Error`.
+    # inside the name walk, which would escape `rescue Dexpace::Error`. And every check runs
+    # before Model.own copies anything, so Ractor.make_shareable never meets an object it cannot
+    # copy -- a Proc where the Hash belongs, a Thread inside a value list -- and its TypeError
+    # never escapes either.
     def initialize(values:, casing:, direction:)
       validate_direction!(direction)
       raise InvalidArgumentError, "values must be a Hash" unless values.is_a?(Hash)
@@ -59,7 +62,7 @@ module Dexpace
 
       validate_names!(values, casing)
       validate_values!(values, casing, direction)
-      super
+      super(values: Model.own(values), casing: Model.own(casing), direction: direction)
     end
 
     # HTTP-5, second tier: "per-name value-list accessors return the instance's own list". The
