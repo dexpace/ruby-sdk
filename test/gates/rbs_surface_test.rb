@@ -60,6 +60,14 @@ class RbsSurfaceTest < GateCase
     assert_empty(RbsSurface.violations([fixture("core_superclasses.rbs")]))
   end
 
+  # Phase 3a's two stream failure types subclass core Ruby's EOFError and IOError (P3-3) and
+  # IO-13's charset reads take an Encoding; all three are core Ruby, and the allowlist as phase 1
+  # left it named none of them, so the first I/O signatures turned the gate red on correct code.
+  # Pinned so the three names stay admitted.
+  test "an EOFError superclass, an IOError superclass and an Encoding parameter are core Ruby" do
+    assert_empty(RbsSurface.violations([fixture("io_superclasses.rbs")]))
+  end
+
   test "rejects a foreign method-level generic bound, and not the parameter it bounds" do
     found = RbsSurface.violations([fixture("method_bound.rbs")]).join("\n")
 
