@@ -1,0 +1,20 @@
+module Dexpace
+  module Closeable
+    def initialize_closeable: (?owned: bool) -> nil
+    def owned?: () -> bool
+    def closed?: () -> bool
+    def close: () -> nil
+
+    private
+
+    # Prefixed so an including class's own state cannot collide with the latch (design §3.7).
+    @dexpace_owned: bool
+    @dexpace_closed: bool
+    @dexpace_close_mutex: Thread::Mutex
+
+    def release: () -> void
+    def ensure_closeable_initialized: () -> void
+  end
+
+  def self.close_quietly: (untyped resource) -> nil
+end

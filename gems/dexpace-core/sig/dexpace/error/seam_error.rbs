@@ -1,0 +1,5 @@
+module Dexpace
+  class SeamError < ::StandardError
+    include Dexpace::Error
+  end
+end
