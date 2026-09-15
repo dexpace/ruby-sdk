@@ -88,8 +88,9 @@ stated in the release notes rather than discovered at `bundle install`.
       `Dexpace/QualifiedCoreConstant` covers `gems/*/lib/**/*.rb` and stops at the gem boundary by
       construction. Renaming is not on the table — design §3.1 and §10.2 name `Dexpace::IO::Buffer`, and `P1-1`
       keeps a namespace the design gave a subsystem. Phase 3a states the hazard in `Dexpace::IO`'s own YARD
-      block; what is owed before the tag is the same warning in `docs/sdk-documentation/`, where a consumer
-      meets it, and a release decision that has seen it
+      block and, since 2026-09-15, in `docs/sdk-documentation/io.md`'s opening section and the core README,
+      where a consumer meets it, with the consumer case pinned in `gems/dexpace-core/test/dexpace/io_test.rb`;
+      what is still owed before the tag is a release decision that has seen it
 - [ ] **A decision on where a per-call or operation-level `AuthDescriptor` is carried.** `AUTH-4`–`AUTH-7`'s
       tier resolution takes a per-call, an operation and a client `AuthDescriptor` in that preference order,
       and `6c` ships the resolver as a correct, tested, stateless pure function. What no phase specifies — not

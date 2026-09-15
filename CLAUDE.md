@@ -13,8 +13,8 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1 and 2 are built; the domain model and the seam layer are the only domain code.** Six gems exist
-under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2 and 3a are built; the domain model, the seam layer and the byte-streaming layer are the only
+domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -25,8 +25,12 @@ provider registry `Dexpace::Registry`, the three seams `Dexpace::Transport`, `De
 cooperative `Dexpace::Cancellation` token and its `Source`, `Dexpace::Closeable` with `Dexpace.close_quietly`,
 the seam failure types `SeamError` / `ClosedError` / `CancelledError` and the `Serde::Error` hierarchy, and the
 operation projection `Dexpace::Operation`
-(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`); every other gem's `lib/` still holds
-its namespace module and a `VERSION` constant and nothing else. Nothing talks to a socket yet. The workspace root
+(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`) — and the byte-streaming layer under
+`Dexpace::IO`: the FIFO `Buffer`, `BufferedSource` and `BufferedSink` with the `TypedReads` and `TypedWrites`
+vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, the three RBS interfaces `_Source`/`_Sink`/`_Chunked`, and the
+two failure types `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamError < ::EOFError`
+(`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-checklist.md`); every other gem's `lib/` still
+holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
@@ -356,12 +360,22 @@ Each is one line plus the chapter to read before touching the area.
   (§4, §9).
 - **Regexp timeouts are per-pattern** — `Regexp.new(source, timeout:)`, never the process-global
   `Regexp.timeout`; a library must not impose a process-wide regexp budget on its host (§4, §6.3).
-- **Inside `Dexpace::Async` and `Dexpace::Serde`, write `::Thread`, `::Queue`, `::Mutex`, `::SizedQueue`,
-  `::ConditionVariable` and `::JSON`** — a bare name resolves to Ruby's class until `dexpace-async-thread` or
-  `dexpace-serde-json` is required and to that gem's module afterwards, and core's own suite never requires
-  either. The seventh custom cop, `Dexpace/QualifiedCoreConstant`, enforces it over `lib/dexpace/async/`,
-  `lib/dexpace/serde/` and `lib/dexpace/serde.rb`; a stand-in `Dexpace::Async::Thread` in
-  `future_shadowing_test.rb` proves it behaviourally (phase 2's design, §9 addendum A1).
+- **Inside `module Dexpace`, anywhere, write `::Thread`, `::Queue`, `::Mutex`, `::SizedQueue`,
+  `::ConditionVariable`, `::JSON` and `::IO`** — a bare name resolves to Ruby's class until `dexpace-async-thread`
+  or `dexpace-serde-json` is required and to that gem's module afterwards, and core's own suite never requires
+  either; `Dexpace::IO` is defined by core itself, so a bare `IO` is that module from the first `require`, and
+  `x.is_a?(IO)` is silently `false` for a real `::IO` — inside a consumer's own `class C; include Dexpace` too.
+  The seventh custom cop, `Dexpace/QualifiedCoreConstant`, enforces it over every gem's `lib/` and skips a
+  constant's own definition site (`module Dexpace; module IO`); a stand-in `Dexpace::Async::Thread` in
+  `future_shadowing_test.rb` proves the adapter half behaviourally and `io_test.rb` the core half (phase 2's
+  design, §9 addendum A1; phase 3a's P3-7). Core never writes `is_a?(IO)`: every caller-supplied stream is
+  checked with `respond_to?`.
+- **`IO-1`'s read primitive is `#read_into(dest, count:)`, and `#read`/`#readpartial`/`#getbyte`/`#each` keep
+  Ruby's semantics** — `IO.copy_stream`, which is what `Net::HTTP#body_stream=` uses, hands `#readpartial` one
+  buffer it reuses across every call and expects overwritten, so a tail-appending `#read` would corrupt every
+  streamed upload; `Dexpace::EndOfStreamError < ::EOFError` is load-bearing for the same reason, because
+  `copy_stream` terminates only on an `EOFError` subclass (phase 3a's P3-1, P3-2). The ingress retag is
+  `String#b`, never `force_encoding`, which raises on the frozen chunks a Rack body yields (phase 3a's design).
 - **`SEAM-27`'s base-URL composition is a concatenation, not RFC 3986 reference resolution** —
   `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` is `https://host/pets`, dropping the base path
   segment and the query the requirement keeps; `Dexpace::Operation` composes by hand. Reference resolution is
@@ -468,9 +482,10 @@ probe compares each against the live tree, and a count written anywhere else in 
   `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
-  the phase-1 HTTP domain model and the phase-2 seam layer — forty-two phase-1 and phase-2 files under
-  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the forty-two
-  but the `private_constant` `hooks.rb` mirrored in `test/`; every other
+  the phase-1 HTTP domain model, the phase-2 seam layer and the phase-3a byte-streaming layer — fifty-one
+  phase-1, phase-2 and phase-3a files under `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored
+  in `sig/`, and every one of the fifty-one but the `private_constant` `hooks.rb` mirrored in `test/`; every
+  other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
   (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code
@@ -478,10 +493,10 @@ probe compares each against the live tree, and a count written anywhere else in 
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
-  carry that phase's design, plan and checklist — the three checklists written so far, each at
-  implementation; `phase3/` carries its segmentation design,
+  carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design and plan; `phase4/`
+  `phase3/phase3a/`, holding that sub-phase's design, plan and checklist, and `phase3/phase3b/`, holding its
+  design and plan — four checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
@@ -550,5 +565,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's and phase 2's is still to be written at execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's and phase 3a's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

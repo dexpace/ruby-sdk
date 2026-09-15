@@ -1126,6 +1126,79 @@ from the phase-3 segmentation design, which left the ledger empty.
 | P3-11 | `BufferedSource.new` and `BufferedSink.new` are `private_class_method`; `Buffer.new` and `TeeSink.new` are public | `IO-6`; design §3.7 | Ownership is a construction-time fact, and a public `.new` taking an ownership argument would let a caller build the wrapper `IO-6` forbids — one that wraps a caller's stream and does not close it. `Buffer` and `TeeSink` each have exactly one construction meaning and need no factory to name it. Phase 1's `private_class_method :new` plus a validating `.build` is a rule about `Data` value types and does not reach these, which are mutable and stateful |
 | P3-12 | `.wrapping` takes a block form; there is **no borrowing variant** of either wrapping factory | `IO-6`; `resource-management/bf5560dc`, `/43a55896` | The styleguide's strongest resource rule asks for a block form for every closable resource, and 3a adopts it exactly where a leak is possible. A borrowing wrap is not offered because `IO-6` is a MUST that a wrapper closes what it wraps; §3.7's build-versus-borrow split governs components that hold a resource, not the I/O wrap, and reading it as licence here would contradict the requirement §10.12 depends on |
 
+### As built, 2026-09-15
+
+The plan added one row, **P3-13**, and execution added none; the plan's Deviation Ledger carries
+P3-13's full text, and it is repeated here so the design's ledger is the whole set for
+consolidation into design §10:
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P3-13 | `#read` and `#readpartial` leave `outbuf` tagged `Encoding::BINARY` whatever tag it arrived with, where `::IO#read` preserves the destination's tag | `IO-16`; design §3.1's BINARY rule; verified fact 11 | The bridge's contract is "Ruby's semantics", and on this one point Ruby's own readers disagree with each other and across this port's floor: `::IO#read(n, buf)` preserves a UTF-8 destination's tag on 3.2.11, 3.4.10 and 4.0.6, while `StringIO#read(n, buf)` gives ASCII-8BIT on 3.2.11 and UTF-8 from 3.4.10. Pinning BINARY is the one answer identical on every matrix row and behind every backing stream. `IO.copy_stream` never reads the destination's tag, so R4's bridge claim is unaffected — asserted end to end in `buffered_source_test.rb` |
+
+Five rows and three statements above read slightly differently against the source; the difference
+is recorded here rather than by rewriting the text it corrects. The checklist's "Deviations from
+the plan" is the itemised list.
+
+- **P3-8, as built.** `TeeSink#clear_tap` is **not** shipped: the plan's Task 14 amendment carried
+  the keep-or-drop decision, and it was dropped, because phase 3b satisfies `BODY-18` by building a
+  fresh tee per write — forced by `TeeSink` binding its primary at construction — so the method had
+  no caller anywhere in core while being `NFR-4`-locked surface. The 3a→3b contract table above
+  and P3-8's list name it; the surface manifest, the RBS signature and the test do not. The view
+  constructor, `BufferedSource.__dexpace_view`, is internal as the object model says — a
+  `private_class_method` with a `private def self.` RBS declaration, in neither the surface
+  manifest nor the `NFR-4` diff — with one correction to that sentence: the declaration exists,
+  because strict Steep refuses an undeclared `def self.`, and its caller `TypedReads#build_view`,
+  outside the class, reaches it through `send` as `Headers#==` reaches `#values`. At the round-0
+  tip it was a declared public singleton method with a manifest row; review round 0's R0-3 made it
+  private before the first tag locks the underscore name (checklist deviation 7).
+- **P3-5, as built.** Invalidation cascades: a view's `#dexpace_invalidate` releases the view's own
+  views, and the two protected entry points a view drives its parent through check the parent's
+  readability first, so a slice of a slice is invalidated when the root closes and an invalidated
+  intermediate serves nothing. The plan's single-flag protocol let an inner view pull fresh bytes
+  through an invalidated outer one from a closed `.of_bytes` root; `IO-22`'s "every outstanding
+  slice derived from it" reaches transitively. The retention rule is unchanged.
+- **The view fill, as built (review round 0).** The plan's `#fill_from_parent` fence asked the
+  parent for `dexpace_ensure_buffered(behind + want)`, whose loop blocks until the whole count is
+  buffered, so a view's `#read_into`, `#readpartial` and `#each` waited for `count` bytes where the
+  root returns what its one fill brought — a peek over a pipe holding ten bytes hung on
+  `read_into(count: 100)` (R0-1). R2's "fills ONCE" and R4's "keeps the bridge claim true of views"
+  are the rule, so the parent-side entry point is `#dexpace_fill_beyond(behind, want)`: fill until
+  one byte past the view's position is buffered or the upstream is done, asking the upstream for
+  the view's own count each time, and the view takes what is there. `#read(n)` on a view blocks to
+  `n` only through the view's own `#ensure_buffered` loop. The retention rule is unchanged
+  (checklist deviation 18; guard run red there).
+- **P3-7, as built.** The widening moved one phase-2 cop case from accepted to rejected — a bare
+  `Thread` inside `Dexpace::Transport`, accepted in phase 2 because nothing reopens that name, and
+  an offense under the one-segment watch by the rule's own words. A tightening, recorded because
+  the R1 section above lists phase 2's rejections as unchanged and says nothing of its acceptances.
+- **P3-3, as built.** `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamError <
+  ::EOFError` needed `tools/rbs_surface.rb`'s `NFR-11` allowlist to admit `EOFError` and `IOError`
+  (and `IO-13`'s reads, `Encoding`) — the false positive phase 1 fixed for `Data`, `ArgumentError`
+  and `StringScanner`, fixed the same way with a fixture and a pinning gate test. The "The RBS
+  interfaces" sentence "3a's whole public surface names no stdlib type but `String`, `Integer` and
+  `Encoding`" holds for the interfaces and undercounts the classes by the two superclasses.
+- **The RBS interfaces, as built.** `_Source`, `_Sink` and `_Chunked` exist in `sig/dexpace/io.rbs`
+  as written, but no 3a signature takes one as a parameter type: an RBS interface carries only its
+  own methods, and `BufferedSource.over`, `TypedWrites#write_all` and `TeeSink.new(primary:)` each
+  check their argument with `respond_to?` — which strict Steep refuses to send to an interface
+  type — so all three are `untyped`, as `.wrapping`'s `io` already was. The interfaces are the
+  shapes a consumer's own `steep check` types its objects against, and 3b's body interface can
+  include `_Chunked` as intended.
+- **The unbounded window, as built.** `#peek`'s window, `View#window` and
+  `#dexpace_remaining_window` are `Integer?` with `nil` meaning unbounded, not `Float::INFINITY`;
+  `TeeSink.new`'s `tap_limit:` defaults to `nil` and accepts `Float::INFINITY` as the other
+  spelling while refusing a finite `Float`. Strict Steep refused `Integer | Float` arithmetic at
+  three sites, and no view or tap ever has a fractional or infinite budget. No public signature
+  changes.
+- **The testing strategy's `Dexpace::IO` probe, as built.** `io_test.rb` measures the shadow with
+  string evals — `Dexpace.module_eval("IO", __FILE__, __LINE__)` and a consumer class's
+  `class_eval("::IO.pipe.first.is_a?(IO)", …)` — because the block form of `module_eval` resolves a
+  constant in the block's own lexical scope on all three interpreters, so the obvious probe reports
+  `::IO` and proves nothing. Both halves of the finding under "The finding, and who owns it now" are
+  pinned; the release half stays with `docs/first-release.md`, and the documentation half is now
+  written in `docs/sdk-documentation/io.md`.
+
 ## Work Phase 3a Postpones, and Who Owns It Now
 
 One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.
