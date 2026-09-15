@@ -359,7 +359,7 @@ Each is one line plus the chapter to read before touching the area.
 - **Inside `Dexpace::Async` and `Dexpace::Serde`, write `::Thread`, `::Queue`, `::Mutex`, `::SizedQueue`,
   `::ConditionVariable` and `::JSON`** — a bare name resolves to Ruby's class until `dexpace-async-thread` or
   `dexpace-serde-json` is required and to that gem's module afterwards, and core's own suite never requires
-  either. The sixth custom cop, `Dexpace/QualifiedCoreConstant`, enforces it over `lib/dexpace/async/`,
+  either. The seventh custom cop, `Dexpace/QualifiedCoreConstant`, enforces it over `lib/dexpace/async/`,
   `lib/dexpace/serde/` and `lib/dexpace/serde.rb`; a stand-in `Dexpace::Async::Thread` in
   `future_shadowing_test.rb` proves it behaviourally (phase 2's design, §9 addendum A1).
 - **`SEAM-27`'s base-URL composition is a concatenation, not RFC 3986 reference resolution** —
@@ -468,8 +468,9 @@ probe compares each against the live tree, and a count written anywhere else in 
   `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
-  the phase-1 HTTP domain model and the phase-2 seam layer — forty-two files under `lib/dexpace/`, every one
-  mirrored in `sig/`, and every one but the `private_constant` `hooks.rb` mirrored in `test/`; every other
+  the phase-1 HTTP domain model and the phase-2 seam layer — forty-two phase-1 and phase-2 files under
+  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the forty-two
+  but the `private_constant` `hooks.rb` mirrored in `test/`; every other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
   (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code

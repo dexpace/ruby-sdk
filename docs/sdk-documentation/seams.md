@@ -25,12 +25,18 @@ lambda is a valid transport.
 | asynchronous transport | `Dexpace::AsyncTransport` | `#call(request, options, cancellation)` | a `Dexpace::Async::Future` |
 | wire codec | `Dexpace::Serde` | `#media_type`, `#dump_string`, `#dump_bytes`, `#dump_to(value, sink)`, `#dump_into(value, buffer, offset:)`, `#load(source, witness)` | — |
 
-The two transport seams have the *same* call shape and differ only in return type, which no
-runtime predicate can see before the first call; so they are two registries, an adapter names which
-it registers into, and the bridges below check the returned value at the first send. There is no
-executor seam and no auto-activation hook: an executor is caller-supplied by requirement
-(`SEAM-18`), and "whatever happens to be installed silently wins" is the failure the loud
-resolution branches below exist to prevent.
+The transport predicates read the callable's parameters: three positionals must fit (a lambda, a
+non-lambda proc, a `->(*)` and any object with a `#call` of that shape conform) and a required
+keyword does not, because a `#call(request, options, cancellation, must:)` would pass registration
+and raise Ruby's `ArgumentError` at the first send. The two transport seams have the *same* call
+shape and differ only in return type, which no runtime predicate can see before the first call; so
+they are two registries, an adapter names which it registers into, and the bridges below check the
+returned value at the first send. `Dexpace::Serde.conforms?` is presence-only — the six methods
+answered, nothing about their arity — so a codec whose `#load(source)` takes no witness is admitted
+and fails with `ArgumentError` at the first decode; the witness is required by the seam, not
+checked by the predicate. There is no executor seam and no auto-activation hook: an executor is
+caller-supplied by requirement (`SEAM-18`), and "whatever happens to be installed silently wins" is
+the failure the loud resolution branches below exist to prevent.
 
 ## Finding a provider
 
@@ -66,9 +72,13 @@ runs under the lock — a factory may install, swap or resolve *another* registr
 that resolves *its own* registry gets a `Dexpace::SeamError` at that call rather than a hang.
 
 For a test, `Dexpace::Transport.swap(fake) { … }` overrides the resolved provider for the block
-and restores the prior state afterwards, with no conflict check. Two things survive the block on
-purpose: a registration made inside it (a `require` cannot be re-run) and a resolution that
-completed inside it.
+and restores the prior state afterwards, with no conflict check. Two things are taken from the
+live state rather than restored, on purpose: a registration made inside the block (a `require`
+cannot be re-run, so reverting it would lose the adapter for the rest of the process) and the
+in-flight resolution claim, so a gate that closed inside the block is never put back for later
+callers to park on. The resolved provider itself is restored: a build that completes inside the
+block finds the override already in the slot, is discarded and closed through
+`Dexpace.close_quietly`, and the first `resolve` after the block builds again.
 
 ## The future and the completer
 
@@ -192,7 +202,10 @@ can never be filled; a `:path` projection naming no placeholder can never be use
 input key and the placeholder. A path value is percent-encoded as a single segment — `"a/b"` is
 `a%2Fb` and never two segments — the query is the wire model's own RFC 3986 rendering with one
 parameter per value of a repeated projection, headers go through the outbound builder so a CRLF is
-refused at assembly, and the body is carried untouched for a codec to encode later.
+refused at assembly, and the body is carried untouched for a codec to encode later. A `nil` query
+or header input is absent, exactly as an unsupplied one — an unset optional header is not sent
+with an empty value — while a `nil` path input is an error, because a placeholder cannot be left
+out; an empty `String` is a value on every side.
 
 The base-URL composition is a concatenation, **not** RFC 3986 reference resolution: a trailing
 slash normalises to one separator, an empty operation path leaves the base untouched, an existing

@@ -30,13 +30,13 @@ Thirty: `SEAM-1`–`SEAM-30`.
 | `SEAM-8` | SHOULD | ✅ | 7 | Replacing an auto-resolved provider that was already handed out emits one `Kernel#warn` naming the replacement and saying objects built against the previous one may still be in use (P2-6, observed through `WarningCapture`, P2-12). Replacing one that was never handed out is silent — the negative clause, reachable only through the unchecked swap seam and asserted there; the test says in so many words that no production path reaches it, because `#resolve` hands out in the same call that resolves (`dexpace/registry_test.rb`, `Installation`) |
 | `SEAM-9` | MUST | ✅ | 7 | State is one frozen `Registry::State` snapshot in one instance variable, swapped under a `Thread::Mutex` held across the swap and nothing else; reads are one unsynchronised reference read. Proven: 32 concurrent first accesses run the factory exactly once and receive one `equal?` instance; 16 concurrent installs admit exactly one; a second resolver arriving mid-build parks on the claim's `Thread::Queue` and receives the winner's instance; a factory that takes the registry's own write lock, or a `.conforms?` predicate that does, cannot deadlock because neither is called under it (`dexpace/registry_test.rb`, `Concurrency`). `IO-39`'s lock-free read survives here as a property, not as a row |
 | `SEAM-10` | MUST | N/A | 7, 8 | Vacuous in Ruby (design §10.9): one process-global constant namespace, no classloader, `require` de-duplicates by resolved feature path. Replaced by the version-skew guard phase 0 postponed to this phase: `#register(key, factory, core:)` requires the adapter's `~> MAJOR.MINOR` and compares it against `Dexpace::VERSION` by hand (P2-7), because `Gem` is undefined under `ruby --disable-gems` (re-verified on 3.2.11 and 4.0.6 during the build, and the guard exercised under `--disable-gems` on 4.0.6). Any other requirement form — `>= 0.1`, `~> 0.1.2`, `""`, `nil`, a `Symbol` — is refused as `Dexpace::InvalidArgumentError`, never reinterpreted (`dexpace/registry_version_test.rb`, which cross-checks the comparison against `Gem::Requirement#satisfied_by?` over a seeded grid and an exhaustive 6 × 12 square of running versions and requirements) |
-| `SEAM-11` | MUST | ✅ | 9 | `Dexpace::Transport`: any object responding to `#call(request, options, cancellation)`; a bare lambda, a non-lambda proc, a `->(*)` and any object with a `#call` of that arity conform, the wrong arity and a non-callable do not. Single operation: one `#call`, one response. Options may be ignored: an options-ignoring transport returns the same thing for `RequestOptions::EMPTY` and a populated `RequestOptions`, because options are inert immutable data. No pre-buffering is stated at the seam (the module's YARD block) and is phase 8a's to prove over a socket (`dexpace/transport_test.rb`) |
+| `SEAM-11` | MUST | ✅ | 9 | `Dexpace::Transport`: any object responding to `#call(request, options, cancellation)`; a bare lambda, a non-lambda proc, a `->(*)` and any object with a `#call` of that arity conform; the wrong arity, a non-callable and — since review round 1 — a callable with a required keyword (`->(r, o, c, must:) {}`, which would pass registration and raise `ArgumentError` at the first send) do not, the last asserted on both transport seams and on `Registry.callable?` itself. Single operation: one `#call`, one response. Options may be ignored: an options-ignoring transport returns the same thing for `RequestOptions::EMPTY` and a populated `RequestOptions`, because options are inert immutable data. No pre-buffering is stated at the seam (the module's YARD block) and is phase 8a's to prove over a socket (`dexpace/transport_test.rb`) |
 | `SEAM-12` | MUST | ⏳ | 9 | Phase 8a, Tasks 4–8 and 20 (`dexpace-conformance`'s `TransportSuite`, `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`). What the seam owes is that nothing forces per-request state onto shared storage — `#call` takes everything it needs and returns everything it produces — and the 32-thread concurrent-call test exercises that harness against the fake. Concurrency safety is a property of an implementation, and this phase ships none |
 | `SEAM-13` | SHOULD | ✅ | 4, 9 | Cancellation reaches a transport as the third argument, an ordinary `Dexpace::Cancellation` value and never an ambient interrupt; a transport honours it by re-checking `#cancelled?` at every resume point, and `#check!` is the one-call form of that check. The token, `.none`, `.source`, `.any` and `#on_cancel` are built and tested (`dexpace/cancellation_test.rb`, `dexpace/cancellation/source_test.rb`); `FakeTransport` records the token it was handed (`dexpace/bridge/async_over_test.rb`). Phase 8's adapters honour it; `dexpace-conformance` asserts it |
 | `SEAM-14` | MUST | ✅ | 2, 9, 10 | `Dexpace::Closeable`: a latch flipped under a mutex held across the flip only, `#release` run exactly once under 16-way contention, a raising `#release` leaving the latch flipped and propagating once, ownership a frozen construction-time boolean so a borrowed resource latches but is never released, and a loud `Dexpace::SeamError` for an includer that never initialised the latch. Both transports this phase ships — `Bridge::AsyncOver` and `Bridge::SyncOver` — include it with `owned: false`, answer `#close`/`#closed?`/`#owned?`, release nothing and stay usable after close (`dexpace/closeable_test.rb`, `dexpace/bridge/async_over_test.rb`, `dexpace/bridge/sync_over_test.rb`) |
 | `SEAM-15` | MAY | ✅ with a named gap | 1, 9 | The MAY is taken and documented: `Dexpace::ClosedError` (Task 1), and the rule — stated in `Dexpace::Transport`'s YARD block and in the class's own — that **an owning transport raises it from a later send** while a borrowing wrapper closes nothing and stays usable (`XCUT-22`). What ships is the class and the rule and **no raise site**: `Dexpace::ClosedError` is referenced nowhere in `lib/` outside its own file, and the tests assert its ancestry and its `rescue Dexpace::Error` catch (`dexpace/error/closed_error_test.rb`, `dexpace/transport_test.rb`). Phase 8's adapters are the first owners; `dexpace-conformance` asserts the raise per adapter (phase 8a's `TransportSuite`) |
 | `SEAM-16` | MUST | ✅ | 5, 6, 10 | `Dexpace::AsyncTransport` returns a `Dexpace::Async::Future`. Settling means writing exactly one of a response or an error — `Settlement#initialize` refuses both and neither, and `cancelled` implies an error — so a null success is unrepresentable; a delivered response is never closed by the pivot, and `#cancel` after settlement is a no-op that closes nothing (`ASYNC-20`). `#value` blocks on a `Thread::Queue` pop rather than spinning, proven by a producer that sleeps first, and honours a cancellation token by settling the future as cancelled and raising `Dexpace::CancelledError` carrying the reason (`dexpace/async/settlement_test.rb`, `dexpace/async/completer_test.rb`, `dexpace/async/future_test.rb`, `dexpace/async_transport_test.rb`) |
-| `SEAM-17` | SHOULD | ✅ | 5, 6 | The pivot is core-owned and dependency-free (design §10.3, roadmap cross-phase obligation 5): `Completer` holds the state, `Future` is a facade over it, and the third-party async types stay out of every public signature — `gates:rbs_surface` is load-bearing for the first time and was watched go red on a temporary `Async::Task` in `sig/`. The scheduler-transparency claim is asserted rather than restated: a `Fiber.schedule`d consumer blocking in `#value` routes through the probe scheduler's `#block`/`#unblock` hooks for a `Thread::Queue`, and a settled future touches the scheduler not at all (`dexpace/async/future_scheduler_test.rb`, `test/support/probe_scheduler.rb`, with `#fiber_interrupt` defined so 4.0.6 emits no warning). The constant-shadowing proof defines a stand-in `Dexpace::Async::Thread` and re-runs the pivot; with one `::` removed it fails `NameError: uninitialized constant Dexpace::Async::Thread::Mutex` and the sixth cop flags the same line (`dexpace/async/future_shadowing_test.rb`, `.rubocop/cops/dexpace/qualified_core_constant.rb`) |
+| `SEAM-17` | SHOULD | ✅ | 5, 6 | The pivot is core-owned and dependency-free (design §10.3, roadmap cross-phase obligation 5): `Completer` holds the state, `Future` is a facade over it, and the third-party async types stay out of every public signature — `gates:rbs_surface` is load-bearing for the first time and was watched go red on a temporary `Async::Task` in `sig/`. The scheduler-transparency claim is asserted rather than restated: a `Fiber.schedule`d consumer blocking in `#value` routes through the probe scheduler's `#block`/`#unblock` hooks for a `Thread::Queue`, and a settled future touches the scheduler not at all (`dexpace/async/future_scheduler_test.rb`, `test/support/probe_scheduler.rb`, with `#fiber_interrupt` defined so 4.0.6 emits no warning). The constant-shadowing proof defines a stand-in `Dexpace::Async::Thread` and re-runs the pivot; with one `::` removed it fails `NameError: uninitialized constant Dexpace::Async::Thread::Mutex` and the cop flags the same line (`dexpace/async/future_shadowing_test.rb`, `.rubocop/cops/dexpace/qualified_core_constant.rb`) |
 | `SEAM-18` | MUST | ✅ | 4, 9, 10, 11 | `Dexpace::Transport.async_over(transport, executor:)` — the executor is required, refused without `#post`, and there is intentionally no default — and `Dexpace::AsyncTransport.sync_over(transport)`, both in `Dexpace::Bridge` (P2-13). Clause by clause: the original failure comes back as the identical object, because the pivot never wraps; the blocking wait honours interruption by cancelling the in-flight future and raising `Dexpace::CancelledError` with the reason (P2-4); per-call options arrive at the wrapped transport as the exact object; a raise from `#post` itself is normalised to the failure channel; an async transport handed to `async_over` raises `Dexpace::SeamError` at the first send rather than delivering a future of a future; a token already cancelled when the posted block runs never reaches the transport; and two blocking waits on one token both unblock when it is cancelled, which is the guard `#on_cancel`'s per-registration flag exists for. Nine deliberate breaks were each run red and restored (see "Guards run red" below) (`dexpace/bridge/async_over_test.rb`, `dexpace/bridge/sync_over_test.rb`) |
 | `SEAM-19` | MUST | ✅ | 12 | `Dexpace::Serde.conforms?` requires `#media_type` among the six seam methods; the module supplies no default and answers no `media_type` itself, so a codec that forgets it fails conformance — and `Serde.missing_methods` names which of the six it forgot — rather than stamping a wrong `Content-Type`. That the value is correct is phase 7's (`dexpace/serde_test.rb`) |
 | `SEAM-20` | MUST | ✅ | 12 | All four allocation profiles are in the contract — `#dump_string`, `#dump_bytes`, `#dump_to(value, sink)` and `#dump_into(value, buffer, offset:)` — and `#dump_bytes` differs from `#dump_string` exactly in the `Encoding::BINARY` tag (design §10.13). The streaming variant never closes the caller's sink and the buffer variant raises `IndexError` on overflow, asserted against `FakeCodec`; `#dump` is a permitted shorthand and deliberately not in the contract. The encode failure type is `Dexpace::Serde::SerializationError` (`dexpace/serde_test.rb`, `dexpace/serde/serialization_error_test.rb`) |
@@ -68,7 +68,9 @@ the design's nineteen: `sig/dexpace/hooks.rbs` exists, see deviation 1) and, for
 `seam_surface_test.rb` — and eight files under `test/support/`: the three fakes the roadmap's
 constraint 4 asks for (`fake_transport.rb`, `fake_async_transport.rb`, `fake_codec.rb`) with their
 companions one class per file (`options_ignoring_transport.rb`, `inline_executor.rb`,
-`incomplete_codec.rb`), `probe_scheduler.rb` and `warning_capture.rb`. The sixth cop,
+`incomplete_codec.rb`), `probe_scheduler.rb` and `warning_capture.rb`. The cop the design's §9
+addendum A1 calls the sixth — the seventh in the tree, phase 1 having added `Dexpace/NoKeywordSplat`
+after the design was written —
 `.rubocop/cops/dexpace/qualified_core_constant.rb`, with seventeen cases in `.rubocop/test/cops_test.rb`.
 The entry file `lib/dexpace.rb` gained the twenty `require_relative`s as one block in dependency
 order; `sig/dexpace.rbs` needed nothing. `require "uri"` and `require "strscan"` are still the only
@@ -76,8 +78,8 @@ order; `sig/dexpace.rbs` needed nothing. `require "uri"` and `require "strscan"`
 lines.
 
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-15): green, exit 0 —
-`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 519 runs /
-3113 assertions with **99.93% line coverage (1502/1503)** against the 80% floor (the one uncovered
+`cops:test` 82 runs, `steep` no type error over the strict `core` target, `test:gems` 521 runs /
+3128 assertions with **99.93% line coverage (1503/1504)** against the 80% floor (the one uncovered
 line is the race-only branch of the registry's claim swap, reachable only when a resolution
 completes between a resolver's unsynchronised read and its locked claim), `test:gates` 128 runs, the
 nine `gates:*` tasks, `yard` 100.00% documented, `bundler_audit` clean. The same caveat about
@@ -86,7 +88,7 @@ the parent checkout's `.rubocop.yml` excludes `.claude/**/*`; run as
 `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` it inspected **179 files, no
 offenses**, and that is the run these rows rest on (already on phase 10's inbound list from phase 1).
 
-`test:gems` green on **3.2.11** (519 runs, 99.93% line coverage), with its own lockfile resolved
+`test:gems` green on **3.2.11** (521 runs, 99.93% line coverage), with its own lockfile resolved
 fresh; the seeded order-independence runs are recorded in the roadmap's status note. The 3.2.11 run
 is the one that proves phase 1's `Model#with` still carries this phase's two public `Data` types —
 `Settlement` and `Operation` both assert that `#with` re-validates.
@@ -124,7 +126,7 @@ each hang was run under the coreutils `timeout`. What each said:
 | `Cancellation.over`'s `is_a?(Source)` guard | `cancellation_test.rb`, `Composition` | "`Dexpace::InvalidArgumentError` expected but nothing was raised" |
 | `deliver`'s delivery branch as a method-level `else` | `bridge/async_over_test.rb` | "the future never settled and `#value` would block" (with a `nil`-returning transport, deviation 12) |
 | `#on_cancel`'s per-registration guard becomes one token-level flag | `bridge/sync_over_test.rb` | "a waiter never unblocked: SEAM-18's interruption clause is violated", after the five-second join — and with the token still frozen the break cannot even be written: `FrozenError` |
-| one `::` dropped from `completer.rb` | `async/future_shadowing_test.rb` | `NameError: uninitialized constant Dexpace::Async::Thread::Mutex`; the sixth cop flags the same line |
+| one `::` dropped from `completer.rb` | `async/future_shadowing_test.rb` | `NameError: uninitialized constant Dexpace::Async::Thread::Mutex`; the cop flags the same line |
 | `options` dropped from `AsyncOver#deliver`'s call | `bridge/async_over_test.rb` | "Expected nil to be the same as `#<data Dexpace::RequestOptions …>`" |
 | the failure wrapped in a `RuntimeError` | `bridge/async_over_test.rb` | "`[IOError]` exception expected, not `Class: <RuntimeError>`" |
 | the check-after-resume branch deleted | `bridge/async_over_test.rb` | "`Dexpace::CancelledError` expected but nothing was raised" |
@@ -133,6 +135,14 @@ each hang was run under the coreutils `timeout`. What each said:
 | `#deliver`'s `Dexpace::Async::Future` guard deleted | `bridge/async_over_test.rb` | "`Dexpace::SeamError` expected but nothing was raised" |
 | `#deliver`'s pre-dispatch check deleted | `bridge/async_over_test.rb` | "check-before-dispatch: the send was never made. Expected `[[:request, nil, …]]` to be empty" |
 | `>=` on the minor changed to `==`, then to `>` | `registry_version_test.rb` | the grid: two failures ("Expected: true, Actual: false"); the own-version test: three — **but only once the grid varied the running version** (deviation 8) |
+
+Review round 1 (2026-09-15) added two tests that were run red against the code branch before its
+fix landed, on 4.0.6, and green on 4.0.6 and 3.2.11 after it:
+
+| Fix not yet applied | Guard | What it said |
+|---|---|---|
+| `accepts_positionals?` ignores `:keyreq` | `registry_test.rb`, `Callable`; `transport_test.rb`; `async_transport_test.rb` | "callable? refuses a required keyword and admits the optional keyword shapes: Expected true to not be truthy" |
+| `render_headers` renders a `nil` input as `""` | `operation_build_request_test.rb`, `Projections` | "Expected `#<data Dexpace::Headers values={"x-trace" => [""]} …>` to not include "X-Trace"" |
 
 ## Audit groups run
 
@@ -174,14 +184,14 @@ changes a gate's own test in the corrected direction (item 24).
    swap that writes the outcome, so an abort hook fires only when the cancellation actually won;
    on a cancellation the abort hooks run first and the settle callbacks run whatever the abort
    hooks did (an `ensure`). The "outcome published before any hook" guard was run red the same way.
-3. **The sixth cop's cases are a nested class, `CopsTest::QualifiedCoreConstantTest`**, with its
+3. **The cop's cases are a nested class, `CopsTest::QualifiedCoreConstantTest`**, with its
    own tables, rather than rows appended to phase 0's. Seventeen more rows put `CopsTest` at 147
    lines against `Metrics/ClassLength`'s 100, whose inner-class exclusion is the sanctioned shape
    (phase 1's test files do the same). Nine rejected and eight accepted cases, the four the plan's
    review added included.
 4. **Test files nest a class per behaviour group** — `cancellation_test.rb` (`Composition`,
    `Subscriptions`), `async/completer_test.rb` (`Hooks`), `async/future_test.rb` (`Then`),
-   `registry_test.rb` (`Installation`, `Concurrency`, `Reentrancy`, `Swap`), `operation_test.rb`
+   `registry_test.rb` (`Callable`, `Installation`, `Concurrency`, `Reentrancy`, `Swap`), `operation_test.rb`
    (`Projections`), `operation_build_request_test.rb` (`Projections`) — for the same cap.
 5. **The fakes are one class per file.** `Style/OneClassPerFile` refuses a second top-level class,
    so `OptionsIgnoringTransport`, `InlineExecutor` and `IncompleteCodec` have their own files
@@ -213,7 +223,7 @@ changes a gate's own test in the corrected direction (item 24).
    captured block on 3.2.11 and 4.0.6, verified. `NONE = new([])` — `#initialize` freezes the list
    — replaces the plan's `new([].freeze)`, which strict Steep refuses as an unannotated empty
    literal.
-10. **`.rubocop.yml`'s `Include:` for the sixth cop names `lib/dexpace/serde.rb` as a third
+10. **`.rubocop.yml`'s `Include:` for the cop names `lib/dexpace/serde.rb` as a third
     pattern.** The seam module itself reopens `Dexpace::Serde` from one directory up, so a bare
     `JSON` there is the same hazard as one under `serde/`; verified the cop fires on it. Broadened
     by one file, never narrowed.
@@ -274,9 +284,27 @@ changes a gate's own test in the corrected direction (item 24).
     the namespace line is absent, and that `Dexpace` is absent; it goes red against the phase-0
     manifests and green against the regenerated ones. On the code branch, because that branch's
     `test:gates` must be green on its own tree.
-25. **Run counts exceed the plan's.** `test:gems` is 519 runs where the plan's built-tree run was
+25. **Run counts exceed the plan's.** `test:gems` is 521 runs where the plan's built-tree run was
     179; Minitest is 5.27.0 on 4.0.6 here, not the 6.0.0 the plan mentions, and assertion counts
     match across 3.2.11 and 4.0.6.
+26. **`Registry.accepts_positionals?` refuses a required keyword** (review round 1). The design's
+    stated predicate — "required count ≤ 3 and (a rest parameter is present or required +
+    optional ≥ 3)" — omits keywords, and the plan reproduced it, so
+    `->(request, options, cancellation, must:) {}` passed `Transport.conforms?` and
+    `AsyncTransport.conforms?`, was accepted by `#install` and `#register`, and raised Ruby's
+    `ArgumentError: missing keyword` from inside the seam at the first send: failure at use where
+    the predicate exists to fail at registration, and a stdlib error where the seam promises
+    `Dexpace::InvalidArgumentError`. One clause (`return false if kinds.include?(:keyreq)`) closes
+    it; an optional keyword, a keyword rest and a block parameter leave the three-positional call
+    intact and stay admitted. Verified on 3.2.11 and 4.0.6; the design's "as built" notes record
+    the refinement. `registry_test.rb`'s three `callable?` tests moved into a nested `Callable`
+    class for the 100-line cap (deviation 4).
+27. **A `nil` header input is absent** (review round 1), exactly as deviation 23 made a `nil`
+    query input, where the plan's `inputs.key?(key)` sent the header with an empty value: a
+    generated client passing an unset optional header as `nil` would have emitted `X-Trace:`
+    silently. The path side still makes `nil` an error, because a placeholder cannot be left out,
+    and an empty `String` is a value on every side. `docs/sdk-documentation/seams.md` states the
+    three readings together.
 
 ## Findings routed
 

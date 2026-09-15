@@ -2657,7 +2657,7 @@ documentation. `dexpace-core` now carries the seam layer beside phase 1's domain
 files under `lib/dexpace/`, exactly the design's Module Layout, each with its `sig/` mirror and each but the
 `private_constant` `hooks.rb` with its `test/` mirror, plus five further suites, eight test-support files
 (the three in-memory fakes the roadmap's constraint 4 asks for, three companions one class per file, the
-probe scheduler and the warning capture) and the sixth custom cop, `Dexpace/QualifiedCoreConstant` — and
+probe scheduler and the warning capture) and the seventh custom cop, `Dexpace/QualifiedCoreConstant` — and
 the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket. The checklist is at
 `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`: thirty rows, 22 ✅ (`SEAM-15` and
 `SEAM-25` with a named gap each — no raise site, no lifecycle event — and `SEAM-29` in phase 1), 3 ⏳
@@ -2676,7 +2676,7 @@ and against a core at `0.0.0` that cannot tell `>=` from `==` on the minor — t
 stayed green — so the test now swaps the running `Dexpace::VERSION` across six versions and adds an
 exhaustive square (checklist deviation 8); and the method-level-`else` guard's `:not_a_token` scenario is
 rescued in the body once the pre-dispatch check exists, so it drives a `nil`-returning transport instead,
-which is `SEAM-16`'s null-success rule arriving as a real raise (deviation 12). Twenty-five departures from
+which is `SEAM-16`'s null-success rule arriving as a real raise (deviation 12). Twenty-seven departures from
 the plan's text are itemised in the checklist, none lowering a gate; two are structural — `Completer#settle`
 steals the abort hooks in the same swap that publishes the outcome, so a producer's abort hook fires only
 when the cancellation actually won (deviation 2), and `Operation`'s checks and composition live in two

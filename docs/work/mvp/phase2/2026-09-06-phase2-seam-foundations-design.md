@@ -1367,8 +1367,8 @@ design §10; it is frozen.
 
 ### As built, 2026-09-15
 
-Three rows read slightly differently against the source, and the difference is recorded here
-rather than by rewriting the rows.
+Four rows, and one predicate stated above, read slightly differently against the source; the
+difference is recorded here rather than by rewriting the text it corrects.
 
 - **P2-15, as built.** `lib/dexpace/hooks.rb` *does* have a `sig/` declaration: the strict `core`
   Steep target checks every file under `lib/` and refuses an undeclared module, and that target
@@ -1388,6 +1388,21 @@ rather than by rewriting the rows.
 - **P2-12, as built.** `WarningCapture` is exactly the block-scoped module the row describes,
   prepended after phase 0's raising module; the one `SEAM-8` warning test observes it and the
   negative case asserts silence.
+- **P2-8, as built.** The cop is the **seventh** in `.rubocop/cops/dexpace/`, not the sixth:
+  phase 1 added `Dexpace/NoKeywordSplat` after this design was written. The row and the §9
+  addendum's title stay as written; `CLAUDE.md`, `docs/sdk-documentation/quality-gates.md` and the
+  roadmap's status note count seven.
+- **The transport predicate, as built (review round 1, 2026-09-15).** The `.conforms?` predicate
+  stated under `Dexpace::Transport` — "required count ≤ 3 and (a rest parameter is present or
+  required + optional ≥ 3)" — omits keywords, and as written it admitted
+  `->(request, options, cancellation, must:) {}`: registration succeeded and the first send raised
+  Ruby's `ArgumentError: missing keyword` from inside the seam, the failure-at-use the predicate
+  exists to move to registration. `Registry.accepts_positionals?` now also refuses any `:keyreq`
+  parameter; an optional keyword, a keyword rest and a block parameter leave the three-positional
+  call intact and stay admitted. Verified on 3.2.11 and 4.0.6, asserted on both transport seams
+  and on `Registry.callable?`. The admitted gap stays admitted: the predicate still cannot see the
+  return type, and `Dexpace::Serde.conforms?` is still presence-only, so a codec whose
+  `#load(source)` takes no witness registers and fails at the first decode.
 
 ## Work Phase 2 Postponed, and Who Owns It Now
 
