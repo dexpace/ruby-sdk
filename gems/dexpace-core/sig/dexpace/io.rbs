@@ -1,0 +1,23 @@
+module Dexpace
+  module IO
+    MAX_MATERIALIZED_BYTES: Integer
+
+    # IO-1's primitive, as a type. #write_all accepts anything satisfying it (IO-17).
+    interface _Source
+      def read_into: (String dest, count: Integer) -> Integer
+    end
+
+    # The primitive a destination satisfies, and what IO.copy_stream requires of one.
+    interface _Sink
+      def write: (*String) -> Integer
+    end
+
+    # Design §10.2's canonical body representation, AS A TYPE. Deliberately not named _Body: 3b's
+    # body type is richer -- media type, content length, #replayable?, a single write-to-sink
+    # operation -- and one name for two meanings across the sub-phase cut is the failure the cut
+    # exists to prevent. 3b's interface can include this one.
+    interface _Chunked
+      def each: () { (String) -> void } -> void
+    end
+  end
+end

@@ -1,0 +1,27 @@
+module Dexpace
+  module IO
+    class BufferedSink
+      include Dexpace::IO::TypedWrites
+      include Dexpace::Closeable
+
+      # `io` is untyped on purpose: it accepts anything responding to #write, and the runtime
+      # check is a duck test.
+      def self.wrapping: (untyped io) -> Dexpace::IO::BufferedSink
+                       | [T] (untyped io) { (Dexpace::IO::BufferedSink) -> T } -> T
+
+      def initialize: (untyped io) -> void
+
+      private
+
+      @dexpace_underlying: untyped
+      @dexpace_staged: String
+
+      def deliver: (String string) -> nil
+      def push_one_level: () -> nil
+      def write_through: (String payload) -> untyped
+      def check_full_write: (untyped reported, Integer expected) -> nil
+      def push_all: () -> nil
+      def release: () -> nil
+    end
+  end
+end

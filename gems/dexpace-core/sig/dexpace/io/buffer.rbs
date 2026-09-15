@@ -1,0 +1,24 @@
+module Dexpace
+  module IO
+    class Buffer
+      include Dexpace::IO::TypedReads
+      include Dexpace::IO::TypedWrites
+      include Dexpace::Closeable
+
+      def initialize: () -> void
+      def bytesize: () -> Integer
+      def snapshot: () -> String
+      def clear: () -> nil
+      def copy_to: (Dexpace::IO::Buffer other, ?offset: Integer, ?count: Integer?) -> nil
+
+      private
+
+      def validate_window!: (Integer offset, Integer? count) -> Integer
+      def fill: (Integer min_bytes) -> Integer
+      def deliver: (String string) -> nil
+      def reads_survive_close?: () -> bool
+      def writes_survive_close?: () -> bool
+      def release: () -> nil
+    end
+  end
+end

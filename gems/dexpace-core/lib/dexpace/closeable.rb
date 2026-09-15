@@ -40,9 +40,19 @@ module Dexpace
 
     # Whether the latch has flipped, whatever ownership says: a borrowing wrapper is closed once
     # #close has been called even though the resource it borrowed is not.
+    #
+    # IO-38 (phase 3a, P3-6): the latch is read under the same Thread::Mutex that writes it, so a
+    # close on one thread reliably invalidates a slice being read on another. Design §3.1 fixes
+    # the mechanism -- "written and read through a Thread::Mutex rather than relying on the GVL,
+    # so the guarantee survives JRuby and TruffleRuby" -- and phase 2's unsynchronised read relied
+    # on exactly the GVL that sentence declines to rely on. Measured at ~40 ns per call on 3.2.11,
+    # 3.4.10 and 4.0.6, paid once per public entry point and never per byte. No GVL-free
+    # interpreter is in the matrix (3a's design, "Work Phase 3a Postpones"), so on every CI row
+    # this read passes with or without the lock: the assertion that distinguishes them is the
+    # fiber-held-mutex test in closeable_test.rb.
     def closed?
       ensure_closeable_initialized
-      @dexpace_closed
+      @dexpace_close_mutex.synchronize { @dexpace_closed }
     end
 
     # Idempotent and ownership-aware. The mutex is held across the flag flip and nothing else:
