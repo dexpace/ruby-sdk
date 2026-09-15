@@ -52,9 +52,10 @@ module Dexpace
 
     private
 
+    def swap_in: (untyped provider) -> [untyped, bool]
     def take_or_join_claim: () -> [Claim?, bool]
     def wait_on: (Claim? claim) -> void
-    def conflict!: (State state, untyped provider) -> bot
+    def conflict!: (untyped incumbent, untyped provider) -> bot
     def raise_reentrant!: () -> bot
     def complete_resolution: (Thread::Queue gate) -> untyped
     def hand_out: (untyped provider) -> untyped

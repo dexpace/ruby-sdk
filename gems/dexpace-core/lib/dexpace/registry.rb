@@ -115,37 +115,40 @@ module Dexpace
     # a different factory under an occupied key raises, so two gems claiming one key are not.
     # `core:` is design §2.3's version-skew guard and is required, because an optional skew check
     # is a skew check nobody passes.
+    #
+    # The conflict is raised outside the lock: the message calls #inspect on two user objects,
+    # and a factory whose #inspect reaches back into this registry would otherwise meet
+    # `ThreadError: recursive locking` instead of the argument error -- the rule this file states
+    # for every synchronize block is a snapshot swap and nothing else.
     def register(key, factory, core:)
       assert_core_version!(key, core)
-      @write.synchronize do
-        incumbent = @state.factories[key]
-        unless incumbent.equal?(factory)
-          if incumbent
-            raise Dexpace::InvalidArgumentError,
-                  "#{@seam} key #{key.inspect} is already registered to #{incumbent.inspect}; " \
-                  "#{factory.inspect} was rejected"
-          end
-
+      incumbent = @write.synchronize do
+        current = @state.factories[key]
+        if current.equal?(factory)
+          nil
+        elsif current
+          current
+        else
           added = { key => factory } #: Hash[untyped, untyped]
           @state = @state.with(factories: @state.factories.merge(added).freeze)
+          nil
         end
       end
-      self
+      return self if incumbent.nil?
+
+      raise Dexpace::InvalidArgumentError,
+            "#{@seam} key #{key.inspect} is already registered to #{incumbent.inspect}; " \
+            "#{factory.inspect} was rejected"
     end
 
     # SEAM-5's "an explicitly installed provider always wins", with SEAM-6's conflict rule and
-    # SEAM-8's warning. The warning is emitted outside the lock, because it writes to a stream.
+    # SEAM-8's warning. Both the warning and the conflict are emitted outside the lock: the
+    # warning writes to a stream, and the conflict's message calls #inspect on two providers
+    # (#register's note).
     def install(provider)
       refuse(provider) unless @conforms.call(provider)
-      replaced_after_handout = false
-      @write.synchronize do
-        state = @state
-        unless state.resolved.equal?(provider)
-          conflict!(state, provider) if state.resolved && state.explicit
-          replaced_after_handout = !state.resolved.nil? && state.handed_out
-          @state = state.with(resolved: provider, handed_out: false, explicit: true)
-        end
-      end
+      incumbent, replaced_after_handout = swap_in(provider)
+      conflict!(incumbent, provider) unless incumbent.nil?
       warn_replaced(provider) if replaced_after_handout
       self
     end
@@ -225,6 +228,20 @@ module Dexpace
 
     private
 
+    # The install swap, and nothing else, under the lock: the conflicting incumbent when there
+    # is one (and then no swap), and whether the provider replaced one that had already been
+    # handed out. Both are reported out so the conflict and the warning happen after the block.
+    def swap_in(provider)
+      @write.synchronize do
+        state = @state
+        next [nil, false] if state.resolved.equal?(provider)
+        next [state.resolved, false] if state.resolved && state.explicit
+
+        @state = state.with(resolved: provider, handed_out: false, explicit: true)
+        [nil, !state.resolved.nil? && state.handed_out]
+      end
+    end
+
     # The claim swap: a fresh claim for this fiber when the slot is free, the in-flight claim to
     # wait on when it is not, and nothing at all once a provider is resolved. The second element
     # says which of the first two happened, because a fresh claim and a re-entrant one both name
@@ -254,9 +271,9 @@ module Dexpace
       claim.gate.pop unless @state.resolved
     end
 
-    def conflict!(state, provider)
+    def conflict!(incumbent, provider)
       raise Dexpace::InvalidArgumentError,
-            "a #{@seam} provider is already installed (#{state.resolved.inspect}); " \
+            "a #{@seam} provider is already installed (#{incumbent.inspect}); " \
             "#{provider.inspect} was rejected"
     end
 

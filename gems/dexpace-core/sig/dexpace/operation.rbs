@@ -2,11 +2,12 @@ module Dexpace
   class Operation < Data
     include Dexpace::Model
 
-    # Four private_constants with no visibility in RBS; declared so Steep can type the scans.
+    # Five private_constants with no visibility in RBS; declared so Steep can type the scans.
     TARGETS: Array[Symbol]
     PLACEHOLDER: Regexp
     BRACE: Regexp
     PATH_LITERAL: Regexp
+    QUERY_LITERAL: Regexp
 
     attr_reader method: Dexpace::Method
     attr_reader template: String

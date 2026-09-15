@@ -56,6 +56,20 @@ module Dexpace
     PATH_LITERAL = Regexp.new("\\A(?:%\\h\\h|[A-Za-z0-9\\-._~!$&'()*+,;=:@/])*\\z", timeout: 1.0)
     private_constant :PATH_LITERAL
 
+    # RFC 3986 `query`: PATH_LITERAL's set plus "?". Phase 1's URL.parse! reaches
+    # URI::Generic#query=, whose percent check is /(%\H\H)/ -- a "%" followed by two NON-hex
+    # characters -- so a base query ending in a bare "%" or in "%z" is accepted at parse time;
+    # the composition's "&limit=1" then puts "%&l" in front of the same check, from #query= again,
+    # and a stdlib URI::InvalidURIError escapes #build_request. RFC 3986 `query` is strictly
+    # tighter than that check (every "%" opens a two-hex escape, so no append can complete a
+    # "%\H\H"), and the operation query is Query#encode's, which is RFC 3986 by construction; a
+    # base query that passes here therefore composes without reaching the writer's raise. The
+    # check runs before anything is appended, so the failure is the SDK's own argument error
+    # naming the base, and a base malformed on its own is refused rather than composed into a
+    # malformed URL silently when the operation query happens to be empty.
+    QUERY_LITERAL = Regexp.new("\\A(?:%\\h\\h|[A-Za-z0-9\\-._~!$&'()*+,;=:@/?])*\\z", timeout: 1.0)
+    private_constant :QUERY_LITERAL
+
     private_class_method :new
 
     # The validating factory every construction path goes through.
@@ -96,8 +110,8 @@ module Dexpace
     #   pins URI::RFC3986_PARSER and rejects a non-absolute or malformed URL with the offending
     #   input in the message (HTTP-47)
     # @param inputs [Hash] operation arguments, keyed as the projection table is
-    # @raise [Dexpace::InvalidArgumentError] a base carrying a fragment or no hierarchical part,
-    #   or a projected path input with no value
+    # @raise [Dexpace::InvalidArgumentError] a base carrying a fragment, no hierarchical part or
+    #   a query that is not RFC 3986, or a projected path input with no value
     def build_request(base_url:, inputs: {})
       base = validated_base(base_url)
       builder = Dexpace::Request.builder
@@ -110,11 +124,13 @@ module Dexpace
 
     private
 
-    # Phase 1's URL.parse! rejects the malformed and non-absolute case naming the input; the two
-    # rules it does not carry are SEAM-27's. A base carrying a fragment is refused, naming the
-    # base. So is one with no hierarchical part -- "mailto:x@y", "urn:isbn:123" -- because there
-    # is no path to compose onto: URI::Generic#path= on such a base raises a stdlib
-    # "path conflicts with opaque", which is the leak this method exists to convert.
+    # Phase 1's URL.parse! rejects the malformed and non-absolute case naming the input; the
+    # three rules it does not carry are SEAM-27's. A base carrying a fragment is refused, naming
+    # the base. So is one with no hierarchical part -- "mailto:x@y", "urn:isbn:123" -- because
+    # there is no path to compose onto: URI::Generic#path= on such a base raises a stdlib
+    # "path conflicts with opaque", which is the leak this method exists to convert. And so is
+    # one whose query is not RFC 3986 -- "https://host/c?sig=100%" -- because #query= admits it
+    # at parse time and refuses it once the operation query is appended (QUERY_LITERAL's note).
     def validated_base(base_url)
       base = Dexpace::URL.parse!(base_url)
       unless base.hierarchical?
@@ -122,10 +138,15 @@ module Dexpace
               "a base URL must have a hierarchical part to compose onto: " \
               "#{Dexpace::URL.external_form(base)}"
       end
-      return base if base.fragment.nil?
+      unless base.fragment.nil?
+        raise Dexpace::InvalidArgumentError,
+              "a base URL must not carry a fragment: #{Dexpace::URL.external_form(base)}"
+      end
+      return base if QUERY_LITERAL.match?(base.query.to_s)
 
       raise Dexpace::InvalidArgumentError,
-            "a base URL must not carry a fragment: #{Dexpace::URL.external_form(base)}"
+            "a base URL's query must be RFC 3986 -- every character a pchar, \"/\" or \"?\", " \
+            "and every \"%\" opening a two-digit escape: #{Dexpace::URL.external_form(base)}"
     end
 
     # Each value goes through phase 1's strict RFC 3986 component encoder, whose unreserved set is
@@ -312,6 +333,14 @@ module Dexpace
       # re-rendered string, which is what keeps already-encoded octets verbatim (verified: a
       # frozen URI::Generic dups to an unfrozen copy whose writers work, and the original still
       # raises FrozenError).
+      #
+      # Both writers validate, and neither is rescued here: every input is checked to a grammar
+      # at least as tight as the writer's before this runs. #path= refuses anything outside RFC
+      # 3986 `path-absolute` -- the base path is the parser's own (a `segment` list, the same
+      # set), the operation path is PATH_LITERAL literal plus encode_component values, and one
+      # "/" joins them. #query= refuses a "%\H\H" -- the base query is QUERY_LITERAL, the
+      # operation query is Query#encode, and the "&" between them can complete no escape. A
+      # rescue would be a line no test can reach.
       def compose(base, path, query)
         composed = base.dup
         composed.path = compose_path(base.path.to_s, path)
