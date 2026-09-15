@@ -13,6 +13,7 @@ Dexpace::HeaderName#to_s
 Dexpace::HeaderName.build
 Dexpace::HeaderName.of
 Dexpace::HeaderSyntax
+Dexpace::HeaderSyntax#ascii_compatible
 Dexpace::HeaderSyntax#escape
 Dexpace::HeaderSyntax#token?
 Dexpace::HeaderSyntax#trim

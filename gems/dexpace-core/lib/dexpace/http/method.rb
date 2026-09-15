@@ -46,7 +46,9 @@ module Dexpace
 
     # Byte check first, then `upcase` -- never the other way round. On "GET\xE9" the upcase would
     # raise ArgumentError before any rule of this SDK had a chance to reject the token, and
-    # HeaderSyntax.token? reads bytes so that it returns false on that input instead.
+    # HeaderSyntax.token? reads bytes so that it returns false on that input instead. The upcase
+    # runs on the proven bytes under an ASCII-compatible tag, because a tag that cannot carry
+    # ASCII passes the byte check and would then crash the upcase the same way.
     def initialize(token:)
       Model.required!("token", token)
       unless token.is_a?(String) || token.is_a?(Symbol)
@@ -58,7 +60,7 @@ module Dexpace
         raise InvalidArgumentError, "method must be a valid HTTP token (RFC 7230 tchar)"
       end
 
-      super(token: Model.frozen_string(text.upcase))
+      super(token: Model.frozen_string(HeaderSyntax.ascii_compatible(text).upcase))
     end
 
     # The canonical wire token.

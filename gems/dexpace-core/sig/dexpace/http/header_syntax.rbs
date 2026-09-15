@@ -16,6 +16,7 @@ module Dexpace
     def self?.validate_inbound_value!: (String value, name: String) -> String
     def self?.token?: (String text) -> bool
     def self?.escape: (String name) -> String
+    def self?.ascii_compatible: (String text) -> String
 
     private
 

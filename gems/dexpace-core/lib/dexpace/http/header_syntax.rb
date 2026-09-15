@@ -15,7 +15,9 @@ module Dexpace
   # Every predicate reads `value.b.each_byte`, never a character regexp: a String carrying
   # invalid UTF-8 is exactly the input this module exists to reject, and a character operation
   # on one raises ArgumentError or Encoding::CompatibilityError from inside Ruby instead of
-  # returning false. A validator that crashes has not rejected its input.
+  # returning false. A validator that crashes has not rejected its input. The converse hazard is
+  # a String whose bytes pass and whose TAG Ruby refuses to fold under; #ascii_compatible is the
+  # one place that is normalised, for every factory that folds or scans after a byte check.
   module HeaderSyntax
     extend self
 
@@ -80,14 +82,32 @@ module Dexpace
 
     # The trimmed name when it is valid; otherwise HTTP-20's escaped echo of it in the message.
     #
-    # A valid name is printable ASCII, which every ASCII-compatible encoding spells identically,
-    # so the trimmed bytes are retagged with the caller's own encoding: `force_encoding` is a
-    # retag used only where the bytes are known to conform, and here they are proven to.
+    # A valid name is printable ASCII, so the trimmed bytes are retagged with the caller's own
+    # encoding when that encoding can carry ASCII, and US-ASCII when it cannot -- the tag
+    # #ascii_compatible gives the caller's String. `force_encoding` is a retag used only where
+    # the bytes are known to conform, and here they are proven to.
     def validate_name!(name)
-      return trim(name).force_encoding(name.encoding) if valid_name?(name)
+      return trim(name).force_encoding(ascii_compatible(name).encoding) if valid_name?(name)
 
       raise InvalidArgumentError,
             "header name #{escape(name)} is not a valid field name (HTTP-17)"
+    end
+
+    # The same bytes under a tag every character operation accepts.
+    #
+    # The byte predicates above are total, so a String whose tag cannot carry ASCII -- a
+    # stateful encoding such as ISO-2022-JP, a wide one such as UTF-16 -- passes them with the
+    # same bytes as the literal it was encoded from, and the fold, upcase or scan that follows
+    # then raises Encoding::CompatibilityError from inside Ruby, escaping `rescue Dexpace::Error`
+    # exactly as a regexp over invalid UTF-8 would. Every ASCII-compatible encoding spells ASCII
+    # identically, so such a String is returned as it is and costs nothing; otherwise a copy of
+    # the bytes is tagged US-ASCII when they are ASCII, and left BINARY when they are not, which
+    # is a legal label either way. The caller's own String is never retagged in place.
+    def ascii_compatible(text)
+      return text if text.encoding.ascii_compatible?
+
+      bytes = text.b
+      bytes.ascii_only? ? bytes.force_encoding(Encoding::US_ASCII) : bytes
     end
 
     # The value unchanged when the outbound grammar accepts it. The message names the header and

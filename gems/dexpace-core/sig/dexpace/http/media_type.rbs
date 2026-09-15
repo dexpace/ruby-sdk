@@ -36,7 +36,7 @@ module Dexpace
     private
 
     def quote: (String value) -> String
-    def validate_component!: (String name, untyped value) -> void
-    def validate_parameters!: (untyped parameters) -> void
+    def validate_component!: (String name, untyped value) -> String
+    def validate_parameters!: (untyped parameters) -> Hash[String, String]
   end
 end

@@ -56,7 +56,9 @@ module Dexpace
 
     # HTTP-26: the same predicate as an outbound header value, so a media type is always
     # header-safe. It runs on the RAW input, before any character-oriented work, because a scan
-    # of invalid UTF-8 raises rather than returning something this parser could reject.
+    # of invalid UTF-8 raises rather than returning something this parser could reject. The
+    # scanner then runs over the proven bytes under an ASCII-compatible tag, because a tag that
+    # cannot carry ASCII passes the predicate and makes the first regexp match raise instead.
     def self.parse(text)
       Model.required!("media type", text)
       raise InvalidArgumentError, "media type must be a String" unless text.is_a?(String)
@@ -64,7 +66,7 @@ module Dexpace
         raise InvalidArgumentError, "media type contains a byte no header value may carry (HTTP-26)"
       end
 
-      scanner = StringScanner.new(text)
+      scanner = StringScanner.new(HeaderSyntax.ascii_compatible(text))
       type, subtype = parse_essence(scanner)
       parameters = {} #: Hash[String, String]
       parse_parameter(scanner, parameters) until scanner.eos?
@@ -122,16 +124,18 @@ module Dexpace
     # every parameter key folded and token-shaped, and every value header-safe (HTTP-26). The
     # parameters are checked before Model.own copies them, so Ractor.make_shareable never meets
     # an object it cannot copy and its TypeError never escapes `rescue Dexpace::Error`.
+    #
+    # Each validator hands back the member under an ASCII-compatible tag, and that is what is
+    # stored: #render interpolates every member and #charset folds a value, and a String whose
+    # tag cannot carry ASCII passes every byte check here and then raises from either.
     def initialize(type:, subtype:, parameters:)
-      validate_component!("type", type)
-      validate_component!("subtype", subtype)
-      if type == "*" && subtype != "*"
-        raise InvalidArgumentError, "a wildcard type is only permitted as */* (HTTP-27)"
-      end
+      essence_type = validate_component!("type", type)
+      essence_subtype = validate_component!("subtype", subtype)
+      wildcard = essence_type == "*" && essence_subtype != "*"
+      raise InvalidArgumentError, "a wildcard type is only permitted as */* (HTTP-27)" if wildcard
 
-      validate_parameters!(parameters)
-      super(type: Model.frozen_string(type), subtype: Model.frozen_string(subtype),
-            parameters: Model.own(parameters))
+      super(type: Model.frozen_string(essence_type), subtype: Model.frozen_string(essence_subtype),
+            parameters: Model.own(validate_parameters!(parameters)))
     end
 
     # HTTP-24: the charset parameter, folded, when this Ruby knows an encoding of that name; nil
@@ -164,22 +168,29 @@ module Dexpace
       HeaderSyntax.token?(value) ? value : "\"#{value.gsub(TO_ESCAPE, "\\\\\\1")}\""
     end
 
+    # The component under an ASCII-compatible tag when it is a folded token; the byte check comes
+    # before the fold it is compared against, so invalid UTF-8 is refused rather than crashed on.
     def validate_component!(name, value)
       Model.required!(name, value)
-      return if value.is_a?(String) && HeaderSyntax.token?(value) && value == value.downcase
+      text = HeaderSyntax.ascii_compatible(value) if value.is_a?(String)
+      return text if text && HeaderSyntax.token?(text) && text == text.downcase
 
       raise InvalidArgumentError, "#{name} must be a lower-case token, got #{value.inspect}"
     end
 
+    # The parameters as a fresh Hash of validated, ASCII-compatible-tagged keys and values; the
+    # message names the key through its validated form, since the caller's may not interpolate.
     def validate_parameters!(parameters)
       Model.required!("parameters", parameters)
       raise InvalidArgumentError, "parameters must be a Hash" unless parameters.is_a?(Hash)
 
-      parameters.each do |key, value|
-        validate_component!("parameter key", key)
-        next if value.is_a?(String) && HeaderSyntax.valid_outbound_value?(value)
+      parameters.to_h do |key, value|
+        name = validate_component!("parameter key", key)
+        unless value.is_a?(String) && HeaderSyntax.valid_outbound_value?(value)
+          raise InvalidArgumentError, "parameter #{name} carries a byte no header value may carry"
+        end
 
-        raise InvalidArgumentError, "parameter #{key} carries a byte no header value may carry"
+        [name, HeaderSyntax.ascii_compatible(value)]
       end
     end
   end

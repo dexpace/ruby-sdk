@@ -9,7 +9,9 @@ module Dexpace
   # The byte check runs before `downcase`, and that order is the whole reason this is code rather
   # than one line: `String#downcase` raises ArgumentError on a String carrying invalid UTF-8, and
   # an ArgumentError from inside Ruby escapes `rescue Dexpace::Error`. A validator that crashes
-  # has not rejected its input.
+  # has not rejected its input. The fold itself runs on the bytes, untagged, for the same reason
+  # in the other direction: a tag that cannot carry ASCII passes the byte check, and folding
+  # under it raises Encoding::CompatibilityError from inside Ruby.
   class Protocol < Data.define(:wire)
     include Model
 
@@ -37,8 +39,10 @@ module Dexpace
       end
 
       # `downcase` with no argument: "locale-invariant" is enforced by the repository-wide cop
-      # rather than asserted here, exactly as in HTTP-13's fold.
-      canonical = ALIASES[identifier.downcase]
+      # rather than asserted here, exactly as in HTTP-13's fold. On the bytes: printable ASCII
+      # hashes and compares alike under BINARY and under the table's own tag, so the lookup key
+      # needs no tag at all, and a stateful one cannot reach the fold.
+      canonical = ALIASES[identifier.b.downcase]
       raise InvalidArgumentError, "unrecognised protocol #{identifier.inspect}" if canonical.nil?
 
       build(wire: canonical)

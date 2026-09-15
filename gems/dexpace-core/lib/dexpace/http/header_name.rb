@@ -42,7 +42,9 @@ module Dexpace
     # is opt-in-locale -- "I".downcase(:turkic) is "ı" -- and the repository-wide cop rejects the
     # argument form, so the ASCII/invariant guarantee is enforced rather than assumed. The fold
     # never meets a non-ASCII byte anyway, because validate_name! rejected one first; relaxing
-    # HTTP-17 would therefore break HTTP-13, which is why that dependency is stated here.
+    # HTTP-17 would therefore break HTTP-13, which is why that dependency is stated here. Nor
+    # does it meet a tag Ruby cannot fold under: validate_name! hands back the proven bytes under
+    # an ASCII-compatible tag, so a stateful-encoding name folds instead of crashing.
     def initialize(original:)
       Model.required!("header name", original)
       raise InvalidArgumentError, "header name must be a String" unless original.is_a?(String)
