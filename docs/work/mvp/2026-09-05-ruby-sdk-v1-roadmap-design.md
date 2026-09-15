@@ -2651,3 +2651,43 @@ the table (38 ✅, not 36); two nits were taken — a non-finite or non-real tim
 `#with` are the SDK's error — and one was routed, `URL.parse!`'s host-less and non-HTTP shapes, as the
 thirty-sixth phase-10 inbound bullet above. `test:gems` is at 273 runs and 100% line coverage on 4.0.6 and
 3.2.11 afterwards.
+
+**2026-09-15** — **Phase 2 implemented**, as three stacked branches against issue #9: code, tests,
+documentation. `dexpace-core` now carries the seam layer beside phase 1's domain model — twenty new `lib/`
+files under `lib/dexpace/`, exactly the design's Module Layout, each with its `sig/` mirror and each but the
+`private_constant` `hooks.rb` with its `test/` mirror, plus five further suites, eight test-support files
+(the three in-memory fakes the roadmap's constraint 4 asks for, three companions one class per file, the
+probe scheduler and the warning capture) and the sixth custom cop, `Dexpace/QualifiedCoreConstant` — and
+the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket. The checklist is at
+`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`: thirty rows, 22 ✅ (`SEAM-15` and
+`SEAM-25` with a named gap each — no raise site, no lifecycle event — and `SEAM-29` in phase 1), 3 ⏳
+(`SEAM-12` to phase 8a's `TransportSuite`, `SEAM-24` post-v1, `SEAM-28` to phase 5c Task 4), 3 🚫 (`SEAM-3`,
+`SEAM-4`, `SEAM-22`'s mechanism with its surviving clause ✅), 1 N/A (`SEAM-10`, the version-skew guard
+phase 0 postponed to this phase built in its place as `Registry#register`'s required `core:` keyword, Tasks 7
+and 8, and exercised under `ruby --disable-gems` on 4.0.6). `bundle exec rake` is green on 4.0.6 with 99.93%
+line coverage against the 80% floor (the one uncovered line is the registry claim swap's race-only branch);
+the matrix set is green on 3.2.11; the whole suite is green under three further seeds. **Every concurrency
+guard the plan's verification table lists was run red** by reverting its fix in the built tree — the
+re-entrant-resolve trio and the token-less bridge wait as hangs under the coreutils `timeout`, the rest as
+the assertions the plan predicted — and the shadowing test fails `NameError: uninitialized constant
+Dexpace::Async::Thread::Mutex` with one `::` removed, the same line the cop flags. **Two of the plan's proofs
+were found vacuous as written and repaired in place**: the version-skew grid varied only the requirement,
+and against a core at `0.0.0` that cannot tell `>=` from `==` on the minor — the plan's own break-it step
+stayed green — so the test now swaps the running `Dexpace::VERSION` across six versions and adds an
+exhaustive square (checklist deviation 8); and the method-level-`else` guard's `:not_a_token` scenario is
+rescued in the body once the pre-dispatch check exists, so it drives a `nil`-returning transport instead,
+which is `SEAM-16`'s null-success rule arriving as a real raise (deviation 12). Twenty-five departures from
+the plan's text are itemised in the checklist, none lowering a gate; two are structural — `Completer#settle`
+steals the abort hooks in the same swap that publishes the outcome, so a producer's abort hook fires only
+when the cancellation actually won (deviation 2), and `Operation`'s checks and composition live in two
+`private_constant` modules so each half is reviewable alone (deviation 7) — and one corrects a phase-0 gate
+test that had pinned a phase-0 fact: adapter manifests began with the shared namespace line only because
+core did not yet define `Dexpace::Transport`, `Serde` or `Async`, and the corrected assertion is the
+property the test's own comment states (deviation 24, on the code branch because that branch's `test:gates`
+must be green). `sig/dexpace/hooks.rbs` exists after all, because the strict `core` Steep target checks every
+`lib/` file and never relaxes (deviation 1). The four notes the design filed stand; no fifth was needed. The
+six postponed items keep their owners. The counts that changed: `gems/` is still six; `dexpace-core`'s
+`lib/dexpace/` is forty-two files; `phase2/` now carries its checklist, the third written; the surface
+manifest is 318 lines, and the four adapter manifests each lost the one namespace line core now owns.
+`CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and three new constraints-that-bite
+lines are rewritten from what was built.

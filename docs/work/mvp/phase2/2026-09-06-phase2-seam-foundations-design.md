@@ -1365,6 +1365,30 @@ design §10; it is frozen.
 | P2-14 | `Cancellation#on_cancel` returns a `Cancellation::Subscription` handle rather than `self`, and `Cancellation::Source` gains a public `#off_cancel(hook)` | design §3.3; `SEAM-13`, `SEAM-18`; `NFR-4` | The design describes registration and says nothing about withdrawing one, which leaves `Completer#await` no way to detach the hook it arms on the caller's token. That hook reaches the `Completer` and through it the response the future settled with, so `.any(client_token, per_call_token)` with `future.value(cancellation:)` — what phase 5a's `deadline:` keyword does on every request — retained one closure and one response per request on the client-lifetime source: measured 200 of 200, and 500 100 KB responses still reachable after `GC.start`, on 3.2.11, 3.4.10 and 4.0.6. Composing without subscribing fixes only the composition half of that leak. The cost is one public constant and one public method, both locked by `NFR-4` at the first release tag, which is why they are here and not in a comment |
 | P2-15 | `Dexpace::Hooks`, a `private_constant` module supplying the one `notify(hooks, argument)` loop `Cancellation::Source#cancel`, `Completer#settle` and `Completer#request_cancel` all run | design §3.3, §3.7; `SEAM-18` | The design describes the notification three times and names no home for it, and a bare `hooks.each { |hook| hook.call(…) }` at each site drops every handler after a raising one and propagates to whoever published the state — the `SEAM-18` "a second waiter blocks forever" failure from the write side, verified on all three interpreters. One implementation runs the whole list and then re-raises the first failure; re-raising rather than dropping, because phase 2 has neither of §3.7's disposal routes (the suppressed trail, phase 4b; §8.1, phase 5) and a handler raising into a void is a bug nothing reports. The failures after the first are attached to the trail by phase 4b, Task 2. It is a `private_constant` and therefore not public API: no `sig/` mirror, no YARD gate entry, no surface-manifest row |
 
+### As built, 2026-09-15
+
+Three rows read slightly differently against the source, and the difference is recorded here
+rather than by rewriting the rows.
+
+- **P2-15, as built.** `lib/dexpace/hooks.rb` *does* have a `sig/` declaration: the strict `core`
+  Steep target checks every file under `lib/` and refuses an undeclared module, and that target
+  never relaxes. `sig/dexpace/hooks.rbs` declares the module and its one method with a comment
+  saying the declaration exists for Steep alone; `Dexpace::Hooks` is still a `private_constant`,
+  absent from the surface manifest and unreachable from outside `module Dexpace` (asserted in
+  `dexpace_test.rb`). The row's "no YARD gate entry" holds trivially — the file carries a YARD block
+  anyway. And `Completer#settle` steals the abort hooks in the same snapshot swap that publishes
+  the outcome, so a producer's abort hook fires only when the cancellation actually won the race
+  against its own `#fulfil`; `#request_cancel` is one `settle` call.
+- **P2-9, as built.** Two further `private_constant`s exist that are not snapshots:
+  `Operation::Validation` and `Operation::Composition`, function modules that hold the descriptor's
+  construction-time checks and `SEAM-27`'s four composition rules so each half is reviewable alone
+  and the class stays under the length cap. Neither is a `Data`, neither is public, and the rule
+  the row states — a public `Data` follows phase 1's construction rule without exception — is
+  unaffected.
+- **P2-12, as built.** `WarningCapture` is exactly the block-scoped module the row describes,
+  prepended after phase 0's raising module; the one `SEAM-8` warning test observes it and the
+  negative case asserts silence.
+
 ## Work Phase 2 Postponed, and Who Owns It Now
 
 Phase 2 postponed six things. Each entry is self-contained — what was postponed, why phase 2 did not
