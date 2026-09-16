@@ -1,4 +1,7 @@
 module Dexpace
-  module Error
+  # The same self-type as Suppressible's: a module including a self-typed module must satisfy
+  # that self-type, and every including class is an Exception by phase 2's shape.
+  module Error : ::Exception
+    include Dexpace::Suppressible
   end
 end

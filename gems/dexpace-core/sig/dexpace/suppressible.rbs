@@ -1,0 +1,18 @@
+module Dexpace
+  # The self-type is ::Exception because #detailed_message calls `super`, and every includer and
+  # every object Dexpace.attach_suppressed extends is one. The keywords Ruby's printer passes
+  # arrive as one positional Hash (Model#with's spelling) and are forwarded to `super` unnamed.
+  module Suppressible : ::Exception
+    EMPTY: Array[::Exception]
+
+    def suppressed: () -> Array[::Exception]
+    def detailed_message: (?Hash[Symbol, untyped]? options) -> String
+
+    private
+
+    @dexpace_suppressed: Array[::Exception]
+  end
+
+  def self.attach_suppressed: (::Exception primary, ::Exception secondary) -> ::Exception
+  def self.suppressed: (untyped error) -> Array[::Exception]
+end

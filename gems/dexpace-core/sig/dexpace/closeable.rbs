@@ -16,5 +16,5 @@ module Dexpace
     def ensure_closeable_initialized: () -> void
   end
 
-  def self.close_quietly: (untyped resource) -> nil
+  def self.close_quietly: (untyped resource, ?onto: ::Exception?) -> nil
 end

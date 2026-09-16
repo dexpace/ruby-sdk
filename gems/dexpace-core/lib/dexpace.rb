@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "dexpace/version"
+# Phase 4b: the trail module precedes the error root that includes it (P4-12). The order is
+# load-bearing -- error.rb writes `include Dexpace::Suppressible` -- and suppressible.rb requires
+# nothing, so nothing can re-enter error.rb before its body has run.
+require_relative "dexpace/suppressible"
 require_relative "dexpace/error"
 require_relative "dexpace/error/invalid_argument_error"
 require_relative "dexpace/model"
@@ -74,6 +78,10 @@ require_relative "dexpace/http/body/response_body"
 require_relative "dexpace/http/body/request_logging_body"
 require_relative "dexpace/http/body/response_logging_body"
 require_relative "dexpace/http/typed_response"
+
+# Phase 4b: the cycle-safe cause walk (XCUT-9); the trail module sits at the top of this file,
+# before the error root that includes it.
+require_relative "dexpace/each_cause"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
