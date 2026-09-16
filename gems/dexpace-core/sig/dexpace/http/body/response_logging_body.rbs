@@ -37,6 +37,9 @@ module Dexpace
     private
 
     @buffer: Dexpace::IO::Buffer
+    # The one handle #drain takes from the delegate's #source: untyped for the same reason as
+    # `delegate`, and nil until the drain has asked.
+    @upstream: untyped
     @pending: String?
     @state: Symbol
     @error: StandardError?
@@ -48,8 +51,8 @@ module Dexpace
     def claim_tail!: () -> nil
     def ensure_drained: () -> nil
     def drain: () -> nil
-    def fill_prefix: () -> Integer
-    def capture_complete?: (Integer taken) -> bool
+    def fill_prefix: (untyped upstream) -> Integer
+    def capture_complete?: (untyped upstream, Integer taken) -> bool
     def release: () -> nil
   end
 end

@@ -46,6 +46,7 @@ module Dexpace
       @delegate = delegate
       @preview_bytes = preview_bytes
       @buffer = Dexpace::IO::Buffer.new
+      @upstream = nil
       @pending = nil
       @state = :unstarted
       @error = nil
@@ -63,7 +64,7 @@ module Dexpace
     # drain on first access and then serves the regime the drain landed in, and it is what
     # Response#body_string and #body_bytes read through when a wrapper occupies Response#body.
     # Fits-cap: a fresh non-consuming view of the capture, fully repeatable. Over-cap: R10's
-    # composite, once.
+    # composite, once, continuing from the ONE handle the drain took (see #drain).
     def source
       ensure_drained
       error = @error
@@ -71,7 +72,7 @@ module Dexpace
       return @buffer.peek if @complete
 
       claim_tail!
-      Dexpace::IO::BufferedSource.wrapping(Tail.new(self, @buffer, @pending, @delegate.source))
+      Dexpace::IO::BufferedSource.wrapping(Tail.new(self, @buffer, @pending, @upstream))
     end
 
     # BODY-26: the partial bytes, without raising, whatever happened during the drain. BINARY --
@@ -247,9 +248,21 @@ module Dexpace
       nil
     end
 
+    # The delegate's #source is asked ONCE per wrapper, here, and the handle it answers with is
+    # what the prefix fill, the regime probe and the over-cap tail all read from, in that order,
+    # and what #release closes ahead of the delegate. The wrapper's delegate contract is #source,
+    # #content_length, #media_type and #close, and the three bodies that can occupy Response#body
+    # answer #source differently on purpose (P3-23): ResponseBody hands out BODY-14's same handle
+    # every call, but BufferBody hands out a FRESH non-consuming #peek view per call. Asking three
+    # times is correct over the first and wrong over the second -- each view starts at byte zero,
+    # so the over-cap composite would replay the prefix twice and then the whole body, and the
+    # fill view would never be closed (review round 1, R1-1). One handle, read to wherever the
+    # drain left it, is the shape BODY-24's "the still-live tail" describes for both.
     def drain
-      taken = fill_prefix
-      @complete = capture_complete?(taken)
+      upstream = @delegate.source
+      @upstream = upstream
+      taken = fill_prefix(upstream)
+      @complete = capture_complete?(upstream, taken)
       # BODY-28: on the fits-cap path the delegate close is BEST EFFORT. Dexpace.close_quietly's
       # first call site in this SDK (neither of phase 2's two disposal routes exists yet -- phase
       # 4b, Task 2 and phase 5b, Task 14 -- so the rescued error is still dropped). It routes
@@ -263,13 +276,12 @@ module Dexpace
       nil
     end
 
-    def fill_prefix
-      source = @delegate.source
+    def fill_prefix(upstream)
       taken = 0
       while taken < @preview_bytes
         wanted = @preview_bytes - taken
         chunk = (+"").b
-        got = source.read_into(chunk, count: wanted)
+        got = upstream.read_into(chunk, count: wanted)
         break if got.negative?
         # BODY-25: zero bytes for a POSITIVE requested count is a stream-contract violation, never
         # end of stream. 3a's helper, so the message form cannot diverge from BODY-10's.
@@ -284,11 +296,11 @@ module Dexpace
     # BODY-23 is "end-of-stream reached before the cap" and BODY-24 is "cap hit with bytes still
     # pending", so the two are told apart by ONE more byte (plan decision 9). Reading it rather
     # than peeking keeps the delegate's source contract to #read_into alone.
-    def capture_complete?(taken)
+    def capture_complete?(upstream, taken)
       return true if taken < @preview_bytes
 
       probe = (+"").b
-      got = @delegate.source.read_into(probe, count: 1)
+      got = upstream.read_into(probe, count: 1)
       return true if got.negative?
 
       # The byte is KEPT but it is NOT part of the capture. BODY-22 caps what the wrapper buffers,
@@ -301,12 +313,26 @@ module Dexpace
     end
 
     # BODY-27: ONE close-once guard, Closeable's latch, shared by the wrapper's own close, by the
-    # capture path's best-effort close and by the tail's close. It closes the DELEGATE and
-    # deliberately NOT the captured buffer: the buffer holds only memory, closing it would
-    # invalidate every outstanding BODY-23 view for no gain, and BODY-28 requires it to survive
-    # this close.
+    # capture path's best-effort close and by the tail's close. It closes the handle the drain
+    # took from the delegate and then the DELEGATE, and deliberately NOT the captured buffer: the
+    # buffer holds only memory, closing it would invalidate every outstanding BODY-23 view for no
+    # gain, and BODY-28 requires it to survive this close.
+    #
+    # The handle first, because it is derived from the delegate (a BufferBody's is a view its
+    # buffer registers, and closing it is what deregisters it -- "every view core takes, core
+    # closes"), and over a ResponseBody it IS the delegate's own source, whose second close under
+    # the delegate is a no-op through its latch. The delegate's close sits in an ensure so the
+    # transport release BODY-15 names is attempted whatever the handle's close did. One
+    # respond_to? guard covers both handles that cannot be closed: a Dexpace::IO::_Source declares
+    # no #close, and before a drain has asked -- or when it failed before the delegate answered
+    # #source -- there is no handle at all, only nil.
     def release
-      @delegate.close if @delegate.respond_to?(:close)
+      upstream = @upstream
+      begin
+        upstream.close if upstream.respond_to?(:close)
+      ensure
+        @delegate.close if @delegate.respond_to?(:close)
+      end
       nil
     end
   end
