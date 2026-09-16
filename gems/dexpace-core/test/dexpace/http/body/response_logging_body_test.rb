@@ -11,8 +11,8 @@ require "stringio"
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: BODY-22's
 # drain-once and the two regimes here, then Tail (BODY-24 over a live delegate, BODY-25), Failure
-# (BODY-25, BODY-26), Close (BODY-27, BODY-28, IO-42), Length (BODY-29), Serialization (BODY-22)
-# and Construction below.
+# (BODY-25, BODY-26), Close (BODY-27, BODY-28, IO-42), Length (BODY-29), Serialization (BODY-22),
+# DelegateHandle (BODY-23, BODY-24 and BODY-27 over a fresh-view delegate) and Construction below.
 class DexpaceResponseLoggingBodyTest < DexpaceTestCase
   # One shared factory set for every class below.
   module Wrappers
@@ -533,6 +533,172 @@ class DexpaceResponseLoggingBodyTest < DexpaceTestCase
 
       assert_equal(10, observed)
       assert_equal("0123456789".b, subject.snapshot)
+    end
+  end
+
+  # The wrapper's delegate contract is #source, #content_length, #media_type and #close, and the
+  # three bodies that can occupy Response#body answer #source differently on purpose (P3-23):
+  # ResponseBody with BODY-14's same handle every call, BufferBody with a FRESH #peek view per
+  # call. Every row above drives a ResponseBody, over which asking three times is harmless; these
+  # drive the second body and a fresh-view double, over which it was not (review round 1, R1-1).
+  class DelegateHandleTest < DexpaceTestCase
+    include Wrappers
+
+    def bounded(content)
+      Dexpace::Body.buffer_bounded(response_body(content), cap: 64)
+    end
+
+    def views(body)
+      body.instance_variable_get(:@buffer).instance_variable_get(:@dexpace_views).length
+    end
+
+    # BODY-24's "the consumer receives the complete body" over a delegate whose every #source
+    # starts at byte zero: three asks replayed the prefix twice and then the whole body.
+    test "over a BufferBody delegate the over-cap composite delivers the body exactly once" do
+      subject = wrapper(bounded("0123456789"), preview_bytes: 4)
+
+      assert_equal("0123".b, subject.snapshot)
+      assert_equal("0123456789".b, read_all(subject.source))
+    end
+
+    # "Every view core takes, core closes": the fill's view is a view the delegate's buffer
+    # registers, and the wrapper's close is the only thing that can deregister it.
+    test "over a BufferBody delegate the fits-cap capture closes the view it took" do
+      delegate = bounded("0123")
+      subject = wrapper(delegate, preview_bytes: 64)
+
+      assert_equal("0123".b, subject.snapshot)
+      assert_predicate(subject, :closed?)
+      assert_equal(0, views(delegate))
+      assert_equal("0123".b, read_all(delegate.source))
+    end
+
+    test "over a BufferBody delegate the over-cap composite's close deregisters its handle" do
+      delegate = bounded("0123456789")
+      subject = wrapper(delegate, preview_bytes: 4)
+      tail = subject.source
+
+      assert_equal(1, views(delegate))
+      tail.close
+
+      assert_equal(0, views(delegate))
+    end
+
+    test "asks the delegate for its source exactly once, in either regime" do
+      over = FreshViewDelegate.new("0123456789")
+      subject = wrapper(over, preview_bytes: 4)
+      subject.snapshot
+      read_all(subject.source)
+      subject.close
+
+      assert_equal(1, over.asks)
+
+      fits = FreshViewDelegate.new("0123")
+      subject = wrapper(fits, preview_bytes: 64)
+      3.times { subject.source }
+      subject.snapshot
+
+      assert_equal(1, fits.asks)
+    end
+
+    test "closing an undrained wrapper closes the delegate and never asks it for a source" do
+      delegate = FreshViewDelegate.new("0123456789")
+      subject = wrapper(delegate, preview_bytes: 4)
+      subject.close
+
+      assert_equal(1, delegate.closes)
+      assert_equal(0, delegate.asks)
+    end
+
+    # The handle is derived from the delegate, so it is closed first; and the delegate's close is
+    # BODY-15's transport release, so it still runs when the handle's close raises, and the one
+    # failure propagates once (BODY-27).
+    test "closes the handle ahead of the delegate, and the delegate even when the handle raises" do
+      delegate = LoggingHandleDelegate.new("0123456789", handle_error: ::IOError.new("handle"))
+      subject = wrapper(delegate, preview_bytes: 4)
+      subject.snapshot
+
+      assert_raises(::IOError) { subject.close }
+      assert_equal(%i[handle delegate], delegate.log)
+      assert_predicate(subject, :closed?)
+      assert_nil(subject.close)
+      assert_equal(%i[handle delegate], delegate.log)
+    end
+
+    test "a handle whose close raises after a full capture is not reported as a drain error" do
+      delegate = LoggingHandleDelegate.new("0123", handle_error: ::IOError.new("handle"))
+      subject = wrapper(delegate, preview_bytes: 64)
+
+      assert_equal("0123".b, subject.snapshot)
+      assert_nil(subject.error)
+      assert_equal(%i[handle delegate], delegate.log)
+    end
+
+    # A delegate that answers #source with a FRESH view per call, as BufferBody does, and counts
+    # the asks -- CountingDelegate memoises its source, so it cannot see a second one.
+    class FreshViewDelegate
+      attr_reader :asks, :closes, :media_type, :content_length
+
+      def initialize(content)
+        @buffer = Dexpace::IO::Buffer.new
+        @buffer.write(content.b)
+        @media_type = nil
+        @content_length = -1
+        @asks = 0
+        @closes = 0
+      end
+
+      def source
+        @asks += 1
+        @buffer.peek
+      end
+
+      def close
+        @closes += 1
+        nil
+      end
+    end
+
+    # A delegate whose handle's close can RAISE, recording the order of the two closes.
+    class LoggingHandleDelegate
+      attr_reader :log, :media_type, :content_length
+
+      def initialize(content, handle_error: nil)
+        @content = content.b
+        @handle_error = handle_error
+        @media_type = nil
+        @content_length = -1
+        @log = []
+      end
+
+      def source
+        Handle.new(Dexpace::IO::BufferedSource.of_bytes(@content), @log, @handle_error)
+      end
+
+      def close
+        @log << :delegate
+        nil
+      end
+
+      # The handle: a _Source over an of_bytes source, plus the recording close.
+      class Handle
+        def initialize(inner, log, error)
+          @inner = inner
+          @log = log
+          @error = error
+        end
+
+        def read_into(dest, count:)
+          @inner.read_into(dest, count: count)
+        end
+
+        def close
+          @log << :handle
+          raise @error unless @error.nil?
+
+          nil
+        end
+      end
     end
   end
 

@@ -467,6 +467,20 @@ class DexpaceResponseTest < DexpaceTestCase
       assert_predicate(wrapper, :closed?)
     end
 
+    # The wrapper over the OTHER body that can sit beneath it: a BufferBody answers #source with a
+    # fresh view per call, so a wrapper that asked more than once delivered the prefix twice and
+    # then the whole body through this reader, and left the views it read from registered (review
+    # round 1, R1-1).
+    test "the readers deliver an over-cap wrapper over a BufferBody once, leaving no view" do
+      copy = Dexpace::Body.buffer_bounded(response_body("0123456789"), cap: 64)
+      wrapper = Dexpace::ResponseLoggingBody.new(copy, preview_bytes: 4)
+
+      assert_equal("0123456789".b, response(wrapper).body_bytes)
+      assert_equal("0123".b, wrapper.snapshot)
+      assert_equal(0, views(copy.instance_variable_get(:@buffer)))
+      assert_equal(0, views(wrapper.instance_variable_get(:@buffer)))
+    end
+
     def views(buffer)
       buffer.instance_variable_get(:@dexpace_views).length
     end
