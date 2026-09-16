@@ -72,6 +72,20 @@ class DexpaceContextTest < DexpaceTestCase
     end
   end
 
+  # CTX-4's key is a String. A Symbol is refused rather than silently keying a slot that no String
+  # lookup finds, and an Integer meets the SDK's error rather than a NoMethodError from #empty?.
+  test "the validation requires the call_key to be a String, with the field-named message" do
+    store = FakeStore.new
+
+    [:sym, 5].each do |key|
+      error = assert_raises(Dexpace::InvalidArgumentError, key.inspect) do
+        ProbeContext.new(bundle: :b, call_key: key, store: store)
+      end
+
+      assert_equal("call_key must be a String", error.message, key.inspect)
+    end
+  end
+
   test "the validation requires a store that responds to #set and #release" do
     bad_store = Object.new
     only_set = Object.new.tap { |o| o.define_singleton_method(:set) { |c| c } }
@@ -96,6 +110,7 @@ class DexpaceContextTest < DexpaceTestCase
   test "Context's public surface is #close alone" do
     assert_equal([:close], Dexpace::Context.public_instance_methods(false))
     assert_includes(Dexpace::Context.private_instance_methods(false), :validate_context!)
+    assert_includes(Dexpace::Context.private_instance_methods(false), :validate_operation_name!)
     assert_empty(Dexpace::Context.singleton_methods)
   end
 

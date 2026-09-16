@@ -32,6 +32,19 @@ class DexpaceExchangeContextTest < DexpaceTestCase
     end
   end
 
+  test "a non-String operation_name is rejected with the field-named message" do
+    [:GetUser, 7].each do |name|
+      error = assert_raises(Dexpace::InvalidArgumentError, name.inspect) do
+        Dexpace::ExchangeContext.build(
+          bundle: NONE, request: :req, response: :resp,
+          operation_name: name,
+        )
+      end
+
+      assert_equal("operation_name must be a String", error.message, name.inspect)
+    end
+  end
+
   test "request: and response: are required, with SEAM-29's one message form" do
     error = assert_raises(Dexpace::InvalidArgumentError) do
       Dexpace::ExchangeContext.build(bundle: NONE, request: :req, response: nil)

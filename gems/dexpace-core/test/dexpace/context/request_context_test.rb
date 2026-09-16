@@ -124,6 +124,27 @@ class DexpaceRequestContextTest < DexpaceTestCase
       end
     end
 
+    # CTX-16's "schema-defined operation id such as 'GetUser'" is a String: a Symbol spelling of
+    # the same id is refused with the field-named message, and so is anything without #empty?.
+    test "a non-String operation_name is rejected, off-chain and at promotion" do
+      store = Dexpace::ContextStore.new(cap: 8)
+
+      [:GetUser, 7].each do |name|
+        error = assert_raises(Dexpace::InvalidArgumentError, name.inspect) do
+          Dexpace::RequestContext.build(bundle: NONE, request: :req, operation_name: name)
+        end
+
+        assert_equal("operation_name must be a String", error.message, name.inspect)
+        error = assert_raises(Dexpace::InvalidArgumentError, name.inspect) do
+          Dexpace::DispatchContext.build(bundle: NONE, store: store)
+            .promote_to_request(request: :req, operation_name: name)
+        end
+        assert_equal("operation_name must be a String", error.message, name.inspect)
+      end
+
+      assert_equal(0, store.size)
+    end
+
     test "operation_name is frozen without aliasing the caller's string" do
       name = +"GetUser"
       ctx = Dexpace::RequestContext.build(bundle: NONE, request: :req, operation_name: name)

@@ -235,6 +235,23 @@ class DexpaceDispatchContextTest < DexpaceTestCase
       assert_equal("bundle is required", error.message)
     end
 
+    # The .build path hands a frozen Symbol or Integer through Model.frozen_string untouched, so
+    # the refusal has to come from the shared validation -- on .build and on #with alike.
+    test "CTX-4: a pinned key that is not a String is refused, on .build and on #with" do
+      [:sym, 5].each do |key|
+        error = assert_raises(Dexpace::InvalidArgumentError, key.inspect) do
+          Dexpace::DispatchContext.build(bundle: NONE, call_key: key)
+        end
+
+        assert_equal("call_key must be a String", error.message, key.inspect)
+      end
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::DispatchContext.build(bundle: NONE, call_key: "pinned").with(call_key: :sym)
+      end
+
+      assert_equal("call_key must be a String", error.message)
+    end
+
     test "an empty pinned key and a store without #set/#release are refused" do
       assert_raises(Dexpace::InvalidArgumentError) do
         Dexpace::DispatchContext.build(bundle: NONE, call_key: "")
