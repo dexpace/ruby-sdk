@@ -101,18 +101,20 @@ a different namespace and the probe does not confuse them.
 
 Six gems exist under `gems/`, all at `0.0.0` and none published — each a gemspec reading the
 root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds phase 1's HTTP
-domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's body layer and phase
-4b's recovery layer; the other five are phase 0's skeletons, a namespace and a `VERSION`. The as-built
-documentation lands in [`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the six
-pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's body layer, phase
+4b's recovery layer and phase 4c's stage pipeline; the other five are phase 0's skeletons, a namespace
+and a `VERSION`. The as-built documentation lands in [`sdk-documentation/`](./sdk-documentation/) as
+each gem gains code; the seven pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
 phase 2 built, [`sdk-documentation/io.md`](./sdk-documentation/io.md), because the byte-streaming
 layer is the thing phase 3a built, [`sdk-documentation/body.md`](./sdk-documentation/body.md),
-because the body layer is the thing phase 3b built, and
+because the body layer is the thing phase 3b built,
 [`sdk-documentation/recovery.md`](./sdk-documentation/recovery.md), because the recovery layer and
-the error trail are the things phase 4b built.
+the error trail are the things phase 4b built, and
+[`sdk-documentation/pipelines.md`](./sdk-documentation/pipelines.md), because the stage pipeline is
+the thing phase 4c built.
 
 ## Keeping this file true
 

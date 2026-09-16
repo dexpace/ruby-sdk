@@ -3,12 +3,13 @@
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
 skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
 layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
-layer on top of it, and phase 4b the recovery layer and the error trail; the stage pipeline and the
-adapters are still to come, so this page is still a stub: it names the pages this tree will
-eventually hold and where each one's content will come from, so the plan for the documentation
-exists before the documentation does. Six pages are real already, because their subjects are:
-[`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
-[`io.md`](./io.md), [`body.md`](./body.md) and [`recovery.md`](./recovery.md).
+layer on top of it, phase 4b the recovery layer and the error trail, and phase 4c the stage
+pipeline; the adapters are still to come, so this page is still a stub: it names the pages this
+tree will eventually hold and where each one's content will come from, so the plan for the
+documentation exists before the documentation does. Seven pages are real already, because their
+subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
+[`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
+[`recovery.md`](./recovery.md) and [`pipelines.md`](./pipelines.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -56,8 +57,15 @@ already on [recovery.md](./recovery.md); this page collects the classes once the
 and the seam-specific errors have all landed. Derives from
 `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
 
-pipelines.md — stages, steps, the resilience pillars, and the two named seeding constructors that
-build a standard pipeline. Derives from `docs/sdk-design-ruby/05-pipeline-architecture.md`.
+[pipelines.md](./pipelines.md) — the stage pipeline: the sixteen totally ordered stages and the
+closed set they form, the step protocol and where a step's stage lives, the builder with its
+pillar rules, surgical edits, all-or-nothing bulk paths and the two seeding constructors, the
+forward-only cursor with its pillar-only fork and stage-scoped state, the sync runtime and its
+async mirror as transports, the transform adapter, and why the bridges are phase 2's. The
+standard-resilience constructors arrive with phase 6's pillar families. Written against the layer
+phase 4c shipped; derives from `docs/sdk-design-ruby/05-pipeline-architecture.md` §5.1 and §5.3,
+read together with the pipeline deviations recorded in
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 auth.md — tiers, credentials, schemes, challenges, and the redirect-safe re-issue rule. Derives
 from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`.

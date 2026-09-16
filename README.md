@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b and 4b are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4b and 4c are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -28,7 +28,11 @@ wrappers, the one decode boundary and the lazy typed response
 (`docs/sdk-documentation/body.md`) — and the recovery layer: the closed two-variant outcome, the
 two folds over frozen step lists, the orchestrator that lets no throwable past it, the three shipped
 steps, and the error trail, the cycle-safe cause walk and the protocol error the whole SDK uses from
-here on (`docs/sdk-documentation/recovery.md`); nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
+here on (`docs/sdk-documentation/recovery.md`) — and the stage pipeline: sixteen totally ordered
+stages, a builder with pillar rules and surgical edits, a forward-only per-call cursor with a
+pillar-only fork and stage-scoped state, a sync runtime and an async mirror that are both
+transports, and the adapter that installs a recovery transform
+(`docs/sdk-documentation/pipelines.md`); nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |
