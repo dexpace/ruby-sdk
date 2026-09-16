@@ -3004,8 +3004,9 @@ object model, none removed — holds every reader of the five value types. One p
 plan's fence: `Context.validate!` is the private `#validate_context!`, since the design gives `Context`
 exactly one public method. Seventeen departures from the plan's text are itemised in the checklist, none
 lowering a gate. `_ContextHost`, the self-type interface strict Steep needs for `Context#close`, is the one
-new ledger row, **P4-40** — numbered from the tree, because 4b's design filed P4-12–P4-25 and 4c's
-P4-26–P4-39 before this phase executed. `docs/sdk-documentation/execution-context.md` is the as-built
+new ledger row, **P4-60** — numbered from the tree, because 4b's design filed P4-12–P4-25 and 4c's
+P4-26–P4-39 before this phase executed, 4b's as-built addendum took P4-40–P4-49 and P4-50–P4-59 are
+4c's; it was P4-40 while the two lanes ran in parallel and was renumbered before the push. `docs/sdk-documentation/execution-context.md` is the as-built
 page, every fence run verbatim on 4.0.6 and 3.2.11 with identical output; `architecture.md`, the core
 README, `README.md` and `docs/README.md` point at it. The design's ledger gains an "As built" addendum;
 the two postponed items keep their owners (the cap's configuration source, phase 5a Task 13; the no-op
@@ -3017,6 +3018,6 @@ returns as its own code → tests → docs stack. The counts that changed: `gems
 beside phase 0's `version.rb`; `phase4/phase4a/` now carries its checklist, the sixth written; the surface
 manifest is 580 lines; the cop suite is 129 cases. `CLAUDE.md`'s built-phases paragraph, its gem and
 phase-directory sentences and the constraints-that-bite list are rewritten from what was built. The
-consolidation of P4-1–P4-11 and P4-40 into design §10, and §5.4's and §8.1's addenda, are a human's, as
+consolidation of P4-1–P4-11 and P4-60 into design §10, and §5.4's and §8.1's addenda, are a human's, as
 they were for 3a and 3b: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2
 left it for phase 10 to flip.

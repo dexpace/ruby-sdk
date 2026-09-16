@@ -329,9 +329,11 @@ this build's.
   names as the owner of the two-factories distinction, is where the wording is next touched.
 - **The design's ledger** gains an "As built" addendum (in the design) for the eighth-cop numbering
   (P4-10), the two `sig/` mirrors (P4-3), `_ContextHost` (P4-2), the private validation (P4-11) and
-  the confirmed `#tracer` arity (P4-8), with the one new row numbered **P4-40**, the next free
+  the confirmed `#tracer` arity (P4-8), with the one new row numbered **P4-60**, the next free
   number in the phase-4 ledger the three sub-phases share (4b's design filed P4-12–P4-25 and 4c's
-  P4-26–P4-39 before this phase executed). The consolidation into design §10 and the §5.4 and
+  P4-26–P4-39 before this phase executed; 4b's as-built addendum took P4-40–P4-49 and 4c's is
+  reserved P4-50–P4-59 — the row was numbered P4-40 while the lanes ran in parallel and renumbered
+  before the push). The consolidation into design §10 and the §5.4 and
   §8.1 addenda are a human's, as they were for 3a and 3b, because `docs/sdk-design-ruby/` is
   frozen; `docs/deviations.md` is left as phase 2 left it for phase 10 to flip.
 

@@ -1250,18 +1250,20 @@ the phase-4 segmentation design left the ledger empty.
 
 ### As built, 2026-09-16
 
-The plan added no numbered row; execution adds **one**, numbered **P4-40** because the phase-4
+The plan added no numbered row; execution adds **one**, numbered **P4-60** because the phase-4
 ledger is shared across the three sub-phases and the next free number is read from the tree, not
 assumed: phase 4b's design filed P4-12–P4-25 and phase 4c's P4-26–P4-39, both before this phase
-executed, and 4b is running as a parallel stack whose additions, if any, take the numbers after
-this one.
+executed; 4b, built as a parallel stack and merged to `main` the same day (#53–#55), took
+P4-40–P4-49 for its own as-built rows, and P4-50–P4-59 are reserved for 4c's, which builds on
+4b's tip. This row was first numbered P4-40 while the two lanes ran side by side and was renumbered
+before the stack was pushed, so no two rows share a number on `main`.
 Five rows above read slightly differently against the source; the difference is recorded here
 rather than by rewriting the text it corrects. The checklist's "Deviations from the plan" is the
 itemised list, and its "Guards run red" section holds the battery.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
-| P4-40 | A fourth RBS interface, `Dexpace::_ContextHost`, the self-type constraint of `module Context` | `NFR-4`; `NFR-3`'s strict `core` target; P4-2's list | `Context#close` calls `store` and `call_key`, which the module does not define and every includer does. The strict target types a module's `self` by its self-type constraint — the shape phase 1 gave `Model : _ModelInstance` — so `_ContextHost` includes `_ModelInstance` and adds the two readers, and `#close` types without an `untyped` receiver. It is a public name in `sig/`, locked with `_Span`, `_Tracer` and `_TracerFactory`; `store` stays `untyped` inside it, as on every flavour, because the runtime check is `respond_to?` and strict Steep refuses that on an interface type (3a) |
+| P4-60 | A fourth RBS interface, `Dexpace::_ContextHost`, the self-type constraint of `module Context` | `NFR-4`; `NFR-3`'s strict `core` target; P4-2's list | `Context#close` calls `store` and `call_key`, which the module does not define and every includer does. The strict target types a module's `self` by its self-type constraint — the shape phase 1 gave `Model : _ModelInstance` — so `_ContextHost` includes `_ModelInstance` and adds the two readers, and `#close` types without an `untyped` receiver. It is a public name in `sig/`, locked with `_Span`, `_Tracer` and `_TracerFactory`; `store` stays `untyped` inside it, as on every flavour, because the runtime check is `respond_to?` and strict Steep refuses that on an interface type (3a) |
 
 - **P4-10, as built.** `Dexpace/NoWeakReferences` is the **eighth** custom cop, not the seventh:
   seven exist on `main` — phase 0's five, `Dexpace/NoKeywordSplat` (phase 0, 2026-09-13) and
