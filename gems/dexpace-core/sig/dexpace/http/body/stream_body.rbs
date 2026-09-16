@@ -1,0 +1,29 @@
+module Dexpace
+  class StreamBody
+    include Dexpace::Body
+
+    attr_reader media_type: Dexpace::MediaType?
+    attr_reader content_length: Integer
+    attr_reader origin: Integer
+
+    # `io` is untyped for BufferedSource.wrapping's reason: anything responding to #readpartial
+    # or #read, checked at runtime as a duck, which strict Steep refuses to send to an interface.
+    def initialize: (untyped io, ?media_type: Dexpace::MediaType?, ?content_length: Integer,
+                     ?close: bool) -> void
+    def replayable?: () -> bool
+    def rewindable?: () -> bool
+    def owns_stream?: () -> bool
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+
+    private
+
+    @io: untyped
+    @close: bool
+    @rewindable: bool
+
+    def probe_rewindability: (untyped io) -> [Integer, bool]
+    def write_once: (Dexpace::IO::_Sink sink) -> Integer
+    def write_replayable: (Dexpace::IO::_Sink sink) -> Integer
+    def pump: (Dexpace::IO::_Sink sink) -> Integer
+  end
+end

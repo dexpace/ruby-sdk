@@ -1,0 +1,30 @@
+module Dexpace
+  class RequestLoggingBody
+    include Dexpace::Body
+
+    attr_reader delegate: Dexpace::Body
+
+    # `delegate` is untyped for BufferedSource.wrapping's reason: anything responding to
+    # #write_to, checked at runtime as a duck, which strict Steep refuses to send to an interface.
+    def initialize: (untyped delegate, ?tap_limit: (Integer | Float)?) -> void
+    def media_type: () -> Dexpace::MediaType?
+    def content_length: () -> Integer
+    def replayable?: () -> bool
+    def to_replayable: () -> Dexpace::Body
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def snapshot: () -> String
+    def tap_bytesize: () -> Integer
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    @tap_limit: Integer | Float
+    @tee: Dexpace::IO::TeeSink?
+
+    # #== reads the other wrapper's cap through it with `send`, as Headers#== reaches #values.
+    def tap_limit: () -> (Integer | Float)
+    def validated_tap_limit: (untyped limit) -> (Integer | Float)
+  end
+end

@@ -1,0 +1,74 @@
+module Dexpace
+  class MultipartBody
+    include Dexpace::Body
+
+    CRLF: String
+    DASHES: String
+    BOUNDARY_CHARS: Array[String]
+    BOUNDARY_LENGTH: Integer
+    # A private_constant with no visibility in RBS, declared so Steep can type the generator.
+    GENERATED_BOUNDARY_CHARS: Array[String]
+
+    class Part
+      attr_reader name: String
+      attr_reader filename: String?
+      attr_reader body: Dexpace::Body
+      attr_reader headers: Hash[String, String]
+
+      def initialize: (name: untyped, body: untyped, ?filename: untyped,
+                       ?headers: untyped) -> void
+      def replayable?: () -> bool
+      def content_length: () -> Integer
+      def ==: (untyped other) -> bool
+      def eql?: (untyped other) -> bool
+      def hash: () -> Integer
+
+      private
+
+      def checked_body: (untyped body) -> Dexpace::Body
+      def frozen_headers: (untyped headers) -> Hash[String, String]
+    end
+
+    class Builder
+      attr_accessor parts: Array[Dexpace::MultipartBody::Part]
+      attr_accessor boundary: String?
+      attr_accessor subtype: String
+
+      def initialize: (?parts: Array[Dexpace::MultipartBody::Part], ?boundary: String?,
+                       ?subtype: String) -> void
+      def build: () -> Dexpace::MultipartBody
+    end
+
+    attr_reader parts: Array[Dexpace::MultipartBody::Part]
+    attr_reader boundary: String
+    attr_reader subtype: String
+    attr_reader media_type: Dexpace::MediaType
+
+    def initialize: (untyped parts, ?boundary: untyped, ?subtype: untyped) -> void
+    def new_builder: () -> Dexpace::MultipartBody::Builder
+    def replayable?: () -> bool
+    def content_length: () -> Integer
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def self.generate_boundary: () -> String
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    @content_length: Integer?
+
+    def compute_content_length: () -> Integer
+    def emit: (Dexpace::IO::_Sink sink, ?count_only: bool) -> Integer
+    def emit_part: (Dexpace::IO::_Sink sink, Dexpace::MultipartBody::Part part, String delimiter,
+                    bool count_only) -> Integer
+    def payload: (Dexpace::IO::_Sink sink, Dexpace::MultipartBody::Part part, bool count_only)
+               -> Integer
+    def part_headers: (Dexpace::MultipartBody::Part part) -> String
+    def disposition: (Dexpace::MultipartBody::Part part) -> String
+    def sweep!: (String line) -> nil
+    def quote: (String value) -> String
+    def validate_subtype!: (untyped subtype) -> String
+    def validate_boundary!: (untyped boundary) -> String
+  end
+end
