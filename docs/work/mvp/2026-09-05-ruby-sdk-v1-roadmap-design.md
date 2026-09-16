@@ -2871,3 +2871,72 @@ lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentenc
 list are rewritten from what was built. The consolidation of P4-12–P4-25 and P4-40–P4-49 into design §10, and
 §5.1's, §5.2's and §6.1's addenda, are a human's, as they were for 3a and 3b: `docs/sdk-design-ruby/` is frozen,
 and `docs/deviations.md` is left as phase 2 left it for phase 10 to flip.
+
+**2026-09-16** — **Phase 4c implemented**, as three stacked branches against issue #16: code, tests,
+documentation, cut from phase 4b's docs tip (`15-phase-4b-recovery-primitives-docs` at 6099c66, still open as
+#53 → #54 → #55) rather than from `main`, because the one thing 4c consumes — `Dexpace::Recovery::Transform` —
+lives there; phase 4a was built in parallel in another worktree off `main`, nothing of 4a's is on this base and 4c
+names no 4a constant anywhere. `dexpace-core` now carries the stage pipeline beside the domain model, the seam
+layer, the byte-streaming layer, the body layer and the recovery layer — twelve new `lib/` files under
+`lib/dexpace/`, exactly the design's Module Layout: `error/pipeline_error.rb`, `pipeline.rb` (`Dexpace::Pipeline`,
+`.builder`, `.direct`), under `pipeline/` the closed `Stage`, the sixteen-constant `Stages` with `ALL`, `PILLARS` and
+`.of`, the `Step` protocol with its `_Step`/`_AsyncStep` interfaces, `Entry` with its optional anchor name, the
+forward-only `Cursor` with its pillar-only `#fork` and `(stage, key)` state, the two private drivers, the one
+`Builder` both runtimes share, and the `TransformStep` adapter over 4b's `Transform`, then `async_pipeline.rb`
+(`Dexpace::AsyncPipeline`, `.direct`, `.map_response`) — each with its `sig/` mirror, the two drivers' included for
+the strict Steep target (P4-50), and every one but the two drivers with a `test/` mirror; two files changed as the
+design said (the entry file's twelve-line block with `pipeline` first among the nested set, and the smoke suite's
+`PIPELINE_LAYER`), `sig/dexpace.rbs` is untouched (P4-51), four test-support files are new (`probe_step.rb`,
+`forking_probe.rb`, `state_probe.rb` — one class per file, which `Style/OneClassPerFile` decided — and the doubles'
+own suite), phase 2's `fake_async_transport.rb` is reused unchanged and its `inline_executor.rb` extended
+compatibly with a `#posts` counter (P4-54), and the other five gems are still phase-0 skeletons at `0.0.0`;
+nothing talks to a socket. The checklist is at
+`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline-checklist.md`: forty-seven rows, the forty own
+`PIPE` IDs plus seven cross-reference rows (`REDIR-11`, `AUTH-29`, `XCUT-11`, `NFR-11`, `SEAM-18`, `TRANSPORT-1`,
+`TRANSPORT-2`) — 37 ✅, `PIPE-33` ✅ in part with clause 5 ⏳ under design §10.5 (`docs/first-release.md` §
+Unsatisfied MUSTs, whose entry names this row; the four met clauses are named so the row is not read as unbuilt),
+`PIPE-36` ⏳ declined (`docs/first-release.md` § SHOULD/MAY), `PIPE-39` ⏳ in half (phase 6b, Task 13a), nothing
+🚫, nothing N/A. `bundle exec rake` is green on 4.0.6 at the tests tip with 99.97% line coverage against the 80%
+floor and 1,434 runs across the six gems (144 of them the eleven new suites, one more the smoke suite gained),
+re-run after review round 0's repair; the matrix set is green on 3.2.11 (99.97% line coverage there too — the
+one uncovered line is the registry-claim race branch, reached nondeterministically), 3.3.12 and 3.4.10; the
+code tip is green on all seventeen gates too, its `test:gems` at 1,290 runs and **95.02%** (94.96% on 3.2.11),
+above the floor. **Every guard the plan and the brief ask to be run red was run red, and thirty-two
+single-edit mutations were run** — thirty-one caught, the
+one survivor a first attempt at "flatten by insertion order" that reproduced `ALL`'s order by accident and was
+replaced by a genuine one; the `Stage#with` decision and the three identity-versus-`==` guards were red on 3.2.11
+as well as 4.0.6, and six more mutations were run red after review round 0's repair, one per line it made
+load-bearing, the three identity ones on both interpreters. **What shipped of `PIPE-39`**: `Pipeline.direct` / `AsyncPipeline.direct`, `Builder#install_preset`
+(PIPE-24's all-or-nothing mechanism, real and tested against probe pillars) and `Builder.flattening` / `.nesting`;
+**what stays postponed**: the standard-resilience constructors `Pipeline.standard` / `AsyncPipeline.standard` with
+`PIPE-32`'s `redirect: :unsupported` argument — phase 6b, Task 13a, written over `#install_preset`, its Task 14
+closing the row — `PIPE-33`'s interrupt clause (§10.5, re-asserted by phase 8b when the executor becomes real),
+and `PIPE-36` (declined). The design's two findings were verified rather than re-recorded: the type-keyed surgical
+edits are repaired by `Entry#name` and the four edits' name anchors, and `Transport.async_over`'s missing
+return-type check was found already repaired on this base by phase 2's Task 11 (`Bridge::AsyncOver#deliver`
+raises `Dexpace::SeamError` for a delivered `Future`). Twenty-six departures from the plan's text are itemised
+in the checklist — nine where the built tree overrode its assumptions, three review round 0's, the rest this
+build's — none lowering a gate, and the ten that touch public behaviour or a stated count are the design
+ledger's As-built rows P4-50–P4-59: the drivers' `sig/` mirrors, every constant declared in its own mirror,
+`AsyncDriver` returning a step's future as itself and refusing a non-`Future` with `SeamError`, `map_response`
+written over `Future#then`, `InlineExecutor`'s counter, `Stage`'s raw readers private, **`Stage#with` refusing**
+(the closed-set hole the brief's as-built point 9 named: `Data#with` would otherwise mint a seventeenth stage on
+3.4 and 4.0, and `Model#with` would route to a `Stage.build` that does not exist), `Cursor`'s three refusals with
+`#may_fork?` false on a spent cursor, and review round 0's two — every `Stage` the builder or an `Entry` holds
+resolved to its constant by identity through `Stages.of`, because `Data#dup`, `#clone` and `Marshal` are public
+and yield a `==`-but-not-`equal?` copy the builder's identity comparisons refused with a message naming the same
+stage twice (P4-58), and a mistyped anchor refused with `InvalidArgumentError` before any comparison instead of
+Ruby's `TypeError` once an entry existed (P4-59); the round's third fix, `PIPE-6`'s same-object no-op on the
+surgical inserts, is a requirement met rather than a deviation. No frozen-chapter sentence is contradicted by
+this build, so `docs/first-release.md`'s `C1`–`C14` paragraph gains no `C15` and that file is untouched.
+`docs/sdk-documentation/pipelines.md` is the as-built page, its ten fences run verbatim on 4.0.6 and 3.2.11
+(`Hash#inspect`'s spelling differing on the floor and nothing else). The counts that changed: `gems/` is still six; `dexpace-core`'s `lib/dexpace/` is ninety-one phase-1,
+phase-2, phase-3a, phase-3b, phase-4b and phase-4c files beside phase 0's `version.rb`, every one mirrored in
+`sig/` and every one but the four `private_constant`s mirrored in `test/`; `phase4/phase4c/` now carries its
+checklist, the seventh written; the surface manifest is 665 lines. `CLAUDE.md`'s built-phases paragraph, its
+lib-file and checklist counts and its constraints-that-bite list (the disjoint `#call`/`#fork`, the `(stage, key)`
+state with no writer, the closed sixteen-stage set) are rewritten from what was built. The consolidation of
+P4-26–P4-39 and P4-50–P4-59 into design §10, and §5.1's and §5.3's addenda, are a human's, as they were for 3a,
+3b and 4b: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2 left it for phase 10 to
+flip. This note goes after 4b's; the roadmap's execution-step-5 sentence is deliberately untouched, its
+correction riding phase 4a's docs PR.

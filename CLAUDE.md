@@ -13,8 +13,8 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b and 4b are built; the domain model, the seam layer, the byte-streaming layer, the
-body layer and the recovery layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4b and 4c are built; the domain model, the seam layer, the byte-streaming layer,
+the body layer, the recovery layer and the stage pipeline are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -44,7 +44,15 @@ lets no throwable past it, the `Transform` contract with the three shipped steps
 the two flat errors `Dexpace::ProtocolError` and `Dexpace::OutcomeError`, and the three error primitives every
 later phase uses — the suppressed-exception trail `Dexpace::Suppressible` (which `Dexpace::Error` includes) with
 `Dexpace.attach_suppressed` / `Dexpace.suppressed`, and the cycle-safe `Dexpace.each_cause`
-(`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`); every other
+(`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`) — and the stage
+pipeline, §8.1's dispatch runtime: `Dexpace::Pipeline` with its nested vocabulary — the sixteen
+`Stage` constants on `Pipeline::Stages` with `ALL`, `PILLARS` and `.of`, the `Step` protocol with its
+`_Step` / `_AsyncStep` interfaces, `Entry`, the forward-only `Cursor` with its pillar-only `#fork` and
+`(stage, key)` state, the one `Builder` both runtimes share, the `TransformStep` adapter over 4b's
+`Transform`, and the two private drivers — beside the flat `Dexpace::AsyncPipeline` with
+`.map_response` and the one error `Dexpace::PipelineError`; the two `SEAM-18` bridges are the
+pipeline's bridges and it ships none of its own
+(`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline-checklist.md`); every other
 gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -432,6 +440,23 @@ Each is one line plus the chapter to read before touching the area.
   (a caller's `hash`/`eql?` override defeats it); the cycle it guards is reachable only through a caller's
   `#cause` override, so the fixture is two never-raised instances chained through one, because a raise-built
   pair is not `==` on 3.2.11 and stops discriminating there (`XCUT-9`; phase 4b's design, verified fact 7).
+- **A step either drives once through `Cursor#call` or forks for every drive through `Cursor#fork`, never
+  both on one cursor** — `#call` is single-use and `#fork` after it raises `Dexpace::PipelineError`, so a
+  pillar step that re-drives (redirect, retry) forks for the first drive too; a fork is what writes
+  cursor-scoped state, and a first drive on the un-forked handle would have no stage slot to write. The
+  reuse guard is an unsynchronised flag and detects a *sequential* second call only (P4-33, P4-39).
+- **Cursor-scoped state is keyed by `(stage, key)`, written only as `Cursor#fork(state:)` into the forking
+  pillar's own slot, and read as a frozen `Hash` through `#state(stage)`** — there is no state-setting
+  method on the cursor, so a `RETRY` step between `REDIRECT` and `AUTH` cannot write the value `AUTH`
+  reads under `Stages::REDIRECT`; that is what makes phase 6's cross-origin marker structurally
+  unforgeable (P4-28, P4-29; `docs/knowledge/notes/pipeline.md`).
+- **The stage set is closed at sixteen, structurally** — `Dexpace::Pipeline::Stage` has no public
+  constructor and its `#with` refuses, so `Stages.of` and the sixteen constants are the whole population,
+  a caller cannot add a pillar, and both runtimes flatten through one `Stages::ALL` (P4-32; `PIPE-28`).
+  `Data#dup`, `#clone` and `Marshal` stay public and yield a copy that is `==` a constant and not `equal?`
+  to it, so `Entry.build` and `Builder#resolve` resolve every `Stage` they are handed through `Stages.of`
+  and the builder's identity comparisons over stages hold (P4-58). The runtimes are deliberately not
+  `Object#freeze`d: `PIPE-27`'s close latch writes an ivar.
 - **A public `Data` follows the construction pattern without exception; only a `private_constant` snapshot is
   exempt** — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are `Data` without `Model`
   and without `.build`, because a snapshot has no public constructor and no derivation (phase 2's P2-9).
@@ -534,9 +559,10 @@ probe compares each against the live tree, and a count written anywhere else in 
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
-  body layer and the phase-4b recovery layer — seventy-nine phase-1, phase-2, phase-3a, phase-3b and
-  phase-4b files under `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every
-  one of the seventy-nine but the two `private_constant`s `hooks.rb` and `recovery/ownership.rb` mirrored
+  body layer, the phase-4b recovery layer and the phase-4c stage pipeline — ninety-one phase-1, phase-2,
+  phase-3a, phase-3b, phase-4b and phase-4c files under `lib/dexpace/` beside phase 0's `version.rb`,
+  every one mirrored in `sig/`, and every one of the ninety-one but the four `private_constant`s
+  `hooks.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb` and `pipeline/async_driver.rb` mirrored
   in `test/`; every other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -547,12 +573,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — six
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — seven
   checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
-  and a plan, and `phase4/phase4b/` its checklist too. `phase5/` carries its segmentation design,
+  and a plan, and `phase4/phase4b/` and `phase4/phase4c/` their checklists too. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
   directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds a design
   and a plan. `phase6/` carries its segmentation design,
@@ -617,6 +643,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's and phase 4b's is still to be
-  written at execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4b's and phase 4c's is
+  still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

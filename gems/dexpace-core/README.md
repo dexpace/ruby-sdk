@@ -4,7 +4,7 @@ Part of the [dexpace Ruby SDK](../../README.md): an HTTP-client toolkit, not an 
 This gem is the core: the domain model, the pipeline and every seam's contract.
 
 **Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer,
-the body layer and the recovery layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+the body layer, the recovery layer and the stage pipeline are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -23,11 +23,14 @@ and phase 4b's recovery layer: the closed outcome `Dexpace::Outcome::Success` / 
 `Dexpace::Recovery` namespace with `RequestChain`, `ResponseChain`, `Orchestrator`, the `Transform`
 contract and the three shipped steps, `Recovery.buffer_error_body`, the errors `Dexpace::ProtocolError`
 and `OutcomeError`, and the three error primitives every later phase uses: the suppressed trail
-`Dexpace::Suppressible` with `Dexpace.attach_suppressed` / `.suppressed`, and `Dexpace.each_cause`.
-Nothing else yet: the stage pipeline and every adapter are later phases', and no transport ships
-here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
-`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`
-and `docs/sdk-documentation/recovery.md`.
+`Dexpace::Suppressible` with `Dexpace.attach_suppressed` / `.suppressed`, and `Dexpace.each_cause`
+-- and phase 4c's stage pipeline: `Dexpace::Pipeline` with its nested `Stages` (sixteen stage
+constants, `ALL`, `PILLARS`, `.of`), `Stage`, `Step`, `Entry`, `Cursor`, `Builder` and
+`TransformStep`, `Dexpace::AsyncPipeline` with `.map_response`, and `Dexpace::PipelineError`.
+Nothing else yet: the pillar step families and every adapter are later phases', and no transport
+ships here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
+`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
+`docs/sdk-documentation/recovery.md` and `docs/sdk-documentation/pipelines.md`.
 
 ## Install
 
@@ -125,6 +128,9 @@ it stays that way (`SEAM-1`, `NFR-1`).
 - `docs/sdk-documentation/recovery.md` -- the recovery layer as built: the outcome, the two chains
   and who closes the response, the orchestrator and its unwrap, the three shipped steps, the error
   trail and the cause walk.
+- `docs/sdk-documentation/pipelines.md` -- the stage pipeline as built: the sixteen stages, the
+  builder's pillar rules and surgical edits, the cursor's fork and stage-scoped state, the two
+  runtimes, the transform adapter, and why the bridges are phase 2's.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.
