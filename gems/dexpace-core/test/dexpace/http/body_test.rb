@@ -12,7 +12,8 @@ require "stringio"
 # and §10.2's #each.
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: the
-# contract's defaults and #each here, then Copy, Factories and BufferBounded below.
+# contract's defaults and #each here, then Copy, Factories, BufferBounded and BufferBoundedHandles
+# below.
 class DexpaceBodyTest < DexpaceTestCase
   # One shared factory set for every class below.
   module Bodies
@@ -446,6 +447,69 @@ class DexpaceBodyTest < DexpaceTestCase
           end
         end
       end
+    end
+  end
+
+  # BODY-32's clamp made observable, and the handle buffer_bounded takes and closes (review round
+  # 0, R0-1 and R0-2).
+  class BufferBoundedHandlesTest < DexpaceTestCase
+    include Bodies
+
+    def views(buffer)
+      buffer.instance_variable_get(:@dexpace_views).length
+    end
+
+    def fits_cap_wrapper(content = "héllo")
+      delegate = Dexpace::ResponseBody.new(source: Dexpace::IO::BufferedSource.of_bytes(content))
+      Dexpace::ResponseLoggingBody.new(delegate, preview_bytes: 64)
+    end
+
+    # "Silently clamp the cap down to the ceiling" has no symptom on a small body -- a clamped and
+    # an unclamped limit read the same ten bytes -- so the witness is the COUNT the first read asks
+    # the source for: exactly the ceiling, never the cap. Deleting the clamp asks for cap.
+    test "clamps a cap above the ceiling down to it before the first read, never up" do
+      ceiling = Dexpace::IO::MAX_MATERIALIZED_BYTES
+      [ceiling + 1, ceiling * 2, ::Float::INFINITY].each do |cap|
+        delegate = BufferBoundedTest::SourceDouble.new("body")
+        Dexpace::Body.buffer_bounded(delegate, cap: cap)
+
+        assert_equal(ceiling, delegate.source.calls.first, "cap #{cap}")
+      end
+    end
+
+    test "a cap at or below the ceiling reaches the source unclamped" do
+      delegate = BufferBoundedTest::SourceDouble.new("body")
+      Dexpace::Body.buffer_bounded(delegate, cap: 7)
+
+      assert_equal(7, delegate.source.calls.first)
+    end
+
+    # A BufferBody's #source is a fresh #peek view per call and its #close is the contract's no-op,
+    # so the copy routine is the only thing that can deregister the view it took.
+    test "closes the view it takes from a BufferBody, so repeated copies leave no view behind" do
+      buffer = buffer_of("héllo")
+      original = Dexpace::BufferBody.new(buffer)
+      20.times { Dexpace::Body.buffer_bounded(original, cap: 64) }
+
+      assert_equal(0, views(buffer))
+      assert_equal("héllo".b, original.source.read)
+    end
+
+    test "closes the view it takes from a fits-cap logging wrapper" do
+      wrapper = fits_cap_wrapper
+      20.times { Dexpace::Body.buffer_bounded(wrapper, cap: 64) }
+
+      assert_equal(0, views(wrapper.instance_variable_get(:@buffer)))
+    end
+
+    # A source with no #close -- Dexpace::IO::_Source declares none -- is left alone rather than
+    # sent a NoMethodError; the original body's own close still runs.
+    test "tolerates a source that answers no close" do
+      delegate = BufferBoundedTest::SourceDouble.new("body")
+      copy = Dexpace::Body.buffer_bounded(delegate, cap: 64)
+
+      assert_equal("body".b, copy.source.read)
+      assert_equal(1, delegate.closes)
     end
   end
 end

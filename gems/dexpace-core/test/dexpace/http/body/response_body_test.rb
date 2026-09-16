@@ -4,6 +4,7 @@
 require_relative "../../../test_helper"
 require "dexpace"
 require_relative "../../../support/fake_sink"
+require_relative "../../../support/fake_source"
 require "stringio"
 
 # HTTP-41, HTTP-46, BODY-14, BODY-15, BODY-32, BODY-33.
@@ -171,6 +172,39 @@ class DexpaceResponseBodyTest < DexpaceTestCase
       assert_equal("abc".b, body("abc").preview(cap: ::Float::INFINITY))
     end
 
+    # The clamp has no symptom on a three-byte body, so the witness is the count the view's first
+    # fill asks the wrapped stream for: the ceiling, never the cap (review round 0, R0-2). The
+    # view's fill passes the caller's count through to the upstream's #readpartial (3a's
+    # #dexpace_fill_beyond), which is what makes the count observable from outside.
+    test "the clamp is applied before the first read reaches the stream" do
+      ceiling = Dexpace::IO::MAX_MATERIALIZED_BYTES
+      [ceiling + 1, ceiling * 2, ::Float::INFINITY].each do |cap|
+        recorder = CountingStream.new("abc")
+
+        assert_equal("abc".b, over(recorder).preview(cap: cap))
+        assert_equal(ceiling, recorder.maxlens.first, "cap #{cap}")
+      end
+    end
+
+    # A #readpartial-shaped stream that records the maxlen each call asked for.
+    class CountingStream
+      attr_reader :maxlens
+
+      def initialize(content)
+        @content = content.b
+        @maxlens = []
+      end
+
+      def readpartial(maxlen)
+        @maxlens << maxlen
+        raise ::EOFError, "done" if @content.empty?
+
+        out = @content.byteslice(0, maxlen)
+        @content = @content.byteslice(out.bytesize, @content.bytesize - out.bytesize)
+        out
+      end
+    end
+
     # BODY-32 as a property: negative raises, and every accepted cap returns at most
     # min(cap, ceiling, available) bytes.
     test "the clamp holds over negative, zero, huge and ceiling+1 caps" do
@@ -212,6 +246,24 @@ class DexpaceResponseBodyTest < DexpaceTestCase
       end
 
       assert_includes(error.message, "#read_into")
+    end
+
+    # A bare Dexpace::IO::_Source constructs nothing here: #preview needs #peek and Response's
+    # readers need #read and #read_string, so the check asks for the BufferedSource vocabulary
+    # rather than admitting a source that fails on its first use (review round 0, R0-5).
+    test "rejects a bare _Source: #preview and the readers need a BufferedSource's vocabulary" do
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace::ResponseBody.new(source: FakeSource.new("a"))
+      end
+
+      assert_includes(error.message, "#peek")
+      assert_includes(error.message, "FakeSource")
+    end
+
+    test "accepts a view of a BufferedSource, which answers the same vocabulary" do
+      view = Dexpace::IO::BufferedSource.of_bytes("héllo").peek
+
+      assert_equal("hé".b, Dexpace::ResponseBody.new(source: view).preview(cap: 3))
     end
 
     test "rejects a content_length below the -1 sentinel" do

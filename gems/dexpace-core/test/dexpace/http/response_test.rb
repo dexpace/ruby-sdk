@@ -3,6 +3,7 @@
 
 require_relative "../../test_helper"
 require "dexpace"
+require_relative "../../support/fake_response_body"
 
 # HTTP-3, HTTP-4, HTTP-5, HTTP-6, HTTP-11, HTTP-19. The `.build` coercion and rejection cases have
 # their own nested group, BuildTest, so the file keeps one top-level suite per lib file; phase
@@ -434,6 +435,41 @@ class DexpaceResponseTest < DexpaceTestCase
       assert_predicate(delegate, :closed?)
       assert_equal("hél".b[0, 4], wrapper.snapshot)
     end
+
+    # The handle #source returns is a fresh #peek view on a BufferBody and on a fits-cap wrapper,
+    # and neither body's #close reaches it, so the readers are the only thing that can deregister
+    # it (review round 0, R0-1). Twenty reads, zero views left: the same pin
+    # response_body_test.rb puts on #preview.
+    test "the readers close the view they take from a BufferBody, leaving no view behind" do
+      copy = Dexpace::Body.buffer_bounded(response_body("héllo"), cap: 64)
+      10.times { response(copy).body_string }
+      10.times { response(copy).body_bytes }
+
+      assert_equal(0, views(copy.instance_variable_get(:@buffer)))
+      assert_equal("héllo".b, copy.source.read)
+    end
+
+    test "the readers close the view they take from a fits-cap logging wrapper" do
+      wrapper = Dexpace::ResponseLoggingBody.new(response_body("héllo"), preview_bytes: 64)
+      10.times { response(wrapper).body_string }
+      10.times { response(wrapper).body_bytes }
+
+      assert_equal(0, views(wrapper.instance_variable_get(:@buffer)))
+    end
+
+    # Over-cap, the handle is the composite, whose close is the Tail's: it deregisters the prefix
+    # view the Tail took and reaches the wrapper's one close-once guard.
+    test "the readers close the over-cap composite, deregistering its prefix view" do
+      wrapper = Dexpace::ResponseLoggingBody.new(response_body("0123456789"), preview_bytes: 4)
+      response(wrapper).body_bytes
+
+      assert_equal(0, views(wrapper.instance_variable_get(:@buffer)))
+      assert_predicate(wrapper, :closed?)
+    end
+
+    def views(buffer)
+      buffer.instance_variable_get(:@dexpace_views).length
+    end
   end
 
   # HTTP-41/BODY-16: the finally-style close on both readers.
@@ -494,6 +530,28 @@ class DexpaceResponseTest < DexpaceTestCase
 
       assert_equal("", decoded)
       assert_equal(::Encoding::UTF_8, decoded.encoding)
+    end
+
+    # The handle's close and the body's close are two ensures, not one: a handle whose close
+    # raises still leaves the body closed, and the failure still propagates.
+    test "body_bytes closes the body even when the handle's own close raises" do
+      body = FakeResponseBody.new(RaisingHandle.new("héllo"))
+
+      assert_raises(::IOError) { response(body).body_bytes }
+      assert_equal(1, body.closes)
+    end
+
+    # A #read-and-#close-shaped handle whose close raises; nothing under Dexpace::IO does that.
+    class RaisingHandle
+      def initialize(content)
+        @content = content.b
+      end
+
+      def read = @content
+
+      def close
+        raise ::IOError, "the handle's close failed"
+      end
     end
   end
 end

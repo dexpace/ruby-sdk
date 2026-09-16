@@ -10,8 +10,9 @@ require "stringio"
 # BODY-22, BODY-23, BODY-24, BODY-25, BODY-26, BODY-27, BODY-28, BODY-29, BODY-34, IO-42.
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: BODY-22's
-# drain-once and the two regimes here, then Failure (BODY-25, BODY-26), Close (BODY-27, BODY-28,
-# IO-42), Length (BODY-29), Serialization (BODY-22) and Construction below.
+# drain-once and the two regimes here, then Tail (BODY-24 over a live delegate, BODY-25), Failure
+# (BODY-25, BODY-26), Close (BODY-27, BODY-28, IO-42), Length (BODY-29), Serialization (BODY-22)
+# and Construction below.
 class DexpaceResponseLoggingBodyTest < DexpaceTestCase
   # One shared factory set for every class below.
   module Wrappers
@@ -168,6 +169,79 @@ class DexpaceResponseLoggingBodyTest < DexpaceTestCase
 
     assert_equal("0123".b, subject.snapshot)
     assert_equal("0123456789".b, read_all(subject.source))
+  end
+
+  # BODY-24's composite over a LIVE delegate: the tail is the consumer's real byte path, so it
+  # must deliver what has arrived, not block for a count (review round 0, R0-3).
+  class TailTest < DexpaceTestCase
+    include Wrappers
+
+    # A real IO.pipe with its writer held open: ten bytes written, two captured, one probed, and a
+    # partial read of 1000 must return the seven that are there while the connection is still
+    # open. Forwarding the tail as BufferedSource#read(count) blocks here until EOF; the join's
+    # five-second timeout turns that hang into a failure, and the ensure closes the writer so the
+    # parked thread finishes either way.
+    test "a partial read on the live tail returns the bytes available without waiting for EOF" do
+      reader, writer = ::IO.pipe
+      delegate = Dexpace::ResponseBody.new(source: Dexpace::IO::BufferedSource.wrapping(reader))
+      subject = wrapper(delegate, preview_bytes: 2)
+      writer.write("0123456789")
+      subject.snapshot
+      tail = subject.source
+
+      assert_equal("01".b, tail.readpartial(4))
+      assert_equal("2".b, tail.readpartial(4))
+      got = nil
+      thread = ::Thread.new { got = tail.readpartial(1000) }
+      finished = thread.join(5)
+
+      refute_nil(finished, "the tail's partial read blocked with seven bytes available")
+      assert_equal("3456789".b, got)
+    ensure
+      writer&.close
+      thread&.join(5)
+      tail&.close
+    end
+
+    test "the live tail is forwarded through read_into and asks the delegate for nothing more" do
+      recorder = ReadIntoOnly.new("0123456789")
+      subject = wrapper(FakeResponseBody.new(recorder), preview_bytes: 4)
+
+      assert_equal("0123456789".b, read_all(subject.source))
+      assert_equal([4, 1], recorder.counts.first(2))
+    end
+
+    # BODY-25 reaches the tail too: a zero return for the positive count .wrapping asks with is
+    # the contract violation, never end of stream, and never a latched empty composite.
+    test "a zero read from the live delegate is a stream-contract violation on the tail" do
+      subject = wrapper(FakeResponseBody.new(FakeSource.new("0123", "4", 0)), preview_bytes: 4)
+      tail = subject.source
+
+      assert_equal("01234".b, tail.read(5))
+      error = assert_raises(Dexpace::StreamError) { tail.read(1) }
+      assert_includes(error.message, "IO-17")
+    end
+
+    # Exactly Dexpace::IO::_Source -- #read_into and nothing else -- with the counts it was asked
+    # for, so "nothing more than the primitive" is asserted rather than described.
+    class ReadIntoOnly
+      attr_reader :counts
+
+      def initialize(content)
+        @remaining = content.b
+        @counts = []
+      end
+
+      def read_into(dest, count:)
+        @counts << count
+        return -1 if @remaining.empty?
+
+        taken = [count, @remaining.bytesize].min
+        dest << @remaining.byteslice(0, taken)
+        @remaining = @remaining.byteslice(taken, @remaining.bytesize - taken)
+        taken
+      end
+    end
   end
 
   # BODY-25 and BODY-26: a zero read, and a mid-drain failure's three behaviours.

@@ -340,5 +340,17 @@ class DexpaceMultipartBodyTest < DexpaceTestCase
       assert_equal(first.hash, same.hash)
       assert_equal(part, part)
     end
+
+    # The subtype is the third value-determining fact: same parts, same boundary, a different
+    # Content-Type on the wire (review round 0, R0-4).
+    test "two bodies that differ only in subtype are different values" do
+      form = Dexpace::Body.multipart([part], boundary: "XyZ", subtype: "form-data")
+      mixed = Dexpace::Body.multipart([part], boundary: "XyZ", subtype: "mixed")
+
+      refute_equal(form, mixed)
+      refute_equal(form.hash, mixed.hash)
+      refute_equal(form.media_type, mixed.media_type)
+      refute_operator(form, :eql?, mixed)
+    end
   end
 end
