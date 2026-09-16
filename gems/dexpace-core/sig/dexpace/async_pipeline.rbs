@@ -1,0 +1,24 @@
+module Dexpace
+  class AsyncPipeline
+    include Dexpace::Closeable
+
+    @entries: Array[Pipeline::Entry]
+    @steps: Array[untyped]
+    @transport: untyped
+    @driver_class: untyped
+
+    attr_reader entries: Array[Pipeline::Entry]
+    attr_reader steps: Array[untyped]
+    attr_reader transport: untyped
+
+    # .new is private and driver_class: is an argument only Builder can supply, so neither is
+    # public surface NFR-4 locks.
+    private def self.new: (entries: Array[Pipeline::Entry], transport: untyped, driver_class: untyped) -> instance
+    def initialize: (entries: Array[Pipeline::Entry], transport: untyped, driver_class: untyped) -> void
+
+    def self.direct: (untyped transport) -> AsyncPipeline
+    def self.map_response: (Dexpace::Async::Future source) { (Dexpace::Response response) -> untyped } -> Dexpace::Async::Future
+
+    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation) -> Dexpace::Async::Future
+  end
+end

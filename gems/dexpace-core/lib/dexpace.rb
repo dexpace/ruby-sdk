@@ -115,6 +115,8 @@ require_relative "dexpace/pipeline/cursor"
 require_relative "dexpace/pipeline/sync_driver"
 require_relative "dexpace/pipeline/async_driver"
 require_relative "dexpace/pipeline/builder"
+require_relative "dexpace/pipeline/transform_step"
+require_relative "dexpace/async_pipeline"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
