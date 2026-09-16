@@ -42,9 +42,7 @@ module Dexpace
       validate_context!(bundle: bundle, call_key: call_key, store: store)
       Model.required!("request", request)
       Model.required!("response", response)
-      if !operation_name.nil? && operation_name.empty?
-        raise InvalidArgumentError, "operation_name must not be empty"
-      end
+      validate_operation_name!(operation_name)
 
       super
     end

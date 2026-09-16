@@ -16,5 +16,6 @@ module Dexpace
     def close: () -> bool
 
     private def validate_context!: (bundle: untyped, call_key: String, store: untyped) -> nil
+    private def validate_operation_name!: (String? operation_name) -> nil
   end
 end
