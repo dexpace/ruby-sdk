@@ -35,6 +35,20 @@ class RubocopConfigTest < GateCase
     assert_equal("nested", CONFIG.dig("Style/ClassAndModuleChildren", "EnforcedStyle"))
   end
 
+  # Phase 4a (P4-10): CTX-19's cop is scoped to EVERY gem's lib/, not core alone, because
+  # gates:require_allowlist covers core's lib/ only and an adapter gem can hold a context too.
+  # The same scope as the two lib/-only cops before it; a narrowing to one gem is the mutation
+  # this test exists to catch.
+  test "Dexpace/NoWeakReferences is required, enabled, and reaches every gem's lib/" do
+    assert_includes(CONFIG.fetch("require"), "./.rubocop/cops/dexpace/no_weak_references.rb")
+    assert(CONFIG.dig("Dexpace/NoWeakReferences", "Enabled"))
+    assert_equal(["gems/*/lib/**/*.rb"], CONFIG.dig("Dexpace/NoWeakReferences", "Include"))
+    assert_equal(
+      CONFIG.dig("Dexpace/QualifiedCoreConstant", "Include"),
+      CONFIG.dig("Dexpace/NoWeakReferences", "Include"),
+    )
+  end
+
   test "the gate itself runs at --fail-level=convention with no autocorrection" do
     body = File.read(File.join(ROOT, "tasks/quality.rake"))
     # The `rubocop:fix` convenience in the same file is allowed to autocorrect; the gate is not.
