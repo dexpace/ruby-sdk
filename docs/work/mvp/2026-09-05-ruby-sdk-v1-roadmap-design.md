@@ -3020,4 +3020,10 @@ manifest is 580 lines; the cop suite is 129 cases. `CLAUDE.md`'s built-phases pa
 phase-directory sentences and the constraints-that-bite list are rewritten from what was built. The
 consolidation of P4-1–P4-11 and P4-60 into design §10, and §5.4's and §8.1's addenda, are a human's, as
 they were for 3a and 3b: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2
-left it for phase 10 to flip.
+left it for phase 10 to flip. **Those counts are the build's, cut from `main` at 419aace.** Phases 4b and
+4c merged first (#53–#55, #60–#62), so the stack was rebased onto their `main` on 2026-09-16 before it went
+in: the entry file carries the three phase-4 blocks in sub-phase order, the surface manifest was regenerated
+on the merged tree rather than merged by hand (665 + 65 = 730 lines, no row of 4b's or 4c's changed), the
+smoke suite pins all three layers, and `CLAUDE.md`, the READMEs and `architecture.md` read one hundred and
+three files, six `private_constant`s without a `test/` mirror and eight checklists — 4a's is the eighth
+written, not the sixth, in merge order.
