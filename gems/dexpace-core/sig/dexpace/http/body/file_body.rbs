@@ -1,0 +1,25 @@
+module Dexpace
+  class FileBody
+    include Dexpace::Body
+
+    attr_reader path: String
+    attr_reader offset: Integer
+    attr_reader count: Integer
+    attr_reader media_type: Dexpace::MediaType?
+
+    def initialize: (untyped path, ?media_type: Dexpace::MediaType?, ?offset: Integer,
+                     ?count: Integer?) -> void
+    def content_length: () -> Integer
+    def replayable?: () -> bool
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    def validate_target!: (String target) -> void
+    def validate_window!: (untyped offset, untyped count) -> void
+    def resolve_count: (String target, Integer offset, Integer? count) -> Integer
+  end
+end

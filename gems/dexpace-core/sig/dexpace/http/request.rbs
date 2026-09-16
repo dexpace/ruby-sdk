@@ -5,15 +5,18 @@ module Dexpace
     attr_reader method: Method
     attr_reader url: URI::Generic
     attr_reader headers: Headers
-    attr_reader body: untyped
+    # Phase 3b narrowed this from untyped to the production contract (P3-15): HTTP-36's "a thing
+    # with a single write-to-sink operation, a media type, a length and a replayability
+    # property", not §10.2's #each duck type, which is what a body yields.
+    attr_reader body: Dexpace::Body?
 
     private def self.new: (method: String | Symbol | Method, url: String | URI::Generic,
-                           headers: Headers, body: untyped) -> instance
+                           headers: Headers, body: Dexpace::Body?) -> instance
     def initialize: (method: String | Symbol | Method, url: String | URI::Generic,
-                     headers: Headers, body: untyped) -> void
+                     headers: Headers, body: Dexpace::Body?) -> void
 
     def self.build: (method: String | Symbol | Method, url: String | URI::Generic,
-                     headers: Headers, ?body: untyped) -> Request
+                     headers: Headers, ?body: Dexpace::Body?) -> Request
     def self.builder: () -> Request::Builder
 
     def new_builder: () -> Request::Builder

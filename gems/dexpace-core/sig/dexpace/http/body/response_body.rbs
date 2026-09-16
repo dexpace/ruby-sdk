@@ -1,0 +1,26 @@
+module Dexpace
+  class ResponseBody
+    include Dexpace::Body
+    include Dexpace::Closeable
+
+    attr_reader source: Dexpace::IO::BufferedSource
+    attr_reader media_type: Dexpace::MediaType?
+    attr_reader content_length: Integer
+
+    # `source` is untyped for BufferedSource.wrapping's reason: anything responding to #read_into,
+    # checked at runtime as a duck, which strict Steep refuses to send to an interface.
+    def self.new: (source: untyped, ?media_type: Dexpace::MediaType?,
+                   ?content_length: Integer) -> Dexpace::ResponseBody
+                | [T] (source: untyped, ?media_type: Dexpace::MediaType?,
+                       ?content_length: Integer) { (Dexpace::ResponseBody) -> T } -> T
+
+    def initialize: (source: untyped, ?media_type: Dexpace::MediaType?,
+                     ?content_length: Integer) -> void
+    def preview: (cap: untyped) -> String
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+
+    private
+
+    def release: () -> nil
+  end
+end

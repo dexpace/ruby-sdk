@@ -1,17 +1,21 @@
 module Dexpace
   module PercentEncoding
     UNRESERVED: Array[Integer]
-    # The three tables below are `private_constant` in Ruby; RBS has no way to say so.
+    # The four tables below are `private_constant` in Ruby; RBS has no way to say so.
     ENCODED: Hash[Integer, String]
     HEX_VALUES: Hash[Integer, Integer]
     PERCENT: Integer
+    FORM_UNRESERVED: Array[Integer]
 
     def self?.encode_component: (String text) -> String
     def self?.decode_component: (String text) -> String
+    def self?.encode_form: (untyped pairs) -> String
+    def self?.encode_form_component: (String text) -> String
 
     private
 
     def passthrough: (Integer byte) -> String?
+    def form_passthrough: (Integer byte) -> String?
     def escape_at: (String bytes, Integer index) -> Integer?
   end
 end

@@ -1,0 +1,22 @@
+module Dexpace
+  class FormBody
+    include Dexpace::Body
+
+    MEDIA_TYPE: Dexpace::MediaType
+
+    attr_reader pairs: Array[[String, String]]
+
+    def initialize: (untyped pairs) -> void
+    def media_type: () -> Dexpace::MediaType
+    def content_length: () -> Integer
+    def replayable?: () -> bool
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    @bytes: String
+  end
+end

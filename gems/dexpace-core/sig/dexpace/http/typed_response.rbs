@@ -1,0 +1,30 @@
+module Dexpace
+  class TypedResponse
+    attr_reader response: Dexpace::Response
+
+    # `handler` is untyped for the reason every duck-checked parameter in this gem is: the runtime
+    # check is respond_to?(:call), which strict Steep refuses to send to an interface type. The
+    # interface a consumer types its handler against is Dexpace::_ResponseHandler (sig/dexpace/
+    # http/body.rbs).
+    def initialize: (response: Dexpace::Response, handler: untyped) -> void
+    def status: () -> Dexpace::Status
+    def headers: () -> Dexpace::Headers
+    def protocol: () -> Dexpace::Protocol
+    def reason: () -> String?
+    def request: () -> Dexpace::Request
+    def value: () -> untyped
+
+    private
+
+    @handler: untyped
+    @state: Symbol
+    @value: untyped
+    @error: Exception?
+    @mutex: Thread::Mutex
+    @condition: Thread::ConditionVariable
+
+    def claim_parse: () -> bool
+    def run_handler: () -> nil
+    def settle: (Symbol state, untyped value, Exception? error) -> nil
+  end
+end

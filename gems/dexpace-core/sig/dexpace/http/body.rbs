@@ -1,0 +1,83 @@
+module Dexpace
+  # HTTP-44/HTTP-45's handler contract (R7): any object responding to #call(response). It names
+  # Dexpace::Response and nothing of phase 7's, so NFR-11's scan stays clean and phase 7 supplies
+  # a status-aware handler INTO Dexpace::TypedResponse rather than replacing it.
+  interface _ResponseHandler
+    def call: (Dexpace::Response) -> untyped
+  end
+
+  # Every body satisfies Dexpace::IO::_Chunked structurally -- #each below is that interface's one
+  # method plus the block-less overload -- but the interface is not `include`d here: RBS refuses a
+  # module that includes an interface and re-declares its method (RBS::DuplicatedMethodDefinitionError
+  # on every includer), and the richer overload is the one a consumer's steep check needs.
+  module Body
+    MAX_BUFFERED_ERROR_BODY_BYTES: Integer
+
+    # Two private_constants with no visibility in RBS, declared so Steep can type #each and the
+    # counting run.
+    class BlockSink
+      def initialize: () { (String) -> void } -> void
+      def write: (*String strings) -> Integer
+
+      private
+
+      @block: ^(String) -> void
+    end
+
+    class CountingSink
+      attr_reader bytesize: Integer
+
+      def initialize: () -> void
+      def write: (*String strings) -> Integer
+    end
+
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def source: () -> Dexpace::IO::BufferedSource
+    def close: () -> nil
+    def media_type: () -> Dexpace::MediaType?
+    def content_length: () -> Integer
+    def replayable?: () -> bool
+    def to_replayable: () -> Dexpace::Body
+    def each: () { (String) -> void } -> nil
+            | () -> Enumerator[String, nil]
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    def self.bytes: (String bytes, ?media_type: Dexpace::MediaType?) -> Dexpace::BytesBody
+    def self.string: (String text, ?media_type: Dexpace::MediaType?, ?encoding: Encoding)
+                   -> Dexpace::BytesBody
+    def self.file: (String path, ?media_type: Dexpace::MediaType?, ?offset: Integer,
+                    ?count: Integer?) -> Dexpace::FileBody
+    def self.stream: (untyped io, ?media_type: Dexpace::MediaType?, ?content_length: Integer,
+                      ?close: bool) -> Dexpace::StreamBody
+    def self.chunked: (untyped chunked, ?media_type: Dexpace::MediaType?,
+                       ?content_length: Integer) -> Dexpace::ChunkedBody
+    def self.form: (untyped pairs) -> Dexpace::FormBody
+    def self.multipart: (Array[Dexpace::MultipartBody::Part] parts, ?boundary: String?,
+                         ?subtype: String) -> Dexpace::MultipartBody
+    def self.buffer: (Dexpace::IO::Buffer buffer, ?media_type: Dexpace::MediaType?)
+                   -> Dexpace::BufferBody
+    def self.buffer_bounded: (Dexpace::Body body, ?cap: Integer | Float) -> Dexpace::BufferBody
+
+    private def self.clamp_cap: (untyped cap) -> Integer
+    private def self.copy_bounded: (Dexpace::Body body, Dexpace::IO::Buffer buffer, Integer limit)
+                                 -> nil
+
+    private
+
+    # Prefixed so an including class's own state cannot collide with the latch.
+    @dexpace_body_mutex: Thread::Mutex
+    @dexpace_consumed: bool
+    @dexpace_writing: bool
+
+    def counting_sink: () -> CountingSink
+    def copy_exactly: (Dexpace::IO::_Source source, Dexpace::IO::_Sink sink, Integer count)
+                    -> Integer
+    def emit_exactly: (Dexpace::IO::_Sink sink, String string) -> Integer
+    def initialize_single_use: () -> nil
+    def claim_single_use!: () -> nil
+    def claim_replay!: () -> nil
+    def release_replay!: () -> nil
+  end
+end

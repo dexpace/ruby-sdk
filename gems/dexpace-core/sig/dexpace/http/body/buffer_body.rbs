@@ -1,0 +1,23 @@
+module Dexpace
+  class BufferBody
+    include Dexpace::Body
+
+    attr_reader media_type: Dexpace::MediaType?
+
+    def initialize: (Dexpace::IO::Buffer buffer, ?media_type: Dexpace::MediaType?) -> void
+    def content_length: () -> Integer
+    def source: () -> Dexpace::IO::BufferedSource
+    def replayable?: () -> bool
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    private
+
+    @buffer: Dexpace::IO::Buffer
+
+    # #== reads the other body's bytes through it with `send`, as Headers#== reaches #values.
+    def snapshot_bytes: () -> String
+  end
+end

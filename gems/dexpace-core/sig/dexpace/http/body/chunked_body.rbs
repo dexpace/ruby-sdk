@@ -1,0 +1,18 @@
+module Dexpace
+  class ChunkedBody
+    include Dexpace::Body
+
+    attr_reader media_type: Dexpace::MediaType?
+    attr_reader content_length: Integer
+
+    # `chunked` is untyped for BufferedSource.over's reason: anything responding to #each, checked
+    # at runtime as a duck, which strict Steep refuses to send to an interface.
+    def initialize: (untyped chunked, ?media_type: Dexpace::MediaType?,
+                     ?content_length: Integer) -> void
+    def write_to: (Dexpace::IO::_Sink sink) -> Integer
+
+    private
+
+    @chunked: untyped
+  end
+end

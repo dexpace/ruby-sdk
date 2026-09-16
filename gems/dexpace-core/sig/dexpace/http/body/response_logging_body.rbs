@@ -1,0 +1,58 @@
+module Dexpace
+  class ResponseLoggingBody
+    include Dexpace::Body
+    include Dexpace::Closeable
+
+    # A private_constant with no visibility in RBS, declared so Steep can type the composite.
+    class Tail
+      def initialize: (Dexpace::ResponseLoggingBody wrapper, Dexpace::IO::Buffer buffer,
+                       String? pending, untyped source) -> void
+      def read: (Integer count) -> String?
+      def close: () -> nil
+
+      private
+
+      @wrapper: Dexpace::ResponseLoggingBody
+      @view: Dexpace::IO::BufferedSource
+      @pending: String?
+      @source: untyped
+
+      def take_pending: () -> String?
+      def read_tail: (Integer count) -> String?
+    end
+
+    # `delegate` is untyped for BufferedSource.wrapping's reason: anything responding to #source,
+    # checked at runtime as a duck, which strict Steep refuses to send to an interface.
+    attr_reader delegate: untyped
+    attr_reader preview_bytes: Integer
+
+    def initialize: (untyped delegate, preview_bytes: Integer) -> void
+    def source: () -> Dexpace::IO::BufferedSource
+    def snapshot: () -> String
+    def error: () -> StandardError?
+    def content_length: () -> Integer
+    def media_type: () -> Dexpace::MediaType?
+    def write_to: (Dexpace::IO::_Sink sink) -> bot
+
+    private
+
+    @buffer: Dexpace::IO::Buffer
+    # The one handle #drain takes from the delegate's #source: untyped for the same reason as
+    # `delegate`, and nil until the drain has asked.
+    @upstream: untyped
+    @pending: String?
+    @state: Symbol
+    @error: StandardError?
+    @complete: bool
+    @tail_taken: bool
+    @mutex: Thread::Mutex
+    @condition: Thread::ConditionVariable
+
+    def claim_tail!: () -> nil
+    def ensure_drained: () -> nil
+    def drain: () -> nil
+    def fill_prefix: (untyped upstream) -> Integer
+    def capture_complete?: (untyped upstream, Integer taken) -> bool
+    def release: () -> nil
+  end
+end
