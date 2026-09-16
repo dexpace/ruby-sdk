@@ -36,11 +36,13 @@ module Dexpace
       def refuse_disagreement!: (Stage? declared, Stage? given) -> void
       def resolve: (stage_ref stage) -> Stage
       def install: (Stage stage, untyped step, name? name) { (Array[Entry], Entry) -> void } -> self
+      def same_occupant_of?: (Stage stage, Array[Entry] bucket, untyped step) -> bool
       def refuse_collision!: (Stage stage, Array[Entry] bucket, untyped step) -> void
       def surgical: (anchor anchor, untyped step, stage_ref? stage, name? name, ?exclusive: bool) { (Array[Entry], Integer, Entry) -> void } -> self
       def find_anchor: (anchor anchor) -> [Entry, Array[Entry]]
       def anchor_matches?: (Entry entry, anchor anchor) -> bool
       def named?: (anchor anchor) -> bool
+      def validate_anchor!: (untyped anchor) -> void
       def describe_anchor: (anchor anchor) -> String
       def reject_batch_name!: (Array[untyped] steps, name? name) -> void
       def validate_bulk: (untyped entries) -> Array[Entry]

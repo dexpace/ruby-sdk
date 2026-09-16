@@ -125,6 +125,7 @@ module Dexpace
       # @param anchor [Class, Module, Symbol, String]
       # @return [self]
       # @raise [Dexpace::PipelineError] for an absent anchor (PIPE-21) or a cross-stage move
+      # @raise [Dexpace::InvalidArgumentError] for an anchor that is neither a type nor a name
       def insert_after(anchor, step, stage: nil, name: nil)
         surgical(anchor, step, stage, name) do |bucket, index, entry|
           bucket.insert(index + 1, entry)
@@ -153,7 +154,9 @@ module Dexpace
       # absent. A name addresses exactly one entry, so a name anchor removes one.
       #
       # @return [self]
+      # @raise [Dexpace::InvalidArgumentError] for an anchor that is neither a type nor a name
       def remove(anchor)
+        validate_anchor!(anchor)
         @buckets.each_value { |bucket| bucket.reject! { |entry| anchor_matches?(entry, anchor) } }
         self
       end
@@ -254,20 +257,31 @@ module Dexpace
                              "stage #{given.name} (R10)"
       end
 
-      def resolve(stage) = stage.is_a?(Stage) ? stage : Stages.of(stage)
+      # Every stage the builder holds is one of the sixteen constants BY IDENTITY, so a Stage
+      # argument is canonicalised through Stages.of rather than taken as given: Data#dup, #clone
+      # and a Marshal round-trip each yield a copy that is == the constant and not equal? to it,
+      # and the two identity comparisons below (R10 row 3 and PIPE-18's cross-stage check) would
+      # otherwise refuse such a copy with a message naming the same stage on both sides.
+      def resolve(stage) = Stages.of(stage.is_a?(Stage) ? stage.name : stage)
 
       # Entry.build carries PIPE-8's rejection; the pillar rule and the insertion are here.
       def install(stage, step, name)
         entry = Entry.build(stage: stage, step: step, name: name)
         bucket = @buckets.fetch(stage)
-        return self if stage.pillar? && bucket.first&.step.equal?(step) # PIPE-6: idempotent
+        return self if same_occupant_of?(stage, bucket, step) # PIPE-6: idempotent
 
         refuse_collision!(stage, bucket, step)
         yield bucket, entry
         self
       end
 
-      # PIPE-5, and PIPE-6's "no error" half is #install's return above.
+      # PIPE-6's "same", in one expression for every install path: the pillar's occupant is this
+      # very object. #equal?, never == (see the class comment).
+      def same_occupant_of?(stage, bucket, step)
+        stage.pillar? && bucket.first&.step.equal?(step)
+      end
+
+      # PIPE-5, and PIPE-6's "no error" half is the same-object return in #install and #surgical.
       def refuse_collision!(stage, bucket, step)
         return unless stage.pillar? && !bucket.empty?
 
@@ -276,6 +290,10 @@ module Dexpace
               "install #{step.class} (use #replace to substitute) (PIPE-5)"
       end
 
+      # The insert-relative edits and #replace. PIPE-5 names insert-after and insert-before among
+      # the paths its distinct-step rule covers, so PIPE-6's same-object half reaches them too: an
+      # exclusive insert of a pillar's own occupant beside itself -- the only entry a pillar's
+      # bucket can hold, once the cross-stage check has passed -- is a no-op, as it is on #append.
       def surgical(anchor, step, stage, name, exclusive: true)
         anchor_entry, bucket = find_anchor(anchor)
         target = effective_stage(step, stage)
@@ -284,7 +302,11 @@ module Dexpace
                 "cannot insert #{step.class} declaring stage #{target.name} relative to anchor " \
                 "at stage #{anchor_entry.stage.name} (PIPE-18)"
         end
-        refuse_collision!(target, bucket, step) if exclusive
+        if exclusive
+          return self if same_occupant_of?(target, bucket, step) # PIPE-6: idempotent
+
+          refuse_collision!(target, bucket, step)
+        end
 
         index = bucket.index(anchor_entry) or raise SeamError, "anchor vanished from its bucket"
         yield bucket, index, Entry.build(stage: target, step: step, name: name)
@@ -294,6 +316,7 @@ module Dexpace
       # The first entry in flattened order matching `anchor`, and its bucket; PIPE-21's error
       # identifying the missing type -- or the missing name, for the same reason -- otherwise.
       def find_anchor(anchor)
+        validate_anchor!(anchor)
         match = entries.find { |entry| anchor_matches?(entry, anchor) }
         if match.nil?
           raise PipelineError, "#{describe_anchor(anchor)} was not found in pipeline (PIPE-21)"
@@ -310,6 +333,15 @@ module Dexpace
       end
 
       def named?(anchor) = anchor.is_a?(::Symbol) || anchor.is_a?(::String)
+
+      # Checked once, up front, so a mistyped anchor fails in the SDK's own form rather than as
+      # Ruby's `TypeError: class or module required` out of #is_a? -- which an unchecked anchor
+      # would raise only once an entry existed to compare against, and never on an empty builder.
+      def validate_anchor!(anchor)
+        return if anchor.is_a?(::Module) || named?(anchor)
+
+        raise InvalidArgumentError, "anchor takes a Module, Symbol or String, got #{anchor.class}"
+      end
 
       def describe_anchor(anchor)
         named?(anchor) ? "anchor step named #{anchor.inspect}" : "anchor step of type #{anchor}"
@@ -368,7 +400,7 @@ module Dexpace
       end
 
       def same_occupant?(entry)
-        entry.stage.pillar? && @buckets.fetch(entry.stage).first&.step.equal?(entry.step)
+        same_occupant_of?(entry.stage, @buckets.fetch(entry.stage), entry.step)
       end
 
       # Plan open question 4: phase 2's own predicate, not a local respond_to?(:call). Both seams

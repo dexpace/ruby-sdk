@@ -3,6 +3,7 @@
 
 require_relative "../model"
 require_relative "stage"
+require_relative "stages"
 require_relative "step"
 require_relative "../error/pipeline_error"
 require_relative "../error/invalid_argument_error"
@@ -34,17 +35,24 @@ module Dexpace
       # and a name that is nil, a Symbol or a String -- a String copied and frozen so a caller's
       # later mutation cannot reach the entry (XCUT-15).
       #
+      # The stage is held as the constant on Stages BY IDENTITY, whatever the caller passed:
+      # Data#dup, #clone and a Marshal round-trip each yield a Stage that is == its constant and
+      # not equal? to it, and the builder's cross-stage check compares entries' stages by identity
+      # (P4-32: Stages.of is the only lookup, and every stage the subsystem holds came through it).
+      #
       # @param stage [Dexpace::Pipeline::Stage]
       # @param step [#call] a two-argument callable (Step.conforms?)
       # @param name [Symbol, String, nil] the optional anchor
       # @return [Dexpace::Pipeline::Entry]
-      # @raise [Dexpace::InvalidArgumentError] for a non-Stage, a non-conforming step or a name
-      #   of another type
+      # @raise [Dexpace::InvalidArgumentError] for a non-Stage, a stage whose name is not one of
+      #   the sixteen, a non-conforming step or a name of another type
       # @raise [Dexpace::PipelineError] for the terminal SEND stage (PIPE-8)
       def self.build(stage:, step:, name: nil)
         unless stage.is_a?(Stage)
           raise InvalidArgumentError, "stage must be a Dexpace::Pipeline::Stage (PIPE-1)"
         end
+
+        stage = Stages.of(stage.name)
         if stage.terminal?
           raise PipelineError, "cannot install step at terminal stage SEND (PIPE-8)"
         end
