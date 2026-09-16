@@ -1,0 +1,17 @@
+module Dexpace
+  class ContextStore
+    MAX_TRACKED_CONTEXTS: Integer
+
+    self.@default: ContextStore
+    @map: BoundedMap
+
+    def self.default: () -> ContextStore
+
+    def initialize: (?cap: Integer) -> void
+    def set: (Context context) -> Context
+    def put: (Context context) -> Context
+    def []: (String call_key) -> Context?
+    def release: (Context context) -> bool
+    def size: () -> Integer
+  end
+end

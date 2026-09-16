@@ -79,6 +79,24 @@ require_relative "dexpace/http/body/request_logging_body"
 require_relative "dexpace/http/body/response_logging_body"
 require_relative "dexpace/http/typed_response"
 
+# Phase 4a: the execution context, in dependency order -- the conflict error, the module the
+# three flavours share, the private bounded map and the store over it, the instrumentation
+# subsystem (the flavour table, the two no-op singletons, the bundle that carries them), then the
+# private key generator and the three flavours innermost first, since each promotion names its
+# successor.
+require_relative "dexpace/error/context_conflict_error"
+require_relative "dexpace/context"
+require_relative "dexpace/bounded_map"
+require_relative "dexpace/context_store"
+require_relative "dexpace/instrumentation/trace_id_flavour"
+require_relative "dexpace/instrumentation/no_span"
+require_relative "dexpace/instrumentation/no_tracer"
+require_relative "dexpace/instrumentation/bundle"
+require_relative "dexpace/context/call_key"
+require_relative "dexpace/context/exchange_context"
+require_relative "dexpace/context/request_context"
+require_relative "dexpace/context/dispatch_context"
+
 # Phase 4b: the recovery layer, in dependency order -- the cause walk, the two flat errors, the
 # closed outcome and its two variants, the Recovery namespace with its buffering function, the
 # transform contract, the three transforms, the request chain, the private ownership helper, the

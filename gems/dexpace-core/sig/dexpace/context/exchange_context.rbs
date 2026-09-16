@@ -1,0 +1,26 @@
+module Dexpace
+  class ExchangeContext < Data
+    include Context
+
+    attr_reader bundle: Instrumentation::Bundle
+    attr_reader call_key: String
+    attr_reader store: untyped
+    attr_reader request: Dexpace::Request
+    attr_reader operation_name: String?
+    attr_reader response: Dexpace::Response
+
+    private def self.new: (
+      bundle: Instrumentation::Bundle, call_key: String, store: untyped,
+      request: Dexpace::Request, operation_name: String?, response: Dexpace::Response,
+    ) -> instance
+    def initialize: (
+      bundle: Instrumentation::Bundle, call_key: String, store: untyped,
+      request: Dexpace::Request, operation_name: String?, response: Dexpace::Response,
+    ) -> void
+
+    def self.build: (
+      bundle: Instrumentation::Bundle, request: Dexpace::Request, response: Dexpace::Response,
+      ?operation_name: String?, ?call_key: String?, ?store: untyped,
+    ) -> ExchangeContext
+  end
+end

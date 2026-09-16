@@ -1,0 +1,20 @@
+module Dexpace
+  # What an includer of Context must be beyond a Model: a Data whose members include the store
+  # #close releases through and the key it is registered under. The store is `untyped` because
+  # #validate_context! accepts any object answering #set and #release -- the narrowest duck type,
+  # api-design/88e6bf12 -- and strict Steep refuses respond_to? on an interface type (phase 3a).
+  interface _ContextHost
+    include _ModelInstance
+
+    def call_key: () -> String
+    def store: () -> untyped
+  end
+
+  module Context : _ContextHost
+    include Model
+
+    def close: () -> bool
+
+    private def validate_context!: (bundle: untyped, call_key: String, store: untyped) -> nil
+  end
+end

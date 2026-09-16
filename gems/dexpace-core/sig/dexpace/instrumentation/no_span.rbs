@@ -1,0 +1,15 @@
+module Dexpace
+  module Instrumentation
+    # Empty on purpose: phase 4 fixes the slot, phase 5c fixes the protocol, and an empty
+    # interface says so in the type system rather than in a comment.
+    interface _Span
+    end
+
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types NO_SPAN's construction. The privacy lives in lib/dexpace/instrumentation/no_span.rb.
+    class NoSpan
+    end
+
+    NO_SPAN: _Span
+  end
+end

@@ -1,0 +1,33 @@
+module Dexpace
+  module Instrumentation
+    class TraceIdFlavour < Data
+      include Model
+
+      NONE: TraceIdFlavour
+      W3C: TraceIdFlavour
+      DATADOG: TraceIdFlavour
+      ALL: Array[TraceIdFlavour]
+
+      attr_reader name: Symbol
+      attr_reader trace_id_pattern: Regexp
+      attr_reader invalid_trace_id: String
+      attr_reader max_value: Integer?
+
+      private def self.new: (
+        name: Symbol, trace_id_pattern: Regexp, invalid_trace_id: String, max_value: Integer?,
+      ) -> instance
+      def initialize: (
+        name: Symbol, trace_id_pattern: Regexp, invalid_trace_id: String, max_value: Integer?,
+      ) -> void
+
+      def self.build: (
+        name: Symbol, trace_id_pattern: Regexp, invalid_trace_id: String, ?max_value: Integer?,
+      ) -> TraceIdFlavour
+      def self.of: (Symbol name) -> TraceIdFlavour
+
+      def valid_trace_id?: (String trace_id) -> bool
+      def renders?: (String trace_id) -> bool
+      private def renderable?: (String trace_id) -> bool
+    end
+  end
+end

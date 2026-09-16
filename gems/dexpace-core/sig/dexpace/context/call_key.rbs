@@ -1,0 +1,14 @@
+# Dexpace::CallKey is a private_constant and not public API (design P4-3): this declaration
+# exists because the strict `core` Steep target checks every file under lib/ and needs the module
+# and its one method declared to type the three .build call sites, exactly as hooks.rbs does for
+# Dexpace::Hooks. RBS has no visibility for a constant, so the privacy lives in
+# lib/dexpace/context/call_key.rb alone, and the module takes no surface-manifest row and no
+# test/ mirror -- its behaviour is asserted at its call sites (dispatch_context_test.rb).
+module Dexpace
+  module CallKey
+    self.@mutex: Thread::Mutex
+    self.@counter: Integer
+
+    def self.mint: (Instrumentation::Bundle bundle) -> String
+  end
+end

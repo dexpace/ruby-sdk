@@ -1,0 +1,31 @@
+module Dexpace
+  module Instrumentation
+    # Empty on purpose, like _Span: phase 5c fixes the tracer protocol.
+    interface _Tracer
+    end
+
+    # The one method CTX-20 forces, in opentelemetry-api 1.11.0's own shape (P4-8).
+    interface _TracerFactory
+      def tracer: (
+        ?String? deprecated_name, ?String? deprecated_version,
+        ?name: String?, ?version: String?, ?attributes: Hash[String, untyped]?,
+      ) -> _Tracer
+    end
+
+    # Two private_constants with no visibility in RBS; declared because the strict `core` Steep
+    # target types the two singletons' construction. The privacy lives in
+    # lib/dexpace/instrumentation/no_tracer.rb.
+    class NoTracer
+    end
+
+    class NoTracerFactory
+      def tracer: (
+        ?String? deprecated_name, ?String? deprecated_version,
+        ?name: String?, ?version: String?, ?attributes: Hash[String, untyped]?,
+      ) -> _Tracer
+    end
+
+    NO_TRACER: _Tracer
+    NO_TRACER_FACTORY: _TracerFactory
+  end
+end

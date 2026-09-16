@@ -1,0 +1,9 @@
+module Dexpace
+  class ContextConflictError < ::StandardError
+    include Dexpace::Error
+
+    attr_reader call_key: String
+
+    def initialize: (String call_key) -> void
+  end
+end

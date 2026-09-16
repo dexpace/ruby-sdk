@@ -1,0 +1,47 @@
+module Dexpace
+  module Instrumentation
+    class Bundle < Data
+      include Model
+
+      INVALID_SPAN_ID: String
+      SPAN_ID_PATTERN: Regexp
+      TRACE_FLAGS_PATTERN: Regexp
+
+      NONE: Bundle
+
+      attr_reader trace_id: String
+      attr_reader span_id: String
+      attr_reader trace_flags: String
+      attr_reader trace_state: Array[[String, String]]
+      attr_reader flavour: TraceIdFlavour
+      attr_reader remote: bool
+      attr_reader span: _Span
+      attr_reader tracer_factory: _TracerFactory
+
+      private def self.new: (
+        trace_id: String, span_id: String, trace_flags: String,
+        trace_state: Array[[String, String]], flavour: TraceIdFlavour, remote: bool,
+        span: _Span, tracer_factory: _TracerFactory,
+      ) -> instance
+      def initialize: (
+        trace_id: String, span_id: String, trace_flags: String,
+        trace_state: Array[[String, String]], flavour: TraceIdFlavour, remote: bool,
+        span: _Span, tracer_factory: _TracerFactory,
+      ) -> void
+
+      def self.build: (
+        trace_id: String, span_id: String, flavour: TraceIdFlavour,
+        ?trace_flags: String, ?trace_state: Array[[String, String]], ?remote: bool,
+        ?span: _Span, ?tracer_factory: _TracerFactory,
+      ) -> Bundle
+
+      def valid?: () -> bool
+      def remote?: () -> bool
+
+      private def validate_identifiers!: (TraceIdFlavour flavour, String trace_id, String span_id) -> void
+      private def validate_wire_fields!: (String trace_flags, Array[[String, String]] trace_state) -> void
+      private def valid_span_id?: (String value) -> bool
+      private def string_pair?: (untyped value) -> bool
+    end
+  end
+end

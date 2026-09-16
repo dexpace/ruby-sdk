@@ -1,0 +1,27 @@
+module Dexpace
+  class RequestContext < Data
+    include Context
+
+    attr_reader bundle: Instrumentation::Bundle
+    attr_reader call_key: String
+    attr_reader store: untyped
+    attr_reader request: Dexpace::Request
+    attr_reader operation_name: String?
+
+    private def self.new: (
+      bundle: Instrumentation::Bundle, call_key: String, store: untyped,
+      request: Dexpace::Request, operation_name: String?,
+    ) -> instance
+    def initialize: (
+      bundle: Instrumentation::Bundle, call_key: String, store: untyped,
+      request: Dexpace::Request, operation_name: String?,
+    ) -> void
+
+    def self.build: (
+      bundle: Instrumentation::Bundle, request: Dexpace::Request,
+      ?operation_name: String?, ?call_key: String?, ?store: untyped,
+    ) -> RequestContext
+
+    def promote_to_exchange: (response: Dexpace::Response) -> ExchangeContext
+  end
+end
