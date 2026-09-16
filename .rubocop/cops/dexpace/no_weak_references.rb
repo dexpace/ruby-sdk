@@ -17,12 +17,15 @@ module RuboCop
       #
       # Three spellings: a constant reference to ObjectSpace::WeakMap or ::WeakKeyMap (qualified,
       # cbase-qualified, or bare and lexically inside `module ObjectSpace`); a reference to
-      # WeakRef, bare or cbase-qualified; and `require "weakref"` in the forms tools/require_scan.rb
-      # reads. The last is redundant inside dexpace-core, where gates:require_allowlist already
-      # rejects it, and is not redundant anywhere else -- the allowlist covers core's lib/ alone,
-      # which is why .rubocop.yml scopes this cop to every gem's lib/. Neither this cop nor the
-      # CTX-19 reachability test can see a third-party store: a reimplementation is by
-      # definition outside these gates.
+      # WeakRef, bare or cbase-qualified; and `require "weakref"` -- bare, parenthesised, or
+      # through `Kernel.require` / `::Kernel.require`, and nothing else. An `autoload :WeakRef,
+      # "weakref"` is NOT matched here: it names the constant as a Symbol, and the reference
+      # that later triggers it is one the second spelling flags, so the autoload form needs no
+      # row of its own. The last spelling is redundant inside dexpace-core, where
+      # gates:require_allowlist already rejects it, and is not redundant anywhere else -- the
+      # allowlist covers core's lib/ alone, which is why .rubocop.yml scopes this cop to every
+      # gem's lib/. Neither this cop nor the CTX-19 reachability test can see a third-party
+      # store: a reimplementation is by definition outside these gates.
       class NoWeakReferences < Base
         MSG = "`%<offender>s` is forbidden: a context must not be held by a weak reference " \
               "(CTX-19); the bounded cap (CTX-11) is the leak backstop."

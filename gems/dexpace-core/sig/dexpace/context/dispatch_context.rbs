@@ -4,7 +4,7 @@ module Dexpace
 
     attr_reader bundle: Instrumentation::Bundle
     attr_reader call_key: String
-    # untyped rather than ContextStore: Context.validate! accepts any object answering #set and
+    # untyped rather than ContextStore: #validate_context! accepts any object answering #set and
     # #release (the narrowest duck type), and the suite's FakeStore relies on that.
     attr_reader store: untyped
 
