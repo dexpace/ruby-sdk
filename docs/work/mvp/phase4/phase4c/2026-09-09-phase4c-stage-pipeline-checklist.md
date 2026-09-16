@@ -19,7 +19,7 @@ N/A not applicable in this port.
 
 Plan: `docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline.md`. Task numbers are that
 plan's. Design: `docs/work/mvp/phase4/phase4c/2026-09-08-phase4c-stage-pipeline-design.md`, whose
-Deviation Ledger rows `P4-26`–`P4-39` and as-built rows `P4-50`–`P4-57` are cited below; the
+Deviation Ledger rows `P4-26`–`P4-39` and as-built rows `P4-50`–`P4-59` are cited below; the
 charter is `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`. Every test file named
 here is under `gems/dexpace-core/test/`, mirrors its `lib/` file one for one, and opens with the IDs
 it exercises.
@@ -39,11 +39,11 @@ nothing 🚫, nothing N/A.
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
 | `PIPE-1` | MUST | ✅ | 2, 7, 8 | Cross-stage order derives from `Stages::ALL`'s position and from nothing else: `Builder#entries` is `Stages::ALL.filter_map { @buckets[stage] }.flatten(1)`, and there is no accumulated order to consult. The requirement's own conformance clause is run verbatim — fifteen `ProbeStep`s, one per installable stage, installed in a **shuffled** order under `Random.new(42)` with the order printed on failure, and the entry log equals the fifteen stages in order with the exit log its exact reverse (`dexpace/pipeline_test.rb`); a two-stage version asserts `PRE_REDIRECT` before `POST_SERDE` whatever was appended first (`pipeline/builder_test.rb`). The guard that flattens an insertion-order list instead fails the shuffled test with the install order in its message |
-| `PIPE-2` | MUST | ✅ | 2, 8 | `Stages::ALL` is `PRE_REDIRECT, REDIRECT, POST_REDIRECT, PRE_RETRY, RETRY, POST_RETRY, PRE_AUTH, AUTH, POST_AUTH, PRE_LOGGING, LOGGING, POST_LOGGING, PRE_SERDE, SERDE, POST_SERDE, SEND`, asserted as a list of names (`pipeline/stages_test.rb`), and the requirement's own conformance clause is run: under a `ForkingProbe` at `REDIRECT` driving twice, a `PRE_REDIRECT` probe runs **once** and an `AUTH` probe **twice** — the assertion that fails if the outermost slot were inside the redirect loop (`dexpace/pipeline_test.rb`). `SERDE` is a reserved pillar with no shipped behaviour, as the requirement says |
+| `PIPE-2` | MUST | ✅ | 2, 8 | `Stages::ALL` is `PRE_REDIRECT, REDIRECT, POST_REDIRECT, PRE_RETRY, RETRY, POST_RETRY, PRE_AUTH, AUTH, POST_AUTH, PRE_LOGGING, LOGGING, POST_LOGGING, PRE_SERDE, SERDE, POST_SERDE, SEND`, asserted as a list of names (`pipeline/stages_test.rb`), and the requirement's own conformance clause is run: under a `ForkingProbe` at `REDIRECT` driving twice, a `PRE_REDIRECT` probe runs **once** and an `AUTH` probe **twice** — the assertion that fails if the outermost slot were inside the redirect loop (`dexpace/pipeline_test.rb`). `SERDE` is a reserved pillar with no shipped behaviour, as the requirement says. Every `Stage` the builder or an `Entry` holds is one of the sixteen constants **by identity**: a `dup`, `clone` or `Marshal` copy — `==` and not `equal?`, public on every `Data` — resolves through `Stages.of` at `Builder#resolve` and `Entry.build`, so the two identity comparisons the builder makes over stages hold whatever copy a caller handed in (review round 0, R0-2; deviation 25 below; P4-58) (`pipeline/builder_test.rb`, `InputTest`; `pipeline/entry_test.rb`) |
 | `PIPE-3` | SHOULD | ✅ | 2 | Taken literally (P4-31): a pre and a post slot around each of the five pillars, `PRE_REDIRECT` doubling as PIPE-2's outermost slot, sixteen stages, order keys sparse by exactly 100 and asserted as `(1..16).map { _1 * 100 }`. The ALL-versus-`#order` assertion — ALL is a hand-written frozen Array and `#order` is a public member nothing at run time reads — is what catches a stage inserted at the wrong index or given an out-of-sequence key; the guard that swaps `PRE_AUTH` and `AUTH` in ALL fails it (`pipeline/stages_test.rb`) |
 | `PIPE-4` | MUST | ✅ | 2, 7 | `Stage#pillar?` is true for exactly six stages, `PILLARS` is the five configurable ones in precedence order with `SEND` excluded, and `Builder` admits at most one step per pillar on every install path: `#append`, `#prepend`, the two surgical inserts, and — over the incoming set — `#reload` and `#install_preset` (`pipeline/stages_test.rb`, `pipeline/builder_test.rb`) |
-| `PIPE-5` | MUST | ✅ | 7 | A distinct second step onto an occupied pillar raises `Dexpace::PipelineError` with the fixed form `pillar retry is already occupied by ProbeStep; cannot install ProbeStep (use #replace to substitute) (PIPE-5)` — both types named, the replace path pointed at — from `#append`, `#prepend` and `#insert_after`, and the bulk path raises its own form naming both types (`pillar retry would hold 2 distinct steps (ProbeStep, ProbeStep); a pillar admits at most one (PIPE-4, PIPE-5; rejected whole per PIPE-23 and PIPE-24)`). Distinctness is `#equal?`, never `==`: the fixture is two `ProbeStep`s over **one shared log**, `==` and not `equal?`, and the `==` guard fails that test with "nothing was raised" on 4.0.6 and 3.2.11. A cross-stage `#replace` fails with PIPE-18's distinct message, never this one (`pipeline/builder_test.rb`) |
-| `PIPE-6` | MUST | ✅ | 3, 7 | Re-installing the **same object** onto its pillar is a no-op with `entries.size` unchanged, on `#append` and on the bulk path where the same step twice collapses to one entry; `install_preset` treats a pillar the same object already occupies as not a collision. `ProbeStep` is a `Data` deliberately (verified fact 3), and `pipeline_doubles_test.rb` proves the fixture's own property: two probes over one shared log stay `==` across execution, two over separate logs stop being `==` the moment one runs (`pipeline/builder_test.rb`, `support/pipeline_doubles_test.rb`) |
+| `PIPE-5` | MUST | ✅ | 7 | A distinct second step onto an occupied pillar raises `Dexpace::PipelineError` with the fixed form `pillar retry is already occupied by ProbeStep; cannot install ProbeStep (use #replace to substitute) (PIPE-5)` — both types named, the replace path pointed at — from `#append`, `#prepend` and `#insert_after`, and the bulk path raises its own form naming both types (`pillar retry would hold 2 distinct steps (ProbeStep, ProbeStep); a pillar admits at most one (PIPE-4, PIPE-5; rejected whole per PIPE-23 and PIPE-24)`). Distinctness is `#equal?`, never `==`: the fixture is two `ProbeStep`s over **one shared log**, `==` and not `equal?`, and the `==` guard fails that test with "nothing was raised" on 4.0.6 and 3.2.11 — and, since review round 0, fails the surgical-path test the same way, where a value-equal twin of a pillar's occupant collides through `#insert_after` too. A cross-stage `#replace` fails with PIPE-18's distinct message, never this one (`pipeline/builder_test.rb`) |
+| `PIPE-6` | MUST | ✅ | 3, 7 | Re-installing the **same object** onto its pillar is a no-op with `entries` unchanged, on `#append`, on `#insert_after` / `#insert_before` beside itself — the path review round 0 found raising PIPE-5 with the same type named twice, repaired so the one predicate `#same_occupant_of?` answers for every install path (R0-1; deviation 24 below) — and on the bulk path where the same step twice collapses to one entry; `install_preset` treats a pillar the same object already occupies as not a collision. `ProbeStep` is a `Data` deliberately (verified fact 3), and `pipeline_doubles_test.rb` proves the fixture's own property: two probes over one shared log stay `==` across execution, two over separate logs stop being `==` the moment one runs (`pipeline/builder_test.rb`, `support/pipeline_doubles_test.rb`) |
 | `PIPE-7` | MUST | ✅ | 7 | `#append` to the tail and `#prepend` to the head of a non-pillar bucket, `[c, a, b]` after two appends and a prepend; within-stage order survives `#reload` (`[b, a, c]` from a set given in another stage order) and every re-bucketing edit (`PIPE-22`'s row) (`pipeline/builder_test.rb`) |
 | `PIPE-8` | MUST | ✅ | 2, 5, 7 | `Stages::SEND` is `pillar?`, `terminal?` and not `installable?`; `Entry.build` — the one place every install funnels through — raises `cannot install step at terminal stage SEND (PIPE-8)` for it, by `Stage` or by name, and flattening skips it because SEND has no bucket at all. The guard that drops the check in `Entry.build` fails two tests (`pipeline/stage_test.rb`, `pipeline/entry_test.rb`, `pipeline/builder_test.rb`) |
 | `PIPE-9` | MUST | ✅ | 8, 10 | `Pipeline#call` returns `@transport.call(request, options, cancellation)` before anything else when the entry table is empty; `AsyncPipeline#call` reaches the driver's normalised `#dispatch` the same way. The request, options and token arrive by identity, and the trailing SHOULD is asserted as a **non-allocation**: under `GC.disable`, `ObjectSpace.each_object(Cursor).count` before and after one send through `.direct` is a delta of zero, counting the cursor class's instances so GC noise cannot flake it, CRuby-only and skipped elsewhere (phase 3a's `IO-38` postponement). The guard that removes the empty branch fails with `Expected: 0 Actual: 1` (`dexpace/pipeline_test.rb`, `dexpace/async_pipeline_test.rb`) |
@@ -55,7 +55,7 @@ nothing 🚫, nothing N/A.
 | `PIPE-15` | MUST | ✅ | 3, 6 | `#fork` is the fork primitive and `ForkingProbe` is the pillar step that uses it — for **every** drive including the first, never calling its own `#call` (P4-39). Reuse is a defect the runtime raises on: a second `#call` raises, `#fork` on a spent cursor raises `cursor is spent and cannot be forked; #call and #fork are disjoint (PIPE-15)`, and a slot step's `#fork` raises `stage pre_auth is not a configurable pillar and cannot fork (PIPE-15)` with `#may_fork?` answering false first. The three guards — the latch removed, the spent check removed, the pillar gate opened — each fail exactly one test. Detection is **sequential-only** (P4-33), stated in `#call`'s and `#fork`'s YARD; no test asserts the race, by design (`pipeline/cursor_test.rb`) |
 | `PIPE-16` | MUST | ✅ | 6 | A fork resumes from the parent's position, carries the parent's request, options and token by identity, and advances independently: under a twice-forking `REDIRECT` the `AUTH` probe is invoked once per drive with two distinct cursors, both spent afterwards. The guard that has `#fork` return `self` fails four tests; the guard that has the driver bind the child at `position + 2` fails three (`pipeline/cursor_test.rb`) |
 | `PIPE-17` | MUST | ✅ | 6, 8 | The options object is `assert_same` at every step, at both forks and at the transport — never `assert_equal`, which the per-fork-`dup` guard passes and which the real assertion fails with two `to be the same as` messages; `RequestOptions::EMPTY` is the default and the same frozen object arrives through both bridges (`pipeline/cursor_test.rb`, `dexpace/pipeline_test.rb`) |
-| `PIPE-18` | MUST | ✅ | 5, 7 | `#insert_after` and `#insert_before` place next to the **first** anchor instance in flattened order (`[before, a, after, b]` over two probes), require the step's effective stage to equal the anchor's, and reject a cross-stage move with `cannot insert Proc declaring stage post_auth relative to anchor at stage pre_auth (PIPE-18)`, installing nothing. `stage:` is required for a non-declaring step rather than inferred from the anchor, or the rejection would be unreachable for a lambda (R10). A surgical insert onto an occupied pillar collides like an append. The anchor is a type, or — the plan's 2026-09-13 amendment — a `Symbol` or `String` matching `Entry#name`, which is how one of two lambdas (both of class `Proc`) is addressed; the guard that matches a name anchor by type fails two tests (`pipeline/builder_test.rb`) |
+| `PIPE-18` | MUST | ✅ | 5, 7 | `#insert_after` and `#insert_before` place next to the **first** anchor instance in flattened order (`[before, a, after, b]` over two probes), require the step's effective stage to equal the anchor's, and reject a cross-stage move with `cannot insert Proc declaring stage post_auth relative to anchor at stage pre_auth (PIPE-18)`, installing nothing. `stage:` is required for a non-declaring step rather than inferred from the anchor, or the rejection would be unreachable for a lambda (R10). A surgical insert onto an occupied pillar collides like an append, and the occupant beside itself is a no-op like an append (`PIPE-6`, review round 0's R0-1). The anchor is a type, or — the plan's 2026-09-13 amendment — a `Symbol` or `String` matching `Entry#name`, which is how one of two lambdas (both of class `Proc`) is addressed; the guard that matches a name anchor by type fails two tests. An anchor that is none of those — `42`, `nil`, an `Object` — is refused up front with `Dexpace::InvalidArgumentError: anchor takes a Module, Symbol or String, got Integer`, on an empty builder too, where Ruby's `TypeError: class or module required` out of `#is_a?` used to surface only once an entry existed to compare against (review round 0, R0-4; deviation 26 below; P4-59) (`pipeline/builder_test.rb`, `SurgicalTest` and `InputTest`) |
 | `PIPE-19` | MUST | ✅ | 7 | `#replace` swaps the first anchor instance 1:1 in its own stage (`[fresh, other]`), substitutes a pillar's one occupant without a collision, and rejects a cross-stage replacement with PIPE-18's distinct message — a distinct *message*, one class (P4-37) — and never PIPE-5's (`pipeline/builder_test.rb`) |
 | `PIPE-20` | MUST | ✅ | 7 | `#remove(type)` deletes every instance of the type across every bucket with relative order preserved, and is a silent no-op returning `self` when absent; `#remove(name)` removes the one entry it names. `remove(Proc)` empties a pipeline of lambdas, which is the requirement's own semantics (`pipeline/builder_test.rb`) |
 | `PIPE-21` | MUST | ✅ | 7 | An insert or replace whose anchor has no instance raises `anchor step of type String was not found in pipeline (PIPE-21)`, or `anchor step named :absent was not found in pipeline (PIPE-21)` on the name path, and changes nothing (`pipeline/builder_test.rb`) |
@@ -111,19 +111,21 @@ gemspec is untouched — zero `add_dependency` lines — and 4c adds no `require
 `docs/knowledge/notes/` is untouched: the design's one note stands, and execution found the corpus
 wrong about nothing further. `docs/deviations.md` is untouched, for phase 10 to flip.
 
-The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-16), on the working branch
-before the cut and again at the tests tip: green, exit 0 — `cops:test` 100 runs / 326 assertions,
-`steep` no type error over the strict `core` target, `test:gems` **1,430 runs / 7,618 assertions**
-across the six gems (140 of them the eleven new suites, one more the smoke suite gained), with
-**99.97% line coverage (3,806 / 3,807)** against the 80% floor — the one uncovered line is the same
-registry-claim race branch phases 2, 3a, 3b and 4b recorded — `test:gates` 129 runs, the nine
-`gates:*` tasks (`gates:require_allowlist` clean, 23 bundled gems known; `gates:surface_snapshot`
-six manifests matching; `gates:rbs_surface` no foreign constant), `yard` 100.00% documented (467
-methods, 0 undocumented), `bundler_audit` clean. The matrix set is green on 3.2.11 (`test:gems`
-1,430 runs, 99.97% line coverage there too — 3,760 / 3,761, the one line being the same race
-branch, which one earlier run on the working tree happened to reach — and the four gates), 3.3.12
-and 3.4.10. The code tip is green on all seventeen gates too, its `test:gems` at 1,290 runs and
-**95.21%** on 4.0.6 (95.16% on 3.2.11), above the floor. The same caveat about `rubocop` that phases 1 through 4b recorded: run
+The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-16, re-run after review round
+0's repair), on the working branch before the cut and again at the tests tip: green, exit 0 —
+`cops:test` 100 runs / 326 assertions, `steep` no type error over the strict `core` target,
+`test:gems` **1,434 runs / 7,651 assertions** across the six gems (144 of them the eleven new
+suites, one more the smoke suite gained), with **99.97% line coverage (3,817 / 3,818)** against the
+80% floor — the one uncovered line is the same registry-claim race branch phases 2, 3a, 3b and 4b
+recorded — `test:gates` 129 runs, the nine `gates:*` tasks (`gates:require_allowlist` clean, 23
+bundled gems known; `gates:surface_snapshot` six manifests matching, the round-0 repair adding no
+row; `gates:rbs_surface` no foreign constant), `yard` 100.00% documented (467 methods, 0
+undocumented), `bundler_audit` clean. The matrix set is green on 3.2.11 (`test:gems` 1,434 runs,
+99.97% line coverage there too — 3,771 / 3,772, the one line being the same race branch, which one
+earlier run on the working tree happened to reach — and the four gates), 3.3.12 and 3.4.10, the
+last two re-run after the round-0 repair on the docs tip's tree. The code tip is green on all
+seventeen gates too, its `test:gems` at 1,290 runs and
+**95.02%** on 4.0.6 (94.96% on 3.2.11), above the floor. The same caveat about `rubocop` that phases 1 through 4b recorded: run
 through `rake` from a worktree nested under the parent checkout's `.claude/` it inspects 9 files;
 run as `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` it inspected **287
 files, no offenses** at the tests tip and 273 at the code tip, and every RuboCop claim here rests
@@ -139,7 +141,12 @@ one file at a time, the owning suite re-run after each; **thirty-one were caught
 was not is a mutation that does not change behaviour** — a first attempt at "flatten by insertion
 order" that sorted the buckets by their first entry's `object_id` and, the buckets being created in
 `ALL`'s order, reproduced `ALL`'s order; the genuine mutation, an `@insertion` list appended on
-every install and returned from `#entries`, is the one recorded below.
+every install and returned from `#entries`, is the one recorded below. Six more were run after
+review round 0's repair (2026-09-16), one per line the repair made load-bearing, the three identity
+ones on 3.2.11 as well as 4.0.6, and every one is caught; they are the second table. One of the six
+had to be re-spelled: the surgical same-object `return` replaced by a bare `nil` tripped `NFR-6`'s
+warning gate at load (`possibly useless use of nil in void context`), which is a mutation caught by
+a warning and not evidence about a test, so the recorded form deletes the line.
 
 | Fix reverted | Guard | What it said |
 |---|---|---|
@@ -176,6 +183,17 @@ every install and returned from `#entries`, is the one recorded below.
 | P4-32: `Stage#with` left as `Model#with` (the override removed) — **on 4.0.6 and 3.2.11** | `stage_test.rb` | `[Dexpace::InvalidArgumentError] exception expected, not Class: <NoMethodError> Message: <"undefined method 'build' for class Dexpace::Pipeline::Stage">`, identically on both |
 | `PIPE-1`: the buckets sorted by their first entry's `object_id` | `pipeline_test.rb` | **green, 17 runs** — the buckets are created in `ALL`'s order, so the sort reproduced it; a no-op mutation, recorded so nobody counts it |
 
+After review round 0's repair, one per line it made load-bearing:
+
+| Fix reverted | Guard | What it said |
+|---|---|---|
+| `PIPE-6` (R0-1): the surgical same-object `return self` deleted from `#surgical` | `builder_test.rb`, `SurgicalTest` | 1 error: `Dexpace::PipelineError: pillar retry is already occupied by ProbeStep; cannot install ProbeStep (use #replace to substitute) (PIPE-5)` on the occupant beside itself |
+| `PIPE-5`/`PIPE-6`: the shared `#same_occupant_of?` compared by `==` — **on 4.0.6 and 3.2.11** | `builder_test.rb` | 2 failures: `Dexpace::PipelineError expected but nothing was raised` on the surgical-path twin **and** on the `#append` twin, identically on both interpreters |
+| P4-58 (R0-2): `Builder#resolve` taking a `Stage` as given — **on 4.0.6 and 3.2.11** | `builder_test.rb`, `InputTest` | 1 error: `Dexpace::PipelineError: step declares stage retry but was installed with stage retry (R10)` — the self-contradicting message the finding reported |
+| P4-58 (R0-2): the `Stages.of(stage.name)` line deleted from `Entry.build` — **on 4.0.6 and 3.2.11** | `entry_test.rb` | 1 failure: `Expected #<data Dexpace::Pipeline::Stage name=:retry, ...> (oid=840) to be the same as #<data ... name=:retry, ...> (oid=848)` |
+| P4-59 (R0-4): `validate_anchor!` dropped from `#remove` | `builder_test.rb`, `InputTest` | 1 failure: `Dexpace::InvalidArgumentError expected but nothing was raised` — `remove(42)` on an empty builder silently no-ops again |
+| P4-59 (R0-4): `validate_anchor!` dropped from `#find_anchor` | `builder_test.rb`, `InputTest` | 1 failure: `[Dexpace::InvalidArgumentError] exception expected, not Class: <Dexpace::PipelineError>` — the empty builder reports PIPE-21's "not found" for an anchor that could never be found |
+
 ## Audit groups run
 
 The phase-start pair first, at implementation: `--origin note --brief` returns 52 note entries
@@ -190,7 +208,7 @@ re-checked against the built code:
 
 | Group | Result at implementation |
 |---|---|
-| Public API surface | `module-organization/1828a984` (one public constant per file) holds for all twelve files; `api-design/b0e18938` is why every name is in P4-26, P4-27 or P4-50–P4-57, and why `Cursor::EMPTY_SLOT`, `::EMPTY_STATE`, `Stages::LOOKUP`, `TransformStep::PHASES` and the two drivers are private; `api-design/88e6bf12`'s narrowest duck type is honoured — `Step.conforms?` at every install, `respond_to?(:phase)`/`(:apply)` at the adapter, phase 2's predicate at both builds, no `is_a?(IO)` anywhere; `api-design/c15b29ce` holds for every returned collection, each frozen |
+| Public API surface | `module-organization/1828a984` (one public constant per file) holds for all twelve files; `api-design/b0e18938` is why every name is in P4-26, P4-27 or P4-50–P4-59, and why `Cursor::EMPTY_SLOT`, `::EMPTY_STATE`, `Stages::LOOKUP`, `TransformStep::PHASES` and the two drivers are private; `api-design/88e6bf12`'s narrowest duck type is honoured — `Step.conforms?` at every install, `respond_to?(:phase)`/`(:apply)` at the adapter, phase 2's predicate at both builds, no `is_a?(IO)` anywhere; `api-design/c15b29ce` holds for every returned collection, each frozen |
 | RBS / Steep typing | Twelve mirrors, the strict target green; `Cursor#call` is `untyped` with `_Step`/`_AsyncStep` carrying the real types (plan open question 7); the RBS type aliases `anchor`, `stage_ref` and `name` live inside `class Builder` and validate on rbs 4.2 |
 | Minitest conventions | Every suite subclasses `DexpaceTestCase`, every raise is asserted on the raised object and never with `assert_nothing_raised`, `assert_same` wherever identity is the claim, one behaviour per test, the `PIPE-1` seed pinned and printed, and five suites split into nested classes under `Metrics/ClassLength` |
 | Fiber scheduler, thread safety | Clean against the built code: no mutex anywhere in the subsystem — the runtime is frozen data, the builder is single-threaded by construction and says so, the cursor is per-invocation and unshared with its latch's sequential-only detection stated in two YARD blocks (P4-33); `Timeout.timeout`, `Thread#raise` and `Thread#kill` appear nowhere; nothing waits |
@@ -200,8 +218,9 @@ re-checked against the built code:
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate.
 Items 1–9 are where the built tree overrode the plan's assumptions, the brief's as-built list in
-the order it gives them; the rest are this build's, and the ones that touch public behaviour or a
-stated count are also ledger rows P4-50–P4-57.
+the order it gives them; 24 through 26 are review round 0's (2026-09-16), each fixed on the owning
+branch with its guard run red above; the rest are this build's, and the ones that touch public
+behaviour or a stated count are also ledger rows P4-50–P4-59.
 
 1. **The 4b constructors take required keywords** and the phase-4b transforms are built with them:
    `IdempotencyKeyStep.build(header:, strategy:)`, `ClientIdentityStep.build(header:, tokens:)`,
@@ -237,7 +256,9 @@ stated count are also ledger rows P4-50–P4-57.
    (a `NoMethodError` from inside `Model`, measured on 4.0.6 and 3.2.11), so `Stage` overrides
    `#with` to raise `Dexpace::InvalidArgumentError` naming the closed set. The alternative — an
    identity check against `Stages::ALL` in `Entry.build` and `Builder` — was not taken, because
-   it defends a hole rather than closing the route to it.
+   it defends a hole rather than closing the route to it. (Review round 0 then found the *public*
+   copy routes, `dup`, `clone` and `Marshal`, and those two places now *resolve* a `Stage` through
+   `Stages.of` rather than check it — item 25 below — which is a different thing from refusing.)
 10. **`Stage`'s raw `pillar` and `terminal` readers are private** (P4-55), so each flag has one
     public spelling, `#pillar?` and `#terminal?`; the plan's manifest would have carried both.
 11. **The `Builder` has no `#transport` reader**; the plan's `attr_reader :transport` was a
@@ -265,7 +286,8 @@ stated count are also ledger rows P4-50–P4-57.
 16. **`Builder#effective_stage` is one precedence table for installs and surgical edits**; the
     plan wrote `resolve_stage` and `resolve_surgical_stage` as two copies. The surgical inserts
     also check pillar exclusivity, which the plan's did not (PIPE-5 names "insert-after /
-    insert-before" outright), and `#install_preset` treats a pillar the same object already
+    insert-before" outright) — and, since review round 0, apply PIPE-6's same-object no-op on
+    that path too (item 24) — and `#install_preset` treats a pillar the same object already
     occupies as not a collision (PIPE-6 on that path).
 17. **`Stages` mints its sixteen through one private `mint` helper** carrying the subsystem's
     one `Stage.send(:new, ...)`, rather than sixteen `send`s in the constant table.
@@ -289,6 +311,42 @@ stated count are also ledger rows P4-50–P4-57.
     counts (twelve `lib/` files, ninety-one under `lib/dexpace/`, seven checklists) are derived
     on top of what 4b's base already states.
 
+Items 24 through 26 are review round 0's (2026-09-16), each a gap the review found by experiment
+against the built tree, fixed on the owning branch with its mutation run red above.
+
+24. **`PIPE-6`'s same-object idempotence reaches the surgical inserts.** As first built,
+    `#insert_after` and `#insert_before` of a pillar's own occupant beside itself raised PIPE-5
+    naming the same type twice — `#surgical` called `refuse_collision!` with no same-object check,
+    while `#install` and the two bulk paths had one. PIPE-5 lists insert-after and insert-before
+    among the paths its distinct-step rule covers, so PIPE-6's "same" half reaches them too; the
+    identity test is now one predicate, `#same_occupant_of?`, that `#install`, `#surgical` and
+    `#same_occupant?` all call, and an exclusive insert of the occupant returns `self` after the
+    cross-stage check has passed. A cross-stage insert of the occupant is still PIPE-18's refusal,
+    and `#replace` of the occupant by itself still replaces (R0-1).
+25. **Every `Stage` the subsystem holds is the constant by identity** (P4-58). `Data#dup`,
+    `#clone` and a `Marshal` round-trip are public on every `Data` and each yields a `Stage` that
+    is `==` its constant and not `equal?` to it — not a seventeenth stage, since name, order and
+    flags are the constant's, but a second object; `Stages.of`, the bucket table and the cursor's
+    state map all resolve it by value, so nothing misbehaved, but the builder's two identity
+    comparisons over stages refused such a copy with a message naming the same stage on both sides
+    (`step declares stage retry but was installed with stage retry (R10)`; a same-stage insert
+    beside an `Entry` built over the copy as `cannot insert Proc declaring stage retry relative to
+    anchor at stage retry (PIPE-18)`, on the reload path). `Builder#resolve` and `Entry.build` now
+    canonicalise through `Stages.of(stage.name)` — P4-32's "only lookup" — at the two places a
+    `Stage` enters, so the identity comparisons stay identity comparisons rather than becoming
+    `==`. One consequence, stated: a `send`-forged `Stage` whose name is not one of the sixteen
+    now fails at `Entry.build` with `unknown stage: :fake (PIPE-1)` rather than as a raw `KeyError`
+    from the bucket table, and one whose name is a real stage's resolves to that constant; the P8
+    hole is not closed by this and is not claimed to be. `entry.rb` gains one
+    `require_relative "stages"` (R0-2).
+26. **A mistyped anchor is refused in the SDK's own form** (P4-59). `#remove`, `#insert_after`,
+    `#insert_before` and `#replace` handed an anchor that is neither a `Module` nor a `Symbol` or
+    `String` to `entry.step.is_a?(anchor)`, which raises Ruby's `TypeError: class or module
+    required` — and only once an entry existed to compare against, so `remove(42)` on an empty
+    builder was a silent no-op. `validate_anchor!`, called once at the top of `#remove` and
+    `#find_anchor`, raises `Dexpace::InvalidArgumentError: anchor takes a Module, Symbol or
+    String, got Integer` before any comparison, in the `takes a ..., got ...` form of item 18 (R0-4).
+
 ## Findings routed
 
 - **`Transport.async_over`'s missing return-type check, the design's second finding, is already
@@ -301,14 +359,20 @@ stated count are also ledger rows P4-50–P4-57.
 - **The `PIPE-39` constructor postponement stands as the design recorded it**: `Builder#install_preset`,
   `Pipeline.direct` / `AsyncPipeline.direct` and `Builder.flattening` / `.nesting` all ship; the
   standard constructors are phase 6b, Task 13a's, whose heading exists under that number.
-- **The design's ledger** gains an "As built" addendum (P4-50–P4-57); the consolidation of
-  P4-26–P4-39 and P4-50–P4-57 into design §10, and the §5.1 and §5.3 addenda (the `(stage, key)`
+- **The design's ledger** gains an "As built" addendum (P4-50–P4-59); the consolidation of
+  P4-26–P4-39 and P4-50–P4-59 into design §10, and the §5.1 and §5.3 addenda (the `(stage, key)`
   state, the sixteen stages, the disjoint `#call`/`#fork`), are a human's, as they were for 3a, 3b
   and 4b, because `docs/sdk-design-ruby/` is frozen. No frozen-chapter sentence is contradicted
   by this build, so `docs/first-release.md`'s `C1`–`C14` paragraph gains no `C15`.
 - **Nothing for phase 10's inbound list**: the gates were right about everything they reported,
   and `Style/OneClassPerFile` settled the plan's one-file-or-three question rather than fighting
   it.
+- **Review round 0's five findings** (2026-09-16) all closed in this stack: the three on the
+  builder are items 24–26 above, each on the owning branch with its test and its guard run red;
+  the roadmap status note's fence count for `pipelines.md` was corrected from eleven to ten
+  (R0-3); and the surface-manifest commit's body counted fourteen `Builder` instance methods
+  where the manifest and the runtime hold thirteen (R0-5) — a commit message is not rewritten,
+  so the fix commit's body carries the correct count. Nothing routed elsewhere.
 
 ## Postponed work
 

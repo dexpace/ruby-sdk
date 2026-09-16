@@ -99,9 +99,11 @@ useful because a pipeline is a transport, so anything that takes a transport tak
 One mutable builder serves both runtimes; `#build` produces a `Dexpace::Pipeline` and `#build_async`
 a `Dexpace::AsyncPipeline` from the same bucket table, which is how the two runtimes cannot drift on
 ordering. Every install returns the builder, so calls chain. The pillar rules are exact: a pillar
-admits one step, re-installing the **same object** is a no-op, and a **distinct** second step — even
-one that is `==` to the occupant — fails fast naming both types and pointing at `#replace`. Sameness
-is reference identity, never value equality.
+admits one step, re-installing the **same object** is a no-op on every install path (the surgical
+inserts included), and a **distinct** second step — even one that is `==` to the occupant — fails
+fast naming both types and pointing at `#replace`. Sameness is reference identity, never value
+equality. A stage may be given as a `Stages` constant or its name; either way the builder holds
+the constant itself, so a `dup`ed or `Marshal`ed `Stage` is the same stage to it.
 
 ```ruby
 builder = Dexpace::Pipeline.builder(transport: transport)
@@ -134,7 +136,9 @@ must land in the anchor's stage, and a cross-stage insert is rejected rather tha
 of the type and is a silent no-op when there is none. An insert or replace whose anchor is absent
 fails naming what it looked for. Because every lambda's class is `Proc`, a type anchor cannot tell
 two lambdas apart — `remove(Proc)` deletes both — so an install may carry `name:`, and the four
-edits accept a `Symbol` or `String` in the anchor position to address exactly that one entry.
+edits accept a `Symbol` or `String` in the anchor position to address exactly that one entry. An
+anchor that is none of those is refused with `Dexpace::InvalidArgumentError` before anything is
+compared, on an empty builder too.
 
 ```ruby
 class LoggingHook

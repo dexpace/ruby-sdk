@@ -453,7 +453,10 @@ Each is one line plus the chapter to read before touching the area.
 - **The stage set is closed at sixteen, structurally** — `Dexpace::Pipeline::Stage` has no public
   constructor and its `#with` refuses, so `Stages.of` and the sixteen constants are the whole population,
   a caller cannot add a pillar, and both runtimes flatten through one `Stages::ALL` (P4-32; `PIPE-28`).
-  The runtimes are deliberately not `Object#freeze`d: `PIPE-27`'s close latch writes an ivar.
+  `Data#dup`, `#clone` and `Marshal` stay public and yield a copy that is `==` a constant and not `equal?`
+  to it, so `Entry.build` and `Builder#resolve` resolve every `Stage` they are handed through `Stages.of`
+  and the builder's identity comparisons over stages hold (P4-58). The runtimes are deliberately not
+  `Object#freeze`d: `PIPE-27`'s close latch writes an ivar.
 - **A public `Data` follows the construction pattern without exception; only a `private_constant` snapshot is
   exempt** — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are `Data` without `Model`
   and without `.build`, because a snapshot has no public constructor and no derivation (phase 2's P2-9).
