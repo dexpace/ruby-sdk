@@ -165,6 +165,26 @@ class DexpacePipelineBuilderTest < DexpaceTestCase
       assert_equal([occupant], steps_of(@builder))
     end
 
+    # PIPE-6's other path (review round 0, R0-1). PIPE-5 lists insert-after and insert-before
+    # among the paths its distinct-step rule covers, so the same-object half reaches them too:
+    # the occupant beside itself is a no-op, and a value-equal twin still collides, on both.
+    test "PIPE-6: inserting a pillar's own occupant beside itself is a no-op on both inserts" do
+      log = []
+      occupant = probe(:occupant, log)
+      @builder.append(occupant, stage: STAGES::RETRY)
+      snapshot = @builder.entries
+
+      assert_same(@builder, @builder.insert_after(ProbeStep, occupant, stage: STAGES::RETRY))
+      assert_same(@builder, @builder.insert_before(ProbeStep, occupant, stage: :retry))
+      assert_equal(snapshot, @builder.entries, "no error, no duplication (PIPE-6)")
+
+      twin = probe(:occupant, log)
+
+      assert_equal(occupant, twin, "value-equal and distinct: identity is what decides")
+      assert_raises(Dexpace::PipelineError) { @builder.insert_after(ProbeStep, twin, stage: :retry) }
+      assert_equal(snapshot, @builder.entries)
+    end
+
     test "PIPE-19: replace swaps the first anchor instance 1:1 at the same stage" do
       old = probe(:old)
       other = probe(:other)
@@ -281,6 +301,57 @@ class DexpacePipelineBuilderTest < DexpaceTestCase
       @builder.prepend_all([lambda_step], stage: STAGES::POST_AUTH, name: :single)
 
       assert_equal([:single], @builder.entries.map(&:name))
+    end
+  end
+
+  # Review round 0's two input findings: a copied Stage (R0-2) and a mistyped anchor (R0-4).
+  class InputTest < DexpaceTestCase
+    include Builders
+
+    # Data#dup is public on every Data and yields a distinct object that is == the constant; so
+    # do #clone and a Marshal round-trip. The builder compares stages by identity in two places,
+    # R10 row 3 and PIPE-18's cross-stage check, so a copy taken as given refused a declaring
+    # step with "declares stage retry but was installed with stage retry". Every Stage the
+    # builder holds is resolved through Stages.of to the constant itself (P4-58).
+    test "a copied Stage resolves to its constant by identity, so R10 and PIPE-18 compare truly" do
+      copy = STAGES::RETRY.dup
+      declaring = Class.new do
+        def stage = Dexpace::Pipeline::Stages::RETRY
+        def call(req, cur) = cur.call(req)
+      end
+
+      assert_equal(STAGES::RETRY, copy)
+      refute_same(STAGES::RETRY, copy, "Data#dup yields a distinct object")
+
+      @builder.append(declaring.new, stage: copy)
+
+      assert_same(STAGES::RETRY, @builder.entries[0].stage)
+
+      fresh = probe(:fresh)
+      @builder.replace(declaring, fresh, stage: Marshal.load(Marshal.dump(STAGES::RETRY)))
+
+      assert_equal([fresh], steps_of(@builder))
+      assert_same(STAGES::RETRY, @builder.entries[0].stage)
+      assert_raises(Dexpace::PipelineError) { @builder.append(probe(:x), stage: STAGES::RETRY.clone) }
+    end
+
+    # A mistyped anchor used to raise Ruby's `TypeError: class or module required` out of
+    # #is_a?, and only once an entry existed to compare against; it is refused up front, in the
+    # subsystem's own form, on an empty builder too (P4-59).
+    test "an anchor that is neither a type nor a name is refused before any comparison" do
+      error = assert_raises(Dexpace::InvalidArgumentError) { @builder.remove(42) }
+
+      assert_includes(error.message, "anchor takes a Module, Symbol or String, got Integer")
+      assert_raises(Dexpace::InvalidArgumentError) { @builder.remove(nil) }
+      assert_raises(Dexpace::InvalidArgumentError) do
+        @builder.insert_after(Object.new, lambda_step, stage: STAGES::PRE_AUTH)
+      end
+      assert_raises(Dexpace::InvalidArgumentError) { @builder.replace(1.5, lambda_step, stage: :pre_auth) }
+
+      @builder.append(probe(:a), stage: STAGES::PRE_AUTH)
+
+      assert_raises(Dexpace::InvalidArgumentError) { @builder.remove(42) }
+      assert_equal(1, @builder.entries.size, "a refused anchor removes nothing")
     end
   end
 

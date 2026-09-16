@@ -70,6 +70,24 @@ class DexpacePipelineEntryTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { ENTRY.build(stage: nil, step: @step) }
   end
 
+  # Review round 0, R0-2: Data#dup, #clone and a Marshal round-trip each yield a Stage that is ==
+  # its constant and not equal? to it. The entry holds the constant itself, so the builder's
+  # identity comparisons over entries' stages hold whatever copy a caller handed in, on the
+  # reload path too (P4-32: Stages.of is the only lookup; P4-58). The same lookup refuses a
+  # send-forged Stage whose name is not one of the sixteen, in the SDK's form.
+  test "Entry.build holds the stage constant by identity, whatever copy it was handed" do
+    [@stage.dup, @stage.clone, Marshal.load(Marshal.dump(@stage))].each do |copy|
+      refute_same(@stage, copy)
+      assert_same(@stage, ENTRY.build(stage: copy, step: @step).stage)
+    end
+
+    forged = Dexpace::Pipeline::Stage.send(:new, name: :fake, order: 250, pillar: false,
+                                                 terminal: false,)
+    error = assert_raises(Dexpace::InvalidArgumentError) { ENTRY.build(stage: forged, step: @step) }
+
+    assert_includes(error.message, "unknown stage: :fake (PIPE-1)")
+  end
+
   test "Entry.build rejects a non-conforming step with InvalidArgumentError" do
     error = assert_raises(Dexpace::InvalidArgumentError) do
       ENTRY.build(stage: @stage, step: Object.new)
