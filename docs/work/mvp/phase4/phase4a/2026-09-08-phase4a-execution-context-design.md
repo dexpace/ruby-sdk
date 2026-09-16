@@ -1248,6 +1248,68 @@ the phase-4 segmentation design left the ledger empty.
 | P4-10 | A seventh custom cop, `Dexpace/NoWeakReferences` | `CTX-19`; design §5.4's "forbidden by lint"; phase 0's P0-3 and phase 2's P2-8 precedent | §5.4 makes `CTX-19` a lint rule and does not say which. Extending `Dexpace/QualifiedCoreConstant` would put a prohibition inside a shadowing cop whose message ("write `::Foo`") is the wrong fix; extending `Dexpace/NoThreadInterrupt` would put an unrelated hazard behind a name that states a different one. Every cop in this repository mechanises one named rule and is named after it. It scopes to `gems/*/lib/**/*.rb` because `gates:require_allowlist` covers core alone and an adapter can hold a context too |
 | P4-11 | Public **methods** neither design §5.4 nor §8.1 names: `Context#close`; `DispatchContext#promote_to_request` and `RequestContext#promote_to_exchange`; `ContextStore.default`, `#set`, `#put`, `#[]`, `#release` and `#size`; `ContextConflictError#call_key`; `Bundle#valid?` and `#remote?`; `TraceIdFlavour.of`, `#valid_trace_id?` and `#renders?`; and `NO_TRACER_FACTORY#tracer` | `NFR-4`; `api-design/b0e18938`; phase 2's P2-11 and phase 3a's P3-8, both of which cover methods as well as constants | `NFR-4` locks a public *signature*, not only a public name, and §5.4 describes the whole promotion chain and the store without naming a single Ruby method — so every verb above is 4a's invention and is locked at the first release tag. `P4-2` covers the constants; this row is its other half, filed separately because the precedents it stands on filed both. Each name is chosen for a stated reason in the object-model section, and two deserve naming here because they are the ones a later reader will question. **`#put` and `#[]` have no caller anywhere in core** — `CTX-8` requires the reject-on-duplicate insert as "a separate strict-register affordance" and `CTX-18` requires the explicit absent lookup, so both are surface a requirement forces and only the suite exercises; deleting them later would be an `NFR-4` break for a method core never used, which is exactly the kind of accident this row exists to make deliberate. **`#promote_to_request`/`#promote_to_exchange` name the target stage rather than the source**, so `CTX-1`'s one-way chain reads off the call site. The `Data`-generated readers on all five value types — the three contexts, `Bundle` and `TraceIdFlavour` — are public API too and are invisible to `rbs validate`; the runtime surface snapshot is what holds them, which is the pairing `CLAUDE.md` requires and the phase's last task regenerates |
 
+### As built, 2026-09-16
+
+The plan added no numbered row; execution adds **one**, numbered **P4-40** because the phase-4
+ledger is shared across the three sub-phases and the next free number is read from the tree, not
+assumed: phase 4b's design filed P4-12–P4-25 and phase 4c's P4-26–P4-39, both before this phase
+executed, and 4b is running as a parallel stack whose additions, if any, take the numbers after
+this one.
+Five rows above read slightly differently against the source; the difference is recorded here
+rather than by rewriting the text it corrects. The checklist's "Deviations from the plan" is the
+itemised list, and its "Guards run red" section holds the battery.
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P4-40 | A fourth RBS interface, `Dexpace::_ContextHost`, the self-type constraint of `module Context` | `NFR-4`; `NFR-3`'s strict `core` target; P4-2's list | `Context#close` calls `store` and `call_key`, which the module does not define and every includer does. The strict target types a module's `self` by its self-type constraint — the shape phase 1 gave `Model : _ModelInstance` — so `_ContextHost` includes `_ModelInstance` and adds the two readers, and `#close` types without an `untyped` receiver. It is a public name in `sig/`, locked with `_Span`, `_Tracer` and `_TracerFactory`; `store` stays `untyped` inside it, as on every flavour, because the runtime check is `respond_to?` and strict Steep refuses that on an interface type (3a) |
+
+- **P4-10, as built.** `Dexpace/NoWeakReferences` is the **eighth** custom cop, not the seventh:
+  seven exist on `main` — phase 0's five, `Dexpace/NoKeywordSplat` (phase 0, 2026-09-13) and
+  phase 2's `Dexpace/QualifiedCoreConstant`, which `CLAUDE.md`, `docs/sdk-documentation/quality-gates.md`,
+  phase 2's checklist and `.rubocop/test/cops_test.rb` all call the seventh. Phase 0's plan
+  amendment says the keyword-splat cop carries no ordinal and this one is "the seventh"; the
+  as-built documentation counts it, and this phase follows the count it found. Everything else in
+  the row holds: its own file, its own nested table (fourteen rejected, fifteen accepted, RuboCop
+  1.91.0), `Include: gems/*/lib/**/*.rb`, and a gate test that pins the scope.
+- **P4-3, as built.** Both private constants **have** a `sig/` mirror. The row's "no `sig/`
+  mirror" followed the plan's reading of phase 2; on `main`, `sig/dexpace/hooks.rbs` exists, with a
+  comment saying why — the strict `core` Steep target checks every file under `lib/` and needs the
+  constant declared to type its call sites, and RBS has no visibility. `bounded_map.rbs` and
+  `context/call_key.rbs` carry that comment. What the row denies them still holds: no
+  surface-manifest row (`Module#constants` excludes a `private_constant`, verified fact 6), no
+  public YARD contract, no `test/` mirror. `CallKey.mint` also checks its bundle with
+  `Model.required!` before minting, so `.build(bundle: nil)` fails with `SEAM-29`'s message and not
+  a `NoMethodError`; and `BoundedMap.new(cap:)` refuses anything but a positive Integer, because a
+  negative cap would make the drain spin forever on an empty hash.
+- **P4-8, as built.** The arity the row left to the plan is the gem's mixed shape,
+  `#tracer(deprecated_name = nil, deprecated_version = nil, name: nil, version: nil, attributes: nil)`,
+  read from `opentelemetry-api` 1.11.0's `lib/opentelemetry/trace/tracer_provider.rb` by the plan
+  on 2026-09-08 and re-read from the same gem at implementation on 2026-09-16, when 1.11.0 was still
+  the latest release. The suite asserts the parameter list itself, not only the call shapes,
+  because a two-positional method accepts every keyword call as a positional Hash on Ruby 3.x.
+  `notes/observability.md`'s 2026-09-13 entry quotes this row's two-positional recommendation; the
+  shipped shape is the five-parameter one, and that entry's argument does not turn on the arity.
+- **P4-11, as built.** One method fewer than the plan's fence would have locked: the construction
+  validation is the **private** `Context#validate_context!`, called bare from each flavour's
+  `initialize` before `super`, not a public `Context.validate!`. The row's list — `Context#close`
+  alone on the module — is what the manifest holds. `Bundle` carries `#remote` (the `Data` reader)
+  beside `#remote?`, as the object-model table implies; both are in the manifest.
+- **P4-6 and P4-7, as built.** Unchanged in substance. `Bundle` owns its three String members
+  through `Model.frozen_string` and `trace_state` through `Model.own` in `initialize` rather than
+  in `.build`, so `#with` (which routes through `.build`) is validated and owned identically;
+  `INVALID_SPAN_ID` is frozen explicitly, `"0" * 16` yielding an unfrozen String even under the
+  magic comment. `TraceIdFlavour::DATADOG`'s bound is spelled `(1 << 64) - 1`, because rbs types
+  `Integer#**` as `Numeric` and the strict target refuses it for an `Integer?` member.
+- **"The verified Ruby facts", facts 9 and 12, as built.** Both are asserted rather than only
+  relied on: 16 threads minting 250 keys each yield 4000 distinct keys, and the key is frozen on
+  the minted and the pinned path without aliasing the caller's String.
+- **The testing strategy's `CTX-6` case, as built.** "Three flavours … get three distinct keys" is
+  not the discriminating assertion — a counter per flavour yields three distinct keys too whenever
+  the shared counter has already moved past the per-flavour one, and in a randomly ordered suite it
+  always has; the guard battery saw that mutation survive. The case asserts the counter suffix
+  increases strictly across flavours in build order, spanning exactly the number built, which only
+  one counter does.
+
 ## Work Phase 4a Postpones, and Who Owns It Now
 
 Two items, recorded on 2026-09-08 with an explicit target, per the roadmap's execution step 7. Both are

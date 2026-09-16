@@ -369,9 +369,13 @@ sub-phase nests one deeper as `phaseN/phaseNx`.
 
 **5. Implement against the plan's numbered tasks, TDD.** Write the failing test, confirm it fails, implement,
 confirm it passes. Read design, plan and checklist before touching code. The implementation branch is
-`<issue>-phase-<N[letter]>-<slug>` off `main`, and a phase returns to `main` as **one phase-level pull request**,
-not one per sub-phase (**corrected in place 2026-09-14**; as first written, off and back to `mvp`, the
-integration branch retired that day).
+`<issue>-phase-<N[letter]>-<slug>` off `main`, and **each sub-phase returns to `main` as its own stack of three
+pull requests — code, tests, documentation — branched off `main`, each targeting the one below it and merged
+bottom-up** (**corrected in place 2026-09-16**; as first written, "a phase returns to `main` as one phase-level
+pull request, not one per sub-phase" — which no phase did: phases 1, 2, 3a and 3b each landed as their own
+code → tests → docs stack, and 4a and 4b run as two parallel stacks, so the rule now states what the
+repository does; and **corrected in place 2026-09-14** before that: as first written, off and back to `mvp`,
+the integration branch retired that day).
 
 **6. Write the checklist at execution time,** not at planning time — it records what was actually built. One row
 per requirement ID in scope, with the legend fixed in cross-cutting constraint 3.
@@ -2382,6 +2386,19 @@ design.
   multipart section and 3b's checklist row.** Touches `HTTP-51`. Added after phase 10's planning pass, so it
   is the thirty-seventh bullet and is not yet in its design's disposition table; phase 10 dispositions it at
   execution.
+- **Phase 0's plan says the keyword-splat cop "carries no ordinal" and that phase 4a's cop is "the seventh";
+  every as-built document counts it and calls phase 4a's the eighth.** Found 2026-09-16 by phase 4a's
+  implementation. Phase 0's plan, Task 4 amendment of 2026-09-13 numbers the original five, calls phase 2's
+  `Dexpace/QualifiedCoreConstant` "the sixth" and phase 4a's `Dexpace/NoWeakReferences` "the seventh", and
+  says `Dexpace/NoKeywordSplat` is "named and never counted"; phase 0's own design table repeats it. On
+  `main`, `CLAUDE.md`, `docs/sdk-documentation/quality-gates.md`, phase 2's checklist and
+  `.rubocop/test/cops_test.rb`'s head comment all count the splat cop and call `QualifiedCoreConstant` the
+  seventh, so phase 4a built and documented its cop as the **eighth** and did not edit phase 0's record.
+  **Documentation half only:** phase 0's plan and design are that phase's records and only an audit pass
+  rewrites them; the one true count is eight, and phase 0's two sentences should say so or say why the
+  ordinal is retired. Touches no requirement ID. Added after phase 10's planning pass, so it is the
+  thirty-eighth bullet and is not yet in its design's disposition table; phase 10 dispositions it at
+  execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2940,3 +2957,59 @@ P4-26–P4-39 and P4-50–P4-59 into design §10, and §5.1's and §5.3's addend
 3b and 4b: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2 left it for phase 10 to
 flip. This note goes after 4b's; the roadmap's execution-step-5 sentence is deliberately untouched, its
 correction riding phase 4a's docs PR.
+
+**2026-09-16** — **Phase 4a implemented**, as three stacked branches against issue #14: code, tests,
+documentation, cut from `main` at 419aace and run as a stack parallel to phase 4b's — the first time two
+sub-phases have run side by side, which is the shape execution step 5 now states. `dexpace-core` carries
+the execution context beside the four layers before it — twelve new `lib/` files, exactly the design's
+Module Layout: `error/context_conflict_error.rb`, `context.rb` (the module the three flavours include),
+`bounded_map.rb` and `context/call_key.rb` (the two `private_constant`s), `context_store.rb`,
+`instrumentation/trace_id_flavour.rb`, `instrumentation/no_span.rb`, `instrumentation/no_tracer.rb`,
+`instrumentation/bundle.rb`, and `context/dispatch_context.rb`, `context/request_context.rb` and
+`context/exchange_context.rb` — every one with a `sig/` mirror (the two private constants included, with
+the comment `hooks.rbs` carries), ten with a `test/` mirror, plus one fake (`fake_context.rb`); the entry
+file gains the twelve `require_relative`s as one block; the eighth custom cop, `Dexpace/NoWeakReferences`,
+lands with its cases in a nested class of `cops_test.rb` and its scope in `.rubocop.yml`; the other five
+gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket, and nothing in core promotes a
+context — a generated client will. **Roadmap cross-phase obligation 1 is discharged**: the bundle's eight
+stored members and derived `#valid?`, `Bundle::NONE`, `TraceIdFlavour`'s three values and the three no-op
+singletons are fixed in core with their names `NFR-4`-locked, and the five-clause handshake in the design's
+R3 is what phase 5c populates against. The checklist is at
+`docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-checklist.md`: twenty rows, `CTX-1`–`CTX-20`,
+**20 ✅**, nothing ⏳, nothing 🚫, nothing N/A. `bundle exec rake` is green on 4.0.6 at the tests tip with
+99.96% line coverage against the 80% floor and 1,266 runs across the six gems (112 of them the ten
+execution-context suites, on every interpreter, since Minitest is 5.27.0 on every row); the matrix set is
+green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its `test:gems` above
+the floor. **Every guard the brief asks to be run red was run red**, eighteen single-edit mutations in all:
+seventeen caught on the first run, and one — a counter per flavour — survived the plan's `CTX-6` case,
+whose three-key distinctness check a per-flavour counter satisfies whenever the shared counter has already
+moved past it; the case now asserts the suffix increases strictly across flavours in build order and the
+mutation is caught. The `CTX-9` trap (`==` for `equal?`) and the `ObjectSpace::WeakMap` swap were run red
+on 3.2.11 as well, where the swap also fails on the floor's `WeakMap` having no `#delete`. **Four things
+phases 0–3b as built changed under the plan**: the cop is the eighth, not the seventh (`CLAUDE.md`,
+`quality-gates.md`, phase 2's checklist and `cops_test.rb` all count the keyword-splat cop phase 0's plan
+says is uncounted — routed to phase 10's inbound list above, the thirty-eighth bullet); phase 0's
+`CountKeywordArgs: false` already applied the plan's `Metrics/ParameterLists` finding, so the fences'
+inline disables are not written; `hooks.rbs` exists, so the two private constants get `sig/` mirrors; and
+`tools/surface.rb` already walks `Data` readers, so the plan's Task 9 finding against phase 0 is closed by
+phase 0 as built and the regenerated manifest — 515 to 580 lines, 65 rows read one by one against the
+object model, none removed — holds every reader of the five value types. One public method fewer than the
+plan's fence: `Context.validate!` is the private `#validate_context!`, since the design gives `Context`
+exactly one public method. Sixteen departures from the plan's text are itemised in the checklist, none
+lowering a gate. `_ContextHost`, the self-type interface strict Steep needs for `Context#close`, is the one
+new ledger row, **P4-40** — numbered from the tree, because 4b's design filed P4-12–P4-25 and 4c's
+P4-26–P4-39 before this phase executed. `docs/sdk-documentation/execution-context.md` is the as-built
+page, every fence run verbatim on 4.0.6 and 3.2.11 with identical output; `architecture.md`, the core
+README, `README.md` and `docs/README.md` point at it. The design's ledger gains an "As built" addendum;
+the two postponed items keep their owners (the cap's configuration source, phase 5a Task 13; the no-op
+protocols, phase 5c Tasks 3–5); the `IO-38` post-release trigger's `CTX-7`/`CTX-8` sentence reads true of
+what was built and is unchanged. **Execution step 5 and the phase 3, 4, 5, 6 and 8 segmentation designs
+are corrected in place today**: "one phase-level pull request" is what no phase did, and each sub-phase
+returns as its own code → tests → docs stack. The counts that changed: `gems/` is still six;
+`dexpace-core`'s `lib/dexpace/` is seventy-five phase-1, phase-2, phase-3a, phase-3b and phase-4a files
+beside phase 0's `version.rb`; `phase4/phase4a/` now carries its checklist, the sixth written; the surface
+manifest is 580 lines; the cop suite is 129 cases. `CLAUDE.md`'s built-phases paragraph, its gem and
+phase-directory sentences and the constraints-that-bite list are rewritten from what was built. The
+consolidation of P4-1–P4-11 and P4-40 into design §10, and §5.4's and §8.1's addenda, are a human's, as
+they were for 3a and 3b: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2
+left it for phase 10 to flip.

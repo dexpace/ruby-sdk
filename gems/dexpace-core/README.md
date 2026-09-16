@@ -19,7 +19,11 @@ vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, and the two failure types
 variants `BytesBody`, `BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `FileBody` and
 `MultipartBody`, the single-use `ResponseBody`, the wrappers `RequestLoggingBody` and
 `ResponseLoggingBody`, `TypedResponse`, and `Response#close` / `#body_string` / `#body_bytes` --
-and phase 4b's recovery layer: the closed outcome `Dexpace::Outcome::Success` / `Failure`, the
+and phase 4a's execution context: the three flavours `DispatchContext`, `RequestContext` and
+`ExchangeContext` sharing the module `Dexpace::Context`, the bounded process-wide
+`Dexpace::ContextStore`, `Dexpace::ContextConflictError`, and the instrumentation subsystem
+`Dexpace::Instrumentation` with its `Bundle`, `TraceIdFlavour` and the three no-op singletons
+-- and phase 4b's recovery layer: the closed outcome `Dexpace::Outcome::Success` / `Failure`, the
 `Dexpace::Recovery` namespace with `RequestChain`, `ResponseChain`, `Orchestrator`, the `Transform`
 contract and the three shipped steps, `Recovery.buffer_error_body`, the errors `Dexpace::ProtocolError`
 and `OutcomeError`, and the three error primitives every later phase uses: the suppressed trail
@@ -30,7 +34,8 @@ constants, `ALL`, `PILLARS`, `.of`), `Stage`, `Step`, `Entry`, `Cursor`, `Builde
 Nothing else yet: the pillar step families and every adapter are later phases', and no transport
 ships here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
 `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
-`docs/sdk-documentation/recovery.md` and `docs/sdk-documentation/pipelines.md`.
+`docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md` and
+`docs/sdk-documentation/pipelines.md`.
 
 ## Install
 
@@ -125,6 +130,9 @@ it stays that way (`SEAM-1`, `NFR-1`).
   the ownership rule, views, the buffer, the tee, and the `Dexpace::IO` shadow.
 - `docs/sdk-documentation/body.md` -- the body layer as built: the contract and its factories,
   what each body closes, the two logging regimes, the decode boundary, and the typed response.
+- `docs/sdk-documentation/execution-context.md` -- the execution context as built: the bundle
+  and its sentinels, the promotion chain, the call key and what its equality costs, the bounded
+  store and the identity rule of `#close`.
 - `docs/sdk-documentation/recovery.md` -- the recovery layer as built: the outcome, the two chains
   and who closes the response, the orchestrator and its unwrap, the three shipped steps, the error
   trail and the cause walk.

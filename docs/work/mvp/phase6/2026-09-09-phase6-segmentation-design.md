@@ -346,9 +346,10 @@ segment*, on `RETRY-13`, `RETRY-14`, `RECOV-30`, the chapter's own introduction 
 
 **Rejected cut D — four ways, with a closing segment for `Pipeline.standard`, `OBS-29`'s wiring and the cursor widening.** The three
 phase-level items genuinely belong to no sub-phase. Rejected anyway: together they are a handful of tasks, a
-fourth segment is a fourth document set and not a fourth merge (a phase returns to `main` as one phase-level
-pull request, roadmap execution step 5), and a segment that can only run last is the definition of a linear
-chain. They are assigned instead as **phase-level tasks with named owners**, below.
+fourth segment is a fourth document set and a fourth stack (each sub-phase returns to `main` as its own
+code → tests → docs stack, roadmap execution step 5, **corrected in place 2026-09-16**; as first written, "a
+phase returns to `main` as one phase-level pull request", which no phase did), and a segment that can only run
+last is the definition of a linear chain. They are assigned instead as **phase-level tasks with named owners**, below.
 
 ---
 

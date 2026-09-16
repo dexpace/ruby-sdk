@@ -13,8 +13,9 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4b and 4c are built; the domain model, the seam layer, the byte-streaming layer,
-the body layer, the recovery layer and the stage pipeline are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b and 4c are built; the domain model, the seam layer, the byte-streaming
+layer, the body layer, the execution context, the recovery layer and the stage pipeline are the only domain
+code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -37,6 +38,15 @@ two failure types `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamEr
 `ResponseLoggingBody`, the lazy `TypedResponse` over the RBS interface `_ResponseHandler`, the form encoder
 beside the RFC 3986 one in `PercentEncoding`, and `Response#close` / `#body_string` / `#body_bytes` — the one
 decode boundary (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`) — and the
+execution context, flat under `Dexpace::` and filed under `lib/dexpace/context/`: the module `Dexpace::Context`
+the three flavours `DispatchContext`, `RequestContext` and `ExchangeContext` include, the one-way promotion
+chain `#promote_to_request` / `#promote_to_exchange`, the bounded process-wide `Dexpace::ContextStore` over the
+`private_constant` `Dexpace::BoundedMap` with `MAX_TRACKED_CONTEXTS`, `.default`, `#set`, `#put`, `#[]`,
+`#release` and `#size`, the `private_constant` key generator `Dexpace::CallKey`, the fourth phase-2-shaped error
+`Dexpace::ContextConflictError`, and the instrumentation subsystem `Dexpace::Instrumentation`: `Bundle` with
+`NONE` and `INVALID_SPAN_ID`, `TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, the three no-op singletons
+`NO_SPAN`, `NO_TRACER` and `NO_TRACER_FACTORY`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory` and
+`_ContextHost` (`docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-checklist.md`) — and the
 recovery layer, §8.2's resilience primitives: the closed two-variant outcome `Dexpace::Outcome::Success` /
 `Failure`, the `Dexpace::Recovery` namespace holding `RequestChain`, `ResponseChain`, the `Orchestrator` that
 lets no throwable past it, the `Transform` contract with the three shipped steps `IdempotencyKeyStep`,
@@ -460,6 +470,15 @@ Each is one line plus the chapter to read before touching the area.
 - **A public `Data` follows the construction pattern without exception; only a `private_constant` snapshot is
   exempt** — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are `Data` without `Model`
   and without `.build`, because a snapshot has no public constructor and no derivation (phase 2's P2-9).
+- **A frozen `Data` cannot carry a close latch, and a context needs none** — `Dexpace::Closeable`'s flag flip
+  raises `FrozenError` on every supported Ruby, so `Context#close` is `store.release(self)` and idempotent
+  through the store: `ContextStore#release` clears a slot only when its occupant is the closing context by
+  **`equal?`**, never by `==`, because the call key participates in value equality and two contexts with one
+  pinned key are `==` and not `equal?` (`CTX-9`, phase 4a's P4-4). The store is a strong `Hash` under one
+  `::Thread::Mutex` with the drain inside the same `synchronize` as the insert; the eighth custom cop,
+  `Dexpace/NoWeakReferences`, refuses `ObjectSpace::WeakMap`, `ObjectSpace::WeakKeyMap` and `WeakRef` in every
+  gem's `lib/`, because `CTX-19` makes the cap and not the collector the leak backstop (P4-10). Construction
+  registers nothing; only the two promotions call `#set` (`CTX-17`).
 
 ## Public API surface
 
@@ -559,11 +578,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
-  body layer, the phase-4b recovery layer and the phase-4c stage pipeline — ninety-one phase-1, phase-2,
-  phase-3a, phase-3b, phase-4b and phase-4c files under `lib/dexpace/` beside phase 0's `version.rb`,
-  every one mirrored in `sig/`, and every one of the ninety-one but the four `private_constant`s
-  `hooks.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb` and `pipeline/async_driver.rb` mirrored
-  in `test/`; every other
+  body layer, the phase-4a execution context, the phase-4b recovery layer and the phase-4c stage pipeline —
+  one hundred and three phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b and phase-4c files under
+  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one hundred
+  and three but the six `private_constant`s `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`,
+  `recovery/ownership.rb`, `pipeline/sync_driver.rb` and `pipeline/async_driver.rb` mirrored in `test/`; every
+  other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
   (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code
@@ -573,12 +593,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — seven
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — eight
   checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
-  directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
-  and a plan, and `phase4/phase4b/` and `phase4/phase4c/` their checklists too. `phase5/` carries its segmentation design,
+  directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
+  design, plan and checklist. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
   directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds a design
   and a plan. `phase6/` carries its segmentation design,
@@ -643,6 +663,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4b's and phase 4c's is
-  still to be written at execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's and
+  phase 4c's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

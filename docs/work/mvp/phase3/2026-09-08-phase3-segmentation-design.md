@@ -141,9 +141,10 @@ document to recover independence the chapter did not have.
 coherent: `3c` would be `BODY-17`–`BODY-34`, `BODY-37`, `HTTP-44`, `HTTP-45` and `HTTP-52`, and it would
 isolate the one cluster with an external dependency on phase 5 (`BODY-19`/`BODY-34`'s cap and enablement).
 It is rejected because it buys nothing the split exists to buy: `3c` depends on both `3a` and `3b`, so the
-result is three segments in a strict line over what the specification writes as one lifecycle, and a phase
-returns to `main` as **one phase-level pull request** (roadmap execution step 5) — so a third sub-phase is a
-third document set, not a third merge. The sequencing `3c` would have enforced is `3b`'s plan's job, and this
+result is three segments in a strict line over what the specification writes as one lifecycle, and each
+sub-phase returns to `main` as its own code → tests → docs stack (roadmap execution step 5, **corrected in
+place 2026-09-16**; as first written, "a phase returns to `main` as one phase-level pull request", which no
+phase did) — so a third sub-phase is a third document set and a third stack. The sequencing `3c` would have enforced is `3b`'s plan's job, and this
 document requires it of that plan below rather than of a segment boundary.
 
 `3b` at **49 IDs is the largest sub-phase the roadmap's expectations contain** (phase 7b's SSE is 41, phase 4c's

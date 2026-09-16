@@ -219,8 +219,10 @@ is what stops the argument being read as stronger than it is. Four things suppor
    clauses are the audit target; and both live entirely inside `5b`.
 
 Against the line: 12 IDs is smaller than any sub-phase the roadmap's expectations contain (`4a`'s 20 was the
-previous minimum), and a phase returns to `main` as **one phase-level pull request** (roadmap execution step
-5), so a third sub-phase is a third document set and not a third merge. Both are real costs, accepted, and
+previous minimum), and each sub-phase returns to `main` as its own code → tests → docs stack (roadmap
+execution step 5, **corrected in place 2026-09-16**; as first written, "a phase returns to `main` as one
+phase-level pull request", which no phase did), so a third sub-phase is a third document set and a third
+stack. Both are real costs, accepted, and
 the second is the reason a *fourth* segment is rejected below.
 
 ### Where the line inside §15 falls, and why the tempting 20/20 split is wrong
