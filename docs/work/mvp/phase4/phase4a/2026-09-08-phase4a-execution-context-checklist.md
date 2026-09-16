@@ -31,7 +31,7 @@ first to carry and are named in the rows that carry them: `OBS-26`'s reserved se
 | `CTX-1` | MUST | ✅ | 2, 7 | Three flat `Data` classes sharing one included module (P4-1): `Dexpace::DispatchContext#promote_to_request` and `Dexpace::RequestContext#promote_to_exchange` are the only two promotion methods in core, and `Dexpace::ExchangeContext` defines no `#promote_*` at all — the terminality is the absence, asserted over `public_instance_methods` (`dexpace/context/exchange_context_test.rb`; the two `#promote_to_dispatch` refutations in `dispatch_context_test.rb` and `request_context_test.rb`) |
 | `CTX-2` | MUST | ✅ | 7 | Each promotion builds a NEW instance through the successor's `.build` and never touches the source; the bundle, the call key and the store are carried forward **by identity** (`assert_same`, never `assert_equal` — the guard that rebuilds the bundle runs red below), the request and the operation name likewise on the second hop, and exactly one artefact is added; the operation name enters as an argument to the first promotion and is absent from the head (`refute_respond_to`) (`dispatch_context_test.rb`, `PromotionTest`; `request_context_test.rb`) |
 | `CTX-3` | MUST | ✅ | 7 | One key per chain: a promotion carries `call_key` forward verbatim, so `store.size` stays 1 across both hops and the slot's occupant is the furthest link (`request_context_test.rb`, "CTX-3"); the guard that mints a fresh key on the second hop runs red below |
-| `CTX-4` | MUST | ✅ | 7 | `Dexpace::CallKey.mint(bundle)` (a `private_constant`) renders `"#{trace_id}:#{span_id}:#{n}"` with a process-wide counter under one `::Thread::Mutex`, frozen with `#freeze`; the shape, the strictly increasing suffix, the frozen-on-both-paths property (minted and pinned, the caller's String never aliased) and 4000 concurrent mints without a collision are asserted (`dispatch_context_test.rb`; `ConstructionTest`) |
+| `CTX-4` | MUST | ✅ | 7 | `Dexpace::CallKey.mint(bundle)` (a `private_constant`) renders `"#{trace_id}:#{span_id}:#{n}"` with a process-wide counter under one `::Thread::Mutex`, frozen with `#freeze`; the shape, the strictly increasing suffix, the frozen-on-both-paths property (minted and pinned, the caller's String never aliased) and 4000 concurrent mints without a collision are asserted; a pinned key that is not a String — a Symbol, an Integer — is refused with the field-named `call_key must be a String` on `.build` and on `#with`, where before review round 1 a Symbol keyed a slot no String lookup finds and an Integer escaped as a `NoMethodError` (guard 21; `dispatch_context_test.rb`, `ConstructionTest`; `context_test.rb`) |
 | `CTX-5` | MUST | ✅ | 7 | `.build(call_key: nil)` on all three flavours mints when absent and pins when given; two default-constructed contexts from one bundle are not `==`, not `eql?`, hash apart and occupy two `Hash` slots, and a shared explicit key restores all three (`dispatch_context_test.rb`; `request_context_test.rb`, `ConstructionTest`) |
 | `CTX-6` | MUST | ✅ | 7 | One counter serves every flavour and every store: nine contexts built round-robin across the three flavours carry nine strictly increasing suffixes spanning exactly eight — the assertion a per-flavour counter fails where a mere distinctness check does not (the guard was seen to survive the weaker test and is caught by this one, below); two stores never share a minted key (`dispatch_context_test.rb`) |
 | `CTX-7` | MUST | ✅ | 3, 7 | Every flavour and `Bundle` are frozen on construction (the immutability half); `Dexpace::ContextStore` over the `private_constant` `Dexpace::BoundedMap` — a `Hash` behind one `::Thread::Mutex` — takes 16 threads × 1000 distinct keys and loses nothing, and the whole store suite joins every thread it starts, which `DexpaceTestCase` asserts (`context_store_test.rb`, `ConcurrencyTest`; `dispatch_context_test.rb`, `PromotionTest`) |
@@ -43,7 +43,7 @@ first to carry and are named in the rows that carry them: `OBS-26`'s reserved se
 | `CTX-13` | MAY | ✅ | 3, 7 | Oldest-first taken as-is, with its consequence asserted: at cap 3 a fourth key evicts the first-registered, and re-setting an existing key does not refresh its position (verified fact 8) — driven through `ContextStore#set` on the fake **and** through a real promotion, three chains at the request stage and one promoted to exchange before the fourth arrives, which is the case a release-then-set promotion fails (guard 19 below); nothing in the store's own behaviour depends on any entry surviving — `#release` on an evicted context is `false` and raises nothing, on the fake and on both links of the evicted real chain; the store exposes no iteration (`context_store_test.rb`, `BoundTest`) |
 | `CTX-14` | MUST | ✅ | 4, 5, 6 | `Dexpace::Instrumentation::Bundle`, a frozen `Data` of exactly eight members — `trace_id`, `span_id`, `trace_flags`, `trace_state`, `flavour`, `remote`, `span`, `tracer_factory` — asserted as the member list in that order, with `#valid?` derived (P4-6) and `#remote?` beside the reader; `TraceIdFlavour` fills the flavour slot, `NO_SPAN` and `NO_TRACER_FACTORY` the two duck-typed ones (`instrumentation/bundle_test.rb`) |
 | `CTX-15` | MUST | ✅ | 4, 5, 6, 7 | `Bundle::NONE`: `OBS-26`'s 32 hex zeros, 16 hex zeros, `"00"`, `[]`, `TraceIdFlavour::NONE`, `valid?` and `remote?` both false, `NO_SPAN` and `NO_TRACER_FACTORY` by identity, frozen, shared; the non-trivial half — two contexts minted from the **same** `NONE` object (`assert_same`) still get distinct keys, and the guard that derives the key from the bundle runs red (`bundle_test.rb`; `dispatch_context_test.rb`, "CTX-15") |
-| `CTX-16` | SHOULD | ✅ | 7 | `RequestContext#operation_name` and `ExchangeContext#operation_name`: nil or a non-empty frozen String (an empty one is refused off-chain and at promotion), carried forward by identity, and asserted advisory **as a negative** — a named and an unnamed promotion from two heads with one pinned key share the key, the request object and the slot; the guard that folds the name into the key runs red (`request_context_test.rb`, `OperationNameTest`; `exchange_context_test.rb`) |
+| `CTX-16` | SHOULD | ✅ | 7 | `RequestContext#operation_name` and `ExchangeContext#operation_name`: nil or a non-empty frozen String (an empty one is refused off-chain and at promotion, and so is a Symbol or an Integer, with the field-named `operation_name must be a String` — review round 1's finding, closed by one private `Context#validate_operation_name!` both flavours' `initialize` call; guards 22–24), carried forward by identity, and asserted advisory **as a negative** — a named and an unnamed promotion from two heads with one pinned key share the key, the request object and the slot; the guard that folds the name into the key runs red (`request_context_test.rb`, `OperationNameTest`; `exchange_context_test.rb`) |
 | `CTX-17` | MUST | ✅ | 7 | No `.build` touches the store: `store.size` is 0 after construction of every flavour, a never-promoted head closes as `false`, and the first promotion is the first entry the chain ever has; the guard that registers at construction runs red (`dispatch_context_test.rb`, `PromotionTest`; `request_context_test.rb` and `exchange_context_test.rb`, `ConstructionTest`) |
 | `CTX-18` | MUST | ✅ | 2, 3, 7 | `ContextStore#[]` answers nil for an unknown key and raises nothing; `#release` on a never-registered, an evicted and an already-released context is `false`; `#close` twice on a registered exchange context evicts once; `Context#close` has no latch (P4-4) — a frozen `Data` cannot carry one — and is idempotent through the store (`context_store_test.rb`; `exchange_context_test.rb`; `context_test.rb`) |
 | `CTX-19` | MUST | ✅ | 3, 7, 8 | The store is a strong `Hash`: 1000 registered contexts survive three `GC.start`s with every local dropped (a discriminator against `ObjectSpace::WeakMap` — the swap runs red below on 4.0.6 and 3.2.11 — and, stated, not against `WeakKeyMap`); a real `Request` and a real `Response` with a `ResponseBody` stay readable through the store after GC until `#close`; and `Dexpace/NoWeakReferences`, the eighth custom cop (P4-10), forbids the three spellings over every gem's `lib/`, with fourteen rejected and fifteen accepted sources in its own nested table and a gate test pinning its scope (`context_store_test.rb`, `ReachabilityTest`; `exchange_context_test.rb`; `.rubocop/test/cops_test.rb`, `NoWeakReferencesTest`; `test/gates/rubocop_config_test.rb`) |
@@ -53,7 +53,8 @@ first to carry and are named in the rows that carry them: `OBS-26`'s reserved se
 
 Twelve new `lib/` files under `gems/dexpace-core/lib/dexpace/` — exactly the design's Module
 Layout: `error/context_conflict_error.rb`, `context.rb` (the module the three flavours include,
-carrying `#close` and the private `#validate_context!`), `bounded_map.rb` (`private_constant`),
+carrying `#close` and the two private helpers `#validate_context!` and `#validate_operation_name!`),
+`bounded_map.rb` (`private_constant`),
 `context_store.rb`, `instrumentation/trace_id_flavour.rb`, `instrumentation/no_span.rb`,
 `instrumentation/no_tracer.rb` (two constants, two private classes), `instrumentation/bundle.rb`,
 `context/call_key.rb` (`private_constant`), `context/dispatch_context.rb`,
@@ -113,6 +114,14 @@ inside a child `Fiber`, a new `::Thread` and an `Enumerator`'s internal fiber, w
 guard script's `String#sub` collapsed the `\\A` in the timeout-dropped `Regexp.new` replacement
 and the pattern stopped matching anything, which is a script artefact and not evidence; the
 hand-applied edit fails exactly the per-pattern-timeout assertion and nothing else (row 12).
+**Review round 1 found a gap rather than a survivor**, closed in round 2 (rows 21–24): no guard
+checked that a pinned `call_key` or an `operation_name` is a `String`, so a Symbol was accepted
+against the `String`-typed signature and the design's "non-empty `String`", and an Integer escaped
+as a `NoMethodError` from `#empty?` where every core model raises a field-named
+`InvalidArgumentError`. The guard now sits in `#validate_context!` and in a second private helper,
+`#validate_operation_name!`, and the four cases that pin them go red under four mutations — the
+two guards deleted, and the helper's call removed from either flavour's `initialize` on its own,
+which shows each call is load-bearing and not covered by the other flavour's.
 
 | # | Fix reverted | Guard | What it said (4.0.6 unless stated) |
 |---|---|---|---|
@@ -136,6 +145,10 @@ hand-applied edit fails exactly the per-pattern-timeout assertion and nothing el
 | 18 | `CTX-19`: the cop's `Include:` narrowed to `gems/dexpace-core/lib/**/*.rb` | `test/gates/rubocop_config_test.rb` | 1 failure of 7: `Dexpace/NoWeakReferences is required, enabled, and reaches every gem's lib/ [rubocop_config_test.rb:45]` with the expected/actual diff of the `Include` list |
 | 19 | `CTX-13`/`CTX-10`: `#promote_to_exchange` calls `store.release(self)` before `store.set(ctx)` (review round 0's survivor; case added in round 1) | `context_store_test.rb`, `BoundTest`, the real-promotion case | 1 failure of 20: `CTX-13: a real promotion re-sets the slot without refreshing its eviction position … Expected: ["b", "c", "d"] Actual: ["a", "c", "d"]` — `a` survived and `b` was evicted. **Identical on 3.2.11** |
 | 20 | `.default` memoised on first call — `def default = (@default ||= new)`, the load-time assignment deleted (review round 0's survivor; case added in round 1) | `context_store_test.rb`, `ReachabilityTest`, the fresh-process case | 1 failure of 20: `.default is assigned at file load: a fresh process holds it before any call … Expected: "true" Actual: "false"`. **Identical on 3.2.11** |
+| 21 | `CTX-4`: the `call_key must be a String` guard deleted from `#validate_context!` (review round 1's finding; cases added in round 2) | `context_test.rb`, the probe includer; `dispatch_context_test.rb`, `ConstructionTest` | 1 failure of 9 and 1 of 21: `Dexpace::InvalidArgumentError expected but nothing was raised` — the Symbol key accepted. **Identical on 3.2.11** |
+| 22 | `CTX-16`: the `operation_name must be a String` guard deleted from `#validate_operation_name!` | `request_context_test.rb`, `OperationNameTest`; `exchange_context_test.rb` | 1 failure of 14 and 1 of 8: `Dexpace::InvalidArgumentError expected but nothing was raised` — `:GetUser` accepted off-chain, at promotion and on the terminal flavour. **Identical on 3.2.11** |
+| 23 | `CTX-16`: `ExchangeContext#initialize` no longer calls `#validate_operation_name!` | `exchange_context_test.rb` | 2 failures of 8 — the empty case and the non-String case — while `request_context_test.rb` stays 14/14 green: the terminal flavour's call is its own. **Identical on 3.2.11** |
+| 24 | `CTX-16`: `RequestContext#initialize` no longer calls `#validate_operation_name!` | `request_context_test.rb`, `OperationNameTest` | 2 failures of 14 — the empty case and the non-String case, off-chain and through `#promote_to_request` — while `exchange_context_test.rb` stays 8/8 green. **Identical on 3.2.11** |
 
 The cop's own table runs its 29 rows through phase 0's verbatim `CopCase` harness at
 `TARGET_RUBY = 3.2` on RuboCop **1.91.0** (`VERSIONS` pins `~> 1.91`; the plan verified against
@@ -239,13 +252,15 @@ this build's.
     `true`; the fake returns the context). Every thread a case starts is collected and joined
     before the case returns — the plan's `CTX-8` fence started 32 unjoined threads, which
     `DexpaceTestCase`'s teardown refuses.
-13. **The run counts are the build's, not the plan's.** 4 / 8 / 20 / 14 / 3 / 5 / 20 / 20 / 13 /
-    7 across the ten suites (114 in all) against the plan's 3 / 5 / 14 / 9 / 1 / 3 / 12 / 11 / 7 /
+13. **The run counts are the build's, not the plan's.** 4 / 9 / 20 / 14 / 3 / 5 / 20 / 21 / 14 /
+    8 across the ten suites (118 in all) against the plan's 3 / 5 / 14 / 9 / 1 / 3 / 12 / 11 / 7 /
     3, because cases were added for the frozen-key both-ways property, the parameter list, the
     three private classes' unreachability, the strictly increasing counter, the cross-store
     counter, the concurrent mint, the real-`Response` reachability, the flavour and cap validation,
     and the member lists, and review round 1 added the store suite's real-promotion `CTX-13` case
-    and the fresh-process `.default` case (guards 19 and 20); no plan case was dropped. The plan's
+    and the fresh-process `.default` case (guards 19 and 20), and round 2 the four type-guard
+    cases across `context_test.rb` and the three flavour suites (guards 21–24); no plan case was
+    dropped. The plan's
     `Fiber[]` boundary fence guarded the main fiber alone, the first build added a child `Fiber`,
     and review round 1 made the case guard the three carriers the design's testing strategy names,
     with a fiber-local slot set so "not visible" is asserted rather than vacuous. Minitest is 5.27.0 on every row under the
@@ -259,6 +274,18 @@ this build's.
 16. **The commit granularity is the stack's, not "once per phase".** The plan's "no commit step
     appears in any task; the manager commits once per phase" is the pre-2026-09-14 rule; the
     phase lands as the code → tests → docs stack the roadmap's step 5 now names (finding 5).
+17. **A pinned `call_key` and an `operation_name` are checked to be a `String`, and the
+    operation-name rule is one shared private helper** (review round 1's finding, fixed in round
+    2). The plan's fences checked both for emptiness only, where the design says a given key "must
+    be a non-empty `String`" and `operation_name` "is `nil` or a non-empty frozen `String`", and
+    `sig/` already typed both that way; `Model.frozen_string` does no type check and passes a
+    frozen Symbol or Integer straight through, so the guard belongs in `initialize`, where it
+    covers `.build`, `#with` and both promotions alike. `#validate_context!` gains the
+    `call_key must be a String` line between `Model.required!` and the empty check, and CTX-16's
+    two-state rule moves out of the two flavours' `initialize` into `Context#validate_operation_name!`
+    — private, declared in `context.rbs`, no manifest row — so the message form lives in one place
+    the way `Model.required!` keeps `SEAM-29`'s. Both messages follow the field-named
+    `<name> must be a String` every phase-1 model uses.
 
 ## Findings routed
 

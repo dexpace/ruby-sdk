@@ -2977,17 +2977,21 @@ singletons are fixed in core with their names `NFR-4`-locked, and the five-claus
 R3 is what phase 5c populates against. The checklist is at
 `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-checklist.md`: twenty rows, `CTX-1`–`CTX-20`,
 **20 ✅**, nothing ⏳, nothing 🚫, nothing N/A. `bundle exec rake` is green on 4.0.6 at the tests tip with
-99.96% line coverage against the 80% floor and 1,268 runs across the six gems (114 of them the ten
+99.96% line coverage against the 80% floor and 1,272 runs across the six gems (118 of them the ten
 execution-context suites, on every interpreter, since Minitest is 5.27.0 on every row); the matrix set is
 green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its `test:gems` above
-the floor. **Every guard the brief asks to be run red was run red**, twenty single-edit mutations in all:
+the floor. **Every guard the brief asks to be run red was run red**, twenty-four single-edit mutations in all:
 seventeen caught on the first run, one — a counter per flavour — survived the plan's `CTX-6` case,
 whose three-key distinctness check a per-flavour counter satisfies whenever the shared counter has already
 moved past it, so the case now asserts the suffix increases strictly across flavours in build order; and
 two more that review round 0 found surviving — a promotion that releases its source before setting its
 successor, and a memoised `.default` — are caught by the round-1 cases the checklist's guards 19 and 20
-name, the first through a real chain and the second by asking a fresh process. The `CTX-9` trap (`==` for
-`equal?`), the `ObjectSpace::WeakMap` swap and those two were run red
+name, the first through a real chain and the second by asking a fresh process; and review round 1 found
+no survivor but a gap — a pinned `call_key` or an `operation_name` that is a Symbol was accepted against
+the `String`-typed signature and an Integer escaped as a `NoMethodError` — closed in round 2 by a
+`must be a String` guard in `#validate_context!` and a shared private `#validate_operation_name!`, whose
+four mutations are the checklist's guards 21–24. The `CTX-9` trap (`==` for
+`equal?`), the `ObjectSpace::WeakMap` swap, the two round-1 guards and the four round-2 guards were run red
 on 3.2.11 as well, where the swap also fails on the floor's `WeakMap` having no `#delete`. **Four things
 phases 0–3b as built changed under the plan**: the cop is the eighth, not the seventh (`CLAUDE.md`,
 `quality-gates.md`, phase 2's checklist and `cops_test.rb` all count the keyword-splat cop phase 0's plan
@@ -2998,7 +3002,7 @@ inline disables are not written; `hooks.rbs` exists, so the two private constant
 phase 0 as built and the regenerated manifest — 515 to 580 lines, 65 rows read one by one against the
 object model, none removed — holds every reader of the five value types. One public method fewer than the
 plan's fence: `Context.validate!` is the private `#validate_context!`, since the design gives `Context`
-exactly one public method. Sixteen departures from the plan's text are itemised in the checklist, none
+exactly one public method. Seventeen departures from the plan's text are itemised in the checklist, none
 lowering a gate. `_ContextHost`, the self-type interface strict Steep needs for `Context#close`, is the one
 new ledger row, **P4-40** — numbered from the tree, because 4b's design filed P4-12–P4-25 and 4c's
 P4-26–P4-39 before this phase executed. `docs/sdk-documentation/execution-context.md` is the as-built

@@ -177,7 +177,9 @@ path.
 ### The operation name
 
 `RequestContext#operation_name` and `ExchangeContext#operation_name` carry a schema-defined
-operation id — `"ListPets"` — or `nil`; an empty string is refused. It is carried forward unchanged
+operation id — `"ListPets"` — or `nil`; an empty string is refused, and so is anything that is not a
+`String` (a Symbol spelling of the same id included), with `Dexpace::InvalidArgumentError`
+`operation_name must be a String`. It is carried forward unchanged
 and is **advisory only**: it influences neither the request, nor any dispatch decision, nor the
 store key (`CTX-16`). It is the chain half of `SEAM-28`'s postponed operation identifier; the
 tracing seam that will read it is phase 5c's.
@@ -235,8 +237,10 @@ store["shared"].equal?(c)       # => true
 store.release(c)                # => true
 ```
 
-A pinned key is frozen without aliasing the caller's `String`, and a pinned key restores equality
-only between contexts built against the same store object, since `store` is a member too.
+A pinned key must be a non-empty `String` — a Symbol or an Integer is refused with
+`Dexpace::InvalidArgumentError` `call_key must be a String` rather than keying a slot no `String`
+lookup finds — and is frozen without aliasing the caller's `String`; it restores equality only
+between contexts built against the same store object, since `store` is a member too.
 
 ## The store: `Dexpace::ContextStore`
 

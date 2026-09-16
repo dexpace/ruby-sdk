@@ -1291,8 +1291,9 @@ itemised list, and its "Guards run red" section holds the battery.
   shipped shape is the five-parameter one, and that entry's argument does not turn on the arity.
 - **P4-11, as built.** One method fewer than the plan's fence would have locked: the construction
   validation is the **private** `Context#validate_context!`, called bare from each flavour's
-  `initialize` before `super`, not a public `Context.validate!`. The row's list — `Context#close`
-  alone on the module — is what the manifest holds. `Bundle` carries `#remote` (the `Data` reader)
+  `initialize` before `super`, not a public `Context.validate!`; since review round 2 a second
+  private helper, `Context#validate_operation_name!`, sits beside it (below). The row's list —
+  `Context#close` alone on the module — is what the manifest holds. `Bundle` carries `#remote` (the `Data` reader)
   beside `#remote?`, as the object-model table implies; both are in the manifest.
 - **P4-6 and P4-7, as built.** Unchanged in substance. `Bundle` owns its three String members
   through `Model.frozen_string` and `trace_state` through `Model.own` in `initialize` rather than
@@ -1321,6 +1322,19 @@ itemised list, and its "Guards run red" section holds the battery.
   fiber and reads the pair inside a child `Fiber`, a new `::Thread` and an `Enumerator`'s internal
   fiber, which is `observability/016d9154`'s fact. The checklist's guards 19 and 20 are the two
   mutations, red on 4.0.6 and 3.2.11.
+- **The `call_key` and `operation_name` validation, as built (review round 2, 2026-09-16).** This
+  section's "when given, it must be a non-empty `String`" and the object model's "`nil` or a
+  non-empty frozen `String`" were built as emptiness checks alone, as the plan's fences had them:
+  a pinned Symbol was accepted against the `String`-typed signature and keyed a slot no String
+  lookup finds, and an Integer escaped as a `NoMethodError` from `#empty?` where every phase-1
+  model raises a field-named `InvalidArgumentError`. `Model.frozen_string` does no type check —
+  a frozen Symbol or Integer passes through it untouched — so the guard lives in `initialize`,
+  where it covers `.build`, `#with` and both promotions alike: `#validate_context!` refuses a
+  non-String key with `call_key must be a String`, and `CTX-16`'s two-state rule is one private
+  `Context#validate_operation_name!` that `RequestContext#initialize` and
+  `ExchangeContext#initialize` share, refusing a non-String with `operation_name must be a String`
+  and `""` as before. Private, declared in `context.rbs`, no manifest row; the checklist's guards
+  21–24 are the four mutations, red on 4.0.6 and 3.2.11.
 
 ## Work Phase 4a Postpones, and Who Owns It Now
 
