@@ -2,12 +2,12 @@
 
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
 skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
-layer in the same gem, and phase 3a the byte-streaming layer beneath every body; the body model,
-the pipeline and the adapters are still to come, so this page is still a stub: it names the pages
-this tree will eventually hold and where each one's content will come from, so the plan for the
-documentation exists before the documentation does. Four pages are real already, because their
-subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
-[`seams.md`](./seams.md) and [`io.md`](./io.md).
+layer in the same gem, phase 3a the byte-streaming layer beneath every body, and phase 3b the
+body layer on top of it; the pipeline and the adapters are still to come, so this page is still a
+stub: it names the pages this tree will eventually hold and where each one's content will come
+from, so the plan for the documentation exists before the documentation does. Five pages are real
+already, because their subjects are: [`quality-gates.md`](./quality-gates.md),
+[`http.md`](./http.md), [`seams.md`](./seams.md), [`io.md`](./io.md) and [`body.md`](./body.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -32,9 +32,13 @@ rule, and the `Dexpace::IO` shadow a consumer that includes `Dexpace` has to kno
 against the layer phase 3a shipped; derives from
 `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1.
 
-bodies.md — request bodies as duck-typed producers, response bodies as owned resources the caller
-must close. Derives from `docs/sdk-design-ruby/04-domain-model-construction.md`, read together
-with the body-seam deviations recorded in `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+[body.md](./body.md) — the body layer: the one contract every body includes and its eight
+factories, the seven request-body variants and what each closes, the single-use response body,
+the materialize-once guard and the bounded error copy, the two logging wrappers and their two
+regimes, the one decode boundary on `Response`, and the lazy typed response. Written against the
+layer phase 3b shipped; derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`
+§3.1 and §7.3, read together with the body-seam deviations recorded in
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 errors.md — the error tree, and which failure means what, including the suppressed-exception trail
 Ruby's single-parent `cause` cannot carry on its own. Derives from

@@ -3,8 +3,8 @@
 Part of the [dexpace Ruby SDK](../../README.md): an HTTP-client toolkit, not an HTTP client.
 This gem is the core: the domain model, the pipeline and every seam's contract.
 
-**Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer and the byte-streaming
-layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+**Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer
+and the body layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -14,10 +14,15 @@ layer: the provider registry `Dexpace::Registry`, the `Dexpace::Transport`,
 `Dexpace::Operation` -- and phase 3a's byte-streaming layer under `Dexpace::IO`: the FIFO
 `Buffer`, `BufferedSource` and `BufferedSink` with the `TypedReads` and `TypedWrites`
 vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, and the two failure types
-`Dexpace::StreamError` and `Dexpace::EndOfStreamError`. Nothing else yet: the pipeline, the body
-model and every adapter are later phases', and no transport ships here, so nothing talks to a
-socket. The as-built pages are `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md`
-and `docs/sdk-documentation/io.md`.
+`Dexpace::StreamError` and `Dexpace::EndOfStreamError` -- and phase 3b's body layer, flat under
+`Dexpace::`: the contract `Dexpace::Body` with its eight factories and `.buffer_bounded`, the
+variants `BytesBody`, `BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `FileBody` and
+`MultipartBody`, the single-use `ResponseBody`, the wrappers `RequestLoggingBody` and
+`ResponseLoggingBody`, `TypedResponse`, and `Response#close` / `#body_string` / `#body_bytes`.
+Nothing else yet: the pipeline and every adapter are later phases', and no transport ships here,
+so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
+`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md` and
+`docs/sdk-documentation/body.md`.
 
 ## Install
 
@@ -78,6 +83,22 @@ tee = Dexpace::IO::TeeSink.new(primary: Dexpace::IO::Buffer.new, tap_limit: 3)
 tee.write("héllo")             # => 6, the byte count; the tap keeps "h\xC3\xA9", the primary all of it
 ```
 
+A body is a `Dexpace::Body`: one write-to-sink operation, a media type, a length with `-1` for
+unknown, and a replayability every factory classifies by source. A response body is single-use
+and owns its transport stream; `Response#body_string` is the one place bytes become text:
+
+```ruby
+body = Dexpace::Body.form([["q", "a b"]])
+body.replayable?               # => true
+body.each.to_a                 # => ["q=a+b"], the form encoder, never the RFC 3986 one
+
+source = Dexpace::IO::BufferedSource.of_bytes("caf\xE9".b)
+media = Dexpace::MediaType.parse("text/plain; charset=iso-8859-1")
+res = Dexpace::ResponseBody.new(source: source, media_type: media)
+res.preview(cap: 3)            # => "caf", through a fresh view; the primary path has not moved
+response.body_string           # => "caf\xE9" tagged ISO-8859-1, and the body is closed
+```
+
 One thing to know before writing `include Dexpace` in a class of your own: `Dexpace::IO` shadows
 `::IO` there, so `x.is_a?(IO)` is silently false for a real `IO`. Write `::IO`
 (`docs/sdk-documentation/io.md` says why).
@@ -94,6 +115,8 @@ it stays that way (`SEAM-1`, `NFR-1`).
   future are, and how a provider is resolved.
 - `docs/sdk-documentation/io.md` -- the byte-streaming layer as built: the two read primitives,
   the ownership rule, views, the buffer, the tee, and the `Dexpace::IO` shadow.
+- `docs/sdk-documentation/body.md` -- the body layer as built: the contract and its factories,
+  what each body closes, the two logging regimes, the decode boundary, and the typed response.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

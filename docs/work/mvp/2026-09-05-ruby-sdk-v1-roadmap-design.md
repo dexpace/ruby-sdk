@@ -2368,6 +2368,20 @@ design.
   choice, in the owning phase's checklist row.** Touches `HTTP-47`. Added after phase 10's
   planning pass, so it is the thirty-sixth bullet and is not yet in its design's disposition table; phase 10
   dispositions it at execution.
+- **`MultipartBody` refuses a non-ASCII part name or filename, because its part-header sweep is the outbound
+  header grammar.** Found by phase 3b's implementation on 2026-09-16. Phase 3b's design has every assembled
+  part-header line swept by phase 1's `HeaderSyntax.valid_outbound_value?` "as a second, whole-line sweep",
+  which admits HTAB and printable ASCII only, so a `MultipartBody::Part` named `"résumé"` or with filename
+  `"résumé.pdf"` raises `Dexpace::InvalidArgumentError` at write time and the caller must percent-encode
+  first — RFC 7578 §4.2's own recommendation, while browsers send raw UTF-8 in that position. `HTTP-51`'s
+  one MUST (a quote, a CR or an LF must not break the framing) is met either way; the question is whether the
+  sweep should admit obs-text at or above `0x80` in a *multipart part header*, which is body bytes and not an
+  HTTP header, and phase 1's inbound grammar (`HeaderSyntax.valid_inbound_value?`) already exists for exactly
+  that shape. A widening that cannot break `NFR-4`. **Code half if taken: one predicate swap in
+  `MultipartBody#sweep!` with a non-ASCII filename test; documentation half: `docs/sdk-documentation/body.md`'s
+  multipart section and 3b's checklist row.** Touches `HTTP-51`. Added after phase 10's planning pass, so it
+  is the thirty-seventh bullet and is not yet in its design's disposition table; phase 10 dispositions it at
+  execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -2742,3 +2756,54 @@ lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentenc
 line on the seventh cop are rewritten from what was built. The consolidation of P3-1–P3-13 into design §10 is a
 human's, as it was for phases 1 and 2: `docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as
 phase 2 left it for phase 10 to flip.
+
+**2026-09-16** — **Phase 3b implemented**, as three stacked branches against issue #12: code, tests,
+documentation. `dexpace-core` now carries the body layer beside the domain model, the seam layer and the
+byte-streaming layer — twelve new `lib/` files under `lib/dexpace/http/`, exactly the design's Module Layout:
+`body.rb` with `Dexpace::Body`, its eight factories, `MAX_BUFFERED_ERROR_BODY_BYTES` and `.buffer_bounded`;
+the ten variants under `body/` — `BytesBody`, `BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`,
+`FileBody`, `MultipartBody` with its nested `Part` and `Builder`, `ResponseBody`, `RequestLoggingBody`,
+`ResponseLoggingBody`; and `TypedResponse` — each with its `sig/` mirror declaring every method and its
+`test/` mirror, plus two fakes (`fake_body.rb`, `fake_response_body.rb`); three `lib/` files changed as the
+design said (the form encoder beside the RFC 3986 one in `PercentEncoding`, `Response#close`/`#body_string`/
+`#body_bytes`, the entry file's twelve `require_relative`s), `sig/` narrows `Request#body` and
+`Response#body` to `Dexpace::Body?` (P3-15 — **the body-member narrowing phase 1 postponed to phase 3 has
+landed**, with `HTTP-46`'s body half tested), `tools/measure_view_retention.rb` is the Task 13 measurement,
+and the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket. **`BODY-12`'s
+first clause is discharged** (`::IO.copy_stream` with the window, `#path`/`#offset`/`#count`, no
+`#to_path`; P3-17) and clause 2 stays with `TRANSPORT-28` under `docs/first-release.md`. The checklist is at
+`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`: fifty-one rows, the
+forty-nine own IDs plus `HTTP-46`'s and `HTTP-3`'s cross-reference rows — 46 ✅, 3 ✅ in part with the
+remainder ⏳ and its owner named (`BODY-12` clause 2, `BODY-34`'s source and predicate, `BODY-30`/`HTTP-52`'s
+response-side clause), 1 ⏳ (`BODY-36`, no stdlib `mmap`), nothing 🚫, nothing N/A. `bundle exec rake` is
+green on 4.0.6 at the tests tip with 99.96% line coverage against the 80% floor and 1,129 runs across the six
+gems (304 of them the twelve body suites); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip
+is green on all seventeen gates too, its `test:gems` at 84.62% above the floor. **Every guard the plan asks to be run red was run red, and fifty-five
+single-edit mutations were run** — the plan's fifty, the adversarial review's two testable ones and the three
+probes the brief names — every one caught, with the two decode-recipe mutations exactly as the plan predicts:
+the retag dropped fails the decode suite outright, the target dropped fails exactly the two hostile
+`Encoding.default_internal` tests and nothing else. The review's R1 (`#emit_exactly`'s retag dropped) was
+missed on the first pass for the reason the review gave and is now caught by a raw `#write` recorder that
+keeps what it was handed as given. **One defect was found and closed while writing the as-built page**: a
+`subtype:` carrying `;` parsed as a subtype plus a smuggled parameter, and the subtype is now validated as one
+bare token through `MediaType.parse`. **Two things 3a as built changed under the plan**: `TeeSink#clear_tap`
+does not exist and is never called — `BODY-18` is a fresh tee per write — and the one-byte-per-read finding
+the plan reports against 3a is closed there (`READ_SEGMENT_BYTES`, `#dexpace_fill_beyond`), so Task 13's
+measurement was re-run rather than copied: zero bytes retained per unread view, 7–8 objects per view, a
+thousand views closing in about 0.012 s and ten thousand in 1.2–1.3 s on this machine, the same shape and
+verdict as the plan's table. Strict Steep reshaped eight private mechanisms without changing behaviour and
+put `HTTP-46`'s identity default on `Dexpace::Body` itself, so four stream-holding variants dropped their
+copies (checklist deviations 3–6). Sixteen departures from the plan's text are itemised in the checklist,
+none lowering a gate. One finding is routed to phase 10's inbound list above, the thirty-seventh bullet:
+`MultipartBody` refuses a non-ASCII part name or filename because its part-header sweep is the outbound
+header grammar — kept as the design decided, stated as a limitation in `docs/sdk-documentation/body.md`.
+The design's ledger gains an "As built" addendum; the one postponed item keeps its owner (the body-logging
+caps' source and enablement predicate, phase 5a Task 13 and 5b Tasks 14–15), `close_quietly` has its first
+call site (`BODY-28`) with neither disposal route yet built, and the fakes' move to `dexpace-conformance`
+gains two more doubles without meeting its condition. The counts that changed: `gems/` is still six;
+`dexpace-core`'s `lib/dexpace/` is sixty-three phase-1, phase-2, phase-3a and phase-3b files beside phase
+0's `version.rb`; `phase3/phase3b/` now carries its checklist, the fifth written; the surface manifest is
+515 lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the
+constraints-that-bite list are rewritten from what was built. The consolidation of P3-14–P3-29 into design
+§10, and §3.1's and §5.1's addenda, are a human's, as they were for 3a: `docs/sdk-design-ruby/` is frozen, and
+`docs/deviations.md` is left as phase 2 left it for phase 10 to flip.
