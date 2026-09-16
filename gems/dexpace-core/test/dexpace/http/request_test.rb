@@ -3,6 +3,7 @@
 
 require_relative "../../test_helper"
 require "dexpace"
+require "stringio"
 
 # HTTP-1, HTTP-2, HTTP-3, HTTP-4, HTTP-5, HTTP-6, HTTP-7, HTTP-18, HTTP-46, HTTP-47, XCUT-15,
 # XCUT-18.
@@ -83,6 +84,48 @@ class DexpaceRequestTest < DexpaceTestCase
   test "with re-validates HTTP-7, so a GET cannot acquire a body by derivation" do
     assert_raises(Dexpace::InvalidArgumentError) { request.with(body: "payload") }
     assert_equal(Dexpace::Method::POST, request.with(method: "POST", body: "x").method)
+  end
+
+  # HTTP-46's body half, untestable in phase 1 because no body type existed. Phase 3b supplies the
+  # type; the ID stays phase 1's and this is its cross-reference row.
+  test "compares its body by value, so two requests over equal bodies are equal" do
+    first = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                   headers: Dexpace::Headers::EMPTY,
+                                   body: Dexpace::Body.bytes("héllo"),)
+    same = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                  headers: Dexpace::Headers::EMPTY,
+                                  body: Dexpace::Body.bytes("héllo"),)
+    other = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                   headers: Dexpace::Headers::EMPTY,
+                                   body: Dexpace::Body.bytes("wörld"),)
+
+    assert_equal(first, same)
+    assert_equal(first.hash, same.hash)
+    refute_equal(first, other)
+  end
+
+  test "a request carrying a body works as a Hash key, which needs eql? and hash together" do
+    key = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                 headers: Dexpace::Headers::EMPTY,
+                                 body: Dexpace::Body.bytes("héllo"),)
+    twin = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                  headers: Dexpace::Headers::EMPTY,
+                                  body: Dexpace::Body.bytes("héllo"),)
+
+    assert_equal(:found, { key => :found }[twin])
+  end
+
+  # A stream-backed body compares by identity, correctly: two requests over two different live
+  # streams are two different requests, even when the streams hold the same bytes.
+  test "two requests over two different stream bodies are not equal" do
+    first = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                   headers: Dexpace::Headers::EMPTY,
+                                   body: Dexpace::Body.stream(StringIO.new(+"a")),)
+    second = Dexpace::Request.build(method: Dexpace::Method::POST, url: "https://example.test/",
+                                    headers: Dexpace::Headers::EMPTY,
+                                    body: Dexpace::Body.stream(StringIO.new(+"a")),)
+
+    refute_equal(first, second)
   end
 
   # HTTP-2, HTTP-4, HTTP-18, HTTP-47, XCUT-18: what `.build` owes a caller who never met a
