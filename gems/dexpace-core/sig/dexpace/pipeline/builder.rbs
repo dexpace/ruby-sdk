@@ -1,0 +1,54 @@
+module Dexpace
+  class Pipeline
+    class Builder
+      include Dexpace::Builder
+
+      # `anchor` is a step TYPE or an Entry#name; `stage` is a Stage or its name (R10's table).
+      type anchor = Module | Symbol | String
+      type stage_ref = Stage | Symbol | String
+      type name = Symbol | String
+
+      @transport: untyped
+      @buckets: Hash[Stage, Array[Entry]]
+
+      def self.flattening: (Pipeline | AsyncPipeline pipeline) -> Builder
+      def self.nesting: (Pipeline | AsyncPipeline pipeline) -> Builder
+
+      def initialize: (transport: untyped) -> void
+
+      def append: (untyped step, ?stage: stage_ref?, ?name: name?) -> self
+      def prepend: (untyped step, ?stage: stage_ref?, ?name: name?) -> self
+      def append_all: (Array[untyped] steps, ?stage: stage_ref?, ?name: name?) -> self
+      def prepend_all: (Array[untyped] steps, ?stage: stage_ref?, ?name: name?) -> self
+      def insert_after: (anchor anchor, untyped step, ?stage: stage_ref?, ?name: name?) -> self
+      def insert_before: (anchor anchor, untyped step, ?stage: stage_ref?, ?name: name?) -> self
+      def replace: (anchor anchor, untyped step, ?stage: stage_ref?, ?name: name?) -> self
+      def remove: (anchor anchor) -> self
+      def reload: (Array[Entry] entries) -> self
+      def install_preset: (Array[Entry] entries) -> self
+      def entries: () -> Array[Entry]
+      def build: () -> Pipeline
+      def build_async: () -> AsyncPipeline
+
+      private
+
+      def effective_stage: (untyped step, stage_ref? given) -> Stage
+      def refuse_disagreement!: (Stage? declared, Stage? given) -> void
+      def resolve: (stage_ref stage) -> Stage
+      def install: (Stage stage, untyped step, name? name) { (Array[Entry], Entry) -> void } -> self
+      def refuse_collision!: (Stage stage, Array[Entry] bucket, untyped step) -> void
+      def surgical: (anchor anchor, untyped step, stage_ref? stage, name? name, ?exclusive: bool) { (Array[Entry], Integer, Entry) -> void } -> self
+      def find_anchor: (anchor anchor) -> [Entry, Array[Entry]]
+      def anchor_matches?: (Entry entry, anchor anchor) -> bool
+      def named?: (anchor anchor) -> bool
+      def describe_anchor: (anchor anchor) -> String
+      def reject_batch_name!: (Array[untyped] steps, name? name) -> void
+      def validate_bulk: (untyped entries) -> Array[Entry]
+      def repeated_occupant?: (Hash[Stage, untyped] seen, Entry entry) -> bool
+      def commit: (Array[Entry] validated) -> self
+      def occupancy: (Entry entry) -> String?
+      def same_occupant?: (Entry entry) -> bool
+      def validate_transport!: (singleton(Dexpace::Transport) | singleton(Dexpace::AsyncTransport) seam, String label) -> void
+    end
+  end
+end

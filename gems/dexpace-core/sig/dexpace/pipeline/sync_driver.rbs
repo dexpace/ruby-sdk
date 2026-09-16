@@ -1,0 +1,16 @@
+# Dexpace::Pipeline::SyncDriver is a private_constant and not public API (design P2-15): this
+# declaration exists because the strict `core` Steep target checks every file under lib/ and
+# needs the class and its two methods declared to type its call sites in Cursor, Builder and
+# Pipeline. RBS has no visibility for a constant, so the privacy lives in
+# lib/dexpace/pipeline/sync_driver.rb alone.
+module Dexpace
+  class Pipeline
+    class SyncDriver
+      @pipeline: Pipeline
+
+      def initialize: (Pipeline pipeline) -> void
+      def entry_at: (Integer index) -> Entry
+      def advance: (position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> untyped
+    end
+  end
+end
