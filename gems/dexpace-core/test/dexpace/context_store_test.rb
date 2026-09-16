@@ -4,6 +4,8 @@
 require_relative "../test_helper"
 require "dexpace"
 require_relative "../support/fake_context"
+require "open3"
+require "rbconfig"
 
 # CTX-7, CTX-8, CTX-9, CTX-10, CTX-11, CTX-12, CTX-13, CTX-18, CTX-19, XCUT-14, and the Fiber[]
 # boundary docs/knowledge/notes/observability.md draws. Every store here is a fresh
@@ -145,30 +147,37 @@ class DexpaceContextStoreTest < DexpaceTestCase
 
     # The store is process-wide, not fiber-scoped: the line docs/knowledge/notes/observability.md
     # draws between CTX's store and the Fiber[] diagnostic-context carrier. The setup guard is
-    # what makes the three assertions mean something -- without it, the store being visible
-    # everywhere would prove nothing about the three being distinct execution contexts.
-    # Fiber[:probe] = v emits no warning on any supported Ruby (design, verified fact 13); only
-    # Fiber#storage= does, and nothing here calls it.
+    # what makes the three store assertions mean something, and it covers every carrier they do:
+    # with a fiber-storage slot and a fiber-local slot both written on the main fiber, a child
+    # Fiber, a new ::Thread and an Enumerator's internal fiber each inherit the first and see
+    # none of the second (observability/016d9154, verified on 3.2.11, 3.4.10 and 4.0.6). That is
+    # what establishes the three as distinct execution contexts -- without it, the store being
+    # visible everywhere would prove nothing. Fiber[:probe] = v emits no warning on any supported
+    # Ruby (design, verified fact 13); only Fiber#storage= does, and nothing here calls it.
     test "the store is process-wide, not fiber-scoped -- the Fiber[] boundary" do
       store = Dexpace::ContextStore.new(cap: 8)
       ctx = FakeContext.new(call_key: "fiber-probe", store: store)
       store.set(ctx)
+      probe = -> { [Fiber[:probe], ::Thread.current[:probe]] }
 
-      Fiber[:probe] = :main_fiber
+      Fiber[:probe] = :fiber_storage
+      ::Thread.current[:probe] = :fiber_local
 
-      assert_equal(:main_fiber, Fiber[:probe])
-      assert_nil(::Thread.current[:probe])
-      assert_equal(:main_fiber, Fiber.new { Fiber[:probe] }.resume)
-      assert_nil(Fiber.new { ::Thread.current[:probe] }.resume)
+      assert_equal(%i[fiber_storage fiber_local], probe.call)
+      assert_equal([:fiber_storage, nil], Fiber.new { probe.call }.resume)
+      assert_equal([:fiber_storage, nil], ::Thread.new { probe.call }.value)
+      assert_equal([:fiber_storage, nil], Enumerator.new { |y| y << probe.call }.next)
 
       from_fiber = Fiber.new { store["fiber-probe"] }.resume
-      from_thread = nil
-      ::Thread.new { from_thread = store["fiber-probe"] }.join
+      from_thread = ::Thread.new { store["fiber-probe"] }.value
       from_enumerator = Enumerator.new { |y| y << store["fiber-probe"] }.next
 
       assert_same(ctx, from_fiber)
       assert_same(ctx, from_thread)
       assert_same(ctx, from_enumerator)
+    ensure
+      Fiber[:probe] = nil
+      ::Thread.current[:probe] = nil
     end
   end
 
@@ -193,6 +202,42 @@ class DexpaceContextStoreTest < DexpaceTestCase
       assert_same(b, store["b"])
       assert_same(c, store["c"])
       refute_nil(store["d"])
+    end
+
+    # The same policy through a REAL promotion, which the fake above only simulates. A
+    # #promote_to_exchange that released its source before setting the successor would pass
+    # every FakeContext case in this file and still refresh the chain's eviction position (the
+    # slot is deleted and re-inserted at the end of the hash) -- and leave the slot transiently
+    # empty between two mutex acquisitions. Cap 3, three chains at the request stage under keys
+    # a, b and c; a's request context promoted to exchange, re-setting a's slot through the real
+    # path; a fourth chain promoted; a is still the oldest registration and still the victim, and
+    # both of a's links close as CTX-18's false. This is the case the release-then-set mutation
+    # goes red on.
+    test "CTX-13: a real promotion re-sets the slot without refreshing its eviction position" do
+      store = Dexpace::ContextStore.new(cap: 3)
+      bundle = Dexpace::Instrumentation::Bundle::NONE
+      promote = lambda do |key|
+        Dexpace::DispatchContext.build(bundle: bundle, call_key: key, store: store)
+          .promote_to_request(request: :req)
+      end
+      a = promote.call("a")
+      b = promote.call("b")
+      c = promote.call("c")
+
+      a_exchange = a.promote_to_exchange(response: :resp)
+
+      assert_same(a_exchange, store["a"])
+      assert_equal(3, store.size)
+
+      d = promote.call("d")
+
+      assert_equal(%w[b c d], %w[a b c d].select { |key| store[key] })
+      assert_equal(3, store.size)
+      assert_same(b, store["b"])
+      assert_same(c, store["c"])
+      assert_same(d, store["d"])
+      refute(a_exchange.close)
+      refute(a.close)
     end
 
     test "CTX-13/CTX-18: nothing in the store's own behaviour depends on any entry surviving" do
@@ -313,12 +358,32 @@ class DexpaceContextStoreTest < DexpaceTestCase
       refute_nil(store[keys.last])
     end
 
-    # .default is the one process-wide instance, assigned at file load rather than memoised on
-    # first call; this suite never writes to it (CTX-17 keeps construction off the store), so
-    # the only things asserted are its identity across calls and that it is a store.
+    # .default is the one process-wide instance; this suite never writes to it (CTX-17 keeps
+    # construction off the store), so what is asserted here is its identity across calls and
+    # that it is a store. The eager-assignment half is the next case's.
     test ".default is one process-wide instance, the same object on every call" do
       assert_same(Dexpace::ContextStore.default, Dexpace::ContextStore.default)
       assert_instance_of(Dexpace::ContextStore, Dexpace::ContextStore.default)
+    end
+
+    # Why .default is assigned at file load rather than memoised: `@default ||= new` is an
+    # unsynchronised read-modify-write over shared state (XCUT-11), and eager assignment is also
+    # what keeps CTX-17 inert for a .build that takes the default store -- construction reads a
+    # singleton that already exists and writes nothing. The identity case cannot see the
+    # difference: by the time it runs, some earlier .build in this process has called .default
+    # and a memoised store would already exist. Only a fresh process can, so this asks one --
+    # `require "dexpace"` and nothing else, then whether the ivar is set before any call. A
+    # memoised .default with the load-time line deleted prints false.
+    test ".default is assigned at file load: a fresh process holds it before any call" do
+      lib = File.expand_path("../../lib", __dir__)
+      out, err, status = Open3.capture3(
+        RbConfig.ruby, "-w", "-W:deprecated", "-I", lib, "-e",
+        'require "dexpace"; print Dexpace::ContextStore.instance_variable_defined?(:@default)',
+      )
+
+      assert_predicate(status, :success?, err)
+      assert_empty(err)
+      assert_equal("true", out)
     end
   end
 end
