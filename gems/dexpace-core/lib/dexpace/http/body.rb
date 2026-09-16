@@ -293,19 +293,29 @@ module Dexpace
     # Found by review on 2026-09-13; it is the write-side half of the surface P3-23 records.
     #
     # The original's close still happens in .buffer_bounded's ensure above, so a FileBody handle or
-    # a transport connection is released on every path.
+    # a transport connection is released on every path. The handle #source returned is closed
+    # here, before that, in its own ensure: for a BufferBody or a fits-cap ResponseLoggingBody it
+    # is a fresh #peek view of a buffer that outlives this call and neither body's #close reaches
+    # (design §7.1 applied, rule 4: every view core takes, core closes; review round 0, R0-1); for
+    # a ResponseBody it is the same idempotent stream close the body's own performs. Guarded with
+    # `respond_to?` because the read side's contract on a source is Dexpace::IO::_Source's
+    # #read_into alone, which declares no #close.
     def self.copy_bounded(body, buffer, limit)
       return nil if limit.zero?
 
       source = body.source
-      taken = 0
-      while taken < limit
-        chunk = (+"").b
-        got = source.read_into(chunk, count: limit - taken)
-        break if got.negative?
+      begin
+        taken = 0
+        while taken < limit
+          chunk = (+"").b
+          got = source.read_into(chunk, count: limit - taken)
+          break if got.negative?
 
-        buffer.write(chunk)
-        taken += got
+          buffer.write(chunk)
+          taken += got
+        end
+      ensure
+        source.close if source.respond_to?(:close)
       end
       nil
     end

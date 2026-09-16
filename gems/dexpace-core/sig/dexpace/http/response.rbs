@@ -34,5 +34,10 @@ module Dexpace
     def body_string: () -> String?
     def body_bytes: () -> String?
     def self.resolve_charset: (Dexpace::MediaType? media_type) -> Encoding
+
+    private
+
+    # The shared read path: the handle #source returned is closed, then the body (BODY-16).
+    def read_through: [T] (Dexpace::Body body) { (Dexpace::IO::BufferedSource) -> T } -> T
   end
 end

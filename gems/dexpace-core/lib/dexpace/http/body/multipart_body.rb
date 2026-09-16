@@ -171,15 +171,19 @@ module Dexpace
       bytes.each_byte.map { |byte| alphabet.fetch(byte % alphabet.length) }.join.freeze
     end
 
-    # HTTP-46: by value, over the boundary and the parts that determine the bytes.
+    # HTTP-46: by value, over the three facts that determine what goes on the wire -- the boundary
+    # and the parts fix the bytes, the subtype fixes the Content-Type. Two bodies that frame the
+    # same parts as multipart/form-data and as multipart/mixed are two different values, exactly as
+    # two BytesBody over the same bytes with different media types are (review round 0, R0-4).
     def ==(other)
-      other.is_a?(MultipartBody) && other.boundary == @boundary && other.parts == @parts
+      other.is_a?(MultipartBody) && other.boundary == @boundary && other.subtype == @subtype &&
+        other.parts == @parts
     end
     alias eql? ==
 
     # Agrees with #==.
     def hash
-      [self.class, @boundary, @parts].hash
+      [self.class, @boundary, @subtype, @parts].hash
     end
 
     private

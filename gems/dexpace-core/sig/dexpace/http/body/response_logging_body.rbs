@@ -18,6 +18,7 @@ module Dexpace
       @source: untyped
 
       def take_pending: () -> String?
+      def read_tail: (Integer count) -> String?
     end
 
     # `delegate` is untyped for BufferedSource.wrapping's reason: anything responding to #source,

@@ -37,10 +37,19 @@ module Dexpace
       end
     end
 
+    # The source is checked as a duck, never with is_a?, and the duck is the BufferedSource
+    # vocabulary this class actually uses: #read_into for #write_to's exact copy, and #peek for
+    # #preview -- the narrowest member only a Dexpace::IO::BufferedSource (or a view of one)
+    # answers, and the one Response#body_string's #read_string and #body_bytes' #read sit beside.
+    # A bare Dexpace::IO::_Source is deliberately NOT enough (review round 0, R0-5): it would
+    # construct and then fail with a NoMethodError on the first preview or read through Response,
+    # and the contract this class states -- #source -> Dexpace::IO::BufferedSource -- is what the
+    # sig declares.
     def initialize(source:, media_type: nil, content_length: -1)
-      unless source.respond_to?(:read_into)
+      unless source.respond_to?(:read_into) && source.respond_to?(:peek)
         raise Dexpace::InvalidArgumentError,
-              "a response body's source must respond to #read_into, got #{source.class}"
+              "a response body's source must be a Dexpace::IO::BufferedSource-shaped reader " \
+              "responding to #read_into and #peek, got #{source.class}"
       end
       unless content_length.is_a?(::Integer) && content_length >= -1
         raise Dexpace::InvalidArgumentError,

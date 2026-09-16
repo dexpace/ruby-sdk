@@ -108,30 +108,25 @@ module Dexpace
     #    Encoding.default_internal, a process global the host sets -- the same
     #    passes-where-you-look hazard design §3.5 pins URI::RFC3986_PARSER against.
     #
-    # BODY-16: the body is closed in an ensure whether or not the read succeeded.
+    # BODY-16: the body is closed in an ensure whether or not the read succeeded, and so is the
+    # handle #source handed out (#read_through, below).
     def body_string
-      return nil if body.nil?
+      current = body
+      return nil if current.nil?
 
-      encoding = self.class.resolve_charset(body.media_type)
-      begin
-        body.source
-          .read_string(encoding)
-          .encode(encoding, invalid: :replace, undef: :replace)
-      ensure
-        body.close
+      encoding = self.class.resolve_charset(current.media_type)
+      read_through(current) do |source|
+        source.read_string(encoding).encode(encoding, invalid: :replace, undef: :replace)
       end
     end
 
     # HTTP-41/BODY-16's byte-array sibling. It decodes NOTHING and returns BINARY; the same
     # finally-style close applies.
     def body_bytes
-      return nil if body.nil?
+      current = body
+      return nil if current.nil?
 
-      begin
-        body.source.read || (+"").b
-      ensure
-        body.close
-      end
+      read_through(current) { |source| source.read || (+"").b }
     end
 
     # HTTP-42's charset resolution: the declared charset when this Ruby knows it, UTF-8 otherwise.
@@ -142,6 +137,34 @@ module Dexpace
       return ::Encoding::UTF_8 if name.nil?
 
       ::Encoding.find(name) || ::Encoding::UTF_8
+    end
+
+    private
+
+    # The one read path both readers share, and the second half of BODY-16's finally-close: the
+    # handle #source returned is closed FIRST, then the body, each in its own ensure so the second
+    # close runs whatever the first did.
+    #
+    # Closing the handle is not redundant with closing the body. For a ResponseBody the two are the
+    # same idempotent stream close (BODY-15), but for a BufferBody and for a fits-cap
+    # ResponseLoggingBody the handle is a fresh #peek VIEW of a buffer that outlives this call, and
+    # neither body's #close reaches it -- BufferBody#close is the contract's no-op and the wrapper's
+    # close is its delegate's -- so a reader that dropped it would leave one registered view in
+    # that buffer per call, which is the Array#delete growth Task 13 measured (design §7.1 applied,
+    # rule 4: "every view core takes, core closes"; review round 0, R0-1). For the over-cap
+    # composite the handle's close is the Tail's, which deregisters its prefix view and routes to
+    # the wrapper's one guard (BODY-27). `respond_to?` rather than an unconditional call, as the
+    # bodies' own #release methods do: a source is checked as a duck, never with is_a?, and
+    # Dexpace::IO::_Source declares no #close.
+    def read_through(body)
+      source = body.source
+      begin
+        yield source
+      ensure
+        source.close if source.respond_to?(:close)
+      end
+    ensure
+      body.close
     end
   end
 end

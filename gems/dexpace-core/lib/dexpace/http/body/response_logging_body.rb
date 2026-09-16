@@ -141,6 +141,17 @@ module Dexpace
       # receives "" from here, because "" latches exhaustion on that path (3a's
       # fill_from_upstream) and an empty prefix must not end the composite before the tail has
       # been read.
+      #
+      # The live tail is forwarded through #read_into, IO-1's primitive, and NOT through the
+      # delegate source's #read(count): #read is IO-16's host-native bulk read and "keeps filling
+      # until it has `length` bytes or the stream ends", so on a still-open connection the
+      # composite would deliver the rest of the body in .wrapping's 64 KiB segments or at EOF,
+      # where the delegate on its own returns what has arrived (review round 0, R0-3). #read_into
+      # fills ONCE and returns what is there, which is what a partial read is, and it is also the
+      # only member the regime probe asks of the delegate's source (plan decision 9), so the
+      # delegate's source contract stays Dexpace::IO::_Source's single method. A zero return for
+      # the positive count .wrapping always asks with is BODY-25's contract violation, and 3a's
+      # helper keeps the message form in one place.
       def read(count)
         if @wrapper.closed?
           raise Dexpace::ClosedError,
@@ -155,7 +166,7 @@ module Dexpace
         pending = @pending
         return take_pending unless pending.nil? || pending.empty?
 
-        @source.read(count)
+        read_tail(count)
       end
 
       # BODY-27's second path, and the reason this is .wrapping's upstream rather than .over's
@@ -173,6 +184,17 @@ module Dexpace
         taken = @pending
         @pending = nil
         taken
+      end
+
+      # One fill of the live delegate: what is there, nil at its end, and BODY-25's violation
+      # for a zero return on a positive count (see #read).
+      def read_tail(count)
+        chunk = (+"").b
+        got = @source.read_into(chunk, count: count)
+        return nil if got.negative?
+        raise Dexpace::StreamError.zero_read(requested: count) if got.zero?
+
+        chunk
       end
     end
 
