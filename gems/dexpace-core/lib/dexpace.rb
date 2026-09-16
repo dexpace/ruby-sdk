@@ -59,6 +59,22 @@ require_relative "dexpace/io/buffer"
 require_relative "dexpace/io/buffered_sink"
 require_relative "dexpace/io/tee_sink"
 
+# Phase 3b: the body layer, in dependency order -- the contract and its factory home first, then
+# the variants each factory names, the response side, the two logging wrappers, and the lazy typed
+# response last.
+require_relative "dexpace/http/body"
+require_relative "dexpace/http/body/bytes_body"
+require_relative "dexpace/http/body/buffer_body"
+require_relative "dexpace/http/body/stream_body"
+require_relative "dexpace/http/body/chunked_body"
+require_relative "dexpace/http/body/form_body"
+require_relative "dexpace/http/body/file_body"
+require_relative "dexpace/http/body/multipart_body"
+require_relative "dexpace/http/body/response_body"
+require_relative "dexpace/http/body/request_logging_body"
+require_relative "dexpace/http/body/response_logging_body"
+require_relative "dexpace/http/typed_response"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

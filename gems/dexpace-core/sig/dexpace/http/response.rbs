@@ -7,15 +7,18 @@ module Dexpace
     attr_reader status: Status
     attr_reader reason: String?
     attr_reader headers: Headers
-    attr_reader body: untyped
+    # Phase 3b narrowed this from untyped to the production contract (P3-15); the three bodies
+    # that occupy it -- ResponseBody, ResponseLoggingBody, BufferBody -- all answer the #source
+    # and #close the readers below are written against (P3-23).
+    attr_reader body: Dexpace::Body?
 
     private def self.new: (request: Request, protocol: String | Protocol, status: Integer | Status,
-                           reason: String?, headers: Headers, body: untyped) -> instance
+                           reason: String?, headers: Headers, body: Dexpace::Body?) -> instance
     def initialize: (request: Request, protocol: String | Protocol, status: Integer | Status,
-                     reason: String?, headers: Headers, body: untyped) -> void
+                     reason: String?, headers: Headers, body: Dexpace::Body?) -> void
 
     def self.build: (request: Request, protocol: String | Protocol, status: Integer | Status,
-                     headers: Headers, ?reason: String?, ?body: untyped) -> Response
+                     headers: Headers, ?reason: String?, ?body: Dexpace::Body?) -> Response
     def self.builder: () -> Response::Builder
 
     def new_builder: () -> Response::Builder
@@ -25,5 +28,11 @@ module Dexpace
     def client_error?: () -> bool
     def server_error?: () -> bool
     def error?: () -> bool
+
+    # Phase 3b (HTTP-43, HTTP-42, HTTP-41/BODY-16).
+    def close: () -> nil
+    def body_string: () -> String?
+    def body_bytes: () -> String?
+    def self.resolve_charset: (Dexpace::MediaType? media_type) -> Encoding
   end
 end
