@@ -122,9 +122,10 @@ class DexpaceCloseableTest < DexpaceTestCase
     Dexpace.close_quietly(spy)
 
     assert_equal(1, spy.releases)
-    # The rescued error is dropped until phase 4b (Task 2) supplies the suppressed trail and phase
-    # 5b (Task 14) the instrumentation diagnostic. Asserted rather than left as a comment, so the
-    # day a route lands this test is what has to change.
+    # With `onto:` absent -- every phase-2 call site -- the rescued error is still dropped: the
+    # first disposal route (phase 4b, Task 2) is opt-in through `onto:`, and the second, phase
+    # 5b's diagnostic (Task 14), is not built. Asserted rather than left as a comment, so the day
+    # the second route lands this test is what has to change.
     assert_nil(Dexpace.close_quietly(Raising.new))
   end
 
@@ -199,6 +200,59 @@ class DexpaceCloseableTest < DexpaceTestCase
     reader.close
 
     assert(reader.seen)
+  end
+
+  # close_quietly's first disposal route (phase 2 postponed both; phase 4b, Task 2, supplies this
+  # one and phase 5b, Task 14, the diagnostic). The primary is a caller's exception, so the
+  # carrier is Dexpace::Suppressible and not Dexpace::Error (P4-12). Its own class because
+  # Metrics/ClassLength caps a class at 100 lines; the doubles above are reachable lexically.
+  class QuietlyOntoTest < DexpaceTestCase
+    test "close_quietly with onto: attaches the rescued close failure to that error's trail" do
+      primary = ::StandardError.new("primary failure")
+
+      assert_nil(Dexpace.close_quietly(Raising.new, onto: primary))
+
+      trail = Dexpace.suppressed(primary)
+
+      assert_equal(1, trail.size)
+      assert_instance_of(::IOError, trail.first)
+      assert_equal("the socket is already gone", trail.first.message)
+      assert_kind_of(Dexpace::Suppressible, primary)
+      refute_kind_of(Dexpace::Error, primary)
+    end
+
+    test "close_quietly with onto: attaches nothing when the close succeeds" do
+      spy = Spy.new
+      primary = ::StandardError.new("primary failure")
+
+      assert_nil(Dexpace.close_quietly(spy, onto: primary))
+      assert_equal(1, spy.releases)
+      assert_equal([], Dexpace.suppressed(primary))
+      assert_nil(Dexpace.close_quietly(nil, onto: primary))
+      assert_equal([], Dexpace.suppressed(primary))
+    end
+
+    # A NotImplementedError is still not a close failure: `onto:` changes where a StandardError
+    # goes and nothing about what is rescued.
+    test "close_quietly with onto: still does not swallow a programmer error from close" do
+      primary = ::StandardError.new("primary failure")
+
+      assert_raises(::NotImplementedError) { Dexpace.close_quietly(NoRelease.new, onto: primary) }
+      assert_equal([], Dexpace.suppressed(primary))
+    end
+
+    # Validated at ENTRY, before the close is attempted: attach_suppressed refuses a non-Exception,
+    # and refusing it from inside the rescue would replace the close failure this method was
+    # passed to carry with a caller-mistake error -- the one thing §3.7 promises never happens.
+    test "close_quietly validates onto: before it touches the resource" do
+      spy = Spy.new
+
+      assert_raises(Dexpace::InvalidArgumentError) do
+        Dexpace.close_quietly(spy, onto: :not_an_exception)
+      end
+      assert_equal(0, spy.releases, "the resource must not be closed when onto: is refused")
+      refute_predicate(spy, :closed?)
+    end
   end
 
   private
