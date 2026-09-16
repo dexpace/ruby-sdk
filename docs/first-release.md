@@ -138,7 +138,7 @@ stated in the release notes rather than discovered at `bundle install`.
       against that tree: the conformance-run caveat, the `include Dexpace` constant shadow, and
       `Dexpace::IO::MAX_MATERIALIZED_BYTES`. Cites `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`,
       `PIPE-39`
-- [ ] **The thirteen recorded corrections to `docs/sdk-design-ruby/` §3, §4, §8, §9, §10, §11, §12 and to
+- [ ] **The fourteen recorded corrections to `docs/sdk-design-ruby/` §3, §4, §5, §8, §9, §10, §11, §12 and to
       appendix C's `SSE-19` row applied — or the release notes stating which design sentences a reader
       should not trust.** Filed 2026-09-13 by phase 10's design. Every one is a place where the **rule**
       is right, the **mechanism sentence** is wrong about Ruby or about a library, and the phase that
@@ -166,7 +166,15 @@ stated in the release notes rather than discovered at `bundle install`.
       may ship with the sentences unamended if the notes say which they are; it may not ship with them
       unamended and unmentioned. The set, with each frozen sentence quoted, its replacement written out,
       its measurement and its verified code half, is `docs/deviations.md` § Deviations found outside a
-      phase, completed by phase 10's plan, Task 17
+      phase, completed by phase 10's plan, Task 17. **A fourteenth, filed 2026-09-16 by phase 4b's
+      implementation (`C14`)**: §10 item 6's "`Dexpace::Error#suppressed` supplies the list" and §5.2's
+      placing of the suppressed trail on `Dexpace::Error` itself. The rule is right — one core-owned trail,
+      rendered wherever the error is displayed — and the mechanism sentence is wrong about where the method
+      is defined and about what else can carry a trail: every primary `RECOV-12`, `close_quietly` and
+      `Hooks.notify` hand the helper is a caller's exception, so the trail lives on `Dexpace::Suppressible`,
+      which `Dexpace::Error` includes and `Dexpace.attach_suppressed` extends onto anything else (phase 4b's
+      design, P4-12; the working code is `gems/dexpace-core/lib/dexpace/suppressible.rb`). Its replacement
+      sentence is written out in 4b's design ledger and awaits the same human hand as the thirteen
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
       accidental breaking change. **Phase 10 is the phase that can**: its plan, Task 5 is the last change
       to `sig/` in every gem, so Task 18 establishes the baseline over a tree nothing else will move —

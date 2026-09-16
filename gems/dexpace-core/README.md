@@ -3,8 +3,8 @@
 Part of the [dexpace Ruby SDK](../../README.md): an HTTP-client toolkit, not an HTTP client.
 This gem is the core: the domain model, the pipeline and every seam's contract.
 
-**Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer
-and the body layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+**Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer,
+the body layer and the recovery layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -18,11 +18,16 @@ vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, and the two failure types
 `Dexpace::`: the contract `Dexpace::Body` with its eight factories and `.buffer_bounded`, the
 variants `BytesBody`, `BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `FileBody` and
 `MultipartBody`, the single-use `ResponseBody`, the wrappers `RequestLoggingBody` and
-`ResponseLoggingBody`, `TypedResponse`, and `Response#close` / `#body_string` / `#body_bytes`.
-Nothing else yet: the pipeline and every adapter are later phases', and no transport ships here,
-so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
-`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md` and
-`docs/sdk-documentation/body.md`.
+`ResponseLoggingBody`, `TypedResponse`, and `Response#close` / `#body_string` / `#body_bytes` --
+and phase 4b's recovery layer: the closed outcome `Dexpace::Outcome::Success` / `Failure`, the
+`Dexpace::Recovery` namespace with `RequestChain`, `ResponseChain`, `Orchestrator`, the `Transform`
+contract and the three shipped steps, `Recovery.buffer_error_body`, the errors `Dexpace::ProtocolError`
+and `OutcomeError`, and the three error primitives every later phase uses: the suppressed trail
+`Dexpace::Suppressible` with `Dexpace.attach_suppressed` / `.suppressed`, and `Dexpace.each_cause`.
+Nothing else yet: the stage pipeline and every adapter are later phases', and no transport ships
+here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
+`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`
+and `docs/sdk-documentation/recovery.md`.
 
 ## Install
 
@@ -117,6 +122,9 @@ it stays that way (`SEAM-1`, `NFR-1`).
   the ownership rule, views, the buffer, the tee, and the `Dexpace::IO` shadow.
 - `docs/sdk-documentation/body.md` -- the body layer as built: the contract and its factories,
   what each body closes, the two logging regimes, the decode boundary, and the typed response.
+- `docs/sdk-documentation/recovery.md` -- the recovery layer as built: the outcome, the two chains
+  and who closes the response, the orchestrator and its unwrap, the three shipped steps, the error
+  trail and the cause walk.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.
