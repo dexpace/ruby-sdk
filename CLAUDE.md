@@ -13,8 +13,8 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2 and 3a are built; the domain model, the seam layer and the byte-streaming layer are the only
-domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a and 3b are built; the domain model, the seam layer, the byte-streaming layer and the
+body layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -29,8 +29,16 @@ operation projection `Dexpace::Operation`
 `Dexpace::IO`: the FIFO `Buffer`, `BufferedSource` and `BufferedSink` with the `TypedReads` and `TypedWrites`
 vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, the three RBS interfaces `_Source`/`_Sink`/`_Chunked`, and the
 two failure types `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamError < ::EOFError`
-(`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-checklist.md`); every other gem's `lib/` still
-holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a socket yet. The workspace root
+(`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-checklist.md`) — and the body layer, flat under
+`Dexpace::` and filed under `lib/dexpace/http/`: the contract and factory home `Dexpace::Body` with
+`MAX_BUFFERED_ERROR_BODY_BYTES` and `.buffer_bounded`, the seven request-body variants `BytesBody`,
+`BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `FileBody` and `MultipartBody` (with its `Part` and
+`Builder`), the single-use `ResponseBody`, the two logging wrappers `RequestLoggingBody` and
+`ResponseLoggingBody`, the lazy `TypedResponse` over the RBS interface `_ResponseHandler`, the form encoder
+beside the RFC 3986 one in `PercentEncoding`, and `Response#close` / `#body_string` / `#body_bytes` — the one
+decode boundary (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`); every other
+gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
+socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
@@ -381,6 +389,23 @@ Each is one line plus the chapter to read before touching the area.
   segment and the query the requirement keeps; `Dexpace::Operation` composes by hand. Reference resolution is
   `REDIR-13`'s, phase 6, and its spelling there is `URI::RFC3986_PARSER.join`, because `URI.join` is cop-banned
   (phase 2's design, §3 addendum A1, deviation P2-3).
+- **`Response#body_string` is the SDK's one decode boundary, and it is three steps, not one** — resolve the
+  charset through `MediaType#charset` (already `nil` for absent or unknown), **retag** the BINARY bytes with
+  3a's `#read_string(encoding)`, then transcode with the target **named**,
+  `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1's one-step sentence mangles every
+  non-ASCII byte and a target-less `#encode` follows the host's `Encoding.default_internal`; the sentence is on
+  phase 10's inbound list, and the suite's hostile-global tests are what catch a revert (phase 3b's Task 8).
+- **A body closes exactly the sources it opened, and `close: true` at `Body.stream` forces single-use** —
+  the body layer's ownership rule (design §10.12, `BODY-8`) is deliberately not the I/O layer's
+  wrapping-takes-ownership rule (`IO-6`); a body that closes its stream cannot rewind it, so
+  `StreamBody#replayable?` needs the `pos`/`seek(pos)` probe to have said yes, a known length within the
+  ceiling, **and** no ownership transfer. `ChunkedBody` takes no `replayable:` keyword and never will
+  (P3-19), and `FileBody` defines no `#to_path`, which would make `IO.copy_stream` ignore its window (P3-17).
+- **Every body that can occupy `Response#body` answers `#source` and `#close`** — `ResponseBody` with the
+  same handle every call, `ResponseLoggingBody` with its regime's accessor, `BufferBody` with a fresh view per
+  call and a no-op close — because `Response#close`, `#body_string` and `#body_bytes` and
+  `Body.buffer_bounded` are written against exactly those two members (P3-23). A fourth thing put in that
+  slot answers both or does not go there.
 - **A public `Data` follows the construction pattern without exception; only a `private_constant` snapshot is
   exempt** — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are `Data` without `Model`
   and without `.build`, because a snapshot has no public constructor and no derivation (phase 2's P2-9).
@@ -482,9 +507,10 @@ probe compares each against the live tree, and a count written anywhere else in 
   `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
-  the phase-1 HTTP domain model, the phase-2 seam layer and the phase-3a byte-streaming layer — fifty-one
-  phase-1, phase-2 and phase-3a files under `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored
-  in `sig/`, and every one of the fifty-one but the `private_constant` `hooks.rb` mirrored in `test/`; every
+  the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer and the phase-3b
+  body layer — sixty-three phase-1, phase-2, phase-3a and phase-3b files under `lib/dexpace/` beside phase
+  0's `version.rb`, every one mirrored in `sig/`, and every one of the sixty-three but the `private_constant`
+  `hooks.rb` mirrored in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -495,8 +521,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/`, holding that sub-phase's design, plan and checklist, and `phase3/phase3b/`, holding its
-  design and plan — four checklists written so far, each at implementation; `phase4/`
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — five
+  checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
@@ -565,5 +591,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's and phase 3a's is still to be written at execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's and phase 3b's is still to be written at
+  execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

@@ -1231,6 +1231,103 @@ is why each row names where it came from.
 | P3-21 | `Dexpace::Body#each` is **derived from `#write_to`** through a block-shaped sink, defined once in the module; and `FileBody`'s external-iteration residue is documented rather than closed | §10.2, §7.1; `BODY-11`, `BODY-17` | One byte-producing implementation per body means `BODY-17`'s "the exact bytes the wrapped body's single write produces" cannot differ between the `#write_to` path and the `#each` path. §7.1's rule is wider than the corpus states it: verified on all three interpreters that an **ordinary** `#each` method's `ensure` also fails to run when the method is driven through `to_enum(:each)` and abandoned, that `#rewind` does not run it, and that `block_given?` is `true` under that drive so a "require a block" guard is not a defence. Bodies that hold a resource hold it on the object with `#close`; `FileBody`, which `BODY-11` obliges to open a fresh handle per write, cannot, so its YARD states the leak and the corpus note widens `pagination/f57c50f6`. §10.10's precedent: an admitted hole beats a fake proof |
 | P3-23 | `Dexpace::Body` declares two members `HTTP-36` does not enumerate — `#source -> Dexpace::IO::BufferedSource`, whose module default **raises `Dexpace::StreamError`**, and `#close`, whose module default is a **no-op** — and the read handle carries one name across all three bodies that can occupy `Response#body`, so `ResponseLoggingBody`'s accessor is `#source` rather than `#read` and `BufferBody` implements both | `HTTP-36`, `HTTP-41`/`BODY-14`, `HTTP-43`, `BODY-15`, `BODY-16`, `BODY-30`/`HTTP-52`; `NFR-4`; P3-14 and P3-22's precedent | `HTTP-36` enumerates what a **request** body is; `HTTP-43`'s "forward to the body", `BODY-16`'s finally-close and `HTTP-42`'s decode are all written against a **response** body's read handle and close, and nothing declared them. Found by review on 2026-09-08: `BufferBody` — the body `BODY-30`/`HTTP-52` puts into a response — had neither, so `response.close` and `response.body_string` raised `NoMethodError` on the one object whose canonical text says "decode it, then snapshot it", and no phase-3 test reached it because every `Response` 3b builds carries a bare `ResponseBody`. Three sub-decisions are forced rather than chosen. **The default `#close` is a no-op**, not a raise and not a `respond_to?` guard at the caller: `Request::Builder` coerces nothing, so nothing constrains what sits in `Response#body`, and a guard is the same gap with a quieter failure; a body owning no transport resource has nothing to release, and `BODY-30` positively requires `#body_string`'s `ensure`-close to leave the buffered copy readable. **`BufferBody#source` returns a fresh `#peek` view per call**, because `BODY-30` says "readable independently and **repeatably** (decode it, then snapshot it)" and `BODY-14`'s same-handle rule governs the single-use response body, not a replayable in-memory copy. **`Closeable` wins over the default** wherever a body owns something, because the include order is `Dexpace::Body` then `Dexpace::Closeable` and the later include sits nearer the class. Consequence for the plan: `Body.buffer_bounded` closes the original unguarded, and the `respond_to?(:close)` test disappears with the guard. **The same row has a write-side half, found by review on 2026-09-13 and fixed in the same place**: `Body.buffer_bounded` drained through `#each`, which is `#write_to` (P3-21), and `ResponseLoggingBody#write_to` raises by design — yet phase 5b's logging step puts that wrapper into `Response#body` at `Stages::LOGGING`, which `PIPE-2` places *inside* the RETRY pillar, so phase 6a's per-attempt `Recovery.buffer_error_body` and phase 4b's error-mapping step both hand one to it on any 4xx/5xx and `RECOV-16`, `RETRY-36`, `BODY-30` and `HTTP-52` fail together. `buffer_bounded` therefore drains through **`#source`**, the member this row put on the contract, and the plan's Task 9 suite is driven over `ResponseBody`, `ResponseLoggingBody` in both regimes and `BufferBody` rather than over a `write_to`-only fake — the same three-body shape, for the same reason |
 
+### As built, 2026-09-16
+
+The plan added **P3-22** and its adversarial review **P3-27**, **P3-28** and **P3-29**; the plan's
+Deviation Ledger carries their full text, and they are read from there. Execution added no
+numbered row: nothing the build changed departs from the reference contract beyond what the rows
+above already record. Four rows and three statements above read slightly differently against the
+source; the difference is recorded here rather than by rewriting the text it corrects. The
+checklist's "Deviations from the plan" is the itemised list, and its "Guards run red" section holds
+the battery.
+
+- **P3-14, as built.** The constants are the twelve named, plus `MultipartBody::Part` and
+  `MultipartBody::Builder` as their own manifest rows, and `Dexpace::Body` itself carries three
+  members the list does not name: `#==`, `#eql?` and `#hash`, defaulting together to **identity**.
+  Strict Steep refused `other.body == @body` on a value typed `Dexpace::Body` because a module type
+  carries only the module's own methods, and the honest fix is for the contract to state what
+  every includer meets — identity is the right value comparison for every variant holding a live
+  stream, and the four that had their own identity copies (`StreamBody`, `ChunkedBody`,
+  `ResponseBody`, `ResponseLoggingBody`) now inherit it. `Body`'s RBS does **not** include
+  `Dexpace::IO::_Chunked`, which this document said it "may": `rbs validate` refuses a module that
+  includes an interface and re-declares its method, and every body satisfies the interface
+  structurally, which is what a consumer's own `steep check` sees.
+- **P3-15, as built.** The narrowing reaches the reader, `.build`, `.new` and `#initialize` of both
+  models; the two builders keep `untyped` writers, because they coerce nothing and store whatever
+  they are given, which is the "no coercion at the builder" half of the row stated in the
+  signature.
+- **P3-22, as built.** `MultipartBody#subtype` is validated as one bare lower-case token through
+  `MediaType.parse` — a `subtype: "form-data;x=1"` otherwise parsed as a subtype plus a smuggled
+  parameter, with `#media_type` and `#subtype` disagreeing — and `MultipartBody.generate_boundary`
+  draws from the alphanumeric subset of `BOUNDARY_CHARS`, kept as the `private_constant`
+  `GENERATED_BOUNDARY_CHARS`, so the `Content-Type` parameter stays a token every peer parses; a
+  caller-supplied boundary is still validated against the whole grammar. `RequestLoggingBody`
+  validates `tap_limit:` at construction with the tee's own rule and stores `nil` as
+  `::Float::INFINITY`, so two unbounded wrappers compare equal.
+- **P3-27, as built.** `TypedResponse#run_handler` rescues `::Exception` explicitly, settles the
+  state and re-raises unchanged, rather than settling in an `ensure` with `$!`; the residue the row
+  records is unchanged and stated at the method.
+- **"The interface surface 3b consumes", row 1, as built.** `TeeSink#clear_tap` does not exist —
+  3a dropped it, taking the first of the two resolutions its plan's Task 14 amendment named, for
+  exactly the reason this row gives — and `TeeSink.new`'s `tap_limit:` defaults to `nil` with
+  `::Float::INFINITY` accepted as the other spelling, so `RequestLoggingBody`'s default passes
+  through as this document wrote it.
+- **R10's cost paragraph, as built.** "`.wrapping`'s read path delivers one byte per read until 3a's
+  plan, Task 10 lands its `fill(count)` refill fix" — landed: 3a as built fills through a 64 KiB
+  segment and passes the caller's count through a view (`#dexpace_fill_beyond`), so the over-cap
+  tail pays nothing twice. Task 13's re-measurement is in the checklist.
+- **"The verified Ruby facts", fact 11, as built.** The `with_default_internal` helper is exactly
+  the plan's, and the test that the ambient `$VERBOSE` is live inside the block passes under `-w`.
+  Fact 12 is closed by 3a as built.
+- **HTTP-51's whole-line sweep, as built — a stated limitation.** Phase 1's
+  `HeaderSyntax.valid_outbound_value?` admits HTAB and printable ASCII only, so a part name or
+  filename carrying a byte at or above `0x80` is refused and the caller percent-encodes first
+  (RFC 7578 §4.2). Kept as this document decided; whether the part-header sweep should admit
+  obs-text is on phase 10's inbound list as audit work against this decision.
+
+**Review round 0, 2026-09-16.** The stack's first review found four defects and two nits, none a
+red gate and none a new numbered row: each is this document's own rule applied where the plan's
+fence had not applied it, and the checklist's deviations 17–21 carry the itemised text.
+
+- **§7.1 applied, rule 4, as built.** "Every view core takes, core closes" now holds on the two
+  readers and on the bounded copy, not only on `BufferBody#write_to` and `ResponseBody#preview`:
+  `Response#body_string`, `#body_bytes` and `Body.buffer_bounded` each close the handle `#source`
+  returns before the body — a fresh `#peek` view on a `BufferBody` and on a fits-cap
+  `ResponseLoggingBody`, the same idempotent stream close on a `ResponseBody`, the `Tail`'s close
+  (and its prefix view) on the over-cap composite. The one place a view outlives the call is still
+  `BODY-23`'s per-read view handed to a caller, exactly as the rule states.
+- **R10's composite, as built.** The tail object is `#read(count)`-shaped as this section says, and
+  what it forwards to the live delegate is `#read_into` — one fill, what a partial read is — rather
+  than the delegate source's `#read(count)`, which is `IO-16`'s fill-to-count. The delegate's
+  source contract is therefore `Dexpace::IO::_Source`'s single method on the probe *and* on the
+  tail, which is what plan decision 9 wanted, and the composite delivers a still-open connection as
+  bytes arrive. The cost paragraph above was about throughput; this is latency, and it is closed
+  by the same discipline.
+- **`HTTP-46`'s body half, as built.** `MultipartBody` compares by value over the boundary, the
+  subtype and the parts: the subtype fixes the `Content-Type`, and two framings of the same parts
+  under different subtypes are two values, as two `BytesBody` over the same bytes with different
+  media types are.
+- **`ResponseBody`'s construction check, as built.** The duck it asks for is the `BufferedSource`
+  vocabulary the class uses — `#read_into` and `#peek` — so a bare `_Source` is refused by name
+  rather than admitted and then failed on its first preview; the sig's `#source ->
+  Dexpace::IO::BufferedSource` is what the runtime check now states.
+
+**Review round 1, 2026-09-16.** One defect and one nit, again neither a red gate nor a new numbered
+row; the checklist's deviation 22 carries the text.
+
+- **P3-23 and R10 together, as built.** This document gives the three bodies that can occupy
+  `Response#body` three different `#source` regimes on purpose — `ResponseBody`'s same handle,
+  `BufferBody`'s fresh view per call — and states the wrapper's delegate contract as `#source`,
+  `#content_length`, `#media_type` and `#close`, which admits both. R10's composite "continues from
+  the delegate", and the plan's fence read that as three `#source` calls (fill, probe, tail), which
+  is the same handle over the first body and three views at byte zero over the second: fifteen bytes
+  delivered for ten, and a view left registered. As built the drain asks **once** and the fill, the
+  probe and the tail share that one handle, which is what "the still-live tail" meant; and §7.1's
+  rule 4 reaches it — `#release` closes the handle it took ahead of the delegate, so a `BufferBody`
+  beneath a wrapper is left with no view of the wrapper's making. The rule the next reader needs:
+  a wrapper over a body takes its delegate's read handle **once** and closes it, because the
+  contract does not promise that a second ask continues where the first stopped.
+
 ## Work Phase 3b Postpones, and Who Owns It Now
 
 One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.
