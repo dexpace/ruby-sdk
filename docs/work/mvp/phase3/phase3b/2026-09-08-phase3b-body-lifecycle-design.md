@@ -1312,6 +1312,22 @@ fence had not applied it, and the checklist's deviations 17–21 carry the itemi
   rather than admitted and then failed on its first preview; the sig's `#source ->
   Dexpace::IO::BufferedSource` is what the runtime check now states.
 
+**Review round 1, 2026-09-16.** One defect and one nit, again neither a red gate nor a new numbered
+row; the checklist's deviation 22 carries the text.
+
+- **P3-23 and R10 together, as built.** This document gives the three bodies that can occupy
+  `Response#body` three different `#source` regimes on purpose — `ResponseBody`'s same handle,
+  `BufferBody`'s fresh view per call — and states the wrapper's delegate contract as `#source`,
+  `#content_length`, `#media_type` and `#close`, which admits both. R10's composite "continues from
+  the delegate", and the plan's fence read that as three `#source` calls (fill, probe, tail), which
+  is the same handle over the first body and three views at byte zero over the second: fifteen bytes
+  delivered for ten, and a view left registered. As built the drain asks **once** and the fill, the
+  probe and the tail share that one handle, which is what "the still-live tail" meant; and §7.1's
+  rule 4 reaches it — `#release` closes the handle it took ahead of the delegate, so a `BufferBody`
+  beneath a wrapper is left with no view of the wrapper's making. The rule the next reader needs:
+  a wrapper over a body takes its delegate's read handle **once** and closes it, because the
+  contract does not promise that a second ask continues where the first stopped.
+
 ## Work Phase 3b Postpones, and Who Owns It Now
 
 One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.

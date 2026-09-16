@@ -262,7 +262,10 @@ Three bodies can occupy `Response#body`, and each answers `#source` in its own r
 landed in; and a `BufferBody` — the bounded error copy — with a **fresh view per call**, because
 `BODY-30` says "decode it, then snapshot it", and with a no-op `#close`, because `#body_string`'s
 `ensure`-close must leave the copy readable. A request-body variant that ends up in the slot fails
-by name with a `Dexpace::StreamError`, not a `NoMethodError`.
+by name with a `Dexpace::StreamError`, not a `NoMethodError`. Because the regimes differ, anything
+that wraps one of these takes its `#source` **once** and closes what it took: `ResponseLoggingBody`
+asks its delegate once per drain and its own close releases that handle ahead of the delegate, so a
+wrapper over the bounded error copy delivers the body exactly once and leaves no view behind.
 
 ## The two logging wrappers
 

@@ -48,11 +48,11 @@ body-side clauses only this phase could discharge.
 | `BODY-20` | SHOULD | ✅ | 10 | `@tee` is bound before the delegate runs and the tee mirrors before it forwards (`IO-27`): a delegate that fails after one chunk leaves that chunk in `#snapshot`, and a primary that raises mid-stream leaves the failing chunk captured. `FakeBody`'s `fail_after:` is the deterministic route (`request_logging_body_test.rb`, `AttemptsTest`) |
 | `BODY-21` | MUST | ✅ | 10 | `#replayable?` is the delegate's verbatim; `#to_replayable` returns a `RequestLoggingBody` over the delegate's replayable form (a `BufferBody`) with the cap preserved, and `self` when the delegate is already replayable (`request_logging_body_test.rb`, `ReplayTest`) |
 | `BODY-22` | MUST | ✅ | 11 | The drain runs at most once, lazily, on the first `#source`, `#snapshot` or `#error` — each trigger asserted through a drain-counting delegate; eight threads' first accesses drain once; two fibers of one thread interleave the drain without a `ThreadError`, which a mutex held across the drain raises (battery row 40 saw it). The `preview_bytes:` keyword is required (P3-18) (`response_logging_body_test.rb`; `SerializationTest`; `ConstructionTest`) |
-| `BODY-23` | MUST | ✅ | 11, 13 | Fits-cap: the whole body captured, the delegate closed as part of the capture, every `#source` a fresh non-consuming `#peek` view succeeding independently; a body exactly the cap's size is a complete capture. Task 13 measured what one view per read costs (below) (`response_logging_body_test.rb`) |
-| `BODY-24` | MUST | ✅ | 11 | Over-cap: the prefix buffered, the delegate left open, `#source` a `BufferedSource.wrapping` over the private `Tail` replaying prefix, probe byte and live tail so the consumer gets the whole body, and a second `#source` raising `Dexpace::StreamError` naming `BODY-24`. The regime probe reads one byte past the cap and keeps it **outside** the capture, so the snapshot is exactly the cap (plan decision 9; battery row D9). The live tail is forwarded through **`#read_into`**, one fill, and not through the delegate source's `#read(count)`, which fills to the count or EOF: over a real `IO.pipe` with the writer held open, a `readpartial(1000)` on the tail returns the seven bytes that are there, joined with a five-second timeout — the composite is the consumer's real byte path, and a still-open connection is delivered as it arrives (review round 0, R0-3; deviation 19 below). That keeps the delegate's source contract at `_Source`'s single method, asserted with a `#read_into`-only recorder (`response_logging_body_test.rb`, and `TailTest`) |
+| `BODY-23` | MUST | ✅ | 11, 13 | Fits-cap: the whole body captured, the delegate closed as part of the capture, every `#source` a fresh non-consuming `#peek` view succeeding independently; a body exactly the cap's size is a complete capture. The drain asks the delegate for `#source` **once** and holds that handle: over a `BufferBody` delegate — inside the wrapper's stated contract, and answering a fresh view per call (P3-23) — the fill's view is closed by the wrapper's own close, so the delegate's registry is empty afterwards and the copy still reads (review round 1, R1-1; deviation 22 below). Task 13 measured what one view per read costs (below) (`response_logging_body_test.rb`, and `DelegateHandleTest`) |
+| `BODY-24` | MUST | ✅ | 11 | Over-cap: the prefix buffered, the delegate left open, `#source` a `BufferedSource.wrapping` over the private `Tail` replaying prefix, probe byte and live tail so the consumer gets the whole body, and a second `#source` raising `Dexpace::StreamError` naming `BODY-24`. The regime probe reads one byte past the cap and keeps it **outside** the capture, so the snapshot is exactly the cap (plan decision 9; battery row D9). The live tail is forwarded through **`#read_into`**, one fill, and not through the delegate source's `#read(count)`, which fills to the count or EOF: over a real `IO.pipe` with the writer held open, a `readpartial(1000)` on the tail returns the seven bytes that are there, joined with a five-second timeout — the composite is the consumer's real byte path, and a still-open connection is delivered as it arrives (review round 0, R0-3; deviation 19 below). That keeps the delegate's source contract at `_Source`'s single method, asserted with a `#read_into`-only recorder. The tail continues from the **one** handle the drain took, not from a fresh `#source`: over a `BufferBody` delegate, whose every `#source` starts at byte zero, three asks delivered `"012300123456789"` for a ten-byte body — through `Response#body_bytes` too — and one ask delivers it once; a fresh-view double sees `#source` asked exactly once in either regime and never on an undrained close (review round 1, R1-1; deviation 22 below) (`response_logging_body_test.rb`, `TailTest` and `DelegateHandleTest`; `response_test.rb`, `SurfaceTest`) |
 | `BODY-25` | MUST | ✅ | 1, 11 | A zero read for a positive count is `StreamError.zero_read` naming `IO-17`, never EOF — in `copy_exactly`, in the drain's `fill_prefix` and on the over-cap tail's forward to the delegate — and the bytes read before it are retained; `FakeSource` is the only thing that produces it (`body_test.rb`, `CopyTest`; `response_logging_body_test.rb`, `FailureTest` and `TailTest`) |
 | `BODY-26` | MUST | ✅ | 11 | A mid-drain failure keeps the bytes read and caches the error: `#source` re-raises the **same object** with its `#cause` and backtrace intact (`assert_same`), `#snapshot` returns the partial bytes without raising, `#error` returns it without a second drain and `nil` after a clean one; the failed drain leaves the delegate open for the wrapper's own close (`response_logging_body_test.rb`, `FailureTest`) |
-| `BODY-27` | MUST | ✅ | 11 | One close-once guard, `Closeable`'s latch: the wrapper's own close, the capture path's best-effort close and the over-cap tail's close all reach it. Closing the tail closes the delegate once and marks the wrapper closed; wrapper-then-tail and tail-then-wrapper are each one close; a delegate whose close raises is still marked closed and the failure propagates once, from four threads too. The tail is `.wrapping`-owned and its `#close` calls the wrapper's, which is why `.over` was rejected (R10) (`response_logging_body_test.rb`, `CloseTest`) |
+| `BODY-27` | MUST | ✅ | 11 | One close-once guard, `Closeable`'s latch: the wrapper's own close, the capture path's best-effort close and the over-cap tail's close all reach it. Closing the tail closes the delegate once and marks the wrapper closed; wrapper-then-tail and tail-then-wrapper are each one close; a delegate whose close raises is still marked closed and the failure propagates once, from four threads too. The tail is `.wrapping`-owned and its `#close` calls the wrapper's, which is why `.over` was rejected (R10). `#release` closes the handle the drain took **ahead of** the delegate, the delegate's close in an `ensure`: a handle whose close raises still leaves the delegate closed, the failure propagates once, and after a full capture it is not a drain error either (review round 1, R1-1) (`response_logging_body_test.rb`, `CloseTest` and `DelegateHandleTest`) |
 | `BODY-28` | MUST | ✅ | 11 | On the fits-cap path the delegate close is `Dexpace.close_quietly(self)` — its **first call site in the SDK** — so a raising close is not a drain error and the body is still served; the captured buffer survives the wrapper's close (`#snapshot` and `#source` still answer) and `#release` deliberately does not close it, pinned directly on both regimes; a view taken before the close reads after it. The opposite direction: the over-cap tail raises `Dexpace::ClosedError` after the wrapper's close (`IO-42`) (`response_logging_body_test.rb`, `CloseTest`) |
 | `BODY-29` | SHOULD | ✅ | 11 | `#content_length` is the captured size only when the capture was complete — even when the delegate declared none — and the delegate's declared length for a prefix; it never triggers a drain, which is what lets the fiber proof terminate (`response_logging_body_test.rb`, `LengthTest`) |
 | `BODY-30` | MUST | ✅ body half | 9 | `Dexpace::Body.buffer_bounded(body, cap:)` drains through `#source` into a `Dexpace::IO::Buffer`, stops asking at the cap, closes the original in an `ensure` — on a raising drain too — and returns a `BufferBody` readable independently and repeatably; the allocating test drains a 2 MiB body and asserts the bytes beyond 1 MiB were **not** pulled. The handle `#source` returned is closed in its own `ensure` before the original is — the view a `BufferBody` or a fits-cap wrapper hands out, deregistered; twenty copies over each leave zero views registered — guarded with `respond_to?` because `_Source` declares no `#close` (review round 0, R0-1; deviation 18 below). "A response with no body is returned unchanged" is phase 4's step, `Recovery.buffer_error_body` (4b) (`body_test.rb`, `BufferBoundedTest` and `BufferBoundedHandlesTest`) |
@@ -78,11 +78,14 @@ body-side clauses only this phase could discharge.
 | `HTTP-46` | MUST | ✅ | 1, 2, 5, 6, 7, 10, 14 | Cross-reference; the ID is phase 1's. The body half of by-value request equality now has a subject: `Dexpace::Body` defaults `#==`, `#eql?` and `#hash` together to **identity** (right for every variant holding a live stream), and `BytesBody`, `BufferBody`, `FileBody`, `FormBody`, `MultipartBody`, its `Part` and `RequestLoggingBody` override all three over the facts that fix their bytes — for `MultipartBody` the boundary, the **subtype** and the parts, since the subtype fixes the `Content-Type` on the wire; two bodies over the same parts and boundary as `form-data` and as `mixed` are different values and hash apart (review round 0, R0-4; deviation 20 below). Two requests over equal `BytesBody` values are equal and hash equal, a request works as a `Hash` key, and two over different stream bodies do not compare equal (`request_test.rb`; each variant's suite) |
 | `HTTP-3` | MUST | ✅ | 7 | Cross-reference; the ID is phase 1's, whose builder-based list names "the multipart body", a subject phase 1 did not have. `MultipartBody#new_builder` returns a `MultipartBody::Builder` pre-filled with the parts, boundary and subtype, and the parts list is a `dup` so a builder mutation cannot reach the frozen body's list; a builder with nothing set builds an empty body. Design §4's omission of the subject is on phase 10's inbound list (`multipart_body_test.rb`) |
 
-Fifty-one rows, forty-nine of them this phase's: 46 ✅ outright, 3 ✅ in part with the remainder ⏳
-and its owner named (`BODY-12` clause 2, `BODY-34`'s source and predicate, and — counted with the
-✅ — `BODY-30`/`HTTP-52`'s response-side clause, which is phase 4's step), 1 ⏳ (`BODY-36`), 0 🚫,
-0 N/A; the design's "47 implemented, 2 postponed" is met with `BODY-12`'s first clause counted as
-implemented, as the design itself splits it. Recounted from the table. `IO-42`'s asymmetry, `IO-28`
+Fifty-one rows, forty-nine of them this phase's: 46 ✅ outright (two of them the cross-reference
+rows), 4 ✅ in part with the remainder ⏳ and its owner named — `BODY-12` clause 2, `BODY-34`'s
+source and predicate, and `BODY-30`'s and `HTTP-52`'s response-side clause, which is phase 4's step
+— 1 ⏳ (`BODY-36`), 0 🚫, 0 N/A: 46 + 4 + 1 = 51, as the status cells have it (review round 1's
+R1-2 corrected a "3 in part" that counted the two body-half rows as one). The design's "47
+implemented, 2 postponed" is met with `BODY-12`'s first clause counted as implemented, as the design
+itself splits it, and the other three partial rows counted with the implemented, as the design
+counts them. Recounted from the table. `IO-42`'s asymmetry, `IO-28`
 ↔ `BODY-37`, `IO-40`'s clock and `IO-37`'s single-threaded contract are honoured as boundaries
 rather than claimed as rows; `XCUT-15` and `XCUT-18` are left satisfiable and unclaimed.
 
@@ -112,26 +115,26 @@ and pre-requires `securerandom`). One repository-root tool is new, `tools/measur
 (Task 13). The gemspec is untouched — zero `add_dependency` lines — and `require "securerandom"`
 in `multipart_body.rb` is the one `require` 3b adds, on phase 0's twelve-name allowlist.
 
-The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-16, re-run after review round
-0's repair), on the tests tip: green, exit 0 — `cops:test` 100 runs / 326 assertions, `steep` no
-type error over the strict `core` target, `test:gems` **1,145 runs / 6,044 assertions** across the
-six gems, with **99.96% line coverage (2,973 / 2,974)** against the 80% floor — the one uncovered
+The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-16, re-run after review rounds
+0's and 1's repairs), on the tests tip: green, exit 0 — `cops:test` 100 runs / 326 assertions, `steep` no
+type error over the strict `core` target, `test:gems` **1,153 runs / 6,076 assertions** across the
+six gems, with **99.96% line coverage (2,977 / 2,978)** against the 80% floor — the one uncovered
 line is the same one phases 2 and 3a recorded, the registry claim swap's race-only branch —
 `test:gates` 129 runs, the nine `gates:*` tasks, `yard` 100.00% documented (369 methods, 0
 undocumented), `bundler_audit` clean. On the code tip alone every one of the seventeen is green
-too, `test:gems` at 784 runs, 0 failures, 0 errors and **84.33%** line coverage — above the floor,
+too, `test:gems` at 784 runs, 0 failures, 0 errors and **84.21%** line coverage — above the floor,
 because the phase-1 suites the code tip still carries reach most of the new layer through
 `Response` and the smoke suite; the layering rule permits a red floor there and none was needed.
 The same caveat about `rubocop` that phases 1, 2 and 3a recorded: run through `rake` from a
 worktree nested under the parent checkout's `.claude/` it inspects 9 files; run as `bundle exec
 rubocop --fail-level=convention --ignore-parent-exclusion` it inspected **227 files, no offenses**
 at the tests tip (213 at the code tip), and that is the run these rows rest on. The twelve
-body-layer suites are 316 runs on their own (48, 13, 10, 28, 18, 13, 30, 36, 28, 26, 47 and 19).
+body-layer suites are 323 runs on their own (48, 13, 10, 28, 18, 13, 30, 36, 28, 26, 54 and 19).
 
 The matrix set (`test:gems gates:gemspec_audit gates:require_allowlist gates:clean_bundle
 gates:single_instance`) is green on **3.2.11**, **3.3.12** and **3.4.10** at the tests tip, each with
-its own lockfile resolved fresh — 1,145 runs / 6,044 assertions on each, 0 skips, 99.96% line
-coverage — and on the code tip `test:gems` on 3.2.11 is 784 runs, 0 failures, 84.54%. The
+its own lockfile resolved fresh — 1,153 runs / 6,076 assertions on each, 0 skips, 99.96% line
+coverage — and on the code tip `test:gems` on 3.2.11 is 784 runs, 0 failures, 84.39%. The
 interpreter-sensitive assertions are green on every row, and none skipped: the `StringIO` and
 `Tempfile` seek shapes (`stream_body_test.rb`, "a StringIO is rewindable…", "a File is rewindable
 and the probe leaves its cursor…", "replay rewinds to the construction position…"), the real
@@ -196,7 +199,9 @@ fails, but the *deletion* of the clamp clause — the edit that removes the MUST
 whole suite on 4.0.6 and 3.2.11, and review round 0 found it (R0-2). Twelve more mutations were
 run after that round's repair, one per line the repair made load-bearing, on 4.0.6 **and 3.2.11**,
 and every one is caught; they are the second table below, and the rows that matter from the first
-battery are the first. Five mutations had to be re-spelled because their first form tripped `NFR-6`'s warning
+battery are the first. Eight more were run after review round 1's repair, one per line it made
+load-bearing, again on both interpreters and again every one caught, with six of the earlier
+mutants nearest the restructured drain and release re-run; they are the third table. Five mutations had to be re-spelled because their first form tripped `NFR-6`'s warning
 gate at load — an unused variable or unreachable code — which is a mutation caught by a warning and
 not evidence about a test, exactly as the plan found for four of its own; two of the twelve were
 re-spelled the same way (a dropped `close` as a discarded `respond_to?` rather than a bare `nil`).
@@ -256,6 +261,25 @@ caught):
 | R0-4: the subtype dropped from `MultipartBody#hash` | `multipart_body_test.rb`, `ConstructionTest` | the two hashes equal |
 | R0-5: the `#peek` half of `ResponseBody`'s construction check dropped | `response_body_test.rb`, `ConstructionTest` | `Dexpace::InvalidArgumentError expected but nothing was raised` on a `FakeSource` |
 
+**Review round 1's repair, 2026-09-16** — one mutant per line the one-handle rule made load-bearing
+in `ResponseLoggingBody`, run on 4.0.6 and on 3.2.11 with identical counts, over
+`response_logging_body_test.rb` and `response_test.rb` together (98 runs); then six of the earlier
+mutants nearest the restructured lines re-run against the new shape (`BODY-28`'s buffer close 1
+failure, `BODY-27`'s tail-close bypass 3, `BODY-24`'s probe byte in the capture 6, the fits-cap
+best-effort close dropped 6, R0-3's `@source.read(count)` 2 failures + 1 error, `BODY-26`'s failure
+not cached 1 + 5 — all still caught):
+
+| Fix reverted | Guard | What it said |
+|---|---|---|
+| R1-1: the `Tail` built over a second `@delegate.source` | `response_logging_body_test.rb`, `DelegateHandleTest`; `response_test.rb`, `SurfaceTest` | 4 failures: `"012340123456789"` for the composite — the probe byte from the drain's handle, then a fresh view from byte zero — and the fresh-view double's `Expected: 1 Actual: 2` asks |
+| R1-1: the regime probe asks `@delegate.source` again | the same | 4 failures: `"01230456789"` — the probe byte read from a second view's byte zero |
+| R1-1: the fill and the probe on one handle, the tail on a second ask | the same | 5 failures: the same `"012340123456789"`, plus the fits-cap fill's view left registered (`Expected: 0 Actual: 1`), since the handle `#release` closes is now the tail's |
+| R1-1: the handle close dropped from `#release` | `DelegateHandleTest`; `SurfaceTest` | 5 failures: `Expected: 0 Actual: 1` registered view in the `BufferBody`'s buffer, fits-cap and over-cap and through the reader, and the order log `Expected: [:handle, :delegate] Actual: [:delegate]` twice |
+| R1-1: the close order swapped (delegate first, handle in the `ensure`) | `DelegateHandleTest` | 2 failures: `Expected: [:handle, :delegate] Actual: [:delegate, :handle]` |
+| R1-1: the `ensure` dropped (two sequential closes) | `DelegateHandleTest` | 2 failures: `Expected: [:handle, :delegate] Actual: [:handle]` — the delegate never closed once the handle's close raised |
+| R1-1: the handle's `respond_to?(:close)` guard dropped | `DelegateHandleTest`; `FailureTest` | 2 errors: `NoMethodError: undefined method 'close' for nil` on the undrained close, and for `FakeSource` on the failed-drain close |
+| R1-1: the guard narrowed to the nil case (`unless upstream.nil?`) | `FailureTest` | 1 error: `NoMethodError ... for an instance of FakeSource` — a `_Source` declares no `#close` |
+
 ## Audit groups run
 
 The phase-start pair first, at implementation: `--origin note --brief` returns 52 note entries
@@ -279,7 +303,7 @@ it would have annotated (`io-and-byte-streams`' fill contract) is stated correct
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate.
 Items 1, 2 and 9 are where 3a as built overrode the plan's assumptions; 17 through 21 are review
-round 0's; the rest are this build's.
+round 0's and 22 is review round 1's; the rest are this build's.
 
 1. **`Body.buffer_bounded` is driven over the three response-side bodies, and every double it
    drains answers `#source`.** The plan's Task 9 prose says so (P3-23's write-side half) but its
@@ -341,8 +365,8 @@ round 0's; the rest are this build's.
     `%w[securerandom strscan uri]` now, with the comment naming which phase added which. The smoke
     suite's top-level snapshot pre-requires `securerandom` beside `uri` and `strscan`, or the
     `::SecureRandom` constant is attributed to the entry file.
-12. **Run counts exceed the plan's** — 316 runs across the twelve body suites (304 before review
-    round 0's sixteen rows) against the plan's 275 for the whole tree — because the nested groups
+12. **Run counts exceed the plan's** — 323 runs across the twelve body suites (304 before review
+    round 0's sixteen rows, 316 before round 1's seven) against the plan's 275 for the whole tree — because the nested groups
     carry cases the plan did not have: the
     contract's `#source`/`#close` defaults and identity default, `copy_exactly`'s chunk-boundary
     forwarding, `emit_exactly`'s retag and empty write, `Body.string`'s named charset,
@@ -402,6 +426,22 @@ review found wanting, fixed on the owning branch with its mutation run red above
     `#each`, `#read` and `#read_string` — a `NoMethodError` on the first preview or read through
     `Response` (R0-5). `#peek` is the narrowest member only a `BufferedSource`-shaped reader
     answers, and the message names both; a view of a `BufferedSource` still constructs.
+22. **`ResponseLoggingBody` asks its delegate for `#source` once per wrapper, and closes that
+    handle.** The plan's fence (Task 11, Step 4) took `@delegate.source` in `fill_prefix`, again for
+    the regime probe and a third time for the `Tail`, and its `CountingDelegate` memoises its
+    source, so the plan's own suite could not see the three asks. That is correct over
+    `ResponseBody`, whose `#source` is `BODY-14`'s same handle every call, and wrong over
+    `BufferBody`, inside the wrapper's stated delegate contract and answering a fresh `#peek` view
+    per call by P3-23's own decision: the over-cap composite replayed the prefix twice and then the
+    whole body — `"012300123456789"` for ten bytes, through `Response#body_bytes` too — and the
+    fits-cap fill's view was never closed, against §7.1's rule 4 (review round 1, R1-1). The drain
+    now asks once and holds the handle in `@upstream`; `fill_prefix`, `capture_complete?` and the
+    `Tail` read from it, and `#release` closes it ahead of the delegate with the delegate's close in
+    an `ensure`, so `BODY-15`'s transport release is attempted whatever the handle's close did. One
+    `respond_to?(:close)` guard covers the two handles that cannot be closed — a `_Source` with no
+    `#close`, and the `nil` before any drain has asked — and the RBS mirror declares the ivar and the
+    two narrowed private signatures. Nothing on the public surface moved: the manifest is the same
+    515 lines.
 
 ## Findings routed
 

@@ -2773,12 +2773,12 @@ and the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to
 first clause is discharged** (`::IO.copy_stream` with the window, `#path`/`#offset`/`#count`, no
 `#to_path`; P3-17) and clause 2 stays with `TRANSPORT-28` under `docs/first-release.md`. The checklist is at
 `docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`: fifty-one rows, the
-forty-nine own IDs plus `HTTP-46`'s and `HTTP-3`'s cross-reference rows — 46 ✅, 3 ✅ in part with the
-remainder ⏳ and its owner named (`BODY-12` clause 2, `BODY-34`'s source and predicate, `BODY-30`/`HTTP-52`'s
-response-side clause), 1 ⏳ (`BODY-36`, no stdlib `mmap`), nothing 🚫, nothing N/A. `bundle exec rake` is
-green on 4.0.6 at the tests tip with 99.96% line coverage against the 80% floor and 1,145 runs across the six
-gems (316 of them the twelve body suites); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip
-is green on all seventeen gates too, its `test:gems` at 84.33% above the floor. **Every guard the plan asks to be run red was run red, and fifty-five
+forty-nine own IDs plus `HTTP-46`'s and `HTTP-3`'s cross-reference rows — 46 ✅, 4 ✅ in part with the
+remainder ⏳ and its owner named (`BODY-12` clause 2, `BODY-34`'s source and predicate, `BODY-30`'s and
+`HTTP-52`'s response-side clause), 1 ⏳ (`BODY-36`, no stdlib `mmap`), nothing 🚫, nothing N/A. `bundle exec rake` is
+green on 4.0.6 at the tests tip with 99.96% line coverage against the 80% floor and 1,153 runs across the six
+gems (323 of them the twelve body suites); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip
+is green on all seventeen gates too, its `test:gems` at 84.21% above the floor. **Every guard the plan asks to be run red was run red, and fifty-five
 single-edit mutations were run** — the plan's fifty, the adversarial review's two testable ones and the three
 probes the brief names — fifty-four caught, with the two decode-recipe mutations exactly as the plan predicts:
 the retag dropped fails the decode suite outright, the target dropped fails exactly the two hostile
@@ -2787,7 +2787,12 @@ distinct from the plan's "clamps up" spelling — was found by the stack's revie
 (the readers and the bounded copy leaving the view they took registered, the over-cap tail forwarding as a
 fill-to-count `#read`, `MultipartBody` equality blind to the subtype, and that unproven clamp) and two nits
 were repaired on the owning branches the same day with twelve further mutations run red on 4.0.6 and 3.2.11;
-the checklist's deviations 17–21 and its second battery table carry them. The review's R1 (`#emit_exactly`'s retag dropped) was
+the checklist's deviations 17–21 and its second battery table carry them. Review round 1 found one more,
+from a hazard experiment the first round had not run — `ResponseLoggingBody` asked its delegate for `#source`
+three times, right over `ResponseBody`'s same handle and wrong over `BufferBody`'s fresh view per call, which
+is inside the wrapper's own stated contract — repaired the same way (one handle, taken once and closed by the
+wrapper's release) with eight mutations run red on both interpreters; deviation 22 and the third battery
+table carry it, and its nit corrected the row arithmetic here and in the checklist to 46 / 4 in part / 1. The review's R1 (`#emit_exactly`'s retag dropped) was
 missed on the first pass for the reason the review gave and is now caught by a raw `#write` recorder that
 keeps what it was handed as given. **One defect was found and closed while writing the as-built page**: a
 `subtype:` carrying `;` parsed as a subtype plus a smuggled parameter, and the subtype is now validated as one
@@ -2798,8 +2803,8 @@ measurement was re-run rather than copied: zero bytes retained per unread view, 
 thousand views closing in about 0.012 s and ten thousand in 1.2–1.3 s on this machine, the same shape and
 verdict as the plan's table. Strict Steep reshaped eight private mechanisms without changing behaviour and
 put `HTTP-46`'s identity default on `Dexpace::Body` itself, so four stream-holding variants dropped their
-copies (checklist deviations 3–6). Twenty-one departures from the plan's text are itemised in the checklist —
-sixteen the build's, five review round 0's — none lowering a gate. One finding is routed to phase 10's inbound list above, the thirty-seventh bullet:
+copies (checklist deviations 3–6). Twenty-two departures from the plan's text are itemised in the checklist —
+sixteen the build's, five review round 0's, one review round 1's — none lowering a gate. One finding is routed to phase 10's inbound list above, the thirty-seventh bullet:
 `MultipartBody` refuses a non-ASCII part name or filename because its part-header sweep is the outbound
 header grammar — kept as the design decided, stated as a limitation in `docs/sdk-documentation/body.md`.
 The design's ledger gains an "As built" addendum; the one postponed item keeps its owner (the body-logging
