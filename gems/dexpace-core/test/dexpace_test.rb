@@ -8,11 +8,13 @@ require_relative "test_helper"
 class DexpaceTest < DexpaceTestCase
   # The top-level namespace is snapshotted around the require, so "defines nothing outside
   # Dexpace" holds whether this file loads alone or after the other five gems in one
-  # `rake test:gems` process, where Dexpace already exists. The two stdlib features core
-  # requires (both on the require allowlist) are loaded first: the constants they define --
-  # URI, StringScanner and strscan's ScanError alias -- are theirs, not the entry file's.
+  # `rake test:gems` process, where Dexpace already exists. The three stdlib features core
+  # requires (all on the require allowlist) are loaded first: the constants they define --
+  # URI, StringScanner and strscan's ScanError alias, and phase 3b's SecureRandom -- are theirs,
+  # not the entry file's.
   require "uri"
   require "strscan"
+  require "securerandom"
   TOP_LEVEL_BEFORE = Object.constants
   NAMESPACE_BEFORE = defined?(Dexpace) ? Dexpace.constants(false) : []
   require "dexpace"
@@ -32,8 +34,8 @@ class DexpaceTest < DexpaceTestCase
 
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
-  # then phase 3a's byte-streaming layer; Dexpace::Hooks is a private_constant and does not
-  # appear in Dexpace.constants(false).
+  # then phase 3a's byte-streaming layer, then phase 3b's body layer; Dexpace::Hooks is a
+  # private_constant and does not appear in Dexpace.constants(false).
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -43,10 +45,14 @@ class DexpaceTest < DexpaceTestCase
     AsyncTransport Serde Operation
   ].freeze
   IO_LAYER = %i[StreamError EndOfStreamError IO].freeze
+  BODY_LAYER = %i[
+    Body BytesBody BufferBody StreamBody ChunkedBody FormBody FileBody MultipartBody ResponseBody
+    RequestLoggingBody ResponseLoggingBody TypedResponse
+  ].freeze
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
-    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER],
+    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER, *BODY_LAYER],
                  "constants added under Dexpace",)
     assert_includes(Dexpace.constants(false), :VERSION)
   end
@@ -60,13 +66,23 @@ class DexpaceTest < DexpaceTestCase
   end
 
   test "every constant the manifest records is reachable from Dexpace" do
-    (DOMAIN_MODEL + SEAM_LAYER + IO_LAYER).each do |name|
+    (DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER).each do |name|
       assert(Dexpace.const_defined?(name, false), "#{name} missing")
     end
-    assert_empty((DOMAIN_MODEL + SEAM_LAYER + IO_LAYER) - Dexpace.constants(false))
-    %i[Headers Query RequestOptions Request Response].each do |name|
+    assert_empty((DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER) - Dexpace.constants(false))
+    %i[Headers Query RequestOptions Request Response MultipartBody].each do |name|
       assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
     end
+  end
+
+  # A consumer requires "dexpace" and nothing else: the body layer resolves too (phase 3b), and
+  # the two constants that are nested rather than flat sit where HTTP-3 and R6 put them.
+  test "requiring dexpace alone makes the whole body layer resolve" do
+    assert_equal(Dexpace::Body, Dexpace.const_get(:Body))
+    assert_equal(Dexpace::TypedResponse, Dexpace.const_get(:TypedResponse))
+    assert_equal(Dexpace::MultipartBody::Part, Dexpace::MultipartBody.const_get(:Part))
+    assert_equal(1024 * 1024, Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES)
+    refute(Dexpace::Body.const_defined?(:Part, false), "Dexpace::Body::Part is not a namespace")
   end
 
   # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).
