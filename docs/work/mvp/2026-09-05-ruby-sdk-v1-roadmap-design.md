@@ -2817,3 +2817,57 @@ gains two more doubles without meeting its condition. The counts that changed: `
 constraints-that-bite list are rewritten from what was built. The consolidation of P3-14–P3-29 into design
 §10, and §3.1's and §5.1's addenda, are a human's, as they were for 3a: `docs/sdk-design-ruby/` is frozen, and
 `docs/deviations.md` is left as phase 2 left it for phase 10 to flip.
+
+**2026-09-16** — **Phase 4b implemented**, as three stacked branches against issue #15: code, tests,
+documentation, cut from `main` at 419aace while phase 4a was built in parallel in another worktree — nothing of
+4a's is on `main` at this build and 4b names no 4a constant anywhere. `dexpace-core` now carries the recovery
+layer beside the domain model, the seam layer, the byte-streaming layer and the body layer — sixteen new `lib/`
+files under `lib/dexpace/`, exactly the design's Module Layout: `suppressible.rb` (`Dexpace::Suppressible`,
+`Dexpace.attach_suppressed`, `Dexpace.suppressed`), `each_cause.rb`, `error/outcome_error.rb`,
+`error/protocol_error.rb`, `outcome.rb` with its two variants, `recovery.rb` (`Recovery.buffer_error_body`) and
+under `recovery/` the `Transform` contract, the three shipped steps, `RequestChain`, the private `Ownership`,
+`ResponseChain` and `Orchestrator` — each with its `sig/` mirror, `ownership.rbs` included for the strict Steep
+target (P4-41), and every one but `ownership.rb` with a `test/` mirror; four `lib/` files changed as the design
+said (`error.rb`'s `include`, `hooks.rb`'s attach-and-`cause: nil`, `closeable.rb`'s `onto:`, the entry file's
+`suppressible` line above `error` and its fifteen-line block), two `sig/` files changed, three test-support files
+are new (`recording_body.rb`, `cyclic_errors.rb`, `recovery_fixtures.rb`) and phase 2's `fake_transport.rb` is
+reused unchanged, and the other five gems are still phase-0 skeletons at `0.0.0`; nothing talks to a socket.
+The checklist is at `docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`:
+forty-one rows, the thirty-four own IDs plus seven cross-reference rows (`XCUT-4` (a), `XCUT-8`, `XCUT-9`,
+`BODY-30`, `PIPE-37`, `RETRY-34`, `RETRY-25`) — 18 ✅, 15 ⏳ to phase 6a's recovery-stack retry engine with the
+charter's twin `RETRY` ID per row, 1 ⏳ (`RECOV-31`, `docs/first-release.md`), nothing 🚫, nothing N/A. `bundle
+exec rake` is green on 4.0.6 at the tests tip with 99.97% line coverage against the 80% floor and 1,289 runs
+across the six gems (129 of them the fifteen new suites); the matrix set is green on 3.2.11 (99.97% line
+coverage there too), 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its `test:gems` at 1,154
+runs and **94.64%**, above the floor, and on 3.2.11's matrix set. **Every guard the plan and the brief ask to be
+run red was run red, and thirty-nine single-edit mutations were run** — thirty-eight caught, the one survivor a
+`break`-for-`next` that does not change behaviour; the `XCUT-9` container guards (an `Array`, a `Set`) were red on
+3.2.11 as well as 4.0.6 over the never-raised `#cause`-override pair the design says survives the floor, and the
+`RECOV-10` bare-`raise` guard was red on all three interpreters with the caller's in-flight exception as the
+cause. **The postponed work this phase picked up**: the suppressed-exception trail phase 1 postponed to phase 4
+landed as `Dexpace::Suppressible` with `#detailed_message` — the carrier phase 1 named (`Dexpace::Error#suppressed`)
+and the method it named (`#full_message`) both changed, P4-12 and R5; the handler failures `Hooks.notify` dropped
+after the first are attached and re-raised with `cause: nil`, with the fourth test, `"two raising handlers surface
+the first with the second on its suppressed trail"`, at the `Cancellation::Source#cancel` site; and
+`close_quietly`'s **first** disposal route, `onto:`, landed with `Recovery::Ownership` as its first core caller —
+the item stays open, the second route being phase 5b's (Task 14). **What stays postponed**: `XCUT-5`'s
+retryability flag on `Dexpace::ProtocolError` (phase 6a, Task 6, `#retryable_by_status?`); the fifteen
+recovery-stack IDs `RECOV-17`–`RECOV-30` and `RECOV-34` (phase 6a, Tasks 3, 4, 5, 7 and 11), and `RECOV-31`
+(`docs/first-release.md`). One constraint the plan did not know bit: `Dexpace/NoKeywordSplat` forbids the
+`**kwargs` the design gave `#detailed_message`, so it takes one optional positional `Hash`, `Model#with`'s
+spelling, measured on all three interpreters (P4-40). Twenty-seven departures from the plan's text are itemised
+in the checklist — eight where phases 1–3b as built overrode its assumptions, the rest this build's — none
+lowering a gate, and the ten that touch public behaviour or a stated count are the design ledger's As-built rows
+P4-40–P4-49, numbered from 40 so the two phase-4 lanes cannot collide. Two findings are routed: the two committed
+phase-2 sentences 4b's change makes false (the "every handler runs" paragraph and the `Dexpace::Error#suppressed`
+carrier) are recorded in the checklist as the manager's to rewrite, not edited; and design §10 item 6's carrier
+sentence, with §5.2's placement of the trail, is `docs/first-release.md` § Blockers' fourteenth frozen-chapter
+correction (`C14`), its replacement written out in the design's addendum. `docs/sdk-documentation/recovery.md`
+is the as-built page, its ten fences run verbatim on 4.0.6, 3.4.10 and 3.2.11. The counts that changed: `gems/`
+is still six; `dexpace-core`'s `lib/dexpace/` is seventy-nine phase-1, phase-2, phase-3a, phase-3b and phase-4b
+files beside phase 0's `version.rb`, every one mirrored in `sig/` and every one but the two `private_constant`s
+mirrored in `test/`; `phase4/phase4b/` now carries its checklist, the sixth written; the surface manifest is 586
+lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the constraints-that-bite
+list are rewritten from what was built. The consolidation of P4-12–P4-25 and P4-40–P4-49 into design §10, and
+§5.1's, §5.2's and §6.1's addenda, are a human's, as they were for 3a and 3b: `docs/sdk-design-ruby/` is frozen,
+and `docs/deviations.md` is left as phase 2 left it for phase 10 to flip.

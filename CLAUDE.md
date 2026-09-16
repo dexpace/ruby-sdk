@@ -13,8 +13,8 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a and 3b are built; the domain model, the seam layer, the byte-streaming layer and the
-body layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b and 4b are built; the domain model, the seam layer, the byte-streaming layer, the
+body layer and the recovery layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -36,7 +36,15 @@ two failure types `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamEr
 `Builder`), the single-use `ResponseBody`, the two logging wrappers `RequestLoggingBody` and
 `ResponseLoggingBody`, the lazy `TypedResponse` over the RBS interface `_ResponseHandler`, the form encoder
 beside the RFC 3986 one in `PercentEncoding`, and `Response#close` / `#body_string` / `#body_bytes` — the one
-decode boundary (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`); every other
+decode boundary (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`) — and the
+recovery layer, §8.2's resilience primitives: the closed two-variant outcome `Dexpace::Outcome::Success` /
+`Failure`, the `Dexpace::Recovery` namespace holding `RequestChain`, `ResponseChain`, the `Orchestrator` that
+lets no throwable past it, the `Transform` contract with the three shipped steps `IdempotencyKeyStep`,
+`ClientIdentityStep` and `ErrorMappingStep`, the private `Ownership` helper and `Recovery.buffer_error_body`,
+the two flat errors `Dexpace::ProtocolError` and `Dexpace::OutcomeError`, and the three error primitives every
+later phase uses — the suppressed-exception trail `Dexpace::Suppressible` (which `Dexpace::Error` includes) with
+`Dexpace.attach_suppressed` / `Dexpace.suppressed`, and the cycle-safe `Dexpace.each_cause`
+(`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`); every other
 gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -406,6 +414,24 @@ Each is one line plus the chapter to read before touching the area.
   call and a no-op close — because `Response#close`, `#body_string` and `#body_bytes` and
   `Body.buffer_bounded` are written against exactly those two members (P3-23). A fourth thing put in that
   slot answers both or does not go there.
+- **Every place core re-raises an error it is carrying rather than one it just rescued spells it
+  `raise error, cause: nil`** — a bare `raise error` on an error whose `#cause` is `nil` assigns whatever
+  exception is in flight as its cause, and `$!` is non-`nil` inside anything called from a *caller's* `rescue`,
+  so `RECOV-10`'s "unchanged" rethrow, the error-mapping step's raise and `Hooks.notify`'s re-raise all carry
+  it; `cause: nil` suppresses the assignment and never clears a cause a caller's own `raise` already made
+  (phase 4b's design, verified fact 5; `docs/knowledge/notes/pipeline.md`).
+- **The suppressed-exception trail lives on `Dexpace::Suppressible`, not on `Dexpace::Error`, and
+  `Dexpace.attach_suppressed` `extend`s a caller's exception with it** — every primary `RECOV-12`,
+  `close_quietly(onto:)` and `Hooks.notify` hand it is a caller's error, `rescue M` matches a module reached
+  through a singleton class, so extending with the rescue root would widen `rescue Dexpace::Error`; the trail
+  is a frozen array replaced on every attach, rendered through `#detailed_message` (never `#full_message`,
+  which the default printer does not call), read off anything with `Dexpace.suppressed(error)`, and a frozen
+  primary is a documented no-op (P4-12, P4-13, P4-14).
+- **`Dexpace.each_cause` is the one cause walk, and its visited set is `{}.compare_by_identity`** — never an
+  `Array` (`Exception#==` is structural and truncates a chain of two equal-looking errors) and never a `Set`
+  (a caller's `hash`/`eql?` override defeats it); the cycle it guards is reachable only through a caller's
+  `#cause` override, so the fixture is two never-raised instances chained through one, because a raise-built
+  pair is not `==` on 3.2.11 and stops discriminating there (`XCUT-9`; phase 4b's design, verified fact 7).
 - **A public `Data` follows the construction pattern without exception; only a `private_constant` snapshot is
   exempt** — `Registry::State`, `Registry::Claim` and `Cancellation::Source::State` are `Data` without `Model`
   and without `.build`, because a snapshot has no public constructor and no derivation (phase 2's P2-9).
@@ -507,11 +533,11 @@ probe compares each against the live tree, and a count written anywhere else in 
   `dexpace-transport-net_http`, `dexpace-transport-async_http`, `dexpace-serde-json`, `dexpace-async-thread`
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
-  the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer and the phase-3b
-  body layer — sixty-three phase-1, phase-2, phase-3a and phase-3b files under `lib/dexpace/` beside phase
-  0's `version.rb`, every one mirrored in `sig/`, and every one of the sixty-three but the `private_constant`
-  `hooks.rb` mirrored in `test/`; every
-  other
+  the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
+  body layer and the phase-4b recovery layer — seventy-nine phase-1, phase-2, phase-3a, phase-3b and
+  phase-4b files under `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every
+  one of the seventy-nine but the two `private_constant`s `hooks.rb` and `recovery/ownership.rb` mirrored
+  in `test/`; every other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
   (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code
@@ -521,12 +547,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — five
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — six
   checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds a design
-  and a plan. `phase5/` carries its segmentation design,
+  and a plan, and `phase4/phase4b/` its checklist too. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
   directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds a design
   and a plan. `phase6/` carries its segmentation design,
@@ -591,6 +617,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's and phase 3b's is still to be written at
-  execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's and phase 4b's is still to be
+  written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

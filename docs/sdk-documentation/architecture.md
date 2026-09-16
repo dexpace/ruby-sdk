@@ -2,12 +2,13 @@
 
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
 skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
-layer in the same gem, phase 3a the byte-streaming layer beneath every body, and phase 3b the
-body layer on top of it; the pipeline and the adapters are still to come, so this page is still a
-stub: it names the pages this tree will eventually hold and where each one's content will come
-from, so the plan for the documentation exists before the documentation does. Five pages are real
-already, because their subjects are: [`quality-gates.md`](./quality-gates.md),
-[`http.md`](./http.md), [`seams.md`](./seams.md), [`io.md`](./io.md) and [`body.md`](./body.md).
+layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
+layer on top of it, and phase 4b the recovery layer and the error trail; the stage pipeline and the
+adapters are still to come, so this page is still a stub: it names the pages this tree will
+eventually hold and where each one's content will come from, so the plan for the documentation
+exists before the documentation does. Six pages are real already, because their subjects are:
+[`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
+[`io.md`](./io.md), [`body.md`](./body.md) and [`recovery.md`](./recovery.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -40,8 +41,19 @@ layer phase 3b shipped; derives from `docs/sdk-design-ruby/03-seam-by-seam-idiom
 §3.1 and §7.3, read together with the body-seam deviations recorded in
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
-errors.md — the error tree, and which failure means what, including the suppressed-exception trail
-Ruby's single-parent `cause` cannot carry on its own. Derives from
+[recovery.md](./recovery.md) — the recovery layer: the closed two-variant outcome, the two folds
+over frozen step lists and who closes the response, the orchestrator that lets no throwable past
+it and its unchanged rethrow, the three shipped steps over one transform contract, the bounded
+error copy's one call site, and the three error primitives the whole SDK uses from here on — the
+suppressed-exception trail Ruby's single-parent `cause` cannot carry on its own, the cycle-safe
+cause walk and the protocol error. Written against the layer phase 4b shipped; derives from
+`docs/sdk-design-ruby/05-pipeline-architecture.md` §5.2 and §5.1's three shipped steps, read
+together with the recovery-layer deviations recorded in
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+errors.md — the error tree, and which failure means what. The suppressed-exception trail is
+already on [recovery.md](./recovery.md); this page collects the classes once the transport error
+and the seam-specific errors have all landed. Derives from
 `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`.
 
 pipelines.md — stages, steps, the resilience pillars, and the two named seeding constructors that
