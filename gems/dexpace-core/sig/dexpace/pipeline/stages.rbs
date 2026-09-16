@@ -1,0 +1,34 @@
+module Dexpace
+  class Pipeline
+    module Stages
+      PRE_REDIRECT: Stage
+      REDIRECT: Stage
+      POST_REDIRECT: Stage
+      PRE_RETRY: Stage
+      RETRY: Stage
+      POST_RETRY: Stage
+      PRE_AUTH: Stage
+      AUTH: Stage
+      POST_AUTH: Stage
+      PRE_LOGGING: Stage
+      LOGGING: Stage
+      POST_LOGGING: Stage
+      PRE_SERDE: Stage
+      SERDE: Stage
+      POST_SERDE: Stage
+      SEND: Stage
+
+      ALL: Array[Stage]
+      PILLARS: Array[Stage]
+
+      # A private_constant, declared for the strict `core` Steep target; RBS has no visibility.
+      LOOKUP: Hash[Symbol | String, Stage]
+
+      def self.of: (Symbol | String name) -> Stage
+
+      private
+
+      def self.mint: (Symbol name, Integer order, ?pillar: bool, ?terminal: bool) -> Stage
+    end
+  end
+end

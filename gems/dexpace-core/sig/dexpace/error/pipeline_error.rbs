@@ -1,0 +1,5 @@
+module Dexpace
+  class PipelineError < ::StandardError
+    include Dexpace::Error
+  end
+end
