@@ -155,6 +155,15 @@ class DexpaceResponseBodyTest < DexpaceTestCase
       assert_includes(error.message, "negative")
     end
 
+    # Float::INFINITY is the one non-Integer cap accepted, as the spelling of "unbounded"; any
+    # other Float, or a String, is a caller mistake named by class.
+    test "preview rejects a cap that is neither an Integer nor Float::INFINITY" do
+      error = assert_raises(Dexpace::InvalidArgumentError) { body.preview(cap: 1.5) }
+
+      assert_includes(error.message, "Float")
+      assert_raises(Dexpace::InvalidArgumentError) { body.preview(cap: "4") }
+    end
+
     test "preview silently clamps a cap above the ceiling, never up" do
       over_ceiling = Dexpace::IO::MAX_MATERIALIZED_BYTES + 1
 

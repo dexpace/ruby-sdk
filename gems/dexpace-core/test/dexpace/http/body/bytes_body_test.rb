@@ -79,6 +79,17 @@ class DexpaceBytesBodyTest < DexpaceTestCase
     assert(Dexpace::BytesBody.new("a").eql?(Dexpace::BytesBody.new("a")))
   end
 
+  # The chunk #each hands a block is the body's own frozen BINARY String, not a copy: the
+  # block-shaped sink keeps a chunk that is already frozen BINARY and copies everything else.
+  test "each yields its frozen BINARY bytes without copying them" do
+    body = Dexpace::BytesBody.new("héllo")
+    chunks = body.each.to_a
+
+    assert_equal(["héllo".b], chunks)
+    assert_predicate(chunks.first, :frozen?)
+    assert_equal(::Encoding::BINARY, chunks.first.encoding)
+  end
+
   test "is frozen, so nothing can mutate it after construction" do
     assert_predicate(Dexpace::BytesBody.new("a"), :frozen?)
   end
