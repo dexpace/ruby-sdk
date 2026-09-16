@@ -1309,6 +1309,18 @@ itemised list, and its "Guards run red" section holds the battery.
   always has; the guard battery saw that mutation survive. The case asserts the counter suffix
   increases strictly across flavours in build order, spanning exactly the number built, which only
   one counter does.
+- **The testing strategy's `CTX-13`, `.default` and `Fiber[]`-boundary cases, as built (review
+  round 1, 2026-09-16).** "A promotion on an existing key does not refresh its position" was
+  proven through `ContextStore#set` on the fake alone, and a promotion that releases its source
+  before setting its successor survived every suite; the store suite now drives the policy
+  through a real chain as well. "`.default` is assigned at file load rather than memoised" was
+  asserted only as identity across calls, which a memoised store satisfies once anything in the
+  process has called it; a case now asks a fresh process, `require "dexpace"` and nothing else,
+  whether the ivar is set before any call. And the boundary test's setup guard covered one carrier
+  where this section names three; it now writes a fiber-storage and a fiber-local slot on the main
+  fiber and reads the pair inside a child `Fiber`, a new `::Thread` and an `Enumerator`'s internal
+  fiber, which is `observability/016d9154`'s fact. The checklist's guards 19 and 20 are the two
+  mutations, red on 4.0.6 and 3.2.11.
 
 ## Work Phase 4a Postpones, and Who Owns It Now
 

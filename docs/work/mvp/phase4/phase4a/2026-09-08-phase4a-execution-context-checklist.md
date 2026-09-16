@@ -40,7 +40,7 @@ first to carry and are named in the rows that carry them: `OBS-26`'s reserved se
 | `CTX-10` | MUST | ✅ | 2, 3, 7 | Closing a promoted intermediate is a no-op observable as `false`, the successor keeps the slot — driven through the fake at the store and through a real chain (`context_store_test.rb`; `request_context_test.rb`, "CTX-10"; `context_test.rb`) |
 | `CTX-11` | MUST | ✅ | 3 | `ContextStore::MAX_TRACKED_CONTEXTS = 1024` (P4-9), `ContextStore.new(cap:)` for a test or for phase 5a's configuration source, the cap validated as a positive Integer (a negative one would spin the drain forever on an empty hash); 2000 inserts into a default store leave 1024, and 16 threads × 500 into a cap of 64 leave 64 (`context_store_test.rb`, `BoundTest`) |
 | `CTX-12` | SHOULD | ✅ | 3 | The post-insert drain loop, inside the same `synchronize` as the insert, on `#set` and on `#put` both; the discriminating single-threaded assertion — from a store at cap every further insert evicts exactly one and the size is never observed above cap — plus the note that the aggregate iteration count proves nothing. The two-per-insert and the deleted-drain guards run red below; the split-lock overshoot is unobservable through the public surface and stays with `docs/first-release.md`'s `IO-38` trigger (`context_store_test.rb`, `BoundTest`) |
-| `CTX-13` | MAY | ✅ | 3 | Oldest-first taken as-is, with its consequence asserted: at cap 3 a fourth key evicts the first-registered, and re-setting an existing key does not refresh its position (verified fact 8); nothing in the store's own behaviour depends on any entry surviving — `#release` on an evicted context is `false` and raises nothing; the store exposes no iteration (`context_store_test.rb`, `BoundTest`) |
+| `CTX-13` | MAY | ✅ | 3, 7 | Oldest-first taken as-is, with its consequence asserted: at cap 3 a fourth key evicts the first-registered, and re-setting an existing key does not refresh its position (verified fact 8) — driven through `ContextStore#set` on the fake **and** through a real promotion, three chains at the request stage and one promoted to exchange before the fourth arrives, which is the case a release-then-set promotion fails (guard 19 below); nothing in the store's own behaviour depends on any entry surviving — `#release` on an evicted context is `false` and raises nothing, on the fake and on both links of the evicted real chain; the store exposes no iteration (`context_store_test.rb`, `BoundTest`) |
 | `CTX-14` | MUST | ✅ | 4, 5, 6 | `Dexpace::Instrumentation::Bundle`, a frozen `Data` of exactly eight members — `trace_id`, `span_id`, `trace_flags`, `trace_state`, `flavour`, `remote`, `span`, `tracer_factory` — asserted as the member list in that order, with `#valid?` derived (P4-6) and `#remote?` beside the reader; `TraceIdFlavour` fills the flavour slot, `NO_SPAN` and `NO_TRACER_FACTORY` the two duck-typed ones (`instrumentation/bundle_test.rb`) |
 | `CTX-15` | MUST | ✅ | 4, 5, 6, 7 | `Bundle::NONE`: `OBS-26`'s 32 hex zeros, 16 hex zeros, `"00"`, `[]`, `TraceIdFlavour::NONE`, `valid?` and `remote?` both false, `NO_SPAN` and `NO_TRACER_FACTORY` by identity, frozen, shared; the non-trivial half — two contexts minted from the **same** `NONE` object (`assert_same`) still get distinct keys, and the guard that derives the key from the bundle runs red (`bundle_test.rb`; `dispatch_context_test.rb`, "CTX-15") |
 | `CTX-16` | SHOULD | ✅ | 7 | `RequestContext#operation_name` and `ExchangeContext#operation_name`: nil or a non-empty frozen String (an empty one is refused off-chain and at promotion), carried forward by identity, and asserted advisory **as a negative** — a named and an unnamed promotion from two heads with one pinned key share the key, the request object and the slot; the guard that folds the name into the key runs red (`request_context_test.rb`, `OperationNameTest`; `exchange_context_test.rb`) |
@@ -98,7 +98,18 @@ counter survived the plan's `CTX-6` case, which asserts only that three keys are
 counter per flavour yields three distinct keys too, whenever the shared counter has already moved
 past the per-flavour one, and in a randomly ordered suite it always has. The case now asserts the
 counter suffix increases strictly *across* flavours in build order, spanning exactly the number of
-contexts built, and the mutation is caught (row 7). One mutation had to be re-run by hand: the
+contexts built, and the mutation is caught (row 7). **Review round 0 found two more survivors**,
+both in the store suite's reach and both closed in round 1 (rows 19 and 20): a `#promote_to_exchange`
+that released its source before setting the successor — refreshing the chain's eviction position
+and emptying the slot between two mutex acquisitions — passed every case, because the `CTX-13`
+no-refresh claim was driven only through `ContextStore#set` on a `FakeContext`; and a memoised
+`.default` (`@default ||= new`, the load-time line deleted) passed, because the identity case runs
+after some `.build` in the same process has already called `.default`. The first now has a
+real-chain case beside the fake-driven one; the second is asked of a fresh process. The same
+round found the `Fiber[]` boundary test's setup guard covering one carrier where the design names
+three; it now writes a fiber-storage and a fiber-local slot on the main fiber and asserts the pair
+inside a child `Fiber`, a new `::Thread` and an `Enumerator`'s internal fiber, which is
+`observability/016d9154`'s fact and not a mutation. One mutation had to be re-run by hand: the
 guard script's `String#sub` collapsed the `\\A` in the timeout-dropped `Regexp.new` replacement
 and the pattern stopped matching anything, which is a script artefact and not evidence; the
 hand-applied edit fails exactly the per-pattern-timeout assertion and nothing else (row 12).
@@ -123,6 +134,8 @@ hand-applied edit fails exactly the per-pattern-timeout assertion and nothing el
 | 16 | `CTX-17`: `DispatchContext.build` registers what it builds | `dispatch_context_test.rb`, `PromotionTest` | 4 failures: `constructing a dispatch context registers nothing: Expected: 0 Actual: 1`, the never-promoted close, and the first-promotion cases |
 | 17 | `CTX-3`: `#promote_to_exchange` drops `call_key:` and mints afresh | `request_context_test.rb` | 3 failures: `request -> exchange carries every source member forward by identity: Expected "…:2" (oid=…) to be the same as "…:3"`, and the same-slot cases |
 | 18 | `CTX-19`: the cop's `Include:` narrowed to `gems/dexpace-core/lib/**/*.rb` | `test/gates/rubocop_config_test.rb` | 1 failure of 7: `Dexpace/NoWeakReferences is required, enabled, and reaches every gem's lib/ [rubocop_config_test.rb:45]` with the expected/actual diff of the `Include` list |
+| 19 | `CTX-13`/`CTX-10`: `#promote_to_exchange` calls `store.release(self)` before `store.set(ctx)` (review round 0's survivor; case added in round 1) | `context_store_test.rb`, `BoundTest`, the real-promotion case | 1 failure of 20: `CTX-13: a real promotion re-sets the slot without refreshing its eviction position … Expected: ["b", "c", "d"] Actual: ["a", "c", "d"]` — `a` survived and `b` was evicted. **Identical on 3.2.11** |
+| 20 | `.default` memoised on first call — `def default = (@default ||= new)`, the load-time assignment deleted (review round 0's survivor; case added in round 1) | `context_store_test.rb`, `ReachabilityTest`, the fresh-process case | 1 failure of 20: `.default is assigned at file load: a fresh process holds it before any call … Expected: "true" Actual: "false"`. **Identical on 3.2.11** |
 
 The cop's own table runs its 29 rows through phase 0's verbatim `CopCase` harness at
 `TARGET_RUBY = 3.2` on RuboCop **1.91.0** (`VERSIONS` pins `~> 1.91`; the plan verified against
@@ -146,7 +159,7 @@ against the built code:
 | Group | Result at implementation |
 |---|---|
 | Pipeline composition and execution context | Clean against the built code: every rule in `execution-context` is either adopted verbatim or superseded by one of the design's two notes, which stand as written — the drain sits in one `synchronize` and yields to nothing, and `BoundedMap` is named by a bare name from `module Dexpace; class ContextStore` and nowhere else. `notes/observability.md`'s 2026-09-13 entry describes `P4-8` as `#tracer(name = nil, version = nil)`, the design's recommendation; the plan's resolution and the build carry the gem's five-parameter shape, and that entry's point — the bundle's factory produces span tracers and is legitimately shared — is unaffected. No note added |
-| Fiber scheduler, thread safety | Clean against the built code: two mutexes, `BoundedMap`'s and `CallKey`'s, each held across a hash write or an increment and the drain of its own hash and nothing else, never across a callback; no code path acquires both; `Timeout.timeout`, `Thread#raise` and `Thread#kill` appear nowhere; every thread the suites start is joined, which `DexpaceTestCase`'s teardown enforces. `Fiber[:probe] = v` in the boundary test emits no warning on 3.2.11 or 4.0.6 under `-w -W:deprecated`, as verified fact 13 says |
+| Fiber scheduler, thread safety | Clean against the built code: two mutexes, `BoundedMap`'s and `CallKey`'s, each held across a hash write or an increment and the drain of its own hash and nothing else, never across a callback; no code path acquires both; `Timeout.timeout`, `Thread#raise` and `Thread#kill` appear nowhere; every thread the suites start is joined, which `DexpaceTestCase`'s teardown enforces. The `Fiber[]` boundary test's setup guard covers the three carriers the design names — a fiber-storage slot and a fiber-local slot written on the main fiber, the pair read as `[:fiber_storage, nil]` inside a child `Fiber`, a new `::Thread` and an `Enumerator`'s internal fiber, `observability/016d9154`'s fact — before the store half; `Fiber[:probe] = v` there emits no warning on 3.2.11 or 4.0.6 under `-w -W:deprecated`, as verified fact 13 says |
 | Public API surface | `module-organization/1828a984` (one public constant per file) holds for eleven of the twelve files; `no_tracer.rb`'s two is the stretch the design records. `api-design/b0e18938` is why `BoundedMap`, `CallKey`, `NoSpan`, `NoTracer`, `NoTracerFactory`, `SPAN_ID_PATTERN` and `TRACE_FLAGS_PATTERN` are private and why `Context.validate!` was made private too (deviation 5); `api-design/88e6bf12` is honoured by `respond_to?` at the store check and no `is_a?` on a store anywhere; `api-design/1d9e6e0b`'s one exception is P4-8's `#tracer` |
 
 The two notes the design filed stand as written. No third was needed: nothing execution found was
@@ -226,12 +239,16 @@ this build's.
     `true`; the fake returns the context). Every thread a case starts is collected and joined
     before the case returns — the plan's `CTX-8` fence started 32 unjoined threads, which
     `DexpaceTestCase`'s teardown refuses.
-13. **The run counts are the build's, not the plan's.** 4 / 8 / 18 / 14 / 3 / 5 / 20 / 20 / 13 /
-    7 across the ten suites (112 in all) against the plan's 3 / 5 / 14 / 9 / 1 / 3 / 12 / 11 / 7 /
+13. **The run counts are the build's, not the plan's.** 4 / 8 / 20 / 14 / 3 / 5 / 20 / 20 / 13 /
+    7 across the ten suites (114 in all) against the plan's 3 / 5 / 14 / 9 / 1 / 3 / 12 / 11 / 7 /
     3, because cases were added for the frozen-key both-ways property, the parameter list, the
     three private classes' unreachability, the strictly increasing counter, the cross-store
     counter, the concurrent mint, the real-`Response` reachability, the flavour and cap validation,
-    and the member lists; no plan case was dropped. Minitest is 5.27.0 on every row under the
+    and the member lists, and review round 1 added the store suite's real-promotion `CTX-13` case
+    and the fresh-process `.default` case (guards 19 and 20); no plan case was dropped. The plan's
+    `Fiber[]` boundary fence guarded the main fiber alone, the first build added a child `Fiber`,
+    and review round 1 made the case guard the three carriers the design's testing strategy names,
+    with a fiber-local slot set so "not visible" is asserted rather than vacuous. Minitest is 5.27.0 on every row under the
     bundle (`VERSIONS` pins `~> 5.25`), so the plan's "6.0.0 on 4.0.6" assertion-count artefact
     does not arise and the counts are identical across the four interpreters.
 14. **`--req` ran once for all twenty IDs before Task 1** rather than once per task; every task's

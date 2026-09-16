@@ -2977,14 +2977,17 @@ singletons are fixed in core with their names `NFR-4`-locked, and the five-claus
 R3 is what phase 5c populates against. The checklist is at
 `docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-checklist.md`: twenty rows, `CTX-1`–`CTX-20`,
 **20 ✅**, nothing ⏳, nothing 🚫, nothing N/A. `bundle exec rake` is green on 4.0.6 at the tests tip with
-99.96% line coverage against the 80% floor and 1,266 runs across the six gems (112 of them the ten
+99.96% line coverage against the 80% floor and 1,268 runs across the six gems (114 of them the ten
 execution-context suites, on every interpreter, since Minitest is 5.27.0 on every row); the matrix set is
 green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its `test:gems` above
-the floor. **Every guard the brief asks to be run red was run red**, eighteen single-edit mutations in all:
-seventeen caught on the first run, and one — a counter per flavour — survived the plan's `CTX-6` case,
+the floor. **Every guard the brief asks to be run red was run red**, twenty single-edit mutations in all:
+seventeen caught on the first run, one — a counter per flavour — survived the plan's `CTX-6` case,
 whose three-key distinctness check a per-flavour counter satisfies whenever the shared counter has already
-moved past it; the case now asserts the suffix increases strictly across flavours in build order and the
-mutation is caught. The `CTX-9` trap (`==` for `equal?`) and the `ObjectSpace::WeakMap` swap were run red
+moved past it, so the case now asserts the suffix increases strictly across flavours in build order; and
+two more that review round 0 found surviving — a promotion that releases its source before setting its
+successor, and a memoised `.default` — are caught by the round-1 cases the checklist's guards 19 and 20
+name, the first through a real chain and the second by asking a fresh process. The `CTX-9` trap (`==` for
+`equal?`), the `ObjectSpace::WeakMap` swap and those two were run red
 on 3.2.11 as well, where the swap also fails on the floor's `WeakMap` having no `#delete`. **Four things
 phases 0–3b as built changed under the plan**: the cop is the eighth, not the seventh (`CLAUDE.md`,
 `quality-gates.md`, phase 2's checklist and `cops_test.rb` all count the keyword-splat cop phase 0's plan
