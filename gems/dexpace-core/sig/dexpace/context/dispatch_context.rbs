@@ -1,0 +1,22 @@
+module Dexpace
+  class DispatchContext < Data
+    include Context
+
+    attr_reader bundle: Instrumentation::Bundle
+    attr_reader call_key: String
+    # untyped rather than ContextStore: #validate_context! accepts any object answering #set and
+    # #release (the narrowest duck type), and the suite's FakeStore relies on that.
+    attr_reader store: untyped
+
+    private def self.new: (
+      bundle: Instrumentation::Bundle, call_key: String, store: untyped,
+    ) -> instance
+    def initialize: (bundle: Instrumentation::Bundle, call_key: String, store: untyped) -> void
+
+    def self.build: (
+      bundle: Instrumentation::Bundle, ?call_key: String?, ?store: untyped,
+    ) -> DispatchContext
+
+    def promote_to_request: (request: Dexpace::Request, ?operation_name: String?) -> RequestContext
+  end
+end

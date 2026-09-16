@@ -1,0 +1,21 @@
+# Dexpace::BoundedMap is a private_constant and not public API (design P4-3): this declaration
+# exists because the strict `core` Steep target checks every file under lib/ and needs the class
+# declared to type ContextStore's call sites, exactly as hooks.rbs does for Dexpace::Hooks. RBS
+# has no visibility for a constant, so the privacy lives in lib/dexpace/bounded_map.rb alone, and
+# the class takes no surface-manifest row (Module#constants excludes it) and no test/ mirror.
+module Dexpace
+  class BoundedMap
+    @cap: Integer
+    @h: Hash[untyped, untyped]
+    @mutex: Thread::Mutex
+
+    def initialize: (cap: Integer) -> void
+    def set: (untyped key, untyped value) -> untyped
+    def put: (untyped key, untyped value) -> bool
+    def []: (untyped key) -> untyped
+    def delete_if_identical: (untyped key, untyped object) -> bool
+    def size: () -> Integer
+
+    private def drain: () -> void
+  end
+end

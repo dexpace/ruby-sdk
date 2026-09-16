@@ -125,8 +125,34 @@ Dexpace::Closeable#closed?
 Dexpace::Closeable#initialize_closeable
 Dexpace::Closeable#owned?
 Dexpace::ClosedError
+Dexpace::Context
+Dexpace::Context#close
+Dexpace::ContextConflictError
+Dexpace::ContextConflictError#call_key
+Dexpace::ContextStore
+Dexpace::ContextStore#[]
+Dexpace::ContextStore#put
+Dexpace::ContextStore#release
+Dexpace::ContextStore#set
+Dexpace::ContextStore#size
+Dexpace::ContextStore.default
+Dexpace::ContextStore::MAX_TRACKED_CONTEXTS : Integer
+Dexpace::DispatchContext
+Dexpace::DispatchContext#bundle
+Dexpace::DispatchContext#call_key
+Dexpace::DispatchContext#promote_to_request
+Dexpace::DispatchContext#store
+Dexpace::DispatchContext.build
 Dexpace::EndOfStreamError
 Dexpace::Error
+Dexpace::ExchangeContext
+Dexpace::ExchangeContext#bundle
+Dexpace::ExchangeContext#call_key
+Dexpace::ExchangeContext#operation_name
+Dexpace::ExchangeContext#request
+Dexpace::ExchangeContext#response
+Dexpace::ExchangeContext#store
+Dexpace::ExchangeContext.build
 Dexpace::FileBody
 Dexpace::FileBody#==
 Dexpace::FileBody#content_length
@@ -241,6 +267,37 @@ Dexpace::IO::TypedWrites#write_all
 Dexpace::IO::TypedWrites#write_from
 Dexpace::IO::TypedWrites#write_string
 Dexpace::IO::TypedWrites#write_utf8
+Dexpace::Instrumentation
+Dexpace::Instrumentation::Bundle
+Dexpace::Instrumentation::Bundle#flavour
+Dexpace::Instrumentation::Bundle#remote
+Dexpace::Instrumentation::Bundle#remote?
+Dexpace::Instrumentation::Bundle#span
+Dexpace::Instrumentation::Bundle#span_id
+Dexpace::Instrumentation::Bundle#trace_flags
+Dexpace::Instrumentation::Bundle#trace_id
+Dexpace::Instrumentation::Bundle#trace_state
+Dexpace::Instrumentation::Bundle#tracer_factory
+Dexpace::Instrumentation::Bundle#valid?
+Dexpace::Instrumentation::Bundle.build
+Dexpace::Instrumentation::Bundle::INVALID_SPAN_ID : String
+Dexpace::Instrumentation::Bundle::NONE : Dexpace::Instrumentation::Bundle
+Dexpace::Instrumentation::NO_SPAN : Dexpace::Instrumentation::NoSpan
+Dexpace::Instrumentation::NO_TRACER : Dexpace::Instrumentation::NoTracer
+Dexpace::Instrumentation::NO_TRACER_FACTORY : Dexpace::Instrumentation::NoTracerFactory
+Dexpace::Instrumentation::TraceIdFlavour
+Dexpace::Instrumentation::TraceIdFlavour#invalid_trace_id
+Dexpace::Instrumentation::TraceIdFlavour#max_value
+Dexpace::Instrumentation::TraceIdFlavour#name
+Dexpace::Instrumentation::TraceIdFlavour#renders?
+Dexpace::Instrumentation::TraceIdFlavour#trace_id_pattern
+Dexpace::Instrumentation::TraceIdFlavour#valid_trace_id?
+Dexpace::Instrumentation::TraceIdFlavour.build
+Dexpace::Instrumentation::TraceIdFlavour.of
+Dexpace::Instrumentation::TraceIdFlavour::ALL : Array
+Dexpace::Instrumentation::TraceIdFlavour::DATADOG : Dexpace::Instrumentation::TraceIdFlavour
+Dexpace::Instrumentation::TraceIdFlavour::NONE : Dexpace::Instrumentation::TraceIdFlavour
+Dexpace::Instrumentation::TraceIdFlavour::W3C : Dexpace::Instrumentation::TraceIdFlavour
 Dexpace::InvalidArgumentError
 Dexpace::MediaType
 Dexpace::MediaType#charset
@@ -520,6 +577,14 @@ Dexpace::Request::Builder#header
 Dexpace::Request::Builder#headers=
 Dexpace::Request::Builder#method=
 Dexpace::Request::Builder#url=
+Dexpace::RequestContext
+Dexpace::RequestContext#bundle
+Dexpace::RequestContext#call_key
+Dexpace::RequestContext#operation_name
+Dexpace::RequestContext#promote_to_exchange
+Dexpace::RequestContext#request
+Dexpace::RequestContext#store
+Dexpace::RequestContext.build
 Dexpace::RequestLoggingBody
 Dexpace::RequestLoggingBody#==
 Dexpace::RequestLoggingBody#content_length

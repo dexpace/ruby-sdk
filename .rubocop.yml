@@ -19,6 +19,7 @@ require:
   - ./.rubocop/cops/dexpace/no_thread_interrupt.rb
   - ./.rubocop/cops/dexpace/no_keyword_splat.rb
   - ./.rubocop/cops/dexpace/qualified_core_constant.rb
+  - ./.rubocop/cops/dexpace/no_weak_references.rb
 
 AllCops:
   NewCops: enable
@@ -178,6 +179,14 @@ Dexpace/NoKeywordSplat:
 # gem also writes inside module Dexpace. test/** is deliberately absent: a test file's classes are
 # top level, so the cop's own lexical check would find nothing there.
 Dexpace/QualifiedCoreConstant:
+  Enabled: true
+  Include:
+    - "gems/*/lib/**/*.rb"
+# CTX-19: "reimplementations MUST NOT hold contexts by weak/soft references" (phase 4a's P4-10,
+# the eighth custom cop). Scoped to every gem's lib/, not core alone: gates:require_allowlist
+# covers core's lib/ only, and an adapter gem can hold a context too. test/** is deliberately
+# absent, as for the two cops above.
+Dexpace/NoWeakReferences:
   Enabled: true
   Include:
     - "gems/*/lib/**/*.rb"

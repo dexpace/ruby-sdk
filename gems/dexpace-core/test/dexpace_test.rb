@@ -34,9 +34,10 @@ class DexpaceTest < DexpaceTestCase
 
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
-  # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4b's recovery
-  # layer, then phase 4c's pipeline; Dexpace::Hooks, Dexpace::Recovery::Ownership and the two
-  # pipeline drivers are private_constants and appear in no constants(false) list.
+  # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4a's execution
+  # context, phase 4b's recovery layer and phase 4c's pipeline; Dexpace::Hooks, Dexpace::BoundedMap,
+  # Dexpace::CallKey, Dexpace::Recovery::Ownership and the two pipeline drivers are
+  # private_constants and appear in no constants(false) list.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -50,9 +51,15 @@ class DexpaceTest < DexpaceTestCase
     Body BytesBody BufferBody StreamBody ChunkedBody FormBody FileBody MultipartBody ResponseBody
     RequestLoggingBody ResponseLoggingBody TypedResponse
   ].freeze
+  CONTEXT_LAYER = %i[
+    ContextConflictError Context ContextStore Instrumentation DispatchContext RequestContext
+    ExchangeContext
+  ].freeze
   RECOVERY_LAYER = %i[Suppressible OutcomeError ProtocolError Outcome Recovery].freeze
   PIPELINE_LAYER = %i[PipelineError Pipeline AsyncPipeline].freeze
-  LAYERS = [DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, RECOVERY_LAYER, PIPELINE_LAYER].flatten
+  LAYERS = [
+    DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
+  ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
@@ -76,57 +83,76 @@ class DexpaceTest < DexpaceTestCase
     end
   end
 
-  # A consumer requires "dexpace" and nothing else: the body layer resolves too (phase 3b), and
-  # the two constants that are nested rather than flat sit where HTTP-3 and R6 put them.
-  test "requiring dexpace alone makes the whole body layer resolve" do
-    assert_equal(Dexpace::Body, Dexpace.const_get(:Body))
-    assert_equal(Dexpace::TypedResponse, Dexpace.const_get(:TypedResponse))
-    assert_equal(Dexpace::MultipartBody::Part, Dexpace::MultipartBody.const_get(:Part))
-    assert_equal(1024 * 1024, Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES)
-    refute(Dexpace::Body.const_defined?(:Part, false), "Dexpace::Body::Part is not a namespace")
-  end
+  # A consumer requires "dexpace" and nothing else, and every layer resolves -- one case per phase,
+  # in a nested class because the smoke suite outgrew Metrics/ClassLength once the three phase-4
+  # lanes landed their pins beside one another (the split every larger suite in this gem uses).
+  class Layers < DexpaceTestCase
+    # A consumer requires "dexpace" and nothing else: the body layer resolves too (phase 3b), and
+    # the two constants that are nested rather than flat sit where HTTP-3 and R6 put them.
+    test "requiring dexpace alone makes the whole body layer resolve" do
+      assert_equal(Dexpace::Body, Dexpace.const_get(:Body))
+      assert_equal(Dexpace::TypedResponse, Dexpace.const_get(:TypedResponse))
+      assert_equal(Dexpace::MultipartBody::Part, Dexpace::MultipartBody.const_get(:Part))
+      assert_equal(1024 * 1024, Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES)
+      refute(Dexpace::Body.const_defined?(:Part, false), "Dexpace::Body::Part is not a namespace")
+    end
 
-  # A consumer requires "dexpace" and nothing else: the recovery layer resolves too (phase 4b),
-  # the trail module precedes the error root that includes it, and Ownership is private.
-  test "requiring dexpace alone makes the whole recovery layer resolve" do
-    assert_operator(Dexpace::Error, :<, Dexpace::Suppressible)
-    assert_equal(Dexpace::Outcome::Failure, Dexpace::Outcome.const_get(:Failure))
-    assert_equal(Dexpace::Recovery::Orchestrator, Dexpace::Recovery.const_get(:Orchestrator))
-    refute_includes(Dexpace::Recovery.constants(false), :Ownership, "a private_constant")
-    assert_raises(::NameError) { Dexpace::Recovery::Ownership }
-  end
+    # A consumer requires "dexpace" and nothing else: the recovery layer resolves too (phase 4b),
+    # the trail module precedes the error root that includes it, and Ownership is private.
+    test "requiring dexpace alone makes the whole recovery layer resolve" do
+      assert_operator(Dexpace::Error, :<, Dexpace::Suppressible)
+      assert_equal(Dexpace::Outcome::Failure, Dexpace::Outcome.const_get(:Failure))
+      assert_equal(Dexpace::Recovery::Orchestrator, Dexpace::Recovery.const_get(:Orchestrator))
+      refute_includes(Dexpace::Recovery.constants(false), :Ownership, "a private_constant")
+      assert_raises(::NameError) { Dexpace::Recovery::Ownership }
+    end
 
-  # A consumer requires "dexpace" and nothing else: the pipeline resolves too (phase 4c), the
-  # runtime's nested vocabulary with it, and the two drivers are private.
-  test "requiring dexpace alone makes the whole pipeline resolve, its two drivers private" do
-    assert_equal(16, Dexpace::Pipeline.const_get(:Stages)::ALL.size)
-    assert_empty(Dexpace::Pipeline.constants(false) & %i[SyncDriver AsyncDriver], "private")
-    assert_raises(::NameError) { Dexpace::Pipeline::SyncDriver }
-  end
+    # A consumer requires "dexpace" and nothing else: the pipeline resolves too (phase 4c), the
+    # runtime's nested vocabulary with it, and the two drivers are private.
+    test "requiring dexpace alone makes the whole pipeline resolve, its two drivers private" do
+      assert_equal(16, Dexpace::Pipeline.const_get(:Stages)::ALL.size)
+      assert_empty(Dexpace::Pipeline.constants(false) & %i[SyncDriver AsyncDriver], "private")
+      assert_raises(::NameError) { Dexpace::Pipeline::SyncDriver }
+    end
 
-  # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).
-  test "requiring dexpace alone makes the whole seam layer resolve" do
-    assert_equal(Dexpace::Transport, Dexpace.const_get(:Transport))
-    assert_equal(Dexpace::AsyncTransport, Dexpace.const_get(:AsyncTransport))
-    assert_equal(Dexpace::Serde, Dexpace.const_get(:Serde))
-    assert_equal(Dexpace::Operation, Dexpace.const_get(:Operation))
-    assert_equal(Dexpace::Registry, Dexpace.const_get(:Registry))
-    assert_equal(Dexpace::Cancellation, Dexpace.const_get(:Cancellation))
-    assert_equal(Dexpace::Async::Future, Dexpace::Async.const_get(:Future))
-    assert_equal(Dexpace::Closeable, Dexpace.const_get(:Closeable))
-    refute_includes(Dexpace.constants(false), :Hooks, "Dexpace::Hooks is a private_constant")
-    assert_raises(::NameError) { Dexpace::Hooks }
-  end
+    # A consumer requires "dexpace" and nothing else: the execution context resolves too (phase
+    # 4a), the instrumentation subsystem keeps its namespace (design §8.1), and the two private
+    # constants are as unreachable as Dexpace::Hooks.
+    test "requiring dexpace alone makes the whole execution context resolve" do
+      assert_equal(Dexpace::ContextStore, Dexpace.const_get(:ContextStore))
+      assert_equal(Dexpace::DispatchContext, Dexpace.const_get(:DispatchContext))
+      assert_equal(Dexpace::Instrumentation::Bundle, Dexpace::Instrumentation.const_get(:Bundle))
+      assert_equal(1024, Dexpace::ContextStore::MAX_TRACKED_CONTEXTS)
+      refute_includes(Dexpace.constants(false), :BoundedMap, "Dexpace::BoundedMap is private")
+      refute_includes(Dexpace.constants(false), :CallKey, "Dexpace::CallKey is private")
+      assert_raises(::NameError) { Dexpace::BoundedMap }
+      assert_raises(::NameError) { Dexpace::CallKey }
+    end
 
-  # A consumer requires "dexpace" and nothing else: the byte-streaming layer resolves too
-  # (phase 3a).
-  test "requiring dexpace alone makes the whole streaming layer resolve" do
-    assert_equal(Dexpace::IO::Buffer, Dexpace::IO.const_get(:Buffer))
-    assert_equal(Dexpace::IO::BufferedSource, Dexpace::IO.const_get(:BufferedSource))
-    assert_equal(Dexpace::IO::BufferedSink, Dexpace::IO.const_get(:BufferedSink))
-    assert_equal(Dexpace::IO::TeeSink, Dexpace::IO.const_get(:TeeSink))
-    assert_equal(Dexpace::StreamError, Dexpace.const_get(:StreamError))
-    assert_equal(Dexpace::EndOfStreamError, Dexpace.const_get(:EndOfStreamError))
+    # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).
+    test "requiring dexpace alone makes the whole seam layer resolve" do
+      assert_equal(Dexpace::Transport, Dexpace.const_get(:Transport))
+      assert_equal(Dexpace::AsyncTransport, Dexpace.const_get(:AsyncTransport))
+      assert_equal(Dexpace::Serde, Dexpace.const_get(:Serde))
+      assert_equal(Dexpace::Operation, Dexpace.const_get(:Operation))
+      assert_equal(Dexpace::Registry, Dexpace.const_get(:Registry))
+      assert_equal(Dexpace::Cancellation, Dexpace.const_get(:Cancellation))
+      assert_equal(Dexpace::Async::Future, Dexpace::Async.const_get(:Future))
+      assert_equal(Dexpace::Closeable, Dexpace.const_get(:Closeable))
+      refute_includes(Dexpace.constants(false), :Hooks, "Dexpace::Hooks is a private_constant")
+      assert_raises(::NameError) { Dexpace::Hooks }
+    end
+
+    # A consumer requires "dexpace" and nothing else: the byte-streaming layer resolves too
+    # (phase 3a).
+    test "requiring dexpace alone makes the whole streaming layer resolve" do
+      assert_equal(Dexpace::IO::Buffer, Dexpace::IO.const_get(:Buffer))
+      assert_equal(Dexpace::IO::BufferedSource, Dexpace::IO.const_get(:BufferedSource))
+      assert_equal(Dexpace::IO::BufferedSink, Dexpace::IO.const_get(:BufferedSink))
+      assert_equal(Dexpace::IO::TeeSink, Dexpace::IO.const_get(:TeeSink))
+      assert_equal(Dexpace::StreamError, Dexpace.const_get(:StreamError))
+      assert_equal(Dexpace::EndOfStreamError, Dexpace.const_get(:EndOfStreamError))
+    end
   end
 
   # The shadowing names this SDK never defines: each would make a bare `rescue ArgumentError`,

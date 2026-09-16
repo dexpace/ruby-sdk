@@ -242,4 +242,74 @@ class CopsTest < CopCase
       end
     end
   end
+
+  # Phase 4a (P4-10): the eighth cop, Dexpace/NoWeakReferences. CTX-19 says "reimplementations
+  # MUST NOT hold contexts by weak/soft references"; design §5.4 makes that a lint rule. RuboCop
+  # parses and never evaluates, so ObjectSpace::WeakKeyMap is a valid row even though the
+  # constant is undefined on the 3.2.11 floor -- CopCase pins the parse target at TARGET_RUBY,
+  # independent of the interpreter running this suite. Its own nested class, for the 100-line cap.
+  class NoWeakReferencesTest < CopCase
+    IN_STORE = [
+      "module Dexpace", "  class ContextStore", "    def initialize", "      %s", "    end",
+      "  end", "end", "",
+    ].join("\n")
+    IN_OBJECT_SPACE = [
+      "module ObjectSpace", "  class Foo", "    def initialize", "      %s", "    end", "  end",
+      "end", "",
+    ].join("\n")
+
+    # [source, the fragment the message must carry]
+    REJECTED = [
+      ["ObjectSpace::WeakMap.new\n", "CTX-19"],
+      ["ObjectSpace::WeakKeyMap.new\n", "CTX-19"],
+      ["::ObjectSpace::WeakKeyMap.new\n", "CTX-19"],
+      ["::ObjectSpace::WeakMap.new\n", "CTX-19"],
+      # A bare WeakMap/WeakKeyMap lexically inside `module ObjectSpace` names the same thing.
+      [format(IN_OBJECT_SPACE, "@m = WeakMap.new"), "CTX-19"],
+      ["module ObjectSpace\n  X = WeakKeyMap\nend\n", "CTX-19"],
+      ["WeakRef.new(ctx)\n", "CTX-19"],
+      ["::WeakRef.new(ctx)\n", "CTX-19"],
+      ["require \"weakref\"\n", "CTX-19"],
+      ["require(\"weakref\")\n", "CTX-19"],
+      ["Kernel.require \"weakref\"\n", "CTX-19"],
+      # The line the rule exists to stop.
+      [format(IN_STORE, "@map = ObjectSpace::WeakKeyMap.new"), "CTX-19"],
+      [format(IN_STORE, "@map = ObjectSpace::WeakMap.new"), "CTX-19"],
+      # A constant reference with no call at all is still a reference.
+      ["MAP_CLASS = ObjectSpace::WeakMap\n", "CTX-19"],
+    ].freeze
+
+    # The accepted half is what proves the cop does not reject every occurrence of the substring.
+    ACCEPTED = [
+      "ObjectSpace.count_objects\n",
+      "ObjectSpace.each_object { |o| o }\n",
+      "ObjectSpace.garbage_collect\n",
+      "# ObjectSpace::WeakMap is banned here\n",
+      "weak_map = {}\n",
+      "def weak_ref\nend\n",
+      "@weak_ref = nil\n",
+      format(IN_STORE, "@h = Hash.new"),
+      format(IN_STORE, "@h = {}"),
+      "require \"set\"\n",
+      "require \"weakref_something_else\"\n",
+      "require_relative \"weakref\"\n",
+      # The scoping the bare-name matcher depends on: a bare WeakMap/WeakKeyMap outside
+      # `module ObjectSpace` names something else and is not this cop's business.
+      "module Dexpace\n  def self.build\n    WeakMap.new\n  end\nend\n",
+      "module Dexpace\n  module Store\n    def self.of\n      WeakKeyMap.of\n    end\n  end\nend\n",
+      "Other::WeakMap.new\n",
+    ].freeze
+
+    REJECTED.each_with_index do |(source, fragment), index|
+      test "rejects case #{index}: #{source.lines.first.strip}" do
+        assert_offense(D::NoWeakReferences, source, fragment)
+      end
+    end
+
+    ACCEPTED.each_with_index do |source, index|
+      test "accepts case #{index}: #{source.lines.first.strip}" do
+        assert_no_offense(D::NoWeakReferences, source)
+      end
+    end
+  end
 end
