@@ -1,0 +1,5 @@
+module Dexpace
+  module Recovery
+    def self.buffer_error_body: (Dexpace::Response response) -> Dexpace::Response
+  end
+end

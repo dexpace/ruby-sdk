@@ -1,0 +1,7 @@
+module Dexpace
+  # The closed sum type both variants include; `t` is the union every fold site is checked
+  # against.
+  module Outcome
+    type t = Success | Failure
+  end
+end

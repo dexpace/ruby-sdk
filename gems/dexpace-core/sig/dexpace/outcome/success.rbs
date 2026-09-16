@@ -1,0 +1,21 @@
+module Dexpace
+  module Outcome
+    class Success < Data
+      include Model
+      include Outcome
+
+      attr_reader response: Dexpace::Response
+
+      private def self.new: (response: Dexpace::Response) -> instance
+      def initialize: (response: Dexpace::Response) -> void
+
+      def self.build: (response: Dexpace::Response) -> Success
+
+      def success?: () -> true
+      def failure?: () -> false
+      def response_or_nil: () -> Dexpace::Response
+      def error_or_nil: () -> nil
+      def fold: [T] (on_success: ^(Dexpace::Response) -> T, on_failure: ^(::Exception) -> T) -> T
+    end
+  end
+end

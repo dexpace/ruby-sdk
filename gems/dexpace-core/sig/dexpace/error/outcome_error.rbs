@@ -1,0 +1,13 @@
+module Dexpace
+  class OutcomeError < ::StandardError
+    include Dexpace::Error
+
+    attr_reader offending_class: Module
+
+    def initialize: (Module offending_class) -> void
+
+    private
+
+    def article: (String? name) -> String
+  end
+end

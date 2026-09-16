@@ -1,0 +1,26 @@
+module Dexpace
+  module Recovery
+    class ClientIdentityStep
+      include Transform
+
+      # A private_constant, declared so Steep can type the check.
+      MODES: Array[Symbol]
+
+      attr_reader header: String
+      attr_reader tokens: Array[String]
+      attr_reader mode: Symbol
+
+      private def self.new: (header: String, tokens: Array[String], mode: Symbol) -> instance
+      def initialize: (header: String, tokens: Array[String], mode: Symbol) -> void
+
+      def self.build: (header: String, tokens: Array[String], ?mode: Symbol) -> ClientIdentityStep
+
+      def phase: () -> :request
+      def apply: (Dexpace::Request request) -> Dexpace::Request
+
+      private
+
+      def reconcile: (Dexpace::Headers::Builder builder, Array[String] existing, String line) -> void
+    end
+  end
+end

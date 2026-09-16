@@ -1,0 +1,19 @@
+module Dexpace
+  module Recovery
+    # The static half of R8's contract -- what phase 4c's generic adapter names at its parameter.
+    # `[T] (T) -> T` is clause 1 stated as a type: a transform returns a value of the type it was
+    # handed, and which type that is follows from #phase. Typed, not untyped: every name is a
+    # Dexpace:: constant, so NFR-11 holds.
+    interface _Transform
+      def phase: () -> Symbol
+      def apply: [T] (T value) -> T
+      def call: [T] (T value) -> T
+    end
+
+    module Transform
+      def phase: () -> Symbol
+      def apply: [T] (T value) -> T
+      def call: [T] (T value) -> T
+    end
+  end
+end

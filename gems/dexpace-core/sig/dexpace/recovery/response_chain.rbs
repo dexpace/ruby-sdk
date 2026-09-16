@@ -1,0 +1,39 @@
+module Dexpace
+  module Recovery
+    class ResponseChain
+      # R8 clause 3's second and third proc types. The response-step list is Response -> Response
+      # and never Outcome -> Outcome: typing it the other way would let Steep accept a response
+      # step that returns a Failure, which is a recovery step's privilege alone (RECOV-4).
+      type response_step = ^(Dexpace::Response) -> Dexpace::Response
+      type recovery_step = ^(Dexpace::Outcome::t) -> Dexpace::Outcome::t
+
+      attr_reader response_steps: Array[response_step]
+      attr_reader recovery_steps: Array[recovery_step]
+
+      private def self.new: (
+        response_steps: Array[response_step],
+        recovery_steps: Array[recovery_step]
+      ) -> instance
+      def initialize: (
+        response_steps: Array[response_step],
+        recovery_steps: Array[recovery_step]
+      ) -> void
+
+      def self.build: (
+        ?response_steps: Array[response_step],
+        ?recovery_steps: Array[recovery_step]
+      ) -> ResponseChain
+
+      def apply: (Dexpace::Outcome::t outcome) -> Dexpace::Outcome::t
+
+      private
+
+      def self.copy: [S] (String name, untyped steps) -> Array[S]
+      def respond: (Dexpace::Outcome::t outcome) -> Dexpace::Outcome::t
+      def rewrap: (Dexpace::Outcome::Success success, response_step step) -> Dexpace::Outcome::Success
+      def recover: (Dexpace::Outcome::t outcome) -> Dexpace::Outcome::t
+      def check_response: (untyped value) -> Dexpace::Response
+      def check_outcome: (untyped value) -> Dexpace::Outcome::t
+    end
+  end
+end

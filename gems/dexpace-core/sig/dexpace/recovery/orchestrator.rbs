@@ -1,0 +1,37 @@
+module Dexpace
+  module Recovery
+    class Orchestrator
+      attr_reader transport: untyped
+      attr_reader request_chain: RequestChain
+      attr_reader response_chain: ResponseChain
+
+      private def self.new: (
+        transport: untyped,
+        request_chain: RequestChain,
+        response_chain: ResponseChain
+      ) -> instance
+      def initialize: (
+        transport: untyped,
+        request_chain: RequestChain,
+        response_chain: ResponseChain
+      ) -> void
+
+      def self.build: (
+        transport: untyped,
+        request_chain: RequestChain,
+        response_chain: ResponseChain
+      ) -> Orchestrator
+
+      def call: (
+        Dexpace::Request request,
+        Dexpace::RequestOptions options,
+        Dexpace::Cancellation? cancellation
+      ) -> Dexpace::Response
+
+      private
+
+      def check_response: (untyped value) -> Dexpace::Response
+      def unwrap: (untyped outcome) -> Dexpace::Response
+    end
+  end
+end
