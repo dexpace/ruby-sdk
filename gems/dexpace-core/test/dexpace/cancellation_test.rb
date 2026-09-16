@@ -277,5 +277,54 @@ class DexpaceCancellationTest < DexpaceTestCase
       assert_predicate(source, :cancelled?, "the state was published before any handler ran")
       assert_equal(:go, source.reason)
     end
+
+    # Phase 2's postponement, picked up by phase 4b (Task 2): the failures AFTER the first are no
+    # longer dropped -- each is attached to the first through Dexpace.attach_suppressed, in
+    # registration order. The one test that distinguishes the old code from the new, and the
+    # one place it lives: all three call sites reach the same Hooks.notify. The primary is a
+    # bare ::IOError, so the carrier is Dexpace::Suppressible and not Dexpace::Error (P4-12).
+    test "two raising handlers surface the first with the second on its suppressed trail" do
+      source = Dexpace::Cancellation.source
+      first = ::IOError.new("first handler failed")
+      second = ::RuntimeError.new("second handler failed")
+      seen = []
+      source.token.on_cancel { raise first }
+      source.token.on_cancel { seen << :healthy }
+      source.token.on_cancel { raise second }
+
+      caught = assert_raises(::IOError) { source.cancel(:go) }
+
+      assert_same(first, caught)
+      assert_equal([:healthy], seen)
+      assert_kind_of(Dexpace::Suppressible, caught)
+      refute_kind_of(Dexpace::Error, caught)
+      assert_equal(1, Dexpace.suppressed(caught).size)
+      assert_same(second, Dexpace.suppressed(caught).first)
+    end
+
+    # The re-raise carries `cause: nil`: notify re-raises an error it has been CARRYING since an
+    # earlier iteration, and a bare `raise` there would hand it the caller's in-flight $! as a
+    # #cause whenever a hook list is drained from inside a rescue (verified fact 5). The fixture
+    # is a CONSTRUCTED error raised with an explicit `cause: nil` by the hook, so it reaches
+    # notify with no cause -- the only shape the spelling changes the outcome for.
+    test "the surfaced handler failure acquires no cause from the caller's in-flight exception" do
+      source = Dexpace::Cancellation.source
+      first = ::IOError.new("carried")
+      source.token.on_cancel { raise first, cause: nil }
+      source.token.on_cancel { raise ::RuntimeError, "later", cause: nil }
+
+      caught = begin
+        raise "unrelated caller in-flight exception"
+      rescue ::StandardError
+        begin
+          source.cancel(:go)
+        rescue ::IOError => error
+          error
+        end
+      end
+
+      assert_same(first, caught)
+      assert_nil(caught.cause, "Hooks.notify must not be the thing that adds a cause")
+    end
   end
 end
