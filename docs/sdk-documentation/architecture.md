@@ -3,12 +3,13 @@
 **As-built docs land here gem by gem, as they land in `gems/`.** Phase 0 built the six gem
 skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
 layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
-layer on top of it, phase 4b the recovery layer and the error trail, and phase 4c the stage
-pipeline; the adapters are still to come, so this page is still a stub: it names the pages this
-tree will eventually hold and where each one's content will come from, so the plan for the
-documentation exists before the documentation does. Seven pages are real already, because their
-subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
-[`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
+layer on top of it, phase 4a the execution context one in-flight call carries, phase 4b the
+recovery layer and the error trail, and phase 4c the stage pipeline; the adapters are still to
+come, so this page is still a stub: it names the pages this tree will eventually hold and where
+each one's content will come from, so the plan for the documentation exists before the
+documentation does. Eight pages are real already, because their subjects are:
+[`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
+[`io.md`](./io.md), [`body.md`](./body.md), [`execution-context.md`](./execution-context.md),
 [`recovery.md`](./recovery.md) and [`pipelines.md`](./pipelines.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
@@ -41,6 +42,14 @@ regimes, the one decode boundary on `Response`, and the lazy typed response. Wri
 layer phase 3b shipped; derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`
 §3.1 and §7.3, read together with the body-seam deviations recorded in
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[execution-context.md](./execution-context.md) — the correlation model one call carries: the
+instrumentation bundle and its reserved sentinels, the three-flavour promotion chain, the
+call-unique key and what its value equality costs, the bounded process-wide store and the
+identity rule its close obeys. Written against the layer phase 4a shipped; derives from
+`docs/sdk-design-ruby/05-pipeline-architecture.md` §5.4 and
+`docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1.
+
 
 [recovery.md](./recovery.md) — the recovery layer: the closed two-variant outcome, the two folds
 over frozen step lists and who closes the response, the orchestrator that lets no throwable past

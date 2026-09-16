@@ -959,8 +959,9 @@ gems that are none of them `dexpace-core`.
    "its gemspec, its version and its first release"; phase 9 "adds the remaining suites, owning neither
    its gemspec nor its release". The gemspec and the suite are `8a`'s; the release is the phase's, and it
    lands with `docs/first-release.md`'s table.
-3. **The phase-level pull request.** The roadmap's execution step 5: "a phase returns to `main` as **one
-   phase-level pull request**, not one per sub-phase."
+3. **The per-sub-phase stack.** The roadmap's execution step 5, **corrected in place 2026-09-16**: each
+   sub-phase returns to `main` as its own code → tests → docs stack (as first written here and there, "a
+   phase returns to `main` as **one phase-level pull request**, not one per sub-phase" — which no phase did).
 4. **The roadmap's phase-8 row link and the segmentation bullet's correction**, plus a dated entry in
    `## Phase Status Notes`. Written out verbatim under *Roadmap follow-through owed*.
 5. **`CLAUDE.md`'s claims sentences.** Two are affected and they are affected at different moments, which
