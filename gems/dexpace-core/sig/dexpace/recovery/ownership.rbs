@@ -1,0 +1,12 @@
+# Dexpace::Recovery::Ownership is a private_constant and not public API (design P2-15): this
+# declaration exists because the strict `core` Steep target checks every file under lib/ and
+# needs the module and its one method declared to type the two call sites in ResponseChain. RBS
+# has no visibility for a constant, so the privacy lives in lib/dexpace/recovery/ownership.rb
+# alone.
+module Dexpace
+  module Recovery
+    module Ownership
+      def self.close_on_throw: (Dexpace::Outcome::t outcome) { () -> Dexpace::Outcome::t } -> Dexpace::Outcome::t
+    end
+  end
+end

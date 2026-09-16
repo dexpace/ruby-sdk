@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+require_relative "suppressible"
+
 module Dexpace
   # Running a list of caller-supplied callbacks, in one place, once.
   #
@@ -13,13 +15,14 @@ module Dexpace
   # and 4.0.6.
   #
   # So every hook runs, whatever an earlier one did, and the FIRST failure is re-raised once the
-  # whole list has run. Re-raised rather than dropped, because phase 2 has neither disposal route
-  # design §3.7 names -- Dexpace::Error#suppressed is phase 4b's (Task 1) and the
-  # http.instrumentation.* diagnostic is phase 5's (§8.1) -- and a handler that raises into a void
-  # is a bug nothing reports. Re-raising is safe here in a way it is not at the naive site: the
-  # state is already published and every other handler has already run, so the raise can no longer
-  # leave a token uncancelled or a future unsettled. The failures after the first are dropped until
-  # #suppressed exists to carry them; phase 4b, Task 2 attaches them.
+  # whole list has run, carrying every later failure on its suppressed trail -- the first of
+  # design §3.7's two disposal routes, which phase 2 postponed and phase 4b (Task 2) supplied. The
+  # carrier is Dexpace::Suppressible and not Dexpace::Error: a handler's failure is a caller's
+  # exception, so Dexpace.attach_suppressed extends it (P4-12). The second route, the
+  # http.instrumentation.* diagnostic, is phase 5's (§8.1) and may report each attached failure;
+  # it does not replace the trail. Re-raising is safe here in a way it is not at the naive site:
+  # the state is already published and every other handler has already run, so the raise can no
+  # longer leave a token uncancelled or a future unsettled.
   #
   # Only StandardError is collected. A ScriptError, a NoMemoryError or a SignalException raised by
   # a handler is not a handler bug to be gathered up and re-raised later.
@@ -32,9 +35,15 @@ module Dexpace
       hooks.each do |hook|
         hook.call(argument)
       rescue ::StandardError => error
-        failure ||= error
+        failure ? Dexpace.attach_suppressed(failure, error) : (failure = error)
       end
-      raise failure if failure
+      # `cause: nil`, because this line re-raises an error it has been CARRYING since an earlier
+      # iteration rather than one it just rescued: a bare `raise` would hand it the caller's
+      # in-flight $! as a #cause whenever a hook list is drained from inside a rescue (verified
+      # on 3.2.11, 3.4.10 and 4.0.6). It suppresses an assignment this line would itself make
+      # and clears nothing a hook's own `raise` already assigned, so the object surfaced is the
+      # same object -- "re-raise as now", exactly.
+      raise failure, cause: nil if failure
 
       nil
     end

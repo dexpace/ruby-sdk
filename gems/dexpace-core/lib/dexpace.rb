@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "dexpace/version"
+# Phase 4b: the trail module precedes the error root that includes it (P4-12). The order is
+# load-bearing -- error.rb writes `include Dexpace::Suppressible` -- and suppressible.rb requires
+# nothing, so nothing can re-enter error.rb before its body has run.
+require_relative "dexpace/suppressible"
 require_relative "dexpace/error"
 require_relative "dexpace/error/invalid_argument_error"
 require_relative "dexpace/model"
@@ -74,6 +78,27 @@ require_relative "dexpace/http/body/response_body"
 require_relative "dexpace/http/body/request_logging_body"
 require_relative "dexpace/http/body/response_logging_body"
 require_relative "dexpace/http/typed_response"
+
+# Phase 4b: the recovery layer, in dependency order -- the cause walk, the two flat errors, the
+# closed outcome and its two variants, the Recovery namespace with its buffering function, the
+# transform contract, the three transforms, the request chain, the private ownership helper, the
+# response chain and the orchestrator. The trail module sits at the top of this file, before the
+# error root that includes it.
+require_relative "dexpace/each_cause"
+require_relative "dexpace/error/outcome_error"
+require_relative "dexpace/error/protocol_error"
+require_relative "dexpace/outcome"
+require_relative "dexpace/outcome/success"
+require_relative "dexpace/outcome/failure"
+require_relative "dexpace/recovery"
+require_relative "dexpace/recovery/transform"
+require_relative "dexpace/recovery/idempotency_key_step"
+require_relative "dexpace/recovery/client_identity_step"
+require_relative "dexpace/recovery/error_mapping_step"
+require_relative "dexpace/recovery/request_chain"
+require_relative "dexpace/recovery/ownership"
+require_relative "dexpace/recovery/response_chain"
+require_relative "dexpace/recovery/orchestrator"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #

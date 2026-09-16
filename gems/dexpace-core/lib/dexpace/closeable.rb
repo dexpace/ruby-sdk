@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "error/seam_error"
+require_relative "error/invalid_argument_error"
+require_relative "suppressible"
 
 # Dexpace::Closeable and Dexpace.close_quietly live in one file: the helper is the contract's
 # discard-path exit and has no meaning apart from it (module-organization/1828a984 counts
@@ -96,25 +98,45 @@ module Dexpace
   # The single sanctioned exit for a close on a cleanup or discard path: null-safe (CFG-21's last
   # clause), tolerant of an object with no #close, and never raising over a primary failure.
   #
-  # Design §3.7 gives the rescued error two disposal routes and phase 2 has neither: the suppressed
-  # trail is Dexpace::Error#suppressed, postponed to phase 4b (Task 1), and the
-  # http.instrumentation.* diagnostic is §8.1's facade, phase 5. Building either here would fix an
-  # interface a later phase must be free to shape, so the error is dropped; phase 4b (Task 2)
-  # supplies the first route and phase 5b (Task 14) the second. The two loud exceptions §3.7
-  # names are honoured from the start and do not come through here: an explicit #close by a
-  # caller propagates, and a #release raising during the latched close above propagates once.
-  # Only StandardError is rescued: a NotImplementedError from a class that forgot #release is a
-  # programmer error, not a close failure.
+  # Design §3.7 gives the rescued error two disposal routes, and this is the first: with `onto:`
+  # supplied, the rescued close failure lands on that error's suppressed trail through
+  # Dexpace.attach_suppressed, and close_quietly still returns nil and still does not raise. The
+  # carrier is Dexpace::Suppressible and not Dexpace::Error, because the primary a caller hands
+  # in is whatever it is unwinding with (P4-12). With `onto:` absent -- every phase-2 call site --
+  # the behaviour is byte-for-byte phase 2's: rescue StandardError, drop it, return nil. The
+  # second route, the http.instrumentation.* diagnostic for the `onto:`-absent case, is §8.1's
+  # facade and phase 5b's (Task 14); it completes phase 2's postponement and this keyword does
+  # not. One helper gains a keyword and no second helper appears, which is what keeps §3.7's "two
+  # ways and never a third" true. The two loud exceptions §3.7 names are honoured and do not come
+  # through here: an explicit #close by a caller propagates, and a #release raising during the
+  # latched close above propagates once. Only StandardError is rescued: a NotImplementedError
+  # from a class that forgot #release is a programmer error, not a close failure, whatever
+  # `onto:` says.
   #
+  # `onto:` is validated at ENTRY, outside the rescue region, and that placement is the decision:
+  # attach_suppressed raises InvalidArgumentError for a non-Exception, and validating inside the
+  # rescue would replace the close failure this method was passed to carry with a caller-mistake
+  # error -- the one thing §3.7 promises close_quietly never does. So a bad `onto:` is refused
+  # while the caller is still the only thing that has gone wrong, before the resource is touched.
+  # A nil `onto:` is the documented no-attach default and is not a caller mistake.
+  #
+  # @param resource [#close, nil] whatever is being discarded
+  # @param onto [Exception, nil] the primary failure a close failure must not mask
   # @return [nil] always, so a caller cannot branch on a cleanup outcome
-  def self.close_quietly(resource)
+  # @raise [Dexpace::InvalidArgumentError] when `onto:` is neither nil nor an Exception
+  def self.close_quietly(resource, onto: nil)
+    unless onto.nil? || onto.is_a?(::Exception)
+      raise InvalidArgumentError, "onto must be an Exception"
+    end
     return nil if resource.nil?
     return nil unless resource.respond_to?(:close)
 
     begin
       resource.close
-    rescue ::StandardError
-      nil # dropped until phase 4b, Task 2 and phase 5b, Task 14 supply the two routes
+    rescue ::StandardError => error
+      # The first disposal route; dropped when there is nothing to attach to, until phase 5b's
+      # diagnostic (Task 14) supplies the second.
+      attach_suppressed(onto, error) unless onto.nil?
     end
     nil
   end

@@ -1,0 +1,8 @@
+module Dexpace
+  def self.each_cause: (::Exception error) -> Enumerator[::Exception, nil]
+                     | (::Exception error) { (::Exception) -> void } -> nil
+
+  private
+
+  def self.next_cause: (::Exception error) -> ::Exception?
+end

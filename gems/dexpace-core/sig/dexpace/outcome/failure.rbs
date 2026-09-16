@@ -1,0 +1,21 @@
+module Dexpace
+  module Outcome
+    class Failure < Data
+      include Model
+      include Outcome
+
+      attr_reader error: ::Exception
+
+      private def self.new: (error: ::Exception) -> instance
+      def initialize: (error: ::Exception) -> void
+
+      def self.build: (error: ::Exception) -> Failure
+
+      def success?: () -> false
+      def failure?: () -> true
+      def response_or_nil: () -> nil
+      def error_or_nil: () -> ::Exception
+      def fold: [T] (on_success: ^(Dexpace::Response) -> T, on_failure: ^(::Exception) -> T) -> T
+    end
+  end
+end

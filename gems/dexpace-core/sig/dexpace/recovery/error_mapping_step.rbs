@@ -1,0 +1,20 @@
+module Dexpace
+  module Recovery
+    class ErrorMappingStep
+      include Transform
+
+      # A private_constant, declared so Steep can type the default parameter.
+      DEFAULT_FACTORY: ^(Dexpace::Response) -> ::Exception
+
+      attr_reader factory: ^(Dexpace::Response) -> ::Exception
+
+      private def self.new: (factory: ^(Dexpace::Response) -> ::Exception) -> instance
+      def initialize: (factory: ^(Dexpace::Response) -> ::Exception) -> void
+
+      def self.build: (?factory: ^(Dexpace::Response) -> ::Exception) -> ErrorMappingStep
+
+      def phase: () -> :response
+      def apply: (Dexpace::Response response) -> Dexpace::Response
+    end
+  end
+end

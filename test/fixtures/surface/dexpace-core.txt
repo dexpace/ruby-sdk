@@ -1,5 +1,8 @@
 Dexpace
+Dexpace.attach_suppressed
 Dexpace.close_quietly
+Dexpace.each_cause
+Dexpace.suppressed
 Dexpace::Async
 Dexpace::Async::Completer
 Dexpace::Async::Completer#await
@@ -310,6 +313,25 @@ Dexpace::Operation#projections
 Dexpace::Operation#template
 Dexpace::Operation.build
 Dexpace::Operation.placeholders_in
+Dexpace::Outcome
+Dexpace::Outcome::Failure
+Dexpace::Outcome::Failure#error
+Dexpace::Outcome::Failure#error_or_nil
+Dexpace::Outcome::Failure#failure?
+Dexpace::Outcome::Failure#fold
+Dexpace::Outcome::Failure#response_or_nil
+Dexpace::Outcome::Failure#success?
+Dexpace::Outcome::Failure.build
+Dexpace::Outcome::Success
+Dexpace::Outcome::Success#error_or_nil
+Dexpace::Outcome::Success#failure?
+Dexpace::Outcome::Success#fold
+Dexpace::Outcome::Success#response
+Dexpace::Outcome::Success#response_or_nil
+Dexpace::Outcome::Success#success?
+Dexpace::Outcome::Success.build
+Dexpace::OutcomeError
+Dexpace::OutcomeError#offending_class
 Dexpace::PercentEncoding
 Dexpace::PercentEncoding#decode_component
 Dexpace::PercentEncoding#encode_component
@@ -325,6 +347,11 @@ Dexpace::Protocol::ALIASES : Hash
 Dexpace::Protocol::HTTP_1_1 : Dexpace::Protocol
 Dexpace::Protocol::HTTP_2 : Dexpace::Protocol
 Dexpace::Protocol::WIRE_FORMS : Array
+Dexpace::ProtocolError
+Dexpace::ProtocolError#response
+Dexpace::ProtocolError#status
+Dexpace::ProtocolError.for
+Dexpace::ProtocolError.for_or_nil
 Dexpace::Query
 Dexpace::Query#==
 Dexpace::Query#[]
@@ -347,6 +374,47 @@ Dexpace::Query::Builder#remove
 Dexpace::Query::Builder#set
 Dexpace::Query::Builder::SCALARS : Array
 Dexpace::Query::EMPTY : Dexpace::Query
+Dexpace::Recovery
+Dexpace::Recovery.buffer_error_body
+Dexpace::Recovery::ClientIdentityStep
+Dexpace::Recovery::ClientIdentityStep#apply
+Dexpace::Recovery::ClientIdentityStep#header
+Dexpace::Recovery::ClientIdentityStep#mode
+Dexpace::Recovery::ClientIdentityStep#phase
+Dexpace::Recovery::ClientIdentityStep#tokens
+Dexpace::Recovery::ClientIdentityStep.build
+Dexpace::Recovery::ErrorMappingStep
+Dexpace::Recovery::ErrorMappingStep#apply
+Dexpace::Recovery::ErrorMappingStep#factory
+Dexpace::Recovery::ErrorMappingStep#phase
+Dexpace::Recovery::ErrorMappingStep.build
+Dexpace::Recovery::IdempotencyKeyStep
+Dexpace::Recovery::IdempotencyKeyStep#apply
+Dexpace::Recovery::IdempotencyKeyStep#header
+Dexpace::Recovery::IdempotencyKeyStep#methods
+Dexpace::Recovery::IdempotencyKeyStep#mode
+Dexpace::Recovery::IdempotencyKeyStep#phase
+Dexpace::Recovery::IdempotencyKeyStep#strategy
+Dexpace::Recovery::IdempotencyKeyStep.build
+Dexpace::Recovery::Orchestrator
+Dexpace::Recovery::Orchestrator#call
+Dexpace::Recovery::Orchestrator#request_chain
+Dexpace::Recovery::Orchestrator#response_chain
+Dexpace::Recovery::Orchestrator#transport
+Dexpace::Recovery::Orchestrator.build
+Dexpace::Recovery::RequestChain
+Dexpace::Recovery::RequestChain#apply
+Dexpace::Recovery::RequestChain#steps
+Dexpace::Recovery::RequestChain.build
+Dexpace::Recovery::ResponseChain
+Dexpace::Recovery::ResponseChain#apply
+Dexpace::Recovery::ResponseChain#recovery_steps
+Dexpace::Recovery::ResponseChain#response_steps
+Dexpace::Recovery::ResponseChain.build
+Dexpace::Recovery::Transform
+Dexpace::Recovery::Transform#apply
+Dexpace::Recovery::Transform#call
+Dexpace::Recovery::Transform#phase
 Dexpace::Registry
 Dexpace::Registry#install
 Dexpace::Registry#register
@@ -493,6 +561,9 @@ Dexpace::StreamBody#write_to
 Dexpace::StreamError
 Dexpace::StreamError.short_transfer
 Dexpace::StreamError.zero_read
+Dexpace::Suppressible
+Dexpace::Suppressible#detailed_message
+Dexpace::Suppressible#suppressed
 Dexpace::Transport
 Dexpace::Transport.async_over
 Dexpace::Transport.conforms?

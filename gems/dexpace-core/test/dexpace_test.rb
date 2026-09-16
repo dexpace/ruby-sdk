@@ -34,8 +34,9 @@ class DexpaceTest < DexpaceTestCase
 
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
-  # then phase 3a's byte-streaming layer, then phase 3b's body layer; Dexpace::Hooks is a
-  # private_constant and does not appear in Dexpace.constants(false).
+  # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4b's recovery
+  # layer; Dexpace::Hooks and Dexpace::Recovery::Ownership are private_constants and appear in
+  # no constants(false) list.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -49,11 +50,13 @@ class DexpaceTest < DexpaceTestCase
     Body BytesBody BufferBody StreamBody ChunkedBody FormBody FileBody MultipartBody ResponseBody
     RequestLoggingBody ResponseLoggingBody TypedResponse
   ].freeze
+  RECOVERY_LAYER = %i[Suppressible OutcomeError ProtocolError Outcome Recovery].freeze
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
-    assert_empty(NAMESPACE_ADDED - [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER, *BODY_LAYER],
-                 "constants added under Dexpace",)
+    expected = [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER, *BODY_LAYER, *RECOVERY_LAYER]
+
+    assert_empty(NAMESPACE_ADDED - expected, "constants added under Dexpace")
     assert_includes(Dexpace.constants(false), :VERSION)
   end
 
@@ -66,10 +69,10 @@ class DexpaceTest < DexpaceTestCase
   end
 
   test "every constant the manifest records is reachable from Dexpace" do
-    (DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER).each do |name|
-      assert(Dexpace.const_defined?(name, false), "#{name} missing")
-    end
-    assert_empty((DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER) - Dexpace.constants(false))
+    layers = DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER + RECOVERY_LAYER
+
+    layers.each { |name| assert(Dexpace.const_defined?(name, false), "#{name} missing") }
+    assert_empty(layers - Dexpace.constants(false))
     %i[Headers Query RequestOptions Request Response MultipartBody].each do |name|
       assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
     end
@@ -83,6 +86,16 @@ class DexpaceTest < DexpaceTestCase
     assert_equal(Dexpace::MultipartBody::Part, Dexpace::MultipartBody.const_get(:Part))
     assert_equal(1024 * 1024, Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES)
     refute(Dexpace::Body.const_defined?(:Part, false), "Dexpace::Body::Part is not a namespace")
+  end
+
+  # A consumer requires "dexpace" and nothing else: the recovery layer resolves too (phase 4b),
+  # the trail module precedes the error root that includes it, and Ownership is private.
+  test "requiring dexpace alone makes the whole recovery layer resolve" do
+    assert_operator(Dexpace::Error, :<, Dexpace::Suppressible)
+    assert_equal(Dexpace::Outcome::Failure, Dexpace::Outcome.const_get(:Failure))
+    assert_equal(Dexpace::Recovery::Orchestrator, Dexpace::Recovery.const_get(:Orchestrator))
+    refute_includes(Dexpace::Recovery.constants(false), :Ownership, "a private_constant")
+    assert_raises(::NameError) { Dexpace::Recovery::Ownership }
   end
 
   # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).

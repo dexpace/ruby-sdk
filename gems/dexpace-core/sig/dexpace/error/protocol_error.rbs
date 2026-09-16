@@ -1,0 +1,16 @@
+module Dexpace
+  class ProtocolError < ::StandardError
+    include Dexpace::Error
+
+    attr_reader response: Dexpace::Response
+    attr_reader status: Dexpace::Status
+
+    def self.for: (Dexpace::Response response) -> Dexpace::ProtocolError
+    def self.for_or_nil: (Dexpace::Response response) -> Dexpace::ProtocolError?
+    def initialize: (Dexpace::Response response) -> void
+
+    private
+
+    def describe: (Dexpace::Status status) -> String
+  end
+end

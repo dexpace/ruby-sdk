@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+require_relative "suppressible"
+
 module Dexpace
   # The marker every error raised by this SDK carries.
   #
@@ -12,8 +14,16 @@ module Dexpace
   # class would.
   #
   # Design §5's suppressed-exception trail -- #suppressed, the #detailed_message override and
-  # Dexpace.attach_suppressed -- lands in phase 4 with the recovery chain that is its first
-  # caller (phase 4b, Task 1). It is deliberately absent rather than stubbed here.
+  # Dexpace.attach_suppressed -- arrived with phase 4b, and it lives on Dexpace::Suppressible
+  # rather than here (P4-12): the trail has to be attachable to a caller's exception, which means
+  # extending that object with a module, and extending a third-party error with THIS module would
+  # make `rescue Dexpace::Error` catch errors the SDK never raised. Including Suppressible gives
+  # every SDK error the trail; `rescue Dexpace::Error` keeps meaning "the SDK raised this".
+  #
+  # `suppressible.rb` requires nothing and this file requires it, in that order and never the
+  # reverse: the `include` below needs the constant at load, and a require from suppressible.rb
+  # back to any error class would re-enter this file before its body has run.
   module Error
+    include Dexpace::Suppressible
   end
 end

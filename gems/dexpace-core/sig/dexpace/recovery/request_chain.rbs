@@ -1,0 +1,21 @@
+module Dexpace
+  module Recovery
+    class RequestChain
+      # R8 clause 3's first proc type: a request step is Request -> Request, and a lambda is one.
+      type step = ^(Dexpace::Request) -> Dexpace::Request
+
+      attr_reader steps: Array[step]
+
+      private def self.new: (steps: Array[step]) -> instance
+      def initialize: (steps: Array[step]) -> void
+
+      def self.build: (?steps: Array[step]) -> RequestChain
+
+      def apply: (Dexpace::Request request) -> Dexpace::Request
+
+      private
+
+      def check: (untyped value) -> Dexpace::Request
+    end
+  end
+end
