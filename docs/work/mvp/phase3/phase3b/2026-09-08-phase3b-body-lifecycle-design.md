@@ -1285,6 +1285,33 @@ the battery.
   (RFC 7578 §4.2). Kept as this document decided; whether the part-header sweep should admit
   obs-text is on phase 10's inbound list as audit work against this decision.
 
+**Review round 0, 2026-09-16.** The stack's first review found four defects and two nits, none a
+red gate and none a new numbered row: each is this document's own rule applied where the plan's
+fence had not applied it, and the checklist's deviations 17–21 carry the itemised text.
+
+- **§7.1 applied, rule 4, as built.** "Every view core takes, core closes" now holds on the two
+  readers and on the bounded copy, not only on `BufferBody#write_to` and `ResponseBody#preview`:
+  `Response#body_string`, `#body_bytes` and `Body.buffer_bounded` each close the handle `#source`
+  returns before the body — a fresh `#peek` view on a `BufferBody` and on a fits-cap
+  `ResponseLoggingBody`, the same idempotent stream close on a `ResponseBody`, the `Tail`'s close
+  (and its prefix view) on the over-cap composite. The one place a view outlives the call is still
+  `BODY-23`'s per-read view handed to a caller, exactly as the rule states.
+- **R10's composite, as built.** The tail object is `#read(count)`-shaped as this section says, and
+  what it forwards to the live delegate is `#read_into` — one fill, what a partial read is — rather
+  than the delegate source's `#read(count)`, which is `IO-16`'s fill-to-count. The delegate's
+  source contract is therefore `Dexpace::IO::_Source`'s single method on the probe *and* on the
+  tail, which is what plan decision 9 wanted, and the composite delivers a still-open connection as
+  bytes arrive. The cost paragraph above was about throughput; this is latency, and it is closed
+  by the same discipline.
+- **`HTTP-46`'s body half, as built.** `MultipartBody` compares by value over the boundary, the
+  subtype and the parts: the subtype fixes the `Content-Type`, and two framings of the same parts
+  under different subtypes are two values, as two `BytesBody` over the same bytes with different
+  media types are.
+- **`ResponseBody`'s construction check, as built.** The duck it asks for is the `BufferedSource`
+  vocabulary the class uses — `#read_into` and `#peek` — so a bare `_Source` is refused by name
+  rather than admitted and then failed on its first preview; the sig's `#source ->
+  Dexpace::IO::BufferedSource` is what the runtime check now states.
+
 ## Work Phase 3b Postpones, and Who Owns It Now
 
 One item, recorded on 2026-09-08 with an explicit pick-up condition, per the roadmap's execution step 7.

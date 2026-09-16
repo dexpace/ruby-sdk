@@ -206,7 +206,9 @@ bad.each.to_a
 # raises Dexpace::InvalidArgumentError: a multipart parameter value must not contain CR or LF, got "a\r\nX: 1"
 ```
 
-`HTTP-3` names the multipart body among the builder-based models, so it carries `#new_builder` and a
+Two multipart bodies compare by value over the boundary, the subtype and the parts — the three facts
+that fix what goes on the wire, `Content-Type` included. `HTTP-3` names the multipart body among the
+builder-based models, so it carries `#new_builder` and a
 `MultipartBody::Builder` whose pre-filled parts list is a copy, never the original's:
 
 ```ruby
@@ -217,7 +219,9 @@ derived.media_type.render     # => "multipart/mixed; boundary=XyZ"
 ## The response side: `ResponseBody`, and the three methods on `Response`
 
 A transport builds a `Dexpace::ResponseBody` over a `Dexpace::IO::BufferedSource.wrapping(io)`, so
-closing the body closes the transport stream. `#source` is **the same handle every call**, never a
+closing the body closes the transport stream; the constructor checks for that reader's vocabulary
+(`#read_into` and `#peek`) and refuses a bare `#read_into`-only source by name. `#source` is **the
+same handle every call**, never a
 fresh replay (`BODY-14`); `#close` is idempotent and makes no assumption the body was read
 (`BODY-15`); `#preview(cap:)` reads through a fresh non-consuming view under `BODY-32`'s cap rules —
 a negative cap is refused, a cap over the ceiling is silently clamped down, and whatever bytes exist
@@ -235,7 +239,9 @@ body slot holds — `#source` and `#close` — which is why both are on the cont
   target **named** — `encode(charset, invalid: :replace, undef: :replace)`. Skipping the retag
   mangles every non-ASCII byte, and a target-less `#encode` follows the host's
   `Encoding.default_internal`. The result is always `valid_encoding?`, and the body is closed in an
-  `ensure` whether or not the read succeeded (`BODY-16`).
+  `ensure` whether or not the read succeeded (`BODY-16`) — and so is the handle `#source` handed
+  out, first: on a `BufferBody` or a fits-cap logging wrapper that handle is a fresh view of a buffer
+  that outlives the call, and the reader is what deregisters it.
 - **`#body_bytes`** decodes nothing, returns BINARY, and closes the same way.
 
 ```ruby
@@ -295,8 +301,10 @@ the cap:
   buffer survives the wrapper's own close, so post-mortem `#snapshot` still works.
 - **Exceeds the cap** (`BODY-24`): only the prefix is captured, the delegate stays open, and
   `#source` is a **single-use** composite that replays the prefix, then the probe byte, then the live
-  tail; a second `#source` raises. Closing that tail and closing the wrapper reach **one** close-once
-  guard, so the delegate is closed at most once whichever the consumer does and in either order.
+  tail; a second `#source` raises. The tail forwards each read to the delegate's `#read_into` — one
+  fill — so a still-open connection is delivered as bytes arrive, never held for a count. Closing
+  that tail and closing the wrapper reach **one** close-once guard, so the delegate is closed at most
+  once whichever the consumer does and in either order.
 
 ```ruby
 delegate = Dexpace::ResponseBody.new(source: Dexpace::IO::BufferedSource.of_bytes("0123456789"),
