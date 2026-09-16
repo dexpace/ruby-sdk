@@ -1,0 +1,24 @@
+module Dexpace
+  class Pipeline
+    include Dexpace::Closeable
+
+    @entries: Array[Entry]
+    @steps: Array[untyped]
+    @transport: untyped
+    @driver_class: untyped
+
+    attr_reader entries: Array[Entry]
+    attr_reader steps: Array[untyped]
+    attr_reader transport: untyped
+
+    # .new is private and driver_class: is an argument only Builder can supply, so neither is
+    # public surface NFR-4 locks.
+    private def self.new: (entries: Array[Entry], transport: untyped, driver_class: untyped) -> instance
+    def initialize: (entries: Array[Entry], transport: untyped, driver_class: untyped) -> void
+
+    def self.builder: (transport: untyped) -> Builder
+    def self.direct: (untyped transport) -> Pipeline
+
+    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation) -> Dexpace::Response
+  end
+end

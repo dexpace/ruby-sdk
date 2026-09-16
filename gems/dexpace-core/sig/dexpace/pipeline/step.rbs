@@ -1,0 +1,22 @@
+module Dexpace
+  class Pipeline
+    module Step
+      def self.conforms?: (untyped object) -> bool
+    end
+
+    # The static half of the step protocol, which Step.conforms? checks the shape of at run time.
+    # Two interfaces that differ in exactly one position, the return type -- the same gap phase 2
+    # admits between _Transport and _AsyncTransport, and why Builder has #build and #build_async.
+    interface _Step
+      def call: (Dexpace::Request request, Dexpace::Pipeline::Cursor cursor) -> Dexpace::Response
+    end
+
+    interface _AsyncStep
+      def call: (Dexpace::Request request, Dexpace::Pipeline::Cursor cursor) -> Dexpace::Async::Future
+    end
+
+    # A lambda is a step (design §5.1), so each alias unions the interface with its proc type.
+    type step = _Step | ^(Dexpace::Request, Dexpace::Pipeline::Cursor) -> Dexpace::Response
+    type async_step = _AsyncStep | ^(Dexpace::Request, Dexpace::Pipeline::Cursor) -> Dexpace::Async::Future
+  end
+end

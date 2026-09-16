@@ -31,6 +31,13 @@ Dexpace::Async::Settlement.build
 Dexpace::Async::Settlement.cancellation
 Dexpace::Async::Settlement.failure
 Dexpace::Async::Settlement.success
+Dexpace::AsyncPipeline
+Dexpace::AsyncPipeline#call
+Dexpace::AsyncPipeline#entries
+Dexpace::AsyncPipeline#steps
+Dexpace::AsyncPipeline#transport
+Dexpace::AsyncPipeline.direct
+Dexpace::AsyncPipeline.map_response
 Dexpace::AsyncTransport
 Dexpace::AsyncTransport.conforms?
 Dexpace::AsyncTransport.install
@@ -338,6 +345,78 @@ Dexpace::PercentEncoding#encode_component
 Dexpace::PercentEncoding#encode_form
 Dexpace::PercentEncoding#encode_form_component
 Dexpace::PercentEncoding::UNRESERVED : Array
+Dexpace::Pipeline
+Dexpace::Pipeline#call
+Dexpace::Pipeline#entries
+Dexpace::Pipeline#steps
+Dexpace::Pipeline#transport
+Dexpace::Pipeline.builder
+Dexpace::Pipeline.direct
+Dexpace::Pipeline::Builder
+Dexpace::Pipeline::Builder#append
+Dexpace::Pipeline::Builder#append_all
+Dexpace::Pipeline::Builder#build
+Dexpace::Pipeline::Builder#build_async
+Dexpace::Pipeline::Builder#entries
+Dexpace::Pipeline::Builder#insert_after
+Dexpace::Pipeline::Builder#insert_before
+Dexpace::Pipeline::Builder#install_preset
+Dexpace::Pipeline::Builder#prepend
+Dexpace::Pipeline::Builder#prepend_all
+Dexpace::Pipeline::Builder#reload
+Dexpace::Pipeline::Builder#remove
+Dexpace::Pipeline::Builder#replace
+Dexpace::Pipeline::Builder.flattening
+Dexpace::Pipeline::Builder.nesting
+Dexpace::Pipeline::Cursor
+Dexpace::Pipeline::Cursor#call
+Dexpace::Pipeline::Cursor#cancellation
+Dexpace::Pipeline::Cursor#fork
+Dexpace::Pipeline::Cursor#may_fork?
+Dexpace::Pipeline::Cursor#options
+Dexpace::Pipeline::Cursor#request
+Dexpace::Pipeline::Cursor#spent?
+Dexpace::Pipeline::Cursor#state
+Dexpace::Pipeline::Cursor.build
+Dexpace::Pipeline::Entry
+Dexpace::Pipeline::Entry#name
+Dexpace::Pipeline::Entry#stage
+Dexpace::Pipeline::Entry#step
+Dexpace::Pipeline::Entry.build
+Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stage#installable?
+Dexpace::Pipeline::Stage#name
+Dexpace::Pipeline::Stage#order
+Dexpace::Pipeline::Stage#pillar?
+Dexpace::Pipeline::Stage#terminal?
+Dexpace::Pipeline::Stage#with
+Dexpace::Pipeline::Stages
+Dexpace::Pipeline::Stages.of
+Dexpace::Pipeline::Stages::ALL : Array
+Dexpace::Pipeline::Stages::AUTH : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::LOGGING : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PILLARS : Array
+Dexpace::Pipeline::Stages::POST_AUTH : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::POST_LOGGING : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::POST_REDIRECT : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::POST_RETRY : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::POST_SERDE : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PRE_AUTH : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PRE_LOGGING : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PRE_REDIRECT : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PRE_RETRY : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::PRE_SERDE : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::REDIRECT : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::RETRY : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::SEND : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Stages::SERDE : Dexpace::Pipeline::Stage
+Dexpace::Pipeline::Step
+Dexpace::Pipeline::Step.conforms?
+Dexpace::Pipeline::TransformStep
+Dexpace::Pipeline::TransformStep#call
+Dexpace::Pipeline::TransformStep#transform
+Dexpace::Pipeline::TransformStep.build
+Dexpace::PipelineError
 Dexpace::Protocol
 Dexpace::Protocol#to_s
 Dexpace::Protocol#wire

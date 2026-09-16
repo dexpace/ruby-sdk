@@ -100,6 +100,24 @@ require_relative "dexpace/recovery/ownership"
 require_relative "dexpace/recovery/response_chain"
 require_relative "dexpace/recovery/orchestrator"
 
+# Phase 4c: the stage pipeline, in dependency order -- the one error class, then pipeline.rb FIRST
+# among the nested set (every file under pipeline/ reopens `class Pipeline`, and the class's own
+# definition must be the one that creates it), then stage before stages (Stages names Stage at
+# load), the step protocol, the entry, the cursor and its two private drivers, the builder (which
+# names Entry at load), the transform adapter, and the async runtime last.
+require_relative "dexpace/error/pipeline_error"
+require_relative "dexpace/pipeline"
+require_relative "dexpace/pipeline/stage"
+require_relative "dexpace/pipeline/stages"
+require_relative "dexpace/pipeline/step"
+require_relative "dexpace/pipeline/entry"
+require_relative "dexpace/pipeline/cursor"
+require_relative "dexpace/pipeline/sync_driver"
+require_relative "dexpace/pipeline/async_driver"
+require_relative "dexpace/pipeline/builder"
+require_relative "dexpace/pipeline/transform_step"
+require_relative "dexpace/async_pipeline"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

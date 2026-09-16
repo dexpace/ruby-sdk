@@ -35,8 +35,8 @@ class DexpaceTest < DexpaceTestCase
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
   # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4b's recovery
-  # layer; Dexpace::Hooks and Dexpace::Recovery::Ownership are private_constants and appear in
-  # no constants(false) list.
+  # layer, then phase 4c's pipeline; Dexpace::Hooks, Dexpace::Recovery::Ownership and the two
+  # pipeline drivers are private_constants and appear in no constants(false) list.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -51,12 +51,12 @@ class DexpaceTest < DexpaceTestCase
     RequestLoggingBody ResponseLoggingBody TypedResponse
   ].freeze
   RECOVERY_LAYER = %i[Suppressible OutcomeError ProtocolError Outcome Recovery].freeze
+  PIPELINE_LAYER = %i[PipelineError Pipeline AsyncPipeline].freeze
+  LAYERS = [DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, RECOVERY_LAYER, PIPELINE_LAYER].flatten
 
   test "defines nothing outside the Dexpace namespace" do
     assert_empty(TOP_LEVEL_ADDED - [:Dexpace], "top-level constants added by the entry file")
-    expected = [:VERSION, *DOMAIN_MODEL, *SEAM_LAYER, *IO_LAYER, *BODY_LAYER, *RECOVERY_LAYER]
-
-    assert_empty(NAMESPACE_ADDED - expected, "constants added under Dexpace")
+    assert_empty(NAMESPACE_ADDED - [:VERSION, *LAYERS], "constants added under Dexpace")
     assert_includes(Dexpace.constants(false), :VERSION)
   end
 
@@ -69,10 +69,8 @@ class DexpaceTest < DexpaceTestCase
   end
 
   test "every constant the manifest records is reachable from Dexpace" do
-    layers = DOMAIN_MODEL + SEAM_LAYER + IO_LAYER + BODY_LAYER + RECOVERY_LAYER
-
-    layers.each { |name| assert(Dexpace.const_defined?(name, false), "#{name} missing") }
-    assert_empty(layers - Dexpace.constants(false))
+    LAYERS.each { |name| assert(Dexpace.const_defined?(name, false), "#{name} missing") }
+    assert_empty(LAYERS - Dexpace.constants(false))
     %i[Headers Query RequestOptions Request Response MultipartBody].each do |name|
       assert(Dexpace.const_get(name).const_defined?(:Builder, false), "#{name}::Builder")
     end
@@ -96,6 +94,14 @@ class DexpaceTest < DexpaceTestCase
     assert_equal(Dexpace::Recovery::Orchestrator, Dexpace::Recovery.const_get(:Orchestrator))
     refute_includes(Dexpace::Recovery.constants(false), :Ownership, "a private_constant")
     assert_raises(::NameError) { Dexpace::Recovery::Ownership }
+  end
+
+  # A consumer requires "dexpace" and nothing else: the pipeline resolves too (phase 4c), the
+  # runtime's nested vocabulary with it, and the two drivers are private.
+  test "requiring dexpace alone makes the whole pipeline resolve, its two drivers private" do
+    assert_equal(16, Dexpace::Pipeline.const_get(:Stages)::ALL.size)
+    assert_empty(Dexpace::Pipeline.constants(false) & %i[SyncDriver AsyncDriver], "private")
+    assert_raises(::NameError) { Dexpace::Pipeline::SyncDriver }
   end
 
   # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).

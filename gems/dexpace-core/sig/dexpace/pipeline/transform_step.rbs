@@ -1,0 +1,19 @@
+module Dexpace
+  class Pipeline
+    class TransformStep
+      PHASES: Array[Symbol]
+
+      @transform: Dexpace::Recovery::_Transform
+      @phase: Symbol
+
+      attr_reader transform: Dexpace::Recovery::_Transform
+
+      private def self.new: (transform: Dexpace::Recovery::_Transform, phase: Symbol) -> instance
+      def initialize: (transform: Dexpace::Recovery::_Transform, phase: Symbol) -> void
+
+      def self.build: (untyped transform) -> TransformStep
+
+      def call: (Dexpace::Request request, Dexpace::Pipeline::Cursor cursor) -> Dexpace::Response
+    end
+  end
+end

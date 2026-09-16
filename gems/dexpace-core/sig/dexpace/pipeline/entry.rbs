@@ -1,0 +1,21 @@
+module Dexpace
+  class Pipeline
+    class Entry < Data
+      include Model
+
+      attr_reader stage: Stage
+      attr_reader step: untyped
+      attr_reader name: (Symbol | String)?
+
+      # .new and .[] are private; .build is the only public constructor.
+      private def self.new: (stage: Stage, step: untyped, name: (Symbol | String)?) -> instance
+      def initialize: (stage: Stage, step: untyped, name: (Symbol | String)?) -> void
+
+      def self.build: (stage: Stage, step: untyped, ?name: (Symbol | String)?) -> Entry
+
+      private
+
+      def self.anchor_name: (untyped name) -> (Symbol | String)?
+    end
+  end
+end

@@ -1,0 +1,28 @@
+module Dexpace
+  class Pipeline
+    class Stage < Data
+      include Model
+
+      attr_reader name: Symbol
+      attr_reader order: Integer
+
+      # .new and .[] are both private (P4-32): the sixteen constants on Stages are the whole
+      # population, and NFR-4 locks no constructor here.
+      private def self.new: (name: Symbol, order: Integer, pillar: bool, terminal: bool) -> instance
+      def initialize: (name: Symbol, order: Integer, pillar: bool, terminal: bool) -> void
+
+      def pillar?: () -> bool
+      def terminal?: () -> bool
+      def installable?: () -> bool
+
+      # Always raises: the closed set has no derivation.
+      def with: (?untyped _changes) -> bot
+
+      private
+
+      attr_reader pillar: bool
+      attr_reader terminal: bool
+      def boolean?: (untyped value) -> bool
+    end
+  end
+end

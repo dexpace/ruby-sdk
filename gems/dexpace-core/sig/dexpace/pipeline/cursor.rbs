@@ -1,0 +1,46 @@
+module Dexpace
+  class Pipeline
+    class Cursor
+      EMPTY_SLOT: Hash[untyped, untyped]
+      EMPTY_STATE: Hash[Stage, Hash[untyped, untyped]]
+
+      @drive: untyped
+      @owner_index: Integer
+      @position: Integer
+      @request: Dexpace::Request
+      @options: Dexpace::RequestOptions
+      @cancellation: Dexpace::Cancellation
+      @state: Hash[Stage, Hash[untyped, untyped]]
+      @spent: bool
+
+      attr_reader request: Dexpace::Request
+      attr_reader options: Dexpace::RequestOptions
+      attr_reader cancellation: Dexpace::Cancellation
+
+      # .new is private and takes owner_index:/position:/state: a caller cannot name; only .build
+      # is public, and it produces the cursor bound to no entry (owner_index -1): it advances INTO
+      # entry 0 and cannot fork (R10). Every cursor a step is handed is made by the driver.
+      private def self.new: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> instance
+      def initialize: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> void
+
+      def self.build: (drive: untyped, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation) -> Cursor
+
+      def spent?: () -> bool
+      def may_fork?: () -> bool
+      def state: (Stage stage) -> Hash[untyped, untyped]
+
+      # `untyped` deliberately (plan open question 7): one Cursor serves both runtimes, so #call
+      # returns a Dexpace::Response under SyncDriver and a Dexpace::Async::Future under
+      # AsyncDriver; _Step and _AsyncStep carry the real types. Widening later is not an NFR-4
+      # break; narrowing to Response would be.
+      def call: (?Dexpace::Request request) -> untyped
+      def fork: (?state: Hash[untyped, untyped]?) -> Cursor
+
+      private
+
+      def owner_stage: () -> Stage?
+      def refuse_fork: () -> bot
+      def merged_state: (Stage stage, Hash[untyped, untyped]? state) -> Hash[Stage, Hash[untyped, untyped]]
+    end
+  end
+end
