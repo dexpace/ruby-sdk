@@ -41,11 +41,12 @@ module Dexpace
     # BODY-9, all three conditions, plus BODY-8's ownership exclusion. The stream must be seekable
     # (probed once at construction), the length must be KNOWN -- BODY-9 says "of known length"
     # literally -- and it must fit the platform's maximum single-array bound, which design §10.18
-    # substitutes as Dexpace::IO::MAX_MATERIALIZED_BYTES and IO-9 and BODY-32 share. Otherwise
-    # single-use, which is BODY-9's own "otherwise it MUST be single-use".
+    # substitutes as the materialisation ceiling IO-9 and BODY-32 share, read through its
+    # configured source (phase 5a). Otherwise single-use, which is BODY-9's own "otherwise it
+    # MUST be single-use".
     def replayable?
       @rewindable && !@close && @content_length != -1 &&
-        @content_length <= Dexpace::IO::MAX_MATERIALIZED_BYTES
+        @content_length <= Dexpace::IO.max_materialized_bytes
     end
 
     # The position the body starts at, captured by the same probe that proved it can return there.

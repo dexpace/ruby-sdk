@@ -1,0 +1,37 @@
+module Dexpace
+  class Configuration < Data
+    include Model
+
+    EMPTY: Configuration
+
+    attr_reader overrides: Hash[String, String]
+    attr_reader env_source: _ConfigSource
+    attr_reader property_source: _ConfigSource
+
+    private def self.new: (overrides: Hash[untyped, untyped], env_source: _ConfigSource,
+                           property_source: _ConfigSource) -> instance
+    def initialize: (overrides: Hash[untyped, untyped], env_source: _ConfigSource,
+                     property_source: _ConfigSource) -> void
+
+    def self.build: (?overrides: Hash[untyped, untyped], ?env_source: _ConfigSource,
+                     ?property_source: _ConfigSource) -> Configuration
+    def self.builder: () -> Builder
+
+    def new_builder: () -> Builder
+    def string: (String | Symbol name, ?default: String?) -> String?
+    def raw_property: (String | Symbol name, ?default: String?) -> String?
+    def integer: (String | Symbol name, ?default: Integer?) -> Integer?
+    def boolean: (String | Symbol name, ?default: bool?) -> bool?
+    def duration: (String | Symbol name, ?default: Float?) -> Float?
+    def derive: () { (Builder) -> void } -> Configuration
+
+    # Configuration::Guard is a private_constant and not public API: declared because the strict
+    # `core` Steep target types its call sites.
+    module Guard
+      def self?.stringify: (Hash[untyped, untyped] map) -> Hash[String, String]
+      def self?.source!: (String name, untyped source) -> _ConfigSource
+      def self?.normalize: (String key) -> String
+      def self?.key!: (untyped name) -> String
+    end
+  end
+end

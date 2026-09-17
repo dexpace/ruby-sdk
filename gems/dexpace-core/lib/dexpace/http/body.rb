@@ -229,9 +229,11 @@ module Dexpace
     # ---- BODY-32's cap rules, shared by every capped operation --------------------------
 
     # BODY-32: reject a negative cap, silently clamp down to the ceiling, never up. Float::INFINITY
-    # is accepted and clamps to the ceiling; [Float::INFINITY, Integer].min is an Integer.
+    # is accepted and clamps to the ceiling; [Float::INFINITY, Integer].min is an Integer. The
+    # ceiling is the CONFIGURED one (phase 5a): Dexpace::IO.max_materialized_bytes, read per call.
     def self.clamp_cap(cap)
-      return Dexpace::IO::MAX_MATERIALIZED_BYTES if cap.equal?(::Float::INFINITY)
+      ceiling = Dexpace::IO.max_materialized_bytes
+      return ceiling if cap.equal?(::Float::INFINITY)
 
       unless cap.is_a?(::Integer)
         raise Dexpace::InvalidArgumentError,
@@ -239,7 +241,7 @@ module Dexpace
       end
       raise Dexpace::InvalidArgumentError, "cap must not be negative, got #{cap}" if cap.negative?
 
-      [cap, Dexpace::IO::MAX_MATERIALIZED_BYTES].min
+      [cap, ceiling].min
     end
 
     private_class_method :clamp_cap

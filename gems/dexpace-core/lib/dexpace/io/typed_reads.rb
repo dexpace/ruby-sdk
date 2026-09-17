@@ -570,15 +570,19 @@ module Dexpace
         dexpace_remaining_window
       end
 
+      # The ceiling is the configured one (Dexpace::IO.max_materialized_bytes, phase 5a), read
+      # once per guard so the refusal names the limit that applied.
       def guard_materialization!(count)
         return if count.nil?
-        return if count <= Dexpace::IO::MAX_MATERIALIZED_BYTES
+
+        limit = Dexpace::IO.max_materialized_bytes
+        return if count <= limit
 
         raise Dexpace::StreamError,
-              "refusing to materialize #{count} bytes as one String: the limit is " \
-              "#{Dexpace::IO::MAX_MATERIALIZED_BYTES} bytes " \
-              "(Dexpace::IO::MAX_MATERIALIZED_BYTES). Stream it instead -- #read_into, #each, " \
-              "#slice or Buffer#copy_to."
+              "refusing to materialize #{count} bytes as one String: the limit is #{limit} bytes " \
+              "(Dexpace::IO.max_materialized_bytes; Dexpace::IO::MAX_MATERIALIZED_BYTES unless " \
+              "Configuration::Keys::MAX_MATERIALIZED_BYTES says otherwise). Stream it instead -- " \
+              "#read_into, #each, #slice or Buffer#copy_to."
       end
 
       def resolve_encoding(encoding)

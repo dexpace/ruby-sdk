@@ -1,0 +1,8 @@
+module Dexpace
+  self.@config_mutex: Thread::Mutex
+  self.@configuration: Configuration
+
+  def self.configuration: () -> Configuration
+  def self.configure: () { (Configuration::Builder) -> void } -> Configuration
+  def self.reset_config!: () -> Configuration
+end

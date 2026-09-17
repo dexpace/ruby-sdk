@@ -23,25 +23,53 @@ module Dexpace
   # the suite can reach a third-party reimplementation, which CTX-19 addresses and these gates
   # cannot.
   class ContextStore
-    # The bound the process-wide store is built with. CTX-11 and XCUT-14 name no number; AUTH-19
-    # names 1024 as the default for a bounded store of exactly this shape, and it is the only
-    # number the specification supplies for one (P4-9). Phase 5a, Task 13 attaches a
-    # configuration source without changing a signature.
+    # The bound the process-wide store is built with when the chain supplies none. CTX-11 and
+    # XCUT-14 name no number; AUTH-19 names 1024 as the default for a bounded store of exactly
+    # this shape, and it is the only number the specification supplies for one (P4-9).
     MAX_TRACKED_CONTEXTS = 1024
 
     class << self
-      # The one process-wide instance, assigned at file load into a class-level ivar (the last
-      # line of this class body). Not a constant: a live store cannot be frozen at assignment,
-      # which a mutable constant must be. Assigned eagerly rather than memoised with `||=`: that
-      # is an unsynchronised read-modify-write over shared state (XCUT-11) with allocations
-      # inside `new`, so two threads reaching #default first could each publish a store, and
+      # The one process-wide instance. Not a constant: a live store cannot be frozen at
+      # assignment, which a mutable constant must be.
+      #
+      # Constructed on the FIRST call, under one ::Thread::Mutex, with the cap read from the
+      # layered chain -- Configuration::Keys::MAX_TRACKED_CONTEXTS, falling back to
+      # MAX_TRACKED_CONTEXTS -- which is the configuration source phase 4a postponed to phase 5a.
+      # Phase 4a assigned this at file load, and its reason still binds: a bare `@default ||=
+      # new` is an unsynchronised read-modify-write over shared state (XCUT-11) with allocations
+      # inside `new`, so two threads reaching .default first could each publish a store, and
       # CTX-11's cap and CTX-19's reachability would then hold per store rather than per process.
-      # Eager assignment is also what keeps CTX-17 inert for a .build that takes this default:
-      # construction reads the singleton and writes nothing to it.
+      # The mutex is what makes a first-call construction as sound as the load-time one was, and
+      # a first-call construction is what lets a Dexpace.configure at boot reach the cap at all:
+      # read at load, only the environment tier could ever have set it. CTX-17 stays inert --
+      # constructing the store is not registering a context, and a .build that takes this default
+      # still writes nothing to it.
+      #
+      # The consequence, stated because it is not obvious: the store is built once, so a
+      # Dexpace.configure AFTER the first call does not resize it and neither does
+      # Dexpace.reset_config!. A cap is a process-lifetime property here; a test that needs a
+      # different one builds its own ContextStore.new(cap:), which is what the keyword is for.
       #
       # @return [ContextStore] the process-wide store
-      attr_reader :default
+      def default
+        @default_mutex.synchronize { @default ||= new(cap: configured_cap) }
+      end
+
+      private
+
+      # A configured value that is not a positive Integer -- unparseable, zero, negative -- falls
+      # back to the constant rather than raising out of the first promotion, because
+      # ContextStore.new(cap:) refuses such a cap and a misconfigured environment must not make
+      # every request fail at its first context.
+      def configured_cap
+        cap = Dexpace.configuration.integer(Configuration::Keys::MAX_TRACKED_CONTEXTS,
+                                            default: MAX_TRACKED_CONTEXTS,)
+        cap.is_a?(::Integer) && cap.positive? ? cap : MAX_TRACKED_CONTEXTS
+      end
     end
+
+    @default_mutex = ::Thread::Mutex.new
+    @default = nil
 
     # @param cap [Integer] the hard bound, a positive Integer; MAX_TRACKED_CONTEXTS unless a
     #   caller -- a test, or phase 5's configuration -- says otherwise
@@ -98,8 +126,5 @@ module Dexpace
     def size
       @map.size
     end
-
-    # Assigned at file load, once, before any thread exists. See .default above.
-    @default = new
   end
 end

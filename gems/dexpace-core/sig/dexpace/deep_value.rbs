@@ -1,0 +1,32 @@
+# Dexpace::DeepValue is a private_constant and not public API (R4): this declaration exists
+# because the strict `core` Steep target checks every file under lib/, and a later
+# dexpace-conformance suite reaches it by bare name from inside `module Dexpace`. RBS has no
+# visibility for a constant, so the privacy lives in lib/dexpace/deep_value.rb alone.
+module Dexpace
+  module DeepValue
+    NAN_HASH: Integer
+    POSITIVE_ZERO_HASH: Integer
+    NEGATIVE_ZERO_HASH: Integer
+    CYCLE_HASH: Integer
+
+    def self?.equal?: (untyped left, untyped right) -> bool
+    def self?.hash: (untyped value) -> Integer
+
+    private
+
+    def equal_rec?: (untyped left, untyped right, Hash[untyped, Hash[untyped, bool]] visited) -> bool
+    def numbers_equal?: (Numeric left, untyped right) -> bool
+    def floats_equal?: (Float left, Float right) -> bool
+    def containers_equal?: (Array[untyped] | Hash[untyped, untyped] left, untyped right,
+                            Hash[untyped, Hash[untyped, bool]] visited) -> bool
+    def arrays_equal?: (Array[untyped] left, Array[untyped] right,
+                        Hash[untyped, Hash[untyped, bool]] visited) -> bool
+    def hashes_equal?: (Hash[untyped, untyped] left, Hash[untyped, untyped] right,
+                        Hash[untyped, Hash[untyped, bool]] visited) -> bool
+    def comparing?: (Hash[untyped, Hash[untyped, bool]] visited, untyped left, untyped right) -> bool
+    def hash_rec: (untyped value, Hash[untyped, bool] stack) -> Integer
+    def float_hash: (Float value) -> Integer
+    def array_hash: (Array[untyped] value, Hash[untyped, bool] stack) -> Integer
+    def hash_hash: (Hash[untyped, untyped] value, Hash[untyped, bool] stack) -> Integer
+  end
+end
