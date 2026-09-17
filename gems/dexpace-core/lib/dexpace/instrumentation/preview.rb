@@ -18,10 +18,16 @@ module Dexpace
     # is on phase 10's inbound list: RETAG the BINARY bytes with the declared charset, then
     # transcode with both encodings named and replacement for anything invalid or undefined.
     # Transcoding straight from BINARY -- §3.1's one step -- replaces every non-ASCII byte
-    # (verified fact 11). "Decoding MUST NOT throw" is met by the replacement options; the
-    # charset arrives already folded and already `nil` for absent or unrecognised through
-    # MediaType#charset (HTTP-24), so `Encoding.find` cannot raise for a Dexpace::MediaType and
-    # is guarded anyway for a duck-typed one.
+    # (verified fact 11). "Decoding MUST NOT throw" is met by the replacement options for every
+    # byte sequence, and by a fallback for the one thing the options do not cover: a charset the
+    # interpreter KNOWS but cannot convert. `Encoding.find("utf-7")` and `("iso-2022-jp-2")`
+    # answer a dummy encoding with no converter, MediaType#charset therefore answers the name
+    # rather than nil, and `#encode` raises Encoding::ConverterNotFoundError with the replacement
+    # options set (review round 1's R1-4, P5-106); such a charset is decoded as UTF-8, the same
+    # fallback an unrecognised charset takes, so the two "cannot decode as declared" cases have
+    # one answer. The charset arrives already folded and already `nil` for absent or
+    # unrecognised through MediaType#charset (HTTP-24), so `Encoding.find` cannot raise for a
+    # Dexpace::MediaType and is guarded anyway for a duck-typed one.
     module Preview
       # OBS-38's size-only marker, a format taking the byte count.
       BINARY_MARKER_FORMAT = "[binary %d bytes captured]"
@@ -61,13 +67,24 @@ module Dexpace
       end
       private_class_method :text?
 
-      # Phase 3b's recipe: retag, then transcode with both encodings named.
+      # Phase 3b's recipe through the declared charset, falling back to UTF-8 for a charset with
+      # no converter. `EncodingError` and not `ConverterNotFoundError` alone: that is the one
+      # member of the family the replacement options leave reachable, and the fallback is total
+      # for the family rather than for one name in it (XCUT-20). The fallback cannot itself
+      # raise -- UTF-8 to UTF-8 with both replacements is a scrub.
       def self.decode(bytes, charset)
-        encoding = encoding_for(charset)
+        transcode(bytes, encoding_for(charset))
+      rescue ::EncodingError
+        transcode(bytes, ::Encoding::UTF_8)
+      end
+      private_class_method :decode
+
+      # Retag, then transcode with both encodings named.
+      def self.transcode(bytes, encoding)
         retagged = bytes.b.force_encoding(encoding)
         retagged.encode(::Encoding::UTF_8, encoding, invalid: :replace, undef: :replace)
       end
-      private_class_method :decode
+      private_class_method :transcode
 
       # The declared charset as an Encoding, UTF-8 when absent or unknown. MediaType#charset is
       # already nil for the unknown case; the rescue is for a duck-typed media type.

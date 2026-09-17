@@ -37,6 +37,81 @@ module Dexpace
     end
     private_constant :CollisionLatch
 
+    # The reserved-key table (design §8.1): the redaction a field NAME selects, whoever supplied
+    # the value. `url.full` goes through Redactor#url; a key under either header prefix goes
+    # through OBS-18's name gate and then, for an allow-listed name, Redactor#header_value; every
+    # other key is identity. One table, applied to all three of OBS-5's sources -- a per-event
+    # field at Event#field, the logger's global context once at Logger.build, and the folded
+    # diagnostic context at Event#emit (P5-104) -- because OBS-39's "the logged url.full MUST
+    # always be the redacted URL" and OBS-18's "MUST NOT have its value logged" are stated on
+    # the emitted record and not on one entry point: a reserved key put in the context or in the
+    # diagnostic context reached the sink raw before review round 1 (R1-2). A private_constant of
+    # the namespace, reachable by its bare name from Logger and Event alike.
+    module ReservedKeys
+      # The answer for a header OBS-18's omit mode drops: distinguishable from every value a
+      # caller could pass, nil included, by identity.
+      OMIT = ::Object.new.freeze
+
+      # The value `name` is stored with, or OMIT.
+      #
+      # @param redactor [Redactor] the path's one policy (P5-95)
+      # @param name [String] the field key
+      # @param value [Object] the value as supplied
+      # @return [Object]
+      def self.value(redactor, name, value)
+        header = header_of(name)
+        if header.nil?
+          name == Keys::URL_FULL ? redactor.url(value) : value
+        elsif redactor.header_name?(header)
+          # OBS-3's literal null and not the redactor's "": `nil.equal?` and not `#nil?`, because
+          # a BasicObject answers no #nil? and OBS-6 renders it anyway.
+          nil.equal?(value) ? nil : redactor.header_value(header, value)
+        elsif redactor.policy.omit_disallowed_headers
+          OMIT
+        else
+          Redactor::REDACTED_HEADER
+        end
+      end
+
+      # Applies the table to every reserved key of `hash` in place, leaving every other key
+      # untouched, and answers the hash. Runs on the enabled path only, where an Array of the
+      # keys is an allocation OBS-1 does not constrain.
+      #
+      # @param redactor [Redactor]
+      # @param hash [Hash{String => Object}] String-keyed, mutable
+      # @return [Hash{String => Object}] the same hash
+      def self.scrub!(redactor, hash)
+        hash.keys.each do |name|
+          next unless reserved?(name)
+
+          stored = value(redactor, name, hash[name])
+          stored.equal?(OMIT) ? hash.delete(name) : hash[name] = stored
+        end
+        hash
+      end
+
+      # Whether the table has an entry for `name`.
+      #
+      # @param name [String]
+      # @return [Boolean]
+      def self.reserved?(name)
+        name == Keys::URL_FULL || !header_of(name).nil?
+      end
+
+      # The header name behind a key under either prefix, or nil for any other key.
+      #
+      # @param name [String]
+      # @return [String, nil]
+      def self.header_of(name)
+        if name.start_with?(Keys::HTTP_REQUEST_HEADER_PREFIX)
+          name.delete_prefix(Keys::HTTP_REQUEST_HEADER_PREFIX)
+        elsif name.start_with?(Keys::HTTP_RESPONSE_HEADER_PREFIX)
+          name.delete_prefix(Keys::HTTP_RESPONSE_HEADER_PREFIX)
+        end
+      end
+    end
+    private_constant :ReservedKeys
+
     # OBS-1 and OBS-3 through OBS-9, OBS-39 and OBS-40: the structured log event -- a mutable
     # accumulator of fields, one categorisation tag and one cause, with a single terminal
     # #emit. Obtained only from Logger#event, which decides enabled or disabled ONCE and hands
@@ -46,14 +121,17 @@ module Dexpace
     # accumulate. `new` is private; Logger reaches it the way the pipeline driver reaches
     # Cursor's.
     #
-    # Redaction runs on the way INTO #field and never at the sink (design §8.1, boundary 5), and
-    # the mechanism is a reserved-key table keyed by the field NAME: `url.full` goes through
+    # Redaction runs on the way INTO the record and never at the sink (design §8.1, boundary 5),
+    # and the mechanism is ReservedKeys, a table keyed by the field NAME: `url.full` goes through
     # Redactor#url, and a key under either header prefix goes through OBS-18's name gate and
-    # then, for an allow-listed name, Redactor#header_value -- whoever the caller is. That is
-    # what makes OBS-39's "the logged url.full MUST always be the redacted URL" and OBS-18's "MUST
-    # NOT have its value logged" structural rather than defended (P5-102), and it is why no sink
-    # and no caller can bypass either: the header prefixes are reserved names, so a credential
-    # header written straight into #field is marked or dropped exactly as the step's are.
+    # then, for an allow-listed name, Redactor#header_value -- whoever the caller is and
+    # whichever of OBS-5's three sources supplied it. A per-event field meets the table at
+    # #field, the logger's global context met it once at Logger.build, and the folded diagnostic
+    # context meets it at #emit (P5-102, P5-104). That is what makes OBS-39's "the logged url.full
+    # MUST always be the redacted URL" and OBS-18's "MUST NOT have its value logged" structural
+    # rather than defended, and it is why no sink and no caller can bypass either: the header
+    # prefixes are reserved names, so a credential header written straight into #field, put in
+    # the context or set in `Fiber[]` is marked or dropped exactly as the step's are.
     #
     # #emit is at most once (OBS-8): a flag flipped under the logger's Thread::Mutex, with the
     # mutex RELEASED before the sink is called. Not prudence -- Thread::Mutex is per-fiber-owned
@@ -139,12 +217,8 @@ module Dexpace
       # @raise [Dexpace::InvalidArgumentError] for a nil, empty or non-name key
       def field(key, value)
         name = field_name!(key)
-        header = header_of(name)
-        if header.nil?
-          @fields[name] = name == Keys::URL_FULL ? @redactor.url(value) : value
-        else
-          header_field(name, header, value)
-        end
+        stored = ReservedKeys.value(@redactor, name, value)
+        @fields[name] = stored unless stored.equal?(ReservedKeys::OMIT)
         self
       end
 
@@ -170,18 +244,19 @@ module Dexpace
 
       # The terminal emit, at most once (OBS-8), from any thread. Merges the three sources in
       # OBS-5's precedence -- folded diagnostic context, then the logger's global context, then
-      # this event's fields, later winning -- into one Hash, so a key appears at most once;
-      # writes the tag over any `event` key the three sources supplied (OBS-4, with OBS-40's
-      # once-per-logger diagnostic when the colliding key was a per-event field, and silence when
-      # it came from the ambient context); attaches the cause; renders every value totally
-      # (OBS-6, OBS-7); and hands the record to the sink through the block form of the severity's
-      # method, so a sink whose own level moved after creation still renders nothing.
+      # this event's fields, later winning -- into one Hash, so a key appears at most once, the
+      # fold's reserved keys redacted through the same table the other two sources already met
+      # (P5-104); writes the tag over any `event` key the three sources supplied (OBS-4, with
+      # OBS-40's once-per-logger diagnostic when the colliding key was a per-event field, and
+      # silence when it came from the ambient context); attaches the cause; renders every value
+      # totally (OBS-6, OBS-7); and hands the record to the sink through the block form of the
+      # severity's method, so a sink whose own level moved after creation still renders nothing.
       #
       # @return [nil]
       def emit
         return nil unless claim_emit!
 
-        record = Diagnostics.folded(@diagnostic_keys)
+        record = ReservedKeys.scrub!(@redactor, Diagnostics.folded(@diagnostic_keys))
         record.merge!(@context)
         record.merge!(@fields)
         apply_tag!(record)
@@ -227,31 +302,6 @@ module Dexpace
           when ::String then Model.frozen_string(key)
           end
         Model.required!("field key", name.nil? || name.empty? ? nil : name)
-      end
-
-      # The reserved-key table's header half (design §8.1): the header name behind a key under
-      # either prefix, or nil for any other key. The field's NAME decides, never the call site.
-      def header_of(name)
-        if name.start_with?(Keys::HTTP_REQUEST_HEADER_PREFIX)
-          name.delete_prefix(Keys::HTTP_REQUEST_HEADER_PREFIX)
-        elsif name.start_with?(Keys::HTTP_RESPONSE_HEADER_PREFIX)
-          name.delete_prefix(Keys::HTTP_RESPONSE_HEADER_PREFIX)
-        end
-      end
-
-      # OBS-18 first, by name: a header outside the allow-list is stored as the marker or, in
-      # the policy's omit mode, not stored -- the boolean's two modes at the one place every
-      # header field passes through, so a caller and the step get the same answer (P5-102). An
-      # allow-listed header's value then takes OBS-16's and OBS-17's route through the value
-      # redactor, except a nil, which is OBS-3's literal null and not the redactor's --
-      # `nil.equal?(value)` and not `value.nil?`, because a BasicObject answers no #nil? and
-      # OBS-6 renders it anyway.
-      def header_field(name, header, value)
-        if @redactor.header_name?(header)
-          @fields[name] = nil.equal?(value) ? nil : @redactor.header_value(header, value)
-        elsif !@redactor.policy.omit_disallowed_headers
-          @fields[name] = Redactor::REDACTED_HEADER
-        end
       end
     end
   end

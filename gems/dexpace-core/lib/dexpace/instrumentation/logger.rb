@@ -45,10 +45,11 @@ module Dexpace
 
       # The redactor every event this logger creates redacts through, and the ONE redaction
       # policy of a logging path (P5-95): the instrumentation step takes no redactor of its own,
-      # and every header field -- the step's and a caller's alike -- is gated by name and
-      # redacted by value through this one at Event#field (P5-102), so the names a step logs and
-      # the values its events redact cannot come from two policies. Public so the path's policy
-      # is observable and a later phase can derive one with RedactionPolicy#with.
+      # and every reserved key -- the step's and a caller's alike, a per-event field, a context
+      # entry or a folded diagnostic-context key -- is gated by name and redacted by value
+      # through this one (P5-102, P5-104), so the names a step logs and the values its events
+      # redact cannot come from two policies. Public so the path's policy is observable and a
+      # later phase can derive one with RedactionPolicy#with.
       #
       # @return [Redactor]
       attr_reader :redactor
@@ -57,8 +58,10 @@ module Dexpace
       #
       # @param sink [Object] anything answering the _Sink duck type; NULL_SINK when omitted
       # @param context [Hash] OBS-9's global key/value context; keys are taken by their String
-      #   form and the whole is deep-frozen once here
-      # @param redactor [Redactor] the redaction applied on the way into every Event#field
+      #   form, a reserved key (`url.full`, a header-prefixed key) is redacted once here through
+      #   the same table Event#field applies, and the whole is deep-frozen once here
+      # @param redactor [Redactor] the redaction applied on the way into every record, at
+      #   Event#field, here for the context, and at Event#emit for the diagnostic fold
       # @param diagnostic_keys [Array<Symbol>, nil] OBS-10's allow-list; nil is a MODE, the
       #   opt-in unfiltered fold of every present diagnostic-context key, and not "use the
       #   default" -- which is the one place api-design/6ea28c9c's "never nil for absent" is
@@ -69,8 +72,8 @@ module Dexpace
       def self.build(sink: NULL_SINK, context: {}, redactor: Redactor::DEFAULT,
                      diagnostic_keys: Diagnostics::DEFAULT_KEYS)
         mutex = ::Thread::Mutex.new
-        new(sink: sink!(sink), context: context!(context),
-            redactor: Model.required!("redactor", redactor),
+        redactor = Model.required!("redactor", redactor)
+        new(sink: sink!(sink), context: context!(context, redactor), redactor: redactor,
             diagnostic_keys: diagnostic_keys!(diagnostic_keys), mutex: mutex,
             latch: CollisionLatch.new(mutex),).freeze
       end
@@ -120,14 +123,17 @@ module Dexpace
       end
       private_class_method :sink!
 
-      # A String-keyed copy, deep-frozen once (Model.own), so OBS-9's "referenced, not
+      # A String-keyed copy with its reserved keys redacted through the event's own table --
+      # here, ONCE, because the context is frozen and attached by reference, so a `url.full` or a
+      # header-prefixed key a caller put in it meets OBS-39 and OBS-18 at construction rather
+      # than on every event (P5-104) -- then deep-frozen (Model.own), so OBS-9's "referenced, not
       # deep-copied per event" is safe and "effectively immutable" is enforced.
-      def self.context!(context)
+      def self.context!(context, redactor)
         unless context.is_a?(::Hash)
           raise InvalidArgumentError, "context must be a Hash, got #{context.class}"
         end
 
-        Model.own(context.to_h { |key, value| [key.to_s, value] })
+        Model.own(ReservedKeys.scrub!(redactor, context.to_h { |key, value| [key.to_s, value] }))
       end
       private_class_method :context!
 

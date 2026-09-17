@@ -7,6 +7,7 @@ require_relative "../configuration"
 require_relative "../instrumentation/keys"
 require_relative "../instrumentation/logger"
 require_relative "../instrumentation/contain"
+require_relative "../instrumentation/redactor"
 
 module Dexpace
   # The resolver behind Dexpace::Proxy.resolve: CFG-24 through CFG-28. Never raises -- "proxies
@@ -29,9 +30,14 @@ module Dexpace
   # property stay flat because they are deliberately NOT layered: CFG-24 gives credentials no
   # http.* fallback and CFG-26 gives the list one property name.
   #
-  # One line over Metrics/ModuleLength's default, because phase 5b threads the logger to the
-  # three methods that warn; the exception is recorded here rather than the cap raised, as
-  # .rubocop.yml prescribes.
+  # A warning about a URL shows that URL, and a proxy URL is the one configuration value that
+  # carries a credential, so the text a warning and its diagnostic carry is the redactor's form
+  # of the URL and never the raw value (OBS-11; review round 1's R1-1, P5-103): `#shown` below is
+  # the one place the URL is rendered for either channel.
+  #
+  # Over Metrics/ModuleLength's default, because phase 5b threads the logger to the three
+  # methods that warn and renders the URL through the redactor; the exception is recorded here
+  # rather than the cap raised, as .rubocop.yml prescribes.
   module ProxyResolution # rubocop:disable Metrics/ModuleLength
     extend self
 
@@ -46,6 +52,22 @@ module Dexpace
     CRED_PASS = "https.proxyPassword"
     # The pipe-separated non-proxy list that wins over NO_PROXY (CFG-26).
     NON_PROXY_PROP = "http.nonProxyHosts"
+
+    # CFG-24's own grammar for a proxy URL is `scheme://user:pass@host:port`, so in a proxy URL
+    # whatever precedes the last `@` before the first `/`, `?` or `#` is a credential -- even in
+    # a value with no `//`, which RFC 3986 reads as an opaque URI with no userinfo and the
+    # redactor therefore writes back as given (P5-100). Applied to the redactor's form of the
+    # URL before it is shown, so `user:secret@proxy.corp:3128` -- the scheme forgotten -- shows
+    # as `***:***@proxy.corp:3128`. Anchored, one bounded class and one literal; the per-pattern
+    # timeout is the port's rule.
+    CREDENTIAL_BEFORE_AT = ::Regexp.new('\A[^/?#]*@', timeout: 1.0)
+    private_constant :CREDENTIAL_BEFORE_AT
+
+    # The header name #shown renders the URL under: `location`, the first of
+    # RedactionPolicy::DEFAULT's URL-valued names, which is what makes Redactor#header_value take
+    # the URL route rather than pass the value through (OBS-17).
+    SHOWN_AS = "location"
+    private_constant :SHOWN_AS
 
     # CFG-24's two sources, in its order and with its boundary: the environment is consulted only
     # "if no system-property host is set". A system-property host with an unusable port therefore
@@ -129,16 +151,31 @@ module Dexpace
     # already 80 by the time it is read, so a resolver built on #port passes for "http://h:8080"
     # AND for "http://h" -- resolving the second to 80, the exact behaviour CFG-25 forbids.
     #
+    # Both warnings show the URL through #shown and never raw (R1-1): the parser's own message
+    # repeats the value it rejected, userinfo included, so it is not quoted either.
+    #
     # @return [Array] scheme, userinfo, host and port; empty after a warning
     def split_url(url, logger)
       parser = ::URI::RFC3986_PARSER #: untyped
       scheme, userinfo, host, raw_port = parser.split(url)
       problem = url_problem(host, raw_port)
-      return warn_and_nil("proxy URL #{url.inspect} #{problem}", logger) || [] if problem
+      return warn_and_nil("proxy URL #{shown(url).inspect} #{problem}", logger) || [] if problem
 
       [scheme, userinfo, host, parse_port(raw_port)]
-    rescue ::URI::InvalidURIError => error
-      warn_and_nil("proxy URL #{url.inspect} is not a URI: #{error.message}", logger) || []
+    rescue ::URI::InvalidURIError
+      warn_and_nil("proxy URL #{shown(url).inspect} is not a URI", logger) || []
+    end
+
+    # The URL as a warning may show it (P5-103): the redactor's total header-value form -- an
+    # absolute value redacted like a request URL, a relative one with its path kept and a
+    # `?***` for a query, a value the parser rejects by string surgery, and OBS-11's placeholder
+    # for a userinfo on every one of those routes (P5-100); never OBS-15's sentinel, because a
+    # warning naming `[malformed url]` names nothing -- reached through the policy's first
+    # URL-valued header name, since that entry point is keyed by header name (OBS-16, OBS-17).
+    # Then CFG-24's grammar rule, for the credential the redactor cannot know is one.
+    def shown(url)
+      redacted = Instrumentation::Redactor::DEFAULT.header_value(SHOWN_AS, url)
+      redacted.sub(CREDENTIAL_BEFORE_AT, "#{Instrumentation::Redactor::REDACTED_USERINFO}@")
     end
 
     def url_problem(host, raw_port)

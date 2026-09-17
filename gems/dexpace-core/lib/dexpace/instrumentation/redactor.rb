@@ -61,11 +61,18 @@ module Dexpace
       RELATIVE_MARKER = "?***"
 
       # The authority's userinfo in a value the parser REJECTED, which is the one place OBS-11
-      # has no split component to read (P5-100): an optional scheme, `//`, then everything up to
-      # the last `@` before the first `/`, `?` or `#`. Anchored, one bounded class and one
-      # literal, so it is linear; the per-pattern timeout is the port's rule (never
-      # `Regexp.timeout`, a process-wide budget a library must not impose on its host).
-      SURGERY_USERINFO = ::Regexp.new('\A((?:[A-Za-z][A-Za-z0-9+.\-]*:)?//)[^/?#]*@', timeout: 1.0)
+      # has no split component to read (P5-100): any leading run of whitespace or control bytes
+      # (SP, HTAB, the C0 controls and DEL, the one prefix a value the parser rejects can carry
+      # in front of a real authority -- HTTP-19's grammar admits a leading OWS in an inbound
+      # header value, and a `Location` built with one took this route with its userinfo intact;
+      # review round 1's R1-3, P5-105), an optional scheme, `//`, then everything up to the last
+      # `@` before the first `/`, `?` or `#`. Anchored, two bounded classes and one literal, so
+      # it is linear; ASCII only, so it matches a BINARY value carrying high bytes; the
+      # per-pattern timeout is the port's rule (never `Regexp.timeout`, a process-wide budget a
+      # library must not impose on its host).
+      SURGERY_USERINFO = ::Regexp.new(
+        '\A([\x00-\x20\x7F]*(?:[A-Za-z][A-Za-z0-9+.\-]*:)?//)[^/?#]*@', timeout: 1.0,
+      )
       private_constant :SURGERY_USERINFO
 
       private_class_method :new
@@ -244,7 +251,9 @@ module Dexpace
       # value the parser rejected has no userinfo component to read and OBS-11 is unconditional
       # (P5-100); then the raw value up to the first `?` or `#`, then the marker if there was
       # one. The substitution runs on the whole value and the cut afterwards, which is the same
-      # result either way -- the pattern's class cannot cross a `?` or a `#`.
+      # result either way -- neither of the pattern's classes can cross a `?` or a `#`. The
+      # leading bytes the pattern tolerates are written back as they came: OBS-16 keeps the
+      # path, and this route keeps everything but the userinfo.
       def surgery(raw)
         scrubbed = raw.sub(SURGERY_USERINFO, "\\1#{REDACTED_USERINFO}@")
         cut = [scrubbed.index("?"), scrubbed.index("#")].compact.min

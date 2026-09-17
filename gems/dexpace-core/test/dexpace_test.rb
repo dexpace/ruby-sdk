@@ -129,7 +129,7 @@ class DexpaceTest < DexpaceTestCase
     # Dexpace::Instrumentation -- twenty-six public constants -- and everything private stays
     # private: the six no-op classes, the two instrument singletons and the current-span key
     # (5c's), and the null sink's class, the inert event's class, the collision latch, the
-    # renderer and the emitter (5b's).
+    # reserved-key table, the renderer and the emitter (5b's).
     test "requiring dexpace alone makes the whole tracing, metrics and logging layer resolve" do
       instrumentation = Dexpace::Instrumentation
 
@@ -148,6 +148,7 @@ class DexpaceTest < DexpaceTestCase
       assert_raises(::NameError) { Dexpace::Instrumentation::CURRENT_SPAN_KEY }
       assert_raises(::NameError) { Dexpace::Instrumentation::NullSink }
       assert_raises(::NameError) { Dexpace::Instrumentation::CollisionLatch }
+      assert_raises(::NameError) { Dexpace::Instrumentation::ReservedKeys }
       assert_raises(::NameError) { Dexpace::Instrumentation::Render }
       assert_raises(::NameError) { Dexpace::Instrumentation::Emitter }
       assert_raises(::NameError) { Dexpace::Instrumentation::Event::Inert }

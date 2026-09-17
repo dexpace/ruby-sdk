@@ -10,6 +10,18 @@ module Dexpace
       def claim: () -> bool
     end
 
+    # A private_constant with no visibility in RBS: the reserved-key table (design §8.1),
+    # applied by Event#field, Event#emit and Logger.build (P5-104). Declared because the strict
+    # `core` Steep target types every call site.
+    module ReservedKeys
+      OMIT: Object
+
+      def self.value: (Redactor redactor, String name, untyped value) -> untyped
+      def self.scrub!: (Redactor redactor, Hash[String, untyped] hash) -> Hash[String, untyped]
+      def self.reserved?: (String name) -> bool
+      def self.header_of: (String name) -> String?
+    end
+
     # OBS-1, OBS-3..OBS-9, OBS-39, OBS-40: the mutable event accumulator, obtained from
     # Logger#event only. .new is private; Logger reaches it as the driver reaches Cursor's.
     class Event
@@ -53,8 +65,6 @@ module Dexpace
       def claim_emit!: () -> bool
       def apply_tag!: (Hash[String, untyped] record) -> void
       def field_name!: (untyped key) -> String
-      def header_of: (String name) -> String?
-      def header_field: (String name, String header, untyped value) -> void
     end
   end
 end

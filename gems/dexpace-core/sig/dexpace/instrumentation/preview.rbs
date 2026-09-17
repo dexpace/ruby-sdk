@@ -12,6 +12,7 @@ module Dexpace
 
       def self.text?: (untyped media_type) -> bool
       def self.decode: (String bytes, String? charset) -> String
+      def self.transcode: (String bytes, Encoding encoding) -> String
       def self.encoding_for: (String? charset) -> Encoding
       def self.binary_marker: (String bytes) -> String
     end

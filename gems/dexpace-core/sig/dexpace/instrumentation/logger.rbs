@@ -36,7 +36,7 @@ module Dexpace
       private
 
       def self.sink!: (untyped sink) -> (_Sink & Object)
-      def self.context!: (untyped context) -> Hash[String, untyped]
+      def self.context!: (untyped context, Redactor redactor) -> Hash[String, untyped]
       def self.diagnostic_keys!: (untyped keys) -> Array[Symbol]?
       def resolve: (Severity | Symbol severity) -> Severity
     end
