@@ -53,7 +53,8 @@ module Dexpace
       def claim_emit!: () -> bool
       def apply_tag!: (Hash[String, untyped] record) -> void
       def field_name!: (untyped key) -> String
-      def redact: (String name, untyped value) -> untyped
+      def header_of: (String name) -> String?
+      def header_field: (String name, String header, untyped value) -> void
     end
   end
 end

@@ -30,7 +30,8 @@ class DexpaceInstrumentationDiagnosticsTest < DexpaceTestCase
   # the three functions -- and added no require, which is what keeps 5c's load-time assertion
   # true: a require of anything else here would pull the logging half in behind Tracing.
   test "P5-71: the module defines four constants, three functions, and the file requires nothing" do
-    assert_equal(%i[DEFAULT_KEYS RESERVED_PREFIX SPAN_ID TRACE_ID], Diagnostics.constants(false).sort)
+    assert_equal(%i[DEFAULT_KEYS RESERVED_PREFIX SPAN_ID TRACE_ID],
+                 Diagnostics.constants(false).sort,)
     assert_equal(%i[capture folded with], Diagnostics.singleton_methods.sort)
     assert_empty(Diagnostics.instance_methods(false))
     refute_match(/^\s*require/, File.read(SOURCE), "diagnostics.rb must require nothing")

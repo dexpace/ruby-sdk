@@ -6,7 +6,6 @@ require_relative "severity"
 require_relative "keys"
 require_relative "http_logging"
 require_relative "preview"
-require_relative "redactor"
 
 module Dexpace
   module Instrumentation
@@ -17,15 +16,15 @@ module Dexpace
     # write -- cannot. Every name it writes is a constant on Keys or Events, covered by the
     # surface manifest, which is what makes OBS-39's "stable and predictable" mechanised.
     #
-    # It redacts nothing itself. `url.full` and the header keys are redacted on the way into
-    # Event#field by the field's NAME (design §8.1), so the request URL and every header value
-    # pass through here raw and come out redacted whoever the caller is. What this class does
-    # decide is which header NAMES are logged at all (OBS-18): the allow-list of the LOGGER's
-    # redactor gates them -- the one policy of the path, read from the logger rather than
-    # carried separately (P5-95), so the names a step logs and the values its events redact
-    # cannot come from two policies -- and a name outside it is emitted with the fixed REDACTED
-    # marker or omitted, as the policy's boolean says (P5-35); both modes have a caller here, so
-    # neither is surface nothing exercises.
+    # It redacts nothing and gates nothing itself. `url.full` and the header keys are redacted
+    # on the way into Event#field by the field's NAME (design §8.1), and so is OBS-18's decision
+    # of which header NAMES are logged at all (P5-102): every header goes in under its prefix,
+    # and the event -- through the LOGGER's redactor, the one policy of the path (P5-95) --
+    # keeps an allow-listed value, marks a non-allow-listed one with the fixed REDACTED marker
+    # or omits it, as the policy's boolean says (P5-35). So the names a step logs and the values
+    # its events redact cannot come from two policies, and a caller writing a header field by
+    # hand gets exactly what this writer gets; both of the boolean's modes are exercised through
+    # here, so neither is surface nothing exercises.
     #
     # Every event is INFO except the failure event, which is ERROR; the level the step holds
     # decides whether these run at all, and this class never reads it for the two events -- only
@@ -36,7 +35,6 @@ module Dexpace
     class Emitter
       def initialize(logger:, level:)
         @logger = logger
-        @redactor = logger.redactor
         @level = level
       end
 
@@ -108,21 +106,15 @@ module Dexpace
         preview(event, Keys::HTTP_REQUEST_BODY_PREVIEW, Keys::HTTP_REQUEST_BODY_SIZE, request.body)
       end
 
-      # OBS-18 gates NAMES first, against the folded name: an allow-listed header's value is
-      # logged (and, for a URL-valued name, redacted at #field by the prefix, OBS-17); any other
-      # header is emitted with the marker or omitted per the policy. Multiple values of one name
-      # are joined with ", ", the wire's own combination rule, so each name is one field.
+      # Every header, folded, under its prefix; Event#field gates the NAME (OBS-18: marker or
+      # omission, per the policy) and redacts a URL-valued header's value (OBS-16, OBS-17) on the
+      # way in, so nothing is decided here. Multiple values of one name are joined with ", ",
+      # the wire's own combination rule, so each name is one field.
       def headers(event, headers, prefix)
-        omit = @redactor.policy.omit_disallowed_headers
         headers.names.each do |name|
-          folded = name.downcase
-          key = "#{prefix}#{folded}"
-          if @redactor.header_name?(folded)
-            values = headers[name] || []
-            event.field(key, values.size == 1 ? values.first : values.join(", "))
-          elsif !omit
-            event.field(key, Redactor::REDACTED_HEADER)
-          end
+          values = headers[name] || []
+          value = values.size == 1 ? values.first : values.join(", ")
+          event.field("#{prefix}#{name.downcase}", value)
         end
       end
 

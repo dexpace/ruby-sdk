@@ -7,6 +7,7 @@ module Dexpace
       REDACTED_USERINFO: String
       REDACTED_HEADER: String
       RELATIVE_MARKER: String
+      SURGERY_USERINFO: Regexp
       DEFAULT: Redactor
 
       @policy: RedactionPolicy
@@ -28,11 +29,16 @@ module Dexpace
                        String? registry, String? path, String? opaque, String? query,
                        String? fragment) -> String
       def authority: (String? userinfo, String host, String? port) -> String
+      def opaque_part: (String opaque) -> String
       def tail: (String? query, String? fragment) -> String
       def redact_header_url: (String raw) -> String
+      def relative: (String? userinfo, String? host, String? port, String? path,
+                     carried: bool) -> String
       def surgery: (String raw) -> String
       def redact_pairs: (String string, keep_bare: bool) -> String
       def redact_pair: (String pair) -> String
+      def allow_listed?: (String name) -> bool
+      def decode_name: (String name) -> String?
       def fold: (untyped name) -> String
     end
   end

@@ -48,9 +48,12 @@ module Dexpace
     #
     # Redaction runs on the way INTO #field and never at the sink (design §8.1, boundary 5), and
     # the mechanism is a reserved-key table keyed by the field NAME: `url.full` goes through
-    # Redactor#url, and a key under either header prefix goes through Redactor#header_value,
-    # whoever the caller is. That is what makes OBS-39's "the logged url.full MUST always be the
-    # redacted URL" structural rather than defended, and it is why no sink can bypass it.
+    # Redactor#url, and a key under either header prefix goes through OBS-18's name gate and
+    # then, for an allow-listed name, Redactor#header_value -- whoever the caller is. That is
+    # what makes OBS-39's "the logged url.full MUST always be the redacted URL" and OBS-18's "MUST
+    # NOT have its value logged" structural rather than defended (P5-102), and it is why no sink
+    # and no caller can bypass either: the header prefixes are reserved names, so a credential
+    # header written straight into #field is marked or dropped exactly as the step's are.
     #
     # #emit is at most once (OBS-8): a flag flipped under the logger's Thread::Mutex, with the
     # mutex RELEASED before the sink is called. Not prudence -- Thread::Mutex is per-fiber-owned
@@ -126,7 +129,9 @@ module Dexpace
       # OBS-39). The key must be a non-empty String or Symbol (OBS-3, through Model.required! so
       # the message is SEAM-29's one form); a later #field with the same key replaces the
       # earlier. A nil value is kept and renders as the literal "null" at #emit (OBS-3) -- it is
-      # not routed through the header redactor, whose contract would turn it into "".
+      # not routed through the header redactor, whose contract would turn it into "". A key
+      # under either header prefix whose header name is not allow-listed stores the fixed
+      # REDACTED marker or, when the policy says omit, nothing at all (OBS-18, P5-102).
       #
       # @param key [String, Symbol] the field name; a Symbol is taken by its name
       # @param value [Object] anything; rendered totally at #emit (OBS-6)
@@ -134,7 +139,12 @@ module Dexpace
       # @raise [Dexpace::InvalidArgumentError] for a nil, empty or non-name key
       def field(key, value)
         name = field_name!(key)
-        @fields[name] = redact(name, value)
+        header = header_of(name)
+        if header.nil?
+          @fields[name] = name == Keys::URL_FULL ? @redactor.url(value) : value
+        else
+          header_field(name, header, value)
+        end
         self
       end
 
@@ -219,20 +229,28 @@ module Dexpace
         Model.required!("field key", name.nil? || name.empty? ? nil : name)
       end
 
-      # The reserved-key table (design §8.1): the field's NAME decides the redaction, never the
-      # call site. A nil value is OBS-3's, not the redactor's. `nil.equal?(value)` and not
-      # `value.nil?`, because a BasicObject answers no #nil? and OBS-6 renders it anyway.
-      def redact(name, value)
-        if name == Keys::URL_FULL
-          @redactor.url(value)
-        elsif nil.equal?(value)
-          nil
-        elsif name.start_with?(Keys::HTTP_REQUEST_HEADER_PREFIX)
-          @redactor.header_value(name.delete_prefix(Keys::HTTP_REQUEST_HEADER_PREFIX), value)
+      # The reserved-key table's header half (design §8.1): the header name behind a key under
+      # either prefix, or nil for any other key. The field's NAME decides, never the call site.
+      def header_of(name)
+        if name.start_with?(Keys::HTTP_REQUEST_HEADER_PREFIX)
+          name.delete_prefix(Keys::HTTP_REQUEST_HEADER_PREFIX)
         elsif name.start_with?(Keys::HTTP_RESPONSE_HEADER_PREFIX)
-          @redactor.header_value(name.delete_prefix(Keys::HTTP_RESPONSE_HEADER_PREFIX), value)
-        else
-          value
+          name.delete_prefix(Keys::HTTP_RESPONSE_HEADER_PREFIX)
+        end
+      end
+
+      # OBS-18 first, by name: a header outside the allow-list is stored as the marker or, in
+      # the policy's omit mode, not stored -- the boolean's two modes at the one place every
+      # header field passes through, so a caller and the step get the same answer (P5-102). An
+      # allow-listed header's value then takes OBS-16's and OBS-17's route through the value
+      # redactor, except a nil, which is OBS-3's literal null and not the redactor's --
+      # `nil.equal?(value)` and not `value.nil?`, because a BasicObject answers no #nil? and
+      # OBS-6 renders it anyway.
+      def header_field(name, header, value)
+        if @redactor.header_name?(header)
+          @fields[name] = nil.equal?(value) ? nil : @redactor.header_value(header, value)
+        elsif !@redactor.policy.omit_disallowed_headers
+          @fields[name] = Redactor::REDACTED_HEADER
         end
       end
     end

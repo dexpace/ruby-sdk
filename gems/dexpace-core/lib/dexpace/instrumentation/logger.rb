@@ -44,9 +44,11 @@ module Dexpace
       attr_reader :context
 
       # The redactor every event this logger creates redacts through, and the ONE redaction
-      # policy of a logging path (P5-95): the instrumentation step reads its header-name gate
-      # from here rather than taking a redactor of its own, so the names a step logs and the
-      # values its events redact cannot come from two policies.
+      # policy of a logging path (P5-95): the instrumentation step takes no redactor of its own,
+      # and every header field -- the step's and a caller's alike -- is gated by name and
+      # redacted by value through this one at Event#field (P5-102), so the names a step logs and
+      # the values its events redact cannot come from two policies. Public so the path's policy
+      # is observable and a later phase can derive one with RedactionPolicy#with.
       #
       # @return [Redactor]
       attr_reader :redactor

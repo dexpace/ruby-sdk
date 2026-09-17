@@ -6,7 +6,6 @@ module Dexpace
   module Instrumentation
     class Emitter
       @logger: Logger
-      @redactor: Redactor
       @level: HTTPLogging
 
       def initialize: (logger: Logger, level: HTTPLogging) -> void
