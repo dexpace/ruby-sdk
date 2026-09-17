@@ -178,6 +178,31 @@ module Dexpace
       assert_equal("derive block is required", error.message)
     end
 
+    # Builder.new is public and takes a seed map: the seeds go through #override and the seams
+    # through the setters' guard, so the public constructor cannot store what the setters refuse
+    # -- before review round 0 a nil seed value became "" (R0-6).
+    test "CFG-37: Builder.new refuses a nil or blank seed and a nil or non-callable seam" do
+      seeds = [{ "K" => nil }, { "" => "v" }, { nil => "v" }, { "  " => "v" }]
+
+      seeds.each do |overrides|
+        assert_raises(InvalidArgumentError, overrides.inspect) do
+          Configuration::Builder.new(overrides: overrides)
+        end
+      end
+      assert_raises(InvalidArgumentError) { Configuration::Builder.new(overrides: nil) }
+      assert_raises(InvalidArgumentError) { Configuration::Builder.new(overrides: [%w[k v]]) }
+      assert_raises(InvalidArgumentError) { Configuration::Builder.new(env_source: nil) }
+      assert_raises(InvalidArgumentError) { Configuration::Builder.new(env_source: "text") }
+      assert_raises(InvalidArgumentError) { Configuration::Builder.new(property_source: :sym) }
+
+      seeded = Configuration::Builder.new(overrides: { K: 1, "trim" => " v " },
+                                          env_source: Configuration::Sources::NONE,).build
+
+      assert_equal("1", seeded.string("K"))
+      assert_equal(" v ", seeded.string("trim"))
+      assert_nil(Configuration::Builder.new(property_source: nil).build.string("K"))
+    end
+
     test "SEAM-29 / HTTP-3: .new is private, .build validates, #with re-validates through .build" do
       refute_respond_to(Configuration, :new)
       cfg = Configuration.build(env_source: FakeConfigSource.new,

@@ -21,10 +21,12 @@ module ContextStoreConfigTest
   SUPPORT = File.expand_path("../support", __dir__)
 
   # A fresh interpreter running `program` after `require "dexpace"`, with bundler's RUBYOPT
-  # cleared so nothing but the gem's own tree loads.
+  # cleared so nothing but the gem's own tree loads, and MAX_TRACKED_CONTEXTS cleared so the
+  # child reads the cap from its program and never from the host's environment (review round 0,
+  # R0-7); the one case about the environment tier sets it explicitly through `env:`.
   def self.fresh(program, env: {})
     Open3.capture3(
-      { "RUBYOPT" => nil }.merge(env),
+      { "RUBYOPT" => nil, "MAX_TRACKED_CONTEXTS" => nil }.merge(env),
       RbConfig.ruby, "-w", "-W:deprecated", "-I", LIB, "-I", SUPPORT, "-e",
       "require \"dexpace\"; #{program}",
     )
@@ -126,14 +128,20 @@ module ContextStoreConfigTest
 
   # XCUT-11: the first construction under contention.
   class RaceTest < DexpaceTestCase
-    # A slow environment seam widens the construction window from microseconds to 50 ms, so an
-    # unsynchronised `@default ||= new(...)` -- the guard the design names -- lets every thread
-    # build its own store and publish it, and 16 first callers see several objects. Under the
-    # mutex they see one. Reproduced red on 3.2.11 and 4.0.6 with the mutex removed.
-    test "XCUT-11: 16 threads reaching .default first get ONE store, even under a slow seam" do
+    # The construction itself is what the mutex covers, so the construction is what the fixture
+    # slows: a `new` held for 50 ms widens the `||=` window from microseconds to something 16
+    # threads all land in, and an unsynchronised `@default ||= new(...)` -- the guard the design
+    # names -- lets every one of them build its own store and publish it, where under the mutex
+    # they see one. Reproduced red on 3.2.11 and 4.0.6 with the mutex removed. The seams are slow
+    # as well, and run OUTSIDE the lock (the next case), so a slow seam alone no longer
+    # discriminates the mutex -- which is why the slowed step is `new` (review round 0, R0-4).
+    test "XCUT-11: 16 threads reaching .default first get ONE store, even under a slow new" do
       out, err, status = ContextStoreConfigTest.fresh(<<~RUBY)
         slow = ->(key) { sleep(0.05); nil }
         Dexpace.configure { |c| c.env_source = slow; c.property_source = slow }
+        Dexpace::ContextStore.singleton_class.prepend(Module.new do
+          def new(...) = (sleep(0.05); super)
+        end)
         go = Thread::Queue.new
         threads = Array.new(16) { Thread.new { go.pop; Dexpace::ContextStore.default } }
         16.times { go << true }
@@ -143,6 +151,44 @@ module ContextStoreConfigTest
       assert_predicate(status, :success?, err)
       assert_empty(err)
       assert_equal("1", out)
+    end
+
+    # The two seams are caller-supplied callables, and Dexpace.configure's rule -- no user code
+    # under a non-reentrant mutex -- applies to the store's first-call construction too: the
+    # chain is read BEFORE the lock and only the `||=` runs inside it. A seam that asks whether
+    # the calling thread owns the store's mutex is the direct observation; a seam that re-entered
+    # the store under the lock would have deadlocked (review round 0, R0-4).
+    test "XCUT-11: the configuration seams run outside the store's mutex, never under it" do
+      out, err, status = ContextStoreConfigTest.fresh(<<~RUBY)
+        mutex = Dexpace::ContextStore.instance_variable_get(:@default_mutex)
+        owned = []
+        probe = ->(key) { owned << mutex.owned?; nil }
+        Dexpace.configure { |c| c.env_source = probe; c.property_source = probe }
+        Dexpace::ContextStore.default
+        print owned.size.positive?, ' ', owned.none?
+      RUBY
+
+      assert_predicate(status, :success?, err)
+      assert_empty(err)
+      assert_equal("true true", out)
+    end
+
+    # Once published, the reference is read without the lock and without the chain: a later
+    # .default runs no seam at all, which is what makes a promotion after the first free of both.
+    test "context-store cap: after the first call, .default reads neither seam again" do
+      out, err, status = ContextStoreConfigTest.fresh(<<~RUBY)
+        calls = 0
+        counting = ->(key) { calls += 1; nil }
+        Dexpace.configure { |c| c.env_source = counting; c.property_source = counting }
+        first = Dexpace::ContextStore.default
+        after_first = calls
+        100.times { Dexpace::ContextStore.default }
+        print after_first.positive?, ' ', calls == after_first
+      RUBY
+
+      assert_predicate(status, :success?, err)
+      assert_empty(err)
+      assert_equal("true true", out)
     end
   end
 end

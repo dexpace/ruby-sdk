@@ -166,6 +166,21 @@ module FutureDeadlineTest
       assert_raises(Dexpace::InvalidArgumentError) { completer.future.wait(deadline: 1.0, clock: :c) }
       assert_raises(Dexpace::InvalidArgumentError) { completer.await(nil, deadline: :now) }
     end
+
+    # A settled future ignores an EXPIRED deadline, not an invalid one: the keywords are validated
+    # before the settled short-circuit, so a wrong argument type is refused in either state
+    # (review round 0, R0-5).
+    test "deadline: a settled future still refuses a non-numeric deadline and a bad clock" do
+      completer = Dexpace::Async::Completer.new
+      completer.fulfil(:v)
+
+      assert_raises(Dexpace::InvalidArgumentError) { completer.future.value(deadline: "5") }
+      assert_raises(Dexpace::InvalidArgumentError) { completer.future.wait(deadline: 1.0, clock: :c) }
+      assert_raises(Dexpace::InvalidArgumentError) { completer.await(nil, deadline: :now) }
+      clock = FakeClock.new(monotonic: 100.0)
+
+      assert_equal(:v, completer.future.value(deadline: 1.0, clock: clock))
+    end
   end
 
   # CFG-19 and CFG-20's met clauses.

@@ -4,17 +4,35 @@
 require_relative "../test_helper"
 require "dexpace"
 require "stringio"
+require_relative "../support/fake_config_source"
 
 # The ceiling half of the body-logging caps phase 3b postponed to phase 5 (IO-9 and BODY-32's
 # cross-reference rows): Dexpace::IO.max_materialized_bytes reads Keys::MAX_MATERIALIZED_BYTES
 # through the chain on every call, with the frozen constant as the default, and phase 3a's and
 # 3b's five value-readers now read it rather than the constant -- so Dexpace.configure and
 # .reset_config! govern the live ceiling. No `ceiling:` keyword exists anywhere.
+#
+# Every case runs with the slot's environment seam replaced by an empty fake (review round 0,
+# R0-7): the empty slot's seam is the real ENV, and a host that exports MAX_MATERIALIZED_BYTES
+# would otherwise reach every read made before a configure. Phase 3a's and 3b's own
+# materialisation suites read through the slot too and carry no such fake; they assume, as this
+# whole suite did before, that the host defines no such variable.
 module IOCeilingTest
   KEY = Dexpace::Configuration::Keys::MAX_MATERIALIZED_BYTES
 
+  # The slot with a hermetic environment seam and nothing else: what every case starts from,
+  # and what a mid-case reset_config! is followed by.
+  def self.hermetic!
+    Dexpace.configure { |c| c.env_source = FakeConfigSource.new }
+  end
+
   # The source itself.
   class SourceTest < DexpaceTestCase
+    def setup
+      super
+      IOCeilingTest.hermetic!
+    end
+
     def teardown
       Dexpace.reset_config!
       super
@@ -37,6 +55,7 @@ module IOCeilingTest
       assert_equal(2_097_152, Dexpace::IO.max_materialized_bytes)
 
       Dexpace.reset_config!
+      IOCeilingTest.hermetic!
 
       assert_equal(Dexpace::IO::MAX_MATERIALIZED_BYTES, Dexpace::IO.max_materialized_bytes)
     end
@@ -60,6 +79,11 @@ module IOCeilingTest
 
   # The five readers, driven through a configured ceiling small enough to observe.
   class ReadersTest < DexpaceTestCase
+    def setup
+      super
+      IOCeilingTest.hermetic!
+    end
+
     def teardown
       Dexpace.reset_config!
       super
@@ -76,6 +100,7 @@ module IOCeilingTest
       assert_equal("01234567", source.read_exactly(8))
 
       Dexpace.reset_config!
+      IOCeilingTest.hermetic!
 
       assert_equal("89abcdef", source.read_exactly(8))
     end

@@ -45,18 +45,33 @@ module ProxyTest
                            **extra,)
     end
 
-    test "CFG-22 / P5-7: #to_s and #inspect both mask the password; the username is kept" do
+    # CFG-22's parenthetical is "never emit username/password in cleartext": BOTH credentials
+    # are masked in BOTH renderings, and a rendering reveals only which of the two is set
+    # (review round 0, R0-2). The accessors still return the values.
+    test "CFG-22 / P5-7: #to_s and #inspect mask the username AND the password" do
+      user = "AdminUserName"
       secret = "SuperSecretPassword"
-      masked = proxy(username: "admin", password: secret)
+      masked = proxy(username: user, password: secret)
 
       refute_includes(masked.to_s, secret)
+      refute_includes(masked.to_s, user)
       refute_includes(masked.inspect, secret)
-      assert_equal("http://admin:****@proxy.internal:8080", masked.to_s)
+      refute_includes(masked.inspect, user)
+      assert_equal("http://****:****@proxy.internal:8080", masked.to_s)
+      assert_includes(masked.inspect, 'username="****"')
       assert_includes(masked.inspect, 'password="****"')
-      assert_includes(masked.inspect, 'username="admin"')
-      assert_equal("http://proxy.internal:8080", proxy.to_s)
-      assert_includes(proxy.inspect, "password=nil")
+      assert_equal(user, masked.username)
+      assert_equal(secret, masked.password)
       assert_includes(proxy(challenge_handler: -> {}).inspect, 'challenge_handler="Proc"')
+    end
+
+    test "CFG-22: the masked shape says which credential is set, and nothing when neither is" do
+      assert_equal("http://****@proxy.internal:8080", proxy(username: "u").to_s)
+      assert_equal("http://:****@proxy.internal:8080", proxy(password: "p").to_s)
+      assert_equal("http://proxy.internal:8080", proxy.to_s)
+      assert_includes(proxy(username: "u").inspect, 'username="****" password=nil')
+      assert_includes(proxy(password: "p").inspect, 'username=nil password="****"')
+      assert_includes(proxy.inspect, "username=nil password=nil")
     end
 
     test "CFG-22: every member is read back, frozen, the type resolved through Type.of" do
@@ -261,6 +276,25 @@ module ProxyTest
       assert_equal("secret", proxy.password)
     end
 
+    # A blank HTTPS_PROXY is absent for the preference whichever tier supplied it: CFG-2 makes an
+    # empty ENVIRONMENT value fall through on its own, but an override or a property of "" is an
+    # answer to Configuration#string and must not mask HTTP_PROXY either (review round 0, R0-8).
+    test "CFG-24: a blank HTTPS_PROXY from any tier does not mask HTTP_PROXY" do
+      plain = { "HTTP_PROXY" => "http://plain.example:3128" }
+      blank_env = ProxyTest.resolve(environment: plain.merge("HTTPS_PROXY" => "  "))
+      via_override = Dexpace::Proxy.resolve(Dexpace::Configuration.build(
+                                              overrides: { "HTTPS_PROXY" => "" },
+                                              env_source: FakeConfigSource.new(plain),
+                                              property_source: FakeConfigSource.new,
+                                            ))
+      via_property = ProxyTest.resolve(properties: { "https.proxy" => "" }, environment: plain)
+
+      [blank_env, via_override, via_property].each do |proxy|
+        assert_equal("plain.example", proxy.host)
+        assert_equal(3128, proxy.port)
+      end
+    end
+
     test "CFG-24: the scheme selects the type -- socks4, socks5, and everything else HTTP" do
       types = { "socks4://h:1" => Dexpace::Proxy::Type::SOCKS4,
                 "SOCKS5://h:1" => Dexpace::Proxy::Type::SOCKS5,
@@ -409,7 +443,7 @@ module ProxyTest
 
     # CFG-28's MAY is taken and its prohibition met structurally: resolution happens only when a
     # caller invokes the resolver, and nothing in core invokes it -- the absence of a call site is
-    # the enforcement. The default argument is the process-wide slot.
+    # the enforcement.
     test "CFG-28: nothing in core resolves proxy configuration implicitly" do
       root = File.expand_path("../../lib", __dir__)
       call_sites = Dir.glob("#{root}/**/*.rb").select do |path|
@@ -417,7 +451,25 @@ module ProxyTest
       end
 
       assert_empty(call_sites)
-      assert_nil(Dexpace::Proxy.resolve) # the empty slot, and no ENV read that a fake could see
+    end
+
+    # The default argument is the process-wide slot -- proven with the slot's environment seam
+    # replaced by a fake, never against the empty slot, whose seam is the real ENV and would
+    # make this case read the host's HTTPS_PROXY (review round 0, R0-1). The invocation itself is
+    # the caller's explicit act the requirement permits; what it reads is whatever the slot holds.
+    test "CFG-28: an explicit .resolve with no argument reads the process-wide slot" do
+      Dexpace.configure do |c|
+        c.env_source = FakeConfigSource.new("HTTPS_PROXY" => "http://slot.example:3128")
+        c.property_source = FakeConfigSource.new
+      end
+
+      assert_equal("slot.example", Dexpace::Proxy.resolve.host)
+
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new }
+
+      assert_nil(Dexpace::Proxy.resolve)
+    ensure
+      Dexpace.reset_config!
     end
 
     test "CFG-37 / P2-15: .resolve requires a Configuration; the resolver is a private constant" do
