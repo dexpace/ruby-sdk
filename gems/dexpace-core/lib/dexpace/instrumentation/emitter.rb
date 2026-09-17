@@ -108,13 +108,13 @@ module Dexpace
 
       # Every header, folded, under its prefix; Event#field gates the NAME (OBS-18: marker or
       # omission, per the policy) and redacts a URL-valued header's value (OBS-16, OBS-17) on the
-      # way in, so nothing is decided here. Multiple values of one name are joined with ", ",
-      # the wire's own combination rule, so each name is one field.
+      # way in, so nothing is decided here -- and nothing is joined here either: the value list
+      # goes over AS the list, and the event joins the redacted values with ", ", the wire's own
+      # combination rule, so each name is one field and a second `Location`'s userinfo meets the
+      # redactor on its own rather than behind the first value's path (P5-108).
       def headers(event, headers, prefix)
         headers.names.each do |name|
-          values = headers[name] || []
-          value = values.size == 1 ? values.first : values.join(", ")
-          event.field("#{prefix}#{name.downcase}", value)
+          event.field("#{prefix}#{name.downcase}", headers[name] || [])
         end
       end
 

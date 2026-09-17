@@ -38,8 +38,17 @@ module Dexpace
     # OBS-20's asymmetry has a sharper edge here, stated because nothing else states it: the
     # settlement work runs on the settling thread, so a meter that throws -- which OBS-20 says
     # is not wrapped -- propagates into the PRODUCER, into whoever settled the future, and not
-    # into the caller. The log emissions are contained on both paths and have no such
-    # consequence.
+    # into the caller; when the future settled inside the head, the producer IS the caller and
+    # the raise fails the request, as it does on the sync path. The log emissions are contained
+    # on both paths and have no such consequence. Two things keep that true at every level
+    # (P5-109, review round 2's R2-3). The settlement work is registered on the SOURCE future
+    # at every level, never on the derived one: Future#then runs the derived future's
+    # settlement inside its own `rescue`, so a meter raising from a derived future's callback
+    # would fail a future that had just been fulfilled -- a no-op -- and vanish. And the span is
+    # finished and the instruments recorded by exactly one side: the head's `ensure` when the
+    # head raised before the chain handed back its future, and the settlement callback
+    # otherwise, so a settlement that ran inline on an already-settled future and raised does
+    # not meet a second finish in the head's `ensure`.
     class AsyncStep < Step
       # What the settlement side needs of the head: the request as sent, the start time, the
       # bridged diagnostic context (nil when nothing is logged) and the open span. A private
@@ -56,37 +65,47 @@ module Dexpace
       # @return [Dexpace::Async::Future] the chain's future below the body level; a derived one
       #   carrying the wrapped response at it
       def call(request, cursor)
+        future, pending = head(request, cursor)
+        attach(future, pending)
+      end
+
+      private
+
+      # The synchronous head, from the span's start to the chain's future, its scope closed on
+      # the calling fiber whichever way it ends (P5-93). A head that raised before the chain
+      # handed back its future -- `pending` still nil -- tears the span down here too, unwrapped
+      # (OBS-20, OBS-30); one that did not leaves that to the settlement side alone, so the two
+      # sides cannot both run it (P5-109).
+      #
+      # @return [Array] the future and the Pending the settlement side needs
+      def head(request, cursor)
         started = @clock.monotonic
         span = open_span(request)
         scope = Tracing.correlate(span, Bundle::NONE)
-        attached = false
+        pending = nil #: Pending?
         begin
           request = prepare(request)
           future = cursor.call(request)
           pending = Pending.new(request: request, started: started, span: span,
                                 snapshot: logged? ? Diagnostics.capture : nil,)
-          scope.close
-          result = attach(future, pending)
-          attached = true
-          result
+          [future, pending] #: [Dexpace::Async::Future, Pending]
         ensure
-          # The head raised before the settlement work was registered: tear everything down
-          # here, unwrapped (OBS-20, OBS-30).
-          unless attached
-            scope.close
-            finish(span, started)
-          end
+          scope.close
+          finish(span, started) if pending.nil?
         end
       end
 
-      private
-
       # The settlement side: the response or failure event under the bridged context, then the
-      # span's finish and the two instruments, unwrapped.
+      # span's finish and the two instruments, unwrapped -- registered on the SOURCE future at
+      # both levels, outside Future#then's rescue (P5-109). At the body level the derivation
+      # comes first, so the source's callbacks run in the order the sync path emits: the
+      # response event and the derived future's fulfilment, then the finish; a meter that raises
+      # there is collected by Hooks.notify, which still runs every later callback, and re-raised
+      # into the producer once the list has run.
       def attach(future, pending)
         if body?
           derived = future.then { |response| settle_response(pending, wrap_response(response)) }
-          derived.on_settle { |settlement| settle(pending, settlement) }
+          future.on_settle { |settlement| settle(pending, settlement) }
           derived
         else
           future.on_settle do |settlement|

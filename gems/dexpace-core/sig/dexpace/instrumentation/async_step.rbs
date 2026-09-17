@@ -21,6 +21,7 @@ module Dexpace
 
       private
 
+      def head: (Dexpace::Request request, Pipeline::Cursor cursor) -> [Dexpace::Async::Future, Pending]
       def attach: (Dexpace::Async::Future future, Pending pending) -> Dexpace::Async::Future
       def settle_response: (Pending pending, Dexpace::Response response) -> Dexpace::Response
       def settle: (Pending pending, Dexpace::Async::Settlement settlement) -> void

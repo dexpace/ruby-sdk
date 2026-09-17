@@ -63,13 +63,33 @@ module Dexpace
         if header.nil?
           name == Keys::URL_FULL ? redactor.url(value) : value
         elsif redactor.header_name?(header)
-          # OBS-3's literal null and not the redactor's "": `nil.equal?` and not `#nil?`, because
-          # a BasicObject answers no #nil? and OBS-6 renders it anyway.
-          nil.equal?(value) ? nil : redactor.header_value(header, value)
+          header_value(redactor, header, value)
         elsif redactor.policy.omit_disallowed_headers
           OMIT
         else
           Redactor::REDACTED_HEADER
+        end
+      end
+
+      # An allow-listed header's logged value. A multi-valued header -- an Array, which is what
+      # the Emitter hands over for every header, and what a caller writing one by hand may pass
+      # -- goes through the redactor ONE VALUE AT A TIME and is joined with ", ", the wire's own
+      # combination rule, only afterwards (P5-108): joined first, a second `Location`'s userinfo
+      # sat behind the first value's path, where the URL-value redactor -- which reads one URL
+      # -- never reached it, and OBS-17's "redacted through the URL-value redactor" is stated
+      # per value (review round 2's R2-2). nil is OBS-3's literal null and not the redactor's
+      # "". A `case`, because `when` sends `===` to the pattern and nothing to the value: a
+      # BasicObject answers no `#is_a?` and no `#nil?`, and OBS-6 renders it anyway.
+      #
+      # @param redactor [Redactor]
+      # @param header [String] the header name behind the key
+      # @param value [Object] one value, an Array of them, or nil
+      # @return [Object]
+      def self.header_value(redactor, header, value)
+        case value
+        when ::Array then value.map { |each| redactor.header_value(header, each) }.join(", ")
+        when nil then nil
+        else redactor.header_value(header, value)
         end
       end
 

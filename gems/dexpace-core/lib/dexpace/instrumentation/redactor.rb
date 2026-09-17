@@ -60,19 +60,28 @@ module Dexpace
       # fragment.
       RELATIVE_MARKER = "?***"
 
-      # The authority's userinfo in a value the parser REJECTED, which is the one place OBS-11
-      # has no split component to read (P5-100): any leading run of whitespace or control bytes
-      # (SP, HTAB, the C0 controls and DEL, the one prefix a value the parser rejects can carry
-      # in front of a real authority -- HTTP-19's grammar admits a leading OWS in an inbound
-      # header value, and a `Location` built with one took this route with its userinfo intact;
-      # review round 1's R1-3, P5-105), an optional scheme, `//`, then everything up to the last
-      # `@` before the first `/`, `?` or `#`. Anchored, two bounded classes and one literal, so
-      # it is linear; ASCII only, so it matches a BINARY value carrying high bytes; the
-      # per-pattern timeout is the port's rule (never `Regexp.timeout`, a process-wide budget a
-      # library must not impose on its host).
-      SURGERY_USERINFO = ::Regexp.new(
-        '\A([\x00-\x20\x7F]*(?:[A-Za-z][A-Za-z0-9+.\-]*:)?//)[^/?#]*@', timeout: 1.0,
-      )
+      # An authority's userinfo in a value the parser REJECTED, which is the one place OBS-11
+      # has no split component to read (P5-100): `//`, then everything up to the last `@` before
+      # the first `/`, `?` or `#` -- WHEREVER the `//` sits, and EVERY one of them (P5-107).
+      # Two rounds of review found a prefix the previous, anchored pattern did not tolerate in
+      # front of a real `scheme://user:secret@host` -- a leading OWS (R1-3, P5-105), then RFC
+      # 3986 Appendix C's own `<…>` delimiters, quotes, parentheses, `x `, `%20`, `+`, `@`, a
+      # backslash, an NBSP, a BINARY obs-text byte (R2-1) -- and each was one more spelling of
+      # the same fact: a value the parser rejected has no grammar left to honour, HTTP-19 admits
+      # every printable byte and obs-text in a header value, and the bytes before an authority
+      # are whatever a hostile server chose. So the pattern is not anchored and tolerates no
+      # prefix, because it has no prefix to tolerate: the substitution runs over every
+      # `//`-authority in the value, which is also what closes a doubled URL (the second
+      # authority sat behind the first value's path, where an anchored `sub` never reached).
+      # One literal and one bounded class, matched by `gsub`: each `//` is checked in constant
+      # time and the run after it is scanned once, up to the next `/`, `?` or `#`, so the whole
+      # substitution is linear in the value -- measured at 10 KiB, 100 KiB and 1 MiB on 4.0.6
+      # and 3.2.11, the worst shapes (a value of nothing but slashes, or of `//a@` repeated) cost
+      # under 100 microseconds per KiB, an order of magnitude inside the pattern's timeout at a
+      # size no header value reaches. ASCII only, so it matches a BINARY value carrying high
+      # bytes; the per-pattern timeout is the port's rule (never `Regexp.timeout`, a
+      # process-wide budget a library must not impose on its host).
+      SURGERY_USERINFO = ::Regexp.new("//[^/?#]*@", timeout: 1.0)
       private_constant :SURGERY_USERINFO
 
       private_class_method :new
@@ -247,15 +256,19 @@ module Dexpace
         out
       end
 
-      # The unparseable route: an authority's userinfo replaced by the placeholder first, since a
-      # value the parser rejected has no userinfo component to read and OBS-11 is unconditional
-      # (P5-100); then the raw value up to the first `?` or `#`, then the marker if there was
-      # one. The substitution runs on the whole value and the cut afterwards, which is the same
-      # result either way -- neither of the pattern's classes can cross a `?` or a `#`. The
-      # leading bytes the pattern tolerates are written back as they came: OBS-16 keeps the
-      # path, and this route keeps everything but the userinfo.
+      # The unparseable route: every `//`-authority's userinfo replaced by the placeholder
+      # first, since a value the parser rejected has no userinfo component to read and OBS-11 is
+      # unconditional (P5-100, P5-107); then the raw value up to the first `?` or `#`, then the
+      # marker if there was one. The substitution runs on the whole value and the cut
+      # afterwards, which is the same result either way -- the pattern's one class cannot cross
+      # a `?` or a `#`. Every other byte is written back as it came: OBS-16 keeps the path, and
+      # this route keeps everything but the userinfo. What it does not reach is a value with no
+      # `//` before its `@` (`user:pw@h/p`), which RFC 3986 reads as a path or an opaque part
+      # and which only a proxy URL's own grammar can call a credential -- the resolver's belt,
+      # P5-103 -- and a value the parser ACCEPTED without an authority (`http:///user:pw@h/p`,
+      # `//@user:pw@h/x`), which never comes here (P5-100).
       def surgery(raw)
-        scrubbed = raw.sub(SURGERY_USERINFO, "\\1#{REDACTED_USERINFO}@")
+        scrubbed = raw.gsub(SURGERY_USERINFO, "//#{REDACTED_USERINFO}@")
         cut = [scrubbed.index("?"), scrubbed.index("#")].compact.min
         cut.nil? ? scrubbed : "#{scrubbed[0, cut]}#{RELATIVE_MARKER}"
       end

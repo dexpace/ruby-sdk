@@ -17,6 +17,7 @@ module Dexpace
       OMIT: Object
 
       def self.value: (Redactor redactor, String name, untyped value) -> untyped
+      def self.header_value: (Redactor redactor, String header, untyped value) -> untyped
       def self.scrub!: (Redactor redactor, Hash[String, untyped] hash) -> Hash[String, untyped]
       def self.reserved?: (String name) -> bool
       def self.header_of: (String name) -> String?
