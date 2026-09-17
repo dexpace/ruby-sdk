@@ -3070,9 +3070,10 @@ Unsatisfied-MUSTs entry already names (no new line there); `CFG-34`, whose boxed
 clause has no Ruby manifestation and is inapplicable per §11.15; and `CFG-35`, whose throwable half is phase
 6a's Task 3 — nothing ⏳, nothing 🚫, nothing N/A, plus seven cross-reference rows (`XCUT-5`, `CTX-11`,
 `IO-9`, `BODY-32`, `SEAM-18`, `XCUT-11`, `NFR-11`) for the IDs of other phases this build reached. `bundle
-exec rake` is green on 4.0.6 at the tests tip with 99.97% line coverage against the 80% floor (4,690 of
-4,691 lines; the one uncovered line is in phase 2's `registry.rb`) and 1,755 runs across the six gems; the
-matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its
+exec rake` is green on 4.0.6 at the tests tip with 99.97% line coverage against the 80% floor (4,703 of
+4,704 lines after review round 0's repair; the one uncovered line is in phase 2's `registry.rb`) and 1,762
+runs across the six gems; the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on
+all seventeen gates too, its
 `test:gems` above the floor, and the honest RuboCop claim rests on `--fail-level=convention
 --ignore-parent-exclusion`. **Every guard the brief asks to be run red was run red**, thirty-six single-edit
 mutations under twenty-five headings: all caught on the first run but one — the resolver's port bound raised
@@ -3097,7 +3098,15 @@ text are itemised in the checklist, none lowering a gate. The surface manifest i
 with identical output but the floor's `Hash#inspect` spelling and `BuildInfo::RUNTIME_VERSION`;
 `architecture.md`, the core README, `README.md` and `docs/README.md` point at it. The design's ledger gains
 an "As built" addendum, rows **P5-51–P5-58**, numbered from the tree so the parallel lanes cannot collide —
-5c's as-built rows start at P5-71 and 5b's at P5-91. No corpus note was written: nothing this build found
+5c's as-built rows start at P5-71 and 5b's at P5-91. **Review round 0 (2026-09-17) found the `CFG-28`
+case resolving against the empty slot's real `ENV`** — red on any host with `HTTPS_PROXY` set, the failure
+the suite's own header warns about — and `Proxy#to_s`/`#inspect` printing the username in cleartext beside
+a masked password, against `CFG-22`'s "never emit username/password in cleartext"; both were closed on the
+owning branches, with the ceiling and cap suites made hermetic the same way, the store's seams moved
+outside its mutex (P5-55 amended), `Completer#await` validating its keywords before the settled
+short-circuit, `Builder.new` validating its seeds, and a blank `HTTPS_PROXY` no longer masking `HTTP_PROXY`
+— nine mutations run red after the repair, the checklist's deviations 24–26 and its second guard table.
+No corpus note was written: nothing this build found
 contradicts a harvested rule. No frozen sentence is contradicted either — §8.2's chain and §8.3's queue wait
 are built as described — so `docs/first-release.md` is untouched and its `C1`–`C14` paragraph gains no
 `C15`; the §8.2, §8.3, §10.16 and §10.17 addenda that would state the substituted third source, the queue

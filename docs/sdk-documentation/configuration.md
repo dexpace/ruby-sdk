@@ -251,7 +251,10 @@ which no `Dexpace.configure` could ever reach; now a `configure` at boot, before
 is promoted, sizes it, and a `configure` after the first promotion does not resize it — nor does
 `reset_config!`. The mutex is what makes a first-call construction as sound as a load-time one:
 sixteen threads reaching `.default` together get one store (`context_store_config_test.rb`), where
-an unsynchronised `@default ||= new` would give sixteen. Constructing the store registers no
+an unsynchronised `@default ||= new` would give sixteen. The chain is read *outside* the mutex and
+only the `||=` runs under it — no caller-supplied seam ever runs under the lock, the rule
+`Dexpace.configure` follows — and once published the reference is read without the lock, so a
+promotion after the first runs no seam and takes no lock. Constructing the store registers no
 context (`CTX-17`).
 
 ```ruby
@@ -359,25 +362,30 @@ Dexpace::Async.delay(-1)                # raises "duration must be non-negative,
 `Proxy` is a frozen `Data` over eight members — `type`, `host`, `port`, `non_proxy_hosts`,
 `username`, `password`, `challenge_handler`, `bypass_all` — built through `Proxy.build` with the
 last five optional (`CFG-22`). The port is validated into `0..65535`, the type is resolved through
-`Proxy::Type.of`, and every non-proxy entry must already be a `HostPattern`. `#to_s` is
-`type://user:****@host:port`, the username kept and the password masked; `#inspect` prints every
-member but the password, which shows as `"****"` when present, and the challenge handler by its
-class only. The accessor `#password` returns the secret — the model holds it, it is the renderings
-that never show it. `#bypass?(host)` is `true` when `bypass_all` is set, otherwise when any pattern
-matches (`CFG-23`).
+`Proxy::Type.of`, and every non-proxy entry must already be a `HostPattern`. Both renderings mask
+both credentials — `CFG-22`'s words are "never emit username/password in cleartext": `#to_s` is
+`type://****:****@host:port`, each credential present rendered as `****` in its userinfo position
+and an absent one as nothing, so the shape says which is set and never what it is; `#inspect`
+prints every member, the username and the password each as `"****"` when present and `nil` when
+absent, and the challenge handler by its class only. The accessors `#username` and `#password`
+return the values — the model holds them, it is the renderings that never show them.
+`#bypass?(host)` is `true` when `bypass_all` is set, otherwise when any pattern matches
+(`CFG-23`).
 
 ```ruby
 proxy = Dexpace::Proxy.build(type: :http, host: "proxy.corp", port: 3128, username: "u", password: "s3cret",
                              non_proxy_hosts: [Dexpace::Proxy::HostPattern.of("*.internal"),
                                                Dexpace::Proxy::HostPattern.of("localhost")])
-proxy.to_s                                                                # => "http://u:****@proxy.corp:3128"
+proxy.to_s                                                                # => "http://****:****@proxy.corp:3128"
 proxy.inspect
-# => "#<Dexpace::Proxy type=\"HTTP\" host=\"proxy.corp\" port=3128 non_proxy_hosts=[\"*.internal\", \"localhost\"] username=\"u\" password=\"****\" challenge_handler=nil bypass_all=false>"
+# => "#<Dexpace::Proxy type=\"HTTP\" host=\"proxy.corp\" port=3128 non_proxy_hosts=[\"*.internal\", \"localhost\"] username=\"****\" password=\"****\" challenge_handler=nil bypass_all=false>"
+proxy.username                                                            # => "u"
 proxy.password                                                            # => "s3cret"
 proxy.bypass?("DB.INTERNAL")                                              # => true
 proxy.bypass?("api.example.com")                                          # => false
-proxy.with(port: 8080).to_s                                               # => "http://u:****@proxy.corp:8080"
+proxy.with(port: 8080).to_s                                               # => "http://****:****@proxy.corp:8080"
 proxy.with(port: 65536)                 # raises "port must be within 0..65535, got 65536"
+proxy.with(password: nil).to_s                                            # => "http://****@proxy.corp:3128"
 Dexpace::Proxy.build(type: "socks5", host: "h", port: 1080).to_s          # => "socks5://h:1080"
 Dexpace::Proxy.build(type: "ftp", host: "h", port: 1)
                                         # raises "unknown proxy type \"ftp\"; one of HTTP, SOCKS4, SOCKS5"
@@ -432,9 +440,10 @@ found under, never two independent reads. Credentials come from `https.proxyUser
 `https.proxyPassword` only, with no `http.*` fallback. A property host with a port that is
 missing, non-numeric or outside `0..65535` yields `nil` with a warning and does *not* fall through
 to the environment (`CFG-25`): a set-but-unusable proxy is a configuration error, not an absence.
-Only when no property host is set is the environment read, `HTTPS_PROXY` then `HTTP_PROXY`, as a
-URL whose scheme selects the type, whose port must be explicit — `CFG-25` forbids defaulting to 80
-or 443 — and whose userinfo is percent-decoded into the credentials.
+Only when no property host is set is the environment read, `HTTPS_PROXY` then `HTTP_PROXY` — the
+first non-blank of the two, so a blank `HTTPS_PROXY` from any tier does not mask `HTTP_PROXY` — as
+a URL whose scheme selects the type, whose port must be explicit — `CFG-25` forbids defaulting to
+80 or 443 — and whose userinfo is percent-decoded into the credentials.
 
 ```ruby
 def resolve_with(env: {}, props: {})
@@ -445,15 +454,17 @@ end
 resolve_with(props: { "https.proxyHost" => "p1", "https.proxyPort" => "3128",
                       "http.proxyHost" => "p2", "http.proxyPort" => "8080" }).to_s      # => "http://p1:3128"
 resolve_with(props: { "http.proxyHost" => "p2", "http.proxyPort" => "8080",
-                      "https.proxyUser" => "u", "https.proxyPassword" => "pw" }).to_s  # => "http://u:****@p2:8080"
+                      "https.proxyUser" => "u", "https.proxyPassword" => "pw" }).to_s  # => "http://****:****@p2:8080"
 resolve_with(props: { "https.proxyHost" => "p1", "http.proxyPort" => "8080" })        # => nil
 # stderr: [dexpace] proxy port for p1 (https.proxyPort) is missing, non-numeric or outside 0..65535
 r = resolve_with(env: { "HTTPS_PROXY" => "http://u%40x:p%3Aw@proxy.corp:3128",
                         "NO_PROXY" => "*.internal, localhost" })
-r.to_s                                                                    # => "http://u@x:****@proxy.corp:3128"
+r.to_s                                                                    # => "http://****:****@proxy.corp:3128"
+r.username                                                                # => "u@x"
 r.password                                                                # => "p:w"
 r.non_proxy_hosts.map(&:glob)                                             # => ["*.internal", "localhost"]
 resolve_with(env: { "HTTP_PROXY" => "socks5://proxy.corp:1080" }).type.name             # => "SOCKS5"
+resolve_with(env: { "HTTPS_PROXY" => "  ", "HTTP_PROXY" => "http://plain:3128" }).host      # => "plain"
 resolve_with(env: { "HTTPS_PROXY" => "https://proxy.corp" })                            # => nil
 # stderr: [dexpace] proxy URL "https://proxy.corp" has no explicit port; CFG-25 forbids defaulting to 80 or 443
 Dexpace::Proxy.resolve(:nope)           # raises "configuration must be a Dexpace::Configuration, got Symbol"

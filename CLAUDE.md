@@ -508,7 +508,7 @@ Each is one line plus the chapter to read before touching the area.
   timed pop is the deadline on `Future#wait` / `#value` / `Completer#await`, which expire by
   `request_cancel(:deadline_expired)` — settling the completer, never raising past it — and
   `Dexpace::Async.delay` raises `SeamError` without a `Fiber.scheduler` rather than blocking a thread
-  (`CFG-18`; phase 5a's P5-52).
+  (`CFG-18`; phase 5a's P5-9, and P5-52 for the `true` it settles with).
 - **`Time#httpdate` formats and `Dexpace::HTTPDate.parse` parses; `Time.httpdate`, `Time.parse` and
   `Time.rfc2822` are never called in core** — the stdlib parser accepts the obsolete RFC 850 and asctime
   forms `CFG-31` refuses, and `Time.utc` silently normalises `31 Nov` and `29 Feb 1995` to the next day, so
@@ -520,10 +520,12 @@ Each is one line plus the chapter to read before touching the area.
   `uuid_test.rb`'s text scan does. `Thread.current[]` is fiber-local, which is the point: one generator per
   execution context and none shared (`CFG-32`).
 - **`ContextStore.default` is built on its FIRST call, under one `::Thread::Mutex`, reading the configured
-  cap then** — phase 4a's load-time assignment could never see a `Dexpace.configure` at boot, and an
-  unsynchronised `@default ||= new` publishes one store per first caller under a slow seam (sixteen for
-  sixteen; `context_store_config_test.rb`). A configure after the first promotion does not resize the
-  store, and neither does `reset_config!` (`CTX-11`; phase 5a's P5-55). The materialisation ceiling is the
+  cap then — and reading it OUTSIDE the lock** — phase 4a's load-time assignment could never see a
+  `Dexpace.configure` at boot, and an unsynchronised `@default ||= new` publishes one store per first
+  caller under a slow construction (sixteen for sixteen; `context_store_config_test.rb`); the two seams are
+  caller-supplied callables and never run under the non-reentrant mutex, only the `||=` does, and the
+  published reference is read lock-free after that. A configure after the first promotion does not resize
+  the store, and neither does `reset_config!` (`CTX-11`; phase 5a's P5-55). The materialisation ceiling is the
   other way round: `Dexpace::IO.max_materialized_bytes` is read per call, so the live configuration governs
   every materialisation and `IO::MAX_MATERIALIZED_BYTES` is only the default and the fallback (P5-56).
 
