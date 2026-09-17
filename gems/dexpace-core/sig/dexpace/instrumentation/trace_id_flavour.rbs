@@ -3,6 +3,9 @@ module Dexpace
     class TraceIdFlavour < Data
       include Model
 
+      COERCED_W3C_TRACE_ID: String
+      DATADOG_DRAW_BOUND: Integer
+
       NONE: TraceIdFlavour
       W3C: TraceIdFlavour
       DATADOG: TraceIdFlavour
@@ -28,6 +31,10 @@ module Dexpace
       def valid_trace_id?: (String trace_id) -> bool
       def renders?: (String trace_id) -> bool
       private def renderable?: (String trace_id) -> bool
+
+      # Phase 5c, OBS-27. The generator is a test seam answering #hex(bytes) and
+      # #random_number(max) -- SecureRandom's own two methods, which a seeded Random shares.
+      def generate_trace_id: (?untyped generator) -> String
     end
   end
 end

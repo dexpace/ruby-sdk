@@ -1,0 +1,11 @@
+module Dexpace
+  module Instrumentation
+    # Phase 5b's module (OBS-10, OBS-24); the three constants shipped early by phase 5c because
+    # Tracing and Scope read the two keys (P5-71). 5b's Task 6 adds its methods here.
+    module Diagnostics
+      TRACE_ID: Symbol
+      SPAN_ID: Symbol
+      DEFAULT_KEYS: Array[Symbol]
+    end
+  end
+end

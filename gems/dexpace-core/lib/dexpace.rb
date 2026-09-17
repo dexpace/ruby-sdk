@@ -156,6 +156,12 @@ require_relative "dexpace/configuration"
 require_relative "dexpace/config"
 require_relative "dexpace/proxy"
 
+# Phase 5c: tracing and metrics, in dependency order -- phase 5b's diagnostics module first (its
+# three constants shipped early by 5c, P5-71: scope.rb and tracing.rb read the two key names),
+# then the scope handle, the tracing module over it, the metrics SPI, the HTTP-tracer vocabulary
+# and the bus adapter over it. The four phase-4a files above gained their protocols in place.
+require_relative "dexpace/instrumentation/diagnostics"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an
