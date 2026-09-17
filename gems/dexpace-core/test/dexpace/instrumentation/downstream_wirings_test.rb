@@ -156,6 +156,57 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
       assert_match(/https\.proxyPort/, sink.payloads.first[Keys::MESSAGE])
     end
 
+    # P5-103 (review round 1's R1-1): the warning shows the URL, a proxy URL is the one
+    # configuration value that carries a credential, and the diagnostic carries the warning's
+    # text under a key the redactor does not reserve -- so the round-1 review found `user:secret`
+    # in the sink on every malformed-URL path. The URL is now rendered through the redactor's
+    # total form for both channels, and CFG-24's grammar rule covers the scheme-less spelling the
+    # redactor reads as an opaque part. The assertion is the chapter's negative: the credential
+    # appears NOWHERE, in the warning or in any payload.
+    test "P5-103, CFG-24, CFG-25, OBS-11: a proxy credential reaches neither channel" do
+      ["http://user:secret@proxy.corp", "http://user:secret@proxy.corp:99999",
+       "http://user:secret@proxy.corp:abc", "http://user:secret@proxy corp:3128",
+       "http://user:secret@:3128", "http://a@user:secret@proxy.corp:3128",
+       "user:secret@proxy.corp:3128", "//user:secret@proxy.corp",
+       "http://user:secret@proxy.corp?token=T",].each do |url|
+        sink = RecordingSink.new
+        chain = configuration(environment: { ConfigKeys::HTTPS_PROXY => url })
+
+        warnings = WarningCapture.record do
+          assert_nil(Dexpace::Proxy.resolve(chain, logger: Logger.build(sink: sink)), url)
+        end
+
+        assert_equal(1, warnings.size, url)
+        assert_equal(1, sink.entries.size, url)
+        message = sink.payloads.first[Keys::MESSAGE]
+
+        assert_includes(warnings.first, "***:***@", url)
+        assert_includes(message, "***:***@", url)
+        refute_includes(warnings.first, "secret", url)
+        refute_includes(warnings.first, "user:", url)
+        refute_includes(sink.payloads.inspect, "secret", url)
+        refute_includes(sink.payloads.inspect, "user:", url)
+        refute_includes(sink.payloads.inspect, "token=T", url)
+      end
+    end
+
+    # The parser's own message repeats the value it rejected, so it is not quoted; a reader
+    # still sees the (redacted) URL and the problem, and 5a's phrases are untouched.
+    test "P5-103: a value the parser rejects is named once, redacted, without the parser's text" do
+      sink = RecordingSink.new
+      chain = configuration(environment: { ConfigKeys::HTTPS_PROXY => "http://user:secret@h:abc" })
+
+      warnings = WarningCapture.record do
+        assert_nil(Dexpace::Proxy.resolve(chain, logger: Logger.build(sink: sink)))
+      end
+
+      expected = "proxy URL \"http://***:***@h:abc\" is not a URI"
+
+      assert_equal("[dexpace] #{expected}", warnings.first.chomp)
+      assert_equal(expected, sink.payloads.first[Keys::MESSAGE])
+      refute_includes(warnings.first, "bad URI")
+    end
+
     test "P5-8: without a logger the warning is the only output, and a valid proxy warns nothing" do
       sink = RecordingSink.new
       bad = configuration(environment: { ConfigKeys::HTTPS_PROXY => "nope" })

@@ -15,7 +15,7 @@ require_relative "../../../lib/dexpace/instrumentation/logger"
 # here, at its call site, and has no mirror of its own (P2-15, P4-3).
 #
 # Split into nested classes under Metrics/ClassLength: the inert event, the accumulator, the
-# merge and the tag, the rendering, the header-name gate.
+# merge and the tag, the rendering, the header-name gate, the two ambient sources.
 class DexpaceInstrumentationEventTest < DexpaceTestCase
   include AllocationDelta
 
@@ -462,6 +462,90 @@ class DexpaceInstrumentationEventTest < DexpaceTestCase
       logger.event(Severity::INFO).field(key, "https://u:p@h/cb?code=S").emit
 
       assert_equal(Redactor::REDACTED_HEADER, sink.payloads.first[key])
+    end
+  end
+
+  # P5-104 (review round 1's R1-2): OBS-39's "the logged url.full MUST always be the redacted
+  # URL" and OBS-18's "MUST NOT have its value logged" are stated on the EMITTED record, and
+  # OBS-5 names three sources a key can arrive from. The round-1 review found the table running
+  # at #field alone, so a reserved key supplied by the logger's global context or by the
+  # diagnostic fold reached the sink raw. Both ambient sources now meet the same table.
+  class AmbientSourcesTest < DexpaceTestCase
+    Logger = Dexpace::Instrumentation::Logger
+    Keys = Dexpace::Instrumentation::Keys
+    Redactor = Dexpace::Instrumentation::Redactor
+    Policy = Dexpace::Instrumentation::RedactionPolicy
+    Severity = Dexpace::Instrumentation::Severity
+
+    AUTHORIZATION = "#{Keys::HTTP_REQUEST_HEADER_PREFIX}authorization".freeze
+    LOCATION = "#{Keys::HTTP_RESPONSE_HEADER_PREFIX}location".freeze
+
+    test "OBS-39, OBS-18, P5-104: reserved keys in the global context are redacted at build" do
+      sink = RecordingSink.new
+      given = { Keys::URL_FULL => "https://user:secret@h/p?sig=S&api-version=2",
+                AUTHORIZATION => "Bearer CTXSECRET", LOCATION => "//u:p@evil/x?code=S",
+                "service" => "pets", }
+      logger = Logger.build(sink: sink, context: given)
+      logger.event(Severity::INFO).field(:k, 1).emit
+      payload = sink.payloads.first
+
+      assert_equal("https://***:***@h/p?sig=***&api-version=2", payload[Keys::URL_FULL])
+      assert_equal(Redactor::REDACTED_HEADER, payload[AUTHORIZATION])
+      assert_equal("//***:***@evil/x?***", payload[LOCATION])
+      assert_equal("pets", payload["service"])
+      assert_equal(payload.except("k"), logger.context, "redacted once, at construction")
+      refute_includes(sink.payloads.inspect, "secret")
+      refute_includes(sink.payloads.inspect, "CTXSECRET")
+      refute_includes(sink.payloads.inspect, "code=S")
+      assert_equal("Bearer CTXSECRET", given[AUTHORIZATION], "the caller's Hash is untouched")
+    end
+
+    test "OBS-18, P5-104: in omit mode a non-allow-listed header in the context is dropped" do
+      sink = RecordingSink.new
+      policy = Policy::DEFAULT.with(omit_disallowed_headers: true)
+      logger = Logger.build(sink: sink, redactor: Redactor.build(policy: policy),
+                            context: { AUTHORIZATION => "Bearer CTXSECRET", "who" => "ctx" },)
+      logger.event(Severity::INFO).emit
+
+      assert_equal({ "who" => "ctx" }, logger.context)
+      assert_equal({ "who" => "ctx" }, sink.payloads.first)
+    end
+
+    test "OBS-39, OBS-18, OBS-10, P5-104: reserved keys in the unfiltered fold are redacted" do
+      sink = RecordingSink.new
+      DiagnosticContext.preserve do
+        ::Fiber[:"url.full"] = "https://user:secret@h/p?sig=S"
+        ::Fiber[AUTHORIZATION.to_sym] = "Bearer FIBSECRET"
+        ::Fiber[:"http.request.header.content-type"] = "text/plain"
+        ::Fiber[:"trace.id"] = "t1"
+        Logger.build(sink: sink, diagnostic_keys: nil).event(Severity::INFO).emit
+        listing = Logger.build(sink: sink, diagnostic_keys: [:"url.full", AUTHORIZATION.to_sym])
+        listing.event(Severity::INFO).emit
+      end
+      unfiltered, listed = sink.payloads
+
+      assert_equal({ Keys::URL_FULL => "https://***:***@h/p?sig=***",
+                     AUTHORIZATION => Redactor::REDACTED_HEADER,
+                     "http.request.header.content-type" => "text/plain", "trace.id" => "t1", },
+                   unfiltered,)
+      assert_equal({ Keys::URL_FULL => "https://***:***@h/p?sig=***",
+                     AUTHORIZATION => Redactor::REDACTED_HEADER, }, listed,)
+      refute_includes(sink.payloads.inspect, "secret")
+      refute_includes(sink.payloads.inspect, "FIBSECRET")
+    end
+
+    test "OBS-18, P5-104: the fold honours omit mode, and a per-event field still wins" do
+      sink = RecordingSink.new
+      policy = Policy::DEFAULT.with(omit_disallowed_headers: true)
+      logger = Logger.build(sink: sink, redactor: Redactor.build(policy: policy),
+                            diagnostic_keys: nil,)
+      DiagnosticContext.preserve do
+        ::Fiber[AUTHORIZATION.to_sym] = "Bearer FIBSECRET"
+        ::Fiber[:"url.full"] = "https://user:secret@h/p"
+        logger.event(Severity::INFO).field(Keys::URL_FULL, "https://u2:p2@field/q?sig=F").emit
+      end
+
+      assert_equal({ Keys::URL_FULL => "https://***:***@field/q?sig=***" }, sink.payloads.first)
     end
   end
 end

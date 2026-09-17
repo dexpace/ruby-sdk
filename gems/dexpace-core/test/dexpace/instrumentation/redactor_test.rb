@@ -15,7 +15,7 @@ require_relative "../../../lib/dexpace/instrumentation/redactor"
 # value.
 #
 # Split into nested classes under Metrics/ClassLength: the URL entry point, the header entry
-# point, the shape.
+# point, that entry point's surgery route, the shape.
 class DexpaceInstrumentationRedactorTest < DexpaceTestCase
   Redactor = Dexpace::Instrumentation::Redactor
   Policy = Dexpace::Instrumentation::RedactionPolicy
@@ -216,35 +216,6 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
       end
     end
 
-    # P5-100, the surgery half: a value the parser rejects has no userinfo component to read,
-    # so the authority's userinfo is substituted on the raw value before the cut -- and that
-    # covers the sentinel-fallback route as well, which runs the same surgery.
-    test "OBS-11, OBS-16, P5-100: the surgery route redacts an authority's userinfo, then cuts" do
-      assert_equal("http://***:***@h/p x",
-                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x"),)
-      assert_equal("http://***:***@h/p x?***",
-                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x?code=S"),)
-      assert_equal("//***:***@h/p x", Redactor::DEFAULT.header_value("Location", "//user:pw@h/p x"))
-      assert_equal("HTTP://***:***@h/p",
-                   Redactor::DEFAULT.header_value("Location", "HTTP://us er:pw@h/p"),)
-      # Up to the LAST @ before the first /, ? or #: a stray @ inside the userinfo hides nothing.
-      assert_equal("http://***:***@h/p x?***",
-                   Redactor::DEFAULT.header_value("Location", "http://a@b@h/p x?q"),)
-      # An @ after the first / is in the path, not the authority; there is no userinfo to redact.
-      assert_equal("http://us/er:pw@h/p x",
-                   Redactor::DEFAULT.header_value("Location", "http://us/er:pw@h/p x"),)
-    end
-
-    # P5-28: an unparseable value has no parsed object to read #path from, so the path is the
-    # raw value up to the first ? or #, whichever comes first.
-    test "OBS-16, P5-28: an unparseable value takes the string-surgery route" do
-      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path?secret=1"))
-      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path#frag?x"))
-      assert_equal("bad path", Redactor::DEFAULT.header_value("location", "bad path"))
-      assert_equal("https://h/a b?***",
-                   Redactor::DEFAULT.header_value("location", "https://h/a b?c=1"),)
-    end
-
     # P5-25: this entry point never yields OBS-15's sentinel -- a Location a reader cannot see
     # the path of is a useless log line. A policy whose allow-list read raises would send the
     # absolute route to the sentinel; it falls through to the surgery form instead.
@@ -291,6 +262,64 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
       assert_equal("", Redactor::DEFAULT.header_value("location", nil))
       assert_equal("42", Redactor::DEFAULT.header_value("content-length", 42))
       assert_equal("", Redactor::DEFAULT.header_value(nil, nil))
+    end
+  end
+
+  # OBS-16's third route (P5-28) -- a value the parser rejects, redacted by string surgery on
+  # the raw value -- and OBS-11 on it (P5-100, P5-105).
+  class SurgeryRouteTest < DexpaceTestCase
+    Redactor = Dexpace::Instrumentation::Redactor
+
+    # P5-100, the surgery half: a value the parser rejects has no userinfo component to read,
+    # so the authority's userinfo is substituted on the raw value before the cut -- and that
+    # covers the sentinel-fallback route as well, which runs the same surgery.
+    test "OBS-11, OBS-16, P5-100: the surgery route redacts an authority's userinfo, then cuts" do
+      assert_equal("http://***:***@h/p x",
+                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x"),)
+      assert_equal("http://***:***@h/p x?***",
+                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x?code=S"),)
+      assert_equal("//***:***@h/p x", Redactor::DEFAULT.header_value("Location", "//user:pw@h/p x"))
+      assert_equal("HTTP://***:***@h/p",
+                   Redactor::DEFAULT.header_value("Location", "HTTP://us er:pw@h/p"),)
+      # Up to the LAST @ before the first /, ? or #: a stray @ inside the userinfo hides nothing.
+      assert_equal("http://***:***@h/p x?***",
+                   Redactor::DEFAULT.header_value("Location", "http://a@b@h/p x?q"),)
+      # An @ after the first / is in the path, not the authority; there is no userinfo to redact.
+      assert_equal("http://us/er:pw@h/p x",
+                   Redactor::DEFAULT.header_value("Location", "http://us/er:pw@h/p x"),)
+    end
+
+    # P5-105 (review round 1's R1-3): HTTP-19's grammar admits a leading OWS in an inbound
+    # header value, the parser rejects a value that starts with one, and the surgery pattern was
+    # anchored at the scheme -- so a Location built with a leading space carried its userinfo
+    # through. The pattern now tolerates a leading run of whitespace and control bytes and
+    # writes them back as they came; a prefix that is not whitespace is not an authority.
+    test "OBS-11, OBS-16, P5-105: leading whitespace or a control byte before the scheme" do
+      { " http://user:secret@h/p" => " http://***:***@h/p",
+        "\thttp://user:secret@h/p" => "\thttp://***:***@h/p",
+        " //user:secret@h/x" => " //***:***@h/x",
+        "  http://user:secret@h/p?code=S" => "  http://***:***@h/p?***",
+        "\vhttp://user:secret@h/p" => "\vhttp://***:***@h/p",
+        "\u0000http://user:secret@h/p" => "\u0000http://***:***@h/p",
+        " http://user:secret@h/p\xFF".b => " http://***:***@h/p\xFF".b, }.each do |value, expected|
+        assert_equal(expected, Redactor::DEFAULT.header_value("Location", value), value.inspect)
+      end
+      # Not an authority under RFC 3986, so not a userinfo: a non-whitespace prefix, a backslash
+      # spelling, an empty authority and a non-scheme are written back as given (P5-100).
+      ["x http://user:secret@h/p", "http:\\\\user:secret@h\\p", "http:///user:secret@h/p",
+       "\u00e9://user:secret@h/p",].each do |value|
+        assert_equal(value, Redactor::DEFAULT.header_value("Location", value))
+      end
+    end
+
+    # P5-28: an unparseable value has no parsed object to read #path from, so the path is the
+    # raw value up to the first ? or #, whichever comes first.
+    test "OBS-16, P5-28: an unparseable value takes the string-surgery route" do
+      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path?secret=1"))
+      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path#frag?x"))
+      assert_equal("bad path", Redactor::DEFAULT.header_value("location", "bad path"))
+      assert_equal("https://h/a b?***",
+                   Redactor::DEFAULT.header_value("location", "https://h/a b?c=1"),)
     end
   end
 

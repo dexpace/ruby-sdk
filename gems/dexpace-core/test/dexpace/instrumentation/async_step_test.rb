@@ -383,5 +383,40 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
         payload["trace.id"]
       end,)
     end
+
+    # The FAILURE event takes the same bridge (P5-93): the round-1 review found its bridge
+    # unasserted -- a bare log_failure in AsyncStep#settle survived the suite. A settlement
+    # failed from another thread emits under the caller's captured context, and the settling
+    # thread's own keys are put back.
+    test "OBS-24, OBS-39: a failure settled on another thread emits under the caller's context" do
+      sink = RecordingSink.new
+      step = async_step(sink, level: HTTPLogging::HEADERS)
+      transport = FakeAsyncTransport.new(raises: ::IOError.new("reset by peer"), settle_later: true)
+
+      DiagnosticContext.preserve do
+        ::Fiber[:"trace.id"] = "caller_trace"
+        ::Fiber[:"span.id"] = "caller_span"
+        future = pipeline(step, transport).call(request = build_request)
+        ::Fiber[:"trace.id"] = "changed_after_the_head"
+
+        settler_after = ::Thread.new do
+          ::Fiber[:"trace.id"] = "settler_own"
+          ::Fiber[:"span.id"] = nil
+          transport.settle
+          [::Fiber[:"trace.id"], ::Fiber[:"span.id"]]
+        end.value
+
+        assert_raises(::IOError) { future.value }
+        assert_equal(["settler_own", nil], settler_after, "the settler's own context is restored")
+        assert_same(request, transport.calls.first.first)
+      end
+      failure = sink.payloads[1]
+
+      assert_equal(Events::HTTP_RESPONSE, failure[Keys::EVENT])
+      assert_equal("IOError", failure[Keys::ERROR_TYPE])
+      assert_equal("caller_trace", failure["trace.id"])
+      assert_equal("caller_span", failure["span.id"])
+      assert_equal(:error, sink.entries[1].severity)
+    end
   end
 end

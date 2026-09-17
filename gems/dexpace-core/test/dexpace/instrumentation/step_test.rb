@@ -6,6 +6,7 @@ require_relative "../../support/recording_sink"
 require_relative "../../support/diagnostic_context"
 require_relative "../../support/fake_clock"
 require_relative "../../support/fake_transport"
+require_relative "../../support/fake_chunked"
 # 5c's doubles, consumed and not redefined (P5-48, P5-73): one double per idea.
 require_relative "../../support/recording_tracer"
 require_relative "../../support/recording_span"
@@ -21,7 +22,7 @@ require "dexpace"
 # span with the same `if`.
 #
 # Split into nested classes under Metrics/ClassLength: the independence clause, the events, the
-# body level, the asymmetry.
+# header redaction, the failure events, the body level, the asymmetry.
 class DexpaceInstrumentationStepTest < DexpaceTestCase
   Step = Dexpace::Instrumentation::Step
   HTTPLogging = Dexpace::Instrumentation::HTTPLogging
@@ -59,6 +60,25 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
 
     def drive(step, request, response: nil, raises: nil)
       pipeline(step, FakeTransport.new(response: response, raises: raises)).call(request)
+    end
+
+    # A request preview exists only once something WRITES the body, which is what a transport
+    # does and what RequestLoggingBody taps; FakeTransport reads nothing, so this one drains the
+    # wrapped body into a Buffer sink the way the terminal transport would.
+    class WritingTransport
+      attr_reader :written
+
+      def initialize(response)
+        @response = response
+        @written = nil
+      end
+
+      def call(request, _options, _cancellation)
+        sink = Dexpace::IO::Buffer.new
+        request.body&.write_to(sink)
+        @written = sink.snapshot
+        @response
+      end
     end
   end
   include Fixtures
@@ -206,6 +226,44 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
       refute_includes(sink.payloads.inspect, "user:pw")
     end
 
+    # BODY-35 fixes the unknown-length sentinel at -1, which is truthy: a truthiness guard would
+    # log -1 as a size for every chunked body. The round-1 review found the guard unasserted.
+    test "OBS-39, BODY-35: a body of unknown length puts no size field on either event" do
+      sink = RecordingSink.new
+      request = build_request(method: "POST",
+                              body: Dexpace::Body.chunked(FakeChunked.new("ab", "cd")),)
+      response = build_response(request, body: Dexpace::Body.chunked(FakeChunked.new("xyz")))
+
+      assert_equal(-1, request.body.content_length)
+      assert_equal(-1, response.body.content_length)
+      drive(headers_step(sink), request, response: response)
+      req_event, res_event = sink.payloads
+
+      refute(req_event.key?(Keys::HTTP_REQUEST_BODY_SIZE), "no request size for -1")
+      refute(res_event.key?(Keys::HTTP_RESPONSE_BODY_SIZE), "no response size for -1")
+      refute_includes(sink.payloads.inspect, "-1")
+      assert_equal(Events::HTTP_REQUEST, req_event[Keys::EVENT])
+      assert_equal(200, res_event[Keys::HTTP_RESPONSE_STATUS_CODE])
+    end
+  end
+
+  # OBS-16, OBS-17 and OBS-18 through the step at HEADERS: the header-name gate in both modes,
+  # the URL-valued header's routes over a real pipeline, and the joined multi-valued field.
+  class HeaderRedactionTest < DexpaceTestCase
+    include Fixtures
+
+    Step = Dexpace::Instrumentation::Step
+    HTTPLogging = Dexpace::Instrumentation::HTTPLogging
+    Keys = Dexpace::Instrumentation::Keys
+    Logger = Dexpace::Instrumentation::Logger
+    Redactor = Dexpace::Instrumentation::Redactor
+    RedactionPolicy = Dexpace::Instrumentation::RedactionPolicy
+
+    def headers_step(sink, redactor: Redactor::DEFAULT, clock: FakeClock.new)
+      Step.build(logger: Logger.build(sink: sink, redactor: redactor), level: HTTPLogging::HEADERS,
+                 clock: clock,)
+    end
+
     # OBS-18's negative, which is the assertion that matters: the credential appears NOWHERE in
     # the payload, not merely not under its own key. P5-35: the marker, not omission, is the
     # default, because present-and-redacted and absent are different facts to a reader.
@@ -248,6 +306,26 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
     test "OBS-11, OBS-16, OBS-17, P5-100: a hostile Location's userinfo never reaches the sink" do
       ["//user:secret@evil/x", "//user:secret@evil/x?code=S", "http://user:secret@evil/p x",
        "https://user:secret@evil/p?%zz=1",].each do |hostile|
+        sink = RecordingSink.new
+        request = build_request
+        response = build_response(request, status: 302, headers: { "Location" => hostile })
+        drive(headers_step(sink), request, response: response)
+        location = sink.payloads[1]["#{Keys::HTTP_RESPONSE_HEADER_PREFIX}location"]
+
+        assert_includes(location, "***:***@", hostile)
+        refute_includes(sink.payloads.inspect, "secret", hostile)
+        refute_includes(sink.payloads.inspect, "user:", hostile)
+        refute_includes(sink.payloads.inspect, "code=S", hostile)
+      end
+    end
+
+    # P5-105 end to end: Headers.inbound_builder admits a leading SP or HTAB (HTTP-19), the
+    # parser rejects the value, and the surgery route is what a third-party transport's Location
+    # reaches -- the round-1 review found the userinfo surviving it. The two MVP transports strip
+    # the OWS themselves; this is the hand-built case.
+    test "OBS-11, OBS-16, P5-105: a Location with a leading OWS still loses its userinfo" do
+      [" http://user:secret@evil/x?code=S", "\thttp://user:secret@evil/x", " //user:secret@evil/x"]
+        .each do |hostile|
         sink = RecordingSink.new
         request = build_request
         response = build_response(request, status: 302, headers: { "Location" => hostile })
@@ -345,25 +423,6 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
     Logger = Dexpace::Instrumentation::Logger
     Redactor = Dexpace::Instrumentation::Redactor
 
-    # A request preview exists only once something WRITES the body, which is what a transport
-    # does and what RequestLoggingBody taps; FakeTransport reads nothing, so this one drains the
-    # wrapped body into a Buffer sink the way the terminal transport would.
-    class WritingTransport
-      attr_reader :written
-
-      def initialize(response)
-        @response = response
-        @written = nil
-      end
-
-      def call(request, _options, _cancellation)
-        sink = Dexpace::IO::Buffer.new
-        request.body&.write_to(sink)
-        @written = sink.snapshot
-        @response
-      end
-    end
-
     def body_step(sink, cap:)
       Step.build(logger: Logger.build(sink: sink), level: HTTPLogging::BODY, preview_bytes: cap)
     end
@@ -415,6 +474,25 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
       assert_equal("café", res_event[Keys::HTTP_REQUEST_BODY_PREVIEW])
       assert_equal(4, res_event[Keys::HTTP_REQUEST_BODY_SIZE])
       assert_equal("[binary 6 bytes captured]", res_event[Keys::HTTP_RESPONSE_BODY_PREVIEW])
+    end
+
+    # P5-106 through the step: before the round-1 fix a charset=utf-7 response raised inside
+    # the preview, OBS-20 contained it, and the sink received an http.instrumentation.log
+    # diagnostic in PLACE of the response event -- the request still returned, but OBS-38's
+    # "MUST NOT throw" was falsified where it costs a log line.
+    test "OBS-38, OBS-20, P5-106: a converter-less charset still yields the response event" do
+      sink = RecordingSink.new
+      utf7 = Dexpace::MediaType.parse("text/plain; charset=utf-7")
+      request = build_request
+      response = build_response(request, body: buffer_body("+AGEAYg-", media_type: utf7))
+
+      returned = pipeline(body_step(sink, cap: 64), WritingTransport.new(response)).call(request)
+
+      assert_equal("+AGEAYg-".b, returned.body_bytes, "the caller's bytes, as 3b tags them")
+      assert_equal([Events::HTTP_REQUEST, Events::HTTP_RESPONSE],
+                   sink.payloads.map { |payload| payload[Keys::EVENT] },)
+      assert_equal("+AGEAYg-", sink.payloads[1][Keys::HTTP_RESPONSE_BODY_PREVIEW])
+      assert_equal(%i[info info], sink.entries.map(&:severity), "no warn diagnostic")
     end
 
     # BODY-34 and the body-logging caps' gate: below the body level neither wrapper is built and

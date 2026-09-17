@@ -92,6 +92,25 @@ class DexpaceInstrumentationPreviewTest < DexpaceTestCase
     assert_equal("héllo", Preview.render("héllo", media_type: MediaType.parse("text/plain")))
   end
 
+  # P5-106 (review round 1's R1-4): `Encoding.find` knows utf-7 and iso-2022-jp-2 as dummy
+  # encodings with no converter, so MediaType#charset answers the name rather than nil and
+  # `#encode` raises Encoding::ConverterNotFoundError with the replacement options set --
+  # against OBS-38's "Decoding MUST NOT throw". Such a charset now decodes as UTF-8, the answer
+  # an unrecognised charset already took; asserted on the value, never with assert_nothing_raised.
+  test "OBS-38, XCUT-20, P5-106: a charset with no converter falls back to UTF-8" do
+    utf7 = MediaType.parse("text/plain; charset=utf-7")
+    jp2 = MediaType.parse("text/plain; charset=iso-2022-jp-2")
+
+    assert_equal("utf-7", utf7.charset, "the guard is not MediaType#charset's nil")
+    assert_predicate(::Encoding.find("utf-7"), :dummy?)
+    assert_equal("+AGEAYg-", Preview.render("+AGEAYg-".b, media_type: utf7))
+    assert_equal("caf\uFFFD", Preview.render("caf\xE9".b, media_type: jp2))
+    assert_equal(::Encoding::UTF_8, Preview.render("x".b, media_type: utf7).encoding)
+    # A dummy encoding WITH a converter keeps its own decode: UTF-16 reads its BOM.
+    assert_equal("ok", Preview.render("\xFF\xFEo\x00k\x00".b,
+                                      media_type: MediaType.parse("text/plain; charset=utf-16"),),)
+  end
+
   test "OBS-38: a media type whose charset names an encoding Ruby lacks still renders" do
     duck = ::Struct.new(:type, :subtype, :charset).new("text", "plain", "no-such-encoding")
 
