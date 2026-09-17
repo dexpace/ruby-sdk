@@ -1,0 +1,269 @@
+# frozen_string_literal: true
+# SPDX-License-Identifier: MIT
+
+require_relative "../../test_helper"
+require_relative "../../support/allocation_delta"
+require_relative "../../../lib/dexpace/instrumentation/redactor"
+
+# Exercises: OBS-11, OBS-12, OBS-13, OBS-14, OBS-15, OBS-16, OBS-17, OBS-18, XCUT-11, XCUT-19,
+# XCUT-20
+#
+# The port's security surface. Every negative here is the chapter's own conformance wording --
+# "neither the username nor password substring appears" -- because a redaction applied to the
+# wrong component passes any assertion written only on the component it did redact. Nothing is
+# asserted with assert_nothing_raised (testing/26b866e1): totality is asserted on the substituted
+# value.
+#
+# Split into nested classes under Metrics/ClassLength: the URL entry point, the header entry
+# point, the shape.
+class DexpaceInstrumentationRedactorTest < DexpaceTestCase
+  Redactor = Dexpace::Instrumentation::Redactor
+  Policy = Dexpace::Instrumentation::RedactionPolicy
+
+  test "OBS-11, XCUT-19(a): userinfo is redacted to ***:***@ unconditionally, with no allow-list" do
+    redacted = Redactor::DEFAULT.url("https://alice:s3cret@example.com/path?api-version=1")
+
+    assert_equal("https://***:***@example.com/path?api-version=1", redacted)
+    refute_includes(redacted, "alice")
+    refute_includes(redacted, "s3cret")
+    # A user with no password still gets the full two-part placeholder: that there was no
+    # password is itself a fact about the credential.
+    assert_equal("https://***:***@example.com/", Redactor::DEFAULT.url("https://alice@example.com/"))
+    # Percent-encoded userinfo is redacted too, and nothing of it survives.
+    encoded = Redactor::DEFAULT.url("https://al%40ice:p%3Ass@example.com/")
+
+    assert_equal("https://***:***@example.com/", encoded)
+  end
+
+  test "OBS-12: query values are *** unless the decoded, folded name is allow-listed" do
+    url = "https://example.com/p?api-version=2026-01-01&token=secret&API-Version=2&api%2Dversion=3"
+
+    assert_equal("https://example.com/p?api-version=2026-01-01&token=***&API-Version=2&api%2Dversion=3",
+                 Redactor::DEFAULT.url(url),)
+  end
+
+  test "OBS-12: multi-value keys are atomic, names and = are preserved, a bare token is kept" do
+    assert_equal("https://h/p?token=***&token=***&token=***&flag&empty=***",
+                 Redactor::DEFAULT.url("https://h/p?token=1&token=2&token=3&flag&empty="),)
+  end
+
+  test "OBS-12: an empty allow-list redacts every value, including api-version" do
+    redactor = Redactor.build(policy: Policy.build(query_allow_list: []))
+
+    assert_equal("https://h/p?api-version=***&token=***", redactor.url("https://h/p?api-version=1&token=x"))
+  end
+
+  # Verified fact 7: the parser accepts %FF, decoding it yields invalid UTF-8, and #downcase on
+  # that raises ArgumentError, which is NOT a URI::Error. The name cannot match, so its value is
+  # redacted -- the safe direction -- and nothing escapes.
+  test "OBS-12, OBS-15, P5-26: an invalid-UTF-8 parameter name redacts and does not raise" do
+    assert_equal("https://h/p?%FF=***&api-version=1",
+                 Redactor::DEFAULT.url("https://h/p?%FF=secret&api-version=1"),)
+  end
+
+  test "OBS-13: key=value tokens in a fragment follow the query rule; a plain fragment is kept" do
+    assert_equal("https://h/p#access_token=***", Redactor::DEFAULT.url("https://h/p#access_token=SECRET"))
+    assert_equal("https://h/p#api-version=1&t=***", Redactor::DEFAULT.url("https://h/p#api-version=1&t=2"))
+    assert_equal("https://h/p#section", Redactor::DEFAULT.url("https://h/p#section"))
+    assert_equal("https://h/p#a/b?c", Redactor::DEFAULT.url("https://h/p#a/b?c"))
+  end
+
+  # P5-91: reassembled from RFC3986_PARSER.split's raw components, never URI#to_s, which drops
+  # a default port -- so `:80` and `:443` survive, as OBS-14's "MUST NOT alter ... port" says.
+  test "OBS-14: scheme, host, port and path are untouched and a trailing ? survives" do
+    assert_equal("https://Example.COM:8443/A/b%20c?", Redactor::DEFAULT.url("https://Example.COM:8443/A/b%20c?"))
+    assert_equal("http://h:80/", Redactor::DEFAULT.url("http://h:80/"))
+    assert_equal("https://h:443/p?t=***", Redactor::DEFAULT.url("https://h:443/p?t=1"))
+    assert_equal("https://[::1]:8080/p", Redactor::DEFAULT.url("https://[::1]:8080/p"))
+    assert_equal("file:///etc/hosts", Redactor::DEFAULT.url("file:///etc/hosts"))
+    assert_equal("//h/p?a=***", Redactor::DEFAULT.url("//h/p?a=1"))
+    assert_equal("/relative?a=***#b", Redactor::DEFAULT.url("/relative?a=1#b"))
+    assert_equal("", Redactor::DEFAULT.url(""))
+    assert_equal("https://h/p", Redactor::DEFAULT.url("https://h/p"))
+    assert_equal("http://h?", Redactor::DEFAULT.url("http://h?"))
+    assert_equal("http://h#", Redactor::DEFAULT.url("http://h#"))
+  end
+
+  # The chapter's own case: a ? that appears only inside the fragment is not a query delimiter,
+  # so no ? precedes the #. The fragment carries an =, so OBS-13 redacts it to a?b=***.
+  test "OBS-14: a ? inside the fragment inserts no separator before the #" do
+    redacted = Redactor::DEFAULT.url("http://h/p#a?b=c")
+    before, after = redacted.split("#", 2)
+
+    assert_equal("http://h/p", before)
+    refute_includes(before, "?")
+    assert_equal("a?b=***", after)
+  end
+
+  test "OBS-14: a trailing & (empty final pair) is dropped in a query and in a fragment" do
+    assert_equal("https://h/p?a=***", Redactor::DEFAULT.url("https://h/p?a=1&"))
+    assert_equal("https://h/p?a=***&&b=***", Redactor::DEFAULT.url("https://h/p?a=1&&b=2"))
+    assert_equal("https://h/p#a=***", Redactor::DEFAULT.url("https://h/p#a=1&"))
+  end
+
+  test "OBS-15, XCUT-20: every parse failure yields the sentinel and nothing raises" do
+    ["not a url at all", "https://h/a b", "http://[::1", "http://h/%zz", nil, 0.chr,
+     "https://h/x?a=%FF#%zz=1",].each do |input|
+      assert_equal(Redactor::MALFORMED_URL, Redactor::DEFAULT.url(input), input.inspect)
+    end
+    assert_equal("[malformed url]", Redactor::MALFORMED_URL)
+    # RFC3986_PARSER.split -- the parse this redactor uses -- accepts a bad percent-encoding in a
+    # query VALUE where #parse would reject it; the value is redacted, so nothing leaks either way.
+    assert_equal("https://h/x?a=***", Redactor::DEFAULT.url("https://h/x?a=%zz"))
+  end
+
+  # P5-27, P5-91: an opaque URI has userinfo, query and fragment all nil, and nothing absent is
+  # ever written back, so the URI::InvalidURIError the setters would raise is unreachable.
+  test "OBS-15, P5-27: an opaque URI round-trips untouched -- nothing absent is written back" do
+    assert_equal("mailto:support@example.com", Redactor::DEFAULT.url("mailto:support@example.com"))
+    assert_equal("urn:isbn:0451450523", Redactor::DEFAULT.url("urn:isbn:0451450523"))
+    assert_equal("data:text/plain,hello", Redactor::DEFAULT.url("data:text/plain,hello"))
+  end
+
+  # The rebuild rescue is the totality backstop, not the mechanism, so it is driven directly
+  # rather than left with a comment claiming it is unreachable: a policy whose allow-list read
+  # raises drives the rewrite into the rescue on an ordinary URL.
+  test "OBS-15, P5-26: a rebuild failure yields the sentinel -- the rescue is StandardError" do
+    exploding = ::Object.new
+    def exploding.query_allow_list = raise("policy exploded")
+
+    assert_equal(Redactor::MALFORMED_URL, Redactor.build(policy: exploding).url("https://h/p?a=1"))
+  end
+
+  test "OBS-11, OBS-12, OBS-13: a URI::Generic input is accepted and redacted like a String" do
+    parsed = ::URI::RFC3986_PARSER.parse("https://u:p@h/x?k=v#k=v")
+
+    assert_equal("https://***:***@h/x?k=***#k=***", Redactor::DEFAULT.url(parsed))
+  end
+
+  # OBS-16 and OBS-17: the header entry point.
+  class HeaderValueTest < DexpaceTestCase
+    Redactor = Dexpace::Instrumentation::Redactor
+    Policy = Dexpace::Instrumentation::RedactionPolicy
+
+    test "OBS-16: a parseable absolute value is redacted exactly like a request URL" do
+      assert_equal("https://***:***@h/cb?code=***&api-version=1",
+                   Redactor::DEFAULT.header_value("Location", "https://u:p@h/cb?code=S&api-version=1"),)
+    end
+
+    test "OBS-16: a relative value keeps its path and drops query and fragment behind ?***" do
+      assert_equal("/cb?***", Redactor::DEFAULT.header_value("location", "/cb?code=SECRET"))
+      assert_equal("/cb?***", Redactor::DEFAULT.header_value("location", "/cb#access_token=T"))
+      assert_equal("/cb?***", Redactor::DEFAULT.header_value("location", "/cb?a=1#b=2"))
+      # A present-but-empty query is a query: the presence test is !nil?, not truthiness.
+      assert_equal("/cb?***", Redactor::DEFAULT.header_value("location", "/cb?"))
+      # A fragment-only value has an empty path, so the marker is all that is left.
+      assert_equal("?***", Redactor::DEFAULT.header_value("location", "#frag"))
+    end
+
+    test "OBS-16: a relative value with neither query nor fragment is returned verbatim" do
+      assert_equal("/static/path", Redactor::DEFAULT.header_value("location", "/static/path"))
+      assert_equal("relative/no/slash",
+                   Redactor::DEFAULT.header_value("location", "relative/no/slash"),)
+      assert_equal("", Redactor::DEFAULT.header_value("location", ""))
+    end
+
+    # P5-28: an unparseable value has no parsed object to read #path from, so the path is the
+    # raw value up to the first ? or #, whichever comes first.
+    test "OBS-16, P5-28: an unparseable value takes the string-surgery route" do
+      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path?secret=1"))
+      assert_equal("bad path?***", Redactor::DEFAULT.header_value("location", "bad path#frag?x"))
+      assert_equal("bad path", Redactor::DEFAULT.header_value("location", "bad path"))
+      assert_equal("https://h/a b?***",
+                   Redactor::DEFAULT.header_value("location", "https://h/a b?c=1"),)
+    end
+
+    # P5-25: this entry point never yields OBS-15's sentinel -- a Location a reader cannot see
+    # the path of is a useless log line. A policy whose allow-list read raises would send the
+    # absolute route to the sentinel; it falls through to the surgery form instead.
+    test "OBS-16, P5-25: header_value never returns the malformed sentinel" do
+      exploding = ::Object.new
+      def exploding.query_allow_list = raise("policy exploded")
+      def exploding.url_header_names = ::Set["location"]
+      redactor = Redactor.build(policy: exploding)
+
+      assert_equal("https://h/p?***", redactor.header_value("location", "https://h/p?a=1"))
+      assert_equal("https://h/p", redactor.header_value("location", "https://h/p"))
+    end
+
+    test "OBS-17: only the policy's URL-valued headers go through the URL redactor" do
+      assert_equal("/p?***", Redactor::DEFAULT.header_value("Content-Location", "/p?t=1"))
+      assert_equal("/p?t=1", Redactor::DEFAULT.header_value("Link", "/p?t=1"))
+      assert_equal("application/json; charset=utf-8",
+                   Redactor::DEFAULT.header_value("content-type",
+                                                  "application/json; charset=utf-8",),)
+      widened = Redactor.build(policy: Policy::DEFAULT.with(url_header_names: %w[location link]))
+
+      assert_equal("/p?***", widened.header_value("Link", "/p?t=1"))
+    end
+
+    # The totality backstop on this entry point: a policy whose URL-header lookup raises drives
+    # the whole method into its rescue, and what comes out is the marker, never a raise and
+    # never the sentinel (P5-25, XCUT-20).
+    test "OBS-16, XCUT-20: a failure anywhere in header_value yields the relative marker" do
+      exploding = ::Object.new
+      def exploding.url_header_names = raise("policy exploded")
+
+      hostile = Redactor.build(policy: exploding)
+
+      assert_equal(Redactor::RELATIVE_MARKER, hostile.header_value("x", "v"))
+    end
+
+    # api-design/6ea28c9c's "never nil for absent" is overruled here by requirement: OBS-16's
+    # output is a header value, and nil is not one. Event#field never routes a nil here.
+    test "OBS-16: header_value returns a String always: nil becomes empty, others stringify" do
+      assert_equal("", Redactor::DEFAULT.header_value("location", nil))
+      assert_equal("42", Redactor::DEFAULT.header_value("content-length", 42))
+      assert_equal("", Redactor::DEFAULT.header_value(nil, nil))
+    end
+  end
+
+  # OBS-18's gate and the shape XCUT-11 audits.
+  class ShapeTest < DexpaceTestCase
+    include AllocationDelta
+
+    Redactor = Dexpace::Instrumentation::Redactor
+    Policy = Dexpace::Instrumentation::RedactionPolicy
+
+    test "OBS-18: header_name? answers against the folded allow-list" do
+      assert(Redactor::DEFAULT.header_name?("content-type"))
+      assert(Redactor::DEFAULT.header_name?("Content-Type"))
+      assert(Redactor::DEFAULT.header_name?(:Accept))
+      refute(Redactor::DEFAULT.header_name?("authorization"))
+      refute(Redactor::DEFAULT.header_name?("Authorization"))
+      refute(Redactor::DEFAULT.header_name?("cookie"))
+      refute(Redactor::DEFAULT.header_name?(nil))
+      refute(Redactor::DEFAULT.header_name?(""))
+    end
+
+    test "the five markers are the spec's fixed spellings" do
+      assert_equal("[malformed url]", Redactor::MALFORMED_URL)
+      assert_equal("***", Redactor::REDACTED_VALUE)
+      assert_equal("***:***", Redactor::REDACTED_USERINFO)
+      assert_equal("REDACTED", Redactor::REDACTED_HEADER)
+      assert_equal("?***", Redactor::RELATIVE_MARKER)
+    end
+
+    # XCUT-11: frozen, holding a frozen policy, no per-call state -- every intermediate is a
+    # method local -- so the shared DEFAULT is safe from any thread by construction.
+    test "XCUT-11: a Redactor is frozen, holds a frozen policy and exposes it for derivation" do
+      assert_predicate(Redactor::DEFAULT, :frozen?)
+      assert_same(Policy::DEFAULT, Redactor::DEFAULT.policy)
+      assert_predicate(Redactor.build.policy, :frozen?)
+      refute_respond_to(Redactor, :new)
+      assert_empty(Redactor::DEFAULT.instance_variables - [:@policy])
+      results = Array.new(8) do
+        ::Thread.new do
+          Redactor::DEFAULT.url("https://u:p@h/?t=1")
+        end
+      end.map(&:value)
+
+      assert_equal(["https://***:***@h/?t=***"] * 8, results)
+    end
+
+    test "a redactor takes a policy and refuses something that is not one" do
+      error = assert_raises(Dexpace::InvalidArgumentError) { Redactor.build(policy: nil) }
+      assert_match(/policy/, error.message)
+    end
+  end
+end
