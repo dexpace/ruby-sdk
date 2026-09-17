@@ -4,9 +4,11 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# OBS-10 and OBS-23's two key names and OBS-10's default allow-list, as phase 5c ships them early
-# for phase 5b to adopt (P5-71). The file holds exactly three constants and requires nothing, so
-# tracing.rb and scope.rb can require it without dragging the logging half in (R11, Task 11).
+# OBS-10 and OBS-23's two key names and OBS-10's default allow-list, as phase 5c shipped them early
+# for phase 5b to adopt (P5-71), and the shape phase 5b left the file in when it extended it: the
+# fold, the snapshot bridge and the reserved prefix are added here, and the file still requires
+# nothing, so tracing.rb and scope.rb can require it without dragging the logging half in (R11).
+# The fold and the bridge are asserted in the phase-5b suite that replaces this file.
 class DexpaceInstrumentationDiagnosticsTest < DexpaceTestCase
   Diagnostics = Dexpace::Instrumentation::Diagnostics
 
@@ -24,13 +26,12 @@ class DexpaceInstrumentationDiagnosticsTest < DexpaceTestCase
     assert_same(Diagnostics::SPAN_ID, Diagnostics::DEFAULT_KEYS[1])
   end
 
-  # P5-71: 5c ships the three constants and nothing else of 5b's -- no method, no Event, no
-  # Keys -- and the file requires nothing, which is what keeps Task 11's load-time assertion
-  # true. The source scan is the assertion phase 5b's Task 6 must keep true when it extends
-  # the file: a require of anything else in 5b would pull the logging half in behind Tracing.
-  test "P5-71: the module defines three constants, no method, and the file requires nothing" do
-    assert_equal(%i[DEFAULT_KEYS SPAN_ID TRACE_ID], Diagnostics.constants(false).sort)
-    assert_empty(Diagnostics.singleton_methods)
+  # P5-71, from the adopting side: phase 5b extended the file in place -- a fourth constant and
+  # the three functions -- and added no require, which is what keeps 5c's load-time assertion
+  # true: a require of anything else here would pull the logging half in behind Tracing.
+  test "P5-71: the module defines four constants, three functions, and the file requires nothing" do
+    assert_equal(%i[DEFAULT_KEYS RESERVED_PREFIX SPAN_ID TRACE_ID], Diagnostics.constants(false).sort)
+    assert_equal(%i[capture folded with], Diagnostics.singleton_methods.sort)
     assert_empty(Diagnostics.instance_methods(false))
     refute_match(/^\s*require/, File.read(SOURCE), "diagnostics.rb must require nothing")
   end

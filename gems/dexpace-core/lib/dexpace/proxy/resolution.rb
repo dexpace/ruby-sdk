@@ -4,12 +4,17 @@
 require "uri"
 
 require_relative "../configuration"
+require_relative "../instrumentation/keys"
+require_relative "../instrumentation/logger"
+require_relative "../instrumentation/contain"
 
 module Dexpace
   # The resolver behind Dexpace::Proxy.resolve: CFG-24 through CFG-28. Never raises -- "proxies
   # are optional; invalid config yields null and a warning log" -- and the warning is Kernel#warn,
-  # phase 2's P2-6 shape (P5-8): phase 5b adds an http.instrumentation.* event BESIDE it and
-  # removes neither.
+  # phase 2's P2-6 shape (P5-8), with -- since phase 5b -- an `http.instrumentation.config`
+  # event emitted BESIDE it through the logger the caller passed, and neither removed. The
+  # logger is threaded to the three private methods that warn rather than held on the module,
+  # which is stateless.
   #
   # A private_constant on Dexpace (P2-15, P4-3), asserted at its one call site in proxy_test.rb.
   # Everything here reads the chain through CFG-4's raw accessor for the seven system-property
@@ -23,7 +28,11 @@ module Dexpace
   # and most likely to pass a test that sets both layers. The credential names and the non-proxy
   # property stay flat because they are deliberately NOT layered: CFG-24 gives credentials no
   # http.* fallback and CFG-26 gives the list one property name.
-  module ProxyResolution
+  #
+  # One line over Metrics/ModuleLength's default, because phase 5b threads the logger to the
+  # three methods that warn; the exception is recorded here rather than the cap raised, as
+  # .rubocop.yml prescribes.
+  module ProxyResolution # rubocop:disable Metrics/ModuleLength
     extend self
 
     # The four layered system-property names, keyed by layer, in CFG-24's preference order.
@@ -44,17 +53,18 @@ module Dexpace
     # resolution to yield null rather than guessing" inverted into guessing elsewhere.
     #
     # @param configuration [Dexpace::Configuration]
+    # @param logger [Dexpace::Instrumentation::Logger] where each warning is also reported
     # @return [Dexpace::Proxy, nil]
-    def resolve(configuration)
+    def resolve(configuration, logger)
       layer, host = property_host(configuration)
-      return from_properties(configuration, layer, host) if layer && host
+      return from_properties(configuration, layer, host, logger) if layer && host
 
-      from_environment(configuration)
+      from_environment(configuration, logger)
     rescue ::StandardError => error
       # Every input this resolver expects to be malformed is answered by an explicit
       # nil-with-warning above; this is the backstop, last rather than wrapped around the parse
       # alone, because CFG-24's clause is about the operation and not about one call inside it.
-      warn_and_nil("proxy resolution failed: #{error.class}: #{error.message}")
+      warn_and_nil("proxy resolution failed: #{error.class}: #{error.message}", logger)
     end
 
     private
@@ -68,12 +78,12 @@ module Dexpace
     # The port from the SAME layer as the host, one lookup on `layer`; the credentials from
     # https.proxyUser / https.proxyPassword ONLY, with no http.* fallback, even when the host came
     # from the http.* pair (CFG-24; the chapter's own conformance case).
-    def from_properties(configuration, layer, host)
+    def from_properties(configuration, layer, host, logger)
       port_key = LAYERS.fetch(layer)[:port]
       port = parse_port(configuration.raw_property(port_key))
       if port.nil?
         return warn_and_nil("proxy port for #{host} (#{port_key}) is missing, non-numeric or " \
-                            "outside 0..65535")
+                            "outside 0..65535", logger,)
       end
 
       model_for(configuration, type: Proxy::Type::HTTP, host: host, port: port,
@@ -82,11 +92,11 @@ module Dexpace
     end
 
     # HTTPS_PROXY preferred over HTTP_PROXY, parsed as scheme://user:pass@host:port.
-    def from_environment(configuration)
+    def from_environment(configuration, logger)
       url = environment_url(configuration)
       return nil if url.nil?
 
-      scheme, userinfo, host, port = split_url(url)
+      scheme, userinfo, host, port = split_url(url, logger)
       return nil if host.nil?
 
       username, password = credentials(userinfo)
@@ -120,15 +130,15 @@ module Dexpace
     # AND for "http://h" -- resolving the second to 80, the exact behaviour CFG-25 forbids.
     #
     # @return [Array] scheme, userinfo, host and port; empty after a warning
-    def split_url(url)
+    def split_url(url, logger)
       parser = ::URI::RFC3986_PARSER #: untyped
       scheme, userinfo, host, raw_port = parser.split(url)
       problem = url_problem(host, raw_port)
-      return warn_and_nil("proxy URL #{url.inspect} #{problem}") || [] if problem
+      return warn_and_nil("proxy URL #{url.inspect} #{problem}", logger) || [] if problem
 
       [scheme, userinfo, host, parse_port(raw_port)]
     rescue ::URI::InvalidURIError => error
-      warn_and_nil("proxy URL #{url.inspect} is not a URI: #{error.message}") || []
+      warn_and_nil("proxy URL #{url.inspect} is not a URI: #{error.message}", logger) || []
     end
 
     def url_problem(host, raw_port)
@@ -205,12 +215,15 @@ module Dexpace
       fragments.map { |token| token.gsub("\\#{separator}", separator).strip }
     end
 
-    # P5-8: Kernel#warn today, following phase 2's P2-6 verbatim; phase 5b adds an
-    # http.instrumentation.* event BESIDE this and removes neither. Always nil, so a caller can
+    # P5-8, discharged by phase 5b: Kernel#warn, following phase 2's P2-6 verbatim, and an
+    # `http.instrumentation.config` event BESIDE it -- CFG-24's and CFG-25's "warning log"
+    # through §8.1's facade -- with neither removed. The emission is contained (OBS-20), so a
+    # raising sink cannot turn a warning into a failure. Always nil, so a caller can
     # `return warn_and_nil(...)`.
-    def warn_and_nil(message)
+    def warn_and_nil(message, logger)
       ::Kernel.warn("[dexpace] #{message}")
-      nil
+      Instrumentation.diagnostic(logger, event: Instrumentation::Events::INSTRUMENTATION_CONFIG,
+                                         message: message,)
     end
   end
 

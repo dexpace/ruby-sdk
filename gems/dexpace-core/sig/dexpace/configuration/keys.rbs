@@ -8,6 +8,7 @@ module Dexpace
       NO_PROXY: String
       MAX_MATERIALIZED_BYTES: String
       MAX_TRACKED_CONTEXTS: String
+      LOG_PREVIEW_BYTES: String
     end
   end
 end

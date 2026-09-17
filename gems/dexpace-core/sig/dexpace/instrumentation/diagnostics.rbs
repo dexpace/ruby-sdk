@@ -1,11 +1,30 @@
 module Dexpace
+  # OBS-24's "immutable snapshot": what Diagnostics.with installs -- a frozen Hash from
+  # Diagnostics.capture, or anything else that yields Symbol-keyed pairs and names its keys.
+  interface _DiagnosticSnapshot
+    def each: () { ([Symbol, untyped]) -> void } -> void
+    def keys: () -> Array[Symbol]
+  end
+
   module Instrumentation
-    # Phase 5b's module (OBS-10, OBS-24); the three constants shipped early by phase 5c because
-    # Tracing and Scope read the two keys (P5-71). 5b's Task 6 adds its methods here.
+    # OBS-10, OBS-24: the diagnostic-context carrier's functions over `Fiber[]`, and the two key
+    # names OBS-23 pushes (shipped early by phase 5c, P5-71; the functions are phase 5b's).
     module Diagnostics
       TRACE_ID: Symbol
       SPAN_ID: Symbol
       DEFAULT_KEYS: Array[Symbol]
+      RESERVED_PREFIX: String
+
+      def self.capture: () -> Hash[Symbol, untyped]
+      def self.with: [T] (_DiagnosticSnapshot snapshot) { () -> T } -> T
+      def self.folded: (Array[Symbol]? allow_list) -> Hash[String, untyped]
+
+      private
+
+      def self.current_storage: () -> Hash[Symbol, untyped]
+      def self.restore: (Hash[Symbol, untyped] prior, _DiagnosticSnapshot snapshot) -> void
+      def self.fold_every_present_key: () -> Hash[String, untyped]
+      def self.fold_listed_keys: (Array[Symbol] allow_list) -> Hash[String, untyped]
     end
   end
 end

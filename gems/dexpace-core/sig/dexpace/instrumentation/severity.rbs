@@ -1,0 +1,28 @@
+module Dexpace
+  module Instrumentation
+    # OBS-2: a closed set of four. .new and .[] are both private, and #with always raises, so the
+    # four constants are the whole population and NFR-4 locks no constructor here.
+    class Severity < Data
+      include Model
+
+      ERROR: Severity
+      WARNING: Severity
+      INFO: Severity
+      VERBOSE: Severity
+      ALL: Array[Severity]
+      LOOKUP: Hash[Symbol, Severity]
+
+      attr_reader name: Symbol
+      attr_reader sink_method: Symbol
+      attr_reader sink_predicate: Symbol
+
+      private def self.new: (name: Symbol, sink_method: Symbol, sink_predicate: Symbol) -> instance
+      def initialize: (name: Symbol, sink_method: Symbol, sink_predicate: Symbol) -> void
+
+      def self.of: (Symbol name) -> Severity
+
+      # Always raises: the closed set has no derivation.
+      def with: (?untyped _changes) -> bot
+    end
+  end
+end

@@ -24,7 +24,8 @@ module Dexpace
                      ?non_proxy_hosts: Array[Proxy::HostPattern], ?username: String?,
                      ?password: String?, ?challenge_handler: untyped, ?bypass_all: bool) -> Proxy
 
-    def self.resolve: (?Configuration configuration) -> Proxy?
+    # Phase 5b widened this with `logger:` (P5-8's diagnostic beside the warning).
+    def self.resolve: (?Configuration configuration, ?logger: Instrumentation::Logger) -> Proxy?
 
     def bypass?: (String host) -> bool
     def to_s: () -> String

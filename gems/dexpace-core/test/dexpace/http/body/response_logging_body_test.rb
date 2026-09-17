@@ -743,14 +743,19 @@ class DexpaceResponseLoggingBodyTest < DexpaceTestCase
       assert_includes(error.message, "#source")
     end
 
-    test "nothing in the core library constructs a response-logging wrapper" do
+    # BODY-34's enablement clause, as built: phase 3b shipped the wrapper with NO constructor
+    # call in core, and phase 5b's instrumentation step is the one place that now constructs
+    # it -- gated on HTTPLogging::BODY, with the cap the step was built with (the body-logging
+    # caps' pick-up). Exactly one file, and that one, so a second construction site cannot
+    # arrive unnoticed.
+    test "the instrumentation step is the only file in core that constructs the wrapper" do
       root = File.expand_path("../../../../lib", __dir__)
       sources = Dir.glob("#{root}/**/*.rb").grep_v(/response_logging_body\.rb\z/)
       constructions = sources.select do |path|
         File.read(path).include?("ResponseLoggingBody.new")
       end
 
-      assert_empty(constructions)
+      assert_equal(["#{root}/dexpace/instrumentation/step.rb"], constructions)
     end
 
     test "compares by identity, because it holds a live delegate" do

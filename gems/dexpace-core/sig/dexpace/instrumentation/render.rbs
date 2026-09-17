@@ -1,0 +1,23 @@
+# Dexpace::Instrumentation::Render is a private_constant and not public API (P2-15, P4-3): this
+# declaration exists because the strict `core` Steep target checks every file under lib/ and
+# needs the module and its one entry point declared to type Event#emit. RBS has no visibility
+# for a constant, so the privacy lives in lib/dexpace/instrumentation/render.rb alone.
+module Dexpace
+  module Instrumentation
+    module Render
+      MAX_VALUE_BYTES: Integer
+      TRUNCATION_MARKER: String
+      NULL: String
+
+      def self.render: (untyped value) -> untyped
+
+      private
+
+      def self.primitive?: (untyped value) -> bool
+      def self.text_of: (untyped value) -> String
+      def self.truncate: (String text) -> String
+      def self.simple_class_name: (Class klass) -> String
+      def self.unrenderable: (untyped value) -> String
+    end
+  end
+end

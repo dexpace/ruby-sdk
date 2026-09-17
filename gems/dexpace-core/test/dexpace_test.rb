@@ -41,8 +41,8 @@ class DexpaceTest < DexpaceTestCase
   # Dexpace::Hooks, Dexpace::BoundedMap, Dexpace::CallKey, Dexpace::Recovery::Ownership, the two
   # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue and Dexpace::ProxyResolution are
   # private_constants and appear in no constants(false) list. Phase 5c's tracing and metrics
-  # layer adds no flat constant: everything it ships is under Dexpace::Instrumentation, which
-  # the Layers case below pins.
+  # layer and phase 5b's logging layer add no flat constant: everything either ships is under
+  # Dexpace::Instrumentation, which the Layers case below pins.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -124,24 +124,34 @@ class DexpaceTest < DexpaceTestCase
       assert_raises(::NameError) { Dexpace::Pipeline::SyncDriver }
     end
 
-    # A consumer requires "dexpace" and nothing else: the tracing and metrics layer resolves too
-    # (phase 5c), the whole of it under Dexpace::Instrumentation -- 5b's three diagnostics
-    # constants shipped early among it (P5-71) -- and the six no-op classes, the two instrument
-    # singletons and the current-span key are private.
-    test "requiring dexpace alone makes the whole tracing and metrics layer resolve" do
+    # A consumer requires "dexpace" and nothing else: the tracing and metrics layer (phase 5c)
+    # and the logging facade (phase 5b) resolve too, the whole of both under
+    # Dexpace::Instrumentation -- twenty-six public constants -- and everything private stays
+    # private: the six no-op classes, the two instrument singletons and the current-span key
+    # (5c's), and the null sink's class, the inert event's class, the collision latch, the
+    # renderer and the emitter (5b's).
+    test "requiring dexpace alone makes the whole tracing, metrics and logging layer resolve" do
       instrumentation = Dexpace::Instrumentation
 
       assert_equal(
         %i[
-          Bundle CallableAdapter Diagnostics HTTPTracer NO_METER NO_SCOPE NO_SPAN NO_TRACER
-          NO_TRACER_FACTORY NULL Scope TraceIdFlavour Tracing
+          AsyncStep Bundle CallableAdapter Diagnostics Event Events HTTPLogging HTTPTracer Keys
+          Logger NO_METER NO_SCOPE NO_SPAN NO_TRACER NO_TRACER_FACTORY NULL NULL_SINK Preview
+          RedactionPolicy Redactor Scope Severity Step TraceIdFlavour Tracing
         ],
         instrumentation.constants(false).sort,
       )
       assert_equal(%i[trace.id span.id], instrumentation::Diagnostics::DEFAULT_KEYS)
+      assert_same(instrumentation::Event::INERT, instrumentation::Logger::NULL.event(:error))
       assert_raises(::NameError) { Dexpace::Instrumentation::NoScope }
       assert_raises(::NameError) { Dexpace::Instrumentation::NO_COUNTER }
       assert_raises(::NameError) { Dexpace::Instrumentation::CURRENT_SPAN_KEY }
+      assert_raises(::NameError) { Dexpace::Instrumentation::NullSink }
+      assert_raises(::NameError) { Dexpace::Instrumentation::CollisionLatch }
+      assert_raises(::NameError) { Dexpace::Instrumentation::Render }
+      assert_raises(::NameError) { Dexpace::Instrumentation::Emitter }
+      assert_raises(::NameError) { Dexpace::Instrumentation::Event::Inert }
+      assert_raises(::NameError) { Dexpace::Instrumentation::AsyncStep::Pending }
     end
 
     # A consumer requires "dexpace" and nothing else: the execution context resolves too (phase

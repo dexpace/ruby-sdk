@@ -1,0 +1,59 @@
+module Dexpace
+  module Instrumentation
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types Logger.build. The privacy lives in lib/dexpace/instrumentation/event.rb.
+    class CollisionLatch
+      @mutex: Thread::Mutex
+      @claimed: bool
+
+      def initialize: (Thread::Mutex mutex) -> void
+      def claim: () -> bool
+    end
+
+    # OBS-1, OBS-3..OBS-9, OBS-39, OBS-40: the mutable event accumulator, obtained from
+    # Logger#event only. .new is private; Logger reaches it as the driver reaches Cursor's.
+    class Event
+      # A private_constant with no visibility in RBS: the class behind INERT (P5-20).
+      class Inert < Event
+        def field: (untyped _key, untyped _value) -> self
+        def event: (untyped _name) -> self
+        def cause: (untyped _error) -> self
+        def emit: () -> nil
+      end
+
+      INERT: Event
+      COLLISION_MESSAGE: String
+
+      @severity: Severity
+      @sink: _Sink & Object
+      @redactor: Redactor
+      @context: Hash[String, untyped]
+      @diagnostic_keys: Array[Symbol]?
+      @mutex: Thread::Mutex
+      @latch: CollisionLatch
+      @fields: Hash[String, untyped]
+      @tag: String?
+      @cause: untyped
+      @emitted: bool
+
+      private def self.new: (severity: Severity, sink: _Sink & Object, redactor: Redactor,
+                             context: Hash[String, untyped], diagnostic_keys: Array[Symbol]?,
+                             mutex: Thread::Mutex, latch: CollisionLatch) -> instance
+      def initialize: (severity: Severity, sink: _Sink & Object, redactor: Redactor,
+                       context: Hash[String, untyped], diagnostic_keys: Array[Symbol]?,
+                       mutex: Thread::Mutex, latch: CollisionLatch) -> void
+
+      def field: (String | Symbol key, untyped value) -> self
+      def event: (String | Symbol | nil name) -> self
+      def cause: (Exception? error) -> self
+      def emit: () -> nil
+
+      private
+
+      def claim_emit!: () -> bool
+      def apply_tag!: (Hash[String, untyped] record) -> void
+      def field_name!: (untyped key) -> String
+      def redact: (String name, untyped value) -> untyped
+    end
+  end
+end

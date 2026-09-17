@@ -1,0 +1,44 @@
+module Dexpace
+  module Instrumentation
+    # OBS-1, OBS-2, OBS-9, OBS-10, OBS-40: the facade. Frozen after .build; NULL is the one over
+    # NULL_SINK. The name shadows the stdlib Logger for a bare reference inside this namespace
+    # only (P5-38); core never loads the stdlib one.
+    class Logger
+      SINK_METHODS: Array[Symbol]
+      NULL: Logger
+
+      @sink: _Sink & Object
+      @context: Hash[String, untyped]
+      @redactor: Redactor
+      @diagnostic_keys: Array[Symbol]?
+      @mutex: Thread::Mutex
+      @latch: CollisionLatch
+
+      attr_reader sink: _Sink & Object
+      attr_reader context: Hash[String, untyped]
+      attr_reader redactor: Redactor
+
+      # The sink is `_Sink & Object`: the facade reaches its methods through public_send, which an
+      # RBS interface does not carry and every Ruby object does (5c's `_Span & Object` device).
+      private def self.new: (sink: _Sink & Object, context: Hash[String, untyped],
+                             redactor: Redactor, diagnostic_keys: Array[Symbol]?,
+                             mutex: Thread::Mutex, latch: CollisionLatch) -> instance
+      def initialize: (sink: _Sink & Object, context: Hash[String, untyped],
+                       redactor: Redactor, diagnostic_keys: Array[Symbol]?,
+                       mutex: Thread::Mutex, latch: CollisionLatch) -> void
+
+      def self.build: (?sink: _Sink & Object, ?context: Hash[untyped, untyped],
+                       ?redactor: Redactor, ?diagnostic_keys: Array[Symbol | String]?) -> Logger
+
+      def event: (Severity | Symbol severity) -> Event
+      def enabled?: (Severity | Symbol severity) -> bool
+
+      private
+
+      def self.sink!: (untyped sink) -> (_Sink & Object)
+      def self.context!: (untyped context) -> Hash[String, untyped]
+      def self.diagnostic_keys!: (untyped keys) -> Array[Symbol]?
+      def resolve: (Severity | Symbol severity) -> Severity
+    end
+  end
+end

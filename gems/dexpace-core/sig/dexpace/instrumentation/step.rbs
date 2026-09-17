@@ -1,0 +1,49 @@
+module Dexpace
+  module Instrumentation
+    # OBS-34, OBS-36, OBS-39, OBS-20: the instrumentation step at Stages::LOGGING. The two slots
+    # type against 4a's _TracerFactory and 5c's _Meter by bare name from inside this module (5b
+    # declares neither); the clock against 5a's _Clock. Both are `& Object` where the step calls
+    # a method an interface does not carry.
+    class Step
+      @emitter: Emitter
+      @logger: Logger
+      @level: HTTPLogging
+      @tracer_factory: _TracerFactory
+      @counter: _Counter
+      @histogram: _Histogram
+      @preview_bytes: Integer?
+      @clock: _Clock
+
+      private def self.new: (emitter: Emitter, logger: Logger, level: HTTPLogging,
+                             tracer_factory: _TracerFactory, counter: _Counter,
+                             histogram: _Histogram, preview_bytes: Integer?, clock: _Clock)
+                          -> instance
+      def initialize: (emitter: Emitter, logger: Logger, level: HTTPLogging,
+                       tracer_factory: _TracerFactory, counter: _Counter, histogram: _Histogram,
+                       preview_bytes: Integer?, clock: _Clock) -> void
+
+      def self.build: (logger: Logger, level: HTTPLogging, ?tracer_factory: _TracerFactory,
+                       ?meter: _Meter, ?preview_bytes: Integer?, ?clock: _Clock) -> Step
+
+      def stage: () -> Pipeline::Stage
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Response
+
+      private
+
+      def self.level!: (untyped level, untyped preview_bytes) -> void
+      # untyped: a _Span is what the tracer returns and `_Span & Object` is what Tracing takes
+      # (5c's identity device); the step passes one straight to the other.
+      def open_span: (Dexpace::Request request) -> untyped
+      def finish: (untyped span, Float started) -> void
+      def elapsed_ms: (Float started) -> Float
+      def logged?: () -> bool
+      def body?: () -> bool
+      def prepare: (Dexpace::Request request) -> Dexpace::Request
+      def log_request: (Dexpace::Request request) -> void
+      def log_response: (Dexpace::Request request, Dexpace::Response response, Float started) -> void
+      def log_failure: (Dexpace::Request request, Exception error, Float started) -> void
+      def wrap_request: (Dexpace::Request request) -> Dexpace::Request
+      def wrap_response: (Dexpace::Response response) -> Dexpace::Response
+    end
+  end
+end

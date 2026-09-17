@@ -16,5 +16,7 @@ module Dexpace
     def ensure_closeable_initialized: () -> void
   end
 
-  def self.close_quietly: (untyped resource, ?onto: ::Exception?) -> nil
+  # Phase 5b widened this with `logger:` (the second disposal route); `onto:` is phase 4b's.
+  def self.close_quietly: (untyped resource, ?onto: ::Exception?,
+                           ?logger: Instrumentation::Logger) -> nil
 end

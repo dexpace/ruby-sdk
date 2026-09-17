@@ -1,0 +1,35 @@
+module Dexpace
+  module Instrumentation
+    # OBS-39: the emitted field-key vocabulary, sixteen frozen Strings.
+    module Keys
+      EVENT: String
+      HTTP_REQUEST_METHOD: String
+      URL_FULL: String
+      HTTP_RESPONSE_STATUS_CODE: String
+      HTTP_RESPONSE_DURATION_MS: String
+      HTTP_REQUEST_BODY_SIZE: String
+      HTTP_RESPONSE_BODY_SIZE: String
+      HTTP_REQUEST_BODY_PREVIEW: String
+      HTTP_RESPONSE_BODY_PREVIEW: String
+      HTTP_REQUEST_HEADER_PREFIX: String
+      HTTP_RESPONSE_HEADER_PREFIX: String
+      ERROR_TYPE: String
+      CAUSE: String
+      MESSAGE: String
+      INSTRUMENT_REQUEST_COUNT: String
+      INSTRUMENT_REQUEST_DURATION: String
+    end
+
+    # OBS-39 and OBS-20: the emitted event-name vocabulary, eight frozen Strings.
+    module Events
+      HTTP_REQUEST: String
+      HTTP_RESPONSE: String
+      INSTRUMENTATION_PREFIX: String
+      INSTRUMENTATION_LOG: String
+      INSTRUMENTATION_CLOSE: String
+      INSTRUMENTATION_HOOK: String
+      INSTRUMENTATION_SHUTDOWN: String
+      INSTRUMENTATION_CONFIG: String
+    end
+  end
+end

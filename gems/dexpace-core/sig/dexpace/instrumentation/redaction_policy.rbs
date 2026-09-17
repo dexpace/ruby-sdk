@@ -1,0 +1,32 @@
+module Dexpace
+  module Instrumentation
+    # OBS-12, OBS-17, OBS-18: three folded Sets and one boolean, no member for userinfo (OBS-11 is
+    # unconditional). Built through .build and derived through Model#with.
+    class RedactionPolicy < Data
+      include Model
+
+      DEFAULT_QUERY_ALLOW_LIST: Set[String]
+      DEFAULT_URL_HEADER_NAMES: Set[String]
+      DEFAULT_HEADER_ALLOW_LIST: Set[String]
+      DEFAULT: RedactionPolicy
+
+      attr_reader query_allow_list: Set[String]
+      attr_reader header_allow_list: Set[String]
+      attr_reader url_header_names: Set[String]
+      attr_reader omit_disallowed_headers: bool
+
+      private def self.new: (query_allow_list: untyped, header_allow_list: untyped,
+                             url_header_names: untyped, omit_disallowed_headers: untyped) -> instance
+      def initialize: (query_allow_list: untyped, header_allow_list: untyped,
+                       url_header_names: untyped, omit_disallowed_headers: untyped) -> void
+
+      def self.build: (?query_allow_list: untyped, ?header_allow_list: untyped,
+                       ?url_header_names: untyped, ?omit_disallowed_headers: untyped)
+                    -> RedactionPolicy
+
+      private
+
+      def fold_set: (String member, untyped names) -> Set[String]
+    end
+  end
+end

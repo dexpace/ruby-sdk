@@ -1,0 +1,26 @@
+# Dexpace::Instrumentation::Emitter is a private_constant and not public API (P2-15, P4-3): this
+# declaration exists because the strict `core` Steep target checks every file under lib/ and
+# needs the class and its three writers declared to type Step and AsyncStep. RBS has no
+# visibility for a constant, so the privacy lives in lib/dexpace/instrumentation/emitter.rb alone.
+module Dexpace
+  module Instrumentation
+    class Emitter
+      @logger: Logger
+      @redactor: Redactor
+      @level: HTTPLogging
+
+      def initialize: (logger: Logger, level: HTTPLogging) -> void
+      def request: (Dexpace::Request request) -> nil
+      def response: (Dexpace::Request request, Dexpace::Response response, Float duration_ms) -> nil
+      def failure: (Dexpace::Request request, Exception error, Float duration_ms) -> nil
+
+      private
+
+      def request_preview: (Event event, Dexpace::Request request) -> void
+      def headers: (Event event, Dexpace::Headers headers, String prefix) -> void
+      def declared_size: (Event event, String key, Dexpace::Body? body) -> void
+      def preview: (Event event, String preview_key, String size_key, untyped body) -> void
+      def error_type: (Exception error) -> String
+    end
+  end
+end
