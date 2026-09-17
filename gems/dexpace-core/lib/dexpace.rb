@@ -163,6 +163,9 @@ require_relative "dexpace/proxy"
 require_relative "dexpace/instrumentation/diagnostics"
 require_relative "dexpace/instrumentation/scope"
 require_relative "dexpace/instrumentation/tracing"
+require_relative "dexpace/instrumentation/meter"
+require_relative "dexpace/instrumentation/http_tracer"
+require_relative "dexpace/instrumentation/callable_adapter"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
