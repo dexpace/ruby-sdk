@@ -3027,3 +3027,87 @@ on the merged tree rather than merged by hand (665 + 65 = 730 lines, no row of 4
 smoke suite pins all three layers, and `CLAUDE.md`, the READMEs and `architecture.md` read one hundred and
 three files, six `private_constant`s without a `test/` mirror and eight checklists — 4a's is the eighth
 written, not the sixth, in merge order.
+
+**2026-09-17** — **Phase 5a implemented**, as three stacked branches against issue #18: code, tests,
+documentation, cut from `main` at 993c439 and run as a lane parallel to phase 5c's off the same base, with
+phase 5b not started — the shape execution step 5 states, and the first time a lane ran beside one it shares
+a chapter with: nothing of 5c's is on this base, 5a names no 5c constant, and 5a touches
+`Dexpace::Instrumentation` not at all. `dexpace-core` carries the configuration layer beside the seven
+layers before it — seventeen new `lib/` files, one more than the design's Module Layout: `build_info.rb`,
+`uuid.rb`, `retryability.rb`, `http_date.rb`, `clock.rb`, `async/delay.rb`, `deep_value.rb`,
+`configuration.rb` with `configuration/keys.rb`, `configuration/sources.rb`, `configuration/parsers.rb` and
+`configuration/builder.rb` (the seventeenth, a file of its own as phase 1 files every builder, **P5-51**),
+`config.rb`, and `proxy.rb` with `proxy/type.rb`, `proxy/host_pattern.rb` and `proxy/resolution.rb` — every
+one with a `sig/` mirror (the three `private_constant`s included, with the comment `hooks.rbs` carries,
+**P5-57**), fourteen with a `test/` mirror, plus three doubles (`fake_clock.rb`, `fake_config_source.rb`,
+`parking_scheduler.rb` — top level, and two of them renamed from the plan because `fake_source.rb` is phase
+3a's `IO-17` double and `probe_scheduler.rb` is phase 2's hook recorder, **P5-58**); the entry file gains
+ten `require_relative`s as one block, because the seven nested files reopen their class and load from inside
+its body; eight existing files change — `async/completer.rb` and `async/future.rb` for the `deadline:`
+keyword, `context_store.rb` for the cap, `io.rb` for the ceiling function, and `http/body.rb`,
+`http/body/stream_body.rb`, `http/body/buffer_body.rb` and `io/typed_reads.rb` as its readers — and three
+earlier tests with them, phase 0's smoke suite, phase 2's `seam_surface_test.rb` and phase 4a's
+`context_store_test.rb`, on the code branch because the code tip must be green; the other five gems are
+still phase-0 skeletons at `0.0.0`; nothing talks to a socket, and nothing in core calls `Proxy.resolve` —
+`CFG-28`'s prohibition met by the absence of a call site. **Three of the four items earlier phases postponed
+to this window landed**: the pivot's `deadline:` keyword (phase 2's P2-5) as a timed gate pop inside
+`Completer#await` ending in `request_cancel(:deadline_expired)` — not the `Cancellation.any` composition the
+design's alternative named — with `clock:` beside it and the positional cancellation unchanged; the context
+store's configured cap (phase 4a, Task 13), by **option (b)**: `ContextStore.default` is built on its FIRST
+call, under one `::Thread::Mutex`, reading `Keys::MAX_TRACKED_CONTEXTS` then and falling back to the
+constant on a non-positive value, because phase 4a's load-time assignment could never see a
+`Dexpace.configure` at boot and an unsynchronised `||=` publishes sixteen stores for sixteen first callers
+(**P5-55**; phase 4a's fresh-process case is rewritten to assert no store before the first call, on the code
+branch, since the code tip must be green); and the ceiling half of the body-logging caps (phase 3b, Task
+13), by **option B**: `Dexpace::IO.max_materialized_bytes` is a public function AND the five readers of
+`MAX_MATERIALIZED_BYTES` read it per call, so the live configuration governs every materialisation and the
+constant is the default and the fallback (**P5-56**). The fourth — the two logging-body wirings — needs 5b's
+enablement setting and is 5b's: 5a declares no key for body-preview size or enablement, and the charter's
+mark goes on 5b as the lane that lands second. The checklist is at
+`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`: thirty-eight own rows,
+`CFG-1`–`CFG-38`, **35 ✅ and 3 ✅-in-part** — `CFG-20`, whose fourth clause is the `docs/first-release.md`
+Unsatisfied-MUSTs entry already names (no new line there); `CFG-34`, whose boxed-versus-primitive container
+clause has no Ruby manifestation and is inapplicable per §11.15; and `CFG-35`, whose throwable half is phase
+6a's Task 3 — nothing ⏳, nothing 🚫, nothing N/A, plus seven cross-reference rows (`XCUT-5`, `CTX-11`,
+`IO-9`, `BODY-32`, `SEAM-18`, `XCUT-11`, `NFR-11`) for the IDs of other phases this build reached. `bundle
+exec rake` is green on 4.0.6 at the tests tip with 99.97% line coverage against the 80% floor (4,690 of
+4,691 lines; the one uncovered line is in phase 2's `registry.rb`) and 1,755 runs across the six gems; the
+matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too, its
+`test:gems` above the floor, and the honest RuboCop claim rests on `--fail-level=convention
+--ignore-parent-exclusion`. **Every guard the brief asks to be run red was run red**, thirty-six single-edit
+mutations under twenty-five headings: all caught on the first run but one — the resolver's port bound raised
+by one, indistinguishable from the model's refusal caught by the backstop until the suite carried `65536`
+and asserted the warning's own text — and one that hangs by construction (the pop's `timeout:` dropped),
+which the shell timeout reports at exit 124; guard 6, the mutex around the slot swap, is invisible to every
+behavioural case under the GVL and is pinned by a text case that says why. Seven of the mutations were run
+red on 3.2.11 as well, the `Kernel.sleep` and re-check guards among them. **Six floor-straddling facts were
+re-verified on 3.2.11, 3.4.10 and 4.0.6 before any code** and are asserted on every row by
+`matrix_facts_test.rb`, and the design's open question 2 — whether `Time#httpdate` follows the locale — was
+settled rather than deferred, under a user-space `de_DE.UTF-8` built with `localedef` into a scratch
+`LOCPATH`: CRuby's `strftime` never consults it. **Four other things the tree as built changed under the
+design**: `Async.delay`'s future settles with `true`, because `SEAM-16` makes a `nil`-valued settlement
+unconstructible (**P5-52**); `Proxy::HostPattern` is a one-member `Data` over `glob` with the compiled
+`Regexp` a private instance variable set at construction (**P5-53**); `Proxy::Type` is a closed set in the
+pipeline's `Stage` shape — `.of` the only lookup, `.new` and `.[]` private, no `.build`, `#with` refusing —
+not phase 1's `Status` shape; and `HTTPDate.parse` checks every component against what `Time.utc` built,
+because `Time.utc(1994, 11, 31)` is silently 1 December (**P5-54**). Twenty-three departures from the plan's
+text are itemised in the checklist, none lowering a gate. The surface manifest is regenerated once, 730 to
+814 lines, every one of the 84 new rows read against the object model and none removed.
+`docs/sdk-documentation/configuration.md` is the as-built page, every fence run verbatim on 4.0.6 and 3.2.11
+with identical output but the floor's `Hash#inspect` spelling and `BuildInfo::RUNTIME_VERSION`;
+`architecture.md`, the core README, `README.md` and `docs/README.md` point at it. The design's ledger gains
+an "As built" addendum, rows **P5-51–P5-58**, numbered from the tree so the parallel lanes cannot collide —
+5c's as-built rows start at P5-71 and 5b's at P5-91. No corpus note was written: nothing this build found
+contradicts a harvested rule. No frozen sentence is contradicted either — §8.2's chain and §8.3's queue wait
+are built as described — so `docs/first-release.md` is untouched and its `C1`–`C14` paragraph gains no
+`C15`; the §8.2, §8.3, §10.16 and §10.17 addenda that would state the substituted third source, the queue
+wait, the first-call store construction and the configured ceiling as built, and the consolidation of
+P5-1–P5-15 and P5-51–P5-58 into design §10, are a human's, as they were for 3a, 3b, 4a, 4b and 4c:
+`docs/sdk-design-ruby/` is frozen, and `docs/deviations.md` is left as phase 2 left it for phase 10 to flip.
+The counts that changed: `gems/` is still six; `dexpace-core`'s `lib/dexpace/` is one hundred and twenty
+phase-1 through phase-5a files beside phase 0's `version.rb`, nine of them `private_constant`s without a
+`test/` mirror; `phase5/phase5a/` now carries its checklist, the ninth written; the surface manifest is 814
+lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the
+constraints-that-bite list are rewritten from what was built. **Those counts are the build's, cut from
+`main` at 993c439**; phase 5c's lane, if it merges first, will regenerate the manifest on the merged tree as
+4a did.
