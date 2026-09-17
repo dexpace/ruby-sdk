@@ -99,7 +99,8 @@ inert `Event::INERT`, the facade `Logger` with `.build(sink:, context:, redactor
 `RedactionPolicy` with `DEFAULT` and the `Redactor` with `#url`, `#header_value`, `#header_name?`,
 `DEFAULT` and its five markers, the body preview `Preview.render`, the closed level set `HTTPLogging`
 (`NONE`, `HEADERS`, `BODY`, `DEFAULT`, `.parse`, `.resolve`), the two pipeline steps `Step` and
-`AsyncStep` at `Stages::LOGGING` over the private `Emitter`, the private `Render`, and
+`AsyncStep` at `Stages::LOGGING` over the private `Emitter`, the private `Render`, the private
+`ReservedKeys` table, and
 `Configuration::Keys::LOG_PREVIEW_BYTES` — plus four wirings into earlier layers: `Dexpace.close_quietly`
 and `Hooks.notify` gain `logger:` and emit an `http.instrumentation.*` diagnostic where they dropped a
 failure, `Proxy.resolve` gains `logger:` and its `Kernel#warn` sites emit the config diagnostic beside the
@@ -583,21 +584,27 @@ Each is one line plus the chapter to read before touching the area.
   the suite runs red. `Tracing.activate` returns the cached `NO_SCOPE` on an **identity** test — the span is
   already current — never on the recording flag, which would leave a recording span un-restored under a
   non-recording one (P5-47).
-- **Redaction happens at `Event#field`, by the field's NAME, and never at the sink** — `url.full` goes
-  through `Redactor#url` and every `http.request.header.*` / `http.response.header.*` key through
-  `OBS-18`'s name gate first (a name outside the allow-list stores the `REDACTED` marker or, in omit
-  mode, nothing) and then, for an allow-listed name, through `#header_value`, so a caller who writes
-  `logger.event(Severity::INFO).field(Keys::URL_FULL, raw)` or a credential header by hand gets exactly
-  what the step gets, whatever the sink does with it, and a sink is never trusted to redact (`OBS-11`–
-  `OBS-18`, `OBS-39`; P5-102 — the private `Emitter` writes every header and gates nothing). The
-  redactor reassembles from `URI::RFC3986_PARSER.split`'s nine raw components and never through
-  `URI#to_s`, which drops a default port `OBS-14` forbids dropping (P5-91); `#url` is total and answers
-  `"[malformed url]"` on any `StandardError`, `#header_value` always a String and never the sentinel
-  (P5-25, P5-26), and userinfo is `***:***@` on every route of both — a network-path reference's
-  authority and an authority the parser rejected included, where `OBS-11`'s "unconditionally" overrules
-  `OBS-16`'s "returned verbatim" (P5-100). The default header allow-list is twenty-six names with every
-  credential and challenge header absent, the query allow-list is exactly `{api-version}`, and userinfo
-  is redacted with no policy member able to reach it (`XCUT-19`).
+- **Redaction happens on the way into the record, by the field's NAME, and never at the sink** —
+  `url.full` goes through `Redactor#url` and every `http.request.header.*` / `http.response.header.*`
+  key through `OBS-18`'s name gate first (a name outside the allow-list stores the `REDACTED` marker or,
+  in omit mode, nothing) and then, for an allow-listed name, through `#header_value`; the table is the
+  private `ReservedKeys` and all three of `OBS-5`'s sources meet it — a per-event field at `Event#field`,
+  the logger's global context once at `Logger.build`, the folded diagnostic context at `Event#emit` — so
+  a caller who writes `logger.event(Severity::INFO).field(Keys::URL_FULL, raw)`, puts a credential
+  header in `context:` or sets `Fiber[:"url.full"]` gets exactly what the step gets, whatever the sink
+  does with it, and a sink is never trusted to redact (`OBS-11`–`OBS-18`, `OBS-39`; P5-102, P5-104 —
+  the private `Emitter` writes every header and gates nothing). The redactor reassembles from
+  `URI::RFC3986_PARSER.split`'s nine raw components and never through `URI#to_s`, which drops a default
+  port `OBS-14` forbids dropping (P5-91); `#url` is total and answers `"[malformed url]"` on any
+  `StandardError`, `#header_value` always a String and never the sentinel (P5-25, P5-26), and userinfo
+  is `***:***@` on every route of both — a network-path reference's authority, an authority the parser
+  rejected and one behind the leading OWS `HTTP-19` admits in an inbound value included, where
+  `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned verbatim" (P5-100, P5-105). A warning
+  that names a URL names it through the redactor too: the proxy resolver's `Kernel#warn` and its config
+  diagnostic show `http://***:***@proxy.corp`, never the raw `HTTPS_PROXY` (P5-103). The default header
+  allow-list is twenty-six names with every credential and challenge header absent, the query
+  allow-list is exactly `{api-version}`, and userinfo is redacted with no policy member able to reach it
+  (`XCUT-19`).
 - **The logging sink is a duck type — `#debug`/`#info`/`#warn`/`#error` and their four predicates —
   and core never `require`s `logger`** — `NULL_SINK` is a frozen instance of a private class, the RBS
   interface is `_Sink`, and the stdlib `Logger` is a structural superset a host passes in; the bare

@@ -107,15 +107,18 @@ record["tags"]                                        # => "[\"a\", \"b\"]"
 record["error"]                                       # => "RuntimeError: boom"
 ```
 
-Four things in that record are the layer's rules and not the sink's. **Redaction happened at
-`#field`, by the field's name** (`OBS-39`, §8.1): `url.full` went through `Redactor#url`, and every
-header-prefixed key through `OBS-18`'s name gate first — `Authorization` is not on the allow-list, so
-its value is the fixed `REDACTED` marker (or, with `omit_disallowed_headers: true`, the key is not
+Four things in that record are the layer's rules and not the sink's. **Redaction happened on the way
+into the record, by the field's name** (`OBS-39`, §8.1): `url.full` went through `Redactor#url`, and
+every header-prefixed key through `OBS-18`'s name gate first — `Authorization` is not on the allow-list,
+so its value is the fixed `REDACTED` marker (or, with `omit_disallowed_headers: true`, the key is not
 stored at all), whoever wrote the field — and then, for an allow-listed name, through
 `Redactor#header_value`, which redacts a URL-valued header (`Location`, `Content-Location`), userinfo
-included, and passes every other value through (P5-102). A caller who writes a credential header
-straight into `#field` therefore gets exactly what the step gets; the gate is keyed by the field name,
-not by who called. **Rendering is one rule** (`OBS-6`): `nil` is the literal `"null"`, numerics and
+included, and passes every other value through (P5-102). The same table meets all three of `OBS-5`'s
+sources: a per-event field at `#field`, the logger's global context once at `Logger.build`, and the
+folded diagnostic context at `#emit` (P5-104). A caller who writes a credential header straight into
+`#field`, puts one in the context, or sets `Fiber[:"url.full"]` therefore gets exactly what the step
+gets; the gate is keyed by the field name, not by who called or where the value came from.
+**Rendering is one rule** (`OBS-6`): `nil` is the literal `"null"`, numerics and
 booleans pass through type-preserving, an exception renders as `SimpleClassName: message`, an `Array`
 or `Hash` as its bracketed `#inspect`, and anything else through `#to_s`; every path is inside a rescue
 that substitutes `[unrenderable ClassName]`, reached through `Kernel#class` so even a `BasicObject` gets
@@ -178,6 +181,12 @@ every key present, skipping nil values and every key under `Diagnostics::RESERVE
 I::Logger.build(sink: sink2, diagnostic_keys: nil).event(:info).emit
 sink2.entries.last[1]
 # => {"trace.id" => "4bf92f3577b34da6a3ce929d0e0e4736", "span.id" => "00f067aa0ba902b7", "tenant" => "acme"}
+ambient = I::Logger.build(sink: sink2, context: { "url.full" => "https://u:p@h/x?sig=S", "http.request.header.authorization" => "Bearer ctx" })
+ambient.context                                       # => {"url.full" => "https://***:***@h/x?sig=***", "http.request.header.authorization" => "REDACTED"}
+Fiber[:"url.full"] = "https://u:p@fiber/x"
+I::Logger.build(sink: sink2, diagnostic_keys: nil).event(:info).emit
+sink2.entries.last[1]["url.full"]                     # => "https://***:***@fiber/x"
+Fiber[:"url.full"] = nil
 I::Logger.build(sink: sink2, diagnostic_keys: [:tenant]).event(:info).emit
 sink2.entries.last[1]                                 # => {"tenant" => "acme"}
 Fiber[:"trace.id"] = nil; Fiber[:"span.id"] = nil; Fiber[:tenant] = nil   # the carrier is empty again
@@ -226,6 +235,7 @@ r.header_value("Location", "https://h/x?t=1")         # => "https://h/x?t=***"
 r.header_value("Location", "//user:secret@h/x")       # => "//***:***@h/x"      (relative, with an authority)
 r.header_value("Location", "bad path?secret=1")       # => "bad path?***"       (unparseable: surgery)
 r.header_value("Location", "http://user:pw@h/p x")    # => "http://***:***@h/p x"
+r.header_value("Location", " http://user:pw@h/p")     # => " http://***:***@h/p"  (a leading OWS, kept)
 r.header_value("Content-Type", "text/html?x=1")       # => "text/html?x=1"      (not a URL header)
 r.header_value("Location", nil)                       # => ""
 r.header_name?("Content-Type")                        # => true
@@ -255,9 +265,13 @@ with no `=` is kept. The fragment is tokenised by hand on `&`, because `URI` doe
 raise too — yields the `"[malformed url]"` sentinel (`OBS-15`). `#header_value` never returns that
 sentinel and never returns nil: an absolute value is redacted like a request URL, a relative one keeps
 its path — and its authority, if it has one — and gets `?***` iff it carried a query *or* a fragment
-(`OBS-16`), and an unparseable one takes string surgery on the raw value; on every one of those routes
-a userinfo is `***:***@`, which is where `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned
-verbatim" for the one input both reach (P5-100).
+(`OBS-16`), and an unparseable one takes string surgery on the raw value — after any leading run of
+whitespace or control bytes, which HTTP-19's grammar admits at the front of an inbound header value and
+which are written back as they came (P5-105); on every one of those routes a userinfo is `***:***@`,
+which is where `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned verbatim" for the one input
+both reach (P5-100). What has no authority under RFC 3986 — `user:pw@h/p` with no `//`, a backslash
+spelling, an empty authority (`http:///…`), a non-scheme prefix — has no userinfo and is written back as
+given.
 
 ## The diagnostic-context bridge: `Diagnostics.capture`, `.with`, `.folded`
 
@@ -335,7 +349,10 @@ constants and eight, every one a row in the surface manifest, so a seventeenth c
 `OBS-38`: a captured body renders as text when its media type is `text/*`, a known text subtype (`json`,
 `xml`, `x-www-form-urlencoded`, …) or carries a `+json`/`+xml` suffix, decoded by phase 3b's recipe —
 retag with the declared charset, then transcode to UTF-8 with replacement — and as a fixed marker
-otherwise, an absent media type included. It never raises and never mutates its input.
+otherwise, an absent media type included. It never raises and never mutates its input: a charset Ruby
+does not know decodes as UTF-8 (`MediaType#charset` is already `nil` for it), and so does one Ruby
+knows but cannot convert — `utf-7`, `iso-2022-jp-2` — where `#encode` raises
+`Encoding::ConverterNotFoundError` with the replacement options set (P5-106).
 
 ```ruby
 MT = Dexpace::MediaType
@@ -344,6 +361,7 @@ I::Preview.render("\x89PNG".b, media_type: MT.parse("image/png"))               
 I::Preview.render("{}".b, media_type: MT.parse("application/problem+json"))              # => "{}"
 I::Preview.render("\xE2\x82".b, media_type: MT.parse("text/plain"))                      # => "�"  (a cut multibyte char)
 I::Preview.render("x".b, media_type: nil)                                                # => "[binary 1 bytes captured]"
+I::Preview.render("+AGEAYg-".b, media_type: MT.parse("text/plain; charset=utf-7"))       # => "+AGEAYg-"  (no converter: UTF-8)
 ```
 
 The two-step decode is deliberate: §3.1's one-step form, `bytes.encode("UTF-8", …)` from BINARY,
@@ -545,6 +563,9 @@ Dexpace::Proxy.resolve(cfg9, logger: l8)              # => nil, after "[dexpace]
 sink8.entries.last
 # => [:warn, {"message" => "proxy URL \"https://proxy.corp\" has no explicit port; CFG-25 forbids defaulting to 80 or 443",
 #             "event" => "http.instrumentation.config"}]
+cfg10 = Dexpace::Configuration.build(env_source: Dexpace::Configuration::Sources.from_hash("HTTPS_PROXY" => "http://user:secret@proxy.corp:abc"))
+Dexpace::Proxy.resolve(cfg10, logger: l8)             # => nil, after "[dexpace] proxy URL \"http://***:***@proxy.corp:abc\" is not a URI" on $stderr
+sink8.entries.last[1]["message"]                      # => "proxy URL \"http://***:***@proxy.corp:abc\" is not a URI"
 ```
 
 - **`Dexpace.close_quietly(resource, onto: nil, logger: Logger::NULL)`** — the second disposal route
@@ -557,7 +578,12 @@ sink8.entries.last
 - **`Proxy.resolve(configuration, logger: Logger::NULL)`** — every malformed-input path still
   `Kernel#warn`s with the `[dexpace]` prefix (`CFG-24`) and now also emits an `http.instrumentation.config`
   event with the warning's text under `message` and no cause, through the one helper all of them call
-  (`CFG-25`; phase 5a's P5-8 discharged).
+  (`CFG-25`; phase 5a's P5-8 discharged). The URL a warning names is the redactor's form and never the
+  raw value, on both channels: a proxy URL is the one configuration value that carries a credential, and
+  `message` is not a reserved key. A value with no `//` — `user:secret@proxy.corp:3128`, the scheme
+  forgotten — has no RFC 3986 userinfo for the redactor to see, so the resolver applies `CFG-24`'s own
+  grammar (`scheme://user:pass@host:port`) and shows `***:***@proxy.corp:3128`; the parser's own message,
+  which repeats the rejected value, is not quoted (P5-103).
 - **The body-logging caps** — `Configuration::Keys::LOG_PREVIEW_BYTES` is the published name, the caller
   resolves it and passes it to `Step.build`, and the two wrappers are built only there and only at `BODY`
   (`BODY-34`); the `body.md` page's "nothing in core constructs either" now reads "the step does".

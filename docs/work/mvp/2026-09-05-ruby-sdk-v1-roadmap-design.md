@@ -3305,11 +3305,11 @@ own rows, **26 ✅** (`OBS-24` and `OBS-10` ✅ with the floor's behaviour state
 plus fourteen cross-reference rows (`XCUT-19`'s five clauses, `XCUT-20`, `XCUT-11`, `CFG-24`/`CFG-25`,
 `CFG-21`, `CFG-14`, `CFG-16`, `SEAM-25`, `BODY-19`/`BODY-22`/`BODY-34`, `BODY-20`, `OBS-23`, `PIPE-28`,
 `NFR-11`). `bundle exec rake` is green on 4.0.6 at the tests tip and the docs tip with 99.98% line
-coverage (5,628 / 5,629 after review round 0's repair, the registry-claim race branch every phase since 2
-has recorded) against the 80% floor and 2,031 runs across the six gems (182 more than the base: the
-fifteen new or rewritten instrumentation suites, the five repaired pins and the round's eight added
-tests); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10 — on 3.2.11 under three seeds, the round
-having found one assertion there that held by test order; the code tip is green on all seventeen gates
+coverage (5,653 / 5,654 after review round 1's repair, the registry-claim race branch every phase since 2
+has recorded) against the 80% floor and 2,043 runs across the six gems (194 more than the base: the
+fifteen new or rewritten instrumentation suites, the five repaired pins, round 0's eight added tests and
+round 1's twelve); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10 — on 3.2.11 under three seeds, round
+0 having found one assertion there that held by test order; the code tip is green on all seventeen gates
 too, run one by one, and clean under the honest RuboCop command on its own tree, its `test:gems` above
 the floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed; and every
 instrumentation suite, 5b's and 5c's, was run standalone under `ruby -w` with `HTTPS_PROXY`, `HTTP_PROXY`,
@@ -3342,9 +3342,9 @@ none re-recorded**: §8.1's unsourced `Event#tag` stays on the inbound list and 
 the bare-`Logger` cop watch is closed as built — not expressible in `Dexpace/QualifiedCoreConstant`'s
 shape and guarding nothing, since the shadow is confined to `module Instrumentation` (P5-38's
 disposition; eight custom cops, 5b adds none); the charter's `OBS-19` cell and `OBS-24` arithmetic read
-correct. Thirty-one departures from the plan's text are itemised in the checklist, none lowering a
-gate — twenty-seven the build's, four review round 0's; the ones that touch public behaviour are the
-as-built rows **P5-91–P5-102** (also: `Instrumentation.diagnostic` public, the async scope closed at the
+correct. Thirty-seven departures from the plan's text are itemised in the checklist, none lowering a
+gate — twenty-seven the build's, four review round 0's, six review round 1's; the ones that touch public
+behaviour are the as-built rows **P5-91–P5-106** (also: `Instrumentation.diagnostic` public, the async scope closed at the
 head with the `OBS-24` bridge into the settlement, a `Future#then`-derived future at `BODY`,
 `Keys::MESSAGE` as the sixteenth key and an ASCII truncation marker, the span named by the method token
 until 6a wires the context in). **Review round 0 (2026-09-17) found `OBS-11`'s unconditional userinfo
@@ -3358,7 +3358,20 @@ percent-encoding in a parameter NAME sentinelling a parseable URL, an opaque URI
 written back — closed as **P5-101**, an order-dependent floor assertion in the matrix suite and a
 102-character line the nested-worktree `rake rubocop` cannot see closed on their owning branches, ten
 mutations run red after the repair on 4.0.6 and 3.2.11, the checklist's deviations 28–31 and its second
-guard table.
+guard table. **Review round 1 (2026-09-17) found a credential the redactor never saw**: 5a's proxy
+resolver interpolates the raw proxy URL into every malformed-URL warning and 5b's config diagnostic
+carried that text under `Keys::MESSAGE`, which the reserved-key table does not reach, so
+`HTTPS_PROXY=http://user:secret@proxy.corp` wrote `user:secret` into the sink through core's own code —
+closed on the code branch by rendering the URL through the redactor's total form plus `CFG-24`'s own
+grammar rule for the scheme-less spelling (**P5-103**); and three narrower readings closed beside it —
+the reserved-key table ran at `Event#field` alone while the logger's context and the diagnostic fold were
+merged raw, now the private `ReservedKeys` over all three of `OBS-5`'s sources (**P5-104**); the surgery
+pattern anchored at the scheme let a `Location` with the leading OWS `HTTP-19` admits keep its userinfo
+(**P5-105**); and `Preview.decode` raised `Encoding::ConverterNotFoundError` for a charset Ruby knows but
+cannot convert, now a UTF-8 fallback (**P5-106**) — with the two mutations that survived the round (the
+async failure event's `OBS-24` bridge, the `BODY-35` `-1` filter) given a test each, P5-100's closing
+sentence naming the non-authority spellings, ten mutations run red after the repair on 4.0.6 and 3.2.11,
+the checklist's deviations 32–37 and its third guard table.
 `docs/sdk-documentation/logging-and-redaction.md` is the as-built page, every fence run verbatim on
 4.0.6 and 3.2.11 with the three differences stated where they appear; `architecture.md`, the core
 README, `README.md` and `docs/README.md` point at it, and the four earlier pages that described this
@@ -3369,7 +3382,7 @@ probing `request.respond_to?(:context)`, and the built step probes nothing and n
 method token (P5-99), the conclusion unchanged; its `OBS-32`/`OBS-37` entry names this phase and reads
 true, and 5b adds no registry — and `docs/deviations.md` is untouched, for phase 10 to flip; no
 harvested rule was found wrong, so `docs/knowledge/notes/` gains nothing. The consolidation of
-P5-16–P5-39 and P5-91–P5-102 into design §10 and the §8.1 addendum are a human's, as they were for 3a,
+P5-16–P5-39 and P5-91–P5-106 into design §10 and the §8.1 addendum are a human's, as they were for 3a,
 3b, 4a, 4b, 4c, 5a and 5c: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is contradicted
 (§8.1's redaction "leans on `URI` for userinfo and query" is honoured by the `split` parse), so no
 `C15`. The counts that changed, on top of the 5c docs tip at `032986b`: `dexpace-core`'s `lib/dexpace/`
