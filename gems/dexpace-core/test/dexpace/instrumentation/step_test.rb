@@ -353,6 +353,79 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
     end
   end
 
+  # Review round 2's two header findings, end to end through a real pipeline at HEADERS over
+  # inbound Headers: a Location behind a prefix HTTP-19 admits (P5-107, R2-1) and a response
+  # carrying two Locations (P5-108, R2-2).
+  class HostileLocationTest < DexpaceTestCase
+    include Fixtures
+
+    Step = Dexpace::Instrumentation::Step
+    HTTPLogging = Dexpace::Instrumentation::HTTPLogging
+    Keys = Dexpace::Instrumentation::Keys
+    Logger = Dexpace::Instrumentation::Logger
+
+    LOCATION = "#{Keys::HTTP_RESPONSE_HEADER_PREFIX}location".freeze
+
+    def headers_step(sink)
+      Step.build(logger: Logger.build(sink: sink), level: HTTPLogging::HEADERS,
+                 clock: FakeClock.new,)
+    end
+
+    def location_logged_for(*values)
+      sink = RecordingSink.new
+      request = build_request
+      builder = Dexpace::Headers.inbound_builder
+      values.each { |value| builder.add("Location", value) }
+      response = Dexpace::Response.build(request: request, protocol: Dexpace::Protocol::HTTP_1_1,
+                                         status: 302, headers: builder.build, body: nil,)
+      drive(headers_step(sink), request, response: response)
+      [sink.payloads[1][LOCATION], sink.payloads.inspect]
+    end
+
+    # P5-107 end to end: every value below builds under HTTP-19's inbound grammar, the parser
+    # rejects every one, and round 2 found the userinfo of each reaching the sink because the
+    # surgery pattern tolerated a leading OWS and nothing else. RFC 3986 Appendix C's own
+    # delimiters, quotes, parentheses, a word, an encoded space, `+`, `@`, a backslash, a UTF-8
+    # NBSP and a line separator, and the three BINARY spellings a transport hands over.
+    test "OBS-11, OBS-16, P5-107: a Location behind any prefix still loses its userinfo" do
+      ["<http://user:secret@evil/x>", "\"http://user:secret@evil/x?code=S\"",
+       "'http://user:secret@evil/x'", "(http://user:secret@evil/x)", "x http://user:secret@evil/x",
+       "%20http://user:secret@evil/x", "+http://user:secret@evil/x", "@http://user:secret@evil/x",
+       "\\http://user:secret@evil/x", "\u00a0http://user:secret@evil/x",
+       "\u2028http://user:secret@evil/x", "\xC2\xA0http://user:secret@evil/x".b,
+       "\xFFhttp://user:secret@evil/x".b,
+       "\xA0http://user:secret@evil/x?code=S".b,].each do |hostile|
+        location, payloads = location_logged_for(hostile)
+
+        assert_includes(location.b, "***:***@", hostile.inspect)
+        refute_includes(payloads.b, "secret", hostile.inspect)
+        refute_includes(payloads.b, "user:", hostile.inspect)
+        refute_includes(payloads.b, "code=S", hostile.inspect)
+      end
+      assert_equal("<http://***:***@evil/x>", location_logged_for("<http://user:secret@evil/x>").first)
+      assert_equal("\"http://***:***@evil/x?***",
+                   location_logged_for("\"http://user:secret@evil/x?code=S\"").first,)
+    end
+
+    # P5-108 end to end: two Locations are one field joined with ", " -- and the join runs
+    # AFTER each value met the URL-value redactor on its own. Round 2 found the second value's
+    # userinfo behind the first value's path, where a redactor reading one URL never looked.
+    test "OBS-11, OBS-17, P5-108: a second Location's userinfo is redacted before the join" do
+      { ["https://user:secret@a/x", "https://user:secret@b/y?code=S"] =>
+          "https://***:***@a/x, https://***:***@b/y?code=***",
+        ["https://user:secret@a/x", "//user:secret@b/y"] => "https://***:***@a/x, //***:***@b/y",
+        ["/cb?code=S", "https://user:secret@b/y"] => "/cb?***, https://***:***@b/y",
+        ["<http://user:secret@a/x>", "https://user:secret@b/y"] =>
+          "<http://***:***@a/x>, https://***:***@b/y", }.each do |values, expected|
+        location, payloads = location_logged_for(*values)
+
+        assert_equal(expected, location, values.inspect)
+        refute_includes(payloads, "secret", values.inspect)
+        refute_includes(payloads, "code=S", values.inspect)
+      end
+    end
+  end
+
   # OBS-39's failure event and OBS-10's fold, through the step.
   class FailureEventsTest < DexpaceTestCase
     include Fixtures

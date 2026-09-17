@@ -233,4 +233,43 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
                         .integer(ConfigKeys::LOG_PREVIEW_BYTES, default: 8 * 1024),)
     end
   end
+
+  # P5-107 (review round 2's R2-1) on the resolver: a value that KEPT its quotes -- the dotenv
+  # and ConfigMap misconfiguration -- or its `<…>` delimiters, and a doubled URL, all reject at
+  # the parser and all carried the client's own credential into both channels, because the
+  # surgery pattern tolerated no prefix but whitespace and substituted once. The negative is
+  # the P5-103 test's: the credential nowhere, in the warning or in any payload.
+  class QuotedProxyTest < DexpaceTestCase
+    Logger = Dexpace::Instrumentation::Logger
+    Keys = Dexpace::Instrumentation::Keys
+    ConfigKeys = Dexpace::Configuration::Keys
+
+    def chain_with_https_proxy(url)
+      Dexpace::Configuration.build(env_source: FakeConfigSource.new(ConfigKeys::HTTPS_PROXY => url),
+                                   property_source: FakeConfigSource.new,)
+    end
+
+    test "P5-107, CFG-24, OBS-11: a quoted, bracketed or doubled proxy URL leaks no credential" do
+      ["\"http://user:secret@proxy.corp:3128\"", "'http://user:secret@proxy.corp'",
+       "<http://user:secret@proxy.corp:3128>",
+       "http://user:secret@proxy.corp:3128http://user:secret@proxy.corp:3128",].each do |url|
+        sink = RecordingSink.new
+
+        warnings = WarningCapture.record do
+          chain = chain_with_https_proxy(url)
+
+          assert_nil(Dexpace::Proxy.resolve(chain, logger: Logger.build(sink: sink)), url)
+        end
+
+        assert_equal(1, warnings.size, url)
+        assert_equal(1, sink.entries.size, url)
+        assert_includes(sink.payloads.first[Keys::MESSAGE], "***:***@", url)
+        [warnings.first, sink.payloads.inspect].each do |channel|
+          assert_includes(channel, "***:***@", url)
+          refute_includes(channel, "secret", url)
+          refute_includes(channel, "user:", url)
+        end
+      end
+    end
+  end
 end

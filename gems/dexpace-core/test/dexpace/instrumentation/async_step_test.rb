@@ -348,6 +348,74 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
     end
   end
 
+  # OBS-20's asymmetry on the async path under an instrument that violates OBS-30 (P5-109,
+  # review round 2's R2-3): a throwing meter reaches the settler at EVERY level, and the span is
+  # finished and the counter added exactly once whether the future settled later or inside the
+  # head. Round 2 found the failure vanishing at BODY -- the settlement work sat on the derived
+  # future, inside Future#then's rescue -- and the head's ensure re-running the teardown after an
+  # inline settlement had already run it and raised.
+  class ThrowingMeterTest < DexpaceTestCase
+    include Fixtures
+
+    AsyncStep = Dexpace::Instrumentation::AsyncStep
+    HTTPLogging = Dexpace::Instrumentation::HTTPLogging
+
+    LEVELS = [HTTPLogging::NONE, HTTPLogging::HEADERS, HTTPLogging::BODY].freeze
+
+    # A step whose counter raises on every #add and counts the attempts; the span double counts
+    # its own finishes.
+    def throwing_step(level)
+      meter = Dexpace::RecordingMeter.new
+      factory = Dexpace::RecordingTracerFactory.new
+      step = async_step(RecordingSink.new, level: level, meter: meter, tracer_factory: factory,
+                                           preview_bytes: 8,)
+      adds = []
+      meter.counters.first.define_singleton_method(:add) do |*|
+        adds << 1
+        raise ::StandardError, "meter failure"
+      end
+      [step, adds, factory]
+    end
+
+    def finishes(factory) = factory.tracers.first.spans.first.finished_at.size
+
+    test "OBS-20, OBS-30, P5-109: a later settlement raises the meter's failure to the settler" do
+      LEVELS.each do |level|
+        step, adds, factory = throwing_step(level)
+        request = build_request
+        response = build_response(request, body: buffer_body("x"))
+        transport = FakeAsyncTransport.new(response: response, settle_later: true)
+
+        future = pipeline(step, transport).call(request)
+        error = assert_raises(::StandardError, level.name) { transport.settle }
+
+        assert_equal("meter failure", error.message, level.name)
+        assert_equal(200, future.value.status.code, "#{level.name}: the caller still gets it")
+        assert_equal(1, adds.size, "#{level.name}: the counter was added exactly once")
+        assert_equal(1, finishes(factory), "#{level.name}: the span was finished exactly once")
+      end
+    end
+
+    # A transport that settles inside #call -- a cached or immediately-failed request -- runs
+    # the settlement on the calling thread, so the producer IS the caller: the raise leaves
+    # #call, the driver normalises it into a failed future (PIPE-30), and nothing runs twice.
+    test "OBS-20, OBS-30, P5-109: an inline settlement fails the request and tears down once" do
+      LEVELS.each do |level|
+        step, adds, factory = throwing_step(level)
+        request = build_request
+        response = build_response(request, body: buffer_body("x"))
+        transport = FakeAsyncTransport.new(response: response)
+
+        future = pipeline(step, transport).call(request)
+        error = assert_raises(::StandardError, level.name) { future.value }
+
+        assert_equal("meter failure", error.message, level.name)
+        assert_equal(1, adds.size, "#{level.name}: the counter was added exactly once")
+        assert_equal(1, finishes(factory), "#{level.name}: the span was finished exactly once")
+      end
+    end
+  end
+
   # OBS-24 on the async path: the head's diagnostic context is bridged into the settlement.
   class ThreadBoundaryTest < DexpaceTestCase
     include Fixtures

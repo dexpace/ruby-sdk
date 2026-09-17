@@ -463,6 +463,36 @@ class DexpaceInstrumentationEventTest < DexpaceTestCase
 
       assert_equal(Redactor::REDACTED_HEADER, sink.payloads.first[key])
     end
+
+    # P5-108 (review round 2's R2-2): an Array under a header key is a multi-valued header --
+    # what the Emitter hands over for every header, and what a caller may write by hand -- and
+    # each value meets the redactor on its own before the ", " join. The round-2 review found
+    # the Emitter joining first, so the second value's userinfo sat behind the first value's
+    # path; and an Array written by hand took the surgery route on its #inspect form.
+    test "OBS-11, OBS-16, OBS-17, P5-108: an Array header value is redacted per value, joined" do
+      sink = RecordingSink.new
+      request = Keys::HTTP_REQUEST_HEADER_PREFIX
+      response = Keys::HTTP_RESPONSE_HEADER_PREFIX
+      event = Logger.build(sink: sink).event(Severity::INFO)
+      event.field("#{response}location",
+                  ["https://user:secret@a/x?code=S", "//user:secret@b/y", "/cb#f"],)
+      event.field("#{request}accept", ["text/html", "application/json"])
+      event.field("#{request}authorization", ["Bearer sk-live-1", "Bearer sk-live-2"])
+      event.field("#{response}etag", ["\"one\""])
+      event.field("custom.list", ["https://user:secret@a/x", 1])
+      event.emit
+      payload = sink.payloads.first
+
+      assert_equal("https://***:***@a/x?code=***, //***:***@b/y, /cb?***",
+                   payload["#{response}location"],)
+      assert_equal("text/html, application/json", payload["#{request}accept"])
+      assert_equal(Redactor::REDACTED_HEADER, payload["#{request}authorization"])
+      assert_equal("\"one\"", payload["#{response}etag"])
+      # A key the table does not reserve keeps its Array and renders as a collection (OBS-6).
+      assert_equal(["https://user:secret@a/x", 1].inspect, payload["custom.list"])
+      refute_includes(payload["#{response}location"], "secret")
+      refute_includes(payload.inspect, "sk-live")
+    end
   end
 
   # P5-104 (review round 1's R1-2): OBS-39's "the logged url.full MUST always be the redacted

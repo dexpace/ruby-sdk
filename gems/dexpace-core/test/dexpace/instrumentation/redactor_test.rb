@@ -266,7 +266,7 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
   end
 
   # OBS-16's third route (P5-28) -- a value the parser rejects, redacted by string surgery on
-  # the raw value -- and OBS-11 on it (P5-100, P5-105).
+  # the raw value -- and OBS-11 on it (P5-100, P5-105, P5-107).
   class SurgeryRouteTest < DexpaceTestCase
     Redactor = Dexpace::Instrumentation::Redactor
 
@@ -292,8 +292,8 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
     # P5-105 (review round 1's R1-3): HTTP-19's grammar admits a leading OWS in an inbound
     # header value, the parser rejects a value that starts with one, and the surgery pattern was
     # anchored at the scheme -- so a Location built with a leading space carried its userinfo
-    # through. The pattern now tolerates a leading run of whitespace and control bytes and
-    # writes them back as they came; a prefix that is not whitespace is not an authority.
+    # through. The leading bytes are written back as they came and the userinfo behind them is
+    # substituted.
     test "OBS-11, OBS-16, P5-105: leading whitespace or a control byte before the scheme" do
       { " http://user:secret@h/p" => " http://***:***@h/p",
         "\thttp://user:secret@h/p" => "\thttp://***:***@h/p",
@@ -304,12 +304,56 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
         " http://user:secret@h/p\xFF".b => " http://***:***@h/p\xFF".b, }.each do |value, expected|
         assert_equal(expected, Redactor::DEFAULT.header_value("Location", value), value.inspect)
       end
-      # Not an authority under RFC 3986, so not a userinfo: a non-whitespace prefix, a backslash
-      # spelling, an empty authority and a non-scheme are written back as given (P5-100).
-      ["x http://user:secret@h/p", "http:\\\\user:secret@h\\p", "http:///user:secret@h/p",
-       "\u00e9://user:secret@h/p",].each do |value|
+    end
+
+    # P5-107 (review round 2's R2-1): P5-105 tolerated whitespace and controls and nothing
+    # else, so ANY other prefix before a real `scheme://user:secret@host` -- RFC 3986 Appendix
+    # C's own `<…>`, quotes, parentheses, a word, an encoded space, `+`, `@`, a backslash, an
+    # NBSP, an obs-text byte -- carried the userinfo through, and so did the second authority
+    # of a doubled URL. The surgery route now substitutes EVERY `//`-authority's userinfo
+    # wherever it sits: a value the parser rejected has no grammar left to honour.
+    test "OBS-11, OBS-16, P5-107: every //-authority in a rejected value loses its userinfo" do
+      cases = {
+        "<http://user:secret@h/p>" => "<http://***:***@h/p>",
+        "\"http://user:secret@h/p?code=S\"" => "\"http://***:***@h/p?***",
+        "'http://user:secret@h/p'" => "'http://***:***@h/p'",
+        "(http://user:secret@h/p)" => "(http://***:***@h/p)",
+        "x http://user:secret@h/p" => "x http://***:***@h/p",
+        "%20http://user:secret@h/p" => "%20http://***:***@h/p",
+        "+http://user:secret@h/p" => "+http://***:***@h/p",
+        "@http://user:secret@h/p" => "@http://***:***@h/p",
+        "\\http://user:secret@h/p" => "\\http://***:***@h/p",
+        "\u00a0http://user:secret@h/p" => "\u00a0http://***:***@h/p",
+        "\u2028http://user:secret@h/p" => "\u2028http://***:***@h/p",
+        "\u00e9://user:secret@h/p" => "\u00e9://***:***@h/p",
+        "\xC2\xA0http://user:secret@h/p".b => "\xC2\xA0http://***:***@h/p".b,
+        "\xFFhttp://user:secret@h/p".b => "\xFFhttp://***:***@h/p".b,
+        "\xA0http://user:secret@h/p?code=S".b => "\xA0http://***:***@h/p?***".b,
+        # A doubled proxy URL: the second authority sat behind the first, where an anchored
+        # `sub` never reached (the port `3128http` is what rejects it).
+        "http://user:secret@proxy.corp:3128http://user:secret@proxy.corp:3128" =>
+          "http://***:***@proxy.corp:3128http://***:***@proxy.corp:3128",
+      }
+      cases.each do |value, expected|
+        redacted = Redactor::DEFAULT.header_value("Location", value)
+
+        assert_equal(expected, redacted, value.inspect)
+        refute_includes(redacted.b, "secret", value.inspect)
+      end
+      # What is still not an authority under RFC 3986 and is written back as given (P5-100):
+      # no `//` before the `@` (a path or an opaque part, and only a proxy URL's own grammar
+      # can call it a credential -- the resolver's belt, P5-103), the backslash spellings (a
+      # backslash is not a URI character), and what the parser ACCEPTS without an authority --
+      # an empty authority with the credential in the path, a network-path reference that
+      # splits as a path -- which never reaches the surgery route at all.
+      ["user:secret@h/p", "http:\\\\user:secret@h\\p", "\\\\user:secret@h/p",
+       "http:///user:secret@h/p", "//@user:secret@h/x",].each do |value|
         assert_equal(value, Redactor::DEFAULT.header_value("Location", value))
       end
+      # A parseable URL whose PATH spells a second authority is a valid URI, and OBS-14 forbids
+      # altering the path: the authority is redacted and the path is the path.
+      assert_equal("http://***:***@h/phttp://user:secret@h/p",
+                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/phttp://user:secret@h/p"),)
     end
 
     # P5-28: an unparseable value has no parsed object to read #path from, so the path is the
