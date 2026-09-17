@@ -1,0 +1,13 @@
+module Dexpace
+  module Async
+    # Both private_constants; declared because the strict `core` Steep target types their uses.
+    ELAPSED: bool
+    NO_SCHEDULER: String
+
+    def self.delay: (Numeric duration) -> Dexpace::Async::Future
+
+    private
+
+    def self.validate_delay: (untyped duration) -> Float
+  end
+end

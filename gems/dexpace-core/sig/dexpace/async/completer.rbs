@@ -1,5 +1,12 @@
 module Dexpace
   module Async
+    # Async::Deadline is a private_constant and not public API: declared because the strict
+    # `core` Steep target types its one call site.
+    module Deadline
+      def self?.validate: (untyped deadline, untyped clock) -> Float?
+      def self?.expired?: (Thread::Queue gate, Float? limit, _Clock clock) { () -> bool } -> bool
+    end
+
     class Completer
       # The two callback lists #settle steals under the lock, as one tuple.
       type stolen = [Array[^(Dexpace::Async::Settlement) -> void], Array[^(untyped) -> void]]
@@ -21,7 +28,8 @@ module Dexpace
       def request_cancel: (?untyped reason) -> bool
       def on_cancel: () { (untyped) -> void } -> self
       def on_settle: () { (Dexpace::Async::Settlement) -> void } -> self
-      def await: (?Dexpace::Cancellation? cancellation) -> self
+      # -> self, unchanged from phase 2; deadline: and clock: widen it (phase 5a).
+      def await: (?Dexpace::Cancellation? cancellation, ?deadline: Numeric?, ?clock: _Clock) -> self
 
       private
 

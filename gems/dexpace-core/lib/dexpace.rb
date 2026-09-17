@@ -149,6 +149,8 @@ require_relative "dexpace/build_info"
 require_relative "dexpace/uuid"
 require_relative "dexpace/retryability"
 require_relative "dexpace/http_date"
+require_relative "dexpace/clock"
+require_relative "dexpace/async/delay"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #

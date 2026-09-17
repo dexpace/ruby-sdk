@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "completer"
+require_relative "../clock"
 require_relative "../error/seam_error"
 
 module Dexpace
@@ -29,19 +30,27 @@ module Dexpace
       # Whether the outcome is a cancellation; false while unsettled.
       def cancelled? = @completer.outcome&.cancelled ? true : false
 
-      # Settles-or-returns; never raises the failure.
-      def wait(cancellation: nil)
-        @completer.await(cancellation)
+      # Settles-or-returns; never raises the failure, and an expired deadline is not an exception
+      # to that: it settles the future as cancelled and this still returns self.
+      #
+      # @param cancellation [Dexpace::Cancellation, nil] the token that can cut the wait short
+      # @param deadline [Numeric, nil] a monotonic instant on Clock#monotonic's scale (the keyword
+      #   phase 2 postponed to phase 5a; Clock.deadline_in names the scale)
+      # @param clock [_Clock] the seam the deadline is measured against
+      # @return [self]
+      def wait(cancellation: nil, deadline: nil, clock: Dexpace::Clock::SYSTEM)
+        @completer.await(cancellation, deadline: deadline, clock: clock)
         self
       end
 
-      # Blocks, then delivers the response or raises the failure. `deadline:` is deliberately
-      # absent: SEAM-18's interruption clause is about cancellation, and deadlines need phase 5's
-      # clock and interruptible-delay primitives (CFG-15..CFG-21; phase 5a, Task 8 adds it).
-      # Adding the keyword later widens this signature rather than narrowing it, so NFR-4's API
-      # lock is not prejudiced.
-      def value(cancellation: nil)
-        wait(cancellation: cancellation)
+      # Blocks, then delivers the response or raises the failure. On an expired deadline the
+      # failure IS the cancellation #await settled with, so there is one raise here and no second
+      # error class: a caller reads CancelledError#reason (:deadline_expired) to tell a deadline
+      # from a cancel. `deadline:` widens phase 2's signature and narrows nothing (NFR-4).
+      #
+      # @return [Object] the settled response
+      def value(cancellation: nil, deadline: nil, clock: Dexpace::Clock::SYSTEM)
+        wait(cancellation: cancellation, deadline: deadline, clock: clock)
         settlement = @completer.outcome
         # Steep cannot see that #wait only returns once the outcome is written.
         raise Dexpace::SeamError, "the future returned from its wait unsettled" if settlement.nil?
