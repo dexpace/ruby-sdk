@@ -1,0 +1,16 @@
+module Dexpace
+  module HTTPDate
+    # Both private_constant; declared because the strict `core` Steep target types their uses.
+    MONTHS: Hash[String, Integer]
+    GRAMMAR: Regexp
+
+    def self?.format: (::Time time) -> String
+    def self?.parse: (String text) -> ::Time
+
+    private
+
+    # `match` is a MatchData; NFR-11's scan reaches private signatures too, so it is untyped here.
+    def fields_of: (untyped match, Integer month) -> [Integer, Integer, Integer, Integer, Integer, Integer]
+    def build_utc: ([Integer, Integer, Integer, Integer, Integer, Integer] fields, String text) -> ::Time
+  end
+end

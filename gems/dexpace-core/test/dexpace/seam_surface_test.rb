@@ -44,10 +44,11 @@ class DexpaceSeamSurfaceTest < DexpaceTestCase
   end
 
   # gates:require_allowlist is the blocking version of this; the assertion here is the narrower
-  # one the design states -- the requires outside require_relative are phase 1's two and phase
-  # 3b's one (securerandom, for HTTP-51's boundary), all on the allowlist; phases 2 and 3a added
-  # none.
-  test "core requires nothing outside its own tree beyond the three stdlib features it names" do
+  # one the design states -- the requires outside require_relative are phase 1's two, phase
+  # 3b's one (securerandom, for HTTP-51's boundary) and phase 5a's one (time, for CFG-29's
+  # Time#httpdate; its proxy resolver reuses phase 1's uri), all on the allowlist; phases 2, 3a
+  # and 4 added none.
+  test "core requires nothing outside its own tree beyond the four stdlib features it names" do
     requires = Dir.glob(File.expand_path("../../lib/**/*.rb", __dir__))
       .flat_map { |path| File.readlines(path) }
       .grep(/^\s*require\s+["']/)
@@ -55,9 +56,9 @@ class DexpaceSeamSurfaceTest < DexpaceTestCase
       .uniq
       .sort
 
-    assert_equal(%w[securerandom strscan uri], requires,
-                 "SEAM-1: the only non-relative requires in core are phase 1's two and phase " \
-                 "3b's securerandom, all on the allowlist",)
+    assert_equal(%w[securerandom strscan time uri], requires,
+                 "SEAM-1: the only non-relative requires in core are phase 1's two, phase " \
+                 "3b's securerandom and phase 5a's time, all on the allowlist",)
   end
 
   test "the seam modules expose no instance side to be included by accident" do

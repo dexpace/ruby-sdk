@@ -1,0 +1,12 @@
+module Dexpace
+  module BuildInfo
+    UNKNOWN: String
+    SDK_VERSION: String
+    RUNTIME_VERSION: String
+    RUNTIME_VENDOR: String
+    OS_NAME: String
+    IDENTITY_TOKENS: Array[String]
+
+    private def self.non_blank: (untyped value) -> String
+  end
+end

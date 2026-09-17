@@ -1,0 +1,12 @@
+module Dexpace
+  module UUID
+    # A private_constant; declared because the strict `core` Steep target types its use.
+    SLOT: Symbol
+
+    def self?.generate: () -> String
+
+    private
+
+    def hyphenate: (String hex) -> String
+  end
+end

@@ -136,6 +136,20 @@ require_relative "dexpace/pipeline/builder"
 require_relative "dexpace/pipeline/transform_step"
 require_relative "dexpace/async_pipeline"
 
+# Phase 5a: configuration and the clock, in dependency order -- the five free-standing utilities
+# first (the build descriptor, the UUID generator, the retryability classifier, the HTTP-date
+# codec and the private deep-value helper), then the clock, the async delay over it, the
+# configuration chain (configuration.rb owns the load order of its keys, sources, private
+# parsers and builder, which reopen the class it declares and never appear here), the
+# process-wide slot over the chain, and the proxy model last (proxy.rb likewise owns
+# proxy/type, proxy/host_pattern and the private resolver). Ten lines for seventeen files.
+# `time` is required by http_date.rb and `uri` by proxy/resolution.rb, each in the file that
+# uses it; the allowlist does not grow (R5).
+require_relative "dexpace/build_info"
+require_relative "dexpace/uuid"
+require_relative "dexpace/retryability"
+require_relative "dexpace/http_date"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an
