@@ -1521,6 +1521,69 @@ sentences now want `P5-51` — a repair for their owners, not an edit made from 
 | P5-49 | A diagnostic key that was present with a `nil` **value** is turned **absent** by `OBS-23`'s per-key restore | `OBS-23` ("restore each key to its prior value (or remove it if previously unset)"); `OBS-10`; verified fact 4; the observability note on `Fiber#storage=` | `Fiber[:k] = nil` deletes the key (measured), so one assignment serves both of `OBS-23`'s branches and no presence check is needed — at the price of collapsing "was absent" and "was present and null" into removal. A null-valued key is reachable only through `Fiber#storage=`, the warned setter that note records, and `OBS-10`'s "Keys with null values MUST be skipped" makes the two states fold identically at the only reader. Recorded rather than buried because the argument that makes it harmless is `OBS-10`'s clause, and a later phase that relaxes that clause re-opens this |
 | P5-50 | `TraceIdFlavour#generate_trace_id` dispatches on `case name`, against phase 4a's own rule that the per-flavour behaviour is "data, not code, never a case statement" | `OBS-27`; phase 4a's `trace_id_flavour.rb` comment and `P4-7`; `type-system/545949a5`; boundary 10 | 4a made the flavour a frozen `Data` over a frozen table precisely so a pattern and a sentinel are *values*, and generation is the one behaviour that cannot be. A fourth member holding a generator callable is **redefinition** — boundary 10 forbids adding a `Data` member, because a new member changes the generated `==`, `hash` and `to_h` and with them every `Bundle::NONE` comparison already written — and a table keyed on `name` outside the `Data` is the case statement wearing a hash. So the `case` stays, 4a's comment is kept **verbatim** rather than quietly trimmed to fit (the draft's reprint dropped its second clause, which is how a rule disappears), and the cost is stated: a flavour built through the public `.build` with a name outside the three raises `InvalidArgumentError` from generation. `OBS-27` fixes exactly three flavours, so the closed set is the requirement's and not this port's |
 
+### As built, 2026-09-17
+
+P5-40 through P5-50 stand as written; every one is implemented as its row says, and the plan's six
+open-question answers were carried through unchanged — the interpreters were already installed and every
+fact was run on all four rather than installed; `opentelemetry-api` is still not installed and no claim
+about its arities is made beyond phase 4a's verified `#tracer`; `record_error` and not `record_exception`;
+the current-span slot key private and `.current_span` the only reader; `#generate_trace_id`'s randomness
+source an optional positional defaulting to `::SecureRandom`; and the load-time independence assertion
+expressible as written, against the file list. This was the **5c-first execution** the plan's Global
+Constraints anticipate: phase 5b is not running, so 5c created `diagnostics.rb` itself (P5-71). Execution
+added the rows below, numbered from **P5-71** because the three phase-5 lanes are numbered apart — 5a's
+as-built additions start at P5-51, 5b's at P5-91 — and the checklist's "Deviations from the plan" is the
+itemised list against the plan's text; the rows here are the ones that touch public behaviour, the
+contract a later phase cites, or a statement this document makes.
+
+Five statements above read differently against the source, and the difference is recorded here rather
+than by rewriting the text it corrects:
+
+- **Verified fact 4 and `R12`'s "one assignment for both branches".** `Fiber[:k] = nil` deletes the key
+  on Ruby 3.3 and later and **retains it with a `nil` value on 3.2.11**, and the floor has no other removal
+  than the warned `Fiber#storage=`. The restore is still one assignment with no branch on presence, as
+  written; what the floor makes of it is P5-72. The plan's Task 1 table said a failing fact 4 takes "a
+  per-key `key?`-guarded restore that deletes explicitly" — there is nothing to delete with on 3.2, so the
+  fallback the plan wrote is not available and P5-72 is the disposition instead.
+- **Verified fact 3's "`Fiber[]` accepts a `String` key and interns it".** True on 3.4.10 and 4.0.6;
+  `Fiber["k"] = v` and `Fiber["k"]` raise `TypeError` on 3.2.11 and 3.3.12. Nothing in 5c is affected —
+  the keys are `Symbol`s (`R11`) — and the finding settles `R11` harder than the reconciliation did, since
+  a frozen-`String` constant would have raised at the first per-key write on the floor. Recorded as a new
+  entry in `docs/knowledge/notes/observability.md` (marker `sha:manual-phase5c-fiber-nil-and-string-key-floor`)
+  and as the roadmap's thirty-ninth inbound bullet for the two later plans written on the 3.4.10 fact.
+- **Module layout's "five new `lib/` files … four test-support files".** Six `lib/` files, because
+  `diagnostics.rb` is 5c's to create in a 5c-first execution (P5-71), with six `sig/` mirrors and six
+  `test/` mirrors; and six support files — the four doubles plus two helpers the suites share,
+  `allocation_delta.rb` (the two-loop delta) and `fiber_storage_facts.rb` (the floor-aware key
+  assertions), neither a double and neither public.
+- **"A module of module functions".** `Tracing` is a function module over `extend self`, the form the
+  reviewed baseline's `Style/ModuleFunction: extend_self` enforces and `URL` and `PercentEncoding` take;
+  its five methods record in the surface manifest as `#` rows, as theirs do. Its RBS types a span as
+  `_Span & Object` where identity is compared, because the identity test P5-47 rests on is `Object#equal?`
+  and an RBS interface does not carry it.
+- **The zero-draw "redrawn" sentence under `TraceIdFlavour`, widened.** A substitution, as the plan's
+  Task 2 already says: a redraw loop against the injected always-zero generator never terminates, and
+  `OBS-27`'s word is "coerced". The seam's protocol is `#hex(bytes)` and `#random_number(max)` —
+  `SecureRandom`'s own two methods, which a seeded `Random` shares — without the plan's `respond_to?`
+  fallback to `#bytes`, because fact 6 held on every row and a second path with no caller is surface.
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P5-71 | **`lib/dexpace/instrumentation/diagnostics.rb` is created by 5c**, holding exactly `Diagnostics::TRACE_ID = :"trace.id"`, `::SPAN_ID = :"span.id"` and `::DEFAULT_KEYS = [TRACE_ID, SPAN_ID].freeze`, with its `sig/` mirror, its `test/` mirror and its `require_relative` line in `lib/dexpace.rb` before `scope` and `tracing`; 5b's Task 6 **extends** this file and creates no second one | `OBS-10`, `OBS-23`, `OBS-24`; `R11`; the plan's Global Constraints ("a 5c-first execution creates `diagnostics.rb` with `TRACE_ID`, `SPAN_ID` and `DEFAULT_KEYS` itself and 5b then adopts that file") | Phase 5b is not running and `scope.rb` and `tracing.rb` require the two key names, so the one file-level edge between the segments had to be met here rather than found as a `LoadError`. The values are the ones 5b's design fixes — `Symbol`s, and `DEFAULT_KEYS` `OBS-10`'s "exactly {trace.id, span.id}" in that order — and nothing else of 5b's exists on this stack: no method, no `Event`, no `Logger`, no `Keys`, no step, which `diagnostics_test.rb` pins (three constants, no method, the file requires nothing) and Task 11's subprocess asserts (`Event` undefined after the ten files load). The plan said the entry-file line "is 5b's to add"; in this execution it is 5c's, and this row says so |
+| P5-72 | **On the Ruby 3.2 floor, `OBS-23`'s "remove it if previously unset" leaves the key present with a `nil` value**; on 3.3 and later it removes it. The restore is the same branchless assignment on every row | `OBS-23`, `OBS-10`; P5-49; `NFR-7`; the observability note's `Fiber#storage=` entry | Measured 2026-09-17: `Fiber[:k] = nil` deletes on 3.3.12, 3.4.10 and 4.0.6 and retains a nil on 3.2.11, whose `Fiber` API offers no removal but the whole-map setter that warns on every call at the default level — which the gate set fails the build on and core never calls. The residual is unobservable by construction: `Fiber[k]` reads `nil` in both states, and the only whole-map reader, `OBS-10`'s fold, "MUST skip keys with null values", so a nil-valued key and an absent key fold identically — P5-49's own argument, meeting the floor from the other direction (P5-49 collapses present-and-nil into absent on 3.3+; this row collapses absent into present-and-nil on 3.2). The suite asserts what each interpreter can honour through `FiberStorageFacts#assert_diagnostic_key_removed` (absent where `= nil` deletes; present-and-nil, never the pushed value, on the floor) and pins the 3.3.0 boundary in `tracing_matrix_facts_test.rb`. A later phase that relaxes `OBS-10`'s skip clause re-opens this row and P5-49 together |
+| P5-73 | **The four recording doubles are namespaced under `Dexpace`** — `Dexpace::RecordingSpan`, `::RecordingTracer`, `::RecordingTracerFactory`, `::RecordingMeter`, `::RecordingCounter`, `::RecordingHistogram`, `::RecordingHTTPTracer` — against the tree's top-level convention for doubles (`FakeTransport`, `ProbeStep`, `RecordingBody`) | Testing strategy; 5b's plan, Task 15; `testing/630ba094` | 5b's plan consumes three of the files by exactly these constant names and reads `factory.tracers`, `span.finished_at`, `meter.counters` and `meter.histograms`, and a plan may not be edited from 5c, so a rename here would break a plan this phase is forbidden to touch. The files stay under `gems/dexpace-core/test/support/` and are not public API; `Style/OneClassPerFile` is satisfied because each file's one top-level constant is the reopened `module Dexpace` |
+| P5-74 | **`Scope.build` is a public singleton method**, marked `@api private`, and records as a manifest row (`Dexpace::Instrumentation::Scope.build`) that P5-41 does not enumerate | P5-41, P5-46; `NFR-4`; the plan's "What this plan does not verify" | `private_class_method :new` cannot keep construction "inside `Tracing`" when `Tracing` is a sibling module, and the alternatives — `Scope.send(:new, …)` from `Tracing`, or the handle constructed inside `Tracing` itself — put the bypass or the class in the wrong place. The handle's contract is `#close` alone; `build` is the one internal constructor, documented as such, and the plan's judgement call is answered here rather than left to the ledger's consolidation |
+| P5-75 | **`CallableAdapter` refuses a non-`#call` callable at construction** with `Dexpace::InvalidArgumentError` ("callable must respond to #call(name, payload)"), and **every one of its eleven overrides returns `nil`** rather than the bus's return value | §8.1's `CallableAdapter`; `OBS-28`; `OBS-30`; `SEAM-29`'s field-named form | A bus that cannot be called fails at the first event under `OBS-30`'s no-wrapping rule, inside the caller's request; refusing at construction is `error-handling/ffdf6f4f`'s fail-fast at the one place the mistake is made. Returning `nil` keeps the adapter's callbacks shaped as the vocabulary's — a bus's return value is not an event's — and is what `HTTPTracer`'s own defaults return |
+| P5-76 | **`NO_TRACER#in_span` without a block returns `NO_SPAN`** rather than raising, and its RBS declares the block optional on the private class while `_Tracer` keeps it required | `OBS-25`, `OBS-30`; P4-8's structural subset | `opentelemetry-api`'s `in_span` yields and would raise `LocalJumpError` without a block; on the no-op path a raise is a caller-visible failure `OBS-30` says the runtime never introduces, and there is nothing to leave unfinished. The interface still types the block as required, which is the contract an implementer writes to; the no-op's leniency is its own |
+
+**What this addendum does not add.** No frozen-chapter sentence is contradicted by this build — §8.1's
+tracing paragraph names `NULL` and `CallableAdapter` and both ship as named, and §8.1's `Fiber[:key]`
+carrier sentence is narrowed on the floor by P5-72 as the ledger records, not falsified — so
+`docs/first-release.md`'s `C1`–`C14` paragraph gains no `C15`. The consolidation of P5-40–P5-50 and
+P5-71–P5-76 into design §10, and the §8.1 addendum that would state the scope handle's identity test,
+the per-key restore and the floor's residual, are a human's, as they were for 3a, 3b, 4a, 4b and 4c:
+`docs/sdk-design-ruby/` is frozen. `docs/deviations.md` is left as phase 4 left it, for phase 10 to flip.
+
 ## Work phase 5c postponed, and who owns it now
 
 **One item**, recorded by the pass that reconciled this design with `5b`'s, on 2026-09-09. The draft stated it

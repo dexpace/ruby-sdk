@@ -36,12 +36,20 @@ constants, `ALL`, `PILLARS`, `.of`), `Stage`, `Step`, `Entry`, `Cursor`, `Builde
 with `SYSTEM` and `.deadline_in`, `Dexpace::Async.delay` and the `deadline:` keyword on the
 future, `Dexpace::Proxy` with `Type`, `HostPattern` and `.resolve`, `Dexpace::HTTPDate`,
 `Dexpace::UUID`, `Dexpace::Retryability` and `Dexpace::BuildInfo`, plus `ContextStore.default`
-and `Dexpace::IO.max_materialized_bytes` reading the chain.
-Nothing else yet: the pillar step families and every adapter are later phases', and no transport
-ships here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
+and `Dexpace::IO.max_materialized_bytes` reading the chain
+-- and phase 5c's tracing and metrics layer, all under `Dexpace::Instrumentation`: the protocols
+of `NO_SPAN`, `NO_TRACER` and `NO_TRACER_FACTORY` (given to the same three objects in place),
+`Tracing` with `.current_span`, `.activate`, `.with_span`, `.correlate` and
+`.with_correlated_span`, `Scope` and `NO_SCOPE`, `TraceIdFlavour#generate_trace_id` and
+`Bundle#sampled?`, the vocabulary `HTTPTracer` with `NULL` and `CallableAdapter`, `NO_METER` over
+the `_Meter` / `_Counter` / `_Histogram` interfaces, and phase 5b's three `Diagnostics` constants
+shipped early. Nothing else yet: the pillar step families, the instrumentation step and every
+adapter are later phases', nothing emits a trace or a metric, and no transport ships here, so
+nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
 `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
 `docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md`,
-`docs/sdk-documentation/pipelines.md` and `docs/sdk-documentation/configuration.md`.
+`docs/sdk-documentation/pipelines.md`, `docs/sdk-documentation/configuration.md` and
+`docs/sdk-documentation/tracing-and-metrics.md`.
 
 ## Install
 
@@ -148,6 +156,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
 - `docs/sdk-documentation/configuration.md` -- the configuration layer as built: the four-tier
   chain and its order, the typed accessors, the builder and the slot, the keys and the two layers
   that read them, the clock and the deadline, the proxy and its resolver, and the utilities.
+- `docs/sdk-documentation/tracing-and-metrics.md` -- the tracing and metrics layer as built: the
+  no-op protocols, the current span and its scope handle, log correlation and the floor's
+  residual, trace-id generation, the HTTP-tracer vocabulary and its ordering contract, the no-op
+  meter, and what the no-op path costs.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

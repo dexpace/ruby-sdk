@@ -56,6 +56,41 @@ stable key.
   diagnostic-context carrier and are untouched by this one; they are named by marker rather than by key
   because a backticked key must resolve to a harvested entry, and a note's own key is not one.
   <sub>review · `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md` · high · sha:manual-phase10-obs29-follow-up-clause</sub>
+- **The per-key fiber-storage API is not uniform across the supported range: `Fiber[:k] = nil` deletes
+  the key on Ruby 3.3 and later and RETAINS it with a `nil` value on 3.2, and `Fiber["k"]` interns a
+  `String` key on 3.4 and later and raises `TypeError` on 3.2 and 3.3.** Narrows `observability/e0f1e864`
+  a third time, on the write side, and is the re-run this file's second `## Superseded` entry
+  (`sha:manual-phase5-fiber-slot-and-key-type`, single-interpreter on 3.4.10) asked for before anything
+  rested on it. Measured 2026-09-17 by phase 5c's implementation on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, one
+  script per interpreter and then as a standing test
+  (`gems/dexpace-core/test/dexpace/instrumentation/tracing_matrix_facts_test.rb`, which pins both
+  boundaries against `RUBY_VERSION` so a patch release that moves either fails the matrix). **(1)** After
+  `Fiber[:k] = "v"; Fiber[:k] = nil`, `Fiber.current.storage.key?(:k)` is `false` on 3.3.12, 3.4.10 and
+  4.0.6 and **`true` on 3.2.11**, where `Fiber.current.storage` reads `{k: nil}`; `Fiber[:k]` reads `nil`
+  on every row, a child fiber and a new thread inherit the nil-valued key on 3.2, and the floor offers no
+  other removal -- its whole `Fiber` API is `[]`, `[]=`, `storage` and `storage=`, and the returned storage
+  is a copy whose mutation changes nothing -- so the one way to remove a key on 3.2 is the warned whole-map
+  setter this file's `## Reference` entry records. Phase 5c's design read "`Fiber[:k] = nil` deletes the
+  key" as a fact of the range (its verified fact 4, the charter's fact 1); it is a fact of 3.3 and later.
+  **(2)** `Fiber["dexpace.probe"] = 1` and the read `Fiber["dexpace.probe"]` both raise
+  `TypeError: wrong argument type String (expected Symbol)` on 3.2.11 and 3.3.12 and intern to
+  `:"dexpace.probe"` on 3.4.10 and 4.0.6, so the entry above's "the per-key setter coerces a `String` key
+  to a `Symbol`" holds from 3.4 only; `Fiber#storage=` refuses a `String` key on every row, as it said.
+  **What follows.** For `OBS-23`, phase 5c's per-key restore stays branchless -- "restore each key to its
+  prior value (or remove it if previously unset)" is one assignment on 3.3+ and, on the floor, a
+  present-and-`nil` key that `Fiber[]` reads identically and that `OBS-10`'s "Keys with null values MUST be
+  skipped" folds identically, which is exactly the state its `P5-49` already argues about from the other
+  direction; the as-built row `P5-72` records the floor half, and no core file calls the warned setter.
+  For `OBS-24`'s union restore (5b's `P5-23`) and `ASYNC-9`/`ASYNC-11`'s pooled-worker restore (8b), the
+  same holds: a per-key restore returns a 3.2 worker to a map of nil-valued keys rather than to an empty
+  map, indistinguishable at every reader that skips nulls and visible only through `Fiber.current.storage`
+  itself; both plans were written on the 3.4.10 fact and are audit work for phase 10 (the roadmap's inbound
+  list, the thirty-ninth bullet). For the key TYPE, this settles `R11` harder than the reconciliation
+  did: a `Symbol` is the one spelling every carrier API accepts on every row, and a frozen-`String` key
+  constant would have raised on the floor at the first `Fiber[]=`, not merely at the whole-map setter.
+  Read-side inheritance, copy-on-write per slot, the warned setter's per-call warning and the
+  `storage = nil` divergence all re-measured as the entries above and below record.
+  <sub>review · `docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md` · high · sha:manual-phase5c-fiber-nil-and-string-key-floor</sub>
 
 ## Reference
 - **A pooled worker inherits the *pool creator's* fiber storage and sees nothing set afterwards, so a

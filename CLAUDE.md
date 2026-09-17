@@ -13,9 +13,9 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c and 5a are built; the domain model, the seam layer, the byte-streaming
-layer, the body layer, the execution context, the recovery layer, the stage pipeline and the configuration
-layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a and 5c are built; the domain model, the seam layer, the byte-streaming
+layer, the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
+layer and the tracing and metrics layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -75,7 +75,18 @@ pair `Dexpace::HTTPDate.format` / `.parse`, the v4 `Dexpace::UUID.generate`,
 `Dexpace::Retryability.retryable_status?` and the static `Dexpace::BuildInfo` constants — plus two
 wirings into earlier layers: `ContextStore.default` reads `Keys::MAX_TRACKED_CONTEXTS` on its first
 call, and the five readers of `IO::MAX_MATERIALIZED_BYTES` read `Dexpace::IO.max_materialized_bytes`
-per call (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`); every other
+per call (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`) — and the tracing
+and metrics layer, §8.1's tracing half, all of it under `Dexpace::Instrumentation`: the span, tracer
+and tracer-factory protocols phase 4a postponed, given to the three no-op singletons' private classes
+in place (`NO_SPAN`'s seven methods, `NO_TRACER`'s `#start_span` and `#in_span`, the factory's `#tracer`
+unchanged) with `_Span` and `_Tracer` filled; the current-span carrier `Tracing` with `.current_span`,
+`.activate`, `.with_span`, `.correlate` and `.with_correlated_span` over one `Fiber[]` slot; the
+three-ivar scope handle `Scope` and the cached singleton `NO_SCOPE`; `TraceIdFlavour#generate_trace_id`
+and `Bundle#sampled?`; the eleven-method HTTP-tracer vocabulary `HTTPTracer` with §8.1's `NULL` and
+`CallableAdapter`; the metrics SPI `_Meter` / `_Counter` / `_Histogram` with `NO_METER`; and phase
+5b's `Diagnostics::TRACE_ID`, `::SPAN_ID` and `::DEFAULT_KEYS`, shipped early because `Tracing` reads
+the two keys — nothing in phase 5 emits the HTTP-tracer vocabulary, and no logger, event or step exists
+yet (`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md`); every other
 gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -528,6 +539,32 @@ Each is one line plus the chapter to read before touching the area.
   the store, and neither does `reset_config!` (`CTX-11`; phase 5a's P5-55). The materialisation ceiling is the
   other way round: `Dexpace::IO.max_materialized_bytes` is read per call, so the live configuration governs
   every materialisation and `IO::MAX_MATERIALIZED_BYTES` is only the default and the fallback (P5-56).
+- **The no-op instrumentation singletons are frozen instances of private classes, and every method on
+  them works on a frozen receiver** — `NO_SPAN`, `NO_TRACER`, `NO_TRACER_FACTORY`, `NO_SCOPE`, `NULL`,
+  `NO_METER` and its two instruments write no ivar and answer a constant or `self` from arguments already
+  on the stack, which is also what `OBS-25`'s "selecting a no-op path MUST NOT allocate per call" wants;
+  the suite asserts it as a two-loop `GC.stat` delta of exactly zero, with only frozen constants, Symbols
+  and Integers crossing the loop, because an inline literal at the call site allocates whether or not the
+  callee does (`test/support/allocation_delta.rb`; phase 5c's design, verified fact 1).
+- **No SPI method in the instrumentation subsystem takes a `**` keyword splat — every attributes parameter
+  is one named optional keyword (`attributes: nil`)** — a splat allocates a `Hash` on every call including
+  one passing nothing, which is the spelling `opentelemetry-api` and every Ruby metrics library uses;
+  the phase-0 cop `Dexpace/NoKeywordSplat` refuses it over every gem's `lib/` (P5-42).
+- **The diagnostic context is written per key with `Fiber[k] = v` and never with `Fiber#storage=`**, which
+  warns on every call at the default level on every supported Ruby; the keys are `Symbol`s because
+  `Fiber["k"]` raises `TypeError` on 3.2 and 3.3 and only interns from 3.4; and **`Fiber[:k] = nil` deletes
+  the key on 3.3 and later but retains it with a `nil` value on the 3.2 floor**, whose whole `Fiber` API
+  is `[]`, `[]=`, `storage` and `storage=` — so `OBS-23`'s "remove it if previously unset" is a removal on
+  3.3+ and a nil-valued key on 3.2, which `Fiber[]` and `OBS-10`'s null-skip both read as absent
+  (P5-49, P5-72; `docs/knowledge/notes/observability.md`). The current-span slot holds one immutable span
+  reference and the previously-active span lives in `Scope`'s ivars on the call stack, never in a stack in
+  fiber storage: copy-on-write protects the slot, not the object in it (R13).
+- **Core wraps no tracer, meter or HTTP-tracer callback in a `rescue`** — `OBS-20` carves those calls out
+  of the log-emission containment, so a throwing tracer propagates and can fail the request (`OBS-30`), and
+  the two block forms in `Tracing` restore through `ensure` regardless; a `rescue` added there is a guard
+  the suite runs red. `Tracing.activate` returns the cached `NO_SCOPE` on an **identity** test — the span is
+  already current — never on the recording flag, which would leave a recording span un-restored under a
+  non-recording one (P5-47).
 
 ## Public API surface
 
@@ -627,13 +664,13 @@ probe compares each against the live tree, and a count written anywhere else in 
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
-  body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline and
-  the phase-5a configuration layer — one hundred and twenty phase-1, phase-2, phase-3a, phase-3b, phase-4a,
-  phase-4b, phase-4c and phase-5a files under `lib/dexpace/` beside phase 0's `version.rb`, every one
-  mirrored in `sig/`, and every one of the one hundred and twenty but the nine `private_constant`s
-  `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`,
-  `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb` and `proxy/resolution.rb` mirrored
-  in `test/`; every
+  body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
+  the phase-5a configuration layer and the phase-5c tracing and metrics layer — one hundred and twenty-six
+  phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a and phase-5c files under
+  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one
+  hundred and twenty-six but the nine `private_constant`s `hooks.rb`, `bounded_map.rb`,
+  `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
+  `configuration/parsers.rb`, `deep_value.rb` and `proxy/resolution.rb` mirrored in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -644,16 +681,16 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — nine
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — ten
   checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
   design, plan and checklist. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
-  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; `phase5a/` holds that
-  sub-phase's design, plan and checklist, and the other two each hold a design and a plan. `phase6/`
-  carries its segmentation design,
+  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; `phase5a/` and `phase5c/`
+  each hold that sub-phase's design, plan and checklist, and `phase5b/` holds a design and a plan.
+  `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
   (authentication); each holds a design and a plan. Phase 6 is the largest **build** phase in the
@@ -716,5 +753,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's and phase 5a's is still to be written at execution time.
+  phase 4c's, phase 5a's and phase 5c's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
