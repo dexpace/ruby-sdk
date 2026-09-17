@@ -161,6 +161,8 @@ require_relative "dexpace/proxy"
 # then the scope handle, the tracing module over it, the metrics SPI, the HTTP-tracer vocabulary
 # and the bus adapter over it. The four phase-4a files above gained their protocols in place.
 require_relative "dexpace/instrumentation/diagnostics"
+require_relative "dexpace/instrumentation/scope"
+require_relative "dexpace/instrumentation/tracing"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #

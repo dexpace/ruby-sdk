@@ -1,0 +1,37 @@
+module Dexpace
+  module Instrumentation
+    # The current-span slot key: a private_constant shared by Scope and Tracing, declared here
+    # because the strict `core` Steep target types both writers. The privacy lives in
+    # lib/dexpace/instrumentation/scope.rb.
+    CURRENT_SPAN_KEY: Symbol
+
+    # OBS-22's scope handle protocol: one method, restoring on close.
+    interface _Scope
+      def close: () -> void
+    end
+
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types NO_SCOPE's construction.
+    class NoScope
+      def close: () -> nil
+    end
+
+    NO_SCOPE: _Scope
+
+    # A plain three-ivar class, not a Data (P5-46). `build` is the internal constructor
+    # Tracing calls; #close is the whole public contract.
+    class Scope
+      UNSET: Object
+
+      @prev_span: _Span
+      @prev_trace_id: untyped
+      @prev_span_id: untyped
+
+      private def self.new: (_Span prev_span, untyped prev_trace_id, untyped prev_span_id) -> instance
+      def initialize: (_Span prev_span, untyped prev_trace_id, untyped prev_span_id) -> void
+
+      def self.build: (_Span prev_span, ?untyped prev_trace_id, ?untyped prev_span_id) -> Scope
+      def close: () -> nil
+    end
+  end
+end

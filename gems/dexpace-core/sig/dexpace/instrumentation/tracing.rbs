@@ -1,0 +1,15 @@
+module Dexpace
+  module Instrumentation
+    # OBS-22, OBS-23: module functions over one Fiber[] slot. The block forms are primary and
+    # are written over the handle forms (P5-45). A span is typed `_Span & Object` where its
+    # identity is compared: the identity test P5-47 rests on is Object#equal?, which an RBS
+    # interface does not carry, and every Ruby object satisfies the intersection.
+    module Tracing
+      def self?.current_span: () -> _Span
+      def self?.activate: (_Span & Object span) -> _Scope
+      def self?.with_span: [T] (_Span & Object span) { (_Span) -> T } -> T
+      def self?.correlate: (_Span & Object span, Bundle bundle) -> _Scope
+      def self?.with_correlated_span: [T] (_Span & Object span, Bundle bundle) { (_Span) -> T } -> T
+    end
+  end
+end

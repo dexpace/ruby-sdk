@@ -1,13 +1,30 @@
 module Dexpace
   module Instrumentation
-    # Empty on purpose: phase 4 fixes the slot, phase 5c fixes the protocol, and an empty
-    # interface says so in the type system rather than in a comment.
+    # OBS-21's span protocol, as phase 5c fixed it (phase 4a declared this empty on purpose and
+    # phase 5c widened it in place): the recording flag, the three inert-when-non-recording
+    # mutators, the status writer, the idempotent finish and the context. Every attributes
+    # parameter is a named optional keyword, never a `**` splat (P5-42). Six protocols for a
+    # post-v1 adapter to satisfy, this one first.
     interface _Span
+      def recording?: () -> bool
+      def set_attribute: (String key, untyped value) -> self
+      def add_event: (String name, ?attributes: Hash[String, untyped]?) -> self
+      def record_error: (Exception error, ?attributes: Hash[String, untyped]?) -> self
+      def status=: (untyped status) -> untyped
+      def finish: (?end_timestamp: Time?) -> void
+      def context: () -> Bundle
     end
 
     # A private_constant with no visibility in RBS; declared because the strict `core` Steep
     # target types NO_SPAN's construction. The privacy lives in lib/dexpace/instrumentation/no_span.rb.
     class NoSpan
+      def recording?: () -> bool
+      def set_attribute: (String key, untyped value) -> self
+      def add_event: (String name, ?attributes: Hash[String, untyped]?) -> self
+      def record_error: (Exception error, ?attributes: Hash[String, untyped]?) -> self
+      def status=: (untyped status) -> untyped
+      def finish: (?end_timestamp: Time?) -> void
+      def context: () -> Bundle
     end
 
     NO_SPAN: _Span
