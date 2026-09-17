@@ -8,14 +8,14 @@ require_relative "../../support/allocation_delta"
 require_relative "../../../lib/dexpace/instrumentation/logger"
 
 # Exercises: OBS-1, OBS-3, OBS-4, OBS-5, OBS-6, OBS-7, OBS-8, OBS-9, OBS-11, OBS-16, OBS-17,
-# OBS-39, OBS-40
+# OBS-18, OBS-39, OBS-40
 #
 # Every live event here is obtained the only way one can be, from a Logger over a RecordingSink;
 # nothing reaches Event.new. The private Render module's contract (OBS-6, OBS-7) is asserted
 # here, at its call site, and has no mirror of its own (P2-15, P4-3).
 #
 # Split into nested classes under Metrics/ClassLength: the inert event, the accumulator, the
-# merge and the tag, the rendering.
+# merge and the tag, the rendering, the header-name gate.
 class DexpaceInstrumentationEventTest < DexpaceTestCase
   include AllocationDelta
 
@@ -402,6 +402,66 @@ class DexpaceInstrumentationEventTest < DexpaceTestCase
 
       assert_equal(Redactor::MALFORMED_URL, sink.payloads[0][Keys::URL_FULL])
       assert_equal("https://h/?token=kept", sink.payloads[1][Keys::URL_FULL])
+    end
+  end
+
+  # OBS-18 at Event#field (P5-102): the header-name gate is structural, like OBS-39's.
+  class HeaderGateTest < DexpaceTestCase
+    Logger = Dexpace::Instrumentation::Logger
+    Keys = Dexpace::Instrumentation::Keys
+    Redactor = Dexpace::Instrumentation::Redactor
+    Policy = Dexpace::Instrumentation::RedactionPolicy
+    Severity = Dexpace::Instrumentation::Severity
+
+    # P5-102: OBS-18's name gate is keyed by the field NAME like OBS-39's, so a credential
+    # header written straight into #field -- by an SDK author, never by the step -- is marked
+    # exactly as the step's would be. The round-0 review found this path logging the value.
+    test "OBS-18, P5-102: a non-allow-listed header written through #field is REDACTED" do
+      sink = RecordingSink.new
+      request = Keys::HTTP_REQUEST_HEADER_PREFIX
+      response = Keys::HTTP_RESPONSE_HEADER_PREFIX
+      event = Logger.build(sink: sink).event(Severity::INFO)
+      event.field("#{request}authorization", "Bearer sk-live-1")
+      event.field("#{request}Authorization", "Bearer sk-live-2")
+      event.field("#{response}set-cookie", "sid=SECRET")
+      event.field("#{request}x-api-key", nil)
+      event.field("#{request}content-type", "text/plain")
+      event.emit
+      payload = sink.payloads.first
+
+      assert_equal(Redactor::REDACTED_HEADER, payload["#{request}authorization"])
+      assert_equal(Redactor::REDACTED_HEADER, payload["#{request}Authorization"], "folded name")
+      assert_equal(Redactor::REDACTED_HEADER, payload["#{response}set-cookie"])
+      assert_equal(Redactor::REDACTED_HEADER, payload["#{request}x-api-key"], "nil is not logged")
+      assert_equal("text/plain", payload["#{request}content-type"])
+      refute_includes(payload.inspect, "sk-live")
+      refute_includes(payload.inspect, "SECRET")
+    end
+
+    test "OBS-18, P5-102: in omit mode a non-allow-listed header through #field is dropped" do
+      sink = RecordingSink.new
+      policy = Policy::DEFAULT.with(omit_disallowed_headers: true)
+      logger = Logger.build(sink: sink, redactor: Redactor.build(policy: policy))
+      event = logger.event(Severity::INFO)
+      event.field("#{Keys::HTTP_REQUEST_HEADER_PREFIX}authorization", "Bearer sk-live-1")
+      event.field("#{Keys::HTTP_REQUEST_HEADER_PREFIX}accept", "text/html")
+      event.emit
+      payload = sink.payloads.first
+
+      assert_equal({ "#{Keys::HTTP_REQUEST_HEADER_PREFIX}accept" => "text/html" }, payload)
+    end
+
+    # The two gates compose in the order the requirements do: a URL-valued name that a policy
+    # has removed from the allow-list is not logged at all, so its URL is never redacted -- the
+    # name gate runs first, as the design says of the step, and now of every caller.
+    test "OBS-17, OBS-18, P5-102: the name gate runs before the URL-value redactor" do
+      sink = RecordingSink.new
+      policy = Policy::DEFAULT.with(header_allow_list: %w[accept])
+      logger = Logger.build(sink: sink, redactor: Redactor.build(policy: policy))
+      key = "#{Keys::HTTP_RESPONSE_HEADER_PREFIX}location"
+      logger.event(Severity::INFO).field(key, "https://u:p@h/cb?code=S").emit
+
+      assert_equal(Redactor::REDACTED_HEADER, sink.payloads.first[key])
     end
   end
 end

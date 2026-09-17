@@ -241,6 +241,26 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
       refute_includes(sink.payloads.inspect, "sk-live-abc123")
     end
 
+    # P5-100 end to end: `location` is on the default allow-list, so a hostile server's
+    # network-path or unparseable Location reached the sink verbatim before the round-0 fix.
+    # The assertion is the chapter's own -- neither substring of the credential appears in ANY
+    # payload -- and it runs through a real pipeline, not the redactor alone.
+    test "OBS-11, OBS-16, OBS-17, P5-100: a hostile Location's userinfo never reaches the sink" do
+      ["//user:secret@evil/x", "//user:secret@evil/x?code=S", "http://user:secret@evil/p x",
+       "https://user:secret@evil/p?%zz=1",].each do |hostile|
+        sink = RecordingSink.new
+        request = build_request
+        response = build_response(request, status: 302, headers: { "Location" => hostile })
+        drive(headers_step(sink), request, response: response)
+        location = sink.payloads[1]["#{Keys::HTTP_RESPONSE_HEADER_PREFIX}location"]
+
+        assert_includes(location, "***:***@", hostile)
+        refute_includes(sink.payloads.inspect, "secret", hostile)
+        refute_includes(sink.payloads.inspect, "user:", hostile)
+        refute_includes(sink.payloads.inspect, "code=S", hostile)
+      end
+    end
+
     test "OBS-17, OBS-39: a multi-valued allow-listed header is one joined field; names fold" do
       sink = RecordingSink.new
       request = build_request(headers: { "Accept" => "text/html" })

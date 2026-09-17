@@ -84,7 +84,12 @@ class DexpaceInstrumentationLoggingMatrixFactsTest < DexpaceTestCase
   end
 
   # Fact 3: the per-key union restore is exact on 3.3+ and leaves a snapshot-introduced key
-  # present-with-nil on the floor -- the one residual OBS-24's bridge has there (P5-72).
+  # present-with-nil on the floor -- the one residual OBS-24's bridge has there (P5-72). The
+  # expected map is stated for THIS row rather than as "storage == prior iff = nil deletes",
+  # because on the floor every earlier teardown's `Fiber[OTHER] = nil` has already left OTHER
+  # present-with-nil in `prior`, and that spelling then held or failed by test order (the
+  # round-0 review's R0-1, reproduced on three seeds). `prior.merge(OTHER => nil)` is the same
+  # map whether or not the residue was already there, which is the fact itself.
   test "fact 3: the per-key union restore is exact from 3.3 and nil-retaining on 3.2" do
     ::Fiber[SLOT] = "prior"
     prior = ::Fiber.current.storage
@@ -98,8 +103,9 @@ class DexpaceInstrumentationLoggingMatrixFactsTest < DexpaceTestCase
     assert_equal("prior", ::Fiber[SLOT])
     assert_nil(::Fiber[OTHER])
     assert_diagnostic_key_removed(OTHER)
-    assert_equal(NIL_ASSIGNMENT_DELETES, ::Fiber.current.storage == prior,
-                 "exact iff = nil deletes",)
+    expected = NIL_ASSIGNMENT_DELETES ? prior : prior.merge(OTHER => nil)
+
+    assert_equal(expected, ::Fiber.current.storage, "exact where = nil deletes; nil residue on 3.2")
   end
 
   test "the DiagnosticContext helper restores every key the block touched" do

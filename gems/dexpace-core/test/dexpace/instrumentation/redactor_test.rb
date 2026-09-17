@@ -112,12 +112,41 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
     assert_equal("https://h/x?a=***", Redactor::DEFAULT.url("https://h/x?a=%zz"))
   end
 
+  # P5-101: `split` accepts a bad percent-encoding in a query NAME too (`%zz`; in a FRAGMENT it
+  # rejects one, hence the sentinel case above), and the decoder raises on it. The name is
+  # unmatchable and costs one value, not the whole URL -- the direction `%FF` already takes --
+  # so a parseable URL with one broken name still logs its host and path, and the
+  # sentinel-fallback route of #header_value no longer has this trigger.
+  test "OBS-12, OBS-15, P5-101: a bad percent-encoding in a parameter name is unmatchable" do
+    assert_equal("https://h/p?%zz=***&api-version=2&b=***",
+                 Redactor::DEFAULT.url("https://h/p?%zz=1&api-version=2&b=3"),)
+    assert_equal("https://***:***@h/p?%zz=***", Redactor::DEFAULT.url("https://user:secret@h/p?%zz=1"))
+    assert_equal("https://h/p?a%=***", Redactor::DEFAULT.url("https://h/p?a%=1"))
+    # An allow-list that names the broken spelling literally still cannot match it: the name
+    # never decodes, so the safe direction holds against a policy too.
+    literal = Redactor.build(policy: Policy.build(query_allow_list: ["%zz"]))
+
+    assert_equal("https://h/p?%zz=***", literal.url("https://h/p?%zz=1"))
+  end
+
   # P5-27, P5-91: an opaque URI has userinfo, query and fragment all nil, and nothing absent is
   # ever written back, so the URI::InvalidURIError the setters would raise is unreachable.
   test "OBS-15, P5-27: an opaque URI round-trips untouched -- nothing absent is written back" do
     assert_equal("mailto:support@example.com", Redactor::DEFAULT.url("mailto:support@example.com"))
     assert_equal("urn:isbn:0451450523", Redactor::DEFAULT.url("urn:isbn:0451450523"))
     assert_equal("data:text/plain,hello", Redactor::DEFAULT.url("data:text/plain,hello"))
+  end
+
+  # P5-101: the pinned parser folds an opaque URI's `?query` INTO the opaque component (query
+  # nil) while still splitting the fragment out, so the tail after the first `?` takes OBS-12's
+  # rule and the address before it -- not a userinfo -- is written back untouched.
+  test "OBS-12, OBS-15, P5-101: an opaque URI's query-shaped tail is redacted, its address kept" do
+    assert_equal("mailto:support@example.com?subject=***",
+                 Redactor::DEFAULT.url("mailto:support@example.com?subject=SECRET"),)
+    assert_equal("mailto:a@b?x=***&api-version=1#frag",
+                 Redactor::DEFAULT.url("mailto:a@b?x=1&api-version=1#frag"),)
+    assert_equal("urn:isbn:1?q=***", Redactor::DEFAULT.url("urn:isbn:1?q=1"))
+    assert_equal("data:text/plain,hello?x=***", Redactor::DEFAULT.url("data:text/plain,hello?x=1"))
   end
 
   # The rebuild rescue is the totality backstop, not the mechanism, so it is driven directly
@@ -161,6 +190,49 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
       assert_equal("relative/no/slash",
                    Redactor::DEFAULT.header_value("location", "relative/no/slash"),)
       assert_equal("", Redactor::DEFAULT.header_value("location", ""))
+      # A network-path reference is relative too, and its authority is written back byte for
+      # byte when it carries no userinfo: host, port and an IPv6 literal included.
+      assert_equal("//h/x", Redactor::DEFAULT.header_value("location", "//h/x"))
+      assert_equal("//[::1]:8443/x", Redactor::DEFAULT.header_value("location", "//[::1]:8443/x"))
+      assert_equal("//h:8443/x?***", Redactor::DEFAULT.header_value("location", "//h:8443/x#f"))
+    end
+
+    # P5-100: OBS-11 is unconditional and OBS-16's "returned verbatim" is not an exception to
+    # it. A network-path reference splits with an authority and no scheme, so it took the
+    # relative route -- and the round-0 review found that route handed `//user:secret@h/x`
+    # back verbatim. The authority is now rebuilt with the placeholder on that route too.
+    test "OBS-11, OBS-16, P5-100: the relative route redacts a network-path reference's userinfo" do
+      assert_equal("//***:***@h/x", Redactor::DEFAULT.header_value("Location", "//user:secret@h/x"))
+      assert_equal("//***:***@h/x?***",
+                   Redactor::DEFAULT.header_value("Location", "//user:secret@h/x?code=S"),)
+      assert_equal("//***:***@[::1]:80/x?***",
+                   Redactor::DEFAULT.header_value("Location", "//user:pw@[::1]:80/x?q=1"),)
+      assert_equal("//***:***@h", Redactor::DEFAULT.header_value("Location", "//user@h"))
+      %w[//user:secret@h/x //user:secret@h/x?code=S].each do |hostile|
+        redacted = Redactor::DEFAULT.header_value("Location", hostile)
+
+        refute_includes(redacted, "user")
+        refute_includes(redacted, "secret")
+      end
+    end
+
+    # P5-100, the surgery half: a value the parser rejects has no userinfo component to read,
+    # so the authority's userinfo is substituted on the raw value before the cut -- and that
+    # covers the sentinel-fallback route as well, which runs the same surgery.
+    test "OBS-11, OBS-16, P5-100: the surgery route redacts an authority's userinfo, then cuts" do
+      assert_equal("http://***:***@h/p x",
+                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x"),)
+      assert_equal("http://***:***@h/p x?***",
+                   Redactor::DEFAULT.header_value("Location", "http://user:secret@h/p x?code=S"),)
+      assert_equal("//***:***@h/p x", Redactor::DEFAULT.header_value("Location", "//user:pw@h/p x"))
+      assert_equal("HTTP://***:***@h/p",
+                   Redactor::DEFAULT.header_value("Location", "HTTP://us er:pw@h/p"),)
+      # Up to the LAST @ before the first /, ? or #: a stray @ inside the userinfo hides nothing.
+      assert_equal("http://***:***@h/p x?***",
+                   Redactor::DEFAULT.header_value("Location", "http://a@b@h/p x?q"),)
+      # An @ after the first / is in the path, not the authority; there is no userinfo to redact.
+      assert_equal("http://us/er:pw@h/p x",
+                   Redactor::DEFAULT.header_value("Location", "http://us/er:pw@h/p x"),)
     end
 
     # P5-28: an unparseable value has no parsed object to read #path from, so the path is the
@@ -184,6 +256,10 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
 
       assert_equal("https://h/p?***", redactor.header_value("location", "https://h/p?a=1"))
       assert_equal("https://h/p", redactor.header_value("location", "https://h/p"))
+      # P5-100: the fallback is the surgery route, so a userinfo does not survive it either.
+      assert_equal("https://***:***@h/p?***",
+                   redactor.header_value("location", "https://user:secret@h/p?a=1"),)
+      assert_equal("https://***:***@h/p", redactor.header_value("location", "https://user:secret@h/p"))
     end
 
     test "OBS-17: only the policy's URL-valued headers go through the URL redactor" do
@@ -242,6 +318,12 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
       assert_equal("***:***", Redactor::REDACTED_USERINFO)
       assert_equal("REDACTED", Redactor::REDACTED_HEADER)
       assert_equal("?***", Redactor::RELATIVE_MARKER)
+      # The surgery route's pattern is a mechanism, not surface, and carries its own timeout
+      # rather than the process-wide Regexp.timeout (P5-100).
+      assert_raises(::NameError) { Redactor::SURGERY_USERINFO }
+      pattern = Redactor.const_get(:SURGERY_USERINFO)
+
+      assert_in_delta(1.0, pattern.timeout)
     end
 
     # XCUT-11: frozen, holding a frozen policy, no per-call state -- every intermediate is a
