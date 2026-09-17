@@ -2216,8 +2216,8 @@ apart — 5a's as-built additions start at P5-51, 5c's at P5-71 — and the chec
 is the itemised list against the plan's text; the rows here are the ones that touch public behaviour, the
 contract a later phase cites, or a statement this document makes.
 
-Four statements above read differently against the source, and the difference is recorded here rather than
-by rewriting the text it corrects:
+Six statements above read differently against the source — four found by the build, two by review round 0 —
+and the difference is recorded here rather than by rewriting the text it corrects:
 
 - **Verified fact 6's rebuild route and P5-27's mechanism.** `u.userinfo = "***:***"` does render
   `https://***:***@h/x`, as the fact says — and `URI#to_s` of `http://h:80/` renders `http://h/`, on every
@@ -2245,6 +2245,20 @@ by rewriting the text it corrects:
   outside `module Instrumentation` still resolves to Ruby's. The shadow is confined to the namespace where core
   never loads the stdlib `Logger` (boundary 1) and the bare name can mean nothing else. P5-38's two mitigations
   stand and are the whole disposition; eight custom cops exist and 5b adds none.
+- **R9's relative and unparseable rows, and the `#header_value` algorithm** (review round 0, R0-3). The table
+  reads the relative route as `#path` plus the query-or-fragment test and the unparseable route as the raw
+  value up to the first `?` or `#`; neither considered an authority, and a network-path reference
+  (`//u:p@h/x`) has one, so a userinfo survived both routes and the sentinel fallback that runs the second.
+  As built the relative route writes the authority back with `OBS-11`'s placeholder and the surgery route
+  substitutes an authority's userinfo before cutting (P5-100); the `!nil?` presence test, the empty path of a
+  fragment-only value and the two-entry-point shape stand as written.
+- **The reserved-key table on `Event`, and P5-35's placement** (review round 0, R0-4). The table routes a
+  header-prefixed key through `Redactor#header_value` only and P5-35 places the boolean's effect in the step,
+  so `Event#field` handed a sink a credential header's value. As built `OBS-18`'s name gate runs first at
+  `#field` (P5-102), which makes the `#header_value` paragraph's "a header whose name is not allow-listed
+  never reaches a value redactor at all" true for every caller and not only the step; the `Emitter` writes
+  every header and gates nothing, and the table's "whoever calls `#field`" argument now covers `OBS-18` as it
+  covers `OBS-39`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
@@ -2257,15 +2271,29 @@ by rewriting the text it corrects:
 | P5-97 | **`Diagnostics.capture` drops every nil-valued key** (`Hash#compact!` on the fresh copy) and normalises the `nil` an opted-out fiber reads on 3.3+ and the `{}` the floor reads to one shape; **the per-key restore of `Diagnostics.with` leaves a snapshot-introduced key present-and-nil on the 3.2 floor** | `OBS-24`, `OBS-10`; P5-22, P5-23; 5c's P5-72; verified facts 2 and 3; `logging_matrix_facts_test.rb` | On 3.2.11 `Fiber[:k] = nil` retains a nil-valued key, so an uncompacted snapshot would carry every key the caller ever set and cleared, and would install those nils on the settling fiber; `OBS-10` says a null-valued key is skipped, so it is not diagnostic context and does not belong in the snapshot. The restore stays one branchless assignment over the union (P5-23), exact on 3.3+; on the floor the residual is P5-72's — unobservable at `Fiber[]`, skipped by the fold, visible only through `Fiber.current.storage.key?` — and `FiberStorageFacts#assert_diagnostic_key_removed` asserts what each row can honour |
 | P5-98 | **The two doubles are top level** — `RecordingSink`, `DiagnosticContext` — not `Dexpace::RecordingSink` and `Dexpace::DiagnosticContext` as the plan's Task 3 wrote | Testing strategy; 5a's P5-58; 5c's P5-73; `testing/630ba094` | Twenty-six of the thirty support files the base carries are top level, 5a went top level after this plan was written (P5-58), and 5c's four files are namespaced only because this plan consumed them by those names (P5-73). Nothing consumes these two by a namespaced name, so the tree's convention wins |
 | P5-99 | **The step names its span and its tracer by the request's method token** (`request.method.to_s`), resolves its trace bundle to `Bundle::NONE`, and probes no request for a `#context` | `OBS-34`; 4a's `RequestContext#operation_name`; the plan's Task 14 (`respond_to?(:context)`); phase 6a's Task 8 | The operation name lives on the context bundle, which is unreachable from a step until phase 6a wires the context into the pipeline; `Request` has no `#context`, so the plan's probe would be a dead branch with no test. The recording tracer factory records the name, so the token is asserted, and 6a's Task 8 is where the name becomes the operation's |
+| P5-100 | **`OBS-11` holds on every route of `Redactor#header_value`, and where it meets `OBS-16`'s "a value with neither MUST be returned verbatim" it wins**: the relative route rebuilds a network-path reference's authority with the placeholder (`//user:secret@h/x` → `//***:***@h/x`) and every other component byte for byte; the surgery route substitutes an authority's userinfo before cutting, through the anchored, linear `private_constant` `SURGERY_USERINFO` with a per-pattern timeout, up to the last `@` before the first `/`, `?` or `#`; the sentinel fallback runs that surgery | `OBS-11`, `OBS-16`, `XCUT-19`(a); R9's table; P5-25, P5-28; review round 0's R0-3 | R9's table considered a relative value's path, query and fragment and never its authority, and the surgery route had no component to read, so `//user:secret@h/x`, `http://user:secret@h/p x` and the fallback's raw value reached a sink verbatim — through the step at `HEADERS`, because `location` is allow-listed. `OBS-11` is "unconditionally and independent of any allow-list" and `OBS-16`'s verbatim clause is the one with an exception in it; a relative value with no authority still comes back verbatim by construction, since the split components are raw substrings. A scheme-shaped `user:pw@h/p` with no `//` has no authority under RFC 3986 on either entry point and is not a userinfo |
+| P5-101 | **A bad percent-encoding in a parameter NAME is an unmatchable name, not a parse failure, and an opaque URI's query-shaped tail is redacted**: `decode_name` rescues the decoder's `ArgumentError` alone and answers nil, which default-denies the value to `***`; `opaque_part` splits the opaque component at its first `?` and runs the tail through `OBS-12`'s rule | `OBS-12`, `OBS-15`; P5-26, P5-27, P5-91; review round 0's R0-7 and R0-8 | `URI.decode_www_form_component("%zz")` raises, and letting that reach `#url`'s totality rescue sentinelled a parseable URL for one broken name and gave `#header_value` a third route to the raw value; `%FF` already took the safe direction through `#scrub`, and `%zz` now takes the same one. The pinned parser folds `?query` INTO the opaque component (`mailto:a@b?subject=x` splits with `query` nil) while it still splits the fragment out, so P5-27's reasoning — an opaque URI has no query — described the parser's components and not the value; the address before the `?` is not a userinfo and is written back as is, and nothing absent is written, so P5-27's rule stands. A bad encoding in a FRAGMENT the parser rejects outright and still sentinels |
+| P5-102 | **`OBS-18`'s header-name gate is structural at `Event#field`**: a key under either header prefix whose name fails `redactor.header_name?` stores `Redactor::REDACTED_HEADER` or, when `policy.omit_disallowed_headers`, nothing at all, whoever the caller is; the private `Emitter` writes every header under its prefix and gates nothing, and reads no redactor | `OBS-18`, `OBS-39`; §8.1's "no sink implementation can bypass it" (`observability/c2ebb968`); the reserved-key table above; P5-35, P5-95; review round 0's R0-4 | The table above routed a header-prefixed key through `Redactor#header_value` only, and P5-35 placed the boolean's effect in the step, so `Event#field("http.request.header.authorization", "Bearer …")` handed the sink the value and the as-built page printed exactly that. The header prefixes are already reserved names, so the gate keyed by the field name is the same mechanism that makes `OBS-39` structural, at no allocation on the disabled path; moving it removes the policy's second reader rather than adding a second gate. `Logger#redactor` stays public as the path's one observable policy (P5-95's row reads "consulted by every event" rather than "read by the emitter"); one fewer ivar on the `Emitter` and no manifest change |
+
+**Review round 0 (2026-09-17)** found `OBS-11` missing from three routes of `Redactor#header_value` —
+a network-path reference on the relative route, an authority the parser rejected on the surgery route,
+and the sentinel fallback's raw value — every one reachable through the step at `HEADERS` from a hostile
+`Location`, which the default allow-list admits; and `OBS-18`'s name gate living in the `Emitter` alone,
+so a credential header written straight into `Event#field` reached the sink. Both were closed on the code
+branch (P5-100, P5-102), with the two redactor nits the review filed beside them (P5-101). The two test-side
+findings — fact 3 of the matrix suite order-dependent on the 3.2 floor, and a 102-character line the
+nested-worktree `rake rubocop` cannot see — were closed on their owning branches with no ledger row; the
+checklist's deviations 28–31 and its second guard table carry the round, ten mutations run red on 4.0.6
+and 3.2.11.
 
 **What this addendum does not add.** No frozen-chapter sentence is contradicted by this build — §8.1's
 redaction paragraph "leans on `URI` for userinfo and query" and the redactor's parse is `URI`'s, the rebuild
 being the only thing that moved; §8.1's `Fiber[:key]` carrier sentence is narrowed on the floor by P5-72 and
 P5-97 as the ledger records, not falsified — so `docs/first-release.md`'s `C1`–`C14` paragraph gains no `C15`.
 No harvested rule was found wrong, so `docs/knowledge/notes/` gains no entry. The consolidation of P5-16–P5-39
-and P5-91–P5-99 into design §10, and the §8.1 addendum that would state the split reassembly, the one-redactor
-rule and the async bridge, are a human's, as they were for 3a, 3b, 4a, 4b, 4c, 5a and 5c: `docs/sdk-design-ruby/`
-is frozen. `docs/deviations.md` is left as phase 4 left it, for phase 10 to flip.
+and P5-91–P5-102 into design §10, and the §8.1 addendum that would state the split reassembly, the one-redactor
+rule, the name gate at `#field` and the async bridge, are a human's, as they were for 3a, 3b, 4a, 4b, 4c, 5a and
+5c: `docs/sdk-design-ruby/` is frozen. `docs/deviations.md` is left as phase 4 left it, for phase 10 to flip.
 
 ## Work phase 5b postponed, and who owns it now
 

@@ -22,7 +22,7 @@ N/A not applicable in this port.
 
 Plan: `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction.md`. Task numbers are that
 plan's. Design: `docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-design.md`, whose
-Deviation Ledger rows `P5-16`–`P5-39` and as-built rows `P5-91`–`P5-99` are cited below; the charter is
+Deviation Ledger rows `P5-16`–`P5-39` and as-built rows `P5-91`–`P5-102` are cited below; the charter is
 `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`. Every test file named here is under
 `gems/dexpace-core/test/`, mirrors its `lib/` file one for one (two carry no `lib/` mirror and say so
 below; two `private_constant`s carry no `test/` mirror and are asserted at their call sites), and opens
@@ -52,14 +52,14 @@ identity on both runtimes) and `NFR-11` (the two interfaces' home). **Twenty-six
 | `OBS-8` | MUST | ✅ | 9 | `@emitted` flipped under the **logger's** `Thread::Mutex` and the mutex released before the sink call, in `Event#claim_emit!`: a second `#emit` is a no-op, four threads parked on one `Thread::Queue` and released onto one instance produce exactly one output, and a sink that logs through the SAME logger from inside its own write — a second event, the same mutex — completes rather than meeting the non-reentrant mutex's `ThreadError: deadlock; recursive locking`. Two events of one logger on two threads emit once each. Guards 10 and 11 (`event_test.rb`, `AccumulatorTest`; `logger_test.rb`) |
 | `OBS-9` | MUST | ✅ | 9, 10 | `Logger.build(context:)` takes a String-keyed copy and deep-freezes it once through `Model.own`; `#context` returns the same object every read, every event merges it under `OBS-5`, and the caller's own Hash is neither frozen nor aliased (`logger_test.rb`, `event_test.rb`) |
 | `OBS-10` | MUST | ✅ | 6, 9, 10 | `Diagnostics.folded(allow_list)`: with a list, each key read through `Fiber[]` and a nil-valued key skipped; with `nil` — a MODE, the opt-in unfiltered fold, not "use the default" — the whole map read through `Fiber.current.storage`, nil values skipped and every key under `RESERVED_PREFIX` (`"dexpace."`, P5-39) skipped, so 5c's live `Span` in `:"dexpace.current_span"` never reaches `OBS-6`'s rendering. `DEFAULT_KEYS` is exactly `[:"trace.id", :"span.id"]`; the fold's key bridge is `Symbol#name`, the same frozen String on every call (asserted with `assert_same`), never `#to_s`. `Logger.build(diagnostic_keys:)` coerces a list to Symbols once, because `Fiber["k"]` raises `TypeError` on 3.2 and 3.3. **The floor**: on 3.2.11 `Fiber[:k] = nil` leaves a nil-valued key behind, so the null-skip clause is live for every key ever set and cleared there, where on 3.3+ only the warned `Fiber#storage=` can construct one — the test constructs the input through that setter inside phase 2's `WarningCapture`, the one `Fiber#storage=` call in 5b's suites, and the skip is asserted on every row. Guards 12 and 13 (`diagnostics_test.rb`, `FoldTest`; `logger_test.rb`) |
-| `OBS-11` | MUST | ✅ | 8, 9 | `Redactor#url` writes `***:***` in place of any present userinfo, whatever the policy says — `RedactionPolicy` has NO member that can reach userinfo (boundary 4, `XCUT-19`(a)), asserted on `Policy.members` — including a user with no password and a percent-encoded pair; the chapter's negative, neither the username nor the password substring anywhere in the output, is the assertion. Through `Event#field(Keys::URL_FULL, …)` it is structural. Guard 14 (`redactor_test.rb`, `event_test.rb`) |
-| `OBS-12` | MUST | ✅ | 7, 8, 9 | Each `name=value` pair keeps its name and `=` and gets `***` unless the name — decoded with `URI.decode_www_form_component`, scrubbed, folded with a bare `downcase` — is in the policy's `query_allow_list`, which defaults to exactly `Set["api-version"]` and, when empty, redacts every value (an empty list is a real value, not "use the default"). Multi-value keys are atomic by construction: the decision is a function of the name alone, asserted with a name appearing three times. `?%FF=secret` — the input whose decoded name raises `ArgumentError` out of `#downcase` — redacts to `%FF=***` and raises nothing. A bare token with no `=` is kept. Guards 15, 16 and 17 (`redaction_policy_test.rb`, `redactor_test.rb`) |
+| `OBS-11` | MUST | ✅ | 8, 9 | `Redactor#url` writes `***:***` in place of any present userinfo, whatever the policy says — `RedactionPolicy` has NO member that can reach userinfo (boundary 4, `XCUT-19`(a)), asserted on `Policy.members` — including a user with no password and a percent-encoded pair; the chapter's negative, neither the username nor the password substring anywhere in the output, is the assertion. Through `Event#field(Keys::URL_FULL, …)` it is structural. **On `#header_value` the same holds on every route** (P5-100, review round 0's R0-3): the relative route rebuilds a network-path reference's authority with the placeholder (`//user:secret@h/x` → `//***:***@h/x`), the surgery route substitutes an authority's userinfo before cutting (`http://user:secret@h/p x` → `http://***:***@h/p x`), and the sentinel-fallback route runs that surgery — so a hostile `Location`, which the default allow-list admits, cannot carry a credential to the sink; asserted through a real pipeline at `HEADERS` with the credential in no payload. Guards 14, 49, 50, 51 and 54 (`redactor_test.rb`, `event_test.rb`, `step_test.rb`) |
+| `OBS-12` | MUST | ✅ | 7, 8, 9 | Each `name=value` pair keeps its name and `=` and gets `***` unless the name — decoded with `URI.decode_www_form_component`, scrubbed, folded with a bare `downcase` — is in the policy's `query_allow_list`, which defaults to exactly `Set["api-version"]` and, when empty, redacts every value (an empty list is a real value, not "use the default"). Multi-value keys are atomic by construction: the decision is a function of the name alone, asserted with a name appearing three times. `?%FF=secret` — the input whose decoded name raises `ArgumentError` out of `#downcase` — redacts to `%FF=***` and raises nothing, and a name the decoder itself rejects (`%zz`, a `%` not followed by two hex digits) is unmatchable the same way, `%zz=***`, rather than sentinelling the whole URL (P5-101, R0-7). A bare token with no `=` is kept. Guards 15, 16, 17 and 52 (`redaction_policy_test.rb`, `redactor_test.rb`) |
 | `OBS-13` | MUST | ✅ | 8, 9 | The fragment is tokenised by hand on `&` (`URI` does not tokenise one): a `key=value` token follows `OBS-12`'s rule, `#access_token=SECRET` → `#access_token=***`, and a fragment with no `=` anywhere — `#section`, `#a/b?c` — is kept verbatim (`redactor_test.rb`) |
 | `OBS-14` | MUST | ✅ | 8, 9 | Scheme, host, port and path are written back byte for byte — including `:80`, `:443`, an IPv6 host and `file:///`, because the redacted form is reassembled from `RFC3986_PARSER.split`'s nine raw components and never through `URI#to_s`, which drops a default port (P5-91) — a present-but-empty query keeps its trailing `?` (`https://h/x?` → `https://h/x?`, `http://h?` → `http://h?`), the chapter's own case `http://h/p#a?b=c` has no `?` before the `#` (and `a?b=***` after it, `OBS-13`), and a trailing `&` — the empty final pair OBS-14 says MAY be dropped — is dropped, in a query and in a fragment, while an interior empty pair is kept. Guards 18, 19 and 20 |
-| `OBS-15` | MUST | ✅ | 8 | `#url` is total: `"not a url at all"`, `"https://h/a b"`, `"http://[::1"`, a bad percent-encoding in a path, a NUL byte and `nil` all yield `"[malformed url]"` with nothing raised, asserted on the value and never with `assert_nothing_raised`. The rescue is `StandardError`, not `URI::Error` (P5-26): a policy whose allow-list read raises drives an ordinary URL into it, and narrowing it to `URI::Error` is run red. An opaque URI (`mailto:`, `urn:`, `data:`) round-trips untouched, because nothing absent is ever written back (P5-27, now by construction). One thing `split` accepts that `#parse` rejects — a bad percent-encoding in a query VALUE — is redacted rather than sentinelled, and the test says so. Guards 21 and 22 |
-| `OBS-16` | MUST | ✅ | 8, 9 | `Redactor#header_value`: a value with a scheme is redacted like a request URL; a relative value keeps its split path and gets `?***` iff it carried a query OR a fragment, the presence test `!nil?` because `/cb?` splits with an EMPTY query (`/cb?code=SECRET` → `/cb?***`, `/cb?` → `/cb?***`, `#frag` → `?***`, `/static/path` verbatim); a value the parser rejects takes the string-surgery route on the raw value (P5-28: `bad path?secret=1` → `bad path?***`). It returns a String always — nil → `""` — and never `OBS-15`'s sentinel (P5-25): an absolute value that would sentinel falls through to the surgery form. Guards 23 and 24 |
-| `OBS-17` | MUST | ✅ | 7, 8, 15 | `url_header_names` defaults to `Set["location", "content-location"]`; only those go through `#header_value`'s URL redaction and every other value passes through unchanged; `Event#field` applies it by the `http.request.header.`/`http.response.header.` prefix, so it holds for both directions. Shared so it cannot drift, twice over: the two steps write through one private `Emitter` (P5-34), and — found by guard 25 — **there is one redactor per logging path, the logger's**: `Step.build` no longer takes a `redactor:` of its own, the emitter reads `Logger#redactor` for its header-name gate, so the names a step logs and the values its events redact cannot come from two policies (P5-95). The async path is asserted to redact a `Location` and mark an `Authorization` exactly as the sync path does. Guard 25 (`redactor_test.rb`, `step_test.rb`, `async_step_test.rb`) |
-| `OBS-18` | MUST | ✅ | 7, 8, 9, 15 | `Redactor#header_name?` answers against the folded allow-list; the default list is twenty-six diagnostic, non-credential names, chosen not derived (P5-30), asserted name by name, with `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`, `www-authenticate` and `proxy-authenticate` asserted absent. The `Emitter` gates NAMES first; a name outside the list is emitted with the fixed `REDACTED` marker (the default, P5-35) or omitted entirely (`omit_disallowed_headers: true`), and BOTH modes are asserted through the step. The chapter's negative is the assertion that matters: `Content-Type`'s value present, and `Bearer`/`sk-live-abc123`/`deadbeef` nowhere in the payload. Guard 26 |
+| `OBS-15` | MUST | ✅ | 8 | `#url` is total: `"not a url at all"`, `"https://h/a b"`, `"http://[::1"`, a bad percent-encoding in a path, a NUL byte and `nil` all yield `"[malformed url]"` with nothing raised, asserted on the value and never with `assert_nothing_raised`. The rescue is `StandardError`, not `URI::Error` (P5-26): a policy whose allow-list read raises drives an ordinary URL into it, and narrowing it to `URI::Error` is run red. An opaque URI (`mailto:`, `urn:`, `data:`) round-trips untouched, because nothing absent is ever written back (P5-27, now by construction) — except a query-shaped tail, which the pinned parser folds INTO the opaque component (`mailto:a@b?subject=SECRET` splits with `query` nil): the part after the first `?` takes `OBS-12`'s rule and the address before it is written back as is (P5-101, R0-8). Two things `split` accepts that `#parse` rejects — a bad percent-encoding in a query VALUE, and one in a query NAME — are redacted rather than sentinelled (the fragment case still sentinels: the parser rejects a bad encoding there), and the tests say so. Guards 21, 22, 52 and 53 |
+| `OBS-16` | MUST | ✅ | 8, 9 | `Redactor#header_value`: a value with a scheme is redacted like a request URL; a relative value keeps its split path and gets `?***` iff it carried a query OR a fragment, the presence test `!nil?` because `/cb?` splits with an EMPTY query (`/cb?code=SECRET` → `/cb?***`, `/cb?` → `/cb?***`, `#frag` → `?***`, `/static/path` verbatim); a value the parser rejects takes the string-surgery route on the raw value (P5-28: `bad path?secret=1` → `bad path?***`). It returns a String always — nil → `""` — and never `OBS-15`'s sentinel (P5-25): an absolute value that would sentinel falls through to the surgery form. **"A value with neither MUST be returned verbatim" yields to `OBS-11` on exactly one input**, a relative value carrying a userinfo (P5-100): the relative route writes a network-path reference's authority back with the placeholder and every other component byte for byte, so the verbatim clause holds by construction for every value `OBS-11` does not reach (`//h:8443/x`, `//[::1]:8443/x` unchanged). Guards 23, 24, 49, 50, 51 and 54 |
+| `OBS-17` | MUST | ✅ | 7, 8, 15 | `url_header_names` defaults to `Set["location", "content-location"]`; only those go through `#header_value`'s URL redaction and every other value passes through unchanged; `Event#field` applies it by the `http.request.header.`/`http.response.header.` prefix, so it holds for both directions. Shared so it cannot drift, twice over: the two steps write through one private `Emitter` (P5-34), and — found by guard 25 — **there is one redactor per logging path, the logger's**: `Step.build` no longer takes a `redactor:` of its own and — since review round 0 — the emitter reads no gate at all: every header goes into `Event#field` under its prefix and the event gates the name and redacts the value through the logger's one redactor (P5-95, P5-102), so the names a step logs and the values its events redact cannot come from two policies. The async path is asserted to redact a `Location` and mark an `Authorization` exactly as the sync path does. Guard 25 (`redactor_test.rb`, `step_test.rb`, `async_step_test.rb`) |
+| `OBS-18` | MUST | ✅ | 7, 8, 9, 15 | `Redactor#header_name?` answers against the folded allow-list; the default list is twenty-six diagnostic, non-credential names, chosen not derived (P5-30), asserted name by name, with `authorization`, `proxy-authorization`, `cookie`, `set-cookie`, `x-api-key`, `www-authenticate` and `proxy-authenticate` asserted absent. **`Event#field` gates NAMES first, by the reserved prefix** (P5-102, review round 0's R0-4 — the round-0 tree gated only in the private `Emitter`, so a credential header written straight into `#field` logged its value): a header-prefixed key whose name is outside the list stores the fixed `REDACTED` marker (the default, P5-35) or, with `omit_disallowed_headers: true`, nothing at all, whoever the caller is; the `Emitter` writes every header and decides nothing. BOTH modes are asserted through the step and directly at `#field`, and the name gate is asserted to run before the URL-value redactor. The chapter's negative is the assertion that matters: `Content-Type`'s value present, and `Bearer`/`sk-live-abc123`/`deadbeef` nowhere in the payload. Guards 26, 55, 56, 57 and 58 |
 | `OBS-19` | SHOULD | ⏳ | — | Postponed to phase 8c, Tasks 7, 9 and 15 (`AsyncHTTP::DropPolicy`, `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport.md`), P5-32 and R10: the requirement's subject is a transport that drops a caller-set header it cannot encode; core has no transport, `Net::HTTP` raises rather than drops, and a public three-mode policy with no core caller is the `TeeSink#clear_tap` shape. What ships here is both halves the policy is built from — `Severity` and the once-per-logger latch, with `OBS-40` as the latch's exercising caller. Verified present at its owner, nothing re-recorded |
 | `OBS-20` | MUST | ✅ | 11, 14, 15 | `Instrumentation.contain(logger, event:)`, the one containment primitive, a module function (P5-37): the block's value is swallowed, nil comes back, a `StandardError` becomes a WARNING `http.instrumentation.*` diagnostic carrying the error as its cause, and a failure while emitting THAT is swallowed with no second attempt — a sink that raises on every call, predicates included, still yields nil. Only `StandardError`: a `SignalException` and a `NotImplementedError` propagate. Every log-emission site in the phase is inside it — the step's request, response and failure events, and the three wirings through `Instrumentation.diagnostic` — and every tracer, scope and meter call is outside it, unwrapped (boundary 3): a raising sink cannot fail a request and produces one `INSTRUMENTATION_LOG` diagnostic per emission site, while a throwing meter propagates and fails it, and a throwing tracer propagates before the chain is driven. On the async path the meter's failure reaches the settling side (the design's stated consequence). Guards 27 and 28 (`contain_test.rb`, `step_test.rb`, `AsymmetryTest`; `async_step_test.rb`) |
 | `OBS-24` | MUST | ✅ | 6 | `Diagnostics.capture` is one read and one freeze — `Fiber.current.storage` is already a fresh copy — normalised from the nil an opted-out fiber reads on 3.3+ and the `{}` the floor reads, and with every nil-valued key dropped (P5-97), so a snapshot has one shape on every row; frozen is what is claimed, Ractor-shareable is not (P5-22). `Diagnostics.with(snapshot)` installs per key, yields, and restores per key over the union of the prior and snapshot key sets in an `ensure` (P5-23), through `Fiber[]=` alone; asserted with an overwritten key put back, an introduced key gone, a raise inside the block, and a real thread boundary — capture on A, run on B, the captured keys visible inside and B's OWN prior context restored after, which is not empty, because a new Thread inherits a copy. The snapshot is any object answering `#each` and `#keys`. **The floor**: on 3.2.11 a key the snapshot introduced is left present with a nil value after the restore — the floor's whole `Fiber` API is `[]`, `[]=`, `storage` and `storage=`, and the only removal is the warned setter core never calls — which `Fiber[]` and the fold read as absent (P5-72 applied to `OBS-24`, P5-97); `FiberStorageFacts#assert_diagnostic_key_removed` asserts what each row can honour. Guards 29, 30 and 31 (`diagnostics_test.rb`, `BridgeTest`; `logging_matrix_facts_test.rb`) |
@@ -139,21 +139,24 @@ rule was found wrong, and the two facts the design got wrong (below) are the des
 `docs/first-release.md` gains nothing (its `OBS-32`/`OBS-37` and presence-gated entries already read true),
 and `docs/deviations.md` is untouched for phase 10 to flip.
 
-The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-17) at the tests tip and again at the
-docs tip: green, exit 0 — `cops:test` 129 runs, `steep` no type error over the strict `core` target,
-`test:gems` **2,023 runs / 57,816 assertions** across the six gems (174 runs more than the base: 173 across
-the fifteen new or rewritten instrumentation suites and the five repaired pins, one the smoke suite gained),
-with **99.98% line coverage (5,617 / 5,618)** against the 80% floor — the one uncovered line is the
-registry-claim race branch every phase since 2 has recorded — `test:gates` 130 runs, the nine `gates:*`
-tasks (`gates:require_allowlist` clean, 23 bundled gems known; `gates:surface_snapshot` six manifests
-matching; `gates:rbs_surface` no foreign constant; `gates:clean_bundle` six gems in isolation), `yard`
-100.00% documented (661 methods, 0 undocumented), `bundler_audit` clean. The honest RuboCop run —
+The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-17, re-run after review round 0's
+repair the same day) at the tests tip and again at the docs tip: green, exit 0 — `cops:test` 129 runs,
+`steep` no type error over the strict `core` target, `test:gems` **2,031 runs / 57,900 assertions** across
+the six gems (182 runs more than the base: 173 across the fifteen new or rewritten instrumentation suites
+and the five repaired pins, one the smoke suite gained, and the round's eight added tests), with **99.98%
+line coverage (5,628 / 5,629)** against the 80% floor — the one uncovered line is the registry-claim race
+branch every phase since 2 has recorded — `test:gates` 130 runs, the nine `gates:*` tasks
+(`gates:require_allowlist` clean, 23 bundled gems known; `gates:surface_snapshot` six manifests matching;
+`gates:rbs_surface` no foreign constant; `gates:clean_bundle` six gems in isolation), `yard` 100.00%
+documented (661 methods, 0 undocumented), `bundler_audit` clean. The honest RuboCop run —
 `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` — inspected 401 files with no
-offenses; run through `rake` from this worktree it inspects 10, the known vacuity on phase 10's inbound
-list. The matrix set is green at the tests tip on **3.2.11**, **3.3.12** and **3.4.10**, each after a fresh
-`Gemfile.lock`, with the figures in the report. The code tip is green on all seventeen gates too, run one by
-one, its `test:gems` above the floor on 4.0.6 and on 3.2.11 with the four matrix gates, so the one exception
-the layering rule allows was not needed. **Hermeticity**: every suite under `test/dexpace/instrumentation/`
+offenses at the tests and docs tips and **385 at the code tip**, the run round 0's R0-2 asked for; run
+through `rake` from this worktree it inspects 10, the known vacuity on phase 10's inbound list. The matrix
+set is green at the tests tip on **3.2.11** (three seeds after the repair, below), **3.3.12** and
+**3.4.10**, each after a fresh `Gemfile.lock`, with the figures in the report. The code tip is green on all
+seventeen gates too, run one by one — `test:gems` 1,849 runs / 56,767 assertions at 94.35% (5,311 / 5,629)
+on 4.0.6 — its `test:gems` above the floor on 4.0.6 and on 3.2.11 with the four matrix gates, so the one
+exception the layering rule allows was not needed. **Hermeticity**: every suite under `test/dexpace/instrumentation/`
 — 5b's fifteen and 5c's fifteen — was run standalone under `ruby -w` with `HTTPS_PROXY`, `HTTP_PROXY`,
 `NO_PROXY`, `LOG_LEVEL`, `LOG_PREVIEW_BYTES`, `MAX_TRACKED_CONTEXTS` and `MAX_MATERIALIZED_BYTES` exported
 to hostile values (`http://evil:1`, `garbage`, `*`, `body`, `3`, `2`, `4096`): all green, because every
@@ -292,6 +295,32 @@ well, guards 12, 29, 30 and 31 through the floor branches of the floor-aware ass
 | 47 | the step forking before calling (`cursor.fork.call`) | `step_test.rb` | `RuntimeError: forked with nil` from the recording cursor |
 | 48 | the response wrapper constructed at `HEADERS` (`if logged?`) | `step_test.rb` | `Expected #<Dexpace::ResponseLoggingBody …> to be the same as #<Dexpace::BufferBody …>` |
 
+After review round 0's repair (2026-09-17), one per line the repair made load-bearing, each applied
+by hand against the repaired suites and reverted, **on 4.0.6 and on 3.2.11** — all ten caught on both.
+
+| # | Fix reverted | Guard | What it said (identical on both rows unless stated) |
+|---|---|---|---|
+| 49 | `OBS-11` (R0-3): the relative route returning the raw value when it carried neither query nor fragment | `redactor_test.rb`, `step_test.rb` | `Expected: "//***:***@h/x" Actual: "//user:secret@h/x"`; through the pipeline, `Expected "//user:secret@evil/x" to include "***:***@"` |
+| 50 | `OBS-11` (R0-3): the surgery route without the userinfo substitution | `redactor_test.rb`, `step_test.rb` | 2 failures, `Expected: "http://***:***@h/p x" Actual: "http://user:secret@h/p x"`; through the pipeline, `Expected "http://user:secret@evil/p x" to include "***:***@"` |
+| 51 | `OBS-11` (R0-3): the relative route writing the userinfo back as given | `redactor_test.rb` | 2 failures, `Expected: "//***:***@h/x" Actual: "//user:secret@h/x"` |
+| 52 | `OBS-12` (R0-7): the decode's rescue removed, a bad name sentinelling again | `redactor_test.rb` | `--- expected "https://h/p?%zz=***&api-version=2&b=***" +++ actual "[malformed url]"` |
+| 53 | `OBS-15` (R0-8): the opaque component written back verbatim | `redactor_test.rb` | `--- expected "mailto:support@example.com?subject=***" +++ actual "…?subject=SECRET"` |
+| 54 | `OBS-11` (R0-3): the surgery pattern stopping at the FIRST `@` | `redactor_test.rb` | `Expected: "http://***:***@h/p x?***" Actual: "http://***:***@b@h/p x?***"` |
+| 55 | `OBS-18` (R0-4): `Event#field` storing a non-allow-listed header's value | `event_test.rb`, `step_test.rb`, `async_step_test.rb` | `Expected: "REDACTED" Actual: "Bearer sk-live-1"` (3 failures), and both steps' `Authorization` cases |
+| 56 | `OBS-18` (R0-4): `Event#field` ignoring omit mode (always the marker) | `event_test.rb`, `step_test.rb` | `--- expected {"…accept" => "text/html"} +++ actual {…, "…authorization" => "REDACTED"}`; through the step, `Expected true to not be truthy` |
+| 57 | `OBS-18` (R0-4): `Event#field` omitting in marker mode (never storing the marker) | `event_test.rb`, `step_test.rb`, `async_step_test.rb` | `Expected: "REDACTED" Actual: nil` (2 failures), and both steps' cases |
+| 58 | `OBS-18` (R0-4): the `Emitter` skipping every header (the gate mis-moved) | `step_test.rb`, `async_step_test.rb` | 5 failures, `Expected: "text/plain" Actual: nil`; `Expected: "REDACTED" Actual: nil` |
+
+Two of the round's findings had no line of `lib/` behind them and have no mutation. R0-1 — fact 3 of
+`logging_matrix_facts_test.rb` order-dependent on the 3.2 floor, where every teardown's
+`Fiber[OTHER] = nil` is retained and "`storage == prior` iff `= nil` deletes" held only when the test
+ran first — is proven by the matrix set green on 3.2.11 with seeds 9818, 1 and 42 and standalone, and by
+the old spelling reproducing the failure on seed 9818 against the repaired tree; the assertion now states
+the row's expected map (`prior` where `= nil` deletes, `prior.merge(OTHER => nil)` on the floor). R0-2 —
+a 102-character line in the code branch's minimal-repair `diagnostics_test.rb`, visible only to the
+honest RuboCop command from a nested worktree — is proven by that command clean at the code tip (385
+files, no offenses).
+
 ## Audit groups run
 
 The phase-start pair first, at implementation: `--origin note --brief` returned 53 note entries across 21
@@ -316,7 +345,7 @@ it names for the plan were re-checked against the built code:
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate. Items 1–13
 are where the built tree overrode the plan's assumptions, in the order the brief's as-built list gives
-them; the rest are this build's, and the ones that touch public behaviour are also ledger rows P5-91–P5-99.
+them; the rest are this build's, and the ones that touch public behaviour are also ledger rows P5-91–P5-102.
 
 1. **The base is the reconciled 5c docs tip, not `main`**, and the plan's interleaved order collapsed to
    Tasks 1–16 straight through; nothing here describes 5a or 5c as landed on `main`.
@@ -391,9 +420,10 @@ them; the rest are this build's, and the ones that touch public behaviour are al
     `AsyncPipeline` over phase 2's `Completer` and `Future` is driven, with `FakeAsyncTransport`'s
     `settle_later` separating the head from the settlement.
 16. **One redactor per logging path, the logger's** (P5-95): `Step.build` takes no `redactor:` keyword,
-    `Logger` gains a public `#redactor` reader, and the emitter reads its header-name gate from it. Found
+    `Logger` gains a public `#redactor` reader, and the emitter read its header-name gate from it. Found
     by guard 25 against the plan's shape, in which the step's redactor gated names while the logger's
-    redacted values — two policies where OBS-17 asks for one.
+    redacted values — two policies where OBS-17 asks for one. Since review round 0 the emitter reads no
+    gate at all (item 30); the reader stays public as the path's one observable policy.
 17. **`Instrumentation.diagnostic(logger, event:, cause:, message:)`** is a second public module function
     beside `contain` (P5-92): the three wirings and phase 8b's shutdown event share one contained
     diagnostic shape, and writing it three times pushed 5a's `ProxyResolution` past `Metrics/ModuleLength`.
@@ -442,6 +472,55 @@ them; the rest are this build's, and the ones that touch public behaviour are al
     `block_given?` in the body does NOT count as use. The RBS already declared the block optional. The
     gap in the gate's reach is the forty-first inbound bullet.
 
+Items 28 through 31 are review round 0's (2026-09-17), each fixed on the owning branch of the stack;
+the first three are also the as-built rows P5-100–P5-102, and each is a place where the build read a
+requirement more narrowly than its text or put a gate one object away from where the requirement's
+"whoever the caller is" needs it:
+
+28. **`OBS-11` on every route of `Redactor#header_value`** (P5-100, R0-3). The design's R9 table
+    considered a relative value's path, query and fragment and never its authority, so a network-path
+    reference (`//user:secret@h/x`) was "returned verbatim" by `OBS-16`'s letter, an authority the parser
+    rejected survived the surgery cut, and the sentinel fallback ran that same surgery on the raw value —
+    three routes on which a hostile `Location`, admitted by the default allow-list, carried a credential to
+    the sink. The relative route now rebuilds the authority from the split components with the
+    placeholder; the surgery route substitutes an authority's userinfo first, through an anchored, linear
+    `Regexp` with a per-pattern timeout (`SURGERY_USERINFO`, a `private_constant`), up to the LAST `@`
+    before the first `/`, `?` or `#`; and the collision between the two MUSTs is resolved for `OBS-11`,
+    the clause with no exception in it, and stated in the source, the `OBS-16` row and the ledger. A
+    scheme-shaped `user:pw@h/p` with no `//` has no authority under RFC 3986 on either entry point and is
+    not a userinfo; the tests say so.
+29. **A bad percent-encoding in a parameter NAME is unmatchable, and an opaque URI's query-shaped tail
+    is redacted** (P5-101, R0-7 and R0-8). `URI.decode_www_form_component` raises `ArgumentError` on
+    `%zz`, and the round-0 redactor let that reach `#url`'s totality rescue, sentinelling a parseable URL
+    for one broken name and giving `#header_value` its third leak route; the decode is now rescued alone
+    (`decode_name`, nil for a rejected name, the policy read left to `#url`'s backstop) and the name
+    default-denies to `***`, the direction `%FF` already took. The pinned parser folds `?query` into the
+    opaque component while splitting the fragment out, so `mailto:a@b?subject=SECRET` round-tripped
+    with its query; the part after the first `?` now takes `OBS-12`'s rule and the address before it —
+    not a userinfo — is written back as is. P5-27's rule is untouched: nothing absent is written.
+30. **`OBS-18`'s name gate is structural at `Event#field`** (P5-102, R0-4). The design's reserved-key table
+    routed a header-prefixed key through `Redactor#header_value` only, and P5-35 placed the boolean's
+    effect in the `Emitter`, so a credential header written straight into `#field` — by an SDK author,
+    never by the step — logged its value, and the as-built page demonstrated exactly that. The gate now
+    runs at `#field` by the reserved prefix — marker or omission per the policy's boolean, the same answer
+    for a caller and for the step — and the `Emitter` writes every header and gates nothing, which
+    removes the second reader of the policy rather than adding a second gate. `Logger#redactor` stays
+    public (P5-95's one policy per path, now observable rather than consulted by core). The redactor
+    itself grew past `Metrics/ClassLength`'s default by items 28 and 29 and records the exception inline
+    with its reason, as `.rubocop.yml` prescribes and as 5a's `ProxyResolution` does.
+31. **Two test-side repairs with no line of `lib/` behind them** (R0-1, R0-2): fact 3 of
+    `logging_matrix_facts_test.rb` asserted "`storage == prior` iff `= nil` deletes", which on the 3.2
+    floor held only when the test ran first, because every earlier teardown's `Fiber[OTHER] = nil` is
+    retained there — the report's 3.2.11 green was one seed in thirteen; the expected map is now stated
+    per row. And the code branch's minimal-repair `diagnostics_test.rb` carried a 102-character line that
+    `rake rubocop` from a nested worktree cannot see (the inbound list's vacuity) and the honest command
+    can; wrapped, so the code tip is green on `NFR-7` on its own tree, as the layering rule requires. Two
+    documentation slips the round filed beside them (R0-5, R0-6) are fixed in place on the docs branch:
+    the as-built page's fence 8 read the `span.id` fence 5 had left in the carrier when the fences ran
+    top to bottom in one process — fence 5 now clears what it set, and the sixteen fences run as one
+    script with every literal result checked, 116 checks on 4.0.6 and 3.2.11 — and the roadmap's status
+    note counted twenty-six departures where this list itemised twenty-seven, now thirty-one.
+
 ## Findings routed
 
 - **The design's three findings were verified at their owners, none re-recorded**: §8.1's unsourced
@@ -471,8 +550,15 @@ them; the rest are this build's, and the ones that touch public behaviour are al
   now says so. Its `OBS-32`/`OBS-37` entry names this phase and reads true; its presence-gated
   auto-activation entry reads true (5b adds no fourth registry). **Nothing for
   `docs/knowledge/notes/`**: no harvested rule was found wrong.
-- **The design's ledger** gains an "As built" addendum (P5-91–P5-99); the consolidation of P5-16–P5-39 and
-  P5-91–P5-99 into design §10 and the §8.1 addendum are a human's, as for 3a, 3b, 4a, 4b, 4c, 5a and 5c,
+- **Review round 0's eight findings** (2026-09-17) all closed in this stack, none routed onward: the three
+  `Redactor#header_value` routes that carried a userinfo to a sink (R0-3, blocking) and the name gate that
+  lived in the `Emitter` alone (R0-4) on the code branch as P5-100 and P5-102, with the two redactor nits
+  (R0-7, R0-8) as P5-101; the order-dependent floor assertion (R0-1, blocking) on the tests branch; the
+  102-character line (R0-2, blocking) on the code branch; the page's cross-fence state (R0-5) and the
+  roadmap's count (R0-6) on the docs branch — items 28–31 above and the second guard table. The `OBS-11`
+  / `OBS-16` collision the review found unrecorded is now stated in the source, the two rows and P5-100.
+- **The design's ledger** gains an "As built" addendum (P5-91–P5-102); the consolidation of P5-16–P5-39 and
+  P5-91–P5-102 into design §10 and the §8.1 addendum are a human's, as for 3a, 3b, 4a, 4b, 4c, 5a and 5c,
   because `docs/sdk-design-ruby/` is frozen. §8.1's "leans on `URI` for userinfo and query" is honoured by
   the `split` parse and no frozen sentence is contradicted, so `docs/first-release.md`'s `C1`–`C14`
   paragraph gains no `C15`.

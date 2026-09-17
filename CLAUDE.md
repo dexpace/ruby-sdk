@@ -585,14 +585,19 @@ Each is one line plus the chapter to read before touching the area.
   non-recording one (P5-47).
 - **Redaction happens at `Event#field`, by the field's NAME, and never at the sink** — `url.full` goes
   through `Redactor#url` and every `http.request.header.*` / `http.response.header.*` key through
-  `#header_value`, so a caller who writes `logger.event(Severity::INFO).field(Keys::URL_FULL, raw)` gets
-  the redacted form whatever the sink does with it, and a sink is never trusted to redact (`OBS-11`–
-  `OBS-18`, `OBS-39`). The redactor reassembles from `URI::RFC3986_PARSER.split`'s nine raw components
-  and never through `URI#to_s`, which drops a default port `OBS-14` forbids dropping (P5-91); `#url` is
-  total and answers `"[malformed url]"` on any `StandardError`, `#header_value` always a String and never
-  the sentinel (P5-25, P5-26). The default header allow-list is twenty-six names with every credential
-  and challenge header absent, the query allow-list is exactly `{api-version}`, and userinfo is
-  redacted with no policy member able to reach it (`XCUT-19`).
+  `OBS-18`'s name gate first (a name outside the allow-list stores the `REDACTED` marker or, in omit
+  mode, nothing) and then, for an allow-listed name, through `#header_value`, so a caller who writes
+  `logger.event(Severity::INFO).field(Keys::URL_FULL, raw)` or a credential header by hand gets exactly
+  what the step gets, whatever the sink does with it, and a sink is never trusted to redact (`OBS-11`–
+  `OBS-18`, `OBS-39`; P5-102 — the private `Emitter` writes every header and gates nothing). The
+  redactor reassembles from `URI::RFC3986_PARSER.split`'s nine raw components and never through
+  `URI#to_s`, which drops a default port `OBS-14` forbids dropping (P5-91); `#url` is total and answers
+  `"[malformed url]"` on any `StandardError`, `#header_value` always a String and never the sentinel
+  (P5-25, P5-26), and userinfo is `***:***@` on every route of both — a network-path reference's
+  authority and an authority the parser rejected included, where `OBS-11`'s "unconditionally" overrules
+  `OBS-16`'s "returned verbatim" (P5-100). The default header allow-list is twenty-six names with every
+  credential and challenge header absent, the query allow-list is exactly `{api-version}`, and userinfo
+  is redacted with no policy member able to reach it (`XCUT-19`).
 - **The logging sink is a duck type — `#debug`/`#info`/`#warn`/`#error` and their four predicates —
   and core never `require`s `logger`** — `NULL_SINK` is a frozen instance of a private class, the RBS
   interface is `_Sink`, and the stdlib `Logger` is a structural superset a host passes in; the bare

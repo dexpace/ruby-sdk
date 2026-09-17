@@ -87,7 +87,8 @@ logger.event(:info)
       .event("pet.fetched")
       .field(I::Keys::URL_FULL, "https://alice:s3cret@api.example.test/pets?api-version=2&token=abc#x=1")
       .field("http.request.header.authorization", "Bearer sk-live-1")
-      .field("http.response.header.location", "/next?cursor=SECRET")
+      .field("http.response.header.location", "//user:secret@cdn.example.test/next?cursor=SECRET")
+      .field("http.response.header.content-type", "application/json")
       .field("count", 3).field("ratio", 0.5).field("nothing", nil)
       .field("tags", %w[a b]).field("error", RuntimeError.new("boom"))
       .emit
@@ -96,8 +97,9 @@ severity                                              # => :info
 record["service"]                                     # => "pets"
 record["event"]                                       # => "pet.fetched"
 record["url.full"]                                    # => "https://***:***@api.example.test/pets?api-version=2&token=***#x=***"
-record["http.request.header.authorization"]           # => "Bearer sk-live-1"
-record["http.response.header.location"]               # => "/next?***"
+record["http.request.header.authorization"]           # => "REDACTED"
+record["http.response.header.location"]               # => "//***:***@cdn.example.test/next?***"
+record["http.response.header.content-type"]           # => "application/json"
 record["count"]                                       # => 3
 record["ratio"]                                       # => 0.5
 record["nothing"]                                     # => "null"
@@ -106,17 +108,18 @@ record["error"]                                       # => "RuntimeError: boom"
 ```
 
 Four things in that record are the layer's rules and not the sink's. **Redaction happened at
-`#field`, by the field's name** (`OBS-39`, §8.1): `url.full` went through `Redactor#url`, and the two
-header-prefixed keys through `Redactor#header_value`, which redacts a URL-valued header (`Location`,
-`Content-Location`) and passes every other value through — which is why the `Authorization` value is
-still there. **Which header names are logged at all is not the event's decision but the step's**
-(`OBS-18`, below): a caller who writes a credential header straight into `#field` is logging it, and
-the allow-list that stops the step from doing so lives on the redactor it can read with `#header_name?`.
-**Rendering is one rule** (`OBS-6`): `nil` is the literal `"null"`, numerics and booleans pass through
-type-preserving, an exception renders as `SimpleClassName: message`, an `Array` or `Hash` as its
-bracketed `#inspect`, and anything else through `#to_s`; every path is inside a rescue that substitutes
-`[unrenderable ClassName]`, reached through `Kernel#class` so even a `BasicObject` gets a name. **The
-key is validated**: an empty or non-name key raises `Dexpace::InvalidArgumentError` with the
+`#field`, by the field's name** (`OBS-39`, §8.1): `url.full` went through `Redactor#url`, and every
+header-prefixed key through `OBS-18`'s name gate first — `Authorization` is not on the allow-list, so
+its value is the fixed `REDACTED` marker (or, with `omit_disallowed_headers: true`, the key is not
+stored at all), whoever wrote the field — and then, for an allow-listed name, through
+`Redactor#header_value`, which redacts a URL-valued header (`Location`, `Content-Location`), userinfo
+included, and passes every other value through (P5-102). A caller who writes a credential header
+straight into `#field` therefore gets exactly what the step gets; the gate is keyed by the field name,
+not by who called. **Rendering is one rule** (`OBS-6`): `nil` is the literal `"null"`, numerics and
+booleans pass through type-preserving, an exception renders as `SimpleClassName: message`, an `Array`
+or `Hash` as its bracketed `#inspect`, and anything else through `#to_s`; every path is inside a rescue
+that substitutes `[unrenderable ClassName]`, reached through `Kernel#class` so even a `BasicObject` gets
+a name. **The key is validated**: an empty or non-name key raises `Dexpace::InvalidArgumentError` with the
 `<name> is required` message form (`OBS-3`), and a nil *value* is kept.
 
 The cap is bytes, not characters, and the marker is ASCII (`OBS-7`):
@@ -177,6 +180,7 @@ sink2.entries.last[1]
 # => {"trace.id" => "4bf92f3577b34da6a3ce929d0e0e4736", "span.id" => "00f067aa0ba902b7", "tenant" => "acme"}
 I::Logger.build(sink: sink2, diagnostic_keys: [:tenant]).event(:info).emit
 sink2.entries.last[1]                                 # => {"tenant" => "acme"}
+Fiber[:"trace.id"] = nil; Fiber[:"span.id"] = nil; Fiber[:tenant] = nil   # the carrier is empty again
 
 event = logger2.event(:info).field("n", 1)
 event.emit                                            # => nil
@@ -209,15 +213,19 @@ r.url("http://h:80/p?")                               # => "http://h:80/p?"     
 r.url("http://h/p#a?b=c")                             # => "http://h/p#a?b=***" (no query; a fragment pair)
 r.url("http://h/p?a=1&")                              # => "http://h/p?a=***"   (the trailing empty pair dropped)
 r.url("mailto:a@b.c")                                 # => "mailto:a@b.c"       (opaque: nothing to redact)
+r.url("mailto:a@b.c?subject=SECRET")                  # => "mailto:a@b.c?subject=***" (its query-shaped tail)
 r.url("not a url at all")                             # => "[malformed url]"
 r.url(nil)                                            # => "[malformed url]"
 r.url("https://h/x?%FF=secret")                       # => "https://h/x?%FF=***" (an undecodable name)
+r.url("https://h/x?%zz=secret&api-version=1")         # => "https://h/x?%zz=***&api-version=1"
 
 r.header_value("Location", "/cb?code=SECRET")         # => "/cb?***"
 r.header_value("Location", "/cb?")                    # => "/cb?***"            (it carried a query)
 r.header_value("Location", "/static/path")            # => "/static/path"
 r.header_value("Location", "https://h/x?t=1")         # => "https://h/x?t=***"
+r.header_value("Location", "//user:secret@h/x")       # => "//***:***@h/x"      (relative, with an authority)
 r.header_value("Location", "bad path?secret=1")       # => "bad path?***"       (unparseable: surgery)
+r.header_value("Location", "http://user:pw@h/p x")    # => "http://***:***@h/p x"
 r.header_value("Content-Type", "text/html?x=1")       # => "text/html?x=1"      (not a URL header)
 r.header_value("Location", nil)                       # => ""
 r.header_name?("Content-Type")                        # => true
@@ -237,15 +245,19 @@ strict.header_name?("content-type")                   # => false
 default port — `http://h:80/` renders as `http://h/` on every supported Ruby — and `OBS-14` requires
 scheme, host, port and path written back unchanged, so the redactor reassembles the nine raw components
 and writes back only what was present: a present-but-empty query keeps its `?`, an absent one writes
-nothing, and an opaque URI round-trips untouched because no component is ever assigned (P5-91, P5-27).
-Each `name=value` pair keeps its name — decoded, scrubbed and folded with a bare `downcase` — and gets
-`***` unless the name is allow-listed; a name that cannot be decoded (`%FF`) is redacted rather than
-raised on, and a bare token with no `=` is kept. The fragment is tokenised by hand on `&`, because
-`URI` does not tokenise one (`OBS-13`). `#url` is total: any `StandardError` — not only `URI::Error`,
-because a policy read can raise too — yields the `"[malformed url]"` sentinel (`OBS-15`).
-`#header_value` never returns that sentinel and never returns nil: an absolute value is redacted like a
-request URL, a relative one keeps its path and gets `?***` iff it carried a query *or* a fragment
-(`OBS-16`), and an unparseable one takes string surgery on the raw value.
+nothing, and an opaque URI round-trips untouched because no component is ever assigned (P5-91, P5-27)
+— except a query-shaped tail, which the parser folds into the opaque component and which takes the
+query rule (P5-101). Each `name=value` pair keeps its name — decoded, scrubbed and folded with a bare
+`downcase` — and gets `***` unless the name is allow-listed; a name that cannot be decoded (`%FF`, or a
+`%zz` the decoder rejects outright) is redacted rather than raised on or sentinelled, and a bare token
+with no `=` is kept. The fragment is tokenised by hand on `&`, because `URI` does not tokenise one
+(`OBS-13`). `#url` is total: any `StandardError` — not only `URI::Error`, because a policy read can
+raise too — yields the `"[malformed url]"` sentinel (`OBS-15`). `#header_value` never returns that
+sentinel and never returns nil: an absolute value is redacted like a request URL, a relative one keeps
+its path — and its authority, if it has one — and gets `?***` iff it carried a query *or* a fragment
+(`OBS-16`), and an unparseable one takes string surgery on the raw value; on every one of those routes
+a userinfo is `***:***@`, which is where `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned
+verbatim" for the one input both reach (P5-100).
 
 ## The diagnostic-context bridge: `Diagnostics.capture`, `.with`, `.folded`
 
@@ -371,7 +383,9 @@ never forking — that starts one span and records the two instruments on every 
 `.build` under `Keys::INSTRUMENT_REQUEST_COUNT` and `::INSTRUMENT_REQUEST_DURATION`; the tracer and the
 span are named by the request's method token, because the operation name lives on the context bundle
 phase 6a wires in (P5-99). There is **one redaction policy per logging path, the logger's**: the step
-takes no redactor of its own and reads its header-name gate from `Logger#redactor` (P5-95).
+takes no redactor of its own, and every header it logs is gated by name and redacted by value at
+`Event#field` through the logger's redactor (P5-95, P5-102), so the step and a hand-written field get
+the same answer.
 
 ```ruby
 transport = lambda do |req, _options, _cancellation|

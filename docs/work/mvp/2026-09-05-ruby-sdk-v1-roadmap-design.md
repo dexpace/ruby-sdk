@@ -3305,11 +3305,13 @@ own rows, **26 ✅** (`OBS-24` and `OBS-10` ✅ with the floor's behaviour state
 plus fourteen cross-reference rows (`XCUT-19`'s five clauses, `XCUT-20`, `XCUT-11`, `CFG-24`/`CFG-25`,
 `CFG-21`, `CFG-14`, `CFG-16`, `SEAM-25`, `BODY-19`/`BODY-22`/`BODY-34`, `BODY-20`, `OBS-23`, `PIPE-28`,
 `NFR-11`). `bundle exec rake` is green on 4.0.6 at the tests tip and the docs tip with 99.98% line
-coverage (5,617 / 5,618, the registry-claim race branch every phase since 2 has recorded) against the
-80% floor and 2,023 runs across the six gems (174 more than the base: the fifteen new or rewritten
-instrumentation suites and the five repaired pins); the matrix set is green on 3.2.11, 3.3.12 and
-3.4.10; the code tip is green on all seventeen gates too, run one by one, its `test:gems` above the
-floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed; and every
+coverage (5,628 / 5,629 after review round 0's repair, the registry-claim race branch every phase since 2
+has recorded) against the 80% floor and 2,031 runs across the six gems (182 more than the base: the
+fifteen new or rewritten instrumentation suites, the five repaired pins and the round's eight added
+tests); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10 — on 3.2.11 under three seeds, the round
+having found one assertion there that held by test order; the code tip is green on all seventeen gates
+too, run one by one, and clean under the honest RuboCop command on its own tree, its `test:gems` above
+the floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed; and every
 instrumentation suite, 5b's and 5c's, was run standalone under `ruby -w` with `HTTPS_PROXY`, `HTTP_PROXY`,
 `NO_PROXY`, `LOG_LEVEL`, `LOG_PREVIEW_BYTES`, `MAX_TRACKED_CONTEXTS` and `MAX_MATERIALIZED_BYTES` exported
 to hostile values and stayed green, every configuration a 5b test consults being built over
@@ -3340,11 +3342,23 @@ none re-recorded**: §8.1's unsourced `Event#tag` stays on the inbound list and 
 the bare-`Logger` cop watch is closed as built — not expressible in `Dexpace/QualifiedCoreConstant`'s
 shape and guarding nothing, since the shadow is confined to `module Instrumentation` (P5-38's
 disposition; eight custom cops, 5b adds none); the charter's `OBS-19` cell and `OBS-24` arithmetic read
-correct. Twenty-six departures from the plan's text are itemised in the checklist, none lowering a
-gate; the ones that touch public behaviour are the as-built rows **P5-91–P5-99** (also:
-`Instrumentation.diagnostic` public, the async scope closed at the head with the `OBS-24` bridge into
-the settlement, a `Future#then`-derived future at `BODY`, `Keys::MESSAGE` as the sixteenth key and an
-ASCII truncation marker, the span named by the method token until 6a wires the context in).
+correct. Thirty-one departures from the plan's text are itemised in the checklist, none lowering a
+gate — twenty-seven the build's, four review round 0's; the ones that touch public behaviour are the
+as-built rows **P5-91–P5-102** (also: `Instrumentation.diagnostic` public, the async scope closed at the
+head with the `OBS-24` bridge into the settlement, a `Future#then`-derived future at `BODY`,
+`Keys::MESSAGE` as the sixteenth key and an ASCII truncation marker, the span named by the method token
+until 6a wires the context in). **Review round 0 (2026-09-17) found `OBS-11`'s unconditional userinfo
+redaction missing from three routes of `Redactor#header_value`** — a network-path reference on the
+relative route, an authority the parser rejected on the surgery route, and the sentinel fallback's raw
+value, each reachable through the step at `HEADERS` from a hostile `Location`, which the default
+allow-list admits — and `OBS-18`'s header-name gate living only in the private `Emitter`, so a
+credential header written straight into `Event#field` reached the sink; both were closed on the code
+branch (**P5-100**, **P5-102**), with the two redactor nits the review filed beside them — a bad
+percent-encoding in a parameter NAME sentinelling a parseable URL, an opaque URI's query-shaped tail
+written back — closed as **P5-101**, an order-dependent floor assertion in the matrix suite and a
+102-character line the nested-worktree `rake rubocop` cannot see closed on their owning branches, ten
+mutations run red after the repair on 4.0.6 and 3.2.11, the checklist's deviations 28–31 and its second
+guard table.
 `docs/sdk-documentation/logging-and-redaction.md` is the as-built page, every fence run verbatim on
 4.0.6 and 3.2.11 with the three differences stated where they appear; `architecture.md`, the core
 README, `README.md` and `docs/README.md` point at it, and the four earlier pages that described this
@@ -3355,7 +3369,7 @@ probing `request.respond_to?(:context)`, and the built step probes nothing and n
 method token (P5-99), the conclusion unchanged; its `OBS-32`/`OBS-37` entry names this phase and reads
 true, and 5b adds no registry — and `docs/deviations.md` is untouched, for phase 10 to flip; no
 harvested rule was found wrong, so `docs/knowledge/notes/` gains nothing. The consolidation of
-P5-16–P5-39 and P5-91–P5-99 into design §10 and the §8.1 addendum are a human's, as they were for 3a,
+P5-16–P5-39 and P5-91–P5-102 into design §10 and the §8.1 addendum are a human's, as they were for 3a,
 3b, 4a, 4b, 4c, 5a and 5c: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is contradicted
 (§8.1's redaction "leans on `URI` for userinfo and query" is honoured by the `split` parse), so no
 `C15`. The counts that changed, on top of the 5c docs tip at `032986b`: `dexpace-core`'s `lib/dexpace/`
