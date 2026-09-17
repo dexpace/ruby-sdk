@@ -269,8 +269,10 @@ wrapper over the bounded error copy delivers the body exactly once and leaves no
 
 ## The two logging wrappers
 
-Nothing in core constructs either; phase 5's instrumentation layer will, which is how `BODY-34`'s
-"only when body-level logging is enabled" holds today. Their cap defaults are deliberately
+Exactly one thing in core constructs either: phase 5b's `Instrumentation::Step`, at
+`HTTPLogging::BODY` and at no other level, with the one cap a caller resolves from
+`Configuration::Keys::LOG_PREVIEW_BYTES` ([`logging-and-redaction.md`](./logging-and-redaction.md)),
+which is how `BODY-34`'s "only when body-level logging is enabled" holds. Their cap defaults are deliberately
 asymmetric: the request side defaults to unbounded, which `BODY-19` states in its own text for direct
 wrapper use, and the response side **requires** its cap, because `BODY-22` names none and an
 unbounded one would buffer a multi-gigabyte response in the wrapper whose job is to bound it.

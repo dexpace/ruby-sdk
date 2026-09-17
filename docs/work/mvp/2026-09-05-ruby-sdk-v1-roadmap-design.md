@@ -2419,6 +2419,53 @@ design.
   the as-built range.** Touches `OBS-10`, `OBS-23`, `OBS-24`, `ASYNC-9`, `ASYNC-11`. Added after phase
   10's planning pass, so it is the thirty-ninth bullet and is not yet in its design's disposition table;
   phase 10 dispositions it at execution.
+- **Phase 5b's design states two verified facts that the as-built code no longer rests on: fact 6's
+  rebuild route (`u.userinfo = "***:***"` and `#to_s`) and fact 13's "`Async::Future` offers `#on_settle`
+  and no combinator".** Found 2026-09-17 by phase 5b's implementation. Measured on 3.2.11, 3.3.12, 3.4.10
+  and 4.0.6: `URI::RFC3986_PARSER.parse("http://h:80/").to_s` is `"http://h/"` — `URI#to_s` drops a
+  default port, which `OBS-14` forbids ("scheme, host, port and path MUST be preserved") — so the built
+  redactor reassembles from `RFC3986_PARSER.split`'s nine raw components and assigns no component at all
+  (5b's as-built row `P5-91`); the design's fact 6 and the mechanism it gives `P5-27` ("never assigns a
+  component that was absent", stated against the setters' opaque-URI raise) describe a route not taken,
+  and the raise they guard against is unreachable by construction. And phase 4c added `Future#then` and
+  `AsyncPipeline.map_response` after the design was written, on which the async step's body level now
+  rests (`P5-94`); fact 13's "no combinator" licensed a same-future shape that holds below `BODY` only.
+  Neither is a corpus fact — both are the design's own — so no note is filed, and the design's ledger
+  addendum records both beside the facts they correct. **Documentation half only: the two facts and
+  `P5-27`'s mechanism sentence, to the as-built route.** Touches `OBS-14`, `OBS-15`, `OBS-36`. Added
+  after phase 10's planning pass, so it is the fortieth bullet and is not yet in its design's disposition
+  table; phase 10 dispositions it at execution.
+- **The warnings-fatal gate runs every gem suite in one process, and Ruby 3.4+'s unused-block warning
+  is suppressed process-wide once any same-named method that takes a block has been compiled — so the
+  gate cannot see the warning on a method that declares no block and is called with one.** Found
+  2026-09-17 by phase 5b's implementation, running each instrumentation suite alone under `ruby -w`:
+  `NullSink#debug` and its three siblings, written as `def debug(message = nil)` with "the block never
+  evaluated", warn "the block passed to 'Dexpace::Instrumentation::NullSink#debug' may be ignored" on
+  3.4.10 and 4.0.6 (not on 3.2.11 or 3.3.12) when `null_sink_test.rb` runs alone, and never under
+  `test:gems`, where `RecordingSink`'s block-taking `debug` is compiled first. Measured on all four
+  interpreters: an anonymous `&` parameter that is never referenced materialises no Proc (0.0 objects
+  per call), `block_given?` in the body does not count as use, and `-W:strict_unused_block` is the
+  category that would warn regardless. Phase 5b fixed its four writers (an anonymous `&`, documented
+  in `null_sink.rb`). **What is open is the gate's reach**: `tools/suite_runner.rb` could run with
+  `-W:strict_unused_block` added to `RUBYOPT`, or run each suite file in its own process, and either
+  is a change to phase 0's gate that `test/gates/` would have to prove against a fixture. Touches
+  `NFR-6`, `OBS-1`. Added after phase 10's planning pass, so it is the forty-first bullet and is not
+  yet in its design's disposition table; phase 10 dispositions it at execution.
+- **Four phase-3b and phase-4b tests assert the default materialisation ceiling and read the live one,
+  so an exported `MAX_MATERIALIZED_BYTES` fails them.** Found 2026-09-17 by phase 5b's implementation,
+  running the whole core suite with the configuration environment exported to hostile values
+  (`MAX_MATERIALIZED_BYTES=4096`): `DexpaceBodyTest::BufferBoundedHandlesTest` "clamps a cap above the
+  ceiling down to it", `DexpaceBodyTest::BufferBoundedTest` "over a body larger than the cap, stops
+  reading", `DexpaceResponseBodyTest::PreviewTest` "the clamp is applied before the first read" and
+  `DexpaceRecoveryTest` "buffer_error_body truncates at MAX_BUFFERED_ERROR_BODY_BYTES" compare against
+  `IO::MAX_MATERIALIZED_BYTES` while the code reads `Dexpace::IO.max_materialized_bytes` per call
+  (5a's P5-56). Phase 5a's review round 0 (R0-7) repaired the same ambient reading in 5a's own ceiling
+  and cap suites and did not reach these four, written before the ceiling was configurable. The
+  repair is the same as R0-7's — build the configuration under test over `FakeConfigSource` and pass
+  it, or pin the slot with `Dexpace.configure` inside the test — and is audit work against phases 3b
+  and 4b. Every phase-5b suite is hermetic under the same environment. Touches `IO-9`, `BODY-19`,
+  `BODY-22`, `BODY-30`, `RECOV-16`, `CFG-11`. Added after phase 10's planning pass, so it is the forty-second
+  bullet and is not yet in its design's disposition table; phase 10 dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3221,3 +3268,100 @@ than merged by hand (814 + 42 = 856 lines, no row of 5a's changed), the smoke su
 `CLAUDE.md`, the READMEs and `architecture.md` read one hundred and twenty-six files, nine
 `private_constant`s without a `test/` mirror, ten checklists and ten as-built pages — 5c's checklist is the
 tenth written, not the ninth, in stack order.
+
+**2026-09-17** — **Phase 5b implemented**, as three stacked branches against issue #19: code, tests,
+documentation, cut from the **reconciled 5c docs tip** at `032986b` — which holds phase 5a's stack and
+phase 5c's rebased onto it — so the plan's interleaved order (5b Tasks 1–14, 5c Tasks 1–7, 5b Tasks
+15–16) collapsed to Tasks 1–16 straight through, and the three phase-5 stacks go up as one nine-PR
+stack, 5a, then 5c on 5a, then 5b on 5c. `dexpace-core` carries the logging facade and redaction beside
+the nine layers before it — fourteen new `lib/` files under `instrumentation/` (`severity.rb`,
+`keys.rb`, `null_sink.rb`, `render.rb`, `redaction_policy.rb`, `redactor.rb`, `event.rb`,
+`logger.rb`, `contain.rb`, `preview.rb`, `http_logging.rb`, `emitter.rb`, `step.rb`, `async_step.rb`)
+and 5c's `diagnostics.rb` **extended in place** with the fold, the snapshot bridge and the reserved
+prefix, no `require` added and 5c's load-time independence subprocess unchanged and green (P5-71
+honoured from the adopting side); six earlier-phase files widened, each a designed widening —
+`closeable.rb` and `hooks.rb` gain `logger:` and the two `http.instrumentation.*` diagnostics phase 2
+postponed, `proxy.rb` and `proxy/resolution.rb` gain `logger:` and the config diagnostic beside every
+`Kernel#warn` (5a's P5-8 discharged), `configuration/keys.rb` gains `LOG_PREVIEW_BYTES` — with their
+`sig/` mirrors; every public file with a `test/` mirror, the two `private_constant`s `render.rb` and
+`emitter.rb` with a `sig/` mirror and none in `test/` (asserted through `Event` and the two steps);
+two top-level test-support doubles, `RecordingSink` and `DiagnosticContext` (**P5-98**); the entry
+file's fourteen-line `# Phase 5b:` block after 5c's; and the surface manifest regenerated once from 856
+to 956 lines with all 100 rows read against the object model. Five existing tests changed, all on the
+code branch as pins the code invalidated: the smoke suite's instrumentation pin (thirteen constants
+become twenty-six), 5a's `keys_test.rb` (the eighth key), phase 2's `closeable_test.rb` (the comment
+that asserted the drop), and phase 3b's two "nothing constructs a wrapper" pins, which now read
+"exactly `step.rb` does". **The postponed work three earlier phases handed here has landed**:
+`close_quietly`'s second disposal route (phase 2), `Hooks.notify`'s per-dropped-failure diagnostic
+(phase 2's option, taken), and the body-logging caps' two remaining wirings — the shared preview size
+read into both phase-3b wrappers and the gating of their construction on `HTTPLogging::BODY`, completing
+what 5a half-supplied. **`SEAM-25`'s lifecycle event is half-supplied and not claimed**: the name
+(`Events::INSTRUMENTATION_SHUTDOWN`) and the shape (`Instrumentation.diagnostic`) ship; the emission is
+phase 8b's Tasks 6 and 10 and the harness phase 9's Task 11. The checklist is at
+`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`: twenty-eight
+own rows, **26 ✅** (`OBS-24` and `OBS-10` ✅ with the floor's behaviour stated in the row), **2 ⏳** —
+`OBS-19` to phase 8c's Tasks 7, 9 and 15 (P5-32, R10; both halves it is built from ship here) and
+`OBS-37` post-v1 under `docs/first-release.md`'s `OBS-32`/`OBS-37` entry — nothing 🚫, nothing N/A,
+plus fourteen cross-reference rows (`XCUT-19`'s five clauses, `XCUT-20`, `XCUT-11`, `CFG-24`/`CFG-25`,
+`CFG-21`, `CFG-14`, `CFG-16`, `SEAM-25`, `BODY-19`/`BODY-22`/`BODY-34`, `BODY-20`, `OBS-23`, `PIPE-28`,
+`NFR-11`). `bundle exec rake` is green on 4.0.6 at the tests tip and the docs tip with 99.98% line
+coverage (5,617 / 5,618, the registry-claim race branch every phase since 2 has recorded) against the
+80% floor and 2,023 runs across the six gems (174 more than the base: the fifteen new or rewritten
+instrumentation suites and the five repaired pins); the matrix set is green on 3.2.11, 3.3.12 and
+3.4.10; the code tip is green on all seventeen gates too, run one by one, its `test:gems` above the
+floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed; and every
+instrumentation suite, 5b's and 5c's, was run standalone under `ruby -w` with `HTTPS_PROXY`, `HTTP_PROXY`,
+`NO_PROXY`, `LOG_LEVEL`, `LOG_PREVIEW_BYTES`, `MAX_TRACKED_CONTEXTS` and `MAX_MATERIALIZED_BYTES` exported
+to hostile values and stayed green, every configuration a 5b test consults being built over
+`FakeConfigSource` seams — the standalone runs being what found Ruby 3.4+'s unused-block warning on
+`NULL_SINK`'s writers, which the one-process gate cannot see (fixed: the four writers declare an
+anonymous `&` they never yield, at zero allocation), and the four phase-3b and phase-4b tests that read
+the live materialisation ceiling, both the **forty-first and forty-second inbound bullets** above. **Every guard the brief asks to be run red was run
+red**, forty-eight single-edit mutations on 4.0.6 and again on 3.2.11: forty-four caught on the first
+pass, two re-spelled because an unused-variable warning crashed the suite before the assertion could,
+and **four found gaps in the suite** — a sink re-entering the logger from inside its own write, the
+async path's header redaction, a recording cursor whose `#fork` raises, and the headers level with a cap
+supplied — each closed by a test, the second of which exposed a real drift (**P5-95**: the plan's
+`Step.build(redactor:)` gated header names on one policy while the logger's events redacted values on
+another; there is now one redactor per path, the logger's, and `Logger#redactor` is public); on the
+second pass all forty-eight are caught, the mutated event name by `keys_test.rb` as §8.1 asks, and the
+floor's four through the floor branches of the floor-aware assertions. **The matrix facts were re-run
+on all four interpreters** as a standing test (`logging_matrix_facts_test.rb`): 5c's two floor facts
+hold as 5c found them, `Fiber.new(storage: nil)` reads `{}` on the floor and `nil` on 3.3+, and one
+fact the design did not flag failed everywhere — `URI#to_s` drops a default port, which `OBS-14`
+forbids — so the redactor reassembles from `RFC3986_PARSER.split`'s nine raw components and never
+through the setters and `#to_s` (**P5-91**; the design's verified fact 6 and its fact 13, "no
+combinator", are the **fortieth inbound bullet** above, documentation half only). The floor decision,
+stated once in the checklist: `Diagnostics.capture` compacts nil-valued keys so a snapshot has one shape
+on every row, the union restore stays branchless and leaves a snapshot-introduced key present-and-nil
+on 3.2 (P5-72 applied to `OBS-24`, **P5-97**), and `OBS-10`'s null-skip is live for every cleared key
+on the floor and asserted on every row. **The design's three findings were verified at their owners,
+none re-recorded**: §8.1's unsourced `Event#tag` stays on the inbound list and `#tag` is not shipped;
+the bare-`Logger` cop watch is closed as built — not expressible in `Dexpace/QualifiedCoreConstant`'s
+shape and guarding nothing, since the shadow is confined to `module Instrumentation` (P5-38's
+disposition; eight custom cops, 5b adds none); the charter's `OBS-19` cell and `OBS-24` arithmetic read
+correct. Twenty-six departures from the plan's text are itemised in the checklist, none lowering a
+gate; the ones that touch public behaviour are the as-built rows **P5-91–P5-99** (also:
+`Instrumentation.diagnostic` public, the async scope closed at the head with the `OBS-24` bridge into
+the settlement, a `Future#then`-derived future at `BODY`, `Keys::MESSAGE` as the sixteenth key and an
+ASCII truncation marker, the span named by the method token until 6a wires the context in).
+`docs/sdk-documentation/logging-and-redaction.md` is the as-built page, every fence run verbatim on
+4.0.6 and 3.2.11 with the three differences stated where they appear; `architecture.md`, the core
+README, `README.md` and `docs/README.md` point at it, and the four earlier pages that described this
+layer as unbuilt — `tracing-and-metrics.md`'s "no pipeline step exists yet", `configuration.md`'s
+"waits for that layer" and its seven keys, `body.md`'s "nothing in core constructs either" — now read
+what is true. `docs/first-release.md` changes in one line — its `CTX-16` entry described the step as
+probing `request.respond_to?(:context)`, and the built step probes nothing and names its span by the
+method token (P5-99), the conclusion unchanged; its `OBS-32`/`OBS-37` entry names this phase and reads
+true, and 5b adds no registry — and `docs/deviations.md` is untouched, for phase 10 to flip; no
+harvested rule was found wrong, so `docs/knowledge/notes/` gains nothing. The consolidation of
+P5-16–P5-39 and P5-91–P5-99 into design §10 and the §8.1 addendum are a human's, as they were for 3a,
+3b, 4a, 4b, 4c, 5a and 5c: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is contradicted
+(§8.1's redaction "leans on `URI` for userinfo and query" is honoured by the `split` parse), so no
+`C15`. The counts that changed, on top of the 5c docs tip at `032986b`: `dexpace-core`'s `lib/dexpace/`
+is one hundred and forty phase-1 through phase-5c files beside phase 0's `version.rb`, eleven
+`private_constant`s without a `test/` mirror, eleven checklists, eleven as-built pages, the surface
+manifest 956 lines, 53 corpus notes. `CLAUDE.md`'s built-phases paragraph, its gem and
+phase-directory sentences and the constraints-that-bite list are rewritten from what was built, for
+5b on top of 5a and 5c — the first phase-5 record whose counts need no rebase-and-reprove pass,
+because its base already held both siblings.

@@ -13,9 +13,10 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a and 5c are built; the domain model, the seam layer, the byte-streaming
-layer, the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
-layer and the tracing and metrics layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b and 5c are built; the domain model, the seam layer, the
+byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
+configuration layer, the tracing and metrics layer and the logging facade with its redaction are the only
+domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -85,8 +86,25 @@ three-ivar scope handle `Scope` and the cached singleton `NO_SCOPE`; `TraceIdFla
 and `Bundle#sampled?`; the eleven-method HTTP-tracer vocabulary `HTTPTracer` with §8.1's `NULL` and
 `CallableAdapter`; the metrics SPI `_Meter` / `_Counter` / `_Histogram` with `NO_METER`; and phase
 5b's `Diagnostics::TRACE_ID`, `::SPAN_ID` and `::DEFAULT_KEYS`, shipped early because `Tracing` reads
-the two keys — nothing in phase 5 emits the HTTP-tracer vocabulary, and no logger, event or step exists
-yet (`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md`); every other
+the two keys — nothing in phase 5 emits the HTTP-tracer vocabulary
+(`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md`) — and the logging
+facade and redaction, §8.1's logging half, also under `Dexpace::Instrumentation`: the closed severity set
+`Severity` (`ERROR`, `WARNING`, `INFO`, `VERBOSE`, `ALL`, `.of`) mapping onto the sink's four methods, the
+field and event vocabularies `Keys` (sixteen) and `Events` (eight), the duck-typed sink `_Sink` with the
+frozen `NULL_SINK`, the accumulating `Event` with `#field` / `#event` / `#cause` / `#emit` and the shared
+inert `Event::INERT`, the facade `Logger` with `.build(sink:, context:, redactor:, diagnostic_keys:)`,
+`#event`, `#enabled?`, `#redactor` and `Logger::NULL`, the containment primitives
+`Instrumentation.contain` and `.diagnostic`, the diagnostic-context bridge on 5c's `Diagnostics` —
+`.capture`, `.with`, `.folded` and `RESERVED_PREFIX` over the `_DiagnosticSnapshot` interface — the frozen
+`RedactionPolicy` with `DEFAULT` and the `Redactor` with `#url`, `#header_value`, `#header_name?`,
+`DEFAULT` and its five markers, the body preview `Preview.render`, the closed level set `HTTPLogging`
+(`NONE`, `HEADERS`, `BODY`, `DEFAULT`, `.parse`, `.resolve`), the two pipeline steps `Step` and
+`AsyncStep` at `Stages::LOGGING` over the private `Emitter`, the private `Render`, and
+`Configuration::Keys::LOG_PREVIEW_BYTES` — plus four wirings into earlier layers: `Dexpace.close_quietly`
+and `Hooks.notify` gain `logger:` and emit an `http.instrumentation.*` diagnostic where they dropped a
+failure, `Proxy.resolve` gains `logger:` and its `Kernel#warn` sites emit the config diagnostic beside the
+warning, and the two phase-3b logging wrappers are constructed by `Step` alone, at `HTTPLogging::BODY`
+alone (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`); every other
 gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -565,6 +583,40 @@ Each is one line plus the chapter to read before touching the area.
   the suite runs red. `Tracing.activate` returns the cached `NO_SCOPE` on an **identity** test — the span is
   already current — never on the recording flag, which would leave a recording span un-restored under a
   non-recording one (P5-47).
+- **Redaction happens at `Event#field`, by the field's NAME, and never at the sink** — `url.full` goes
+  through `Redactor#url` and every `http.request.header.*` / `http.response.header.*` key through
+  `#header_value`, so a caller who writes `logger.event(Severity::INFO).field(Keys::URL_FULL, raw)` gets
+  the redacted form whatever the sink does with it, and a sink is never trusted to redact (`OBS-11`–
+  `OBS-18`, `OBS-39`). The redactor reassembles from `URI::RFC3986_PARSER.split`'s nine raw components
+  and never through `URI#to_s`, which drops a default port `OBS-14` forbids dropping (P5-91); `#url` is
+  total and answers `"[malformed url]"` on any `StandardError`, `#header_value` always a String and never
+  the sentinel (P5-25, P5-26). The default header allow-list is twenty-six names with every credential
+  and challenge header absent, the query allow-list is exactly `{api-version}`, and userinfo is
+  redacted with no policy member able to reach it (`XCUT-19`).
+- **The logging sink is a duck type — `#debug`/`#info`/`#warn`/`#error` and their four predicates —
+  and core never `require`s `logger`** — `NULL_SINK` is a frozen instance of a private class, the RBS
+  interface is `_Sink`, and the stdlib `Logger` is a structural superset a host passes in; the bare
+  name `Logger` inside `module Instrumentation` is this SDK's facade (P5-38), which is why every
+  reference from outside that namespace is written `Instrumentation::Logger`. `NullSink`'s four writers
+  declare an anonymous `&` they never yield: a method that declares no block and is handed one warns
+  "the block passed to … may be ignored" under `-w` on 3.4+, and that warning is suppressed
+  process-wide once any same-named block-taking method is compiled, so `test:gems` cannot see it and
+  only a per-file `ruby -w` can; an unreferenced `&` allocates nothing and `block_given?` does not
+  count as use (phase 5b's checklist, item 27).
+- **`Event#emit` claims its once-only latch under the logger's `::Thread::Mutex` and releases it BEFORE
+  calling the sink** — the mutex is non-reentrant, and a sink that logs through the same logger from
+  inside its own write is a second event on the same mutex; the suite drives exactly that sink (`OBS-8`).
+  A disabled severity returns the shared `Event::INERT`, whose builders return `self` and write nothing,
+  measured at `0.0` allocations per chained call (`OBS-1`); the collision warning is once per logger and
+  gated on `sink.debug?` before the latch is claimed (`OBS-40`).
+- **Every log emission in core runs inside `Instrumentation.contain`, and no tracer, scope or meter
+  call ever does** — `contain` swallows `StandardError` only, reports it as one WARNING
+  `http.instrumentation.log` diagnostic and swallows a failure of that report with no second attempt
+  (`OBS-20`, `XCUT-20`); the step's `Tracing.correlate`, `span.finish`, `counter.add` and
+  `histogram.record` sit outside it, in the `ensure`, so a throwing meter fails the request and a
+  raising sink cannot. The async step closes its scope on the caller's fiber at the end of the head and
+  carries the diagnostic context into the settlement with `Diagnostics.capture` / `.with` (P5-93);
+  `.capture` compacts nil-valued keys so the floor's retained nils never travel (P5-97).
 
 ## Public API surface
 
@@ -665,12 +717,14 @@ probe compares each against the live tree, and a count written anywhere else in 
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
-  the phase-5a configuration layer and the phase-5c tracing and metrics layer — one hundred and twenty-six
-  phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a and phase-5c files under
-  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one
-  hundred and twenty-six but the nine `private_constant`s `hooks.rb`, `bounded_map.rb`,
-  `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
-  `configuration/parsers.rb`, `deep_value.rb` and `proxy/resolution.rb` mirrored in `test/`; every
+  the phase-5a configuration layer, the phase-5b logging facade and redaction and the phase-5c tracing and
+  metrics layer — one hundred and forty phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b,
+  phase-4c, phase-5a, phase-5b and phase-5c files under `lib/dexpace/` beside phase 0's `version.rb`,
+  every one mirrored in `sig/`, and every one of the one hundred and forty but the eleven
+  `private_constant`s `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`, `recovery/ownership.rb`,
+  `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`,
+  `proxy/resolution.rb`, `instrumentation/render.rb` and `instrumentation/emitter.rb` mirrored in
+  `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -681,15 +735,15 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — ten
-  checklists written so far, each at implementation; `phase4/`
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
+  eleven checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
   design, plan and checklist. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
-  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; `phase5a/` and `phase5c/`
-  each hold that sub-phase's design, plan and checklist, and `phase5b/` holds a design and a plan.
+  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds that sub-phase's
+  design, plan and checklist.
   `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
@@ -753,5 +807,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's and phase 5c's is still to be written at execution time.
+  phase 4c's, phase 5a's, phase 5b's and phase 5c's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

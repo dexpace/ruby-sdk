@@ -15,13 +15,14 @@ differences each stated where it appears: the floor retains a nil-valued diagnos
 later remove it, a `Hash#inspect` on the floor spells `{:context=>:ctx}` where 4.0.6 spells
 `{context: :ctx}`, and the allocation loop's fixed cost differs by three objects.
 
-**Nothing in v1 traces a request for you.** No pipeline step exists yet — phase 5b's instrumentation
-step is where a span is started and finished per request and where the two metrics are recorded — and
-nothing emits the HTTP-tracer vocabulary: the per-attempt events wait for phase 6's retry step and the
-transport milestones for phase 8's adapters, which `OBS-29`'s own text anticipates ("pipeline/transport
-wiring to emit it is a follow-up"). What ships is the contract every one of those will honour and the
-no-op implementations an untraced application runs on at zero cost. This page is written for the author
-of an adapter or a step who will implement or drive that contract.
+**Nothing in v1 traces a request until you install the step.** Phase 5b's instrumentation step
+(`Dexpace::Instrumentation::Step`, [`logging-and-redaction.md`](./logging-and-redaction.md)) is where a
+span is started and finished per request and where the two metrics are recorded, and a caller appends
+it to a pipeline; nothing emits the HTTP-tracer vocabulary: the per-attempt events wait for phase 6's
+retry step and the transport milestones for phase 8's adapters, which `OBS-29`'s own text anticipates
+("pipeline/transport wiring to emit it is a follow-up"). What ships here is the contract every one of
+those honours and the no-op implementations an untraced application runs on at zero cost. This page is
+written for the author of an adapter or a step who will implement or drive that contract.
 
 ## The no-op span and tracer: `NO_SPAN`, `NO_TRACER`, `NO_TRACER_FACTORY`
 
@@ -346,9 +347,9 @@ GC.enable
   clauses of `OBS-21`, `OBS-29`, `OBS-30` and `OBS-31` are obligations on an implementer, stated in each
   class's documentation and asserted in the suite against fakes under `gems/dexpace-core/test/support/`
   (`RecordingSpan`, `RecordingTracer` and its factory, `RecordingMeter`, `RecordingHTTPTracer`).
-- **Any emitter of the HTTP-tracer vocabulary, and any step.** The instrumentation step is phase 5b's;
-  the per-attempt emitter is phase 6a's retry step; the transport milestones are phase 8's; the
-  operation-lifecycle triple is a surface decision on phase 10's inbound list.
+- **Any emitter of the HTTP-tracer vocabulary.** The instrumentation step is phase 5b's and is on its
+  own page; the per-attempt emitter is phase 6a's retry step; the transport milestones are phase 8's;
+  the operation-lifecycle triple is a surface decision on phase 10's inbound list.
 - **A registry or auto-activation.** `SEAM-2` enumerates five core seams and instrumentation is not
   one; the tracer factory is a bundle member and the meter a step keyword, both with constant no-op
   defaults, and presence-gated activation stays post-v1 with `dexpace-instrumentation-otel`

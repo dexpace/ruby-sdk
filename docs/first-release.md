@@ -453,10 +453,10 @@ MUST state every item here**, for the same reason the section above is stated.
   `CTX-14`, `SEAM-28` (MAY).** Added 2026-09-13 by phase 10's design. **No phase in the roadmap builds
   a call path that creates or promotes an execution context**: verified by repository-wide grep over
   `docs/work/mvp/`, `DispatchContext`, `promote_to_request` and `promote_to_exchange` appear in no phase
-  plan outside phase 4a's own documents; phase 5b's `Instrumentation::Step` probes
-  `request.respond_to?(:context)` and `Dexpace::Request`'s members are `(:method, :url, :headers, :body)`,
-  so it always takes its fallback; and phase 6a's Task 8 seeds a `Cursor#bundle`, which carries no
-  operation name. **This too is conforming**, and by `CTX-16`'s own modal clauses: the context carries
+  plan outside phase 4a's own documents; phase 5b's `Instrumentation::Step`, as built, probes nothing
+  and names its span by the request's method token, because `Dexpace::Request`'s members are
+  `(:method, :url, :headers, :body)` and no context is reachable from a step (5b's as-built row P5-99);
+  and phase 6a's Task 8 seeds a `Cursor#bundle`, which carries no operation name. **This too is conforming**, and by `CTX-16`'s own modal clauses: the context carries
   the name, the name is carried forward unchanged across every promotion, and it influences neither the
   request nor the dispatch decision nor the store key. "It is exposed to the tracing seam to label the
   operation" is descriptive, not modal, and §11.11's rule for a SHOULD with embedded MUSTs applies —
