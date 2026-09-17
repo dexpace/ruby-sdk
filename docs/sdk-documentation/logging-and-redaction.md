@@ -277,8 +277,8 @@ routes a userinfo is `***:***@`, which is where `OBS-11`'s "unconditionally" ove
 "returned verbatim" for the one input both reach (P5-100). What has no authority under RFC 3986 —
 `user:pw@h/p` with no `//` before its `@`, a backslash spelling — has no userinfo and is written back as
 given, as is what the parser *accepts* without one, which never reaches the surgery route: an empty
-authority with the credential in the path (`http:///user:pw@h/p`), a network-path reference that splits
-as a path (`//@user:pw@h/x`), and a valid URL whose *path* spells a second authority
+authority with the credential in the path (`http:///user:pw@h/p`), a path-absolute reference
+(`/http://user:pw@h/p`), a network-path reference that splits as a path (`//@user:pw@h/x`), and a valid URL whose *path* spells a second authority
 (`http://user:pw@h/phttp://user:pw@h/p` → `http://***:***@h/phttp://user:pw@h/p`), because `OBS-14`
 forbids altering the path. For a proxy URL the resolver applies `CFG-24`'s own grammar on top (P5-103).
 
