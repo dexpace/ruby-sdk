@@ -1655,6 +1655,74 @@ phase-5 segmentation design left the ledger empty, and no `P5-<n>` exists anywhe
 | P5-14 | `CFG-34`'s "distinct array kinds" is implemented as **element**-kind distinctness (`[1]` ≠ `[1.0]`) while the **container**-kind clause stays inapplicable per §11.15 | `CFG-34`; §11.15 | Ruby has one `Array`, so there is no second container to be unequal to — that is §11.15's clause and it is not extended. What Ruby does have is `[1] == [1.0]` true with `[1].eql?([1.0])` false and `1.hash != 1.0.hash` (verified), so an `Integer` array and a `Float` array of the same numeric values are the nearest true reading of the requirement's sentence, and `eql?` semantics for numeric leaves is also what keeps the helper's hash consistent with its equality, which `CFG-33` makes a MUST |
 | P5-15 | `Dexpace::DeepValue` carries an identity-keyed visited set, which no `CFG` ID requires | `CFG-33`; `XCUT-9`'s mechanism; verified fact 7 | A naive recursive comparison of two self-referential arrays raises `SystemStackError` where `Array#==` survives through Ruby's own recursion guard. A hand-written helper that is less robust than the language on the one input the language handles is a regression, so the guard is `{}.compare_by_identity` — the same mechanism `Dexpace.each_cause` uses — and no second walk is written |
 
+### As built, 2026-09-17
+
+P5-1 through P5-15 stand as written; every one is implemented as its row says, and the plan's
+five open-question answers were carried through — the six floor-straddling facts re-run on
+3.2.11, 3.4.10 and 4.0.6 before any code and asserted on every row by `matrix_facts_test.rb`;
+`Time#httpdate` for formatting, with open question 2 settled rather than deferred (a user-space
+`de_DE.UTF-8` built with `localedef` into a scratch `LOCPATH`, where `date` renders "Sonntag
+November" and `Time#httpdate` still renders "Sun, 06 Nov 1994 08:49:37 GMT" on all three rows:
+CRuby's `strftime` is its own implementation over English tables and never consults the locale);
+the deadline as a timed gate pop inside `Completer#await` ending in `request_cancel(:deadline_expired)`;
+the seven proxy property names as one layered `LAYERS` hash plus three flat strings inside the
+resolver; and the ceiling as a module function read on every call. Execution added the rows below,
+numbered from **P5-51** so the phase-5 lanes built in parallel cannot collide — 5b's design holds
+P5-16–P5-39, 5c's P5-40–P5-50, 5c's as-built additions start at P5-71 and 5b's at P5-91. The
+checklist's "Deviations from the plan" is the itemised list against the plan's text, and its
+"Guards run red" section holds the battery; the rows here are the ones that touch public
+behaviour, an earlier phase's shipped shape, the contract a later phase cites, or a count this
+document states.
+
+Four statements above read differently against the source, and the difference is recorded here
+rather than by rewriting the text it corrects:
+
+- **The Module layout's counts.** Seventeen new `lib/` files, not sixteen, **seventeen** `sig/`
+  mirrors, not thirteen, and fourteen `test/` mirrors: `configuration/builder.rb` is a file of its
+  own (P5-51), and the three `private_constant`s get their `.rbs` with the comment
+  `sig/dexpace/hooks.rbs` carries (P5-57), as phase 4a's `bounded_map.rbs` and 4c's two drivers
+  already do. "Three test-support files" holds, under different names (P5-58).
+- **`Dexpace::Async.delay`'s void value.** "A `Future` already settled with a `nil` value" is not
+  buildable: `SEAM-16` makes a `nil`-response `Settlement` unconstructible, so the future settles
+  with `true` (P5-52) — the plan's own finding, confirmed at the code.
+- **`Proxy::HostPattern`'s members.** `Data.define(:glob, :matcher)` became `Data.define(:glob)`
+  with the compiled `Regexp` a private instance variable set in the constructor (P5-53); the
+  "member that cannot be reconstructed" the two-member shape had to accept and ignore no longer
+  exists, and `Model#with` recompiles through `.build` on every Ruby.
+- **`Proxy::Type`'s surface.** ".of raises on an unrecognised token" holds and is the ONLY
+  lookup: `.new` and `.[]` are private, there is no `.build`, and `#with` refuses — `P4-56`'s
+  closed-set shape rather than phase 1's `Status` shape, because a public `.build` would mint a
+  second `HTTP` that is `==` the constant and not `equal?` to it. `.of` canonicalises a copy back
+  to its constant. P5-1's enumeration is unchanged.
+- **The context store's cap.** "Reads `Keys::MAX_TRACKED_CONTEXTS` from `Dexpace.configuration` at
+  first construction" is how it was built — and phase 4a as merged assigned `.default` at file
+  load, which no configure could reach; the pick-up is therefore a shape change to phase 4a's
+  shipped file and test, recorded as P5-55 rather than left as "one wiring, no signature change".
+- **The ceiling's readers.** "Gains a configured source" became "gains a configured source that
+  the five readers read" (P5-56), on the design's own open question 5 and against the plan's Task
+  13, which left the readers on the constant.
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P5-51 | **`Dexpace::Configuration::Builder` lives in `lib/dexpace/configuration/builder.rb`**, a seventeenth `lib/` file with its own `sig/` and `test/` mirror, rather than inside `configuration.rb` | Module layout; phase 1's `headers/builder.rb`, `request/builder.rb`, `request_options/builder.rb` | Phase 1 files every builder beside its model and this one follows; `Metrics/ClassLength` measures the outer class with its nested one, and a builder of sixty code lines inside a model of sixty is over the cap the repository keeps at RuboCop's default. It reopens `class Configuration`, so `configuration.rb` requires it from inside the class body it declares, with `keys.rb`, `sources.rb` and `parsers.rb`, and none of the four appears in `lib/dexpace.rb` |
+| P5-52 | **`Dexpace::Async.delay`'s future settles with `true`**, not `nil` | `CFG-18` ("completing with an empty/void value"); `SEAM-16`; phase 2's `Settlement#initialize` | `Async::Settlement` raises `Dexpace::InvalidArgumentError` when `response.nil? == error.nil?` — `SEAM-16`'s "MUST NOT complete successfully with a null/absent value" made structural — so `Completer#fulfil(nil)` raises and the design's `nil` is unconstructible. `true` is the smallest non-`nil` value and carries no new `NFR-4`-locked name; `ELAPSED` is a `private_constant`. A MUST outranks a design sentence |
+| P5-53 | **`Proxy::HostPattern` is a one-member `Data` over `glob`**, with the compiled `Regexp` a private instance variable set in `initialize` and read through a private `#matcher` | `CFG-23` ("compiled once at construction"); `HTTP-3`; the design's `Data.define(:glob, :matcher)` | A `Data` may set an instance variable in its `initialize` before `super` and keeps it through the freeze, on 3.2.11 and 4.0.6 alike (verified); `dup` copies it and `Model#with` rebuilds it through `.build`. The two-member shape made `.build` accept a `matcher:` keyword only to ignore it, put a `Regexp` into `==`, `#hash` and `#inspect`, and gave the surface a `#matcher` reader RBS could not honestly type as anything a caller should use. Equality is over the glob, which is the value; the pattern is the mechanism |
+| P5-54 | **`HTTPDate.parse` checks every component against what `Time.utc` built** and refuses a mismatch as a parse error | `CFG-31` ("strict on the day-of-month-onward grammar") | `Time.utc(1994, 11, 31)` is 1 December, `Time.utc(1995, 2, 29)` is 1 March, hour 24 is the next day and second 60 the next minute — silently, with no `ArgumentError` — while day 32 and minute 60 do raise (verified on all three rows). A grammar that is strict on the digits and lenient on the calendar would accept `Sun, 31 Nov 1994` as a different day; the round trip through `year/month/day/hour/min/sec` is the check, and both the raise and the mismatch become one `Dexpace::InvalidArgumentError` naming the input |
+| P5-55 | **`ContextStore.default` is constructed on its FIRST call, under one `::Thread::Mutex`**, with the cap read from the chain then; phase 4a's load-time assignment and its fresh-process test are replaced, and a configured cap that is not a positive Integer falls back to `MAX_TRACKED_CONTEXTS` | `CTX-11`, `CTX-17`, `XCUT-11`; phase 4a's design (the eager `.default`, its `||=` rejection and its round-0 fresh-process case); this document's "at first construction" | Phase 4a rejected `@default ||= new` because it is an unsynchronised read-modify-write with allocations inside `new` — two first callers could each publish a store — and assigned at load instead. Read at load, only the environment tier could ever set the cap; a `Dexpace.configure` at boot, the ordinary case, would never reach it, and this document's own consequence ("a configure after the first promotion does not resize it") would have been "never resizes it". The mutex is what makes a first-call construction as sound as the load-time one — sixteen first callers under a seam slowed to 50 ms get one store, and the unsynchronised form gets sixteen — so the shape changed and phase 4a's case now asserts no store before the first call. `CTX-17` stays inert: constructing the store is not registering a context. The fallback exists because `ContextStore.new(cap:)` refuses a non-positive cap and a misconfigured environment must not fail every request at its first context. Phase 4a's documents are its records and are not edited |
+| P5-56 | **The five value-readers of `MAX_MATERIALIZED_BYTES` read `Dexpace::IO.max_materialized_bytes` instead**, and a configured ceiling that is not a positive Integer falls back to the constant | `IO-9`, `BODY-32`, `BODY-9`, `HTTP-46`; §3.1 ("configurable through the same layered chain as every other limit"); this document's open question 5; the plan's Task 13 | A public function nothing in core calls is the `TeeSink#clear_tap` shape this phase's own documents refuse, and a "configurable" ceiling that no reader consults is not configurable. `TypedReads#guard_materialization!` (and through it `Buffer#snapshot`), `Body.clamp_cap`, `StreamBody#replayable?` and `BufferBody#==` read the function per call, so `Dexpace.configure` and `.reset_config!` govern the live ceiling and the refusal names the limit that applied. The constant stays the default and the fallback; no `ceiling:` keyword exists anywhere, so phase 3's boundary stands |
+| P5-57 | **The three `private_constant`s — `ConfigParsers`, `DeepValue`, `ProxyResolution` — have `sig/` mirrors**, and three further private helper modules exist: `Configuration::Guard`, `Clock::Guard` and `Async::Deadline` | `NFR-3`; P2-15, P4-3; phase 4a's `bounded_map.rbs`, 4c's `sync_driver.rbs`/`async_driver.rbs` | The strict `core` Steep target checks every file under `lib/` and refuses an undeclared constant at a call site, and RBS has no visibility, so each mirror carries `hooks.rbs`'s comment and the privacy lives in the `.rb` alone; the private module-level constants (`ELAPSED`, `NO_SCHEDULER`, `MONTHS`, `GRAMMAR`, `NAMES`, `ALL`, `SLOT`) are declared for the same reason. The helper modules exist because an instance method cannot call a private singleton method with the explicit receiver it needs, and `Configuration` builds `EMPTY` at the foot of its own class body, before a `private` section could define a helper. None contributes a manifest row, a YARD-gate entry or a `test/` mirror |
+| P5-58 | **The three test doubles are `FakeClock`, `FakeConfigSource` and `ParkingScheduler`, top-level classes** in `fake_clock.rb`, `fake_config_source.rb` and `parking_scheduler.rb` | Testing strategy ("`FakeSource`", "`ProbeScheduler`", "`Dexpace::FakeClock`"); phase 3a's `FakeSource`, phase 2's `ProbeScheduler`; `testing/7ecef8e8` | `test/support/fake_source.rb` is phase 3a's `IO-17` double (`#read_into` and nothing else), required by four body suites, and `probe_scheduler.rb` is phase 2's hook recorder, whose `#block` runs ready fibers in a nested loop and whose `#kernel_sleep` is a no-op — neither can be overwritten and neither can drive a timed pop. Every one of the twenty-one doubles on `main` is top level; a namespace on three would be a convention with no reason. `ParkingScheduler` parks a fiber with a deadline and runs its loop in `#close`, and defines `#fiber_interrupt` because 4.0.6 warns without it |
+
+**What this addendum does not add.** No frozen-chapter sentence is contradicted by this build —
+§8.2's chain and §8.3's queue wait are built as described, and the substituted third source, the
+`deadline:` keyword's timed-gate shape, the first-call store construction and the configured
+ceiling are narrowings and pick-ups the ledger already records — so `docs/first-release.md`'s
+`C1`–`C14` paragraph gains no `C15`. The consolidation of P5-1–P5-15 and P5-51–P5-58 into design
+§10, and the §8.2, §8.3, §10.16 and §10.17 addenda that would state them, are a human's, as they
+were for 3a, 3b, 4a, 4b and 4c: `docs/sdk-design-ruby/` is frozen.
+
+---
+
 ## Work phase 5a postponed, and who owns it now
 
 One item, recorded here with its target and pick-up condition per the roadmap's execution step 7. (The
