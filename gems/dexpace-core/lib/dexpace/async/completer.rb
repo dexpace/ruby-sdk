@@ -181,14 +181,21 @@ module Dexpace
       # and nothing fires when nobody is waiting. The mechanism is a timed gate pop, not a
       # deadline-derived token composed through Cancellation.any as phase 2 anticipated.
       #
+      # The two keywords are validated BEFORE the settled short-circuit: a settled future ignores
+      # an expired deadline, not an invalid one, and a wrong argument type is the caller's error
+      # whichever state the completer is in. The positional token keeps phase 2's order -- it is
+      # armed only when there is a wait to arm it for.
+      #
       # @param cancellation [Dexpace::Cancellation, nil] positional, as phase 2 shipped it
       # @param deadline [Numeric, nil] a monotonic instant; nil is phase 2's unbounded wait
       # @param clock [_Clock] the seam the deadline is measured against
       # @return [self]
+      # @raise [Dexpace::InvalidArgumentError] on a non-Numeric deadline or a clock without
+      #   #monotonic, settled or not
       def await(cancellation = nil, deadline: nil, clock: Dexpace::Clock::SYSTEM)
+        limit = Deadline.validate(deadline, clock)
         return self if settled?
 
-        limit = Deadline.validate(deadline, clock)
         subscription = arm(cancellation)
         begin
           # An expiry that loses the race to a real settlement is a no-op: #request_cancel

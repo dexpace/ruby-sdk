@@ -45,6 +45,15 @@ module Dexpace
       # constructing the store is not registering a context, and a .build that takes this default
       # still writes nothing to it.
       #
+      # Once published, the reference is read without the lock -- the shape Dexpace.configuration
+      # has -- so a promotion after the first pays no lock. Before it, the chain is read OUTSIDE
+      # the lock and only the `||=` runs inside it: the two seams are caller-supplied callables,
+      # and the rule Dexpace.configure follows -- no user code under the mutex, which is
+      # non-reentrant and would deadlock a seam that reached back into this store -- applies here
+      # too. A racer that read the cap and lost the `||=` discards its read; the winner's cap is
+      # the one read closest to the construction, which is "at first construction" as the design
+      # states it.
+      #
       # The consequence, stated because it is not obvious: the store is built once, so a
       # Dexpace.configure AFTER the first call does not resize it and neither does
       # Dexpace.reset_config!. A cap is a process-lifetime property here; a test that needs a
@@ -52,10 +61,16 @@ module Dexpace
       #
       # @return [ContextStore] the process-wide store
       def default
-        @default_mutex.synchronize { @default ||= new(cap: configured_cap) }
+        @default || build_default
       end
 
       private
+
+      # The first-call construction: the chain read before the lock, the publication under it.
+      def build_default
+        cap = configured_cap
+        @default_mutex.synchronize { @default ||= new(cap: cap) }
+      end
 
       # A configured value that is not a positive Integer -- unparseable, zero, negative -- falls
       # back to the constant rather than raising out of the first promotion, because

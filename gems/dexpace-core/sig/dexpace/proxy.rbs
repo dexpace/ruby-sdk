@@ -2,6 +2,8 @@ module Dexpace
   class Proxy < Data
     include Model
 
+    MASK: String
+
     attr_reader type: Proxy::Type
     attr_reader host: String
     attr_reader port: Integer
@@ -30,6 +32,7 @@ module Dexpace
 
     private
 
+    def masked_userinfo: () -> String
     def rendered_members: () -> Hash[Symbol, untyped]
     def host!: (untyped host) -> String
     def port!: (untyped port) -> Integer

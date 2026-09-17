@@ -21,14 +21,26 @@ module Dexpace
     class Builder
       include Dexpace::Builder
 
+      # The seeds go through #override and the seams through the same guard the setters use, so a
+      # nil value or a blank key in the seed map and a nil or non-callable seam fail fast exactly
+      # as they would through the setters (CFG-37): .new is public, and only the two in-SDK callers
+      # -- Configuration.builder and #new_builder -- hand it an already-validated map.
+      #
       # @param overrides [Hash] seed overrides, copied
       # @param env_source [#call] CFG-11's environment seam
       # @param property_source [#call, nil] an inherited property seam, or nil for none yet
+      # @raise [Dexpace::InvalidArgumentError] on a seed map that is not a Hash, a seed with a nil
+      #   or blank key or a nil value, or an environment seam that is nil or not callable (CFG-37)
       def initialize(overrides: {}, env_source: Sources::ENVIRONMENT, property_source: nil)
+        Model.required!("overrides", overrides)
+        unless overrides.is_a?(::Hash)
+          raise InvalidArgumentError, "overrides must be a Hash, got #{overrides.class}"
+        end
+
         @overrides = {} #: Hash[String, String]
-        overrides.each { |key, value| @overrides[key.to_s] = value.to_s }
-        @env_source = env_source
-        @property_source = property_source
+        overrides.each { |key, value| override(key, value) }
+        @env_source = source!("env_source", env_source)
+        @property_source = property_source && source!("property_source", property_source)
         @properties = {} #: Hash[String, String]
         # An INHERITED seam does not count as installed. Only #property_source= sets this flag:
         # Dexpace.configure seeds its builder from the live slot, so treating the inherited seam

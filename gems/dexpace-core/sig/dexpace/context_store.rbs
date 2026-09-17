@@ -7,6 +7,7 @@ module Dexpace
     @map: BoundedMap
 
     def self.default: () -> ContextStore
+    private def self.build_default: () -> ContextStore
     private def self.configured_cap: () -> Integer
 
     def initialize: (?cap: Integer) -> void

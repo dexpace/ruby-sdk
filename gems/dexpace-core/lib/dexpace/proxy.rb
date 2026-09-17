@@ -11,11 +11,14 @@ module Dexpace
   # non-proxy host patterns, optional credentials, an optional challenge handler, and CFG-27's
   # explicit bypass-all flag, never a literal "*" in the list.
   #
-  # BOTH string renderings mask the password (P5-7): Data's generated #inspect prints every
-  # member, and #inspect -- not #to_s -- is what `p`, a log interpolation and an assert_equal
-  # failure message print, so overriding only #to_s would satisfy CFG-22's letter and leak the
-  # secret through the likeliest path. Phase 4a reached the opposite conclusion for a context
-  # because a context holds no secret; here the secret is a member of the model.
+  # BOTH string renderings mask BOTH credentials (P5-7): CFG-22's parenthetical is "never emit
+  # username/password in cleartext", so the username is masked with the password and a rendering
+  # reveals only that a credential is present. Data's generated #inspect prints every member, and
+  # #inspect -- not #to_s -- is what `p`, a log interpolation and an assert_equal failure message
+  # print, so overriding only #to_s would satisfy CFG-22's letter and leak the secret through the
+  # likeliest path. Phase 4a reached the opposite conclusion for a context because a context
+  # holds no secret; here the secret is a member of the model. The accessors return the values:
+  # the model holds them, it is the renderings that never show them.
   #
   # Ractor-shareable exactly when `challenge_handler` is nil (P5-6): a callable in a frozen Data
   # is not, and a claim that holds sometimes is not a claim.
@@ -29,6 +32,10 @@ module Dexpace
     :type, :host, :port, :non_proxy_hosts, :username, :password, :challenge_handler, :bypass_all,
   )
     include Model
+
+    # What a present credential renders as in #to_s and #inspect (CFG-22).
+    MASK = "****"
+    private_constant :MASK
 
     private_class_method :new
 
@@ -75,16 +82,17 @@ module Dexpace
       non_proxy_hosts.any? { |pattern| pattern.matches?(host) }
     end
 
-    # `type://user:****@host:port`, the password masked and the username kept (CFG-22).
+    # `type://****:****@host:port`: each credential present renders as "****" in its userinfo
+    # position and an absent one renders as nothing, so the shape says whether a username, a
+    # password or both are set and never what they are (CFG-22).
     #
     # @return [String]
     def to_s
-      auth = username.nil? ? "" : "#{username}:****@"
-      "#{type.name.downcase}://#{auth}#{host}:#{port}"
+      "#{type.name.downcase}://#{masked_userinfo}#{host}:#{port}"
     end
 
-    # Every member but the password, which prints as "****" when present and nil when absent;
-    # the challenge handler prints as its class, never its contents.
+    # Every member, the username and the password each printing as "****" when present and nil
+    # when absent; the challenge handler prints as its class, never its contents.
     #
     # @return [String]
     def inspect
@@ -122,12 +130,21 @@ module Dexpace
 
     private
 
-    # #inspect's member list: the password masked to "****" when present, the handler named by
-    # class only, the patterns by their globs, every value through #inspect.
+    # The userinfo half of #to_s: "****:****@" for both credentials, "****@" for a username alone,
+    # ":****@" for a password alone, and "" for neither.
+    def masked_userinfo
+      return "" if username.nil? && password.nil?
+
+      "#{username && MASK}#{password && ":#{MASK}"}@"
+    end
+
+    # #inspect's member list: both credentials masked to "****" when present, the handler named
+    # by class only, the patterns by their globs, every value through #inspect.
     def rendered_members
       to_h.merge(
         type: type.name,
-        password: password && "****",
+        username: username && MASK,
+        password: password && MASK,
         non_proxy_hosts: non_proxy_hosts.map(&:glob),
         challenge_handler: challenge_handler&.class&.name,
       ).transform_values(&:inspect)

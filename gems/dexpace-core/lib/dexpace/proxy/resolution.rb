@@ -83,16 +83,26 @@ module Dexpace
 
     # HTTPS_PROXY preferred over HTTP_PROXY, parsed as scheme://user:pass@host:port.
     def from_environment(configuration)
-      url = configuration.string(Configuration::Keys::HTTPS_PROXY) ||
-            configuration.string(Configuration::Keys::HTTP_PROXY)
-      return nil if url.nil? || url.strip.empty?
+      url = environment_url(configuration)
+      return nil if url.nil?
 
-      scheme, userinfo, host, port = split_url(url.strip)
+      scheme, userinfo, host, port = split_url(url)
       return nil if host.nil?
 
       username, password = credentials(userinfo)
       model_for(configuration, type: scheme_type(scheme), host: host, port: port,
                                username: username, password: password,)
+    end
+
+    # The first NON-BLANK of the two, stripped. A blank HTTPS_PROXY is absent for the preference
+    # whichever tier supplied it: CFG-2 already makes an empty environment value fall through, but
+    # an override or property of "" is an answer to Configuration#string, and a blank is not a URL,
+    # so it must not mask HTTP_PROXY either.
+    #
+    # @return [String, nil]
+    def environment_url(configuration)
+      [Configuration::Keys::HTTPS_PROXY, Configuration::Keys::HTTP_PROXY]
+        .lazy.filter_map { |key| configuration.string(key)&.strip }.find { |url| !url.empty? }
     end
 
     # CFG-27's bypass-all yields nil before any model is built.

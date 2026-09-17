@@ -16,6 +16,7 @@ module Dexpace
     def property_host: (Configuration configuration) -> [Symbol?, String?]
     def from_properties: (Configuration configuration, Symbol layer, String host) -> Proxy?
     def from_environment: (Configuration configuration) -> Proxy?
+    def environment_url: (Configuration configuration) -> String?
     def model_for: (Configuration configuration, type: Proxy::Type, host: String, port: Integer,
                     username: String?, password: String?) -> Proxy?
     def split_url: (String url) -> Array[untyped]
