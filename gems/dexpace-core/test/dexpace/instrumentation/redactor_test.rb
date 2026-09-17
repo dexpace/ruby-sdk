@@ -343,11 +343,13 @@ class DexpaceInstrumentationRedactorTest < DexpaceTestCase
       # What is still not an authority under RFC 3986 and is written back as given (P5-100):
       # no `//` before the `@` (a path or an opaque part, and only a proxy URL's own grammar
       # can call it a credential -- the resolver's belt, P5-103), the backslash spellings (a
-      # backslash is not a URI character), and what the parser ACCEPTS without an authority --
-      # an empty authority with the credential in the path, a network-path reference that
-      # splits as a path -- which never reaches the surgery route at all.
+      # backslash is not a URI character), a `/ /` that is not a `//`, and what the parser
+      # ACCEPTS without an authority -- an empty authority with the credential in the path, a
+      # path-absolute reference, a network-path reference that splits as a path -- which never
+      # reaches the surgery route at all.
       ["user:secret@h/p", "http:\\\\user:secret@h\\p", "\\\\user:secret@h/p",
-       "http:///user:secret@h/p", "//@user:secret@h/x",].each do |value|
+       "http:/ /user:secret@h/p", "http:///user:secret@h/p", "/http://user:secret@h/p",
+       "//@user:secret@h/x",].each do |value|
         assert_equal(value, Redactor::DEFAULT.header_value("Location", value))
       end
       # A parseable URL whose PATH spells a second authority is a valid URI, and OBS-14 forbids
