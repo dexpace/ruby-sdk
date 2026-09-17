@@ -597,11 +597,17 @@ Each is one line plus the chapter to read before touching the area.
   `URI::RFC3986_PARSER.split`'s nine raw components and never through `URI#to_s`, which drops a default
   port `OBS-14` forbids dropping (P5-91); `#url` is total and answers `"[malformed url]"` on any
   `StandardError`, `#header_value` always a String and never the sentinel (P5-25, P5-26), and userinfo
-  is `***:***@` on every route of both — a network-path reference's authority, an authority the parser
-  rejected and one behind the leading OWS `HTTP-19` admits in an inbound value included, where
-  `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned verbatim" (P5-100, P5-105). A warning
-  that names a URL names it through the redactor too: the proxy resolver's `Kernel#warn` and its config
-  diagnostic show `http://***:***@proxy.corp`, never the raw `HTTPS_PROXY` (P5-103). The default header
+  is `***:***@` on every route of both — a network-path reference's authority, and in a value the
+  parser rejected EVERY `//`-authority wherever it sits, whatever `HTTP-19`-admitted bytes precede it
+  (a leading OWS, RFC 3986 Appendix C's own `<…>`, quotes, a word, an NBSP, obs-text, a first URL),
+  because a rejected value has no grammar left to honour and a tolerated prefix set is always one prefix
+  short — where `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned verbatim" (P5-100, P5-105,
+  P5-107); what the parser accepts without an authority (`http:///u:p@h/p`, a path spelling a second
+  authority) is `OBS-14`'s verbatim path. A multi-valued header is redacted per value before the `", "`
+  join — the `Emitter` hands the list over unjoined (P5-108). A warning that names a URL names it through
+  the redactor too: the proxy resolver's `Kernel#warn` and its config diagnostic show
+  `http://***:***@proxy.corp`, never the raw `HTTPS_PROXY`, a quoted or bracketed one included (P5-103,
+  P5-107). The default header
   allow-list is twenty-six names with every credential and challenge header absent, the query
   allow-list is exactly `{api-version}`, and userinfo is redacted with no policy member able to reach it
   (`XCUT-19`).
@@ -628,7 +634,12 @@ Each is one line plus the chapter to read before touching the area.
   `histogram.record` sit outside it, in the `ensure`, so a throwing meter fails the request and a
   raising sink cannot. The async step closes its scope on the caller's fiber at the end of the head and
   carries the diagnostic context into the settlement with `Diagnostics.capture` / `.with` (P5-93);
-  `.capture` compacts nil-valued keys so the floor's retained nils never travel (P5-97).
+  `.capture` compacts nil-valued keys so the floor's retained nils never travel (P5-97). Its settlement
+  work is registered on the SOURCE future at every level and never on the `Future#then`-derived one,
+  whose callbacks run inside `#then`'s own rescue where a meter's raise would vanish; and the span's
+  finish and the two instruments have exactly one owner — the head's `ensure` only when the head raised
+  before the chain handed back its future, the settlement callback otherwise — so an inline settlement
+  that raises is never torn down twice (P5-109).
 
 ## Public API surface
 

@@ -236,6 +236,8 @@ r.header_value("Location", "//user:secret@h/x")       # => "//***:***@h/x"      
 r.header_value("Location", "bad path?secret=1")       # => "bad path?***"       (unparseable: surgery)
 r.header_value("Location", "http://user:pw@h/p x")    # => "http://***:***@h/p x"
 r.header_value("Location", " http://user:pw@h/p")     # => " http://***:***@h/p"  (a leading OWS, kept)
+r.header_value("Location", "<http://user:pw@h/p>")     # => "<http://***:***@h/p>"  (any prefix, kept)
+r.header_value("Location", "http://u:p@h:1x//u:p@h/")  # => "http://***:***@h:1x//***:***@h/"
 r.header_value("Content-Type", "text/html?x=1")       # => "text/html?x=1"      (not a URL header)
 r.header_value("Location", nil)                       # => ""
 r.header_name?("Content-Type")                        # => true
@@ -265,13 +267,20 @@ with no `=` is kept. The fragment is tokenised by hand on `&`, because `URI` doe
 raise too — yields the `"[malformed url]"` sentinel (`OBS-15`). `#header_value` never returns that
 sentinel and never returns nil: an absolute value is redacted like a request URL, a relative one keeps
 its path — and its authority, if it has one — and gets `?***` iff it carried a query *or* a fragment
-(`OBS-16`), and an unparseable one takes string surgery on the raw value — after any leading run of
-whitespace or control bytes, which HTTP-19's grammar admits at the front of an inbound header value and
-which are written back as they came (P5-105); on every one of those routes a userinfo is `***:***@`,
-which is where `OBS-11`'s "unconditionally" overrules `OBS-16`'s "returned verbatim" for the one input
-both reach (P5-100). What has no authority under RFC 3986 — `user:pw@h/p` with no `//`, a backslash
-spelling, an empty authority (`http:///…`), a non-scheme prefix — has no userinfo and is written back as
-given.
+(`OBS-16`), and an unparseable one takes string surgery on the raw value: *every* `//`-authority in it,
+wherever it sits and whatever precedes it — a leading OWS (P5-105), RFC 3986 Appendix C's own `<…>`
+delimiters, quotes, parentheses, a word, an encoded space, `+`, `@`, a backslash, an NBSP, an obs-text
+byte, or a first URL, as in a doubled proxy value — has its userinfo substituted and everything else is
+written back as it came (P5-107). A value the parser rejected has no grammar left to honour, and
+HTTP-19 admits every printable byte and obs-text in an inbound header value. On every one of those
+routes a userinfo is `***:***@`, which is where `OBS-11`'s "unconditionally" overrules `OBS-16`'s
+"returned verbatim" for the one input both reach (P5-100). What has no authority under RFC 3986 —
+`user:pw@h/p` with no `//` before its `@`, a backslash spelling — has no userinfo and is written back as
+given, as is what the parser *accepts* without one, which never reaches the surgery route: an empty
+authority with the credential in the path (`http:///user:pw@h/p`), a network-path reference that splits
+as a path (`//@user:pw@h/x`), and a valid URL whose *path* spells a second authority
+(`http://user:pw@h/phttp://user:pw@h/p` → `http://***:***@h/phttp://user:pw@h/p`), because `OBS-14`
+forbids altering the path. For a proxy URL the resolver applies `CFG-24`'s own grammar on top (P5-103).
 
 ## The diagnostic-context bridge: `Diagnostics.capture`, `.with`, `.folded`
 
@@ -471,7 +480,11 @@ caller receives every one of the 109 bytes, the preview is the first 64, and the
 **capture's** 64, never the declared length (`OBS-36`, `BODY-19`, `BODY-22`, `BODY-34`). Below `BODY`
 neither wrapper is constructed even when a cap is supplied — the level is the gate, the cap only its
 size — and `preview_bytes:` is required at `BODY` and refused when absent, zero, negative or not an
-`Integer`. A multi-valued header is one field, joined with `", "`.
+`Integer`. A multi-valued header is one field, joined with `", "` — *after* each value met the
+redactor on its own: the `Emitter` hands the value list over as a list, and `Event#field` redacts an
+`Array` under an allow-listed header key one value at a time before joining, so a second `Location`'s
+userinfo cannot hide behind the first value's path (P5-108). A caller writing an `Array` into a header
+field by hand gets the same.
 
 At `NONE` there is no log event at all, and the span and the instruments happen regardless:
 
@@ -539,7 +552,12 @@ the emission (`OBS-24`). And at `BODY` the step returns a future derived with `F
 response wrapped in `ResponseLoggingBody`, because the wrapper mirrors on the caller's read and only a
 derived future can settle with a different value; below `BODY` it registers `#on_settle` and returns the
 cursor's own future, so nothing in the chain is re-wrapped. A raising meter fails the settlement rather
-than the head, which is `OBS-20`'s asymmetry on the async path.
+than the head, which is `OBS-20`'s asymmetry on the async path: at every level the settlement work is
+registered on the *source* future — never on the derived one, whose callbacks `Future#then` runs inside
+its own rescue — so a meter's failure reaches whoever settled the future; when the future settled inside
+the head, that is the caller, and the request fails as it does on the sync path. The span is finished
+and the instruments recorded by exactly one side — the head's `ensure` only when the head raised before
+the chain handed back its future, the settlement callback otherwise (P5-109).
 
 ## Four wirings into earlier layers
 

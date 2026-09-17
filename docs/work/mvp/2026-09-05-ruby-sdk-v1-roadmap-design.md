@@ -3305,11 +3305,12 @@ own rows, **26 ✅** (`OBS-24` and `OBS-10` ✅ with the floor's behaviour state
 plus fourteen cross-reference rows (`XCUT-19`'s five clauses, `XCUT-20`, `XCUT-11`, `CFG-24`/`CFG-25`,
 `CFG-21`, `CFG-14`, `CFG-16`, `SEAM-25`, `BODY-19`/`BODY-22`/`BODY-34`, `BODY-20`, `OBS-23`, `PIPE-28`,
 `NFR-11`). `bundle exec rake` is green on 4.0.6 at the tests tip and the docs tip with 99.98% line
-coverage (5,653 / 5,654 after review round 1's repair, the registry-claim race branch every phase since 2
-has recorded) against the 80% floor and 2,043 runs across the six gems (194 more than the base: the
-fifteen new or rewritten instrumentation suites, the five repaired pins, round 0's eight added tests and
-round 1's twelve); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10 — on 3.2.11 under three seeds, round
-0 having found one assertion there that held by test order; the code tip is green on all seventeen gates
+coverage (5,655 / 5,656 after review round 2's repair, the registry-claim race branch every phase since 2
+has recorded) against the 80% floor and 2,050 runs across the six gems (201 more than the base: the
+fifteen new or rewritten instrumentation suites, the five repaired pins, round 0's eight added tests,
+round 1's twelve and round 2's seven); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10 — on 3.2.11
+under three seeds, round 0 having found one assertion there that held by test order and round 2 one
+that held by a one-time allocation's timing; the code tip is green on all seventeen gates
 too, run one by one, and clean under the honest RuboCop command on its own tree, its `test:gems` above
 the floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed; and every
 instrumentation suite, 5b's and 5c's, was run standalone under `ruby -w` with `HTTPS_PROXY`, `HTTP_PROXY`,
@@ -3342,9 +3343,9 @@ none re-recorded**: §8.1's unsourced `Event#tag` stays on the inbound list and 
 the bare-`Logger` cop watch is closed as built — not expressible in `Dexpace/QualifiedCoreConstant`'s
 shape and guarding nothing, since the shadow is confined to `module Instrumentation` (P5-38's
 disposition; eight custom cops, 5b adds none); the charter's `OBS-19` cell and `OBS-24` arithmetic read
-correct. Thirty-seven departures from the plan's text are itemised in the checklist, none lowering a
-gate — twenty-seven the build's, four review round 0's, six review round 1's; the ones that touch public
-behaviour are the as-built rows **P5-91–P5-106** (also: `Instrumentation.diagnostic` public, the async scope closed at the
+correct. Forty-one departures from the plan's text are itemised in the checklist, none lowering a
+gate — twenty-seven the build's, four review round 0's, six review round 1's, four review round 2's; the
+ones that touch public behaviour are the as-built rows **P5-91–P5-109** (also: `Instrumentation.diagnostic` public, the async scope closed at the
 head with the `OBS-24` bridge into the settlement, a `Future#then`-derived future at `BODY`,
 `Keys::MESSAGE` as the sixteenth key and an ASCII truncation marker, the span named by the method token
 until 6a wires the context in). **Review round 0 (2026-09-17) found `OBS-11`'s unconditional userinfo
@@ -3371,7 +3372,24 @@ pattern anchored at the scheme let a `Location` with the leading OWS `HTTP-19` a
 cannot convert, now a UTF-8 fallback (**P5-106**) — with the two mutations that survived the round (the
 async failure event's `OBS-24` bridge, the `BODY-35` `-1` filter) given a test each, P5-100's closing
 sentence naming the non-authority spellings, ten mutations run red after the repair on 4.0.6 and 3.2.11,
-the checklist's deviations 32–37 and its third guard table.
+the checklist's deviations 32–37 and its third guard table. **Review round 2 (2026-09-17) found the
+surgery route's tolerated-prefix reading one prefix short for the third round running** — RFC 3986
+Appendix C's own `<…>` delimiters, quotes, a word, an NBSP, an obs-text byte before a real authority
+carried a `Location`'s userinfo through the step, and a QUOTED `HTTPS_PROXY` (the dotenv and ConfigMap
+misconfiguration) wrote the client's own credential into both channels — closed on the code branch by
+substituting EVERY `//`-authority's userinfo wherever it sits, unanchored and linear, since a value the
+parser rejected has no grammar left to honour and `HTTP-19` admits every printable byte (**P5-107**;
+what the parser accepts without an authority stays `OBS-14`'s verbatim path); and two narrower readings
+beside it — the `Emitter` joined a multi-valued `Location` before the per-value redaction, now redacted
+per value at the reserved-key table and joined afterwards (**P5-108**), and the async step's settlement
+work sat on the `Future#then`-derived future inside `#then`'s rescue at `BODY`, where a throwing meter
+vanished, while the head's `ensure` re-ran the teardown after an inline settlement had raised, now
+registered on the source future with the teardown owned by one side (**P5-109**). The round's fourth
+finding was the suite's own on the floor: the `OBS-1` zero-allocation measurement came back negative in
+about one whole-file run in fifteen on 3.2.11 — a one-time cost of 7 or 28 interpreter objects inside a
+measured block — so 5c's shared `AllocationDelta` helper returns the figure two consecutive measurements
+agree on, a recorded change to a 5c support file with its five suites re-run green; eight mutations run
+red after the repair on 4.0.6 and 3.2.11, the checklist's deviations 38–41 and its fourth guard table.
 `docs/sdk-documentation/logging-and-redaction.md` is the as-built page, every fence run verbatim on
 4.0.6 and 3.2.11 with the three differences stated where they appear; `architecture.md`, the core
 README, `README.md` and `docs/README.md` point at it, and the four earlier pages that described this
