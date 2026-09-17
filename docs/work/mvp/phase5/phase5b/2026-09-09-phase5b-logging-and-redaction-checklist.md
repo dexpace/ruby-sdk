@@ -143,7 +143,7 @@ and `docs/deviations.md` is untouched for phase 10 to flip.
 The gates, all seventeen, on **4.0.6** (`bundle exec rake`, 2026-09-17, re-run after review round 0's
 repair, again after review round 1's and again after review round 2's, the same day) at the tests tip
 and again at the docs tip: green, exit 0 — `cops:test` 129 runs, `steep` no type error over the strict
-`core` target, `test:gems` **2,050 runs / 58,448 assertions** across the six gems (201 runs more than the
+`core` target, `test:gems` **2,050 runs / 58,450 assertions** across the six gems (201 runs more than the
 base: 173 across the fifteen new or rewritten instrumentation suites and the five repaired pins, one the
 smoke suite gained, round 0's eight added tests, round 1's twelve and round 2's seven), with **99.98%
 line coverage (5,655 / 5,656)** against the 80% floor — the one uncovered line is the registry-claim race branch every phase since 2 has recorded —
@@ -154,8 +154,8 @@ line coverage (5,655 / 5,656)** against the 80% floor — the one uncovered line
 `bundle exec rubocop --fail-level=convention --ignore-parent-exclusion` — inspected 401 files with no
 offenses at the tests and docs tips and **385 at the code tip**, the run round 0's R0-2 asked for; run
 through `rake` from this worktree it inspects 10, the known vacuity on phase 10's inbound list. The matrix
-set is green at the tests tip on **3.2.11** (2,050 runs / 58,450 assertions; three seeds after the
-repair, below), **3.3.12** (2,050 / 58,448, 99.98%) and **3.4.10** (2,050 / 58,448, 99.98%), each after a
+set is green at the tests tip on **3.2.11** (2,050 runs / 58,452 assertions; three seeds after the
+repair, below), **3.3.12** (2,050 / 58,450, 99.98%) and **3.4.10** (2,050 / 58,450, 99.98%), each after a
 fresh `Gemfile.lock`. The code tip is green on all seventeen gates too, run one by one — `test:gems`
 1,849 runs / 56,768 assertions at 94.81% (5,363 / 5,656) on 4.0.6 and 1,849 / 56,765 at 94.83% (5,287 /
 5,575) on 3.2.11 with the four matrix gates — so the one exception the layering rule allows was not
