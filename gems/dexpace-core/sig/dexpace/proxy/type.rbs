@@ -1,0 +1,27 @@
+module Dexpace
+  class Proxy
+    class Type < Data
+      include Model
+
+      attr_reader name: String
+
+      HTTP: Type
+      SOCKS4: Type
+      SOCKS5: Type
+
+      # Both private_constant; declared because the strict `core` Steep target types their uses.
+      NAMES: Array[String]
+      ALL: Array[Type]
+
+      # .new and .[] are both private (P4-32's shape): the three constants are the whole
+      # population, and NFR-4 locks no constructor here.
+      private def self.new: (name: String) -> instance
+      def initialize: (name: String) -> void
+
+      def self.of: (String | Symbol | Type token) -> Type
+
+      # Always raises: the closed set has no derivation (P4-56).
+      def with: (?untyped _changes) -> bot
+    end
+  end
+end

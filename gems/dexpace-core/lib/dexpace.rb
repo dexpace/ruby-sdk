@@ -154,6 +154,7 @@ require_relative "dexpace/async/delay"
 require_relative "dexpace/deep_value"
 require_relative "dexpace/configuration"
 require_relative "dexpace/config"
+require_relative "dexpace/proxy"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #

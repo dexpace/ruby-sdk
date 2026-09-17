@@ -1,0 +1,31 @@
+# Dexpace::ProxyResolution is a private_constant and not public API (P2-15): this declaration
+# exists because the strict `core` Steep target checks every file under lib/ and needs the module
+# and its one entry point declared to type Proxy.resolve. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/proxy/resolution.rb alone.
+module Dexpace
+  module ProxyResolution
+    LAYERS: Hash[Symbol, Hash[Symbol, String]]
+    CRED_USER: String
+    CRED_PASS: String
+    NON_PROXY_PROP: String
+
+    def self?.resolve: (Configuration configuration) -> Proxy?
+
+    private
+
+    def property_host: (Configuration configuration) -> [Symbol?, String?]
+    def from_properties: (Configuration configuration, Symbol layer, String host) -> Proxy?
+    def from_environment: (Configuration configuration) -> Proxy?
+    def model_for: (Configuration configuration, type: Proxy::Type, host: String, port: Integer,
+                    username: String?, password: String?) -> Proxy?
+    def split_url: (String url) -> Array[untyped]
+    def url_problem: (String? host, String? raw_port) -> String?
+    def scheme_type: (String? scheme) -> Proxy::Type
+    def credentials: (String? userinfo) -> Array[String?]
+    def non_proxy_hosts: (Configuration configuration) -> [Array[Proxy::HostPattern], bool]
+    def parse_port: (untyped raw) -> Integer?
+    def split_non_proxy: (String? raw, String separator) -> [Array[Proxy::HostPattern], bool]
+    def tokens_of: (String raw, String separator) -> Array[String]
+    def warn_and_nil: (String message) -> nil
+  end
+end

@@ -1,0 +1,38 @@
+module Dexpace
+  class Proxy < Data
+    include Model
+
+    attr_reader type: Proxy::Type
+    attr_reader host: String
+    attr_reader port: Integer
+    attr_reader non_proxy_hosts: Array[Proxy::HostPattern]
+    attr_reader username: String?
+    attr_reader password: String?
+    attr_reader challenge_handler: untyped
+    attr_reader bypass_all: bool
+
+    private def self.new: (type: Proxy::Type | String | Symbol, host: String, port: Integer,
+                           non_proxy_hosts: Array[Proxy::HostPattern], username: String?,
+                           password: String?, challenge_handler: untyped, bypass_all: bool) -> instance
+    def initialize: (type: Proxy::Type | String | Symbol, host: String, port: Integer,
+                     non_proxy_hosts: Array[Proxy::HostPattern], username: String?,
+                     password: String?, challenge_handler: untyped, bypass_all: bool) -> void
+
+    def self.build: (type: Proxy::Type | String | Symbol, host: String, port: Integer,
+                     ?non_proxy_hosts: Array[Proxy::HostPattern], ?username: String?,
+                     ?password: String?, ?challenge_handler: untyped, ?bypass_all: bool) -> Proxy
+
+    def self.resolve: (?Configuration configuration) -> Proxy?
+
+    def bypass?: (String host) -> bool
+    def to_s: () -> String
+    def inspect: () -> String
+
+    private
+
+    def rendered_members: () -> Hash[Symbol, untyped]
+    def host!: (untyped host) -> String
+    def port!: (untyped port) -> Integer
+    def patterns!: (untyped patterns) -> Array[Proxy::HostPattern]
+  end
+end
