@@ -19,8 +19,9 @@ require_relative "../../support/fake_clock"
 # fresh fetch after an eviction and reusing a preserved token otherwise -- the routing itself
 # through a stamper double whose #stamp and #stamp_fresh differ on the wire (review round 0's
 # R0-1), since the real stamper fetches either way once its cache is empty -- AUTH-31's gate
-# through the inherited predicate, AUTH-32's three clauses, and cancellation forwarded both
-# ways. Every #value here is on a future the test settles or one already settled. Split under
+# through the inherited predicate, AUTH-32's three clauses, cancellation forwarded both ways,
+# and one request's cancellation reaching no other request coalesced on the same bearer fetch.
+# Every #value here is on a future the test settles or one already settled. Split under
 # Metrics/ClassLength.
 class DexpaceAuthAsyncStepTest < DexpaceTestCase
   AsyncStep = Dexpace::Auth::AsyncStep
@@ -416,6 +417,38 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
       assert_equal(200, response.status.code)
       assert_equal(["Bearer cached", "Bearer cached"], transport.authorization_headers)
       assert_equal([:stamp, [:evict_if_matches, "Bearer cached"], :stamp], stamper.calls)
+    end
+  end
+
+  # Review round 2's R2-1 through the pipeline: the step forwards its future's cancellation to
+  # the stamp future (P6-79), and that must stop at the one request's waiter, never reach the
+  # single-flight fetch the other requests share.
+  class CoalescingTest < DexpaceTestCase
+    include Fixtures
+
+    test "AUTH-37, SEAM-18: cancelling one request's future leaves the coalesced others driving" do
+      completer = Completer.new
+      provider = ScriptedAsyncBearerProvider.new(completer.future)
+      step = async_step(stamper: async_bearer_over(provider))
+      transport = settled(ok, ok)
+      pipeline = async_auth_pipeline(step, transport)
+      first = pipeline.call(https_request)
+      second = pipeline.call(https_request)
+      first.cancel(:caller_gave_up)
+
+      assert_predicate(first, :cancelled?)
+      refute_predicate(second, :settled?)
+      refute_predicate(completer.future, :settled?)
+      assert_empty(transport.calls)
+      third = pipeline.call(https_request) # arrives during the fetch, after the cancellation
+
+      assert_equal(1, provider.fetches)
+      completer.fulfil(Dexpace::Auth::BearerToken.build(token: "fresh"))
+
+      assert_equal(200, second.value.status.code)
+      assert_equal(200, third.value.status.code)
+      assert_equal(["Bearer fresh", "Bearer fresh"], transport.authorization_headers)
+      assert_equal(:caller_gave_up, assert_raises(Dexpace::CancelledError) { first.value }.reason)
     end
   end
 end

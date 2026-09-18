@@ -13,7 +13,8 @@ require_relative "../../support/recording_sink"
 # policy over phase 2's pivot: no #value or #wait anywhere on the stamper's own path, the
 # expiring zone stamping at once while a refresh it never awaits runs, the expired zone deriving
 # from one coalesced fetch, a failed background refresh logged and not fatal, the re-entrancy
-# trap an already-settled provider future sets, and #stamp_fresh after an eviction.
+# trap an already-settled provider future sets, #stamp_fresh after an eviction, and -- the fetch
+# being shared -- a cancellation that is not: cancelling one waiter detaches that waiter alone.
 #
 # Every wait in this file is on a future the test itself settles, or on one already settled;
 # a hang here would be a finding, and FakeClock never advances by itself. Split under
@@ -217,6 +218,70 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
     end
   end
 
+  # Review round 2's R2-1: the fetch is shared, a cancellation is not. Through Future#then the
+  # waiter's cancellation reached the single-flight slot every coalesced caller shares, so one
+  # request giving up cancelled every other waiter and every arrival until the provider settled.
+  class CancellationTest < DexpaceTestCase
+    include Fixtures
+
+    test "AUTH-37, SEAM-18: cancelling one coalesced waiter detaches that waiter alone" do
+      completer = Completer.new
+      provider = ScriptedAsyncBearerProvider.new(completer.future)
+      subject = stamper(provider)
+      first = subject.stamp(https_request)
+      second = subject.stamp(https_request)
+      fresh = subject.stamp_fresh(https_request)
+      first.cancel(:caller_gave_up)
+      fresh.cancel(:caller_gave_up)
+
+      assert_predicate(first, :cancelled?)
+      assert_predicate(fresh, :cancelled?)
+      refute_predicate(second, :settled?) # B never asked to be cancelled
+      refute_predicate(completer.future, :settled?) # the provider's fetch runs on
+      third = subject.stamp(https_request) # a new arrival still coalesces, onto a live slot
+
+      refute_predicate(third, :settled?)
+      assert_equal(1, provider.fetches)
+      completer.fulfil(fresh_token)
+
+      assert_equal(["Bearer fresh"], authorization(second.value))
+      assert_equal(["Bearer fresh"], authorization(third.value))
+      assert_equal(:caller_gave_up, assert_raises(Dexpace::CancelledError) { first.value }.reason)
+      assert_nil(subject.instance_variable_get(:@in_flight))
+      assert_equal(["Bearer fresh"], authorization(subject.stamp(https_request).value)) # cached
+      assert_equal(1, provider.fetches)
+    end
+
+    test "SEAM-18: a provider cancelling its own fetch cancels every waiter, as a cancellation" do
+      completer = Completer.new
+      provider = ScriptedAsyncBearerProvider.new(completer.future, settled_with(fresh_token))
+      subject = stamper(provider)
+      waiters = Array.new(2) { subject.stamp(https_request) }
+      completer.future.cancel(:provider_timeout)
+
+      waiters.each do |waiter|
+        assert_predicate(waiter, :cancelled?)
+        error = assert_raises(Dexpace::CancelledError) { waiter.value }
+
+        assert_equal(:provider_timeout, error.reason)
+      end
+      assert_nil(subject.instance_variable_get(:@token)) # a cancelled fetch caches nothing
+      assert_nil(subject.instance_variable_get(:@in_flight)) # and the slot is free again
+      assert_equal(["Bearer fresh"], authorization(subject.stamp(https_request).value))
+      assert_equal(2, provider.fetches)
+    end
+
+    test "a token the outbound header grammar refuses fails that waiter, never the settler" do
+      completer = Completer.new
+      subject = stamper(ScriptedAsyncBearerProvider.new(completer.future))
+      waiter = subject.stamp(https_request)
+      completer.fulfil(BearerToken.build(token: "bad\r\ntoken")) # HTTP-18 refuses it at the stamp
+
+      assert_predicate(waiter, :settled?)
+      assert_raises(Dexpace::InvalidArgumentError) { waiter.value }
+    end
+  end
+
   # AUTH-36's async half, AUTH-37's post-eviction clause, and the construction checks.
   class EvictionTest < DexpaceTestCase
     include Fixtures
@@ -235,6 +300,9 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
       subject = seeded(no_fetch, fresh_token("cur"))
 
       refute(subject.evict_if_matches("Bearer stale"))
+      refute(subject.evict_if_matches("Bearer  cur")) # the exact value, as the sync half pins
+      refute(subject.evict_if_matches("Bearer curator")) # a superstring is not the token sent
+      refute(subject.evict_if_matches("cur"))
       assert_equal(["Bearer cur"], authorization(subject.stamp(https_request).value))
       assert(subject.evict_if_matches("Bearer cur"))
       refute(subject.evict_if_matches("Bearer cur"))

@@ -264,8 +264,30 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
     end
 
     # The deterministic proof that the increment is one critical section is
-    # bounded_map_test.rb's forced interleaving; this asserts the handler-level property it
-    # buys -- sixteen threads reusing one nonce produce sixteen hundred distinct counts.
+    # bounded_map_test.rb's forced interleaving, and the pin below is what ties the handler to
+    # it: the store answers #update alone, so a read through #[] followed by #set -- two
+    # critical sections, the lost-increment shape -- raises rather than surviving the race
+    # under the GVL (review round 2's R2-2). The handler is frozen, so the store is reached
+    # and narrowed in place, not replaced.
+    test "AUTH-24: the increment is one BoundedMap#update, never a read through #[] then #set" do
+      digest_handler = handler
+      store = digest_handler.instance_variable_get(:@nonces)
+      updates = []
+      increment = store.method(:update)
+      store.define_singleton_method(:update) do |key, &block|
+        updates << key
+        increment.call(key, &block)
+      end
+      %i[[] set put].each do |bypass|
+        store.define_singleton_method(bypass) { |*| raise "the counter bypassed #update (AUTH-24)" }
+      end
+
+      assert_equal(%w[00000001 00000002], [nc_of(digest_handler, "n"), nc_of(digest_handler, "n")])
+      assert_equal(%w[n n], updates)
+    end
+
+    # The handler-level property the pin above buys, seen end to end: sixteen threads reusing
+    # one nonce produce sixteen hundred distinct counts.
     test "AUTH-24: sixteen threads reusing one nonce yield correct, non-duplicated counts" do
       digest_handler = handler
       barrier = ::Thread::Queue.new
