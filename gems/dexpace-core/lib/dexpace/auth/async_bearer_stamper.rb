@@ -8,6 +8,7 @@ require_relative "../http/headers"
 require_relative "../clock"
 require_relative "../async/completer"
 require_relative "../async/future"
+require_relative "../error/cancelled_error"
 require_relative "../instrumentation/keys"
 require_relative "../instrumentation/logger"
 require_relative "../instrumentation/contain"
@@ -27,17 +28,27 @@ module Dexpace
     # Three zones, read off one lock-free token reference (XCUT-12): FRESH (not expired with
     # the margin) stamps and makes no provider call; EXPIRING-BUT-VALID (expired with the
     # margin, not without it) stamps the still-valid token at once and kicks off a refresh it
-    # does not await; EXPIRED-OR-MISSING derives the stamped request from the in-flight fetch
-    # through Future#then. Every refresh goes through ONE single-flight slot: the first caller
-    # registers a Completer under @lock and starts the fetch; every later caller, from either
-    # zone, coalesces onto that future. A failed fetch settles the waiters with the error and
-    # caches nothing; a failed BACKGROUND refresh is reported through `logger:` as an
-    # `http.auth.refresh` diagnostic and fails nothing, since a valid token was already stamped.
+    # does not await; EXPIRED-OR-MISSING settles a Completer of its own from the in-flight
+    # fetch's settlement -- R12's "second #on_settle and a second Completer". Every refresh goes
+    # through ONE single-flight slot: the first caller registers a Completer under @lock and
+    # starts the fetch; every later caller, from either zone, coalesces onto that future. A
+    # failed fetch settles the waiters with the error and caches nothing; a failed BACKGROUND
+    # refresh is reported through `logger:` as an `http.auth.refresh` diagnostic and fails
+    # nothing, since a valid token was already stamped.
+    #
+    # The fetch is shared; a cancellation is not. The waiter's future is settled FROM the slot's
+    # and never wired back to it: Future#then would register the derived future's cancellation
+    # against its source, which here is the one slot every coalesced caller and every arrival
+    # until the provider settles share, so cancelling one request's future would cancel them
+    # all (review round 2). Cancelling a waiter detaches that waiter alone -- the fetch runs on,
+    # the token is cached, the other waiters stamp it. Only the provider's own settlement
+    # settles the slot, and a cancellation there is forwarded as a cancellation, not as a plain
+    # failure, so `#cancelled?` stays true one link down (SEAM-18, 4c's rule).
     #
     # The fetch is started OUTSIDE the lock, and that is not a style choice. AUTH-11's default
     # wrapper mirrors a sync-only provider's #fetch into an ALREADY-SETTLED future, on which
     # phase 2's #on_settle runs the block inline on the calling fiber; the settle block takes
-    # @lock to publish the token, and Thread::Mutex is not reentrant, so starting the fetch
+    # the lock to publish the token, and Thread::Mutex is not reentrant, so starting the fetch
     # inside `synchronize` raises `ThreadError: deadlock; recursive locking` for the commonest
     # provider shape there is (verified on 3.2.11, 3.4.10 and 4.0.6). Register, release, fetch.
     #
@@ -45,7 +56,7 @@ module Dexpace
     # three-zone read and settles on a coalesced fetch, so the retry can never re-send the
     # token the server just rejected. AsyncStep calls it after a successful eviction, and
     # #stamp after a failed one, where AUTH-36 says the refreshed token is reused.
-    class AsyncBearerStamper
+    class AsyncBearerStamper # rubocop:disable Metrics/ClassLength -- R12's two Completers written out: the slot, the waiter settled from it and never wired back, and the one SEAM-18 classification both settle by; see the class comment
       # @param provider [Object] anything answering #fetch, and optionally #fetch_async
       # @param clock [_Clock] the time seam; Clock::SYSTEM by default
       # @param refresh_margin [Numeric] seconds before expiry at which a token is refreshed
@@ -122,10 +133,22 @@ module Dexpace
         token.expired?(now: now, margin: 0) ? :expired : :expiring
       end
 
-      # The expired-or-missing zone's return: the stamped request derived from the coalesced
-      # fetch through Future#then, which never blocks.
+      # The expired-or-missing zone's return: this request's own Completer, settled from the
+      # coalesced fetch's settlement and never blocking. Not Future#then -- see the class
+      # comment for why the waiter must not be wired back to the shared slot.
       def awaiting(request)
-        refresh_future.then { |fresh| stamp_with(request, fresh) }
+        own = Dexpace::Async::Completer.new
+        refresh_future.on_settle { |settlement| deliver(settlement, request, own) }
+        own.future
+      end
+
+      # The waiter's settlement from the slot's. The rescue keeps a raising stamp (a token the
+      # outbound header grammar refuses) on this side of the settling thread, as a failure of
+      # this waiter alone.
+      def deliver(settlement, request, own)
+        settle(own, settlement, settlement.error) { |token| stamp_with(request, token) }
+      rescue ::StandardError => error
+        own.fail(error)
       end
 
       def header(token) = "Bearer #{token.token}"
@@ -161,7 +184,9 @@ module Dexpace
       # raises, so the only way out of here is the settle block, which clears the slot and
       # writes the cache under the lock and then settles the waiters outside it. A settle
       # block that raised would propagate into whoever settled the provider's future, so
-      # nothing in it can raise: Completer#fulfil and #fail report rather than raise.
+      # nothing in it can raise: Completer#fulfil, #fail and #request_cancel report rather
+      # than raise. A provider that cancels its own fetch cancels the slot, and through it every
+      # waiter, as a cancellation.
       def start_fetch(completer)
         BearerProvider.fetch_async(@provider).on_settle do |settlement|
           token = settlement.success? ? settlement.response : nil
@@ -170,7 +195,20 @@ module Dexpace
             @in_flight = nil
             @token = token if error.nil?
           end
-          error.nil? ? completer.fulfil(token) : completer.fail(error)
+          settle(completer, settlement, error) { token }
+        end
+      end
+
+      # The one classification both completers settle by, Future#then's three rules: a
+      # cancellation of `settlement` stays a cancellation (SEAM-18), any other `error` is the
+      # same object, and a success settles with what the block makes of the response.
+      def settle(target, settlement, error)
+        if error.nil?
+          target.fulfil(yield(settlement.response))
+        elsif settlement.cancelled && error.is_a?(Dexpace::CancelledError)
+          target.request_cancel(error.reason)
+        else
+          target.fail(error)
         end
       end
 

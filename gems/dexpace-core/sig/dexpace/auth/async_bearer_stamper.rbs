@@ -21,11 +21,15 @@ module Dexpace
 
       def zone: (BearerToken token) -> Symbol
       def awaiting: (Dexpace::Request request) -> Dexpace::Async::Future
+      def deliver: (Dexpace::Async::Settlement settlement, Dexpace::Request request,
+                    Dexpace::Async::Completer own) -> void
       def header: (BearerToken token) -> String
       def stamp_with: (Dexpace::Request request, BearerToken token) -> Dexpace::Request
       def settled: (Dexpace::Request request) -> Dexpace::Async::Future
       def refresh_future: () -> Dexpace::Async::Future
       def start_fetch: (Dexpace::Async::Completer completer) -> void
+      def settle: (Dexpace::Async::Completer target, Dexpace::Async::Settlement settlement,
+                  Exception? error) { (untyped) -> untyped } -> void
       def invalid: (untyped token) -> Exception?
       def background_refresh: () -> void
     end
