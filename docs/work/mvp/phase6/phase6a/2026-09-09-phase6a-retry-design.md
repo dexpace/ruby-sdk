@@ -1448,7 +1448,21 @@ raised synchronously and never reaches a future's callback. This phase was cut f
 `f1fe848`, which holds all of phase 5; the execution rows are numbered from **P6-51** because the three
 phase-6 lanes are numbered apart — 6c's from P6-71, 6b's from P6-91 — and the checklist's "Deviations
 from the plan" is the itemised list against the plan's text; the rows here are the ones that touch
-public behaviour or a statement this document makes.
+public behaviour or a statement this document makes. `P6-2`'s list of public methods grows by two the
+object model above does not name and the manifest locks — `RetrySettings#backoff_arguments`, the keyword
+hash `Policy.backoff_delay` takes so neither driver spells the five members by hand (`RETRY-13`), and
+`RetrySettings#header_order`, `RETRY-21`'s order or the shared default — and, from review round 1 below,
+by `Policy.cancellation?` (`P6-60`) and the `logger:` keyword on `RetrySettings.build` (`P6-59`).
+
+**Review round 1, 2026-09-18.** Round 0 of the stack's review found four behaviours this document states
+and the code did not fully honour, and the repairs are `P6-59`–`P6-61` plus one that is not a deviation
+from anything written here: `RetryStep#wait` emitted the tracer's `attempt_failed` outside the `RETRY-35`
+fence, so a tracer that raised left the superseded response open on the sync driver while
+`AsyncRetryStep`'s guarded block closed it — the emission now sits inside the fence on both, which is what
+§11.12's no-drift rule for a sync/async pair and `RETRY-35`'s purpose (a socket never pinned across a
+propagating throwable) already asked for. The round also found the three driver suites reading the live
+configuration slot for their default settings and the public `RetryPredicateError` without a test mirror;
+both are the checklist's, not this document's.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
@@ -1460,12 +1474,18 @@ public behaviour or a statement this document makes.
 | P6-56 | `Dexpace::RetryPredicateError` is flat under `Dexpace::`, in `lib/dexpace/error/retry_predicate_error.rb`, not `Dexpace::Resilience::RetryPredicateError` | `RETRY-40`; `P6-11`; the tree's one-error-per-file convention | The plan named it two ways; the flat spelling is where every other core error lives (`PipelineError`, `ContextConflictError`, `ProtocolError`) and what `dexpace_test.rb`'s layer table pins beside `Resilience` |
 | P6-57 | `RETRY-40`'s fallback and `RETRY-41`'s clamp are logged through `Instrumentation.diagnostic` under 5b's existing `Events::INSTRUMENTATION_HOOK` and `::INSTRUMENTATION_CONFIG`, contained; no ninth event constant | `RETRY-40`, `RETRY-41`, `OBS-20`, `NFR-4` | A negative configured retry count is a configuration diagnostic and a caller hook that raised is a dropped hook failure — both names already exist with those meanings, and a ninth event would be one more NFR-4-locked constant for a distinction nothing consumes. The HTTP tracer is not contained (`OBS-30`) |
 | P6-58 | `retries_exhausted` fires only when a RETRYABLE failure met a spent budget, and for an exhausted error STATUS reports a `ProtocolError` carrying the trail; the two stage drivers' decision answers `:retry`, `:exhausted` or `:stop` with the budget checked last | `OBS-29`; 5c's `ordering_test.rb`, third case | The sketch emitted it before every terminal raise and passed `nil` for a returned response. 5c's conformance suite fixes the rule the other way — "a non-retried failure ends in `operation_failed` alone and never a `retries_exhausted`" — and `_HTTPTracer#retries_exhausted` takes an `Exception`, so the response path converts once and the tracer sees the object the trail is on |
+| P6-59 | `RetrySettings.build` takes `logger: Instrumentation::Logger::NULL`, read once at build and never held, and resolves a configured `MAX_RETRY_ATTEMPTS` through `Policy.effective_max_retries(override: nil, configured:, logger:)`, so a NEGATIVE configured value is clamped to `DEFAULT_MAX_RETRIES` and the clamp logged as one contained config diagnostic at the one read; an explicit negative `max_retries:` argument is still refused by `initialize` | `RETRY-41` ("a negative configured value MUST be clamped to the default (and the clamp logged)"); `RECOV-34`; this document's `RetrySettings` section and the plan's Task 7 fence, both of which refused a negative configured value at construction | Refusing at build made `RETRY-41`'s clamp unreachable from any driver: `RecoveryRetry#max_attempts` and `RetryStepHelpers#effective_max_retries` only ever saw a validated non-negative value, so the MUST's clamp clause was proven at the `Policy` unit alone. The one place a configured value enters is `.build`'s read of the key, so that is where the two rules meet — the environment's value is clamped, a caller's argument is refused — and the settings object still holds only a valid value. The keyword is taken on trust, as `Proxy.resolve`'s and `Hooks.notify`'s are: it is consumed before the object exists, and a type check pushed the class over `Metrics/ClassLength` for a keyword that cannot outlive the call |
+| P6-60 | `Policy.cancellation?(error)` — `true` for a `Dexpace::CancelledError` itself or anywhere in its cause chain, through `Dexpace.each_cause` — is a ninth public function; `Policy.retryable?` answers `false` for a cancellation before either branch, and `RetryStepHelpers#decision` answers `:stop` for one before the re-sendability gate and before a caller's `should_retry` is consulted | `RETRY-23` ("cancellation MUST never be treated as a retryable failure"); `RECOV-27`; `XCUT-9`; `P6-2`, `NFR-4` | As written, "never" held only under the default classifier: a caller's predicate answering `true` for a downstream `CancelledError` retried it, and a transport that wrapped the token's raise in its own retryable error would have been retried on all three drivers through the capability branch. A guard in front of both the predicate and the classifier makes the rule structural — the predicate never sees a cancellation — and one public method is what lets a generated SDK's own driver (`R5`) apply the same rule |
+| P6-61 | `PacingParsers`' grammars bound their digit runs at fifteen — `\A\d{1,15}(\.\d{1,15})?\z` and `\A\d{1,15}\z` — and a 64-byte ceiling, `MAX_VALUE_BYTES`, sits in front of every parser; a longer run or value is `RETRY-16`'s out-of-range value and `nil` before anything converts it | `RETRY-16`, `RETRY-18`, `RETRY-19`; `NFR-6`; this document's `\A\d+(\.\d+)?\z` and its "every branch clamps its result" paragraph | An unbounded run was total by the letter and not in practice: `String#to_f` / `#to_i` over a 10 MB value cost 16–20 s on `retry-after-ms` and 11 s on `X-RateLimit-Reset` (measured on 4.0.6 and 3.2.11), and past ~309 digits emitted Ruby's `Float … out of range` warning, which the suite's `NFR-6` raiser turned into an error `Policy#parse_form`'s fence swallowed — so the negative suite's `'9' * 400` cases passed by the rescue and not by the parser. Fifteen digits is the largest run a `Float` carries exactly and 10^15 seconds is thirty million years, so nothing a server could mean is refused; the boundary between "clamped to 365 days" (`RETRY-18`) and "out of range, no hint" (`RETRY-16`) moves from Float overflow to the grammar, and the ceiling keeps the HTTP-date attempt from reading a hostile value either (the longest well-formed form is the 29-byte RFC 1123 date). The wire-value-sized cost that remains is phase 1's inbound `Headers` builder's, which validates a 10 MB value in about three seconds, linearly — not the parser's |
 
 Two further as-built facts a later reader needs, not deviations: `RecoveryRetry` RAISES a non-retryable
 throwable as well as an exhausted one (the plan's `terminal` returned `nil` for it), which is `P6-9`'s
 "disallowed" clause read to its end; and a per-call `max_retries` override below zero raises rather than
 falling through, "validated non-negative" read as validation, reachable only through a forged
-`RequestOptions`.
+`RequestOptions`. And the `MAX_RETRY_ATTEMPTS` section above is one clause short since round 1: the
+read it describes is followed by `RETRY-41`'s clamp of a negative value, logged through `.build`'s
+`logger:` (`P6-59`); `initialize`'s `max_retries >= 0` still holds, because what reaches it is the
+clamped value or a caller's explicit argument.
 
 ---
 

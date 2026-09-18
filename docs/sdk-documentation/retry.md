@@ -78,9 +78,23 @@ R::Policy.throwable_retryable?(wrapped)   # a RuntimeError whose #cause is the t
 ```
 
 `Policy.retryable?(error, retryable_statuses:)` is the one dispatch point every driver calls: a
+cancellation first — `Policy.cancellation?` walks the cause chain for a `Dexpace::CancelledError`, and
+one is never retryable whatever wraps it or what the wrapper answers (`RETRY-23`, `P6-60`) — then a
 `ProtocolError` by its status against the configured set, anything else by the capability. A
 `ProtocolError` deliberately does not answer `#retryable?`, so one buried in a cause chain can never
-smuggle the baked set past the configured one (`P6-10`).
+smuggle the baked set past the configured one (`P6-10`). The stage drivers consult the cancellation
+guard before a caller's `should_retry:` too, so a predicate answering `true` never sees a cancellation.
+
+```ruby
+carrier = begin   # the adapter's retryable wrapper, raised from a rescue of the token's own raise
+  begin; raise Dexpace::CancelledError, :token; rescue Dexpace::CancelledError; raise timeout, "read"; end
+rescue timeout => error
+  error
+end
+R::Policy.throwable_retryable?(carrier)                                             # => true
+R::Policy.cancellation?(carrier)                                                    # => true
+R::Policy.retryable?(carrier, retryable_statuses: R::Policy::DEFAULT_RETRYABLE_STATUSES)   # => false
+```
 
 **The calculator** is `RETRY-9`–`RETRY-11` and `RECOV-21` in one function: `initial × multiplier^(n−1)`
 capped at the maximum, then symmetric jitter drawn uniformly from `[d(1 − j/2), d(1 + j/2)]` with
@@ -131,6 +145,11 @@ value is `nil` and never zero, a past absolute time is `0.0` and never `nil` (`R
 form is screened by a strict anchored decimal grammar *before* any float parse so `30d`, `0x10`, `1e3`,
 `5_0`, `NaN` and `Infinity` fall through (`RETRY-19`; `Integer("5_0", 10)` is 50, which is why the screen
 is load-bearing), and a value one form cannot read does not stop the next form being tried (`RETRY-22`).
+The grammars bound their digit runs at fifteen and a 64-byte ceiling sits in front of every form
+(`P6-61`): fifteen digits is the largest run a Float carries exactly and 10^15 seconds is thirty million
+years, so a longer run is out of range and `nil` before anything converts it — a 10 MB value costs the
+parser microseconds and emits no warning, where an unbounded `String#to_f` cost seconds — and the
+longest well-formed value, the 29-byte RFC 1123 date, sits well under the ceiling.
 
 ```ruby
 order = R::Policy::DEFAULT_PACING_HEADER_ORDER
@@ -143,6 +162,8 @@ pacing.("retry-after-ms" => "1500")                            # => 1.5
 pacing.("Retry-After" => "30d")                                # => nil
 pacing.("Retry-After" => "garbage", "retry-after-ms" => "1000") # => 1.0
 pacing.("Retry-After" => (400 * 86_400).to_s)                  # => 31536000.0   (365 days)
+pacing.("Retry-After" => "9" * 15)                             # => 31536000.0   (clamped)
+pacing.("Retry-After" => "9" * 16)                             # => nil          (out of range)
 ```
 
 `now:` is a parameter because the drivers pass their settings clock's `#now`, so a fake clock drives
@@ -182,7 +203,12 @@ passes, and a caller who passes one shares a mutable generator across calls.
 attempts cap is always `max_retries + 1`, an identity and never a second number (`RETRY-14`, `P6-6`).
 When no `max_retries:` is passed, `.build` reads 5a's `Configuration::Keys::MAX_RETRY_ATTEMPTS` off the
 process-wide slot once — this class is that key's first reader — and falls back to
-`Policy::DEFAULT_MAX_RETRIES`; an explicit argument always wins, and `#with` never re-hits the key.
+`Policy::DEFAULT_MAX_RETRIES`; an explicit argument always wins, and `#with` never re-hits the key. A
+*negative* configured value meets `RETRY-41` at that one read: it is clamped to the default through the
+same `Policy.effective_max_retries` the drivers resolve with, and the clamp is logged once, contained,
+through `.build`'s `logger:` (`Instrumentation::Logger::NULL` by default, read at build and never held;
+`P6-59`) — an explicit negative `max_retries:` is a caller's construction input and `RECOV-34` refuses it
+instead.
 
 ```ruby
 R::RetrySettings.build.max_retries                                        # => 2
@@ -191,6 +217,11 @@ R::RetrySettings.build.header_order.equal?(R::Policy::DEFAULT_PACING_HEADER_ORDE
 # with Dexpace.configure { |c| c.env_source = FakeConfigSource.new("MAX_RETRY_ATTEMPTS" => "4") }
 R::RetrySettings.build.max_retries                                        # => 4
 R::RetrySettings.build(max_retries: 1).max_retries                        # => 1
+# with Dexpace.configure { |c| c.env_source = FakeConfigSource.new("MAX_RETRY_ATTEMPTS" => "-1") }
+R::RetrySettings.build(logger: logger).max_retries                        # => 2   (clamped, logged)
+sink.payloads.last["message"]      # => "max_retries -1 is negative and was clamped to 2 (RETRY-41)"
+R::RetrySettings.build(max_retries: -1)
+# raises Dexpace::InvalidArgumentError: max_retries must be a non-negative Integer (RECOV-34)
 R::RetrySettings.build(jitter: 1.5)
 # raises Dexpace::InvalidArgumentError: jitter must lie within [0.0, 1.0] (RECOV-34)
 statuses = Set[500]; settings = R::RetrySettings.build(retryable_statuses: statuses); statuses << 599
@@ -212,11 +243,13 @@ One operation, in order: the tracer is made once from the factory, called with t
 effective retry count is resolved (`RETRY-41`); then per attempt — the cancellation token is checked at
 the boundary (`RETRY-23`; a zero-length `Clock#sleep` returns before its own token check, so this is what
 stands between a cancellation and a second send), `attempt_started` fires, the fork is driven, and a
-success is returned. On a failure the decision runs — re-sendability, then the condition (the shared
-classifier, or the caller's `should_retry:`), then the budget, in that order — and answers retry,
-exhausted or stop. On retry the delay is resolved from the *still-open* response, `attempt_failed`
-fires with it, the failure joins the trail, the response is closed, and the step waits on the settings
-clock's cancellable sleep with the cursor's token (`RETRY-35`, `RETRY-26`). On stop or exhausted, a
+success is returned. On a failure the decision runs — a cancellation is terminal before anything else
+(`RETRY-23`, `P6-60`), then re-sendability, then the condition (the shared classifier, or the caller's
+`should_retry:`), then the budget, in that order — and answers retry, exhausted or stop. On retry the
+delay is resolved from the *still-open* response and `attempt_failed` fires with it, both inside one
+fence that closes the response before a throwing computation or tracer propagates; then the failure
+joins the trail, the response is closed, and the step waits on the settings clock's cancellable sleep
+with the cursor's token (`RETRY-35`, `RETRY-26`). On stop or exhausted, a
 response is returned as it is and a throwable is raised with the whole prior trail attached as
 suppressed through `Dexpace.attach_suppressed` (`RETRY-34`), `retries_exhausted` firing first only when a
 *retryable* failure met a spent budget — a failure that was never retryable is not an exhausted retry.

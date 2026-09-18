@@ -108,10 +108,10 @@ warning, and the two phase-3b logging wrappers are constructed by `Step` alone, 
 alone (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`) — and the
 retry layer, chapter 9's two stacks over one policy, under `Dexpace::Resilience`: the shared policy
 core `Policy` with the two-axis classifier consult (`.retry_eligible?` over the configurable set,
-`.throwable_retryable?` as the capability query over `Dexpace.each_cause`, `.retryable?` dispatching
-between them), the backoff calculator `.backoff_delay`, the total pacing-header parser `.pacing_delay`
-over the private `PacingParsers`, `.effective_max_retries`, the recovery-only `.budget_remaining` and
-the nine constants (`RETRY-12`'s five defaults, `DEFAULT_RETRYABLE_STATUSES`,
+`.throwable_retryable?` as the capability query over `Dexpace.each_cause`, `.cancellation?` as the
+guard in front of both, `.retryable?` dispatching between them), the backoff calculator
+`.backoff_delay`, the total pacing-header parser `.pacing_delay` over the private `PacingParsers`,
+`.effective_max_retries`, the recovery-only `.budget_remaining` and the nine constants (`RETRY-12`'s five defaults, `DEFAULT_RETRYABLE_STATUSES`,
 `DEFAULT_PACING_HEADER_ORDER` and the two ceilings); the re-sendability gate `Resend.eligible?`; the
 one frozen configuration `RetrySettings` both stacks build from, the first reader of
 `Keys::MAX_RETRY_ATTEMPTS`; the stage-based pillar step `RetryStep` and its async twin
@@ -705,6 +705,20 @@ Each is one line plus the chapter to read before touching the area.
   zero before taking the power (P6-53), and `Random#rand` raises `Errno::EDOM` over an infinite bound,
   so the reset jitter is drawn only over a finite band. `RetrySettings#random` defaults to the
   `::Random` CLASS, not a shared instance (P6-52).
+- **A cancellation is never retryable, structurally; a negative CONFIGURED retry count is clamped where
+  it is read; and the pacing parser's digit runs are bounded** — `Policy.cancellation?` walks the cause
+  chain for a `CancelledError` and is consulted by `Policy.retryable?` and by the stage drivers' decision
+  BEFORE the re-sendability gate and before a caller's `should_retry`, so a predicate answering `true`
+  never sees a cancellation and a transport that wrapped the token's raise in its own retryable error is
+  terminal on all three drivers (P6-60). `RetrySettings.build` clamps a negative `MAX_RETRY_ATTEMPTS`
+  to the default through `Policy.effective_max_retries` and logs it once through its `logger:`
+  keyword — read at build, never held — while an explicit negative `max_retries:` is `RECOV-34`'s
+  refusal (P6-59). `PacingParsers`' grammars admit at most fifteen digits per run and a 64-byte value:
+  an unbounded `String#to_f` over a 10 MB header cost seconds and, past ~309 digits, emitted Ruby's
+  out-of-range warning that the `-w` suite turned into an error `Policy#parse_form`'s fence swallowed —
+  `WarningCapture`, not the raiser, is what a no-warning assertion needs (P6-61). The sync `RetryStep`
+  emits `attempt_failed` inside the same `RETRY-35` fence as the delay resolution, as the async pump
+  always did, so a throwing tracer never leaves the superseded response open.
 
 ## Public API surface
 

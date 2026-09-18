@@ -3491,3 +3491,31 @@ entry, its declined-IDs entry and its `OBS-29` entry each read true as built —
 untouched, for phase 10 to flip; no harvested rule was found wrong, so `docs/knowledge/notes/` gains
 nothing. The consolidation of P6-1–P6-12 and P6-51–P6-58 into design §10 is a human's, as it was for
 every phase before: `docs/sdk-design-ruby/` is frozen and no frozen sentence is contradicted, so no `C15`.
+
+**2026-09-18, review round 1 of the phase-6a stack.** Round 0 returned `changes_requested` with two
+blocking and five should-fix findings, every one repaired on the branch that owns the file. Blocking:
+the three driver suites built their default settings off the LIVE configuration slot (a host
+`MAX_RETRY_ATTEMPTS=0` broke the recovery suite, `-1` all three) and now carry the `FakeConfigSource`
+seam in their `Fixtures` modules, the seven suites answering identically with the variable set to `0`
+and to `-1`; and the public `error/retry_predicate_error.rb` had no `test/` mirror, so
+`retry_predicate_error_test.rb` exists and the count sentences read true. Should-fix, on the code
+branch with the proof on the tests branch: the pacing parser converted an unbounded digit run (a 10 MB
+value stalled the retry decision for seconds and a 400-digit one emitted a Ruby out-of-range warning
+the suite's raiser and `parse_form`'s fence had hidden) and now bounds every run at fifteen digits behind
+a 64-byte ceiling, answering `nil` in microseconds with no warning (`P6-61`); the sync `RetryStep` emitted
+`attempt_failed` outside the `RETRY-35` fence and leaked the superseded response when a tracer raised,
+where the async pump closed it — the emission is inside the fence on both; a caller's `should_retry`
+answering `true` retried a downstream `CancelledError`, and `Policy.cancellation?` (a ninth public
+function, the manifest at 1005 rows) now guards `Policy.retryable?` and the stage drivers' decision ahead
+of the predicate and the capability, so a wrapped cancellation is terminal on all three drivers
+(`P6-60`); a negative configured `MAX_RETRY_ATTEMPTS` raised at `RetrySettings.build`, leaving `RETRY-41`'s
+clamp unreachable from any driver — `.build` takes `logger:` and clamps-and-logs at its one read of
+the key, an explicit negative argument still `RECOV-34`'s refusal (`P6-59`); and the at-the-cap jitter
+test now asserts samples on both sides of the cap, so round 0's one surviving mutation (jitter before
+the cap, then clipped) is caught. Three nits closed: `step.rb`'s comment cites `P6-51`, not `P6-52`;
+`RetrySettings#backoff_arguments` and `#header_order` are named in the design's As-built preamble beside
+`P6-2`; the retry-after-ms exemption in the totality suite is gone with its cause. Guards 32–37 in the
+checklist are the round's, each red on 4.0.6 and 3.2.11. One observation routed nowhere because it is
+not a defect: phase 1's inbound `Headers` builder validates a 10 MB header value in about three
+seconds, linearly, which is where the wire-value-sized cost now sits — a header-size cap is a transport
+adapter's, phase 8's.
