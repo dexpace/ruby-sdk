@@ -53,11 +53,11 @@ module Dexpace
       def algorithm_of: (Challenge challenge) -> String?
       def qop_auth?: (Challenge challenge) -> bool
       def compute: (Challenge challenge, Dexpace::Request request) -> Computed
-      def response_for: (Computed computed, String method) -> String
+      def response_for: (Computed computed, String method, Array[String] ha1_parts) -> String
       def response_digest: (_Hasher hasher, Computed computed, String ha1, String ha2) -> String
-      def ha1_for: (Computed computed, _Hasher hasher) -> String
+      def ha1_for: (Computed computed, _Hasher hasher, Array[String] ha1_parts) -> String
       def credential_bytes: (Hash[String, String] params) -> Array[String]
-      def materialize: (String text, Symbol field, bool utf8) -> String
+      def materialize: (String text, Symbol field, Encoding target) -> String
       def join: (*String parts) -> String
       def next_count: (String nonce) -> String
       def request_target: (Dexpace::Request request) -> String

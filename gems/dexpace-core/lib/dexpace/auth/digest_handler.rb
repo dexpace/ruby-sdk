@@ -166,20 +166,24 @@ module Dexpace
       end
 
       # AUTH-17: the values one response is rendered from, for one challenge and one request.
+      # The credential is materialised FIRST -- the one step that can raise (AUTH-21) -- and the
+      # nonce count taken after it, so a refused attempt consumes no count and the next response
+      # on that nonce is not one higher than the server has seen (AUTH-18; the design's own order).
       def compute(challenge, request)
+        ha1_parts = credential_bytes(challenge.params)
         algorithm = algorithm_of(challenge).to_s
         cnonce = @cnonce_source.hex(16) # AUTH-20: 128 bits from a CSPRNG
         nonce = challenge.params.fetch("nonce")
         computed = Computed.new(challenge: challenge, algorithm: algorithm, cnonce: cnonce,
                                 uri: request_target(request), nc: next_count(nonce),
                                 qop: qop_auth?(challenge) ? "auth" : nil, response: nil,)
-        computed.with(response: response_for(computed, request.method.to_s))
+        computed.with(response: response_for(computed, request.method.to_s, ha1_parts))
       end
 
       # AUTH-17: HA1, HA2 over the method and the request-target, then the response.
-      def response_for(computed, method)
+      def response_for(computed, method, ha1_parts)
         hasher = HASHES.fetch(computed.algorithm.delete_suffix("-sess"))
-        ha1 = ha1_for(computed, hasher)
+        ha1 = ha1_for(computed, hasher, ha1_parts)
         ha2 = hasher.hexdigest(join(method, computed.uri))
         response_digest(hasher, computed, ha1, ha2)
       end
@@ -192,34 +196,40 @@ module Dexpace
         hasher.hexdigest(join(ha1, nonce, computed.nc, computed.cnonce, computed.qop, ha2))
       end
 
-      # H(username:realm:password), each component materialised under its own field name so
-      # the typed failure can say which one could not be encoded (R10), then session-keyed
-      # with the nonce and cnonce for a -sess algorithm. The charset token is compared with a
-      # bare, ASCII-only fold.
-      def ha1_for(computed, hasher)
-        params = computed.challenge.params
-        ha1 = hasher.hexdigest(join(*credential_bytes(params)))
+      # H(username:realm:password) over the materialised components, then session-keyed with
+      # the nonce and cnonce for a -sess algorithm.
+      def ha1_for(computed, hasher, ha1_parts)
+        ha1 = hasher.hexdigest(join(*ha1_parts))
         return ha1 unless computed.algorithm.end_with?("-sess")
 
-        hasher.hexdigest(join(ha1, params.fetch("nonce"), computed.cnonce))
+        hasher.hexdigest(join(ha1, computed.challenge.params.fetch("nonce"), computed.cnonce))
       end
 
-      # The three HA1 components as BINARY, under AUTH-21's encoding for this challenge.
+      # The three HA1 components as BINARY, under AUTH-21's encoding for this challenge, each
+      # materialised under its own field name so the typed failure can say which one could not
+      # be encoded (R10). The charset token is compared with a bare, ASCII-only fold.
       def credential_bytes(params)
         utf8 = params["charset"].to_s.b.downcase == "utf-8"
-        [materialize(@credential.username, :username, utf8),
-         materialize(params.fetch("realm"), :realm, utf8),
-         materialize(@credential.password, :password, utf8),]
+        target = utf8 ? ::Encoding::UTF_8 : ::Encoding::ISO_8859_1
+        [materialize(@credential.username, :username, target),
+         materialize(params.fetch("realm"), :realm, target),
+         materialize(@credential.password, :password, target),]
       end
 
-      # AUTH-21: UTF-8 when the challenge advertises charset=UTF-8, ISO-8859-1 otherwise --
-      # and the Latin-1 branch RAISES the typed failure, never `:replace` (R10, P6-1).
-      def materialize(text, field, utf8)
-        return text.encode(::Encoding::UTF_8).b if utf8
+      # AUTH-21: UTF-8 when the challenge advertises charset=UTF-8, ISO-8859-1 otherwise -- and
+      # either branch RAISES the typed failure naming ITS target, never `:replace` (R10, P6-1).
+      # The Latin-1 branch is the one RFC 7616's default makes ordinary (a character Latin-1 has
+      # no code for). The UTF-8 branch fires only for a value that is not text under its own tag
+      # -- a BINARY-tagged one, whose high bytes have no UTF-8 meaning, or a UTF-8-tagged one
+      # with an invalid sequence, which `encode` to the same encoding passes through unvalidated
+      # and would otherwise be hashed as it is (verified on 3.2.11, 3.4.10 and 4.0.6).
+      def materialize(text, field, target)
+        encoded = text.encode(target)
+        return encoded.b if encoded.valid_encoding?
 
-        text.encode(::Encoding::ISO_8859_1).b
+        raise UnencodableCredentialError.new(field: field, encoding: target.name)
       rescue ::Encoding::UndefinedConversionError, ::Encoding::InvalidByteSequenceError => error
-        raise UnencodableCredentialError.new(field: field, encoding: "ISO-8859-1"), cause: error
+        raise UnencodableCredentialError.new(field: field, encoding: target.name), cause: error
       end
 
       # Every hash input is BINARY, so the joiner is too.
