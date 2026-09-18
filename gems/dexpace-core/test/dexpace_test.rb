@@ -41,9 +41,9 @@ class DexpaceTest < DexpaceTestCase
   # phase 6a's retry layer (the flat RetryPredicateError beside the Resilience namespace);
   # Dexpace::Hooks, Dexpace::BoundedMap, Dexpace::CallKey, Dexpace::Recovery::Ownership, the two
   # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue, Dexpace::ProxyResolution and
-  # 6a's Resilience::PacingParsers are private_constants and appear in no constants(false) list.
-  # Phase 5c's tracing and metrics layer and phase 5b's logging layer add no flat constant:
-  # everything either ships is under
+  # 6a's Resilience::PacingParsers and Resilience::RetryStepHelpers are private_constants and
+  # appear in no constants(false) list. Phase 5c's tracing and metrics layer and phase 5b's
+  # logging layer add no flat constant: everything either ships is under
   # Dexpace::Instrumentation, which the Layers case below pins.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
@@ -170,6 +170,25 @@ class DexpaceTest < DexpaceTestCase
       refute_includes(Dexpace.constants(false), :CallKey, "Dexpace::CallKey is private")
       assert_raises(::NameError) { Dexpace::BoundedMap }
       assert_raises(::NameError) { Dexpace::CallKey }
+    end
+
+    # A consumer requires "dexpace" and nothing else: the retry layer resolves too (phase 6a) --
+    # the five public Resilience constants, the flat error, and the two private helpers and the
+    # two private per-call classes as unreachable as Dexpace::Hooks. Phase 6b and 6c add their
+    # own constants under Resilience beside these.
+    test "requiring dexpace alone makes the whole retry layer resolve, its helpers private" do
+      resilience = Dexpace::Resilience
+
+      assert_equal(%i[AsyncRetryStep Policy RecoveryRetry Resend RetrySettings RetryStep],
+                   resilience.constants(false).sort,)
+      assert_equal(Dexpace::RetryPredicateError, Dexpace.const_get(:RetryPredicateError))
+      assert_equal(2, resilience::Policy::DEFAULT_MAX_RETRIES)
+      assert_raises(::NameError) { Dexpace::Resilience::PacingParsers }
+      assert_raises(::NameError) { Dexpace::Resilience::RetryStepHelpers }
+      assert_raises(::NameError) { Dexpace::Resilience::AsyncRetryStep::Pump }
+      assert_raises(::NameError) { Dexpace::Resilience::RetryStep::Run }
+      assert_raises(::NameError) { Dexpace::Resilience::RecoveryRetry::Run }
+      assert_raises(::NameError) { Dexpace::Resilience::RetrySettings::UNSET }
     end
 
     # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).

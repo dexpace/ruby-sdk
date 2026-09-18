@@ -208,6 +208,7 @@ require_relative "dexpace/resilience/retry_settings"
 require_relative "dexpace/resilience/retry_step_helpers"
 require_relative "dexpace/resilience/retry_step"
 require_relative "dexpace/resilience/async_retry_step"
+require_relative "dexpace/resilience/recovery_retry"
 
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
