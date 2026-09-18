@@ -717,8 +717,12 @@ Each is one line plus the chapter to read before touching the area.
   an unbounded `String#to_f` over a 10 MB header cost seconds and, past ~309 digits, emitted Ruby's
   out-of-range warning that the `-w` suite turned into an error `Policy#parse_form`'s fence swallowed —
   `WarningCapture`, not the raiser, is what a no-warning assertion needs (P6-61). The sync `RetryStep`
-  emits `attempt_failed` inside the same `RETRY-35` fence as the delay resolution, as the async pump
-  always did, so a throwing tracer never leaves the superseded response open.
+  emits `attempt_failed` inside the same `RETRY-35` fence as the delay resolution and `retries_exhausted`
+  inside the same fence as the decision, as the async pump always did on both of its paths, so a
+  throwing tracer never leaves a superseded or a terminal error-status response open; and the async
+  driver's "never a blocking sleep" is asserted, not stated — the async wait tests read `clock.sleeps`
+  off the recording `FakeClock`, which is the only thing that turns a `Clock#sleep` slipped in beside
+  `Async.delay` red, since that clock records and returns.
 
 ## Public API surface
 

@@ -1464,6 +1464,20 @@ propagating throwable) already asked for. The round also found the three driver 
 configuration slot for their default settings and the public `RetryPredicateError` without a test mirror;
 both are the checklist's, not this document's.
 
+**Review round 2, 2026-09-18.** Round 1 found the same drift on the other terminal path: `RetryStep#settle`
+emitted `retries_exhausted` outside any fence, so a tracer that raised there propagated with the terminal
+error-status response still open, while `Pump#finish` ran inside its guarded block and closed it. The
+terminal path's trail attachment and emission now run inside the sync step's fence too, so on both stage
+drivers every tracer emission that follows a failure — `attempt_failed` before a wait, `retries_exhausted`
+before a terminal raise or return — propagates with the response it was handed closed first, and a tracer
+that does not raise leaves the returned terminal response open exactly as `RETRY-34` describes. Again not a
+deviation from anything written here: §11.12's rule and `RETRY-35`'s purpose asked for it, and the
+sentence above about the async pump was true of both of its paths all along. The round also found that
+`RETRY-31`'s "never a blocking sleep" clause was stated and not mechanised — a blocking `Clock#sleep`
+inserted beside `Async.delay` survived the async suite, whose every case runs on a recording `FakeClock`
+— and that is the checklist's guard 39, not this document's; and one false sentence in the checklist's
+`NFR-13` row, corrected there.
+
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P6-51 | `Pipeline#call` and `AsyncPipeline#call` take one optional keyword, `bundle: Instrumentation::Bundle::NONE`, beside the transport SPI's three positionals; `Cursor.build` takes the same keyword and validates it a `Bundle` | `CTX-14`, `PIPE-11`, `PIPE-17`, `NFR-4`; 4c's P4-38 ("exactly the transport SPI's three positional parameters") | `Transport.conforms?` refuses only a required keyword, so both runtimes remain transports by the duck type and `Registry.callable?(…, arity: 3)` still passes, asserted; what moves is P4-38's *reasoning*, since a pipeline's call surface is now the SPI's plus one seeding keyword a raw transport does not take. The widening is the one the charter assigned here and the alternative — a bundle fixed at construction — is per-pipeline where the bundle is per-operation |

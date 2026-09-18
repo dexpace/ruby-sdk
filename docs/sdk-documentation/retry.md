@@ -252,7 +252,10 @@ joins the trail, the response is closed, and the step waits on the settings cloc
 with the cursor's token (`RETRY-35`, `RETRY-26`). On stop or exhausted, a
 response is returned as it is and a throwable is raised with the whole prior trail attached as
 suppressed through `Dexpace.attach_suppressed` (`RETRY-34`), `retries_exhausted` firing first only when a
-*retryable* failure met a spent budget — a failure that was never retryable is not an exhausted retry.
+*retryable* failure met a spent budget — a failure that was never retryable is not an exhausted retry —
+and that emission sits inside the same fence as the decision, so a tracer that raises there propagates
+with the terminal error-status response closed first, while a tracer that does not leaves it open for
+the caller, as the async pump's guarded block has always done on its terminal path.
 
 The delay precedence is `RETRY-39`'s: the caller's `delay_override:` (called with `(attempt, response,
 error)`, answering seconds or `nil` to decline), then the pacing headers on the response path only,

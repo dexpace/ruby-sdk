@@ -3519,3 +3519,22 @@ checklist are the round's, each red on 4.0.6 and 3.2.11. One observation routed 
 not a defect: phase 1's inbound `Headers` builder validates a 10 MB header value in about three
 seconds, linearly, which is where the wire-value-sized cost now sits — a header-size cap is a transport
 adapter's, phase 8's.
+
+**2026-09-18, review round 2 of the phase-6a stack.** Round 1 returned `changes_requested` with one
+blocking finding, two should-fix and one nit, every one repaired on the branch that owns the file.
+Should-fix, on the code branch with the proof on the tests branch: the sync/async drift round 1 closed
+for `attempt_failed` was still open on the terminal path — `RetryStep#settle` emitted `retries_exhausted`
+outside any fence, so a tracer that raised there propagated with the terminal error-status response
+still open while `Pump#finish` closed it — and the terminal path's emission now runs inside the sync
+step's fence, both stage suites asserting the close (guard 38). Should-fix, on the tests branch alone:
+round 1's one surviving mutation, a blocking `Clock#sleep` inserted beside `Async.delay`, had left the
+async suite green because every async case runs on a `FakeClock` whose `#sleep` records and returns and
+nothing read it; the inline, parked and no-scheduler cases now assert `clock.sleeps` empty and a text
+scan refuses the token `sleep` in the driver's source (guard 39), with no `lib/` line changed. Blocking,
+by the brief's definition, a one-row docs fix: the checklist's `NFR-13` row had claimed every new `.rbs`
+opens with the SPDX header, and none does — no `.rbs` in the repository does, and the header reaches
+`sig/` with phase 10's Task 5 (`gates:spdx_rbs`) — so the row now claims the twenty new `.rb` files and
+points the `.rbs` half at its owner. The nit: three counts inside the checklist were stale after round 1
+(48 manifest rows, 1004 rows, `P6-51`–`P6-58`) and read 49, 1005 and `P6-51`–`P6-61`. No ledger row is
+added: the terminal fence, like round 1's `attempt_failed` fence, deviates from nothing the design states,
+and the design's As-built addendum carries a round-2 paragraph saying so.
