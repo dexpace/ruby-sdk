@@ -3591,7 +3591,8 @@ nothing**: no ⏳ row, no `docs/first-release.md` entry filed, no deferral. The 
 rows, **38 ✅**, nothing ⏳, nothing 🚫, nothing N/A, plus the Task 15 row — the end-to-end
 cross-origin convergence test is **written and guarded** on `defined?(Dexpace::Redirect::Step)`, its
 body proven against a scratch stub both ways, skipping on this base with a reason that names 6b as
-the phase that un-guards it — and twelve cross-reference rows. `bundle exec rake` is green on 4.0.6
+the phase that un-guards it — and twelve cross-reference rows. At the implementer's tips (`528626a`),
+`bundle exec rake` is green on 4.0.6
 at the tests tip and the docs tip with 99.98% line coverage (6,578 / 6,579 — the registry-claim race
 branch every phase since 2 has recorded; every auth file at 100%) against the 80% floor and 2,333
 runs across the six gems (283 more than the base, one skip: Task 15's); the
@@ -3650,15 +3651,15 @@ the same list: after phase 6 the body-replayability predicate has three spelling
 only credential-bearing strings it prints are the header values the layer exists to produce, over
 placeholder credentials and the RFCs' published vectors; `architecture.md`, the core README,
 `README.md` and `docs/README.md` point at it. `docs/deviations.md` is untouched, for phase 10 to
-flip. The consolidation of P6-1–P6-7 and P6-71–P6-83 into design §10 and the §6.3 addendum are a
+flip. The consolidation of P6-1–P6-7 and P6-71–P6-85 into design §10 and the §6.3 addendum are a
 human's, as they were for 3a through 5b: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is
 contradicted — §6.3's `Step.new(…)` spelling is honoured in substance by `.build`, and its
 "raise a bare error" reading of `AUTH-21`'s Latin-1 branch by the typed
 `UnencodableCredentialError` — so no `C15`. The counts that changed, on top of `main` at `f1fe848`:
 `dexpace-core`'s `lib/dexpace/` is one hundred and sixty-five phase-1 through phase-6c files beside
 phase 0's `version.rb`, eleven `private_constant`s without a `test/` mirror (`bounded_map.rb` out,
-`auth/validation.rb` in), twelve checklists, twelve as-built pages, the surface manifest 1 059 lines,
-54 corpus notes across 22 files. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory
+`auth/validation.rb` in), twelve checklists, twelve as-built pages, the surface manifest 1 059 lines
+(1 060 after review round 1's one added reader), 55 corpus notes across 22 files. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory
 sentences and the constraints-that-bite list are rewritten from what was built, for 6c on top of
 5b — and, because 6a is landing off the same base at the same time, whichever of the two phase-6
 lanes merges second rebases its counts and its `CLAUDE.md` sentences over the other's, the 4a
@@ -3676,4 +3677,24 @@ an `nc`, and now materialises the credential first, the design's own order; the 
 patterns are frozen and pinned with their per-pattern timeout, the plan-equivalent survivor now
 caught; and the widening of 5b's `instrumentation/keys.rb` beside `bounded_map.rb` is recorded for
 the 6a/6c merge to treat as a shared pair. Seven mutations run red after the repair on 4.0.6 and
-3.2.11, the checklist's deviations 29 and 30 and its second guard table.
+3.2.11, the checklist's deviations 29 and 30 and its second guard table; at the repaired tips
+(`a6c5bad`) the full rake reports 2,339 runs and 6,583 / 6,584 lines. **Review round 1 (2026-09-18)
+found one shape the async step's own class comment claimed covered and a one-character leak the
+round-0 checks did not reach**: a challenge hook answering a *future* that fulfilled with a
+non-request failed the step's future with the 401 body left open, because the settled value was
+checked outside the frame that closes it — `Step#consult`'s rescue is now one `closing_on_error`
+frame both runtimes use and the settled value goes through it too; and `UnencodableCredentialError`
+carried the rescued `Encoding::UndefinedConversionError` as its cause, per the design's own `R10`,
+whose message names the offending character of the password (`U+65E5`) and which `#full_message`
+renders on every supported Ruby — both encoding failures are now raised `cause: nil`, the error
+carries the value's own encoding as `#source_encoding` instead, `BasicHandler` refuses a field UTF-8
+cannot carry as a typed `InvalidArgumentError` in place of the bare conversion error it let escape
+(**P6-85**), and `docs/knowledge/notes/error-handling.md` narrows the styleguide's "the original
+exception object as the `cause:`" rule for a secret. The round's two suite findings are pinned: the
+`AUTH-30` close-before-replay order is now read as the second drive reaches the transport, so a
+close-after-drive mutation runs red on both runtimes, and the async stamper's "caches nothing" for a
+rejected already-expired token is asserted through `#evict_if_matches`. Twelve mutations run red
+after the repair on 4.0.6 and 3.2.11 (the checklist's third guard table, 69–80, and its deviations
+31 and 32); at the repaired tips the full rake reports 2,343 runs, 60,129 assertions, one skip and
+6,603 / 6,604 lines (99.98%) on 4.0.6, the code tip 92.61% with all seventeen gates green one by one,
+and the matrix set 2,343 runs at 99.98% on 3.2.11; the surface manifest is 1 060 lines.

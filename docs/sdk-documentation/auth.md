@@ -148,7 +148,10 @@ One class, two roles, one precomputed value: `#call` stamps preemptively — the
 `http`/`basic` scheme takes, sending the credential on the first request — and `#authorization_for`
 answers a `basic` challenge, case-insensitively. The value is `"Basic "` plus `pack("m0")` over the
 UTF-8 bytes of `username:password`, computed once; both fields must be non-empty, and a
-whitespace-only password is legal (`AUTH-14`). The header is *set*, so a re-stamp replaces.
+whitespace-only password is legal (`AUTH-14`). A field UTF-8 cannot carry — a BINARY-tagged one with a
+high byte, or a UTF-8-tagged one with an invalid sequence — is refused at construction as an
+`InvalidArgumentError` naming the field and the two encodings, with no cause and no byte of the value
+in any rendering (`AUTH-8`, design P6-85). The header is *set*, so a re-stamp replaces.
 
 ```ruby
 request = Dexpace::Request.build(method: "GET", url: "https://api.example.test/v1/pets",
@@ -159,6 +162,12 @@ basic.authorization_for(A::Challenges.parse("BASIC realm=x"), request, proxy: fa
                                                           # => "Basic YWxpY2U6czNjcjN0"
 basic.authorization_for(A::Challenges.parse('Digest realm="x", nonce="n"'), request, proxy: false)
                                                           # => nil
+begin
+  A::BasicHandler.new(A::PasswordCredential.build(username: "alice", password: "p\xE4".b))
+rescue Dexpace::InvalidArgumentError => error
+  error.message.start_with?("the password cannot be encoded as UTF-8 from ASCII-8BIT")   # => true
+  error.cause                                             # => nil
+end
 ```
 
 ## Digest: `DigestHandler`
@@ -173,8 +182,11 @@ server nonce, one read-modify-write under the handler's own bounded map, wrappin
 are UTF-8 under `charset=UTF-8` and ISO-8859-1 otherwise, and either branch **raises** a typed
 failure naming its own encoding on a credential it cannot represent — Latin-1 for a character it has
 no code for, UTF-8 for a BINARY-tagged or invalidly tagged value — never a silently wrong response
-(`AUTH-21`, design P6-1, P6-84). A refused attempt consumes no nonce count. The example is RFC 2617
-§3.5's own vector, with a fixed cnonce so it reproduces.
+(`AUTH-21`, design P6-1, P6-84). The failure names the field, the target encoding and the value's own
+encoding, and carries **no `#cause`**: Ruby's conversion error names the offending character of the
+secret, and `#full_message` renders a cause, so the character would have been the one thing a
+diagnostic could leak (`AUTH-8`, design P6-85). A refused attempt consumes no nonce count. The example
+is RFC 2617 §3.5's own vector, with a fixed cnonce so it reproduces.
 
 ```ruby
 class FixedCnonce
@@ -200,8 +212,10 @@ japanese = A::DigestHandler.new(A::PasswordCredential.build(username: "u", passw
 begin
   japanese.authorization_for(A::Challenges.parse('Digest realm="r", nonce="n"'), index, proxy: false)
 rescue A::UnencodableCredentialError => error
-  [error.field, error.encoding]                           # => [:password, "ISO-8859-1"]
+  [error.field, error.encoding, error.source_encoding]    # => [:password, "ISO-8859-1", "UTF-8"]
   error.message.include?("日本語")                          # => false: the message names the field, never the value
+  error.cause                                             # => nil: the conversion error named U+65E5, a character of it
+  error.full_message(highlight: false).include?("U+65E5") # => false
 end
 japanese.authorization_for(A::Challenges.parse('Digest realm="r", nonce="n", charset=UTF-8'), index, proxy: false).nil?
                                                           # => false: UTF-8 advertised, hashed as UTF-8
@@ -209,7 +223,7 @@ binary = A::DigestHandler.new(A::PasswordCredential.build(username: "u", passwor
 begin
   binary.authorization_for(A::Challenges.parse('Digest realm="r", nonce="n", charset=UTF-8'), index, proxy: false)
 rescue A::UnencodableCredentialError => error
-  [error.field, error.encoding]                           # => [:password, "UTF-8"]: the branch that raised
+  [error.field, error.encoding, error.source_encoding]    # => [:password, "UTF-8", "ASCII-8BIT"]: the branch that raised
 end
 
 sha = A::DigestHandler.new(mufasa, preference: %w[SHA-256 MD5])
@@ -391,7 +405,10 @@ Dexpace::Pipeline.builder(transport: transport).append(A::Step.build(stamper: A:
 
 The async step runs the same body inside one `Completer` frame, so the guard's failure, a raising
 stamper, a failing provider and every hook failure settle the one returned future rather than raising
-(`AUTH-38`), with no `Fiber.scheduler` required because nothing in it waits.
+(`AUTH-38`), with no `Fiber.scheduler` required because nothing in it waits. Its hook may also answer a
+`Dexpace::Async::Future` of the replacement (design P6-78), and whatever that future settles with meets
+the same check and the same close as a direct answer: a failed future, or one fulfilling with anything
+but a request or nil, closes the open 401 before the step's future fails (`AUTH-32`).
 
 ```ruby
 class ScriptedAsyncTransport < ScriptedTransport

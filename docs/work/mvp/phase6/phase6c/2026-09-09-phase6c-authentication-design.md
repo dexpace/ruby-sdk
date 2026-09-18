@@ -1119,7 +1119,7 @@ resolves; outside this document every citation reads "6c's P6-n". The checklist'
 the plan" is the itemised list against the plan's text; the rows here are the ones that touch public
 behaviour, the contract a later phase cites, or a statement this document makes.
 
-Six statements above read differently against the source, and the difference is recorded here
+Seven statements above read differently against the source, and the difference is recorded here
 rather than by rewriting the text it corrects:
 
 - **The pinned constructor is `Step.build`, not `Step.new`, and it has no `redactor:` keyword.** Phase
@@ -1147,6 +1147,19 @@ rather than by rewriting the text it corrects:
   UTF-8 hash input either and is refused with `encoding: "UTF-8"` and a reason worded for that
   branch (P6-84). Review round 0 (2026-09-18) found the first build naming ISO-8859-1 on both
   branches and blaming the challenge for a byte the caller supplied.
+- **`R10`'s typed failure carries NO `#cause`, and `BasicHandler` raises its own typed refusal.** `R10`
+  above sets `#cause` to the rescued `Encoding::UndefinedConversionError` "because it is free and
+  consistent"; it is neither. Ruby's conversion error names the offending character (`U+65E5 from UTF-8
+  to ISO-8859-1` — U+65E5 is 日, a character of the password) or byte (`"\xE4" from ASCII-8BIT to
+  UTF-8`), and `#full_message` — what Ruby prints for an uncaught exception, what `Dexpace.each_cause`
+  walks — renders a cause on every supported Ruby, so the cause was the one diagnostic rendering
+  through which a credential could leak (`AUTH-8`). Both raises in `materialize` now spell `cause: nil`
+  and the error carries the value's own encoding as `#source_encoding` and in its message instead, so
+  the diagnostic loses only the character; and `BasicHandler`, which let the bare conversion error
+  escape at construction for a BINARY-tagged or invalid UTF-8-tagged field, refuses it as an
+  `InvalidArgumentError` naming the field and the two encodings, `cause: nil` (P6-85). Review round 1
+  (2026-09-18) found it; `docs/knowledge/notes/error-handling.md` narrows the styleguide's "the original
+  exception object as the `cause:`" rule for a secret.
 
 Review round 0 (2026-09-18) also found `compute` taking the nonce count before hashing, so a refused
 attempt consumed an `nc`; the object model's `authorization_for` fence above materialises the
@@ -1157,6 +1170,19 @@ asserted only through the real stamper, which fetches through either method once
 empty, and is now told apart through a stamper double whose two stamps differ on the wire; and the
 parser's eight patterns are pinned as frozen, timeout-compiled `Regexp`s, which needed the `.freeze`
 `Regexp.new` does not give.
+
+Review round 1 (2026-09-18) found one more gap in the async step that this document's own P6-78 row
+promised closed: a challenge hook answering a *future* that fulfils with something that is not a
+request or nil failed the step's future with the 401 body left open, because the settled value was
+checked outside the frame that closes the 401. `Step#consult`'s rescue is now one private
+`closing_on_error(response)` frame both runtimes use, `AsyncStep` overrides `consult` to pass a future
+through, and the settled value is checked inside the same frame — so a String, or a future of a future,
+closes the 401 before the frame fails the future, exactly as a synchronous non-request does. P6-78's
+statement stands as written and now holds for every shape; no row. The round's other findings were the
+suite's: `AUTH-30`'s "close the original 401 AND drive the replacement" order was asserted by count
+alone, so a close-after-drive mutation survived on both interpreters, and the replay's scripted reply
+now reads the close count as the second drive reaches the transport; and the async stamper's "caches
+nothing" for a rejected already-expired token is pinned through `#evict_if_matches`.
 
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
@@ -1174,6 +1200,7 @@ parser's eight patterns are pinned as frozen, timeout-compiled `Regexp`s, which 
 | P6-82 | `unencodable_credential_error.rb`, `https_required_error.rb` and `provider_error.rb` live under `lib/dexpace/auth/`; `bounded_map.rb` gains a true `test/` mirror (`bounded_map_test.rb`) and leaves `CLAUDE.md`'s private-constant exception list as `auth/validation.rb` joins it | Resolved open question 2 (files); phase 4a's P4-3; `XCUT-14` | The constant path decides the file path (phase 2's `serde/`); `#update` is the first `BoundedMap` method with no consumer of its own to assert it through, and `AUTH-24`'s deterministic proof needs the map directly |
 | P6-83 | `Requirement.build(scheme:)` resolves a String, a Symbol or a copied constant through `Scheme.of`; `Descriptor.build(requirements:)` is keyword-shaped; `Scheme::ALL` is public with `.[]` hidden beside `.new`; `Challenge.build` is the one place the scheme and parameter names are folded and exposes `#token68`; the resolver's `available_schemes` are resolved the same way | `AUTH-1`–`AUTH-5`, `AUTH-12`; design §4's construction pattern; `HTTP-3`'s `#with` | `Model#with` is `self.class.build(**to_h, **changes)`, so a positional `.build` breaks derivation; a `Data`'s generated `.[]` is a second public constructor; one fold point means a hand-built and a parsed challenge meet a handler in one shape |
 | P6-84 | `UnencodableCredentialError#encoding` names the branch that raised — `"ISO-8859-1"` under RFC 7616's default, `"UTF-8"` when the challenge advertised it — and its message's reason is that branch's own; `DigestHandler#materialize` transcodes on both branches and refuses, under `charset=UTF-8`, a BINARY-tagged credential (the conversion error as `#cause`) or a UTF-8-tagged one with an invalid sequence (`#cause` nil) | `AUTH-21`, `R10`; `AUTH-8`; review round 0's R0-3 (2026-09-18) | Round 0's tree rescued both branches into an error that always said ISO-8859-1 and "the challenge did not advertise charset=UTF-8", false for the UTF-8 branch; `encode` to the same encoding passes invalid bytes through unvalidated (verified on 3.2.11, 3.4.10 and 4.0.6), so an invalid UTF-8-tagged credential would have been hashed as it was — the silently wrong response `R10` rejects |
+| P6-85 | `UnencodableCredentialError` is raised with `cause: nil` on both of `DigestHandler#materialize`'s raising paths and carries the value's own encoding as `#source_encoding` and in its message ("cannot be encoded as ISO-8859-1 from UTF-8"), never the rescued `Encoding::UndefinedConversionError`; `BasicHandler` refuses a username or password UTF-8 cannot carry — BINARY-tagged with a high byte, or UTF-8-tagged with an invalid sequence — as an `InvalidArgumentError` naming the field and the two encodings, `cause: nil`, in place of the bare conversion error it let escape | `AUTH-8`, `AUTH-14`, `AUTH-21`; `R10`'s "`#cause` set to the rescued `Encoding::UndefinedConversionError`" and P6-84's "(the conversion error as `#cause`)", both amended; `InvalidArgumentError`'s class comment ("the original left as the `cause`"); review round 1's R1-3 (2026-09-18); `docs/knowledge/notes/error-handling.md` | The conversion error's message names the offending character or byte of the secret (`U+65E5`, `"\xE4"`), and `#full_message` renders a cause on 3.2.11 through 4.0.6, so a cause here is a diagnostic rendering of the credential `AUTH-8` forbids; `cause: nil` rather than a bare raise so a caller's in-flight `$!` is not assigned either; the source encoding is the part of the dropped message that was not the secret |
 
 
 ## Work phase 6c postpones, and who owns it now

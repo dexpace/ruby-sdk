@@ -771,7 +771,12 @@ Each is one line plus the chapter to read before touching the area.
   cannot represent raises `Auth::UnencodableCredentialError` naming THAT branch's encoding — never
   `:replace`, and never a UTF-8-tagged value with an invalid sequence hashed as it is, which `encode` to
   the same encoding passes through unvalidated (`AUTH-21`; 6c's P6-1, P6-84); the credential is
-  materialised BEFORE the nonce count is taken, so a refused attempt consumes no `nc`.
+  materialised BEFORE the nonce count is taken, so a refused attempt consumes no `nc`. **That failure,
+  and `BasicHandler`'s `InvalidArgumentError` for a field UTF-8 cannot carry, are raised `cause: nil`
+  with the value's own encoding as `#source_encoding` / in the message instead** — Ruby's conversion
+  error names the offending character (`U+65E5 from UTF-8 to ISO-8859-1`) or byte of the secret, and
+  `#full_message` renders a cause on every supported Ruby, so the styleguide's "the original as the
+  `cause`" rule yields to `AUTH-8` for a credential (6c's P6-85, `docs/knowledge/notes/error-handling.md`).
 - **A `Data` that carries a secret overrides `#pretty_print` beside `#to_s` and `#inspect`** — pp.rb gives
   `Data` its own `#pretty_print` over `members` and never consults an `#inspect` override, so
   `pp credential` printed the token with the two overrides alone; a plain class pretty-prints through
