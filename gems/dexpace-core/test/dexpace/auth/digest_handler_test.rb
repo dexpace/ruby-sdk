@@ -287,6 +287,20 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
     test "AUTH-24: the handler is frozen and holds no per-request state" do
       assert_predicate(handler, :frozen?)
     end
+
+    # The credential is materialised before the count is taken (the design's order), so the
+    # one step that can raise leaves the nonce's counter where it was (review round 0's R0-4).
+    test "AUTH-18: a refused attempt consumes no nonce count; the next response is not one high" do
+      digest_handler = handler(credential(username: "a", password: "日"))
+
+      assert_raises(Dexpace::Auth::UnencodableCredentialError) do
+        answer(digest_handler, digest(nonce: "once", qop: "auth"))
+      end
+      assert_nil(digest_handler.instance_variable_get(:@nonces)["once"])
+      header = answer(digest_handler, digest(nonce: "once", qop: "auth", charset: "UTF-8"))
+
+      assert_equal("00000001", params_of(header)["nc"])
+    end
   end
 
   # AUTH-20, AUTH-21: the cnonce source and the hash-input encoding.
@@ -355,6 +369,32 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
       end
 
       assert_equal(:username, error.field)
+    end
+
+    # The UTF-8 branch can raise too, and when it does the error names UTF-8 and not Latin-1
+    # (review round 0's R0-3): a BINARY-tagged credential has no UTF-8 meaning for a high byte,
+    # and a UTF-8-tagged one with an invalid sequence passes `encode` to the same encoding
+    # unvalidated, so it is refused on its own bytes rather than hashed as it is.
+    test "AUTH-21 (R0-3): the UTF-8 branch's failure names UTF-8, for a BINARY or invalid tag" do
+      binary = credential(username: "a", password: "p\xE4".b)
+      error = assert_raises(Dexpace::Auth::UnencodableCredentialError) do
+        answer(handler(binary), digest(charset: "UTF-8"))
+      end
+
+      assert_equal([:password, "UTF-8"], [error.field, error.encoding])
+      assert_kind_of(Encoding::UndefinedConversionError, error.cause)
+      assert_includes(error.message, "advertised charset=UTF-8")
+      refute_includes(error.message, "ISO-8859-1")
+      invalid = credential(username: "a", password: (+"p\xE4").force_encoding(Encoding::UTF_8))
+      error = assert_raises(Dexpace::Auth::UnencodableCredentialError) do
+        answer(handler(invalid), digest(charset: "utf-8"))
+      end
+
+      assert_equal([:password, "UTF-8"], [error.field, error.encoding])
+      assert_nil(error.cause)
+      latin1 = credential(username: "a", password: "pä".encode(Encoding::ISO_8859_1))
+
+      refute_nil(answer(handler(latin1), digest(charset: "UTF-8"))) # transcoded, not refused
     end
   end
 

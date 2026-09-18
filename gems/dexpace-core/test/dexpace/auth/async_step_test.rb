@@ -10,14 +10,17 @@ require_relative "../../support/auth_fixtures"
 require_relative "../../support/scripted_bearer_provider"
 require_relative "../../support/scripted_async_bearer_provider"
 require_relative "../../support/spy_cursor"
+require_relative "../../support/spy_bearer_stamper"
 require_relative "../../support/fake_clock"
 
 # Exercises: AUTH-38 and the async mirror of AUTH-27 through AUTH-37 -- the async AUTH pillar
 # step through a real async pipeline: every failure a failed future and never a synchronous
 # raise, the three-zone stamper driven through it, the bearer 401 branch awaiting a genuinely
-# fresh fetch after an eviction and reusing a preserved token otherwise, AUTH-31's gate through
-# the inherited predicate, AUTH-32's three clauses, and cancellation forwarded both ways. Every
-# #value here is on a future the test settles or one already settled. Split under
+# fresh fetch after an eviction and reusing a preserved token otherwise -- the routing itself
+# through a stamper double whose #stamp and #stamp_fresh differ on the wire (review round 0's
+# R0-1), since the real stamper fetches either way once its cache is empty -- AUTH-31's gate
+# through the inherited predicate, AUTH-32's three clauses, and cancellation forwarded both
+# ways. Every #value here is on a future the test settles or one already settled. Split under
 # Metrics/ClassLength.
 class DexpaceAuthAsyncStepTest < DexpaceTestCase
   AsyncStep = Dexpace::Auth::AsyncStep
@@ -361,6 +364,28 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
 
       assert_equal(200, dispatch(async_step(stamper: stamper), transport).value.status.code)
       assert_equal(["Bearer old", "Bearer new"], transport.authorization_headers)
+    end
+
+    # The real stamper fetches through either method once evicted, so only a double whose two
+    # stamps differ on the wire can tell the routing apart (R0-1).
+    test "AUTH-37: after a SUCCESSFUL eviction the retry goes through #stamp_fresh, never #stamp" do
+      stamper = SpyBearerStamper.new(evicts: true)
+      transport = settled(unauthorized_bearer, ok)
+      response = dispatch(async_step(stamper: stamper), transport).value
+
+      assert_equal(200, response.status.code)
+      assert_equal(["Bearer cached", "Bearer fresh"], transport.authorization_headers)
+      assert_equal([:stamp, [:evict_if_matches, "Bearer cached"], :stamp_fresh], stamper.calls)
+    end
+
+    test "AUTH-36: after a FAILED eviction (refreshed elsewhere) the retry is stamped by #stamp" do
+      stamper = SpyBearerStamper.new(evicts: false)
+      transport = settled(unauthorized_bearer, ok)
+      response = dispatch(async_step(stamper: stamper), transport).value
+
+      assert_equal(200, response.status.code)
+      assert_equal(["Bearer cached", "Bearer cached"], transport.authorization_headers)
+      assert_equal([:stamp, [:evict_if_matches, "Bearer cached"], :stamp], stamper.calls)
     end
   end
 end
