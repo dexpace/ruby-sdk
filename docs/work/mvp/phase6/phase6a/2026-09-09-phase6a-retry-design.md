@@ -1424,6 +1424,49 @@ Numbering starts at `P6-1`; no `P6-<n>` existed anywhere in `docs/` when this do
 | P6-11 | `Dexpace::Resilience::RetryPredicateError` (`RETRY-40`'s well-typed abort), `Dexpace::Resilience::RetryStepHelpers` and `Dexpace::Resilience::PacingParsers` (both `private_constant`) are public/internal constants design §6.1 does not name | `NFR-4`; `RETRY-40`; `api-design/b0e18938` | `RETRY-40` requires "a well-typed illegal-state error" and names none; only `RetryPredicateError` is `NFR-4` surface, the other two carry no `sig/` and no manifest row. This row completes `P6-1`, which listed the five `Resilience` constants and omitted the error class |
 | P6-12 | `Policy.effective_max_retries` takes a duck-typed `log:` sink (default the no-op) so `RETRY-41`'s "and the clamp logged" clause is implemented | `RETRY-41`; `CLAUDE.md`'s bundled-gem rule; `OBS` | `RETRY-41` is a MUST whose parenthesis a pure function silently drops. Core may not `require "logger"`, so the sink is a duck type exactly as §8.1 prescribes, and the default keeps `Policy` allocation-free and side-effect-free on every non-clamping call |
 
+### As built, 2026-09-18
+
+`P6-1` through `P6-12` stand as written, with three of their statements read differently against the
+source: `P6-1`'s list of public constants grows by `Policy::DEFAULT_PACING_HEADER_ORDER` — the plan's
+two identical private lists in `RetryStepHelpers` and `RecoveryRetry` were one constant typed twice,
+which is the drift `RETRY-13` is about, one level up — and `interface _HTTPTracer` landed inside 5c's
+existing `sig/dexpace/instrumentation/http_tracer.rbs` (which the design's module layout said did not
+exist) rather than in a new file; `P6-11`'s "the other two carry no `sig/`" is wrong for this tree —
+every `private_constant` carries a `sig/` mirror because the strict `core` Steep target types its
+call sites (phase 4's `hooks.rbs` precedent), and none carries a `test/` mirror; and `P6-12`'s `log:`
+is `logger:`, typed as 5b's `Instrumentation::Logger`, because that facade is what every earlier
+`logger:` keyword in core takes (`close_quietly`, `Hooks.notify`, `Proxy.resolve`). Two statements in
+the object model are false as written and are recorded here rather than by rewriting them: the
+`AsyncRetryStep` sketch's `pump.call(attempt + 1)` from inside the delay future's `on_settle` callback
+DOES grow the Ruby call stack, because `Future#on_settle` runs its block inline on an already-settled
+future and every scripted downstream and every zero-length delay settles inline — measured at
+`SystemStackError` after roughly 1,500 attempts on 3.2.11, 3.4.10 and 4.0.6 — so the `RETRY-30`
+paragraph beneath it ("does not grow the Ruby call stack across retries") described the mechanism the
+plan then did not build (`P6-54`); and `R2`'s "caught by the same `rescue` the driver already writes"
+is right only because the fence sits around the *caller* of `Async.delay`, since the `SeamError` is
+raised synchronously and never reaches a future's callback. This phase was cut from `main` at
+`f1fe848`, which holds all of phase 5; the execution rows are numbered from **P6-51** because the three
+phase-6 lanes are numbered apart — 6c's from P6-71, 6b's from P6-91 — and the checklist's "Deviations
+from the plan" is the itemised list against the plan's text; the rows here are the ones that touch
+public behaviour or a statement this document makes.
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P6-51 | `Pipeline#call` and `AsyncPipeline#call` take one optional keyword, `bundle: Instrumentation::Bundle::NONE`, beside the transport SPI's three positionals; `Cursor.build` takes the same keyword and validates it a `Bundle` | `CTX-14`, `PIPE-11`, `PIPE-17`, `NFR-4`; 4c's P4-38 ("exactly the transport SPI's three positional parameters") | `Transport.conforms?` refuses only a required keyword, so both runtimes remain transports by the duck type and `Registry.callable?(…, arity: 3)` still passes, asserted; what moves is P4-38's *reasoning*, since a pipeline's call surface is now the SPI's plus one seeding keyword a raw transport does not take. The widening is the one the charter assigned here and the alternative — a bundle fixed at construction — is per-pipeline where the bundle is per-operation |
+| P6-52 | `RetrySettings#random` defaults to the `::Random` CLASS, whose `.rand` is the process generator, not to `::Random.new` | `RETRY-42`; the plan's Task 7 | A fresh `Random` instance held by a frozen settings object shared across every call a pipeline serves is a mutable generator mutated concurrently from eight threads — "immutable and stateless" is not literally true of a `Random` member. The class's `.rand` is what `Kernel#rand` uses and CRuby guards it; a seeded instance is what a test passes, and the caveat for a caller who passes one is stated in the YARD and the page |
+| P6-53 | `Policy.backoff_delay` answers `0.0` for a zero initial delay before taking the power | `RETRY-11`, `RECOV-26` | `0.0 * Float::INFINITY` is `NaN` and `[NaN, 8.0].min` raises `ArgumentError: comparison of Float with NaN failed` on every supported Ruby, so the design's "overflow-safety is Ruby float arithmetic's own behaviour, not a guard 6a writes" held for every initial delay but zero — found by the 2,000-attempt trampoline test, whose zero-length schedule reached attempt 1,025 |
+| P6-54 | `AsyncRetryStep`'s trampoline is a private per-call `Pump` with a `running`/`rearm` flag pair flipped under one `Thread::Mutex`: an inline settlement re-arms the loop already running, and only a settlement on another frame starts a new loop | `RETRY-30`, `RETRY-31`, `RETRY-33`; the object model's sketch | The sketch recursed (above). The built shape is measured flat — a transport recording `caller.size` sees one depth across 2,001 sends — and the mutex is the one 6a holds, across the flag flip only, never across an attempt, because a settlement from another thread must not lose its re-arm between the loop's last check and its exit |
+| P6-55 | `Pump#delivered?` delivers a fatal-family error that arrives as a downstream SETTLEMENT unclassified, unretried and with no trail attached | `RETRY-25` | On the async path a fatal never meets a rescue arm — it is carried by the future — so the design's "4b's rescue split already implements it" reaches the sync drivers only; without the branch a `NoMemoryError` subclass answering `#retryable?` was retried four times (the discriminating fixture the guard needed) |
+| P6-56 | `Dexpace::RetryPredicateError` is flat under `Dexpace::`, in `lib/dexpace/error/retry_predicate_error.rb`, not `Dexpace::Resilience::RetryPredicateError` | `RETRY-40`; `P6-11`; the tree's one-error-per-file convention | The plan named it two ways; the flat spelling is where every other core error lives (`PipelineError`, `ContextConflictError`, `ProtocolError`) and what `dexpace_test.rb`'s layer table pins beside `Resilience` |
+| P6-57 | `RETRY-40`'s fallback and `RETRY-41`'s clamp are logged through `Instrumentation.diagnostic` under 5b's existing `Events::INSTRUMENTATION_HOOK` and `::INSTRUMENTATION_CONFIG`, contained; no ninth event constant | `RETRY-40`, `RETRY-41`, `OBS-20`, `NFR-4` | A negative configured retry count is a configuration diagnostic and a caller hook that raised is a dropped hook failure — both names already exist with those meanings, and a ninth event would be one more NFR-4-locked constant for a distinction nothing consumes. The HTTP tracer is not contained (`OBS-30`) |
+| P6-58 | `retries_exhausted` fires only when a RETRYABLE failure met a spent budget, and for an exhausted error STATUS reports a `ProtocolError` carrying the trail; the two stage drivers' decision answers `:retry`, `:exhausted` or `:stop` with the budget checked last | `OBS-29`; 5c's `ordering_test.rb`, third case | The sketch emitted it before every terminal raise and passed `nil` for a returned response. 5c's conformance suite fixes the rule the other way — "a non-retried failure ends in `operation_failed` alone and never a `retries_exhausted`" — and `_HTTPTracer#retries_exhausted` takes an `Exception`, so the response path converts once and the tracer sees the object the trail is on |
+
+Two further as-built facts a later reader needs, not deviations: `RecoveryRetry` RAISES a non-retryable
+throwable as well as an exhausted one (the plan's `terminal` returned `nil` for it), which is `P6-9`'s
+"disallowed" clause read to its end; and a per-call `max_retries` override below zero raises rather than
+falling through, "validated non-negative" read as validation, reachable only through a forged
+`RequestOptions`.
+
 ---
 
 ## Work phase 6a postpones, and who owns it now

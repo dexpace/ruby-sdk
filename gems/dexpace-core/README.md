@@ -4,7 +4,8 @@ Part of the [dexpace Ruby SDK](../../README.md): an HTTP-client toolkit, not an 
 This gem is the core: the domain model, the pipeline and every seam's contract.
 
 **Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer,
-the body layer, the recovery layer and the stage pipeline are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
+layer, the tracing, metrics and logging layers and the retry layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -50,14 +51,24 @@ with `Logger::NULL`, `Instrumentation.contain` and `.diagnostic`, `Diagnostics.c
 `.folded` and `RESERVED_PREFIX`, `RedactionPolicy` and `Redactor` with their `DEFAULT`s,
 `Preview.render`, `HTTPLogging`, the pipeline steps `Step` and `AsyncStep` at `Stages::LOGGING`,
 `Configuration::Keys::LOG_PREVIEW_BYTES`, and the `logger:` keyword on `Dexpace.close_quietly`,
-`Hooks.notify` and `Proxy.resolve`. Nothing else yet: the pillar step families and every adapter
-are later phases', nothing emits the HTTP-tracer vocabulary, and no transport ships here, so
-nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
-`docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
-`docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md`,
-`docs/sdk-documentation/pipelines.md`, `docs/sdk-documentation/configuration.md`,
-`docs/sdk-documentation/tracing-and-metrics.md` and
-`docs/sdk-documentation/logging-and-redaction.md`.
+`Hooks.notify` and `Proxy.resolve`
+-- and phase 6a's retry layer under `Dexpace::Resilience`: the shared policy core `Policy` (the
+two-axis classifier consult, the backoff calculator, the total pacing-header parser, the tuning
+constants and the recovery-only budget), the re-sendability gate `Resend`, the one configuration
+`RetrySettings` both stacks build from (the first reader of `Keys::MAX_RETRY_ATTEMPTS`), the
+stage-based pillar step `RetryStep` and its async twin `AsyncRetryStep` at `Stages::RETRY`, the
+recovery-chain engine `RecoveryRetry` that decorates a raw transport beneath the orchestrator, the
+flat `Dexpace::RetryPredicateError`, and three wirings into earlier layers: `ProtocolError#retryable_by_status?`,
+`Pipeline::Cursor#bundle` with the `bundle:` keyword on both runtimes' `#call` (which 5b's
+instrumentation step now reads), and `HTTPDate.parse`'s single-digit day. Nothing else yet: the
+redirect and auth pillar steps, the `standard` constructors and every adapter are later phases',
+the three retry drivers are the only emitters of the HTTP-tracer vocabulary (its per-attempt group),
+and no transport ships here, so nothing talks to a socket. The as-built pages are
+`docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`,
+`docs/sdk-documentation/body.md`, `docs/sdk-documentation/execution-context.md`,
+`docs/sdk-documentation/recovery.md`, `docs/sdk-documentation/pipelines.md`,
+`docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
+`docs/sdk-documentation/logging-and-redaction.md` and `docs/sdk-documentation/retry.md`.
 
 ## Install
 
@@ -172,6 +183,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   the sink and the severity set, the logger and the event, rendering and the byte cap, the
   redactor and its policy, the diagnostic-context bridge and the floor, containment, the body
   preview, the logging level and its keys, the step on both runtimes, and the four wirings.
+- `docs/sdk-documentation/retry.md` -- the retry layer as built: the policy core and its two
+  questions, the calculator, the pacing parser, the re-sendability gate, the one configuration,
+  the stage step on both runtimes and the async trampoline, the recovery-chain engine and its
+  budget, the per-attempt tracer events, and the three wirings into earlier layers.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

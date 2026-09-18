@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b and 5c are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c and 6a are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -47,8 +47,14 @@ duck-typed sink and the closed severity set, the logger and the accumulating eve
 twin, the redactor and its default-deny policy, the diagnostic-context fold and snapshot bridge,
 the containment every emission runs inside, the body preview, the HTTP logging level and its two
 keys, and the instrumentation step on both runtimes — the one thing that starts a span and records
-the two metrics per request (`docs/sdk-documentation/logging-and-redaction.md`); nothing emits the
-HTTP-tracer vocabulary yet, and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
+the two metrics per request (`docs/sdk-documentation/logging-and-redaction.md`) — and the retry
+layer: one policy core with its two-axis classifier consult, backoff calculator, total
+pacing-header parser and tuning constants, the re-sendability gate, the one configuration object
+both stacks build from, the stage-based retry step on both runtimes with its iterative async
+trampoline, and the recovery-chain retry beneath the orchestrator with its total-timeout budget —
+the three drivers that emit the HTTP-tracer vocabulary's per-attempt group
+(`docs/sdk-documentation/retry.md`); the operation-lifecycle and transport groups of that vocabulary
+are emitted by nothing yet, and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |

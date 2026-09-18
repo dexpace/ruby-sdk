@@ -5,16 +5,16 @@ skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, pha
 layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
 layer on top of it, phase 4a the execution context one in-flight call carries, phase 4b the
 recovery layer and the error trail, phase 4c the stage pipeline, phase 5a the configuration
-layer and the clock, phase 5c the tracing and metrics layer, and phase 5b the logging facade and
-redaction; the adapters are still to come, so this page is still a stub: it names the pages this
-tree will eventually hold and where each one's content will come from, so the plan for the
-documentation exists before the documentation does. Eleven pages are real already, because their
-subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
-[`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
-[`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
-[`pipelines.md`](./pipelines.md), [`configuration.md`](./configuration.md),
-[`tracing-and-metrics.md`](./tracing-and-metrics.md) and
-[`logging-and-redaction.md`](./logging-and-redaction.md).
+layer and the clock, phase 5c the tracing and metrics layer, phase 5b the logging facade and
+redaction, and phase 6a the retry layer — one policy core and its two stacks; the adapters are
+still to come, so this page is still a stub: it names the pages this tree will eventually hold and
+where each one's content will come from, so the plan for the documentation exists before the
+documentation does. Twelve pages are real already, because their subjects are:
+[`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
+[`io.md`](./io.md), [`body.md`](./body.md), [`execution-context.md`](./execution-context.md),
+[`recovery.md`](./recovery.md), [`pipelines.md`](./pipelines.md),
+[`configuration.md`](./configuration.md), [`tracing-and-metrics.md`](./tracing-and-metrics.md),
+[`logging-and-redaction.md`](./logging-and-redaction.md) and [`retry.md`](./retry.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -111,6 +111,18 @@ its two configuration keys, the instrumentation step on both runtimes, and the f
 earlier layers now speak through it. Written against the layer phase 5b shipped; derives from
 `docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 and
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[retry.md](./retry.md) — the retry layer: the one policy core with its two-axis classifier
+consult, backoff calculator, total pacing-header parser and tuning constants; the re-sendability
+gate; the one configuration object both stacks build from and the key it reads; the stage-based
+pillar step on both runtimes, with the iterative async trampoline and what a positive backoff does
+without a scheduler; the recovery-chain retry that decorates a raw transport beneath the
+orchestrator with its total-timeout budget; the per-attempt HTTP-tracer events every driver emits;
+and the three wirings into earlier layers — the protocol error's baked flag, the cursor's
+per-call bundle, and the date parser's single-digit day. Written against the layer phase 6a
+shipped; derives from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` §6.1 and
+`docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.3, read together with the
+retry deviations recorded in the phase's own ledger.
 
 auth.md — tiers, credentials, schemes, challenges, and the redirect-safe re-issue rule. Derives
 from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`.
