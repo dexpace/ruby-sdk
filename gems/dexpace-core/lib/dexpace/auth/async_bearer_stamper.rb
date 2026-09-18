@@ -5,6 +5,7 @@ require_relative "../auth"
 require_relative "../model"
 require_relative "../error/invalid_argument_error"
 require_relative "../http/headers"
+require_relative "../http/header_syntax"
 require_relative "../clock"
 require_relative "../async/completer"
 require_relative "../async/future"
@@ -32,9 +33,13 @@ module Dexpace
     # fetch's settlement -- R12's "second #on_settle and a second Completer". Every refresh goes
     # through ONE single-flight slot: the first caller registers a Completer under @lock and
     # starts the fetch; every later caller, from either zone, coalesces onto that future. A
-    # failed fetch settles the waiters with the error and caches nothing; a failed BACKGROUND
-    # refresh is reported through `logger:` as an `http.auth.refresh` diagnostic and fails
-    # nothing, since a valid token was already stamped.
+    # failed fetch settles the waiters with the error and caches nothing -- and a fetch that
+    # lands one of AUTH-35's rejections (nil, a non-BearerToken, already expired, or a token
+    # whose wire form the outbound header grammar refuses, BearerStamper's same four) is a
+    # failed fetch: nothing is cached, the waiters fail with a ProviderError, the slot clears
+    # and the next call fetches again. A failed BACKGROUND refresh is reported through
+    # `logger:` as an `http.auth.refresh` diagnostic and fails nothing, since a valid token was
+    # already stamped.
     #
     # The fetch is shared; a cancellation is not. The waiter's future is settled FROM the slot's
     # and never wired back to it: Future#then would register the derived future's cancellation
@@ -142,9 +147,11 @@ module Dexpace
         own.future
       end
 
-      # The waiter's settlement from the slot's. The rescue keeps a raising stamp (a token the
-      # outbound header grammar refuses) on this side of the settling thread, as a failure of
-      # this waiter alone.
+      # The waiter's settlement from the slot's. The rescue keeps a raising stamp on this side of
+      # the settling thread, as a failure of this waiter alone: a cached token has passed the
+      # grammar check, so what is left to raise here is the request's own derivation (a forged
+      # or duck-typed request whose #with refuses), and it must not land on whoever settled the
+      # provider's future.
       def deliver(settlement, request, own)
         settle(own, settlement, settlement.error) { |token| stamp_with(request, token) }
       rescue ::StandardError => error
@@ -212,15 +219,22 @@ module Dexpace
         end
       end
 
-      # AUTH-35's rejections as an error value, or nil for a usable token.
+      # AUTH-35's rejections as an error value, or nil for a usable token: BearerStamper#validate's
+      # four, the fourth being a token no outbound header value may carry (HTTP-18) -- cached, it
+      # would fail every later #stamp until it expired, and raise from the fresh zone rather than
+      # settle. The message never carries the token (HTTP-20, AUTH-8).
       def invalid(token)
         return ProviderError.new("the provider returned no token (AUTH-35)") if token.nil?
         unless token.is_a?(BearerToken)
           return ProviderError.new("the provider returned a #{token.class}, not a BearerToken")
         end
-        return nil unless token.expired?(now: @clock.now, margin: 0)
+        if token.expired?(now: @clock.now, margin: 0)
+          return ProviderError.new("the provider returned a token already expired at fetch time")
+        end
+        return nil if HeaderSyntax.valid_outbound_value?(header(token))
 
-        ProviderError.new("the provider returned a token already expired at fetch time")
+        ProviderError.new("the provider returned a token no outbound header value may carry " \
+                          "(HTTP-18)")
       end
 
       # The expiring zone's refresh: coalesced like any other, observed only to log a failure.

@@ -5,6 +5,7 @@ require_relative "../auth"
 require_relative "../model"
 require_relative "../error/invalid_argument_error"
 require_relative "../http/headers"
+require_relative "../http/header_syntax"
 require_relative "../clock"
 require_relative "bearer_token"
 require_relative "bearer_provider"
@@ -27,9 +28,15 @@ module Dexpace
     # it can serialise nothing else.
     #
     # AUTH-35's rejections -- a nil token, a token already expired at fetch time with NO margin,
-    # a non-BearerToken -- raise ProviderError from inside the lock with @token untouched, and a
-    # provider that raises propagates its own error the same way; nothing is cached on any of
-    # those paths, so a later request retries (AUTH-11).
+    # a non-BearerToken, and a token whose `Bearer <token>` wire form the outbound header grammar
+    # refuses (HTTP-18: a trailing newline read off a file, a CR) -- raise ProviderError from
+    # inside the lock with @token untouched, and a provider that raises propagates its own error
+    # the same way; nothing is cached on any of those paths, so a later request retries
+    # (AUTH-11). The fourth rejection is the port's: a token the grammar refuses can never be
+    # sent, so no 401 can ever arrive to evict it (AUTH-36), and caching it would fail every
+    # request until it expired -- forever, for a token with no expiry. Checked here, where the
+    # token arrives, as KeyStamper checks its key where IT arrives (construction), rather than in
+    # BearerToken.build, whose contract is AUTH-9's non-blank rule and nothing more.
     class BearerStamper
       # AUTH-34's default refresh margin, in seconds.
       DEFAULT_REFRESH_MARGIN = 30
@@ -97,7 +104,9 @@ module Dexpace
         end
       end
 
-      # AUTH-35: non-nil, a BearerToken, and not already expired with NO margin.
+      # AUTH-35: non-nil, a BearerToken, not already expired with NO margin, and -- the port's
+      # fourth rejection -- carriable by an outbound header (HTTP-18). The message never carries
+      # the token (HTTP-20, AUTH-8).
       def validate(fetched)
         raise ProviderError, "the provider returned no token (AUTH-35)" if fetched.nil?
         unless fetched.is_a?(BearerToken)
@@ -105,6 +114,10 @@ module Dexpace
         end
         if fetched.expired?(now: @clock.now, margin: 0)
           raise ProviderError, "the provider returned a token already expired at fetch time"
+        end
+        unless HeaderSyntax.valid_outbound_value?(header(fetched))
+          raise ProviderError, "the provider returned a token no outbound header value may " \
+                               "carry (HTTP-18)"
         end
 
         fetched
