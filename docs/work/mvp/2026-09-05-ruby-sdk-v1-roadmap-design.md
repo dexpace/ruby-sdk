@@ -3651,7 +3651,7 @@ the same list: after phase 6 the body-replayability predicate has three spelling
 only credential-bearing strings it prints are the header values the layer exists to produce, over
 placeholder credentials and the RFCs' published vectors; `architecture.md`, the core README,
 `README.md` and `docs/README.md` point at it. `docs/deviations.md` is untouched, for phase 10 to
-flip. The consolidation of P6-1–P6-7 and P6-71–P6-86 into design §10 and the §6.3 addendum are a
+flip. The consolidation of P6-1–P6-7 and P6-71–P6-87 into design §10 and the §6.3 addendum are a
 human's, as they were for 3a through 5b: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is
 contradicted — §6.3's `Step.new(…)` spelling is honoured in substance by `.build`, and its
 "raise a bare error" reading of `AUTH-21`'s Latin-1 branch by the typed
@@ -3713,4 +3713,25 @@ mutations run red after the repair on 4.0.6 and 3.2.11 (the checklist's fourth g
 its deviations 33 and 34); at the repaired tips the full rake reports 2,348 runs, 60,175 assertions,
 one skip and 6,615 / 6,616 lines (99.98%) on 4.0.6, the code tip 92.48% with all seventeen gates green
 one by one, and the matrix set 2,348 runs at 99.98% on 3.2.11; the surface manifest is still 1 060
-lines, the two methods the repair added being private.
+lines, the two methods the repair added being private. **Review round 3 (2026-09-18) found a provider
+token both bearer stampers cached and could never send**: `AUTH-35`'s validation was the
+requirement's own two checks plus the class check, so a token whose `Bearer <token>` wire form
+`HTTP-18`'s outbound grammar refuses — a trailing newline read off a file, a CR — was written into
+the cache, where no 401 could ever evict it (`AUTH-36` matches the value a 401 rejected, and the
+token is never sent); the sync stamper raised `HTTP-18`'s `InvalidArgumentError` on every later call
+with the provider never asked again, and the async stamper's fresh zone raised it synchronously out
+of `#stamp`, a method that returns a `Future`, failing every later request through an `AsyncStep`
+until the token expired — never, for a token with no expiry. Round 2's own cancellation test had fed
+exactly such a token and asserted only that its waiter failed. The grammar check is now the fourth
+rejection in `BearerStamper#validate` and `AsyncBearerStamper#invalid`, a `ProviderError` whose
+message never names the token, caching nothing, so the next call fetches again; it lives where the
+token arrives, as `KeyStamper`'s does at construction, and not in `BearerToken.build`, whose
+contract is `AUTH-9`'s non-blank rule (**P6-87**). A cached token therefore always stamps and the
+async `#stamp` cannot raise, so `#deliver`'s rescue is re-pinned through a request whose own
+derivation refuses. Eight mutations run red after the repair on 4.0.6 and 3.2.11 (the checklist's
+fifth guard table, 88–95, and its deviation 35); the round's one nit, two 73-character body lines in
+the round-2 documentation commit's message, is deferred to the PR body because rewrapping them would
+rewrite an earlier fixer's commit. At the repaired tips the full rake reports 2,353 runs, 60,235
+assertions, one skip and 6,621 / 6,622 lines (99.98%) on 4.0.6, the code tip 92.43% with all
+seventeen gates green one by one, and the matrix set 2,353 runs at 99.98% on 3.2.11; the surface
+manifest is still 1 060 lines, no public method having been added.

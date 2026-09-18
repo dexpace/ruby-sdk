@@ -278,8 +278,11 @@ stamper caches one token per credential until a refresh margin before its expiry
 reads it on the hot path with no lock, and refreshes under the per-credential mutex — held across the
 provider's fetch, the one sanctioned lock across a suspension point in this SDK (`XCUT-12`) — so
 concurrent requests racing on a missing token cost one fetch (`AUTH-34`). A nil token, a token already
-expired at fetch time, or a raising provider surfaces and caches nothing (`AUTH-35`). Eviction is a
-compare-and-clear on the stamped header value (`AUTH-36`'s cache half).
+expired at fetch time, a token whose `Bearer <token>` wire form the outbound header grammar refuses
+(a trailing newline read off a file: it could never be sent, so no 401 could ever evict it), or a
+raising provider surfaces and caches nothing (`AUTH-35`), so the next call fetches again; the
+refusal's message never names the token. Eviction is a compare-and-clear on the stamped header value
+(`AUTH-36`'s cache half).
 
 ```ruby
 class StaticProvider
@@ -309,6 +312,12 @@ bearer.evict_if_matches("Bearer t2")               # => true
 
 nil_provider = Object.new.tap { |o| def o.fetch = nil }
 A::BearerStamper.new(provider: nil_provider).call(request)   # raises Dexpace::Auth::ProviderError
+
+newline_provider = StaticProvider.new(A::BearerToken.build(token: "abc\n"), A::BearerToken.build(token: "clean"))
+refusing = A::BearerStamper.new(provider: newline_provider, clock: at)
+refusing.call(request)                             # raises Dexpace::Auth::ProviderError: uncached, never sent
+refusing.call(request).headers["Authorization"]    # => ["Bearer clean"]   (the next call fetched again)
+newline_provider.fetches                           # => 2
 ```
 
 The async stamper implements `AUTH-37`'s three zones without blocking: a fresh token is stamped in an
@@ -319,8 +328,11 @@ derivation of it, because `#then` would wire each waiter's cancellation back to 
 waiter shares. `BearerProvider.fetch_async` is `AUTH-11`'s default: a
 `#fetch`-only provider is mirrored into an already-settled (or already-failed) future, and a
 `#fetch_async` override that raises synchronously becomes a failed future — the function never raises.
-A failed background refresh is reported through the stamper's `logger:` as one `http.auth.refresh`
-warning and fails nothing.
+A fetch that lands any of `AUTH-35`'s rejections, the grammar-refused token included, is a failed
+fetch: the waiters fail with a `ProviderError`, nothing is cached, the slot is freed and the next
+`#stamp` returns a future that fetches again — never a synchronous raise. A failed or unusable
+background refresh is reported through the stamper's `logger:` as one `http.auth.refresh` warning and
+fails nothing.
 
 ```ruby
 async = A::AsyncBearerStamper.new(provider: StaticProvider.new(A::BearerToken.build(token: "t3")), clock: at)
@@ -341,6 +353,18 @@ completer.fulfil(A::BearerToken.build(token: "t4"))
 
 A::BearerProvider.fetch_async(nil_provider).settled?   # => true
 A::BearerProvider.fetch_async(nil_provider).value      # raises Dexpace::Auth::ProviderError
+
+completer = Dexpace::Async::Completer.new
+pending_provider.define_singleton_method(:fetch_async) { completer.future }
+refused = A::AsyncBearerStamper.new(provider: pending_provider, clock: at)
+waiter = refused.stamp(request)
+completer.fulfil(A::BearerToken.build(token: "abc\n"))
+waiter.value                                       # raises Dexpace::Auth::ProviderError
+refused.evict_if_matches("Bearer abc")             # => false: nothing was cached
+clean = Dexpace::Async::Completer.new
+clean.fulfil(A::BearerToken.build(token: "t6"))
+pending_provider.define_singleton_method(:fetch_async) { clean.future }
+refused.stamp(request).value.headers["Authorization"]   # => ["Bearer t6"]   (a future, and a second fetch)
 ```
 
 The fetch is shared; a cancellation is not. Cancelling one coalesced request's future detaches

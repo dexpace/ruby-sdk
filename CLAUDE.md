@@ -762,8 +762,11 @@ Each is one line plus the chapter to read before touching the area.
   derived future's cancellation back to its source, and the source is the slot every coalesced request
   shares, so one request giving up would cancel them all; a cancelled waiter is detached alone and only the
   provider's own settlement settles the slot, a cancellation there forwarded as a cancellation; 6c's P6-86).
-  A nil, non-token or already-expired token raises `Auth::ProviderError` from inside the lock with the cache
-  untouched (`AUTH-35`).
+  A nil, non-token or already-expired token, or one whose `Bearer <token>` wire form the outbound header
+  grammar refuses — a trailing newline read off a file, which could never be sent and so never be evicted
+  by a 401 — raises `Auth::ProviderError` from inside the lock with the cache untouched, and fails the
+  async waiters the same way with the slot freed, so the next call fetches again (`AUTH-35`; the fourth
+  rejection is 6c's P6-87).
 - **Basic is `["u:p"].pack("m0")` over the UTF-8 bytes and Digest is `::Digest::MD5` / `::Digest::SHA256`
   with `::SecureRandom.hex(16)` for the cnonce** — `base64` is bundled from 3.4 and refused by the
   require allowlist; `digest` and `securerandom` stay default through 4.0 and are allowlisted, and the
