@@ -1,0 +1,56 @@
+module Dexpace
+  module Resilience
+    # RECOV-34, RETRY-12: the one retry configuration both stacks build from. `random` is untyped
+    # (::Random is outside NFR-11's allowlist; the contract is #rand over a Range) and the
+    # arguments are `untyped` where the constructor validates rather than trusts.
+    class RetrySettings < Data
+      include Model
+
+      UNSET: Object
+
+      attr_reader initial_delay: Float
+      attr_reader multiplier: Float
+      attr_reader max_delay: Float
+      attr_reader jitter: Float
+      attr_reader max_retries: Integer
+      attr_reader total_timeout: Float
+      attr_reader retryable_statuses: ::Set[Integer]
+      attr_reader pacing_header_order: Array[String]?
+      attr_reader random: untyped
+      attr_reader clock: _Clock
+
+      private def self.new: (
+        initial_delay: untyped, multiplier: untyped, max_delay: untyped, jitter: untyped,
+        max_retries: untyped, total_timeout: untyped, retryable_statuses: untyped,
+        pacing_header_order: untyped, random: untyped, clock: _Clock,
+      ) -> instance
+      def initialize: (
+        initial_delay: untyped, multiplier: untyped, max_delay: untyped, jitter: untyped,
+        max_retries: untyped, total_timeout: untyped, retryable_statuses: untyped,
+        pacing_header_order: untyped, random: untyped, clock: _Clock,
+      ) -> void
+
+      def self.build: (
+        ?initial_delay: Numeric, ?multiplier: Numeric, ?max_delay: Numeric, ?jitter: Numeric,
+        ?max_retries: untyped, ?total_timeout: Numeric,
+        ?retryable_statuses: Enumerable[Integer],
+        ?pacing_header_order: Array[String]?, ?random: untyped, ?clock: _Clock,
+      ) -> RetrySettings
+
+      def backoff_arguments: () -> { initial_delay: Float, multiplier: Float, max_delay: Float,
+                                     jitter: Float, random: untyped }
+      def header_order: () -> Array[String]
+
+      private
+
+      def self.resolve_max_retries: (untyped max_retries) -> Integer
+      def duration!: (String name, untyped value) -> Float
+      def multiplier!: (untyped value) -> Float
+      def jitter!: (untyped value) -> Float
+      def max_retries!: (untyped value) -> Integer
+      def statuses!: (untyped value) -> ::Set[Integer]
+      def order!: (untyped value) -> Array[String]?
+      def numeric!: (String name, untyped value) -> Float
+    end
+  end
+end

@@ -1,0 +1,18 @@
+# Dexpace::Resilience::PacingParsers is a private_constant and not public API (P6-11): this
+# declaration exists because the strict `core` Steep target types Policy.pacing_delay's calls into
+# it. RBS has no visibility for a constant, so the privacy lives in
+# lib/dexpace/resilience/pacing_parsers.rb alone. `random` is untyped: ::Random is outside NFR-11's
+# stdlib allowlist, and the contract is #rand over a Range (trace_id_flavour.rbs's precedent).
+module Dexpace
+  module Resilience
+    module PacingParsers
+      DECIMAL_GRAMMAR: Regexp
+      INTEGER_GRAMMAR: Regexp
+      RESET_JITTER_CEILING: Float
+
+      def self?.parse_retry_after: (untyped value, now: ::Time) -> Float?
+      def self?.parse_millis: (untyped value) -> Float?
+      def self?.parse_epoch_reset: (untyped value, now: ::Time, random: untyped) -> Float?
+    end
+  end
+end

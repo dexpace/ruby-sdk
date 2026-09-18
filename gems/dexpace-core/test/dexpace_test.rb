@@ -37,11 +37,13 @@ class DexpaceTest < DexpaceTestCase
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
   # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4a's execution
-  # context, phase 4b's recovery layer, phase 4c's pipeline and phase 5a's configuration layer;
+  # context, phase 4b's recovery layer, phase 4c's pipeline, phase 5a's configuration layer and
+  # phase 6a's retry layer (the flat RetryPredicateError beside the Resilience namespace);
   # Dexpace::Hooks, Dexpace::BoundedMap, Dexpace::CallKey, Dexpace::Recovery::Ownership, the two
-  # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue and Dexpace::ProxyResolution are
-  # private_constants and appear in no constants(false) list. Phase 5c's tracing and metrics
-  # layer and phase 5b's logging layer add no flat constant: everything either ships is under
+  # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue, Dexpace::ProxyResolution and
+  # 6a's Resilience::PacingParsers are private_constants and appear in no constants(false) list.
+  # Phase 5c's tracing and metrics layer and phase 5b's logging layer add no flat constant:
+  # everything either ships is under
   # Dexpace::Instrumentation, which the Layers case below pins.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
@@ -65,9 +67,10 @@ class DexpaceTest < DexpaceTestCase
   CONFIGURATION_LAYER = %i[
     BuildInfo UUID Retryability HTTPDate Clock Configuration Proxy
   ].freeze
+  RESILIENCE_LAYER = %i[RetryPredicateError Resilience].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
-    CONFIGURATION_LAYER,
+    CONFIGURATION_LAYER, RESILIENCE_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do

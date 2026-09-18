@@ -4,6 +4,7 @@
 require_relative "../error"
 require_relative "invalid_argument_error"
 require_relative "../http/response"
+require_relative "../retryability"
 
 module Dexpace
   # XCUT-4's branch (a): a protocol error carries a fully-received response -- status, headers and
@@ -24,9 +25,14 @@ module Dexpace
   # a customer identifier, and OBS-11..OBS-19's redaction is phase 5's. #response is how a caller
   # who wants the body reads it (the plan's open question 5).
   #
-  # No #retryable_by_status?. XCUT-5 requires the baked flag to be computed once at construction
-  # from a SINGLE shared status classifier, and that classifier is phase 5a's; phase 6a (Task 6)
-  # adds the predicate to this class. Adding a method widens a signature, which NFR-4 permits.
+  # #retryable_by_status? is XCUT-5's baked flag (RETRY-3), computed ONCE at construction from
+  # the SINGLE shared status classifier -- phase 5a's Dexpace::Retryability, which phase 4b
+  # could not build and phase 6a reads rather than rebuilds (its Task 6). It is deliberately
+  # NOT named #retryable?, the open capability XCUT-6's throwable query looks for (P6-10): a
+  # ProtocolError answering that query would let the baked set override the CONFIGURED set
+  # RETRY-37 makes authoritative whenever the error is wrapped in another -- including a set
+  # that deliberately narrows -- so the two questions carry two names, design §6.1's own, and
+  # the retry drivers consult Resilience::Policy.retry_eligible?(status, set:) and never this.
   class ProtocolError < ::StandardError
     include Dexpace::Error
 
@@ -73,7 +79,17 @@ module Dexpace
 
       @response = response
       @status = response.status
+      @retryable_by_status = Retryability.retryable_status?(@status)
       super(describe(@status))
+    end
+
+    # XCUT-5 / RETRY-3: whether the status is one the built-in classifier calls retryable,
+    # baked at construction and never per-subclass -- a queryable property of the error, and not
+    # what the retry step consults (XCUT-5's closing NOTE; see the class comment).
+    #
+    # @return [Boolean]
+    def retryable_by_status?
+      @retryable_by_status
     end
 
     private
