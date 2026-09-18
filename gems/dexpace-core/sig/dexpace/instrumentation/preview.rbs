@@ -1,0 +1,20 @@
+module Dexpace
+  module Instrumentation
+    # OBS-38: charset-aware text and binary-safe preview rendering, total.
+    module Preview
+      BINARY_MARKER_FORMAT: String
+      TEXT_SUBTYPES: Set[String]
+      SUFFIX_PATTERN: Regexp
+
+      def self.render: (String? bytes, media_type: untyped) -> String
+
+      private
+
+      def self.text?: (untyped media_type) -> bool
+      def self.decode: (String bytes, String? charset) -> String
+      def self.transcode: (String bytes, Encoding encoding) -> String
+      def self.encoding_for: (String? charset) -> Encoding
+      def self.binary_marker: (String bytes) -> String
+    end
+  end
+end

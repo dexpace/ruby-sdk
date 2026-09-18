@@ -4,6 +4,9 @@
 require_relative "error/seam_error"
 require_relative "error/invalid_argument_error"
 require_relative "suppressible"
+require_relative "instrumentation/keys"
+require_relative "instrumentation/logger"
+require_relative "instrumentation/contain"
 
 # Dexpace::Closeable and Dexpace.close_quietly live in one file: the helper is the contract's
 # discard-path exit and has no meaning apart from it (module-organization/1828a984 counts
@@ -98,20 +101,22 @@ module Dexpace
   # The single sanctioned exit for a close on a cleanup or discard path: null-safe (CFG-21's last
   # clause), tolerant of an object with no #close, and never raising over a primary failure.
   #
-  # Design §3.7 gives the rescued error two disposal routes, and this is the first: with `onto:`
+  # Design §3.7 gives the rescued error two disposal routes, and both now exist. With `onto:`
   # supplied, the rescued close failure lands on that error's suppressed trail through
-  # Dexpace.attach_suppressed, and close_quietly still returns nil and still does not raise. The
-  # carrier is Dexpace::Suppressible and not Dexpace::Error, because the primary a caller hands
-  # in is whatever it is unwinding with (P4-12). With `onto:` absent -- every phase-2 call site --
-  # the behaviour is byte-for-byte phase 2's: rescue StandardError, drop it, return nil. The
-  # second route, the http.instrumentation.* diagnostic for the `onto:`-absent case, is §8.1's
-  # facade and phase 5b's (Task 14); it completes phase 2's postponement and this keyword does
-  # not. One helper gains a keyword and no second helper appears, which is what keeps §3.7's "two
-  # ways and never a third" true. The two loud exceptions §3.7 names are honoured and do not come
-  # through here: an explicit #close by a caller propagates, and a #release raising during the
-  # latched close above propagates once. Only StandardError is rescued: a NotImplementedError
-  # from a class that forgot #release is a programmer error, not a close failure, whatever
-  # `onto:` says.
+  # Dexpace.attach_suppressed (phase 4b, Task 2); the carrier is Dexpace::Suppressible and not
+  # Dexpace::Error, because the primary a caller hands in is whatever it is unwinding with
+  # (P4-12). With `onto:` absent, the failure is emitted as an `http.instrumentation.close`
+  # diagnostic through `logger:` -- §8.1's facade, the second route phase 2 postponed and phase 5b
+  # supplies -- inside Instrumentation.contain, so a sink that raises cannot turn a cleanup into a
+  # failure (OBS-20). There is no process-wide logger to reach for (a logger slot beside
+  # Dexpace.configuration would be 5a's object), so the logger is a keyword defaulting to
+  # Logger::NULL, under which the route emits nothing: every phase-2 call site is byte-for-byte
+  # as it was, and a caller who wants the diagnostic passes a logger. One helper gains two
+  # keywords and no second helper appears, which is what keeps §3.7's "two ways and never a third"
+  # true. The two loud exceptions §3.7 names are honoured and do not come through here: an
+  # explicit #close by a caller propagates, and a #release raising during the latched close above
+  # propagates once. Only StandardError is rescued: a NotImplementedError from a class that forgot
+  # #release is a programmer error, not a close failure, whatever `onto:` says.
   #
   # `onto:` is validated at ENTRY, outside the rescue region, and that placement is the decision:
   # attach_suppressed raises InvalidArgumentError for a non-Exception, and validating inside the
@@ -122,9 +127,11 @@ module Dexpace
   #
   # @param resource [#close, nil] whatever is being discarded
   # @param onto [Exception, nil] the primary failure a close failure must not mask
+  # @param logger [Dexpace::Instrumentation::Logger] where an unattached close failure is
+  #   reported; Logger::NULL, the default, reports nothing
   # @return [nil] always, so a caller cannot branch on a cleanup outcome
   # @raise [Dexpace::InvalidArgumentError] when `onto:` is neither nil nor an Exception
-  def self.close_quietly(resource, onto: nil)
+  def self.close_quietly(resource, onto: nil, logger: Instrumentation::Logger::NULL)
     unless onto.nil? || onto.is_a?(::Exception)
       raise InvalidArgumentError, "onto must be an Exception"
     end
@@ -134,9 +141,14 @@ module Dexpace
     begin
       resource.close
     rescue ::StandardError => error
-      # The first disposal route; dropped when there is nothing to attach to, until phase 5b's
-      # diagnostic (Task 14) supplies the second.
-      attach_suppressed(onto, error) unless onto.nil?
+      if onto.nil?
+        # The second disposal route: a diagnostic, itself contained (OBS-20).
+        Instrumentation.diagnostic(logger, event: Instrumentation::Events::INSTRUMENTATION_CLOSE,
+                                           cause: error,)
+      else
+        # The first disposal route, phase 4b's trail.
+        attach_suppressed(onto, error)
+      end
     end
     nil
   end

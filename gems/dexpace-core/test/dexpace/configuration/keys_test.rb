@@ -4,9 +4,11 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# CFG-14: the well-known key constants, plus the two names 5a's own wirings read.
+# CFG-14: the well-known key constants, plus the two names 5a's own wirings read and the one
+# name 5b's body-logging wiring reads (LOG_PREVIEW_BYTES, added by phase 5b in the change that
+# reads it -- the eighth constant, and this suite's count grew with it).
 class DexpaceConfigurationKeysTest < DexpaceTestCase
-  test "CFG-14: the five well-known keys and the two wiring keys are frozen, non-empty Strings" do
+  test "CFG-14: the five well-known keys and the three wiring keys are frozen, non-empty Strings" do
     expected = {
       MAX_RETRY_ATTEMPTS: "MAX_RETRY_ATTEMPTS",
       LOG_LEVEL: "LOG_LEVEL",
@@ -15,6 +17,7 @@ class DexpaceConfigurationKeysTest < DexpaceTestCase
       NO_PROXY: "NO_PROXY",
       MAX_MATERIALIZED_BYTES: "MAX_MATERIALIZED_BYTES",
       MAX_TRACKED_CONTEXTS: "MAX_TRACKED_CONTEXTS",
+      LOG_PREVIEW_BYTES: "LOG_PREVIEW_BYTES",
     }
 
     assert_equal(expected.keys.sort, Dexpace::Configuration::Keys.constants.sort)

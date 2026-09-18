@@ -1,0 +1,34 @@
+module Dexpace
+  module Instrumentation
+    # OBS-34, OBS-35: a closed set of three. .new and .[] are both private and #with always
+    # raises, so the three constants are the whole population.
+    class HTTPLogging < Data
+      include Model
+
+      NONE: HTTPLogging
+      HEADERS: HTTPLogging
+      BODY: HTTPLogging
+      DEFAULT: HTTPLogging
+      ALL: Array[HTTPLogging]
+      LOOKUP: Hash[Symbol, HTTPLogging]
+      TEXT_LOOKUP: Hash[String, HTTPLogging]
+
+      attr_reader name: Symbol
+      attr_reader order: Integer
+
+      private def self.new: (name: Symbol, order: Integer) -> instance
+      def initialize: (name: Symbol, order: Integer) -> void
+
+      def at_least?: (HTTPLogging other) -> bool
+
+      # Always raises: the closed set has no derivation.
+      def with: (?untyped _changes) -> bot
+
+      def self.of: (Symbol name) -> HTTPLogging
+      def self.parse: (untyped text, ?default: HTTPLogging) -> HTTPLogging
+      # The configuration is untyped: anything answering #string(key), so a caller's own
+      # chain-shaped object serves, and typing it Configuration would not add to NFR-11's scan.
+      def self.resolve: (untyped configuration, key: String, ?default: HTTPLogging) -> HTTPLogging
+    end
+  end
+end

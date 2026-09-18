@@ -122,10 +122,11 @@ class DexpaceCloseableTest < DexpaceTestCase
     Dexpace.close_quietly(spy)
 
     assert_equal(1, spy.releases)
-    # With `onto:` absent -- every phase-2 call site -- the rescued error is still dropped: the
-    # first disposal route (phase 4b, Task 2) is opt-in through `onto:`, and the second, phase
-    # 5b's diagnostic (Task 14), is not built. Asserted rather than left as a comment, so the day
-    # the second route lands this test is what has to change.
+    # With `onto:` absent and no `logger:` -- every phase-2 call site -- the rescued error takes
+    # the second disposal route, phase 5b's `http.instrumentation.close` diagnostic (Task 14),
+    # through Logger::NULL, which emits nothing: the RETURN contract (CFG-21's null-safety) is
+    # what this asserts, and it is unchanged. The claim that the error VANISHES stood here until
+    # phase 5b landed the route; downstream_wirings_test.rb asserts the diagnostic a logger sees.
     assert_nil(Dexpace.close_quietly(Raising.new))
   end
 

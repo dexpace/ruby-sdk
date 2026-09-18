@@ -4,6 +4,7 @@
 # the privacy lives in lib/dexpace/hooks.rb alone.
 module Dexpace
   module Hooks
-    def self.notify: (Array[^(untyped) -> void] hooks, untyped argument) -> nil
+    def self.notify: (Array[^(untyped) -> void] hooks, untyped argument,
+                      ?logger: Instrumentation::Logger) -> nil
   end
 end

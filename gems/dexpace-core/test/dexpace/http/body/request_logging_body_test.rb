@@ -239,17 +239,19 @@ class DexpaceRequestLoggingBodyTest < DexpaceTestCase
       assert_raises(Dexpace::StreamError) { wrapper.source }
     end
 
-    # BODY-34's enablement clause is satisfied STRUCTURALLY in phase 3b: nothing in core constructs
-    # a logging wrapper, so the wrappers are off the path unless something builds one. Phase 5's
-    # instrumentation layer is the thing that will (phase 5b, Tasks 14-15).
-    test "nothing in the core library constructs a logging wrapper" do
+    # BODY-34's enablement clause was satisfied STRUCTURALLY in phase 3b, when nothing in core
+    # constructed a logging wrapper; phase 5b's instrumentation step is the thing that now does
+    # (Task 15), gated on HTTPLogging::BODY with the cap the step was built with -- and it is the
+    # ONLY file that does, so the clause stays structural: exactly one construction site, and
+    # that one.
+    test "the instrumentation step is the only file in core that constructs a logging wrapper" do
       root = File.expand_path("../../../../lib", __dir__)
       sources = Dir.glob("#{root}/**/*.rb").grep_v(/request_logging_body\.rb\z/)
       constructions = sources.select do |path|
         File.read(path).include?("RequestLoggingBody.new")
       end
 
-      assert_empty(constructions)
+      assert_equal(["#{root}/dexpace/instrumentation/step.rb"], constructions)
     end
 
     test "compares by value over its delegate and its cap" do

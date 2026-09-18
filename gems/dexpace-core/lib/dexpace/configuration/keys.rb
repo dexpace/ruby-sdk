@@ -4,9 +4,10 @@
 module Dexpace
   class Configuration
     # The well-known configuration key names (CFG-14): stable constants a caller passes to the
-    # chain rather than restating the string. Five are CFG-14's own; two are the names this
-    # phase's own wirings read. Nested under Configuration because a key is a name the chain
-    # understands and reads wrongly as a top-level Dexpace:: constant.
+    # chain rather than restating the string. Five are CFG-14's own; two are the names phase
+    # 5a's own wirings read, and one is the name phase 5b's body-logging wiring reads. Nested
+    # under Configuration because a key is a name the chain understands and reads wrongly as a
+    # top-level Dexpace:: constant.
     #
     # Reopens `class Configuration`, which configuration.rb declares and requires this file from;
     # loading this file first would make the later declaration a superclass mismatch, so it
@@ -35,6 +36,13 @@ module Dexpace
 
       # The cap ContextStore.default is built with -- the source phase 4a postponed to phase 5.
       MAX_TRACKED_CONTEXTS = "MAX_TRACKED_CONTEXTS"
+
+      # The body-preview size the two logging wrappers are built with at the body level -- the
+      # shared cap phase 3b postponed to phase 5, added by phase 5b in the change that reads it.
+      # A published name a caller resolves and passes to Instrumentation::Step.build's
+      # `preview_bytes:` (`configuration.integer(LOG_PREVIEW_BYTES, default: 8 * 1024)`, OBS-36's
+      # reference default being the caller's choice); nothing in core reads it on its own.
+      LOG_PREVIEW_BYTES = "LOG_PREVIEW_BYTES"
     end
   end
 end

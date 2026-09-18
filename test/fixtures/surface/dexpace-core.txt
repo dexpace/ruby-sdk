@@ -167,6 +167,7 @@ Dexpace::Configuration::Keys
 Dexpace::Configuration::Keys::HTTPS_PROXY : String
 Dexpace::Configuration::Keys::HTTP_PROXY : String
 Dexpace::Configuration::Keys::LOG_LEVEL : String
+Dexpace::Configuration::Keys::LOG_PREVIEW_BYTES : String
 Dexpace::Configuration::Keys::MAX_MATERIALIZED_BYTES : String
 Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS : String
 Dexpace::Configuration::Keys::MAX_TRACKED_CONTEXTS : String
@@ -322,6 +323,10 @@ Dexpace::IO::TypedWrites#write_from
 Dexpace::IO::TypedWrites#write_string
 Dexpace::IO::TypedWrites#write_utf8
 Dexpace::Instrumentation
+Dexpace::Instrumentation.contain
+Dexpace::Instrumentation.diagnostic
+Dexpace::Instrumentation::AsyncStep
+Dexpace::Instrumentation::AsyncStep#call
 Dexpace::Instrumentation::Bundle
 Dexpace::Instrumentation::Bundle#flavour
 Dexpace::Instrumentation::Bundle#remote
@@ -350,9 +355,40 @@ Dexpace::Instrumentation::CallableAdapter#response_headers_received
 Dexpace::Instrumentation::CallableAdapter#response_received
 Dexpace::Instrumentation::CallableAdapter#retries_exhausted
 Dexpace::Instrumentation::Diagnostics
+Dexpace::Instrumentation::Diagnostics.capture
+Dexpace::Instrumentation::Diagnostics.folded
+Dexpace::Instrumentation::Diagnostics.with
 Dexpace::Instrumentation::Diagnostics::DEFAULT_KEYS : Array
+Dexpace::Instrumentation::Diagnostics::RESERVED_PREFIX : String
 Dexpace::Instrumentation::Diagnostics::SPAN_ID : Symbol
 Dexpace::Instrumentation::Diagnostics::TRACE_ID : Symbol
+Dexpace::Instrumentation::Event
+Dexpace::Instrumentation::Event#cause
+Dexpace::Instrumentation::Event#emit
+Dexpace::Instrumentation::Event#event
+Dexpace::Instrumentation::Event#field
+Dexpace::Instrumentation::Event::INERT : Dexpace::Instrumentation::Event::Inert
+Dexpace::Instrumentation::Events
+Dexpace::Instrumentation::Events::HTTP_REQUEST : String
+Dexpace::Instrumentation::Events::HTTP_RESPONSE : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_CLOSE : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_CONFIG : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_HOOK : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_LOG : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_PREFIX : String
+Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN : String
+Dexpace::Instrumentation::HTTPLogging
+Dexpace::Instrumentation::HTTPLogging#at_least?
+Dexpace::Instrumentation::HTTPLogging#name
+Dexpace::Instrumentation::HTTPLogging#order
+Dexpace::Instrumentation::HTTPLogging#with
+Dexpace::Instrumentation::HTTPLogging.of
+Dexpace::Instrumentation::HTTPLogging.parse
+Dexpace::Instrumentation::HTTPLogging.resolve
+Dexpace::Instrumentation::HTTPLogging::BODY : Dexpace::Instrumentation::HTTPLogging
+Dexpace::Instrumentation::HTTPLogging::DEFAULT : Dexpace::Instrumentation::HTTPLogging
+Dexpace::Instrumentation::HTTPLogging::HEADERS : Dexpace::Instrumentation::HTTPLogging
+Dexpace::Instrumentation::HTTPLogging::NONE : Dexpace::Instrumentation::HTTPLogging
 Dexpace::Instrumentation::HTTPTracer
 Dexpace::Instrumentation::HTTPTracer#attempt_failed
 Dexpace::Instrumentation::HTTPTracer#attempt_started
@@ -365,15 +401,79 @@ Dexpace::Instrumentation::HTTPTracer#request_url_resolved
 Dexpace::Instrumentation::HTTPTracer#response_headers_received
 Dexpace::Instrumentation::HTTPTracer#response_received
 Dexpace::Instrumentation::HTTPTracer#retries_exhausted
+Dexpace::Instrumentation::Keys
+Dexpace::Instrumentation::Keys::CAUSE : String
+Dexpace::Instrumentation::Keys::ERROR_TYPE : String
+Dexpace::Instrumentation::Keys::EVENT : String
+Dexpace::Instrumentation::Keys::HTTP_REQUEST_BODY_PREVIEW : String
+Dexpace::Instrumentation::Keys::HTTP_REQUEST_BODY_SIZE : String
+Dexpace::Instrumentation::Keys::HTTP_REQUEST_HEADER_PREFIX : String
+Dexpace::Instrumentation::Keys::HTTP_REQUEST_METHOD : String
+Dexpace::Instrumentation::Keys::HTTP_RESPONSE_BODY_PREVIEW : String
+Dexpace::Instrumentation::Keys::HTTP_RESPONSE_BODY_SIZE : String
+Dexpace::Instrumentation::Keys::HTTP_RESPONSE_DURATION_MS : String
+Dexpace::Instrumentation::Keys::HTTP_RESPONSE_HEADER_PREFIX : String
+Dexpace::Instrumentation::Keys::HTTP_RESPONSE_STATUS_CODE : String
+Dexpace::Instrumentation::Keys::INSTRUMENT_REQUEST_COUNT : String
+Dexpace::Instrumentation::Keys::INSTRUMENT_REQUEST_DURATION : String
+Dexpace::Instrumentation::Keys::MESSAGE : String
+Dexpace::Instrumentation::Keys::URL_FULL : String
+Dexpace::Instrumentation::Logger
+Dexpace::Instrumentation::Logger#context
+Dexpace::Instrumentation::Logger#enabled?
+Dexpace::Instrumentation::Logger#event
+Dexpace::Instrumentation::Logger#redactor
+Dexpace::Instrumentation::Logger#sink
+Dexpace::Instrumentation::Logger.build
+Dexpace::Instrumentation::Logger::NULL : Dexpace::Instrumentation::Logger
 Dexpace::Instrumentation::NO_METER : Dexpace::Instrumentation::NoMeter
 Dexpace::Instrumentation::NO_SCOPE : Dexpace::Instrumentation::NoScope
 Dexpace::Instrumentation::NO_SPAN : Dexpace::Instrumentation::NoSpan
 Dexpace::Instrumentation::NO_TRACER : Dexpace::Instrumentation::NoTracer
 Dexpace::Instrumentation::NO_TRACER_FACTORY : Dexpace::Instrumentation::NoTracerFactory
 Dexpace::Instrumentation::NULL : Dexpace::Instrumentation::NullHTTPTracer
+Dexpace::Instrumentation::NULL_SINK : Dexpace::Instrumentation::NullSink
+Dexpace::Instrumentation::Preview
+Dexpace::Instrumentation::Preview.render
+Dexpace::Instrumentation::Preview::BINARY_MARKER_FORMAT : String
+Dexpace::Instrumentation::Preview::TEXT_SUBTYPES : Set
+Dexpace::Instrumentation::RedactionPolicy
+Dexpace::Instrumentation::RedactionPolicy#header_allow_list
+Dexpace::Instrumentation::RedactionPolicy#omit_disallowed_headers
+Dexpace::Instrumentation::RedactionPolicy#query_allow_list
+Dexpace::Instrumentation::RedactionPolicy#url_header_names
+Dexpace::Instrumentation::RedactionPolicy.build
+Dexpace::Instrumentation::RedactionPolicy::DEFAULT : Dexpace::Instrumentation::RedactionPolicy
+Dexpace::Instrumentation::Redactor
+Dexpace::Instrumentation::Redactor#header_name?
+Dexpace::Instrumentation::Redactor#header_value
+Dexpace::Instrumentation::Redactor#policy
+Dexpace::Instrumentation::Redactor#url
+Dexpace::Instrumentation::Redactor.build
+Dexpace::Instrumentation::Redactor::DEFAULT : Dexpace::Instrumentation::Redactor
+Dexpace::Instrumentation::Redactor::MALFORMED_URL : String
+Dexpace::Instrumentation::Redactor::REDACTED_HEADER : String
+Dexpace::Instrumentation::Redactor::REDACTED_USERINFO : String
+Dexpace::Instrumentation::Redactor::REDACTED_VALUE : String
+Dexpace::Instrumentation::Redactor::RELATIVE_MARKER : String
 Dexpace::Instrumentation::Scope
 Dexpace::Instrumentation::Scope#close
 Dexpace::Instrumentation::Scope.build
+Dexpace::Instrumentation::Severity
+Dexpace::Instrumentation::Severity#name
+Dexpace::Instrumentation::Severity#sink_method
+Dexpace::Instrumentation::Severity#sink_predicate
+Dexpace::Instrumentation::Severity#with
+Dexpace::Instrumentation::Severity.of
+Dexpace::Instrumentation::Severity::ALL : Array
+Dexpace::Instrumentation::Severity::ERROR : Dexpace::Instrumentation::Severity
+Dexpace::Instrumentation::Severity::INFO : Dexpace::Instrumentation::Severity
+Dexpace::Instrumentation::Severity::VERBOSE : Dexpace::Instrumentation::Severity
+Dexpace::Instrumentation::Severity::WARNING : Dexpace::Instrumentation::Severity
+Dexpace::Instrumentation::Step
+Dexpace::Instrumentation::Step#call
+Dexpace::Instrumentation::Step#stage
+Dexpace::Instrumentation::Step.build
 Dexpace::Instrumentation::TraceIdFlavour
 Dexpace::Instrumentation::TraceIdFlavour#generate_trace_id
 Dexpace::Instrumentation::TraceIdFlavour#invalid_trace_id

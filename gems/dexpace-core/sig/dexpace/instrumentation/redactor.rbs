@@ -1,0 +1,45 @@
+module Dexpace
+  module Instrumentation
+    # OBS-11..OBS-18, XCUT-19, XCUT-20: two total entry points over one frozen policy (P5-25).
+    class Redactor
+      MALFORMED_URL: String
+      REDACTED_VALUE: String
+      REDACTED_USERINFO: String
+      REDACTED_HEADER: String
+      RELATIVE_MARKER: String
+      SURGERY_USERINFO: Regexp
+      DEFAULT: Redactor
+
+      @policy: RedactionPolicy
+
+      attr_reader policy: RedactionPolicy
+
+      private def self.new: (RedactionPolicy policy) -> instance
+      def initialize: (RedactionPolicy policy) -> void
+
+      def self.build: (?policy: RedactionPolicy) -> Redactor
+      def url: (untyped value) -> String
+      def header_value: (untyped name, untyped value) -> String
+      def header_name?: (untyped name) -> bool
+
+      private
+
+      def split: (String value) -> Array[String?]
+      def reassemble: (String? scheme, String? userinfo, String? host, String? port,
+                       String? registry, String? path, String? opaque, String? query,
+                       String? fragment) -> String
+      def authority: (String? userinfo, String host, String? port) -> String
+      def opaque_part: (String opaque) -> String
+      def tail: (String? query, String? fragment) -> String
+      def redact_header_url: (String raw) -> String
+      def relative: (String? userinfo, String? host, String? port, String? path,
+                     carried: bool) -> String
+      def surgery: (String raw) -> String
+      def redact_pairs: (String string, keep_bare: bool) -> String
+      def redact_pair: (String pair) -> String
+      def allow_listed?: (String name) -> bool
+      def decode_name: (String name) -> String?
+      def fold: (untyped name) -> String
+    end
+  end
+end

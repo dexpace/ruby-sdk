@@ -1,0 +1,34 @@
+module Dexpace
+  # OBS-1, OBS-2, design §8.1: the sink duck type -- the stdlib Logger surface as a structural
+  # subset, so a consumer's Logger drops in and core never requires `logger`. A signature typed
+  # Logger would put a bundled-gem constant in the public surface (NFR-11's scan); `untyped`
+  # would hide the slot from it. Each write takes a message or a block, as Logger's do.
+  interface _Sink
+    def debug: (?untyped message) ?{ () -> untyped } -> void
+    def info: (?untyped message) ?{ () -> untyped } -> void
+    def warn: (?untyped message) ?{ () -> untyped } -> void
+    def error: (?untyped message) ?{ () -> untyped } -> void
+    def debug?: () -> bool
+    def info?: () -> bool
+    def warn?: () -> bool
+    def error?: () -> bool
+  end
+
+  module Instrumentation
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types NULL_SINK's construction. The privacy lives in
+    # lib/dexpace/instrumentation/null_sink.rb.
+    class NullSink
+      def debug: (?untyped message) ?{ () -> untyped } -> nil
+      def info: (?untyped message) ?{ () -> untyped } -> nil
+      def warn: (?untyped message) ?{ () -> untyped } -> nil
+      def error: (?untyped message) ?{ () -> untyped } -> nil
+      def debug?: () -> false
+      def info?: () -> false
+      def warn?: () -> false
+      def error?: () -> false
+    end
+
+    NULL_SINK: _Sink & Object
+  end
+end

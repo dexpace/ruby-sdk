@@ -8,18 +8,22 @@ module Dexpace
     CRED_USER: String
     CRED_PASS: String
     NON_PROXY_PROP: String
+    CREDENTIAL_BEFORE_AT: Regexp
+    SHOWN_AS: String
 
-    def self?.resolve: (Configuration configuration) -> Proxy?
+    def self?.resolve: (Configuration configuration, Instrumentation::Logger logger) -> Proxy?
 
     private
 
     def property_host: (Configuration configuration) -> [Symbol?, String?]
-    def from_properties: (Configuration configuration, Symbol layer, String host) -> Proxy?
-    def from_environment: (Configuration configuration) -> Proxy?
+    def from_properties: (Configuration configuration, Symbol layer, String host,
+                          Instrumentation::Logger logger) -> Proxy?
+    def from_environment: (Configuration configuration, Instrumentation::Logger logger) -> Proxy?
     def environment_url: (Configuration configuration) -> String?
     def model_for: (Configuration configuration, type: Proxy::Type, host: String, port: Integer,
                     username: String?, password: String?) -> Proxy?
-    def split_url: (String url) -> Array[untyped]
+    def split_url: (String url, Instrumentation::Logger logger) -> Array[untyped]
+    def shown: (String url) -> String
     def url_problem: (String? host, String? raw_port) -> String?
     def scheme_type: (String? scheme) -> Proxy::Type
     def credentials: (String? userinfo) -> Array[String?]
@@ -27,6 +31,6 @@ module Dexpace
     def parse_port: (untyped raw) -> Integer?
     def split_non_proxy: (String? raw, String separator) -> [Array[Proxy::HostPattern], bool]
     def tokens_of: (String raw, String separator) -> Array[String]
-    def warn_and_nil: (String message) -> nil
+    def warn_and_nil: (String message, Instrumentation::Logger logger) -> nil
   end
 end

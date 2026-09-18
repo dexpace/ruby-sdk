@@ -1,0 +1,31 @@
+module Dexpace
+  module Instrumentation
+    # The async runtime's step over 4c's _AsyncStep: the same .build, the same Emitter (P5-34).
+    # Below the body level it returns the chain's own future; at it, a derived one (P5-94).
+    class AsyncStep < Step
+      # A private value carried through the callbacks; declared for the strict target.
+      class Pending < Data
+        attr_reader request: Dexpace::Request
+        attr_reader started: Float
+        attr_reader snapshot: Hash[Symbol, untyped]?
+        attr_reader span: untyped
+
+        def self.new: (request: Dexpace::Request, started: Float,
+                       snapshot: Hash[Symbol, untyped]?, span: untyped) -> instance
+      end
+
+      def self.build: (logger: Logger, level: HTTPLogging, ?tracer_factory: _TracerFactory,
+                       ?meter: _Meter, ?preview_bytes: Integer?, ?clock: _Clock) -> AsyncStep
+
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Async::Future
+
+      private
+
+      def head: (Dexpace::Request request, Pipeline::Cursor cursor) -> [Dexpace::Async::Future, Pending]
+      def attach: (Dexpace::Async::Future future, Pending pending) -> Dexpace::Async::Future
+      def settle_response: (Pending pending, Dexpace::Response response) -> Dexpace::Response
+      def settle: (Pending pending, Dexpace::Async::Settlement settlement) -> void
+      def bridged: [T] (Hash[Symbol, untyped]? snapshot) { () -> T } -> T
+    end
+  end
+end

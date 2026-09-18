@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "suppressible"
+require_relative "instrumentation/keys"
+require_relative "instrumentation/logger"
+require_relative "instrumentation/contain"
 
 module Dexpace
   # Running a list of caller-supplied callbacks, in one place, once.
@@ -19,23 +22,33 @@ module Dexpace
   # design §3.7's two disposal routes, which phase 2 postponed and phase 4b (Task 2) supplied. The
   # carrier is Dexpace::Suppressible and not Dexpace::Error: a handler's failure is a caller's
   # exception, so Dexpace.attach_suppressed extends it (P4-12). The second route, the
-  # http.instrumentation.* diagnostic, is phase 5's (§8.1) and may report each attached failure;
-  # it does not replace the trail. Re-raising is safe here in a way it is not at the naive site:
-  # the state is already published and every other handler has already run, so the raise can no
-  # longer leave a token uncancelled or a future unsettled.
+  # `http.instrumentation.hook` diagnostic, is phase 5b's: each failure AFTER the first is also
+  # reported through `logger:` (Logger::NULL by default, which reports nothing), beside the trail
+  # and replacing nothing -- phase 2's option, taken. The emission runs inside
+  # Instrumentation.contain, so a raising sink cannot fail a notification (OBS-20). Re-raising is
+  # safe here in a way it is not at the naive site: the state is already published and every
+  # other handler has already run, so the raise can no longer leave a token uncancelled or a
+  # future unsettled.
   #
   # Only StandardError is collected. A ScriptError, a NoMemoryError or a SignalException raised by
   # a handler is not a handler bug to be gathered up and re-raised later.
   module Hooks
     # @param hooks [Array<#call>] the list the caller already stole from under its own lock
     # @param argument [Object] the single argument every hook is called with
+    # @param logger [Dexpace::Instrumentation::Logger] where each dropped failure is reported
     # @return [nil]
-    def self.notify(hooks, argument)
+    def self.notify(hooks, argument, logger: Instrumentation::Logger::NULL)
       failure = nil #: StandardError?
       hooks.each do |hook|
         hook.call(argument)
       rescue ::StandardError => error
-        failure ? Dexpace.attach_suppressed(failure, error) : (failure = error)
+        if failure.nil?
+          failure = error
+        else
+          Dexpace.attach_suppressed(failure, error)
+          Instrumentation.diagnostic(logger, event: Instrumentation::Events::INSTRUMENTATION_HOOK,
+                                             cause: error,)
+        end
       end
       # `cause: nil`, because this line re-raises an error it has been CARRYING since an earlier
       # iteration rather than one it just rescued: a bare `raise` would hand it the caller's

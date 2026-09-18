@@ -1,0 +1,13 @@
+module Dexpace
+  module Instrumentation
+    # OBS-20, XCUT-20: the one containment primitive, a module function (P5-37). Returns nil
+    # always, so a call site cannot branch on whether logging worked.
+    def self.contain: (Logger logger, event: String) { () -> untyped } -> nil
+    def self.diagnostic: (Logger logger, event: String, ?cause: Exception?,
+                          ?message: String?) -> nil
+
+    private
+
+    def self.report: (Logger logger, String event, StandardError error) -> nil
+  end
+end

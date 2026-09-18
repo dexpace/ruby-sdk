@@ -167,6 +167,31 @@ require_relative "dexpace/instrumentation/meter"
 require_relative "dexpace/instrumentation/http_tracer"
 require_relative "dexpace/instrumentation/callable_adapter"
 
+# Phase 5b: the logging facade and redaction, in dependency order -- the severity set, the two
+# vocabularies, the default sink, the private renderer, the redaction policy and the redactor
+# (diagnostics.rb, which the event folds through, is 5c's line above), the event and the facade
+# over it, the two containment functions, the preview renderer, the level set, then the private
+# emitter and the two steps. Four earlier files pull the front of this tree in ahead of here --
+# closeable.rb and hooks.rb (phase 2) and proxy/resolution.rb (phase 5a) require the logger and
+# the containment for their diagnostics -- and that is not a cycle: nothing in this tree
+# requires closeable, hooks or the proxy, and require_relative is idempotent, so these lines are
+# the declaration of the order and not always the first load. `uri` is required by redactor.rb
+# in the file that uses it; the allowlist does not grow.
+require_relative "dexpace/instrumentation/severity"
+require_relative "dexpace/instrumentation/keys"
+require_relative "dexpace/instrumentation/null_sink"
+require_relative "dexpace/instrumentation/render"
+require_relative "dexpace/instrumentation/redaction_policy"
+require_relative "dexpace/instrumentation/redactor"
+require_relative "dexpace/instrumentation/event"
+require_relative "dexpace/instrumentation/logger"
+require_relative "dexpace/instrumentation/contain"
+require_relative "dexpace/instrumentation/preview"
+require_relative "dexpace/instrumentation/http_logging"
+require_relative "dexpace/instrumentation/emitter"
+require_relative "dexpace/instrumentation/step"
+require_relative "dexpace/instrumentation/async_step"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

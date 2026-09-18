@@ -100,7 +100,10 @@ module Dexpace
     end
 
     # Resolves a proxy from configuration (CFG-24 through CFG-28) through the private resolver.
-    # Never raises: invalid configuration yields nil and a Kernel#warn (P5-8).
+    # Never raises: invalid configuration yields nil and a Kernel#warn (P5-8), and -- phase 5b --
+    # an `http.instrumentation.config` diagnostic BESIDE the warning through `logger:`, which
+    # defaults to Logger::NULL and so reports nothing unless a caller passes one. The warning
+    # stays: P2-6's shape, and 5a's explicit expectation.
     #
     # CFG-28's MAY is taken and its prohibition is met structurally: the argument defaults to
     # Dexpace.configuration, and NOTHING in core calls this. No environment read happens unless
@@ -109,17 +112,18 @@ module Dexpace
     #
     # @param configuration [Dexpace::Configuration] the chain to read; the process-wide slot by
     #   default
+    # @param logger [Dexpace::Instrumentation::Logger] where each warning is also reported
     # @return [Proxy, nil] nil when no proxy is configured, when the configuration is invalid
     #   (after a warning), or when the non-proxy list is bypass-all (CFG-27)
     # @raise [Dexpace::InvalidArgumentError] when handed something that is not a Configuration
     #   -- the one argument that is the caller's and not the configuration's
-    def self.resolve(configuration = Dexpace.configuration)
+    def self.resolve(configuration = Dexpace.configuration, logger: Instrumentation::Logger::NULL)
       unless configuration.is_a?(Configuration)
         raise InvalidArgumentError,
               "configuration must be a Dexpace::Configuration, got #{configuration.class}"
       end
 
-      ProxyResolution.resolve(configuration)
+      ProxyResolution.resolve(configuration, logger)
     end
 
     # The nested files reopen `class Proxy`, so they load HERE, inside the body the declaration
