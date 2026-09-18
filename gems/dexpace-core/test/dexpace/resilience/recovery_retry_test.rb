@@ -7,23 +7,38 @@ require_relative "../../support/retry_fixtures"
 require_relative "../../support/scripted_transport"
 require_relative "../../support/recording_http_tracer"
 require_relative "../../support/recording_sink"
+require_relative "../../support/fake_config_source"
 
 # Exercises: RECOV-16, RECOV-17, RECOV-18, RECOV-19, RECOV-20, RECOV-21, RECOV-22, RECOV-23,
 # RECOV-24, RECOV-26, RECOV-27, RECOV-28, RECOV-29, RECOV-30, RECOV-34, RETRY-4, RETRY-13,
 # RETRY-14, RETRY-23, RETRY-25, RETRY-27, RETRY-34, RETRY-35, RETRY-36, RETRY-37, RETRY-41,
-# RETRY-42, RETRY-44, OBS-29, CFG-16, SEAM-11, P6-3, P6-6, P6-8, P6-9
+# RETRY-42, RETRY-44, OBS-29, CFG-16, SEAM-11, P6-3, P6-6, P6-8, P6-9, P6-60
 #
 # The recovery-stack engine, driven directly as the Dexpace::Transport it is and, where the
 # integration is the point, beneath a real Recovery::Orchestrator with a real
 # ErrorMappingStep. Every wait is a FakeClock's, whose monotonic reading advances by exactly the
 # slept duration, so the total-timeout arithmetic is exact rather than wall-clock-dependent.
-# Split into nested classes under Metrics/ClassLength.
+# Hermetic: the engine's default settings read the configured MAX_RETRY_ATTEMPTS, so every
+# nested class runs behind a FakeConfigSource env seam. Split into nested classes under
+# Metrics/ClassLength.
 class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
   RecoveryRetry = Dexpace::Resilience::RecoveryRetry
 
-  # The engine over a script, and the one call every test makes.
+  # The engine over a script, the one call every test makes, and the seam.
   module Fixtures
     include RetryFixtures
+
+    # Hermetic (5a's rule, R0-1): a default-settings build reads Keys::MAX_RETRY_ATTEMPTS off the
+    # process slot, so every test runs behind a FakeConfigSource env seam and resets the slot.
+    def setup
+      super
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new }
+    end
+
+    def teardown
+      Dexpace.reset_config!
+      super
+    end
 
     def engine(script, settings: retry_settings, **keywords)
       transport = ScriptedTransport.new(script)
@@ -372,6 +387,28 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
 
       assert_raises(Dexpace::CancelledError) { send_through(built, cancellation: source.token) }
       assert_equal(0, transport.calls.size)
+    end
+
+    test "RETRY-23 / P6-60: a cancellation the transport WRAPPED in a retryable error is final" do
+      # RecoveryRetry has no caller predicate; the discriminator on this stack is the wrapped
+      # form, which the capability branch alone would have retried.
+      wrapped = begin
+        begin
+          raise Dexpace::CancelledError, :token
+        rescue Dexpace::CancelledError
+          raise RetryableError, "read interrupted"
+        end
+      rescue RetryableError => error
+        error
+      end
+      built, transport = engine([wrapped, retry_response(200)],
+                                settings: retry_settings(max_retries: 5),)
+
+      surfaced = assert_raises(RetryableError) { send_through(built) }
+
+      assert_same(wrapped, surfaced)
+      assert_equal(1, transport.calls.size, "never re-sent")
+      assert_empty(Dexpace.suppressed(surfaced))
     end
 
     test "RETRY-35 / RECOV-16: the error body is buffered (connection released) before the wait" do

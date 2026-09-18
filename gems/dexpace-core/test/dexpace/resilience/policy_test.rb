@@ -6,11 +6,13 @@ require "dexpace"
 require_relative "../../support/recovery_fixtures"
 require_relative "../../support/cyclic_errors"
 require_relative "../../support/recording_sink"
+require_relative "../../support/warning_capture"
 
 # Exercises: RETRY-1, RETRY-2, RETRY-9, RETRY-10, RETRY-11, RETRY-12, RETRY-13, RETRY-15,
-# RETRY-16, RETRY-17, RETRY-18, RETRY-19, RETRY-20, RETRY-21, RETRY-22, RETRY-37, RETRY-41,
-# RETRY-42, RECOV-17, RECOV-20, RECOV-21, RECOV-22, RECOV-23, RECOV-24, RECOV-25, RECOV-26,
-# RECOV-29, RECOV-30, CFG-35, XCUT-6, XCUT-7, XCUT-9, P6-5, P6-10, P6-12
+# RETRY-16, RETRY-17, RETRY-18, RETRY-19, RETRY-20, RETRY-21, RETRY-22, RETRY-23, RETRY-37,
+# RETRY-41, RETRY-42, RECOV-17, RECOV-20, RECOV-21, RECOV-22, RECOV-23, RECOV-24, RECOV-25,
+# RECOV-26, RECOV-27, RECOV-29, RECOV-30, CFG-35, NFR-6, XCUT-6, XCUT-7, XCUT-9, P6-5, P6-10,
+# P6-12, P6-60, P6-61
 #
 # The shared policy core: the two-branch classifier consult, the calculator, the resolver, the
 # recovery-only budget and the pacing dispatcher. Split into nested classes under
@@ -89,8 +91,8 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
     assert_empty(Policy.instance_variables)
     assert_kind_of(Policy, Policy, "extend self, never module_function")
     assert_equal(
-      %i[backoff_delay budget_remaining effective_max_retries pacing_delay retry_eligible?
-         retryable? throwable_retryable?],
+      %i[backoff_delay budget_remaining cancellation? effective_max_retries pacing_delay
+         retry_eligible? retryable? throwable_retryable?],
       Policy.public_instance_methods(false).sort,
     )
   end
@@ -166,6 +168,29 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
              "a configured set that ADMITS 503 still does not reach a wrapped ProtocolError " \
              "through the capability branch; the status branch needs the error itself",)
     end
+
+    test "RETRY-23 / P6-60: cancellation? finds a CancelledError itself or anywhere in the chain" do
+      cancelled = Dexpace::CancelledError.new(:token)
+
+      assert(Policy.cancellation?(cancelled))
+      assert(Policy.cancellation?(wrap(cancelled, ::IOError, "wrapped by a transport")))
+      assert(Policy.cancellation?(wrap(wrap(cancelled), ::RuntimeError, "two levels up")))
+      refute(Policy.cancellation?(::IOError.new("no cancellation anywhere")))
+      refute(Policy.cancellation?(wrap(::StandardError.new("inner"))))
+      assert_raises(Dexpace::InvalidArgumentError) { Policy.cancellation?("boom") }
+    end
+
+    test "RETRY-23 / RECOV-27: a cancellation is never retryable, whatever wraps it answers" do
+      cancelled = Dexpace::CancelledError.new(:token)
+      # A transport error that answers the capability and CARRIES the cancellation: the
+      # capability branch alone would call it retryable; the cancellation guard runs first.
+      carrier = wrap(cancelled, RetryableByCapability, "read interrupted")
+
+      assert(Policy.throwable_retryable?(carrier), "the fixture is load-bearing: capability yes")
+      refute(Policy.retryable?(carrier, retryable_statuses: ::Set[503]))
+      refute(Policy.retryable?(cancelled, retryable_statuses: ::Set[503]))
+      refute(Policy.throwable_retryable?(cancelled), "CancelledError answers no capability")
+    end
   end
 
   # RETRY-9, RETRY-10, RETRY-11, RETRY-41, RECOV-20, RECOV-21, P6-12.
@@ -232,14 +257,19 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
                       "spread 1.5e-9 draws",)
     end
 
-    test "RETRY-10: at the cap the jitter band is drawn around the cap (base == cap)" do
+    test "RETRY-10 / RETRY-9: at the cap the band is drawn AROUND the cap: capped, then jittered" do
       random = ::Random.new(7)
-      20.times do
-        d = backoff(50, jitter: 1.0, random: random)
+      samples = Array.new(200) { backoff(50, jitter: 1.0, random: random) }
 
+      samples.each do |d|
         assert_operator(d, :>=, 4.0)
         assert_operator(d, :<=, 12.0, "d(1 + j/2) with d = 8.0 and j = 1.0")
       end
+      # The order RECOV-21 fixes: cap FIRST, then perturb. Jitter applied to the raw
+      # 0.2 * 2**49 and clipped to the cap afterwards would answer exactly 8.0 every time and
+      # never a sample above it, so the band's two halves are asserted, not only its bounds.
+      assert_operator(samples.max, :>, 8.0, "a sample above the cap: jittered after capping")
+      assert_operator(samples.min, :<, 8.0)
     end
 
     test "RETRY-10: a negative sample is floored at zero" do
@@ -438,12 +468,12 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
 
     test "RETRY-16 / RECOV-23: malformed, negative and out-of-range values are no hint, not 0" do
       ["-5", "-0.5", "not a date", "", " 5", "5 ", "Sun, 32 Nov 1994 08:49:37 GMT",
-       "Sunday, 06-Nov-94 08:49:37 GMT", "9" * 400,].each do |bad|
+       "Sunday, 06-Nov-94 08:49:37 GMT", "9" * 16, "9" * 300, "9" * 400,].each do |bad|
         assert_nil(delay("Retry-After" => bad), bad.inspect)
       end
-      ["-1", "1.5", "abc", "", "9" * 400].each do |bad|
+      ["-1", "1.5", "abc", "", "9" * 16, "9" * 400].each do |bad|
         assert_nil(delay("X-RateLimit-Reset" => bad), bad.inspect)
-        assert_nil(delay("retry-after-ms" => bad), bad.inspect) unless bad == "9" * 400
+        assert_nil(delay("retry-after-ms" => bad), bad.inspect)
       end
     end
 
@@ -459,7 +489,9 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
       assert_equal(ceiling, delay("retry-after-ms" => (400 * 24 * 60 * 60 * 1000).to_s))
       assert_equal(ceiling, delay("X-RateLimit-Reset" => (NOW.to_i + (400 * 24 * 60 * 60)).to_s))
       assert_equal(ceiling, delay("Retry-After" => "Fri, 18 Sep 2099 12:00:00 GMT"))
-      assert_equal(ceiling, delay("Retry-After" => "9" * 300), "1e300 seconds is finite; clamped")
+      assert_equal(ceiling, delay("Retry-After" => "9" * 15), "the longest run the grammar admits")
+      assert_equal(ceiling, delay("retry-after-ms" => "9" * 15))
+      assert_equal(ceiling, delay("X-RateLimit-Reset" => "9" * 15))
     end
 
     test "RETRY-18: exactly the ceiling and one below pass through unclamped" do
@@ -505,6 +537,79 @@ class DexpaceResiliencePolicyTest < DexpaceTestCase
 
       assert_nil(Policy.pacing_delay(forged, header_order: ORDER, now: NOW))
       assert_nil(Policy.pacing_delay(forged2, header_order: ORDER, now: NOW))
+    end
+  end
+
+  # RETRY-16, RETRY-19, NFR-6, P6-61: the parser's bounds -- a run past fifteen digits or a
+  # value past 64 bytes is no hint before any conversion, so a hostile value costs microseconds
+  # and emits no warning.
+  class PacingBoundsTest < DexpaceTestCase
+    include Fixtures
+
+    ORDER = Policy::DEFAULT_PACING_HEADER_ORDER
+    NOW = ::Time.utc(2026, 9, 18, 12, 0, 0)
+    FORMS = %w[Retry-After retry-after-ms X-RateLimit-Reset].freeze
+
+    def delay(pairs)
+      Policy.pacing_delay(headers(pairs), header_order: ORDER, now: NOW)
+    end
+
+    # A headers stand-in answering one huge value: phase 1's inbound builder validates a value
+    # byte by byte (seconds for 10 MB) and is not what is under test here; the parser is.
+    def forged(name, value)
+      stand_in = ::Object.new
+      stand_in.define_singleton_method(:[]) { |asked| asked == name ? [value] : nil }
+      stand_in
+    end
+
+    test "P6-61: a 10 MB value in every form is no hint, in microseconds, on the parser alone" do
+      # The digit run exercises the grammars' bound in every form; the letter run exercises the
+      # byte ceiling in front of the HTTP-date attempt, which 5a's anchored grammar would
+      # otherwise scan (measured at 0.1 s for 10 MB). Both answer in well under a millisecond.
+      cases = FORMS.map { |name| [name, "9" * 10_000_000] } << ["Retry-After", "x" * 10_000_000]
+      cases.each do |name, huge|
+        started = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
+        answer = Policy.pacing_delay(forged(name, huge), header_order: [name], now: NOW)
+        elapsed = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) - started
+
+        assert_nil(answer, name)
+        assert_operator(elapsed, :<, 0.05, "#{name} #{huge[0]}: #{elapsed} s; the value was read")
+      end
+    end
+
+    test "NFR-6 / RETRY-16: a run long enough to overflow a Float emits no Ruby warning" do
+      # The suite's raiser turns a warning into an error that Policy#parse_form's fence would
+      # swallow, so the totality cases above cannot see one; recording the warnings can.
+      FORMS.each do |name|
+        warnings = WarningCapture.record { assert_nil(delay(name => "9" * 400), name) }
+
+        assert_empty(warnings, "#{name}: String#to_f/#to_i ran on the run")
+      end
+    end
+
+    test "P6-61: fifteen digits is the boundary, and the fraction is bounded the same way" do
+      assert_equal(Policy::MAX_PACING_DELAY_SECONDS.to_f, delay("Retry-After" => "1" * 15))
+      assert_nil(delay("Retry-After" => "1" * 16))
+      assert_in_delta(1.5, delay("Retry-After" => "1.5"))
+      assert_in_delta("1.#{"5" * 15}".to_f, delay("Retry-After" => "1.#{"5" * 15}"), 0.0)
+      assert_nil(delay("Retry-After" => "1.#{"5" * 16}"))
+      assert_in_delta(1.5, delay("retry-after-ms" => "1500"))
+      assert_nil(delay("retry-after-ms" => "1500.0"), "millis take no fraction")
+    end
+
+    test "P6-61: the 64-byte ceiling sits above every well-formed form" do
+      parsers = Dexpace::Resilience.const_get(:PacingParsers)
+
+      assert_equal(64, parsers.const_get(:MAX_VALUE_BYTES))
+      # The two longest well-formed values -- the 29-byte RFC 1123 date and the 31-byte decimal
+      # the bounded grammar admits (fifteen digits, a point, fifteen digits) -- both parse.
+      longest = "#{"1" * 15}.#{"5" * 15}"
+
+      assert_equal(31, longest.bytesize)
+      assert_in_delta(45.0, delay("Retry-After" => "Fri, 18 Sep 2026 12:00:45 GMT"))
+      assert_equal(Policy::MAX_PACING_DELAY_SECONDS.to_f, delay("Retry-After" => longest))
+      assert_nil(delay("Retry-After" => "x" * 65))
+      assert_nil(delay("Retry-After" => "x" * 64), "the date grammar refuses; the ceiling admits")
     end
   end
 end

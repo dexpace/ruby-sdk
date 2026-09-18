@@ -5,9 +5,10 @@ require_relative "../../test_helper"
 require "dexpace"
 require_relative "../../support/fake_clock"
 require_relative "../../support/fake_config_source"
+require_relative "../../support/recording_sink"
 
-# Exercises: RECOV-34, RETRY-12, RETRY-13, RETRY-14, RETRY-21, RETRY-42, RECOV-30, CFG-14,
-# SEAM-29, P6-6
+# Exercises: RECOV-34, RETRY-12, RETRY-13, RETRY-14, RETRY-21, RETRY-41, RETRY-42, RECOV-30,
+# CFG-14, OBS-20, SEAM-29, P6-6, P6-57, P6-59
 #
 # The one retry configuration: its defaults are Policy's constants, its validation is RECOV-34
 # clause by clause, its collections are copied and frozen, and its max_retries is the first
@@ -177,14 +178,57 @@ class DexpaceResilienceRetrySettingsTest < DexpaceTestCase
       assert_equal(Policy::DEFAULT_MAX_RETRIES, Settings.build.max_retries)
     end
 
-    test "RETRY-12 / RECOV-34: a negative configured value is refused at build, not clamped here" do
-      # RETRY-41's clamp is the DRIVER's, at resolution time against the per-call override; the
-      # settings object itself holds only a valid value (RECOV-34).
+    test "RETRY-41 / P6-59: a negative CONFIGURED value is clamped to the default and logged" do
+      # The one read of the configured key is where RETRY-41's "a negative configured value MUST
+      # be clamped to the default (and the clamp logged)" is met, through the same resolver the
+      # drivers use; the settings object then holds a valid value (RECOV-34) and every driver
+      # built on it sees the default without a second clamp or a second log line.
       Dexpace.configure { |c| c.env_source = FakeConfigSource.new(KEY => "-1") }
+      sink = RecordingSink.new
+      settings = Settings.build(logger: Dexpace::Instrumentation::Logger.build(sink: sink))
 
-      error = assert_raises(Dexpace::InvalidArgumentError) { Settings.build }
+      assert_equal(Policy::DEFAULT_MAX_RETRIES, settings.max_retries)
+      assert_equal([:warn], sink.entries.map(&:severity))
+      payload = sink.payloads.first
+
+      assert_equal(Dexpace::Instrumentation::Events::INSTRUMENTATION_CONFIG,
+                   payload[Dexpace::Instrumentation::Keys::EVENT],)
+      assert_match(/-1.*clamped to #{Policy::DEFAULT_MAX_RETRIES}/o,
+                   payload[Dexpace::Instrumentation::Keys::MESSAGE],)
+      assert_equal(Policy::DEFAULT_MAX_RETRIES, Settings.build.max_retries,
+                   "Logger::NULL by default: clamped, reported nowhere",)
+    end
+
+    test "RETRY-41 / OBS-20: the clamp's log is contained: a raising sink cannot fail the build" do
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new(KEY => "-3") }
+      sink = RecordingSink.new
+      sink.define_singleton_method(:warn) { |*| raise ::IOError, "sink write failure" }
+      logger = Dexpace::Instrumentation::Logger.build(sink: sink)
+
+      assert_equal(Policy::DEFAULT_MAX_RETRIES, Settings.build(logger: logger).max_retries)
+    end
+
+    test "RECOV-34: an EXPLICIT negative max_retries: is still refused, never clamped" do
+      # The configured key is the environment's value; an explicit argument is the caller's
+      # construction input, and RECOV-34 refuses that at initialize -- with the key negative too.
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new(KEY => "-1") }
+      sink = RecordingSink.new
+      logger = Dexpace::Instrumentation::Logger.build(sink: sink)
+
+      error = assert_raises(Dexpace::InvalidArgumentError) do
+        Settings.build(max_retries: -1, logger: logger)
+      end
 
       assert_includes(error.message, "max_retries")
+      assert_empty(sink.entries, "no clamp, so no clamp diagnostic")
+    end
+
+    test "P6-59: logger: is read at build and never held -- not a member, absent from #to_h" do
+      settings = Settings.build(logger: Dexpace::Instrumentation::Logger::NULL)
+
+      refute_includes(settings.to_h.keys, :logger)
+      refute_respond_to(settings, :logger)
+      assert_equal(settings, Settings.build, "value equality is over the ten members alone")
     end
 
     test "RETRY-12 / CFG-5: an unparseable configured value falls to the default (5a's parser)" do

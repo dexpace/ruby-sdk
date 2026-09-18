@@ -8,25 +8,40 @@ require_relative "../../support/scripted_transport"
 require_relative "../../support/recording_http_tracer"
 require_relative "../../support/recording_sink"
 require_relative "../../support/state_probe"
+require_relative "../../support/fake_config_source"
 
 # Exercises: RETRY-2, RETRY-5, RETRY-6, RETRY-7, RETRY-8, RETRY-9, RETRY-10, RETRY-11, RETRY-12,
 # RETRY-13, RETRY-15, RETRY-20, RETRY-21, RETRY-22, RETRY-23, RETRY-24, RETRY-25, RETRY-26,
 # RETRY-28, RETRY-34, RETRY-35, RETRY-36, RETRY-39, RETRY-40, RETRY-41, RETRY-42, RETRY-44,
-# RETRY-45, OBS-29, OBS-30, PIPE-15, PIPE-16, PIPE-40, XCUT-3, P6-5, P6-7, P6-11
+# RETRY-45, OBS-29, OBS-30, PIPE-15, PIPE-16, PIPE-40, XCUT-3, P6-5, P6-7, P6-11, P6-60
 #
 # The synchronous stage-based retry step, driven through a REAL Dexpace::Pipeline over a
 # ScriptedTransport: Builder#append reads #stage, the driver mints the step's cursor, and the
 # fork-for-every-drive rule is asserted through a recording cursor over that real one. Every
 # wait is a FakeClock's -- a real Clock::SYSTEM wait in this suite is a finding -- and the one
 # SYSTEM-clock test is the RETRY-23 case whose zero-length wait cannot observe the token.
-# Split into nested classes under Metrics/ClassLength.
+# Hermetic: a RetryStep.build with no settings reads the configured MAX_RETRY_ATTEMPTS, so every
+# nested class runs behind a FakeConfigSource env seam. Split into nested classes under
+# Metrics/ClassLength.
 class DexpaceResilienceRetryStepTest < DexpaceTestCase
   RetryStep = Dexpace::Resilience::RetryStep
   Stages = Dexpace::Pipeline::Stages
 
-  # The pipeline shape every nested class drives, and the counters it reads off.
+  # The pipeline shape every nested class drives, the counters it reads off, and the seam.
   module Fixtures
     include RetryFixtures
+
+    # Hermetic (5a's rule, R0-1): a default-settings build reads Keys::MAX_RETRY_ATTEMPTS off the
+    # process slot, so every test runs behind a FakeConfigSource env seam and resets the slot.
+    def setup
+      super
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new }
+    end
+
+    def teardown
+      Dexpace.reset_config!
+      super
+    end
 
     def pipeline(step, script, wrap: true, extra: [])
       transport = ScriptedTransport.new(script)
@@ -344,6 +359,25 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
       assert_equal([3.0], clock.sleeps.map { _1[:duration] }, "the hint was read while open")
     end
 
+    test "RETRY-35 / OBS-30: a tracer raising in attempt_failed propagates, the response closed" do
+      # The emission sits inside the same fence as the delay resolution: a throwing tracer fails
+      # the request (OBS-30, never contained) but never leaves the superseded response open
+      # across the propagation -- the async driver's guarded block already closed it (R0-4).
+      open_response = retry_response(503)
+      exploding = ::Object.new
+      def exploding.attempt_started(*) = nil
+      def exploding.attempt_failed(*) = raise("tracer blew up")
+      clock = FakeClock.new
+      step = RetryStep.build(settings: retry_settings(clock: clock, max_retries: 2),
+                             http_tracer_factory: ->(_cursor) { exploding },)
+
+      error = assert_raises(::RuntimeError) { drive(step, [open_response, retry_response(200)]) }
+
+      assert_equal("tracer blew up", error.message)
+      assert_predicate(open_response.body, :closed?, "closed before the raise propagated")
+      assert_empty(clock.sleeps, "the wait was never reached")
+    end
+
     test "RETRY-20 / RETRY-22: a pacing hint REPLACES the schedule verbatim; a bad one falls" do
       clock = FakeClock.new
       settings = retry_settings(clock: clock, initial_delay: 30.0, max_delay: 30.0, jitter: 0.5,
@@ -564,6 +598,68 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
       _built, transport, = pipeline(step, script)
 
       assert_equal(0, transport.calls.size)
+    end
+  end
+
+  # RETRY-23's guard ahead of the caller's predicate and the capability (P6-60).
+  class CancellationGuardTest < DexpaceTestCase
+    include Fixtures
+
+    test "RETRY-23 / P6-60: a should_retry answering true cannot retry a downstream cancellation" do
+      step = RetryStep.build(settings: retry_settings(max_retries: 5), should_retry: ->(*) { true })
+      seen = []
+      spy = RetryStep.build(settings: retry_settings(max_retries: 5),
+                            should_retry: lambda { |failure, _request|
+                              seen << failure
+                              true
+                            },)
+
+      error = assert_raises(Dexpace::CancelledError) do
+        drive(step, [Dexpace::CancelledError.new(:downstream), retry_response(200)])
+      end
+
+      assert_equal(:downstream, error.reason)
+      assert_raises(Dexpace::CancelledError) do
+        drive(spy, [Dexpace::CancelledError.new(:downstream), retry_response(200)])
+      end
+      assert_empty(seen, "the predicate is never consulted for a cancellation")
+    end
+
+    test "RETRY-23 / P6-60: a cancellation WRAPPED by a retryable error is terminal too" do
+      # A transport that wraps the token's raise in its own retryable error: the capability
+      # branch alone would retry it; the guard reads the cancellation it carries.
+      wrapped = begin
+        begin
+          raise Dexpace::CancelledError, :token
+        rescue Dexpace::CancelledError
+          raise RetryableError, "read interrupted"
+        end
+      rescue RetryableError => error
+        error
+      end
+      step = RetryStep.build(settings: retry_settings(max_retries: 5))
+
+      surfaced = assert_raises(RetryableError) { drive(step, [wrapped, retry_response(200)]) }
+
+      assert_same(wrapped, surfaced)
+      assert_kind_of(Dexpace::CancelledError, surfaced.cause)
+      assert_empty(Dexpace.suppressed(surfaced), "one attempt: no trail")
+      _built, transport, = pipeline(step, [wrapped, retry_response(200)])
+
+      assert_equal(0, transport.calls.size)
+    end
+
+    test "RETRY-23: the guard runs before the re-sendability gate and emits no retries_exhausted" do
+      tracer = Dexpace::RecordingHTTPTracer.new
+      step = RetryStep.build(settings: retry_settings(max_retries: 0),
+                             http_tracer_factory: ->(_cursor) { tracer },)
+
+      assert_raises(Dexpace::CancelledError) do
+        drive(step, [Dexpace::CancelledError.new(:downstream)],
+              request: retry_request(method: "POST", body: replayable_body),)
+      end
+      assert_equal(%i[attempt_started], tracer.events.map(&:first),
+                   "a cancellation is :stop, never :exhausted, at any budget",)
     end
   end
 

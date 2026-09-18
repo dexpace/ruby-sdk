@@ -8,25 +8,40 @@ require_relative "../../support/scripted_async_transport"
 require_relative "../../support/recording_http_tracer"
 require_relative "../../support/recording_sink"
 require_relative "../../support/parking_scheduler"
+require_relative "../../support/fake_config_source"
 
 # Exercises: RETRY-2, RETRY-5, RETRY-7, RETRY-8, RETRY-13, RETRY-20, RETRY-23, RETRY-24,
 # RETRY-25, RETRY-26, RETRY-30, RETRY-31, RETRY-32, RETRY-33, RETRY-34, RETRY-35, RETRY-39,
 # RETRY-40, RETRY-41, RETRY-42, RETRY-44, RETRY-45, OBS-29, OBS-30, PIPE-29, PIPE-30, XCUT-3,
-# CFG-18, P6-5, P6-7, R2
+# CFG-18, P6-5, P6-7, P6-60, R2
 #
 # The asynchronous stage-based retry step, driven through a REAL Dexpace::AsyncPipeline over a
 # ScriptedAsyncTransport whose futures settle INLINE -- the shape that overflowed the plan's
 # recursive pump -- and, for R2's scheduler route, through 5a's ParkingScheduler, the one double
 # that can drive a timed wait (its loop runs in #close, so every case joins the scheduler's
 # thread). No test here sleeps a thread: a zero-length delay completes inline, a positive one
-# either parks a fiber or fails the future. Split into nested classes under Metrics/ClassLength.
+# either parks a fiber or fails the future. Hermetic: a build with no settings reads the
+# configured MAX_RETRY_ATTEMPTS, so every nested class runs behind a FakeConfigSource env seam.
+# Split into nested classes under Metrics/ClassLength.
 class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
   AsyncRetryStep = Dexpace::Resilience::AsyncRetryStep
   Stages = Dexpace::Pipeline::Stages
 
-  # The async pipeline shape every nested class drives.
+  # The async pipeline shape every nested class drives, and the seam.
   module Fixtures
     include RetryFixtures
+
+    # Hermetic (5a's rule, R0-1): a default-settings build reads Keys::MAX_RETRY_ATTEMPTS off the
+    # process slot, so every test runs behind a FakeConfigSource env seam and resets the slot.
+    def setup
+      super
+      Dexpace.configure { |c| c.env_source = FakeConfigSource.new }
+    end
+
+    def teardown
+      Dexpace.reset_config!
+      super
+    end
 
     def pipeline(step, script, settle_later: false)
       transport = ScriptedAsyncTransport.new(script, settle_later: settle_later)
@@ -256,6 +271,23 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       assert_equal("tracer blew up", error.message)
     end
 
+    test "RETRY-33 / RETRY-35: a tracer raising in attempt_failed closes the response, no hang" do
+      open_response = retry_response(503)
+      exploding = ::Object.new
+      def exploding.attempt_started(*) = nil
+      def exploding.attempt_failed(*) = raise("tracer blew up")
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 2),
+                                  http_tracer_factory: ->(_cursor) { exploding },)
+      future, transport, = drive(step, [open_response, retry_response(200)])
+
+      assert_predicate(future, :settled?)
+      error = assert_raises(::RuntimeError) { future.value }
+
+      assert_equal("tracer blew up", error.message)
+      assert_predicate(open_response.body, :closed?, "the sync driver closes it the same way")
+      assert_equal(1, transport.calls.size)
+    end
+
     test "RETRY-33: a throwing factory completes the future exceptionally" do
       step = AsyncRetryStep.build(settings: inline_settings,
                                   http_tracer_factory: ->(_cursor) { raise "no tracer" },)
@@ -356,6 +388,40 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       error = assert_raises(Dexpace::CancelledError) { future.value }
 
       assert_equal(:mid, error.reason)
+      assert_equal(1, transport.calls.size)
+    end
+
+    test "RETRY-23 / P6-60: a should_retry answering true cannot retry a downstream cancellation" do
+      seen = []
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 5),
+                                  should_retry: lambda { |failure, _request|
+                                    seen << failure
+                                    true
+                                  },)
+      future, transport, = drive(step, [Dexpace::CancelledError.new(:downstream),
+                                        retry_response(200),],)
+
+      error = assert_raises(Dexpace::CancelledError) { future.value }
+
+      assert_equal(:downstream, error.reason)
+      assert_equal(1, transport.calls.size)
+      assert_empty(seen, "the predicate is never consulted for a cancellation")
+    end
+
+    test "RETRY-23 / P6-60: a cancellation wrapped by a retryable error is terminal on this path" do
+      wrapped = begin
+        begin
+          raise Dexpace::CancelledError, :token
+        rescue Dexpace::CancelledError
+          raise RetryableError, "read interrupted"
+        end
+      rescue RetryableError => error
+        error
+      end
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 5))
+      future, transport, = drive(step, [wrapped, retry_response(200)])
+
+      assert_same(wrapped, assert_raises(RetryableError) { future.value })
       assert_equal(1, transport.calls.size)
     end
   end
