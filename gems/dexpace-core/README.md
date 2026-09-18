@@ -30,12 +30,18 @@ and `OutcomeError`, and the three error primitives every later phase uses: the s
 `Dexpace::Suppressible` with `Dexpace.attach_suppressed` / `.suppressed`, and `Dexpace.each_cause`
 -- and phase 4c's stage pipeline: `Dexpace::Pipeline` with its nested `Stages` (sixteen stage
 constants, `ALL`, `PILLARS`, `.of`), `Stage`, `Step`, `Entry`, `Cursor`, `Builder` and
-`TransformStep`, `Dexpace::AsyncPipeline` with `.map_response`, and `Dexpace::PipelineError`.
+`TransformStep`, `Dexpace::AsyncPipeline` with `.map_response`, and `Dexpace::PipelineError`
+-- and phase 5a's configuration layer: `Dexpace::Configuration` with its `Builder`, `Keys` and
+`Sources`, the slot `Dexpace.configure` / `.configuration` / `.reset_config!`, `Dexpace::Clock`
+with `SYSTEM` and `.deadline_in`, `Dexpace::Async.delay` and the `deadline:` keyword on the
+future, `Dexpace::Proxy` with `Type`, `HostPattern` and `.resolve`, `Dexpace::HTTPDate`,
+`Dexpace::UUID`, `Dexpace::Retryability` and `Dexpace::BuildInfo`, plus `ContextStore.default`
+and `Dexpace::IO.max_materialized_bytes` reading the chain.
 Nothing else yet: the pillar step families and every adapter are later phases', and no transport
 ships here, so nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
 `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
-`docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md` and
-`docs/sdk-documentation/pipelines.md`.
+`docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md`,
+`docs/sdk-documentation/pipelines.md` and `docs/sdk-documentation/configuration.md`.
 
 ## Install
 
@@ -139,6 +145,9 @@ it stays that way (`SEAM-1`, `NFR-1`).
 - `docs/sdk-documentation/pipelines.md` -- the stage pipeline as built: the sixteen stages, the
   builder's pillar rules and surgical edits, the cursor's fork and stage-scoped state, the two
   runtimes, the transform adapter, and why the bridges are phase 2's.
+- `docs/sdk-documentation/configuration.md` -- the configuration layer as built: the four-tier
+  chain and its order, the typed accessors, the builder and the slot, the keys and the two layers
+  that read them, the clock and the deadline, the proxy and its resolver, and the utilities.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

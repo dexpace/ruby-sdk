@@ -13,9 +13,9 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b and 4c are built; the domain model, the seam layer, the byte-streaming
-layer, the body layer, the execution context, the recovery layer and the stage pipeline are the only domain
-code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c and 5a are built; the domain model, the seam layer, the byte-streaming
+layer, the body layer, the execution context, the recovery layer, the stage pipeline and the configuration
+layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -62,7 +62,20 @@ pipeline, §8.1's dispatch runtime: `Dexpace::Pipeline` with its nested vocabula
 `Transform`, and the two private drivers — beside the flat `Dexpace::AsyncPipeline` with
 `.map_response` and the one error `Dexpace::PipelineError`; the two `SEAM-18` bridges are the
 pipeline's bridges and it ships none of its own
-(`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline-checklist.md`); every other
+(`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline-checklist.md`) — and the
+configuration layer, §10's four-tier chain and §8.3's clock: the frozen `Dexpace::Configuration`
+`Data` with its `Builder`, `Keys`, `Sources` (`ENVIRONMENT`, `NONE`, `.from_hash`) and the private
+`ConfigParsers`, the process-wide slot `Dexpace.configure` / `.configuration` / `.reset_config!`
+over `Configuration::EMPTY`, the private structural comparator `Dexpace::DeepValue`, the injectable
+`Dexpace::Clock` with `SYSTEM`, `.deadline_in` and the RBS interface `_Clock`, the
+scheduler-conditional `Dexpace::Async.delay` beside the `deadline:` / `clock:` keywords on
+`Future#wait` / `#value` and `Completer#await`, the proxy model `Dexpace::Proxy` with its closed
+`Type` set, `HostPattern` and the private `ProxyResolution` behind `Proxy.resolve`, the RFC 1123
+pair `Dexpace::HTTPDate.format` / `.parse`, the v4 `Dexpace::UUID.generate`,
+`Dexpace::Retryability.retryable_status?` and the static `Dexpace::BuildInfo` constants — plus two
+wirings into earlier layers: `ContextStore.default` reads `Keys::MAX_TRACKED_CONTEXTS` on its first
+call, and the five readers of `IO::MAX_MATERIALIZED_BYTES` read `Dexpace::IO.max_materialized_bytes`
+per call (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`); every other
 gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -479,6 +492,42 @@ Each is one line plus the chapter to read before touching the area.
   `Dexpace/NoWeakReferences`, refuses `ObjectSpace::WeakMap`, `ObjectSpace::WeakKeyMap` and `WeakRef` in every
   gem's `lib/`, because `CTX-19` makes the cap and not the collector the leak backstop (P4-10). Construction
   registers nothing; only the two promotions call `#set` (`CTX-17`).
+- **The configuration chain's precedence inverts Ruby's convention: an explicit override, then the
+  environment, then a property, then the default (`CFG-1`)** — a property set through `Dexpace.configure`
+  is the *third* tier, below a process environment variable of the same normalised name, and the key
+  normalisation is `downcase.tr("_", ".")` on the property side only (`CFG-3`); `Configuration#string` is
+  the one lookup every typed accessor routes through, and an empty override or property value is an
+  answer while an empty environment value is absent (`CFG-2`, which names that tier alone).
+  `Dexpace.configuration` is a lock-free read of a frozen snapshot; `Dexpace.configure` builds outside the
+  mutex and swaps inside it, so a block that reads the slot cannot deadlock the non-reentrant mutex
+  (`CFG-13`, `XCUT-11`; phase 5a's design).
+- **`Dexpace::Clock#sleep` is a per-call `::Thread::Queue#pop(timeout:)` woken by the cancellation
+  token's `#on_cancel` push, never `Kernel#sleep`** — `Kernel#sleep` cannot be woken without
+  `Thread#raise`, which is banned; the token is re-asserted after the wake, so a cancel during the wait
+  raises `Dexpace::CancelledError` and a wait that elapsed returns `nil` (`CFG-15`, `CFG-17`). The same
+  timed pop is the deadline on `Future#wait` / `#value` / `Completer#await`, which expire by
+  `request_cancel(:deadline_expired)` — settling the completer, never raising past it — and
+  `Dexpace::Async.delay` raises `SeamError` without a `Fiber.scheduler` rather than blocking a thread
+  (`CFG-18`; phase 5a's P5-9, and P5-52 for the `true` it settles with).
+- **`Time#httpdate` formats and `Dexpace::HTTPDate.parse` parses; `Time.httpdate`, `Time.parse` and
+  `Time.rfc2822` are never called in core** — the stdlib parser accepts the obsolete RFC 850 and asctime
+  forms `CFG-31` refuses, and `Time.utc` silently normalises `31 Nov` and `29 Feb 1995` to the next day, so
+  the parser round-trips every component it built (`CFG-30`, `CFG-31`; phase 5a's P5-54). The formatter's
+  English names are CRuby's own tables and never the locale — verified under a `de_DE.UTF-8` `LOCPATH` on
+  3.2.11, 3.4.10 and 4.0.6.
+- **`Dexpace::UUID.generate` draws from a `::Random` in `Thread.current[:dexpace_prng]`, never
+  `SecureRandom`** — `securerandom` is allowlisted, so the require gate would not catch the substitution;
+  `uuid_test.rb`'s text scan does. `Thread.current[]` is fiber-local, which is the point: one generator per
+  execution context and none shared (`CFG-32`).
+- **`ContextStore.default` is built on its FIRST call, under one `::Thread::Mutex`, reading the configured
+  cap then — and reading it OUTSIDE the lock** — phase 4a's load-time assignment could never see a
+  `Dexpace.configure` at boot, and an unsynchronised `@default ||= new` publishes one store per first
+  caller under a slow construction (sixteen for sixteen; `context_store_config_test.rb`); the two seams are
+  caller-supplied callables and never run under the non-reentrant mutex, only the `||=` does, and the
+  published reference is read lock-free after that. A configure after the first promotion does not resize
+  the store, and neither does `reset_config!` (`CTX-11`; phase 5a's P5-55). The materialisation ceiling is the
+  other way round: `Dexpace::IO.max_materialized_bytes` is read per call, so the live configuration governs
+  every materialisation and `IO::MAX_MATERIALIZED_BYTES` is only the default and the fallback (P5-56).
 
 ## Public API surface
 
@@ -578,11 +627,13 @@ probe compares each against the live tree, and a count written anywhere else in 
   and `dexpace-conformance`. Each has a gemspec reading `VERSIONS`, a `sig/` mirroring its `lib/` one file
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
-  body layer, the phase-4a execution context, the phase-4b recovery layer and the phase-4c stage pipeline —
-  one hundred and three phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b and phase-4c files under
-  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one hundred
-  and three but the six `private_constant`s `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`,
-  `recovery/ownership.rb`, `pipeline/sync_driver.rb` and `pipeline/async_driver.rb` mirrored in `test/`; every
+  body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline and
+  the phase-5a configuration layer — one hundred and twenty phase-1, phase-2, phase-3a, phase-3b, phase-4a,
+  phase-4b, phase-4c and phase-5a files under `lib/dexpace/` beside phase 0's `version.rb`, every one
+  mirrored in `sig/`, and every one of the one hundred and twenty but the nine `private_constant`s
+  `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`,
+  `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb` and `proxy/resolution.rb` mirrored
+  in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -593,15 +644,16 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — eight
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist — nine
   checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
   design, plan and checklist. `phase5/` carries its segmentation design,
   `docs/work/mvp/phase5/2026-09-09-phase5-segmentation-design.md`, and three sub-phase
-  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; each holds a design
-  and a plan. `phase6/` carries its segmentation design,
+  directories — `phase5/phase5a/`, `phase5/phase5b/` and `phase5/phase5c/`; `phase5a/` holds that
+  sub-phase's design, plan and checklist, and the other two each hold a design and a plan. `phase6/`
+  carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
   (authentication); each holds a design and a plan. Phase 6 is the largest **build** phase in the
@@ -663,6 +715,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's and
-  phase 4c's is still to be written at execution time.
+  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
+  phase 4c's and phase 5a's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

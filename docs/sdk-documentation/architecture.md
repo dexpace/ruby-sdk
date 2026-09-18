@@ -4,13 +4,15 @@
 skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, phase 2 the seam
 layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
 layer on top of it, phase 4a the execution context one in-flight call carries, phase 4b the
-recovery layer and the error trail, and phase 4c the stage pipeline; the adapters are still to
+recovery layer and the error trail, phase 4c the stage pipeline, and phase 5a the configuration
+layer and the clock; the adapters are still to
 come, so this page is still a stub: it names the pages this tree will eventually hold and where
 each one's content will come from, so the plan for the documentation exists before the
-documentation does. Eight pages are real already, because their subjects are:
+documentation does. Nine pages are real already, because their subjects are:
 [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
 [`io.md`](./io.md), [`body.md`](./body.md), [`execution-context.md`](./execution-context.md),
-[`recovery.md`](./recovery.md) and [`pipelines.md`](./pipelines.md).
+[`recovery.md`](./recovery.md), [`pipelines.md`](./pipelines.md) and
+[`configuration.md`](./configuration.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -74,6 +76,17 @@ async mirror as transports, the transform adapter, and why the bridges are phase
 standard-resilience constructors arrive with phase 6's pillar families. Written against the layer
 phase 4c shipped; derives from `docs/sdk-design-ruby/05-pipeline-architecture.md` §5.1 and §5.3,
 read together with the pipeline deviations recorded in
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[configuration.md](./configuration.md) — the configuration layer and the clock: the four-tier
+chain and the strict order that inverts Ruby's habit, the never-throw typed accessors, the
+builder, the two seams and derivation, the process-wide slot, the seven declared keys and the two
+earlier layers that read them, the injectable clock and its cancellable queue wait, the deadline
+on the future and the scheduler-conditional delay, the proxy model with its closed type set, host
+patterns and never-raising resolver, and the RFC 1123 date, UUID, retryability and build-info
+utilities. Written against the layer phase 5a shipped; derives from
+`docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.2 and §8.3, read together with
+entries 16 and 17 of
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 auth.md — tiers, credentials, schemes, challenges, and the redirect-safe re-issue rule. Derives
