@@ -1,0 +1,49 @@
+module Dexpace
+  module Auth
+    # A synchronous stamper: KeyStamper, BasicHandler, BearerStamper, or Step::NO_STAMP.
+    interface _Stamper
+      def call: (Dexpace::Request request) -> Dexpace::Request
+    end
+
+    # AUTH-27 through AUTH-36 on the sync runtime: the AUTH pillar step. The stamper and the hook
+    # are `untyped` because a lambda is a valid value for either (Registry.callable? validates
+    # the arity), and the async subclass widens the stamper to an object answering #stamp.
+    class Step
+      NO_REPLACEMENT: ^(untyped, untyped, untyped) -> nil
+      NO_STAMP: ^(Dexpace::Request) -> Dexpace::Request
+
+      @stamper: untyped
+      @challenge_hook: untyped
+      @logger: Instrumentation::Logger
+
+      private def self.new: (stamper: untyped, challenge_hook: untyped,
+                             logger: Instrumentation::Logger) -> instance
+      def initialize: (stamper: untyped, challenge_hook: untyped,
+                       logger: Instrumentation::Logger) -> void
+
+      def self.build: (stamper: untyped, ?challenge_hook: untyped,
+                       ?logger: Instrumentation::Logger) -> Step
+
+      def stage: () -> Pipeline::Stage
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Response
+
+      private
+
+      def self.stamper!: (untyped stamper) -> void
+      def cross_origin?: (Pipeline::Cursor cursor) -> bool
+      def enforce_https!: (Dexpace::Request request) -> void
+      def unauthorized?: (Dexpace::Response response) -> bool
+      def challenge_header: (Dexpace::Response response) -> String?
+      def replayable?: (Dexpace::Request request) -> bool
+      def bearer_offered?: (String challenge) -> bool
+      def bearer_retry?: (String challenge, Dexpace::Request stamped) -> bool
+      def rejected_header: (Dexpace::Request stamped) -> String?
+      def bearer_retry: (String challenge, Dexpace::Request stamped, Dexpace::Response response,
+                         Pipeline::Cursor cursor) -> Dexpace::Response?
+      def replay: (String challenge, Dexpace::Request stamped, Dexpace::Response response,
+                   Pipeline::Cursor cursor) -> Dexpace::Response
+      def consult: (String challenge, Dexpace::Request stamped, Dexpace::Response response) -> untyped
+      def replacement!: (untyped replacement) -> untyped
+    end
+  end
+end

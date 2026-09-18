@@ -1,0 +1,15 @@
+module Dexpace
+  # AUTH-6's resolution failure, flat under Dexpace in phase 2's error shape.
+  class AuthResolutionError < ::StandardError
+    include Dexpace::Error
+
+    attr_reader required: Array[Auth::Scheme]
+    attr_reader available: Array[Auth::Scheme]
+
+    def initialize: (required: Array[Auth::Scheme], available: Array[Auth::Scheme]) -> void
+
+    private
+
+    def names: (Array[Auth::Scheme] schemes) -> String
+  end
+end

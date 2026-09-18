@@ -41,6 +41,8 @@ class DexpaceInstrumentationKeysTest < DexpaceTestCase
     INSTRUMENTATION_HOOK: "http.instrumentation.hook",
     INSTRUMENTATION_SHUTDOWN: "http.instrumentation.shutdown",
     INSTRUMENTATION_CONFIG: "http.instrumentation.config",
+    # Phase 6c's, AUTH-37's log-and-continue: an auth-layer diagnostic, outside the prefix.
+    AUTH_REFRESH: "http.auth.refresh",
   }.freeze
 
   # Sixteen: OBS-39's named minimum plus the reserved `event` key (OBS-4), the `cause` the
@@ -57,7 +59,7 @@ class DexpaceInstrumentationKeysTest < DexpaceTestCase
     end
   end
 
-  test "OBS-39, OBS-20: Events holds exactly these eight, six under the instrumentation prefix" do
+  test "OBS-39, OBS-20: Events holds exactly these nine, six under the instrumentation prefix" do
     assert_equal(EXPECTED_EVENTS.keys.sort, Events.constants.sort)
     EXPECTED_EVENTS.each do |name, value|
       constant = Events.const_get(name)

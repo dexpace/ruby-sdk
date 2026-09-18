@@ -1,0 +1,17 @@
+module Dexpace
+  module Auth
+    # AUTH-3: a non-empty ordered requirement list, immutable in and out.
+    class Descriptor < Data
+      include Model
+
+      attr_reader requirements: Array[Requirement]
+
+      private def self.new: (requirements: Array[Requirement]) -> instance
+      def initialize: (requirements: Array[Requirement]) -> void
+
+      def self.build: (requirements: Array[Requirement]) -> Descriptor
+
+      def allows_anonymous?: () -> bool
+    end
+  end
+end

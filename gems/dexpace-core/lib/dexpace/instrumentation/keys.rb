@@ -53,10 +53,11 @@ module Dexpace
       INSTRUMENT_REQUEST_DURATION = "http.client.request.duration"
     end
 
-    # OBS-39 and OBS-20: the event names the logging half emits, as frozen String constants
-    # covered by the surface manifest for the reason Keys gives. Two are the request cycle's;
-    # the five diagnostics share OBS-20's `http.instrumentation.` prefix, derived from one
-    # constant so a test can assert every diagnostic starts with it.
+    # OBS-39 and OBS-20: the event names core emits, as frozen String constants covered by the
+    # surface manifest for the reason Keys gives. Two are the request cycle's; the five
+    # instrumentation diagnostics share OBS-20's `http.instrumentation.` prefix, derived from
+    # one constant so a test can assert every one of them starts with it; the ninth is phase
+    # 6c's auth-layer diagnostic.
     module Events
       # The request event (OBS-39).
       HTTP_REQUEST = "http.request"
@@ -79,6 +80,12 @@ module Dexpace
       INSTRUMENTATION_SHUTDOWN = "#{INSTRUMENTATION_PREFIX}shutdown".freeze
       # CFG-24/CFG-25's proxy-configuration warning, emitted BESIDE 5a's Kernel#warn (P5-8).
       INSTRUMENTATION_CONFIG = "#{INSTRUMENTATION_PREFIX}config".freeze
+      # AUTH-37's log-and-continue: a BACKGROUND bearer-token refresh failed or returned an
+      # unusable token, and the in-flight request -- already stamped with the still-valid
+      # cached token -- was not failed by it. Phase 6c's, and the first event outside the
+      # request cycle and the instrumentation family: an auth-layer diagnostic, named for the
+      # layer that emits it.
+      AUTH_REFRESH = "http.auth.refresh"
     end
   end
 end

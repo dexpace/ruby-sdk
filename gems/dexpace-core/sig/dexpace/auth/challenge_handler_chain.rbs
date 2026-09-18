@@ -1,0 +1,20 @@
+module Dexpace
+  module Auth
+    # AUTH-23's one-method handler protocol (6c's P6-2).
+    interface _ChallengeHandler
+      def authorization_for: (Array[Challenge] challenges, Dexpace::Request request,
+                              proxy: bool) -> String?
+    end
+
+    # AUTH-23, AUTH-25: the composing handler and the hook adapter.
+    class ChallengeHandlerChain
+      @handlers: Array[_ChallengeHandler]
+
+      def initialize: (Array[_ChallengeHandler] handlers) -> void
+
+      def authorization_for: (String? header_value, Dexpace::Request request, ?proxy: bool) -> String?
+      def header_name: (proxy: bool) -> String
+      def as_challenge_hook: (?proxy: bool) -> ^(String, Dexpace::Request, Dexpace::Response) -> Dexpace::Request?
+    end
+  end
+end

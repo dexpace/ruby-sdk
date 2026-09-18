@@ -1,0 +1,6 @@
+module Dexpace
+  # Phase 6c: the authentication layer's namespace and its one shared redaction marker.
+  module Auth
+    REDACTED: String
+  end
+end

@@ -1,0 +1,13 @@
+module Dexpace
+  module Auth
+    # AUTH-28: the HTTPS guard's refusal, naming the step and the scheme.
+    class HTTPSRequiredError < ::StandardError
+      include Dexpace::Error
+
+      attr_reader scheme: String
+      attr_reader step: String
+
+      def initialize: (scheme: String, step: String) -> void
+    end
+  end
+end

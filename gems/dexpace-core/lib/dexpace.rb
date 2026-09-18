@@ -210,6 +210,42 @@ require_relative "dexpace/resilience/retry_step"
 require_relative "dexpace/resilience/async_retry_step"
 require_relative "dexpace/resilience/recovery_retry"
 
+# Phase 6c: the authentication layer, in dependency order -- the namespace and the flat
+# resolution error, the private non-blank helper, the closed scheme set, the requirement and
+# the descriptor over it, the resolver, the four credential types, the challenge and its
+# parser, the two challenge handlers and the chain over them, the key stamper, the bearer
+# provider function, the three namespaced errors (filed under auth/, where their constants
+# live), the two bearer stampers, then the two pillar steps, the async one over the sync one.
+# bounded_map.rb, which the Digest handler's nonce store reaches by a bare name, is phase 4a's
+# line above and gains #update in place. `digest` and `securerandom` are required by
+# digest_handler.rb and `strscan` by challenges.rb, each in the file that uses it; all three
+# were on the allowlist before this phase.
+require_relative "dexpace/auth"
+require_relative "dexpace/error/auth_resolution_error"
+require_relative "dexpace/auth/validation"
+require_relative "dexpace/auth/scheme"
+require_relative "dexpace/auth/requirement"
+require_relative "dexpace/auth/descriptor"
+require_relative "dexpace/auth/resolver"
+require_relative "dexpace/auth/bearer_token"
+require_relative "dexpace/auth/key_credential"
+require_relative "dexpace/auth/named_key_credential"
+require_relative "dexpace/auth/password_credential"
+require_relative "dexpace/auth/challenge"
+require_relative "dexpace/auth/challenges"
+require_relative "dexpace/auth/basic_handler"
+require_relative "dexpace/auth/unencodable_credential_error"
+require_relative "dexpace/auth/digest_handler"
+require_relative "dexpace/auth/challenge_handler_chain"
+require_relative "dexpace/auth/key_stamper"
+require_relative "dexpace/auth/provider_error"
+require_relative "dexpace/auth/bearer_provider"
+require_relative "dexpace/auth/bearer_stamper"
+require_relative "dexpace/auth/async_bearer_stamper"
+require_relative "dexpace/auth/https_required_error"
+require_relative "dexpace/auth/step"
+require_relative "dexpace/auth/async_step"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an
