@@ -757,9 +757,13 @@ Each is one line plus the chapter to read before touching the area.
   serialising the fetch is what single-flight means and the lock is this credential's own (`AUTH-34`). The
   async stamper holds the same lock only to register a `Completer` and fetches outside it; `AUTH-37`'s three
   zones are fresh (settled, no fetch), expiring (stamped now, background refresh never awaited, a failure
-  logged as `Events::AUTH_REFRESH` and nothing else) and expired (derived from one coalesced fetch through
-  `Future#then`). A nil, non-token or already-expired token raises `Auth::ProviderError` from inside the lock
-  with the cache untouched (`AUTH-35`).
+  logged as `Events::AUTH_REFRESH` and nothing else) and expired (a `Completer` of the request's own, settled
+  from the one coalesced fetch's `#on_settle` and never a `Future#then` derivation of it — `#then` wires the
+  derived future's cancellation back to its source, and the source is the slot every coalesced request
+  shares, so one request giving up would cancel them all; a cancelled waiter is detached alone and only the
+  provider's own settlement settles the slot, a cancellation there forwarded as a cancellation; 6c's P6-86).
+  A nil, non-token or already-expired token raises `Auth::ProviderError` from inside the lock with the cache
+  untouched (`AUTH-35`).
 - **Basic is `["u:p"].pack("m0")` over the UTF-8 bytes and Digest is `::Digest::MD5` / `::Digest::SHA256`
   with `::SecureRandom.hex(16)` for the cnonce** — `base64` is bundled from 3.4 and refused by the
   require allowlist; `digest` and `securerandom` stay default through 4.0 and are allowlisted, and the

@@ -1119,7 +1119,7 @@ resolves; outside this document every citation reads "6c's P6-n". The checklist'
 the plan" is the itemised list against the plan's text; the rows here are the ones that touch public
 behaviour, the contract a later phase cites, or a statement this document makes.
 
-Seven statements above read differently against the source, and the difference is recorded here
+Eight statements above read differently against the source, and the difference is recorded here
 rather than by rewriting the text it corrects:
 
 - **The pinned constructor is `Step.build`, not `Step.new`, and it has no `redactor:` keyword.** Phase
@@ -1160,6 +1160,18 @@ rather than by rewriting the text it corrects:
   `InvalidArgumentError` naming the field and the two encodings, `cause: nil` (P6-85). Review round 1
   (2026-09-18) found it; `docs/knowledge/notes/error-handling.md` narrows the styleguide's "the original
   exception object as the `cause:`" rule for a secret.
+- **`R12`'s "second `Completer`" is load-bearing, and P6-79's "cancels the inner future" stops at
+  the waiter.** `R12` above says the caller's future is "built by chaining through `#on_settle` and a
+  second `Completer`"; the first build derived it through 4c's `Future#then` instead, and `#then`
+  wires the derived future's cancellation back to its source — the right direction for a
+  one-to-one derivation and the wrong one here, where the source is the single-flight slot every
+  coalesced caller shares. Cancelling one request's future, which the async step forwards to its
+  stamp future (P6-79), cancelled every other waiter and every new arrival until the provider
+  settled. `AsyncBearerStamper#awaiting` now builds each waiter's future as `R12` says, settled from
+  the slot's settlement and never wired back to it, so a cancellation detaches one waiter and the
+  fetch, the cache and the other waiters are untouched; a provider cancelling its own fetch cancels
+  the slot and every waiter as a cancellation, `Future#then`'s rule one link down (P6-86). Review
+  round 2 (2026-09-18) found it.
 
 Review round 0 (2026-09-18) also found `compute` taking the nonce count before hashing, so a refused
 attempt consumed an `nc`; the object model's `authorization_for` fence above materialises the
@@ -1184,6 +1196,16 @@ alone, so a close-after-drive mutation survived on both interpreters, and the re
 now reads the close count as the second drive reaches the transport; and the async stamper's "caches
 nothing" for a rejected already-expired token is pinned through `#evict_if_matches`.
 
+Review round 2 (2026-09-18) found the shared-fetch cancellation above (P6-86) and two suite gaps:
+the handler-level `AUTH-24` test was probabilistic — sixteen threads reusing one nonce never observe
+a lost increment under the GVL, so a counter reading through `#[]` and writing through `#set`
+survived it — and now pins the increment to `BoundedMap#update` deterministically by narrowing the
+frozen handler's store in place so every other accessor raises; and the async
+`#evict_if_matches`'s exactness clause was unpinned where the sync one's was, so the async case
+carries the same doubled-space and superstring refutations. The round's two nits: a class-comment
+line beginning `@lock` that YARD read as an unknown tag, and the checklist's at-implementation
+sentence about `cause: nil`, both corrected.
+
 | # | Deviation | Requirement / document | Why |
 |---|---|---|---|
 | P6-71 | `Dexpace::Auth::Step.build(stamper:, challenge_hook: NO_REPLACEMENT, logger: Instrumentation::Logger::NULL)` with `.new` private, frozen, the same three keywords on `AsyncStep` — no `redactor:`; the sync stamper is anything `Registry.callable?` accepts at arity 1 and the async step additionally accepts an object answering `#stamp(request) -> Future`, adapting a `#call`-shaped one into a settled future | The pinned constructor above; 5b's P5-34, P5-95; `AUTH-27`, `AUTH-30` | One construction shape per phase since 5b; a keyword nothing reads is a signature NFR-4 locks for no reason; a sync `BearerStamper`, `KeyStamper` or `BasicHandler` installed on the async step should work, and does |
@@ -1201,6 +1223,7 @@ nothing" for a rejected already-expired token is pinned through `#evict_if_match
 | P6-83 | `Requirement.build(scheme:)` resolves a String, a Symbol or a copied constant through `Scheme.of`; `Descriptor.build(requirements:)` is keyword-shaped; `Scheme::ALL` is public with `.[]` hidden beside `.new`; `Challenge.build` is the one place the scheme and parameter names are folded and exposes `#token68`; the resolver's `available_schemes` are resolved the same way | `AUTH-1`–`AUTH-5`, `AUTH-12`; design §4's construction pattern; `HTTP-3`'s `#with` | `Model#with` is `self.class.build(**to_h, **changes)`, so a positional `.build` breaks derivation; a `Data`'s generated `.[]` is a second public constructor; one fold point means a hand-built and a parsed challenge meet a handler in one shape |
 | P6-84 | `UnencodableCredentialError#encoding` names the branch that raised — `"ISO-8859-1"` under RFC 7616's default, `"UTF-8"` when the challenge advertised it — and its message's reason is that branch's own; `DigestHandler#materialize` transcodes on both branches and refuses, under `charset=UTF-8`, a BINARY-tagged credential (the conversion error as `#cause`) or a UTF-8-tagged one with an invalid sequence (`#cause` nil) | `AUTH-21`, `R10`; `AUTH-8`; review round 0's R0-3 (2026-09-18) | Round 0's tree rescued both branches into an error that always said ISO-8859-1 and "the challenge did not advertise charset=UTF-8", false for the UTF-8 branch; `encode` to the same encoding passes invalid bytes through unvalidated (verified on 3.2.11, 3.4.10 and 4.0.6), so an invalid UTF-8-tagged credential would have been hashed as it was — the silently wrong response `R10` rejects |
 | P6-85 | `UnencodableCredentialError` is raised with `cause: nil` on both of `DigestHandler#materialize`'s raising paths and carries the value's own encoding as `#source_encoding` and in its message ("cannot be encoded as ISO-8859-1 from UTF-8"), never the rescued `Encoding::UndefinedConversionError`; `BasicHandler` refuses a username or password UTF-8 cannot carry — BINARY-tagged with a high byte, or UTF-8-tagged with an invalid sequence — as an `InvalidArgumentError` naming the field and the two encodings, `cause: nil`, in place of the bare conversion error it let escape | `AUTH-8`, `AUTH-14`, `AUTH-21`; `R10`'s "`#cause` set to the rescued `Encoding::UndefinedConversionError`" and P6-84's "(the conversion error as `#cause`)", both amended; `InvalidArgumentError`'s class comment ("the original left as the `cause`"); review round 1's R1-3 (2026-09-18); `docs/knowledge/notes/error-handling.md` | The conversion error's message names the offending character or byte of the secret (`U+65E5`, `"\xE4"`), and `#full_message` renders a cause on 3.2.11 through 4.0.6, so a cause here is a diagnostic rendering of the credential `AUTH-8` forbids; `cause: nil` rather than a bare raise so a caller's in-flight `$!` is not assigned either; the source encoding is the part of the dropped message that was not the secret |
+| P6-86 | `AsyncBearerStamper`'s expired-or-missing zone settles a `Completer` of its own from the single-flight slot's settlement, never a `Future#then` derivation of the slot, and registers nothing on the slot's completer; cancelling one waiter's future detaches that waiter alone — the fetch runs on, the token is cached, the other waiters and every later arrival stamp it — while a cancellation of the slot itself (a provider cancelling its own fetch) is forwarded to every waiter as a cancellation carrying the provider's reason, and a stamp the outbound grammar refuses fails that waiter only | `AUTH-37`, `SEAM-18`, `ASYNC-6`; `R12`'s "second `#on_settle` and a second `Completer`"; P6-79's "cancels the inner future when the step's future is cancelled", narrowed to the waiter; review round 2's R2-1 (2026-09-18) | `Future#then`'s bidirectional cancellation is 4c's rule for a one-to-one derivation; on a many-to-one slot it makes one caller's cancellation every caller's, and leaves the slot set so new arrivals coalesce onto an already-cancelled future until the provider settles — `AUTH-37`'s coalescing shares the fetch, not the decision to give up on it |
 
 
 ## Work phase 6c postpones, and who owns it now

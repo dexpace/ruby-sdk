@@ -3651,7 +3651,7 @@ the same list: after phase 6 the body-replayability predicate has three spelling
 only credential-bearing strings it prints are the header values the layer exists to produce, over
 placeholder credentials and the RFCs' published vectors; `architecture.md`, the core README,
 `README.md` and `docs/README.md` point at it. `docs/deviations.md` is untouched, for phase 10 to
-flip. The consolidation of P6-1–P6-7 and P6-71–P6-85 into design §10 and the §6.3 addendum are a
+flip. The consolidation of P6-1–P6-7 and P6-71–P6-86 into design §10 and the §6.3 addendum are a
 human's, as they were for 3a through 5b: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is
 contradicted — §6.3's `Step.new(…)` spelling is honoured in substance by `.build`, and its
 "raise a bare error" reading of `AUTH-21`'s Latin-1 branch by the typed
@@ -3697,4 +3697,20 @@ rejected already-expired token is asserted through `#evict_if_matches`. Twelve m
 after the repair on 4.0.6 and 3.2.11 (the checklist's third guard table, 69–80, and its deviations
 31 and 32); at the repaired tips the full rake reports 2,343 runs, 60,129 assertions, one skip and
 6,603 / 6,604 lines (99.98%) on 4.0.6, the code tip 92.61% with all seventeen gates green one by one,
-and the matrix set 2,343 runs at 99.98% on 3.2.11; the surface manifest is 1 060 lines.
+and the matrix set 2,343 runs at 99.98% on 3.2.11; the surface manifest is 1 060 lines. **Review
+round 2 (2026-09-18) found the async bearer stamper sharing one waiter's cancellation with every
+other**: the expired zone derived each request's future from the single-flight slot through
+`Future#then`, whose derived future cancels its source, and the source was the one slot every
+coalesced request shares — so cancelling one request's future, which the async step forwards to its
+stamp future, cancelled every other waiter and every new arrival until the provider settled. The
+design's `R12` had prescribed "a second `#on_settle` and a second `Completer`" all along, and the
+stamper now builds each waiter's future that way, settled from the slot's settlement and never wired
+back to it; a provider cancelling its own fetch cancels the slot and every waiter as a cancellation
+(**P6-86**). The round's two suite findings are pinned: the handler-level `AUTH-24` test, which a
+read-then-set counter survived under the GVL, now narrows the frozen handler's store so every accessor
+but `#update` raises; and the async `#evict_if_matches` carries the sync suite's exactness pins. Seven
+mutations run red after the repair on 4.0.6 and 3.2.11 (the checklist's fourth guard table, 81–87, and
+its deviations 33 and 34); at the repaired tips the full rake reports 2,348 runs, 60,175 assertions,
+one skip and 6,615 / 6,616 lines (99.98%) on 4.0.6, the code tip 92.48% with all seventeen gates green
+one by one, and the matrix set 2,348 runs at 99.98% on 3.2.11; the surface manifest is still 1 060
+lines, the two methods the repair added being private.

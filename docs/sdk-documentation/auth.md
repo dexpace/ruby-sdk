@@ -313,8 +313,10 @@ A::BearerStamper.new(provider: nil_provider).call(request)   # raises Dexpace::A
 
 The async stamper implements `AUTH-37`'s three zones without blocking: a fresh token is stamped in an
 already-settled future with no provider call; an expiring-but-valid one is stamped at once while a
-refresh it never awaits runs; an expired or missing one derives the stamped request from one
-coalesced fetch through `Future#then`. `BearerProvider.fetch_async` is `AUTH-11`'s default: a
+refresh it never awaits runs; an expired or missing one settles a future of its own from one
+coalesced fetch — a second `Completer` fed by the fetch's `#on_settle`, never a `Future#then`
+derivation of it, because `#then` would wire each waiter's cancellation back to the fetch every
+waiter shares. `BearerProvider.fetch_async` is `AUTH-11`'s default: a
 `#fetch`-only provider is mirrored into an already-settled (or already-failed) future, and a
 `#fetch_async` override that raises synchronously becomes a failed future — the function never raises.
 A failed background refresh is reported through the stamper's `logger:` as one `http.auth.refresh`
@@ -339,6 +341,26 @@ completer.fulfil(A::BearerToken.build(token: "t4"))
 
 A::BearerProvider.fetch_async(nil_provider).settled?   # => true
 A::BearerProvider.fetch_async(nil_provider).value      # raises Dexpace::Auth::ProviderError
+```
+
+The fetch is shared; a cancellation is not. Cancelling one coalesced request's future detaches
+that request alone: the fetch runs on, the other waiters and every later arrival stamp the token
+when it lands, and the cancelled future carries its own reason (`SEAM-18`). Only the provider's
+own settlement settles the shared fetch, and a provider that cancels its fetch cancels every
+waiter as a cancellation, never as a plain failure.
+
+```ruby
+completer = Dexpace::Async::Completer.new
+pending_provider.define_singleton_method(:fetch_async) { completer.future }
+shared = A::AsyncBearerStamper.new(provider: pending_provider, clock: at)
+first = shared.stamp(request)
+second = shared.stamp(request)
+first.cancel(:caller_gave_up)
+[first.cancelled?, second.settled?, completer.future.settled?]   # => [true, false, false]
+third = shared.stamp(request)                      # still coalesces onto the live fetch
+completer.fulfil(A::BearerToken.build(token: "t5"))
+[second.value.headers["Authorization"], third.value.headers["Authorization"]]   # => [["Bearer t5"], ["Bearer t5"]]
+first.value                                        # raises Dexpace::CancelledError
 ```
 
 ## The AUTH pillar step: `Step`, `AsyncStep`
