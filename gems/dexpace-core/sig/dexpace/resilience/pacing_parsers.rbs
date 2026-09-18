@@ -6,6 +6,7 @@
 module Dexpace
   module Resilience
     module PacingParsers
+      MAX_VALUE_BYTES: Integer
       DECIMAL_GRAMMAR: Regexp
       INTEGER_GRAMMAR: Regexp
       RESET_JITTER_CEILING: Float
@@ -13,6 +14,10 @@ module Dexpace
       def self?.parse_retry_after: (untyped value, now: ::Time) -> Float?
       def self?.parse_millis: (untyped value) -> Float?
       def self?.parse_epoch_reset: (untyped value, now: ::Time, random: untyped) -> Float?
+
+      private
+
+      def readable?: (untyped value) -> bool
     end
   end
 end

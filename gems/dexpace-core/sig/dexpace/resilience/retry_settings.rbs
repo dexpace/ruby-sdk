@@ -35,6 +35,7 @@ module Dexpace
         ?max_retries: untyped, ?total_timeout: Numeric,
         ?retryable_statuses: Enumerable[Integer],
         ?pacing_header_order: Array[String]?, ?random: untyped, ?clock: _Clock,
+        ?logger: Instrumentation::Logger,
       ) -> RetrySettings
 
       def backoff_arguments: () -> { initial_delay: Float, multiplier: Float, max_delay: Float,
@@ -43,7 +44,7 @@ module Dexpace
 
       private
 
-      def self.resolve_max_retries: (untyped max_retries) -> Integer
+      def self.resolve_max_retries: (untyped max_retries, Instrumentation::Logger logger) -> Integer
       def duration!: (String name, untyped value) -> Float
       def multiplier!: (untyped value) -> Float
       def jitter!: (untyped value) -> Float

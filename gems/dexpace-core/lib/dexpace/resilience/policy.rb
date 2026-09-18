@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "../each_cause"
+require_relative "../error/cancelled_error"
 require_relative "../error/invalid_argument_error"
 require_relative "../error/protocol_error"
 require_relative "../instrumentation/contain"
@@ -114,15 +115,32 @@ module Dexpace
         end
       end
 
-      # The one dispatch point both stacks call: a ProtocolError is classified by its status
-      # against the configured set (RETRY-37), anything else by the capability query (RETRY-2).
-      # A ProtocolError deliberately does not answer #retryable? (P6-10), so a wrapped one buried
-      # in a cause chain can never smuggle the baked set past the configured one.
+      # RETRY-23 / RECOV-27: whether `error` is a cancellation -- a Dexpace::CancelledError
+      # itself, or one anywhere in its cause chain, so a transport that wrapped the token's raise
+      # in an error of its own (one that may well answer #retryable?) is still read as the
+      # cancellation it carries. Consulted BEFORE either branch of .retryable? and before a
+      # caller's should_retry predicate on the stage drivers, so "cancellation MUST never be
+      # treated as a retryable failure" holds whatever a capability or a predicate answers
+      # (P6-60). The walk is Dexpace.each_cause, cycle-safe by identity (XCUT-9).
+      #
+      # @param error [Exception]
+      # @return [Boolean]
+      def cancellation?(error)
+        Dexpace.each_cause(error).any?(Dexpace::CancelledError)
+      end
+
+      # The one dispatch point both stacks call: a cancellation is never retryable (RETRY-23),
+      # then a ProtocolError is classified by its status against the configured set (RETRY-37),
+      # anything else by the capability query (RETRY-2). A ProtocolError deliberately does not
+      # answer #retryable? (P6-10), so a wrapped one buried in a cause chain can never smuggle
+      # the baked set past the configured one.
       #
       # @param error [Exception]
       # @param retryable_statuses [Set<Integer>] the configured set
       # @return [Boolean]
       def retryable?(error, retryable_statuses:)
+        return false if cancellation?(error)
+
         if error.is_a?(Dexpace::ProtocolError)
           retry_eligible?(error.status.code, set: retryable_statuses)
         else

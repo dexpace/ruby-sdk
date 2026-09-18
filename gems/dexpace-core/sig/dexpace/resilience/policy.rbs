@@ -17,6 +17,7 @@ module Dexpace
 
       def self?.retry_eligible?: (Integer status, set: ::Set[Integer]) -> bool
       def self?.throwable_retryable?: (::Exception error) -> bool
+      def self?.cancellation?: (::Exception error) -> bool
       def self?.retryable?: (::Exception error, retryable_statuses: ::Set[Integer]) -> bool
       def self?.backoff_delay: (Integer attempt, initial_delay: Numeric, multiplier: Numeric,
                                 max_delay: Numeric, jitter: Numeric, random: untyped) -> Float

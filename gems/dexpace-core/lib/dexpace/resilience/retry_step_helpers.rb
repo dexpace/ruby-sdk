@@ -67,14 +67,18 @@ module Dexpace
                                      configured: @settings.max_retries, logger: @logger,)
       end
 
-      # RETRY-8: BOTH axes, neither implying the other, in this order -- re-sendability first
-      # and unconditionally (a caller predicate may widen or narrow the CONDITION and may never
-      # authorise re-sending a bare POST or a consumed body, RETRY-7), then the condition
-      # (Policy.retryable? or the caller's predicate, RETRY-39/RETRY-40), then the budget. The
-      # budget comes LAST so that :exhausted means exactly "retryable, and the budget is spent".
+      # RETRY-23 first: a cancellation -- the token's own raise or one a downstream wrapped --
+      # is terminal before any axis is consulted, so a caller's should_retry never sees it and
+      # can never answer true for it (P6-60). Then RETRY-8's BOTH axes, neither implying the
+      # other, in this order -- re-sendability first and unconditionally (a caller predicate may
+      # widen or narrow the CONDITION and may never authorise re-sending a bare POST or a consumed
+      # body, RETRY-7), then the condition (Policy.retryable? or the caller's predicate,
+      # RETRY-39/RETRY-40), then the budget. The budget comes LAST so that :exhausted means
+      # exactly "retryable, and the budget is spent".
       #
       # @return [Symbol] RETRY, EXHAUSTED or STOP
       def decision(request, failure, attempt, max_retries)
+        return STOP if Policy.cancellation?(failure)
         return STOP unless Resend.eligible?(request)
         return STOP unless retryable_condition?(failure, request)
 

@@ -51,7 +51,8 @@ module Dexpace
     # phase 5 did -- the keyword and Bundle::NONE, OBS-34's and XCUT-19(e)'s own default
     # configuration. The span is still named by the request's method token, which is also what
     # the tracer factory is asked for: the operation identifier is 4a's
-    # RequestContext#operation_name and the cursor's bundle carries no name (P6-52).
+    # RequestContext#operation_name and the cursor's bundle carries no name (P6-51;
+    # docs/first-release.md's behavioural-asymmetries entry).
     #
     # The level guard is read once at the top of #call and consulted at three sites -- the two
     # emissions and the body wrapping -- and a step that re-read it inside a helper would be one

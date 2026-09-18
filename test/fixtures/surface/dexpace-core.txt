@@ -842,6 +842,7 @@ Dexpace::Resilience::AsyncRetryStep.build
 Dexpace::Resilience::Policy
 Dexpace::Resilience::Policy#backoff_delay
 Dexpace::Resilience::Policy#budget_remaining
+Dexpace::Resilience::Policy#cancellation?
 Dexpace::Resilience::Policy#effective_max_retries
 Dexpace::Resilience::Policy#pacing_delay
 Dexpace::Resilience::Policy#retry_eligible?

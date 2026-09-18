@@ -6,6 +6,7 @@ require_relative "../clock"
 require_relative "../config"
 require_relative "../configuration"
 require_relative "../error/invalid_argument_error"
+require_relative "../instrumentation/logger"
 require_relative "policy"
 
 module Dexpace
@@ -31,6 +32,11 @@ module Dexpace
     # reads 5a's Configuration::Keys::MAX_RETRY_ATTEMPTS off the process-wide slot -- this class is
     # that key's first and only reader -- and falls back to Policy::DEFAULT_MAX_RETRIES; the read
     # happens ONCE, at build, so a settings object is a snapshot and never re-consults the slot.
+    # A NEGATIVE configured value meets RETRY-41 here, at that one read: it is clamped to
+    # Policy::DEFAULT_MAX_RETRIES through the same Policy.effective_max_retries the drivers
+    # resolve with, and the clamp is logged once through `logger:`, contained (P6-59). An explicit
+    # `max_retries:` argument is a caller's construction input and RECOV-34 refuses a negative one
+    # instead -- the two rules meet at the one place the configured value enters.
     class RetrySettings < Data.define(
       :initial_delay, :multiplier, :max_delay, :jitter, :max_retries, :total_timeout,
       :retryable_statuses, :pacing_header_order, :random, :clock,
@@ -60,28 +66,36 @@ module Dexpace
       #   shared default
       # @param random [#rand] the generator the jitter draws from
       # @param clock [Dexpace::_Clock] the seam every wait and every elapsed reading goes through
+      # @param logger [Dexpace::Instrumentation::Logger] where RETRY-41's clamp of a negative
+      #   configured MAX_RETRY_ATTEMPTS is reported, contained; read at build only and never
+      #   held, so it is taken on trust as Proxy.resolve's and Hooks.notify's are
       # @return [RetrySettings] frozen
       # @raise [Dexpace::InvalidArgumentError] naming the member, on any invalid value
       def self.build(initial_delay: Policy::DEFAULT_INITIAL_DELAY,
                      multiplier: Policy::DEFAULT_MULTIPLIER, max_delay: Policy::DEFAULT_MAX_DELAY,
                      jitter: Policy::DEFAULT_JITTER, max_retries: UNSET, total_timeout: 0,
                      retryable_statuses: Policy::DEFAULT_RETRYABLE_STATUSES,
-                     pacing_header_order: nil, random: ::Random, clock: Clock::SYSTEM)
+                     pacing_header_order: nil, random: ::Random, clock: Clock::SYSTEM,
+                     logger: Instrumentation::Logger::NULL)
         new(
           initial_delay: initial_delay, multiplier: multiplier, max_delay: max_delay,
-          jitter: jitter, max_retries: resolve_max_retries(max_retries),
+          jitter: jitter, max_retries: resolve_max_retries(max_retries, logger),
           total_timeout: total_timeout, retryable_statuses: retryable_statuses,
           pacing_header_order: pacing_header_order, random: random, clock: clock,
         )
       end
 
-      # RETRY-12 / P6-6: the configured key, read once, only when nothing was passed.
-      def self.resolve_max_retries(max_retries)
+      # RETRY-12 / P6-6: the configured key, read once, only when nothing was passed -- and
+      # RETRY-41 on what it reads: a negative configured value is clamped to the default and the
+      # clamp logged, by the one resolver (P6-59). An explicit argument passes through untouched
+      # to RECOV-34's validation.
+      def self.resolve_max_retries(max_retries, logger)
         return max_retries unless UNSET.equal?(max_retries)
 
-        Dexpace.configuration.integer(Configuration::Keys::MAX_RETRY_ATTEMPTS,
-                                      default: Policy::DEFAULT_MAX_RETRIES,) ||
-          Policy::DEFAULT_MAX_RETRIES
+        configured = Dexpace.configuration.integer(Configuration::Keys::MAX_RETRY_ATTEMPTS,
+                                                   default: Policy::DEFAULT_MAX_RETRIES,) ||
+                     Policy::DEFAULT_MAX_RETRIES
+        Policy.effective_max_retries(override: nil, configured: configured, logger: logger)
       end
       private_class_method :resolve_max_retries
 

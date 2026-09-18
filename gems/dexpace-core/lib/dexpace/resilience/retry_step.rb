@@ -37,10 +37,11 @@ module Dexpace
     # tracer callback in a rescue (OBS-20's carve-out).
     #
     # RETRY-35's three orderings, in #call: the delay is resolved from the still-open response
-    # FIRST, the response is closed BEFORE the wait, and both the retry decision and the delay
-    # resolution are fenced so the response is closed before any throwable -- a
-    # RetryPredicateError above all -- propagates. RETRY-34 on the terminal path: the whole
-    # prior trail is attached to the instance actually surfaced, through
+    # FIRST, the response is closed BEFORE the wait, and the retry decision, the delay
+    # resolution and the tracer's attempt_failed are all fenced so the response is closed before
+    # any throwable -- a RetryPredicateError above all, a throwing tracer too -- propagates,
+    # exactly as the async driver's guarded block already did. RETRY-34 on the terminal path:
+    # the whole prior trail is attached to the instance actually surfaced, through
     # Dexpace.attach_suppressed, and is discarded on success or on a returned error-status
     # response, which is a Response and not a throwable to attach to (stated, not dropped).
     class RetryStep
@@ -130,15 +131,20 @@ module Dexpace
         wait(run, attempt, response, failure)
       end
 
-      # The retry path: the delay from the still-open response (fenced, RETRY-35), the tracer,
-      # the trail, the close BEFORE the wait, then the wait on the settings' clock. On the
-      # exception path the failure IS the error the override sees; on the response path the
-      # override sees the response and no error (RETRY-39).
+      # The retry path: the delay from the still-open response and the tracer's attempt_failed,
+      # both inside ONE fence (RETRY-35: a tracer that raises propagates, OBS-30, but the
+      # superseded response is closed first, as on the async driver), the trail, the close BEFORE
+      # the wait, then the wait on the settings' clock. On the exception path the failure IS the
+      # error the override sees; on the response path the override sees the response and no error
+      # (RETRY-39).
       #
       # @return [nil] always: the loop's "again"
       def wait(run, attempt, response, failure)
-        delay = fenced(response) { resolve_delay(attempt, response, response ? nil : failure) }
-        run.tracer.attempt_failed(run.cursor, failure, delay)
+        delay = fenced(response) do
+          resolved = resolve_delay(attempt, response, response ? nil : failure)
+          run.tracer.attempt_failed(run.cursor, failure, resolved)
+          resolved
+        end
         run.trail << failure
         Dexpace.close_quietly(response, onto: failure)
         @settings.clock.sleep(delay, cancellation: run.cursor.cancellation)

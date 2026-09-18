@@ -15,19 +15,33 @@ module Dexpace
     # no NFR-4 lock. It has a sig/ mirror because the strict `core` Steep target types its call
     # sites, and no test/ mirror -- every branch is asserted through Policy.pacing_delay.
     #
-    # Three grammars, each anchored \A..\z, each compiled once with its own timeout (never
-    # Regexp.timeout), and none can backtrack: digit runs and one optional fraction. RETRY-19's
-    # screen is the DECIMAL grammar, applied BEFORE String#to_f -- "30d", "0x10", "1e3", "5_0",
-    # "Infinity", "NaN" and " 5" all fail it and fall through to the HTTP-date attempt, which
-    # rejects them too, so the answer is nil. Nothing here calls Float() or Integer() on an
-    # unscreened value: Integer("5_0", 10) is 50 on every supported Ruby (verified 3.2.11,
-    # 3.4.10, 4.0.6), which is exactly the mis-parse the screen exists to prevent.
+    # Two grammars, each anchored \A..\z, each compiled once with its own timeout (never
+    # Regexp.timeout), and none can backtrack: bounded digit runs and one optional bounded
+    # fraction. RETRY-19's screen is the DECIMAL grammar, applied BEFORE String#to_f -- "30d",
+    # "0x10", "1e3", "5_0", "Infinity", "NaN" and " 5" all fail it and fall through to the
+    # HTTP-date attempt, which rejects them too, so the answer is nil. Nothing here calls Float()
+    # or Integer() on an unscreened value: Integer("5_0", 10) is 50 on every supported Ruby
+    # (verified 3.2.11, 3.4.10, 4.0.6), which is exactly the mis-parse the screen exists to
+    # prevent.
+    #
+    # The runs are BOUNDED (P6-61): fifteen integer digits is the largest run a Float carries
+    # exactly and 10**15 seconds is thirty million years, so a longer run is RETRY-16's
+    # out-of-range value and answers nil before anything converts it -- String#to_f and #to_i
+    # over an unbounded run cost seconds on a multi-megabyte value (measured: 16-20 s for a 10 MB
+    # retry-after-ms) and, past ~309 digits, emit Ruby's "Float ... out of range" warning, which
+    # NFR-6's fatal-warnings suite turns into a raise Policy#parse_form's fence was quietly
+    # swallowing. MAX_VALUE_BYTES bounds the HTTP-date attempt the same way, in front of every
+    # parser: the longest well-formed pacing value is the 29-byte RFC 1123 date, and a value past
+    # 64 bytes is no hint without a grammar or the date parser ever reading it.
     module PacingParsers
       extend self
 
-      DECIMAL_GRAMMAR = ::Regexp.new('\A\d+(\.\d+)?\z', timeout: 1.0).freeze
-      INTEGER_GRAMMAR = ::Regexp.new('\A\d+\z', timeout: 1.0).freeze
-      private_constant :DECIMAL_GRAMMAR, :INTEGER_GRAMMAR
+      # The longest well-formed pacing value is an RFC 1123 date, 29 bytes; twice that, rounded
+      # up, is the ceiling every parser applies before any grammar runs.
+      MAX_VALUE_BYTES = 64
+      DECIMAL_GRAMMAR = ::Regexp.new('\A\d{1,15}(\.\d{1,15})?\z', timeout: 1.0).freeze
+      INTEGER_GRAMMAR = ::Regexp.new('\A\d{1,15}\z', timeout: 1.0).freeze
+      private_constant :MAX_VALUE_BYTES, :DECIMAL_GRAMMAR, :INTEGER_GRAMMAR
 
       # The upper bound of RECOV-25's positive jitter: [100%, 120%] of the computed delta.
       RESET_JITTER_CEILING = 1.2
@@ -37,7 +51,7 @@ module Dexpace
       # RFC 1123 HTTP-date through the ONE parser, whose past instants floor to zero (RETRY-17).
       # An unparseable value is nil, distinct from a past date's 0.0.
       def parse_retry_after(value, now:)
-        return nil unless value.is_a?(::String)
+        return nil unless readable?(value)
         return value.to_f if DECIMAL_GRAMMAR.match?(value)
 
         instant = Dexpace::HTTPDate.parse(value)
@@ -48,7 +62,7 @@ module Dexpace
 
       # retry-after-ms / x-ms-retry-after-ms: a non-negative integer count of milliseconds.
       def parse_millis(value)
-        return nil unless value.is_a?(::String) && INTEGER_GRAMMAR.match?(value)
+        return nil unless readable?(value) && INTEGER_GRAMMAR.match?(value)
 
         value.to_i / 1000.0
       end
@@ -56,13 +70,12 @@ module Dexpace
       # X-RateLimit-Reset: Unix epoch seconds. A reset already past floors to zero (RETRY-17); a
       # future one is jittered UPWARD to [100%, 120%] of the delta (RECOV-25), inside the parser,
       # so the caller applies no second jitter on top (RETRY-20, RECOV-22). The jitter is drawn
-      # only over a finite range: a digit run long enough to convert to Infinity is out of range
-      # and answers nil (RETRY-16), and a finite delta whose 120% would overflow is returned
-      # unjittered for the dispatcher's 365-day clamp to bound -- Random#rand raises EDOM on an
-      # infinite bound (verified on 4.0.6), and RECOV-26's "never surface an arithmetic overflow
+      # only over a finite range: the bounded run keeps every delta finite, and the `finite?`
+      # guards stay as the belt behind the grammar -- Random#rand raises EDOM on an infinite
+      # bound (verified on 4.0.6), and RECOV-26's "never surface an arithmetic overflow
       # mid-retry" covers a server's hint before any clamp reaches it.
       def parse_epoch_reset(value, now:, random:)
-        return nil unless value.is_a?(::String) && INTEGER_GRAMMAR.match?(value)
+        return nil unless readable?(value) && INTEGER_GRAMMAR.match?(value)
 
         delta = [(value.to_i - now.to_i).to_f, 0.0].max
         return nil unless delta.finite?
@@ -70,6 +83,13 @@ module Dexpace
 
         ceiling = delta * RESET_JITTER_CEILING
         ceiling.finite? ? random.rand(delta..ceiling) : delta
+      end
+
+      private
+
+      # A String within the byte ceiling; anything else is no hint before a grammar runs.
+      def readable?(value)
+        value.is_a?(::String) && value.bytesize <= MAX_VALUE_BYTES
       end
     end
     private_constant :PacingParsers
