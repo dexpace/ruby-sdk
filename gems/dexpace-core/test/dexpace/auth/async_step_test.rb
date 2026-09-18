@@ -20,9 +20,10 @@ require_relative "../../support/fake_clock"
 # through a stamper double whose #stamp and #stamp_fresh differ on the wire (review round 0's
 # R0-1), since the real stamper fetches either way once its cache is empty -- AUTH-31's gate
 # through the inherited predicate, AUTH-32's three clauses, cancellation forwarded both ways,
-# and one request's cancellation reaching no other request coalesced on the same bearer fetch.
-# Every #value here is on a future the test settles or one already settled. Split under
-# Metrics/ClassLength.
+# one request's cancellation reaching no other request coalesced on the same bearer fetch, and
+# a provider token the header grammar refuses failing the requests that awaited it and no
+# later one (review round 3's R3-1). Every #value here is on a future the test settles or one
+# already settled. Split under Metrics/ClassLength.
 class DexpaceAuthAsyncStepTest < DexpaceTestCase
   AsyncStep = Dexpace::Auth::AsyncStep
   Step = Dexpace::Auth::Step
@@ -420,11 +421,31 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
     end
   end
 
-  # Review round 2's R2-1 through the pipeline: the step forwards its future's cancellation to
-  # the stamp future (P6-79), and that must stop at the one request's waiter, never reach the
-  # single-flight fetch the other requests share.
+  # The single-flight fetch through the pipeline. Review round 2's R2-1: the step forwards its
+  # future's cancellation to the stamp future (P6-79), and that must stop at the one request's
+  # waiter, never reach the fetch the other requests share. Review round 3's R3-1: a fetch that
+  # lands a token the header grammar refuses fails the requests coalesced on it and is cached
+  # for none of the later ones.
   class CoalescingTest < DexpaceTestCase
     include Fixtures
+
+    test "AUTH-35 through the step: a refused token fails its waiters; the next one refetches" do
+      provider = ScriptedBearerProvider.new("abc\n", "clean") # once refused, then clean forever
+      step = async_step(stamper: async_bearer_over(provider))
+      transport = settled(ok, ok)
+      pipeline = async_auth_pipeline(step, transport)
+      first = pipeline.call(https_request)
+
+      assert_predicate(first, :settled?)
+      assert_raises(Dexpace::Auth::ProviderError) { first.value }
+      assert_empty(transport.calls) # the token could never be sent, and was not
+      second = pipeline.call(https_request)
+      third = pipeline.call(https_request)
+
+      assert_equal([200, 200], [second.value.status.code, third.value.status.code])
+      assert_equal(["Bearer clean", "Bearer clean"], transport.authorization_headers)
+      assert_equal(2, provider.fetches) # refetched once, then served from the cache
+    end
 
     test "AUTH-37, SEAM-18: cancelling one request's future leaves the coalesced others driving" do
       completer = Completer.new

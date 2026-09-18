@@ -12,9 +12,11 @@ require_relative "../../support/recording_sink"
 # Exercises: AUTH-37, AUTH-36 (async half), AUTH-11, AUTH-35 -- the three-zone async bearer
 # policy over phase 2's pivot: no #value or #wait anywhere on the stamper's own path, the
 # expiring zone stamping at once while a refresh it never awaits runs, the expired zone deriving
-# from one coalesced fetch, a failed background refresh logged and not fatal, the re-entrancy
-# trap an already-settled provider future sets, #stamp_fresh after an eviction, and -- the fetch
-# being shared -- a cancellation that is not: cancelling one waiter detaches that waiter alone.
+# from one coalesced fetch, a failed or unusable background refresh logged and not fatal, the
+# four provider rejections uncached (the fourth, a token the outbound header grammar refuses, is
+# review round 3's R3-1), the re-entrancy trap an already-settled provider future sets,
+# #stamp_fresh after an eviction, and -- the fetch being shared -- a cancellation that is not:
+# cancelling one waiter detaches that waiter alone.
 #
 # Every wait in this file is on a future the test itself settles, or on one already settled;
 # a hang here would be a finding, and FakeClock never advances by itself. Split under
@@ -29,6 +31,16 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
   class RefusingMutex
     def synchronize
       raise "the hot path took the lock (XCUT-12)"
+    end
+  end
+
+  # A request whose own derivation refuses: the one raise left inside the waiter's delivery once
+  # every cached token has passed the grammar check (a forged or duck-typed request).
+  class RefusingRequest
+    def headers = Dexpace::Headers::EMPTY
+
+    def with(**)
+      raise Dexpace::InvalidArgumentError, "this request refuses to derive"
     end
   end
 
@@ -176,6 +188,54 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
       assert_equal(2, provider.fetches)
     end
 
+    # R3-1: the fourth rejection. Cached, a token the grammar refuses failed every later #stamp
+    # until it expired and raised out of the fresh zone rather than settle; nothing could evict it.
+    test "AUTH-35 async: a token the outbound header grammar refuses fails the waiters, uncached" do
+      completer = Completer.new
+      provider = ScriptedAsyncBearerProvider.new(completer.future,
+                                                 settled_with(fresh_token("clean")),)
+      subject = stamper(provider)
+      waiters = Array.new(2) { subject.stamp(https_request) }
+      completer.fulfil(BearerToken.build(token: "abc\n")) # a token read off a file, newline kept
+
+      waiters.each do |waiter|
+        assert_predicate(waiter, :settled?)
+        error = assert_raises(Dexpace::Auth::ProviderError) { waiter.value }
+
+        refute_match(/abc|\n/, error.message) # the message never names the token
+      end
+      assert_nil(subject.instance_variable_get(:@token))
+      refute(subject.evict_if_matches("Bearer abc")) # nothing cached, nothing to evict
+      assert_nil(subject.instance_variable_get(:@in_flight)) # the slot is free again
+      later = subject.stamp(https_request) # a future, never a synchronous raise
+
+      assert_kind_of(Dexpace::Async::Future, later)
+      assert_equal(["Bearer clean"], authorization(later.value))
+      assert_equal(2, provider.fetches)
+    end
+
+    test "AUTH-37: an UNUSABLE background refresh (a refused token) is logged and not cached" do
+      sink = RecordingSink.new
+      completer = Completer.new
+      provider = ScriptedAsyncBearerProvider.new(completer.future, settled_with(fresh_token))
+      subject = stamper(provider, logger: Dexpace::Instrumentation::Logger.build(sink: sink))
+      subject.instance_variable_set(:@token, expiring_token)
+
+      assert_equal(["Bearer still-valid"], authorization(subject.stamp(https_request).value))
+      completer.fulfil(BearerToken.build(token: "bad\r\ntoken"))
+      entry = sink.entries.find { |candidate| candidate.payload["event"] == "http.auth.refresh" }
+
+      refute_nil(entry, sink.entries.inspect)
+      assert_equal(:warn, entry.severity)
+      assert_includes(entry.payload["cause"].to_s, "HTTP-18")
+      refute_match(/bad|[\r\n]/, entry.payload["cause"].to_s)
+      assert_equal(expiring_token, subject.instance_variable_get(:@token)) # still the valid one
+      clock.advance(20) # expired now: the next stamp fetches again and succeeds
+
+      assert_equal(["Bearer fresh"], authorization(subject.stamp(https_request).value))
+      assert_equal(2, provider.fetches)
+    end
+
     test "AUTH-35 on the async path: a nil, expired or non-token result fails the waiters" do
       provider = ScriptedAsyncBearerProvider.new(settled_with(expired_token),
                                                  settled_with(Object.new),
@@ -271,14 +331,20 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
       assert_equal(2, provider.fetches)
     end
 
-    test "a token the outbound header grammar refuses fails that waiter, never the settler" do
+    # Until round 3 this was a token the grammar refuses; that is now AUTH-35's fourth rejection
+    # (FailureTest) and never reaches the stamp, so the raise left for #deliver's rescue to keep
+    # off the settling thread is the request's own.
+    test "a request whose derivation raises fails that waiter alone, never the settler" do
       completer = Completer.new
       subject = stamper(ScriptedAsyncBearerProvider.new(completer.future))
-      waiter = subject.stamp(https_request)
-      completer.fulfil(BearerToken.build(token: "bad\r\ntoken")) # HTTP-18 refuses it at the stamp
+      refusing = subject.stamp(RefusingRequest.new)
+      sound = subject.stamp(https_request)
+      completer.fulfil(fresh_token) # settles on THIS thread: a raise in the delivery lands here
 
-      assert_predicate(waiter, :settled?)
-      assert_raises(Dexpace::InvalidArgumentError) { waiter.value }
+      assert_predicate(refusing, :settled?)
+      assert_raises(Dexpace::InvalidArgumentError) { refusing.value }
+      assert_equal(["Bearer fresh"], authorization(sound.value))
+      assert_equal(["Bearer fresh"], authorization(subject.stamp(https_request).value)) # cached
     end
   end
 

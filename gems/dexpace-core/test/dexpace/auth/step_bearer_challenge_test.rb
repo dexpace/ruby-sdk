@@ -14,8 +14,9 @@ require_relative "../../support/fake_clock"
 # fetch, regardless of method; a token another request refreshed is preserved and reused; no
 # Authorization on the rejected request, or no Bearer challenge, surfaces the 401 unchanged; a
 # non-replayable body skips the retry and leaves the 401 unclosed; the branch runs before the
-# challenge hook. No lib/ mirror: a second suite over step.rb, like 5b's downstream_wirings.
-# Split under Metrics/ClassLength.
+# challenge hook; a provider token the header grammar refuses fails one dispatch and no later
+# one (review round 3's R3-1). No lib/ mirror: a second suite over step.rb, like 5b's
+# downstream_wirings. Split under Metrics/ClassLength.
 class DexpaceAuthStepBearerChallengeTest < DexpaceTestCase
   Step = Dexpace::Auth::Step
   STAGES = Dexpace::Pipeline::Stages
@@ -109,6 +110,19 @@ class DexpaceAuthStepBearerChallengeTest < DexpaceTestCase
 
       assert_raises(RuntimeError) { dispatch(step, transport) }
       assert_equal(1, closes_of(first))
+    end
+
+    test "AUTH-35 through the step: a refused token fails one dispatch; the next fetches again" do
+      transport = SequencedTransport.new(ok, ok)
+      prov = provider("abc\n", "clean") # once refused, then clean forever
+      step = bearer_step(prov)
+
+      assert_raises(Dexpace::Auth::ProviderError) { dispatch(step, transport) }
+      assert_empty(transport.calls) # the token could never be sent, and was not
+      assert_equal(200, dispatch(step, transport).status.code)
+      assert_equal(200, dispatch(step, transport).status.code)
+      assert_equal(["Bearer clean", "Bearer clean"], transport.authorization_headers)
+      assert_equal(2, prov.fetches) # refetched once, then served from the cache
     end
   end
 
