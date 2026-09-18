@@ -20,10 +20,17 @@ module Dexpace
     # SAME error object; and one tracer instance corresponds 1:1 to one logical operation
     # lifecycle, created by its factory per operation. ordering_test.rb drives a conformant
     # emitter through both a succeeding and a retry-exhausted operation, which is the
-    # requirement's own conformance clause. Nothing in phase 5 emits any of it -- the per-attempt
-    # group is phase 6a's retry step (its Task 9), the transport milestones are phase 8's, and
-    # the operation triple is on phase 10's inbound list -- which OBS-29's own last sentence
-    # anticipates: "pipeline/transport wiring to emit it is a follow-up" (R14).
+    # requirement's own conformance clause. The per-attempt group is emitted by phase 6a's three
+    # retry drivers (Resilience::RetryStep, ::AsyncRetryStep and ::RecoveryRetry), through the
+    # tracer their `http_tracer_factory:` produces once per operation -- called with the
+    # Pipeline::Cursor on the stage stack and with the Dexpace::Request on the recovery stack --
+    # and retries_exhausted fires there only when a RETRYABLE failure met a spent budget, never
+    # for a failure that was never retryable (ordering_test.rb's third case). The transport
+    # milestones and the operation-lifecycle triple are emitted by nothing in v1 (phase 10's
+    # inbound list; docs/first-release.md's behavioural-asymmetries entry), which OBS-29's own
+    # last sentence anticipates: "pipeline/transport wiring to emit it is a follow-up" (R14).
+    # The interface _HTTPTracer, which 5c deliberately did not declare, arrived with the wiring
+    # (6a's R3) in this file's sig/ mirror.
     #
     # OBS-30 binds every implementation: each callback is safe to invoke concurrently and from
     # a transport thread other than the caller's, and never throws -- the runtime does not

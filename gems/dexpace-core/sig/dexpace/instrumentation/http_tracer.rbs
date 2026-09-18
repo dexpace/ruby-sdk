@@ -1,9 +1,31 @@
 module Dexpace
   module Instrumentation
-    # OBS-28's eleven-method vocabulary, a module an implementer includes. No `interface
-    # _HTTPTracer` is declared, deliberately: eleven signatures with no core caller would be
-    # eleven NFR-4-locked shapes nothing checks, and the module's own declaration is the
-    # contract; if phase 6 wires the vocabulary, the interface arrives with the wiring.
+    # OBS-28's eleven-method vocabulary: the module an implementer includes, and -- since phase 6a
+    # wired the per-attempt group (R3) -- the interface the retry drivers' `http_tracer_factory:`
+    # keyword produces. Phase 5c declared no interface because eleven NFR-4-locked signatures with
+    # no core caller would have been shapes nothing checks; the caller exists now, so the
+    # interface arrives with the wiring, exactly as 5c said it would. `context` stays untyped
+    # deliberately: OBS-28 fixes the vocabulary and not the correlation handle, and 6a passes a
+    # Pipeline::Cursor from the two stage drivers and a Dexpace::Request from RecoveryRetry --
+    # typing it to either would make the other a Steep error and lock a type no requirement
+    # names. `error` is an Exception: the drivers convert an error-status response with
+    # ProtocolError.for before reporting it and never hand the vocabulary a Response.
+    interface _HTTPTracer
+      def operation_started: (untyped context) -> void
+      def operation_succeeded: (untyped context, Dexpace::Response response) -> void
+      def operation_failed: (untyped context, Exception error) -> void
+
+      def attempt_started: (untyped context, Integer attempt) -> void
+      def attempt_failed: (untyped context, Exception error, Numeric next_delay) -> void
+      def retries_exhausted: (untyped context, Exception error) -> void
+
+      def request_url_resolved: (untyped context, untyped url) -> void
+      def connection_acquired: (untyped context, String host, Integer port) -> void
+      def request_sent: (untyped context, Integer byte_count) -> void
+      def response_headers_received: (untyped context, Integer status, untyped headers) -> void
+      def response_received: (untyped context, Integer byte_count) -> void
+    end
+
     module HTTPTracer
       def operation_started: (untyped context) -> void
       def operation_succeeded: (untyped context, untyped response) -> void

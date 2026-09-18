@@ -1,0 +1,35 @@
+# Dexpace::Resilience::RetryStepHelpers is a private_constant and not public API (P6-11): this
+# declaration exists because the strict `core` Steep target types its two includers, RetryStep
+# and AsyncRetryStep. RBS has no visibility for a constant, so the privacy lives in
+# lib/dexpace/resilience/retry_step_helpers.rb alone.
+module Dexpace
+  module Resilience
+    module RetryStepHelpers
+      RETRY: Symbol
+      EXHAUSTED: Symbol
+      STOP: Symbol
+
+      @settings: RetrySettings
+      @http_tracer_factory: untyped
+      @delay_override: untyped
+      @should_retry: untyped
+      @logger: Instrumentation::Logger
+
+      private
+
+      def initialize_retry_step: (settings: untyped, http_tracer_factory: untyped,
+                                  delay_override: untyped, should_retry: untyped,
+                                  logger: untyped) -> void
+      def callable!: (String name, untyped value) -> untyped
+      def effective_max_retries: (Pipeline::Cursor cursor) -> Integer
+      def decision: (Dexpace::Request request, ::Exception failure, Integer attempt,
+                     Integer max_retries) -> Symbol
+      def retryable_condition?: (::Exception failure, Dexpace::Request request) -> bool
+      def resolve_delay: (Integer attempt, Dexpace::Response? response, ::Exception? failure) -> Float
+      def overridden_delay: (Integer attempt, Dexpace::Response? response, ::Exception? failure) -> Float?
+      def report_override: (message: String, ?cause: ::Exception?) -> void
+      def failure_of: (Dexpace::Response? response, ::Exception? error) -> ::Exception
+      def attach_trail: (::Exception error, Array[::Exception] trail) -> ::Exception
+    end
+  end
+end
