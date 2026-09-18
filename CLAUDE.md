@@ -766,7 +766,12 @@ Each is one line plus the chapter to read before touching the area.
   smoke-suite constant snapshot preloads `digest` so the top-level `Digest` it defines is not read as a
   leak (`AUTH-14`, `AUTH-20`; design §10 entry 7). A Digest challenge whose `realm`, `nonce` or `opaque`
   the outbound grammar cannot carry is declined, never raised from the header write, and a non-ASCII
-  username goes out as RFC 7616 §3.4's `username*=UTF-8''…` (6c's P6-76).
+  username goes out as RFC 7616 §3.4's `username*=UTF-8''…` (6c's P6-76). Digest hash inputs are
+  transcoded to UTF-8 under `charset=UTF-8` and to ISO-8859-1 otherwise, and a credential either branch
+  cannot represent raises `Auth::UnencodableCredentialError` naming THAT branch's encoding — never
+  `:replace`, and never a UTF-8-tagged value with an invalid sequence hashed as it is, which `encode` to
+  the same encoding passes through unvalidated (`AUTH-21`; 6c's P6-1, P6-84); the credential is
+  materialised BEFORE the nonce count is taken, so a refused attempt consumes no `nc`.
 - **A `Data` that carries a secret overrides `#pretty_print` beside `#to_s` and `#inspect`** — pp.rb gives
   `Data` its own `#pretty_print` over `members` and never consults an `#inspect` override, so
   `pp credential` printed the token with the two overrides alone; a plain class pretty-prints through

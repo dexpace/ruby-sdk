@@ -3662,4 +3662,18 @@ phase 0's `version.rb`, eleven `private_constant`s without a `test/` mirror (`bo
 sentences and the constraints-that-bite list are rewritten from what was built, for 6c on top of
 5b — and, because 6a is landing off the same base at the same time, whichever of the two phase-6
 lanes merges second rebases its counts and its `CLAUDE.md` sentences over the other's, the 4a
-rebase-and-reprove recipe.
+rebase-and-reprove recipe. **Review round 0 (2026-09-18) found one mutation surviving and three
+edges in the Digest handler**: `AsyncStep`'s post-eviction routing — `#stamp_fresh`, never `#stamp`,
+after an eviction — was asserted only through the real `AsyncBearerStamper`, which fetches through
+either method once its cache is empty, so a retry routed through `#stamp` passed every test; a ninth
+double, `SpyBearerStamper`, whose two stamps differ on the wire, now tells them apart and the mutation
+runs red. `UnencodableCredentialError` named ISO-8859-1 and blamed the challenge for not advertising
+`charset=UTF-8` even when the UTF-8 branch raised on a BINARY-tagged credential — the error now
+names the branch that raised with a reason worded for it, and the UTF-8 branch also refuses a
+UTF-8-tagged credential with an invalid sequence, which `encode` to the same encoding passes through
+unvalidated (**P6-84**); `compute` took the nonce count before hashing, so a refused attempt consumed
+an `nc`, and now materialises the credential first, the design's own order; the parser's eight
+patterns are frozen and pinned with their per-pattern timeout, the plan-equivalent survivor now
+caught; and the widening of 5b's `instrumentation/keys.rb` beside `bounded_map.rb` is recorded for
+the 6a/6c merge to treat as a shared pair. Seven mutations run red after the repair on 4.0.6 and
+3.2.11, the checklist's deviations 29 and 30 and its second guard table.

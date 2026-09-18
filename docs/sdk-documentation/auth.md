@@ -170,9 +170,11 @@ auth-int-only challenge (token-exact: `"auth-int".include?("auth")` is true, whi
 other algorithm, and never verifies `rspauth` (`AUTH-15`, `AUTH-16`, `AUTH-17`). The nonce count is per
 server nonce, one read-modify-write under the handler's own bounded map, wrapping to 32 bits
 (`AUTH-18`, `AUTH-19`, `AUTH-24`); the cnonce is sixteen `SecureRandom` bytes (`AUTH-20`); hash inputs
-are UTF-8 under `charset=UTF-8` and ISO-8859-1 otherwise, and the Latin-1 branch **raises** a typed
-failure on a credential it cannot represent, never a silently wrong response (`AUTH-21`, design P6-1).
-The example is RFC 2617 §3.5's own vector, with a fixed cnonce so it reproduces.
+are UTF-8 under `charset=UTF-8` and ISO-8859-1 otherwise, and either branch **raises** a typed
+failure naming its own encoding on a credential it cannot represent — Latin-1 for a character it has
+no code for, UTF-8 for a BINARY-tagged or invalidly tagged value — never a silently wrong response
+(`AUTH-21`, design P6-1, P6-84). A refused attempt consumes no nonce count. The example is RFC 2617
+§3.5's own vector, with a fixed cnonce so it reproduces.
 
 ```ruby
 class FixedCnonce
@@ -203,6 +205,12 @@ rescue A::UnencodableCredentialError => error
 end
 japanese.authorization_for(A::Challenges.parse('Digest realm="r", nonce="n", charset=UTF-8'), index, proxy: false).nil?
                                                           # => false: UTF-8 advertised, hashed as UTF-8
+binary = A::DigestHandler.new(A::PasswordCredential.build(username: "u", password: "p\xE4".b))
+begin
+  binary.authorization_for(A::Challenges.parse('Digest realm="r", nonce="n", charset=UTF-8'), index, proxy: false)
+rescue A::UnencodableCredentialError => error
+  [error.field, error.encoding]                           # => [:password, "UTF-8"]: the branch that raised
+end
 
 sha = A::DigestHandler.new(mufasa, preference: %w[SHA-256 MD5])
 two = A::Challenges.parse('Digest realm="r", nonce="n", algorithm=MD5, Digest realm="r", nonce="n", algorithm=SHA-256')
