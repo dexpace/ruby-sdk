@@ -44,14 +44,14 @@ module Dexpace
 
       # PIPE-13 on the async side: the step's future, or the transport's, or a future failed with
       # whatever the invocation raised (PIPE-30).
-      def advance(position:, request:, options:, cancellation:, state:)
+      def advance(position:, request:, options:, cancellation:, bundle:, state:)
         entries = @pipeline.entries
         return dispatch(request, options, cancellation) if position >= entries.size
 
         normalise(terminal: false) do
           cursor = Cursor.send(:new, drive: self, owner_index: position, position: position + 1,
                                      request: request, options: options,
-                                     cancellation: cancellation, state: state,)
+                                     cancellation: cancellation, bundle: bundle, state: state,)
           entries.fetch(position).step.call(request, cursor)
         end
       end

@@ -19,6 +19,6 @@ module Dexpace
     def self.builder: (transport: untyped) -> Builder
     def self.direct: (untyped transport) -> Pipeline
 
-    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation) -> Dexpace::Response
+    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation, ?bundle: Instrumentation::Bundle) -> Dexpace::Response
   end
 end

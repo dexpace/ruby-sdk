@@ -10,7 +10,7 @@ module Dexpace
 
       def initialize: (Pipeline pipeline) -> void
       def entry_at: (Integer index) -> Entry
-      def advance: (position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> untyped
+      def advance: (position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, bundle: Instrumentation::Bundle, state: Hash[Stage, Hash[untyped, untyped]]) -> untyped
     end
   end
 end

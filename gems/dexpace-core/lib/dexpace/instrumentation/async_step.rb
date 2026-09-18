@@ -80,8 +80,9 @@ module Dexpace
       # @return [Array] the future and the Pending the settlement side needs
       def head(request, cursor)
         started = @clock.monotonic
-        span = open_span(request)
-        scope = Tracing.correlate(span, Bundle::NONE)
+        bundle = cursor.bundle
+        span = open_span(request, bundle)
+        scope = Tracing.correlate(span, bundle)
         pending = nil #: Pending?
         begin
           request = prepare(request)

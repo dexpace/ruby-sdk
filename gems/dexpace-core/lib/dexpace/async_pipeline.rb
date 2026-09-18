@@ -4,6 +4,7 @@
 require_relative "closeable"
 require_relative "http/request_options"
 require_relative "cancellation"
+require_relative "instrumentation/bundle"
 require_relative "async/future"
 require_relative "pipeline"
 require_relative "pipeline/cursor"
@@ -117,16 +118,21 @@ module Dexpace
     # is reached qualified because this class's cref does not include Dexpace::Pipeline; there is
     # exactly one Cursor class and both runtimes use it (P4-30).
     #
+    # `bundle:` is phase 6a's widening, as on Pipeline#call: the empty branch dispatches with
+    # no cursor and therefore carries no bundle, which is PIPE-9's own shape.
+    #
     # @param request [Dexpace::Request]
     # @param options [Dexpace::RequestOptions]
     # @param cancellation [Dexpace::Cancellation]
+    # @param bundle [Dexpace::Instrumentation::Bundle] the per-call correlation bundle
     # @return [Dexpace::Async::Future]
-    def call(request, options = RequestOptions::EMPTY, cancellation = Cancellation.none)
+    def call(request, options = RequestOptions::EMPTY, cancellation = Cancellation.none,
+             bundle: Instrumentation::Bundle::NONE)
       driver = @driver_class.new(self)
       return driver.dispatch(request, options, cancellation) if @entries.empty?
 
       Pipeline::Cursor.build(drive: driver, request: request, options: options,
-                             cancellation: cancellation,).call(request)
+                             cancellation: cancellation, bundle: bundle,).call(request)
     end
   end
 end

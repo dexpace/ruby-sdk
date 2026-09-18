@@ -33,7 +33,7 @@ module Dexpace
       def self.level!: (untyped level, untyped preview_bytes) -> void
       # untyped: a _Span is what the tracer returns and `_Span & Object` is what Tracing takes
       # (5c's identity device); the step passes one straight to the other.
-      def open_span: (Dexpace::Request request) -> untyped
+      def open_span: (Dexpace::Request request, Bundle bundle) -> untyped
       def finish: (untyped span, Float started) -> void
       def elapsed_ms: (Float started) -> Float
       def logged?: () -> bool

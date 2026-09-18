@@ -4,6 +4,7 @@
 require_relative "stage"
 require_relative "../error/pipeline_error"
 require_relative "../error/invalid_argument_error"
+require_relative "../instrumentation/bundle"
 
 module Dexpace
   class Pipeline
@@ -35,6 +36,18 @@ module Dexpace
     # Per-call state lives HERE and is passed as an argument, never read from ambient storage
     # (PIPE-11): not Fiber[], not Thread.current[]. A step that spawns a thread or a fiber hands
     # it the cursor explicitly; nothing is inherited.
+    #
+    # #bundle is phase 6a's widening (its Task 8): the per-call instrumentation bundle CTX-14
+    # names, seeded by the one optional `bundle:` keyword on Pipeline#call and AsyncPipeline#call,
+    # carried across #fork exactly as #options is, and Bundle::NONE when nothing seeded it. It is
+    # what lets 5b's instrumentation step honour the reconciled precedence's first clause -- the
+    # request's own bundle before the step's constructor keyword -- which had no implementation
+    # path in phase 5 (4c consumed nothing of 4a; Request carries no bundle; PIPE-11 forbids
+    # ambient carriage). A read-only member and a widening under NFR-4: no existing signature
+    # moved, and a caller who passes nothing gets exactly what phase 5 gave it. It is NOT the
+    # retry step's HTTP-tracer source: OBS-29's per-operation tracer is a different kind of
+    # object from Bundle#tracer_factory (P6-7), and the retry drivers take their own factory,
+    # called with the cursor itself.
     class Cursor
       # One shared frozen hash for a stage nothing wrote, and one for the root cursor's map, so
       # neither the empty read nor the root allocates (verified fact 4).
@@ -54,6 +67,10 @@ module Dexpace
       # @return [Dexpace::Cancellation] the token a step checks at every resume point and the
       #   terminal dispatch is handed
       attr_reader :cancellation
+      # @return [Dexpace::Instrumentation::Bundle] the per-call correlation bundle, the same
+      #   frozen object at every position and across every fork; Bundle::NONE when the call
+      #   seeded none (CTX-14, phase 6a's Task 8)
+      attr_reader :bundle
 
       # The root cursor for one send: bound to no entry, at position 0, with empty state. There is
       # no owner_index:, position: or state: keyword here and a caller cannot name one -- those
@@ -63,19 +80,29 @@ module Dexpace
       # @param request [Dexpace::Request]
       # @param options [Dexpace::RequestOptions]
       # @param cancellation [Dexpace::Cancellation]
+      # @param bundle [Dexpace::Instrumentation::Bundle] the per-call bundle; NONE by default
       # @return [Dexpace::Pipeline::Cursor]
-      def self.build(drive:, request:, options:, cancellation:)
+      # @raise [Dexpace::InvalidArgumentError] for a bundle: that is not a Bundle
+      def self.build(drive:, request:, options:, cancellation:,
+                     bundle: Instrumentation::Bundle::NONE)
+        unless bundle.is_a?(Instrumentation::Bundle)
+          raise InvalidArgumentError,
+                "bundle: takes an Instrumentation::Bundle, got #{bundle.class}"
+        end
+
         new(drive: drive, owner_index: -1, position: 0, request: request, options: options,
-            cancellation: cancellation, state: EMPTY_STATE,)
+            cancellation: cancellation, bundle: bundle, state: EMPTY_STATE,)
       end
 
-      def initialize(drive:, owner_index:, position:, request:, options:, cancellation:, state:)
+      def initialize(drive:, owner_index:, position:, request:, options:, cancellation:, bundle:,
+                     state:)
         @drive = drive
         @owner_index = owner_index
         @position = position
         @request = request
         @options = options
         @cancellation = cancellation
+        @bundle = bundle
         @state = state
         @spent = false
       end
@@ -125,7 +152,7 @@ module Dexpace
 
         @spent = true
         @drive.advance(position: @position, request: request, options: @options,
-                       cancellation: @cancellation, state: @state,)
+                       cancellation: @cancellation, bundle: @bundle, state: @state,)
       end
 
       # PIPE-15, PIPE-16. A fresh cursor at the SAME position as this one, carrying the current
@@ -172,7 +199,7 @@ module Dexpace
 
         Cursor.send(:new, drive: @drive, owner_index: @owner_index, position: @position,
                           request: @request, options: @options, cancellation: @cancellation,
-                          state: merged_state(stage, state),)
+                          bundle: @bundle, state: merged_state(stage, state),)
       end
 
       private

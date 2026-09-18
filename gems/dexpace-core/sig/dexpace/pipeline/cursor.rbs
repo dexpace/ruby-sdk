@@ -10,20 +10,23 @@ module Dexpace
       @request: Dexpace::Request
       @options: Dexpace::RequestOptions
       @cancellation: Dexpace::Cancellation
+      @bundle: Instrumentation::Bundle
       @state: Hash[Stage, Hash[untyped, untyped]]
       @spent: bool
 
       attr_reader request: Dexpace::Request
       attr_reader options: Dexpace::RequestOptions
       attr_reader cancellation: Dexpace::Cancellation
+      # Phase 6a's Task 8: the per-call instrumentation bundle, a widening.
+      attr_reader bundle: Instrumentation::Bundle
 
       # .new is private and takes owner_index:/position:/state: a caller cannot name; only .build
       # is public, and it produces the cursor bound to no entry (owner_index -1): it advances INTO
       # entry 0 and cannot fork (R10). Every cursor a step is handed is made by the driver.
-      private def self.new: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> instance
-      def initialize: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, state: Hash[Stage, Hash[untyped, untyped]]) -> void
+      private def self.new: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, bundle: Instrumentation::Bundle, state: Hash[Stage, Hash[untyped, untyped]]) -> instance
+      def initialize: (drive: untyped, owner_index: Integer, position: Integer, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, bundle: Instrumentation::Bundle, state: Hash[Stage, Hash[untyped, untyped]]) -> void
 
-      def self.build: (drive: untyped, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation) -> Cursor
+      def self.build: (drive: untyped, request: Dexpace::Request, options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation, ?bundle: Instrumentation::Bundle) -> Cursor
 
       def spent?: () -> bool
       def may_fork?: () -> bool
