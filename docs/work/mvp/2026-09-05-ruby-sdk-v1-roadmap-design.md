@@ -2399,6 +2399,26 @@ design.
   ordinal is retired. Touches no requirement ID. Added after phase 10's planning pass, so it is the
   thirty-eighth bullet and is not yet in its design's disposition table; phase 10 dispositions it at
   execution.
+- **`Fiber[:k] = nil` retains the key with a `nil` value on Ruby 3.2, and `Fiber["k"]` raises `TypeError`
+  on 3.2 and 3.3 — two carrier facts the phase-5 documents and phase 8b's plan state as facts of the
+  range that are facts of 3.3+ and 3.4+ respectively.** Found 2026-09-17 by phase 5c's implementation,
+  the first to run the charter's fact 1 and 5c's facts 3 and 4 on 3.2.11 and 3.3.12 (the charter and both
+  designs ran 3.4.10 alone and said so). Measured: after `Fiber[:k] = "v"; Fiber[:k] = nil`,
+  `Fiber.current.storage.key?(:k)` is `false` on 3.3.12, 3.4.10 and 4.0.6 and `true` on 3.2.11, where the
+  floor's whole `Fiber` API is `[]`, `[]=`, `storage` and `storage=` and the only removal is the warned
+  whole-map setter; `Fiber["k"] = 1` interns on 3.4.10 and 4.0.6 and raises on 3.2.11 and 3.3.12.
+  Phase 5c built on it as measured — its per-key restore stays branchless, the floor's residual is a
+  present-and-`nil` key that `Fiber[]` and `OBS-10`'s null-skip both read as absent (its as-built row
+  `P5-72`, and the corpus note `docs/knowledge/notes/observability.md`, marker
+  `sha:manual-phase5c-fiber-nil-and-string-key-floor`) — and neither 5b's nor 8b's plan is edited from
+  5c. What is stale is prose: 5b's `P5-23` union restore and 8b's `ASYNC-9`/`ASYNC-11` pooled-worker
+  restore are written on "`= nil` deletes", and on the floor each returns a worker to a map of nil-valued
+  keys rather than an empty one — indistinguishable at every reader that skips nulls and visible only
+  through `Fiber.current.storage` itself. Both phases re-read the notes at their start, so neither is
+  misled at execution. **Documentation half only: the two plans' sentences and the charter's fact 1, to
+  the as-built range.** Touches `OBS-10`, `OBS-23`, `OBS-24`, `ASYNC-9`, `ASYNC-11`. Added after phase
+  10's planning pass, so it is the thirty-ninth bullet and is not yet in its design's disposition table;
+  phase 10 dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3120,3 +3140,84 @@ lines. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentenc
 constraints-that-bite list are rewritten from what was built. **Those counts are the build's, cut from
 `main` at 993c439**; phase 5c's lane, if it merges first, will regenerate the manifest on the merged tree as
 4a did.
+
+**2026-09-17** — **Phase 5c implemented**, as three stacked branches against issue #20: code, tests,
+documentation, cut from `main` at 993c439 and run as a stack parallel to phase 5a's — the two lanes edit the
+same `CLAUDE.md`, README and `architecture.md` sentences, each for its own phase on top of `main`, and the
+merge's rebase-and-reprove pass reconciles them; phase 5b is not running and starts after both merge. **This
+is the 5c-first execution the plan's Global Constraints anticipate**: `dexpace-core` carries the tracing and
+metrics layer beside the seven layers before it — six new `lib/` files under `instrumentation/`, the design's
+five plus `diagnostics.rb`, which 5c created with exactly 5b's three constants `TRACE_ID`, `SPAN_ID` and
+`DEFAULT_KEYS` for 5b's Task 6 to extend rather than duplicate (ledger row **P5-71**) — `scope.rb` (`Scope`,
+`NO_SCOPE`, the private slot key), `tracing.rb` (`Tracing`'s five functions), `meter.rb` (`NO_METER` and its
+two private instruments), `http_tracer.rb` (`HTTPTracer`, `NULL`) and `callable_adapter.rb`; four phase-4a
+files widened **in place** — `NoSpan`'s seven methods, `NoTracer`'s two, `TraceIdFlavour#generate_trace_id`,
+`Bundle#sampled?` — with `_Span` and `_Tracer` filled where 4a declared them empty on purpose and the three
+published singletons keeping the identity 4a gave them; every file with a `sig/` mirror and a `test/` mirror,
+six test-support files (the four recording doubles, namespaced `Dexpace::Recording*` because 5b's plan
+consumes three by those names, **P5-73**, plus two helpers), the entry file's six-line `# Phase 5c:` block,
+and the surface manifest regenerated once from 730 to 772 lines with all 42 rows read against the object
+model; the other five gems are still phase-0 skeletons at `0.0.0`; nothing emits a trace or a metric, no
+logger, event or step exists, and nothing talks to a socket. **Roadmap cross-phase obligation 1 is honoured
+from the populating side**: the five prohibitions of phase 4a's handshake hold item by item — no second
+no-op span, tracer, factory or meter, neither singleton replaced, `Bundle.members` the same eight, `#valid?`
+derived, `TraceIdFlavour` a `Data` with `NONE`'s sentinel unchanged — and **the postponed work phase 4a
+handed phase 5 has landed**: the no-op span and tracer protocols (Tasks 3, 4 and 5) and `SEAM-28`'s consumer
+(Task 4: the identifier is 4a's `RequestContext#operation_name`, the consumer `_TracerFactory#tracer`'s
+`name`; the ID exists only as an appendix-C row and was read from there). **R15's condition was read and
+found NOT met** — `SEAM-2` enumerates five seams and instrumentation is not one; 5c registers nothing and adds
+no fourth registry — so presence-gated auto-activation stays post-v1 and is not met-and-declined.
+**`OBS-29`'s wiring is NOT shipped**: the eleven-method vocabulary, `NULL`, `CallableAdapter` and the
+ordering test over a conformant emitter fake ship, and nothing in phase 5 emits any of it, which the
+requirement's own last sentence anticipates; the per-attempt group is phase 6a's retry step (Task 9), the
+transport milestones phase 8's, the operation-lifecycle triple phase 10's inbound list. The checklist is at
+`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md`: twelve own rows,
+**11 ✅** (`OBS-29` ✅ with its unwired half named in the row; `OBS-30` ✅ by construction), **1 ⏳**
+(`OBS-32`, post-v1 under `docs/first-release.md`'s `OBS-32`/`OBS-37` entry), nothing 🚫, nothing N/A, plus
+thirteen cross-reference rows. `bundle exec rake` is green on 4.0.6 at the tests tip and the docs tip with
+99.97% line coverage against the 80% floor and 1,640 runs across the six gems (86 of them the thirteen new or
+widened instrumentation suites); the matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green
+on all seventeen gates too, run one by one, its `test:gems` at 97.86% on 4.0.6 and 98.49% on 3.2.11, above
+the floor. **Every guard the brief asks to be run red was run red**, twenty-three single-edit mutations,
+twenty-two caught and one green by design (Task 11's subprocess with the entry point instead of the file
+list, which stays green only because 5b is absent — the reason the assertion is written against the file
+list); the floor-sensitive eleven were run on 3.2.11 as well and caught there, one through the floor branch
+of the removed-key assertion; two allocation mutations had to be re-spelled because a literal in void
+context is eliminated by the VM. **Two facts the design measured on 3.4.10 alone do not hold on the floor,
+and both are recorded rather than worked around**: `Fiber[:k] = nil` deletes the key from 3.3 and **retains
+it with a `nil` value on 3.2.11**, whose whole `Fiber` API offers no removal but the warned whole-map setter,
+so `OBS-23`'s "remove it if previously unset" is a removal on 3.3+ and a nil-valued key on the floor that
+`Fiber[]` and `OBS-10`'s null-skip both read as absent (as-built row **P5-72**, P5-49's own argument from
+the other direction; the plan's fallback "delete explicitly" had nothing to delete with); and
+`Fiber["k"]` raises `TypeError` on 3.2 and 3.3 and interns only from 3.4, which touches nothing built —
+the keys are `Symbol`s — and settles R11 harder. Both are a new entry in
+`docs/knowledge/notes/observability.md` (marker `sha:manual-phase5c-fiber-nil-and-string-key-floor`), the
+matrix-facts suite pins both version boundaries, and the two later plans written on the 3.4.10 fact —
+5b's union restore and 8b's pooled-worker restore — are the **thirty-ninth inbound bullet** above,
+documentation half only. **The design's two findings were verified at their owners**: the keyword-splat
+cop is closed as built — phase 0's `Dexpace/NoKeywordSplat` fired on a scratch `**attributes` method under
+the honest RuboCop before any code was written — and the tracer-factory name collision stays on the inbound
+list. Twenty-one departures from the plan's text are itemised in the checklist, none lowering a gate; the
+ones that touch public behaviour are the as-built rows **P5-71–P5-76** (also: `Scope.build` public with
+`@api private`, `CallableAdapter`'s construction check and nil returns, `NO_TRACER#in_span` without a
+block). One order-dependent assertion was found by the 3.4.10 matrix row and fixed in the tests commit —
+the openssl fact now measures in a scrubbed subprocess, because `bundle exec`'s `RUBYOPT` loads bundler's
+own openssl into any child. `docs/sdk-documentation/tracing-and-metrics.md` is the as-built page, every
+fence run verbatim on 4.0.6 and 3.2.11 with the three differences stated where they appear;
+`architecture.md`, the core README, `README.md` and `docs/README.md` point at it. `docs/first-release.md` is
+untouched — its `OBS-32`/`OBS-37` entry and its presence-gated auto-activation entry already read true —
+and so is `docs/deviations.md`, for phase 10 to flip. The consolidation of P5-40–P5-50 and P5-71–P5-76 into
+design §10 and the §8.1 addendum are a human's, as they were for 3a, 3b, 4a, 4b and 4c: `docs/sdk-design-ruby/`
+is frozen, and no frozen sentence is contradicted, so no `C15`. The counts that changed, on top of `main`
+at 993c439: `dexpace-core`'s `lib/dexpace/` is one hundred and nine phase-1 through phase-5c files beside
+phase 0's `version.rb`, six `private_constant`s without a `test/` mirror (unchanged: 5c's private classes
+live inside its six files), nine checklists, the surface manifest 772 lines, 53 corpus notes.
+`CLAUDE.md`'s built-phases paragraph, its gem and phase-directory sentences and the constraints-that-bite
+list are rewritten from what was built, for 5c only. **Those counts are the build's, cut from `main` at
+993c439.** Phase 5a's stack lands first — one nine-PR stack, 5a, then 5c on 5a, then 5b on 5c — so this
+stack was rebased onto 5a's docs tip on 2026-09-17, as 4a's was onto 4b's and 4c's: the entry file carries
+the two phase-5 blocks in sub-phase order, the surface manifest was regenerated on the combined tree rather
+than merged by hand (814 + 42 = 856 lines, no row of 5a's changed), the smoke suite pins both layers, and
+`CLAUDE.md`, the READMEs and `architecture.md` read one hundred and twenty-six files, nine
+`private_constant`s without a `test/` mirror, ten checklists and ten as-built pages — 5c's checklist is the
+tenth written, not the ninth, in stack order.

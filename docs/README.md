@@ -102,10 +102,10 @@ a different namespace and the probe does not confuse them.
 Six gems exist under `gems/`, all at `0.0.0` and none published — each a gemspec reading the
 root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds phase 1's HTTP
 domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's body layer, phase
-4a's execution context, phase 4b's recovery layer, phase 4c's stage pipeline and phase 5a's
-configuration layer; the other five are
+4a's execution context, phase 4b's recovery layer, phase 4c's stage pipeline, phase 5a's
+configuration layer and phase 5c's tracing and metrics layer; the other five are
 phase 0's skeletons, a namespace and a `VERSION`. The as-built documentation lands in
-[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the nine pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the ten pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
@@ -119,7 +119,9 @@ the error trail are the things phase 4b built,
 [`sdk-documentation/pipelines.md`](./sdk-documentation/pipelines.md), because the stage pipeline is
 the thing phase 4c built, and
 [`sdk-documentation/configuration.md`](./sdk-documentation/configuration.md), because the
-configuration layer and the clock are the things phase 5a built.
+configuration layer and the clock are the things phase 5a built, and
+[`sdk-documentation/tracing-and-metrics.md`](./sdk-documentation/tracing-and-metrics.md), because
+the tracing and metrics layer is the thing phase 5c built.
 
 ## Keeping this file true
 
