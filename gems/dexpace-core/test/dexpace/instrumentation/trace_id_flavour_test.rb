@@ -5,10 +5,12 @@ require_relative "../../test_helper"
 require "dexpace"
 
 # OBS-27's trace-id flavours and CTX-14's "a trace-id encoding flavor" slot; P4-7's split of the
-# reserved trace-id sentinel from the span-id one.
+# reserved trace-id sentinel from the span-id one; and, from phase 5c, OBS-27's generation with
+# its unconditional zero-draw coercion (P5-44, P5-50).
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: the table
-# and the two predicates here, each flavour's own rule and the construction pattern below.
+# and the two predicates here, each flavour's own rule and the construction pattern below, then
+# phase 5c's generation.
 class DexpaceInstrumentationTraceIdFlavourTest < DexpaceTestCase
   Flavour = Dexpace::Instrumentation::TraceIdFlavour
 
@@ -163,6 +165,86 @@ class DexpaceInstrumentationTraceIdFlavourTest < DexpaceTestCase
 
       assert_equal(:other, derived.name)
       assert_same(Flavour::W3C.trace_id_pattern, derived.trace_id_pattern)
+    end
+  end
+
+  # OBS-27: generation, per flavour, from the CSPRNG path (XCUT-21's, not CFG-32's non-cryptographic
+  # one -- boundary 8 keeps the two apart), with the coercion driven through the optional
+  # generator seam because a zero draw is unreachable by sampling.
+  class GenerationTest < DexpaceTestCase
+    # The seam's protocol is SecureRandom's own two methods, so a `Random` instance -- which has
+    # both through Random::Formatter -- is a deterministic stand-in and no module is swapped.
+    class ZeroGenerator
+      def hex(_bytes) = "0" * 32
+      def random_number(_max) = 0
+    end
+
+    test "OBS-27: W3C generates 32 lowercase hex chars, never the sentinel, frozen" do
+      flavour = Flavour::W3C
+      ids = Array.new(1000) { flavour.generate_trace_id }
+
+      ids.each do |id|
+        assert_match(/\A[0-9a-f]{32}\z/, id)
+        refute_equal(flavour.invalid_trace_id, id)
+        assert(flavour.valid_trace_id?(id))
+        assert_predicate(id, :frozen?)
+      end
+      assert_equal(1000, ids.uniq.size, "a 128-bit CSPRNG draw does not repeat in a thousand")
+    end
+
+    test "OBS-27: DATADOG generates a decimal 64-bit unsigned integer, never '0', frozen" do
+      flavour = Flavour::DATADOG
+      ids = Array.new(1000) { flavour.generate_trace_id }
+
+      ids.each do |id|
+        assert_match(/\A[0-9]{1,20}\z/, id)
+        refute_equal(flavour.invalid_trace_id, id)
+        assert(flavour.valid_trace_id?(id))
+        assert_includes(1..((2**64) - 1), ::Kernel.Integer(id, 10))
+        assert_predicate(id, :frozen?)
+      end
+    end
+
+    test "OBS-27: NONE always yields the invalid sentinel, the same frozen object" do
+      assert_same(Flavour::NONE.invalid_trace_id, Flavour::NONE.generate_trace_id)
+      assert_same(Flavour::NONE.invalid_trace_id, Flavour::NONE.generate_trace_id(ZeroGenerator.new))
+      assert_equal("0" * 32, Flavour::NONE.generate_trace_id)
+    end
+
+    # "a zero draw MUST be coerced to a non-zero value": a substitution, not a redraw, because a
+    # redraw loop against an always-zero generator never terminates and the requirement's word
+    # is "coerced". The result is valid under the flavour, so it renders in a Bundle.
+    test "OBS-27: a zero draw is coerced to a valid non-zero id for W3C and DATADOG" do
+      zero = ZeroGenerator.new
+      w3c = Flavour::W3C.generate_trace_id(zero)
+      datadog = Flavour::DATADOG.generate_trace_id(zero)
+
+      assert_equal("#{"0" * 31}1", w3c)
+      assert(Flavour::W3C.valid_trace_id?(w3c))
+      assert_equal("1", datadog)
+      assert(Flavour::DATADOG.valid_trace_id?(datadog))
+    end
+
+    test "OBS-27: a seeded Random is a deterministic generator through the same seam" do
+      first = Flavour::W3C.generate_trace_id(::Random.new(42))
+      second = Flavour::W3C.generate_trace_id(::Random.new(42))
+
+      assert_equal(first, second)
+      assert(Flavour::W3C.valid_trace_id?(first))
+      assert_equal(
+        Flavour::DATADOG.generate_trace_id(::Random.new(7)),
+        Flavour::DATADOG.generate_trace_id(::Random.new(7)),
+      )
+    end
+
+    # P5-50: generation dispatches on the name because a fourth Data member is redefinition
+    # (boundary 10), so a flavour derived through #with with a name outside OBS-27's three has
+    # no generator and says so in the SDK's own error.
+    test "P5-50: a flavour outside the closed set raises InvalidArgumentError from generation" do
+      other = Flavour::W3C.with(name: :other)
+      error = assert_raises(Dexpace::InvalidArgumentError) { other.generate_trace_id }
+
+      assert_includes(error.message, ":other")
     end
   end
 end

@@ -4,10 +4,12 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# CTX-14, CTX-15, OBS-26, OBS-27; P4-6 (validity derived) and P4-7 (the two sentinels split).
+# CTX-14, CTX-15, OBS-26, OBS-27; P4-6 (validity derived) and P4-7 (the two sentinels split);
+# and, from phase 5c, OBS-26's sampled bit read off trace_flags (#sampled?, the one method phase
+# 4a reserved for phase 5 and the only thing 5c adds to Bundle -- boundary 10).
 #
 # One class per behaviour group, because Metrics/ClassLength caps a class at 100 lines: the
-# sentinels and the required members here, then Validation and Ownership below.
+# sentinels and the required members here, then Validation, Ownership and Sampled below.
 class DexpaceInstrumentationBundleTest < DexpaceTestCase
   Bundle = Dexpace::Instrumentation::Bundle
   Flavour = Dexpace::Instrumentation::TraceIdFlavour
@@ -245,6 +247,33 @@ class DexpaceInstrumentationBundleTest < DexpaceTestCase
 
     test "the construction pattern: new is private and .build is the one way in" do
       refute_respond_to(Bundle, :new)
+    end
+  end
+
+  # OBS-26: trace_flags is the two-hex-char W3C flags byte and its low bit is `sampled`. Phase 5c
+  # adds the predicate and no member: Bundle.members is the same eight before and after.
+  class SampledTest < DexpaceTestCase
+    def bundle_with_flags(flags)
+      Bundle.build(trace_id: "a" * 32, span_id: "b" * 16, flavour: W3C, trace_flags: flags)
+    end
+
+    test "OBS-26: #sampled? reads the low bit of trace_flags and nothing else" do
+      refute_predicate(bundle_with_flags("00"), :sampled?)
+      assert_predicate(bundle_with_flags("01"), :sampled?)
+      refute_predicate(bundle_with_flags("02"), :sampled?)
+      assert_predicate(bundle_with_flags("03"), :sampled?)
+      refute_predicate(bundle_with_flags("fe"), :sampled?)
+      assert_predicate(bundle_with_flags("ff"), :sampled?)
+      refute_predicate(Bundle::NONE, :sampled?)
+    end
+
+    test "boundary 10: #sampled? is a method over an existing member, not a ninth member" do
+      assert_equal(
+        %i[trace_id span_id trace_flags trace_state flavour remote span tracer_factory],
+        Bundle.members,
+      )
+      refute_includes(Bundle.members, :sampled)
+      refute_includes(Bundle.members, :valid)
     end
   end
 end
