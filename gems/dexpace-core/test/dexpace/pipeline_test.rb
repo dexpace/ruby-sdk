@@ -348,4 +348,74 @@ class DexpacePipelineTest < DexpaceTestCase
       assert_same(base, nest.build.transport)
     end
   end
+
+  # Phase 6a's Task 8: the `bundle:` keyword seeds Cursor#bundle for one call.
+  class BundleSeedingTest < DexpaceTestCase
+    BUNDLE = Dexpace::Instrumentation::Bundle
+
+    def seeded
+      BUNDLE.build(trace_id: "a" * 32, span_id: "b" * 16,
+                   flavour: Dexpace::Instrumentation::TraceIdFlavour::W3C,)
+    end
+
+    def request
+      Dexpace::Request.build(method: Dexpace::Method::GET, url: "https://example.test/",
+                             headers: Dexpace::Headers::EMPTY,)
+    end
+
+    test "cursor bundle: Pipeline#call seeds the cursor's bundle, NONE when omitted" do
+      seen = []
+      step = lambda { |req, cur|
+        seen << cur.bundle
+        cur.call(req)
+      }
+      transport = ->(_req, _opts, _canc) { :response }
+      pipeline = Dexpace::Pipeline::Builder.new(transport: transport)
+        .append(step, stage: Dexpace::Pipeline::Stages::PRE_RETRY)
+        .build
+      bundle = seeded
+
+      pipeline.call(request)
+      pipeline.call(request, bundle: bundle)
+      pipeline.call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none,
+                    bundle: bundle,)
+
+      assert_same(BUNDLE::NONE, seen[0])
+      assert_same(bundle, seen[1])
+      assert_same(bundle, seen[2])
+    end
+
+    test "cursor bundle: the empty pipeline dispatches with no cursor and accepts the keyword" do
+      calls = []
+      transport = lambda { |req, opts, canc|
+        calls << [req, opts, canc]
+        :response
+      }
+      pipeline = Dexpace::Pipeline.direct(transport)
+
+      assert_equal(:response, pipeline.call(request, bundle: seeded))
+      assert_equal(1, calls.size)
+    end
+
+    test "cursor bundle / SEAM-11: a Pipeline is still a Transport by the duck type" do
+      pipeline = Dexpace::Pipeline.direct(->(_r, _o, _c) { :response })
+
+      assert(Dexpace::Transport.conforms?(pipeline))
+      assert(Dexpace::Registry.callable?(pipeline, arity: 3))
+    end
+
+    test "cursor bundle: a non-Bundle is refused before any step runs" do
+      ran = false
+      step = lambda { |req, cur|
+        ran = true
+        cur.call(req)
+      }
+      pipeline = Dexpace::Pipeline::Builder.new(transport: ->(*) { :r })
+        .append(step, stage: Dexpace::Pipeline::Stages::PRE_RETRY)
+        .build
+
+      assert_raises(Dexpace::InvalidArgumentError) { pipeline.call(request, bundle: :none) }
+      refute(ran)
+    end
+  end
 end

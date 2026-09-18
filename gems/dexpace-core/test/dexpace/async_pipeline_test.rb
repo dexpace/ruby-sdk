@@ -256,4 +256,50 @@ class DexpaceAsyncPipelineTest < DexpaceTestCase
       assert_predicate(transport.completer.future.value, :closed?)
     end
   end
+
+  # Phase 6a's Task 8: the `bundle:` keyword on the async runtime.
+  class BundleSeedingTest < DexpaceTestCase
+    BUNDLE = Dexpace::Instrumentation::Bundle
+
+    def seeded
+      BUNDLE.build(trace_id: "a" * 32, span_id: "b" * 16,
+                   flavour: Dexpace::Instrumentation::TraceIdFlavour::W3C,)
+    end
+
+    def request
+      Dexpace::Request.build(method: Dexpace::Method::GET, url: "https://example.test/",
+                             headers: Dexpace::Headers::EMPTY,)
+    end
+
+    def settled(value)
+      completer = Dexpace::Async::Completer.new
+      completer.fulfil(value)
+      completer.future
+    end
+
+    test "cursor bundle: AsyncPipeline#call seeds the cursor's bundle, NONE when omitted" do
+      seen = []
+      step = lambda { |req, cur|
+        seen << cur.bundle
+        cur.call(req)
+      }
+      transport = ->(_req, _opts, _canc) { settled(:response) }
+      pipeline = Dexpace::Pipeline::Builder.new(transport: transport)
+        .append(step, stage: Dexpace::Pipeline::Stages::PRE_RETRY)
+        .build_async
+      bundle = seeded
+
+      assert_equal(:response, pipeline.call(request).value)
+      assert_equal(:response, pipeline.call(request, bundle: bundle).value)
+      assert_same(BUNDLE::NONE, seen[0])
+      assert_same(bundle, seen[1])
+    end
+
+    test "cursor bundle: the empty async pipeline accepts the keyword and allocates no cursor" do
+      pipeline = Dexpace::AsyncPipeline.direct(->(_r, _o, _c) { settled(:response) })
+
+      assert_equal(:response, pipeline.call(request, bundle: seeded).value)
+      assert(Dexpace::AsyncTransport.conforms?(pipeline))
+    end
+  end
 end

@@ -489,4 +489,27 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
       assert_equal(:error, sink.entries[1].severity)
     end
   end
+
+  # Phase 6a's Task 8 on the async runtime: the seeded bundle's factory wins in the head.
+  class BundlePrecedenceTest < DexpaceTestCase
+    include Fixtures
+
+    test "cursor bundle: a seeded bundle's tracer factory wins over the async step's keyword" do
+      own = Dexpace::RecordingTracerFactory.new
+      from_bundle = Dexpace::RecordingTracerFactory.new
+      bundle = Dexpace::Instrumentation::Bundle.build(
+        trace_id: "a" * 32, span_id: "b" * 16,
+        flavour: Dexpace::Instrumentation::TraceIdFlavour::W3C, tracer_factory: from_bundle,
+      )
+      step = async_step(RecordingSink.new, level: HTTPLogging::NONE, tracer_factory: own)
+      request = build_request
+      transport = FakeAsyncTransport.new(response: build_response(request))
+
+      pipeline(step, transport).call(request, bundle: bundle).value
+
+      assert_equal(1, from_bundle.tracers.size)
+      assert_equal(1, from_bundle.tracers.first.spans.first.finished_at.size)
+      assert_empty(own.tracers)
+    end
+  end
 end

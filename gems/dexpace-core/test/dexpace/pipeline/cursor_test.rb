@@ -413,4 +413,86 @@ class DexpacePipelineCursorTest < DexpaceTestCase
       assert_same(parent_state, fork_state)
     end
   end
+
+  # Phase 6a's Task 8: the per-call instrumentation bundle, the one reader the widening added.
+  class BundleTest < DexpaceTestCase
+    include Cursors
+
+    BUNDLE = Dexpace::Instrumentation::Bundle
+    W3C = Dexpace::Instrumentation::TraceIdFlavour::W3C
+
+    def seeded
+      BUNDLE.build(trace_id: "a" * 32, span_id: "b" * 16, flavour: W3C)
+    end
+
+    test "cursor bundle: #bundle defaults to Bundle::NONE on the root cursor" do
+      assert_same(BUNDLE::NONE, cursor_over([]).bundle)
+    end
+
+    test "cursor bundle: a seeded bundle is readable at every position and survives #fork" do
+      bundle = seeded
+      seen = []
+      probe = lambda do |req, cur|
+        seen << cur.bundle
+        fork = cur.fork
+        seen << fork.bundle
+        fork.call(req)
+      end
+      reader = lambda do |req, cur|
+        seen << cur.bundle
+        cur.call(req)
+      end
+      root = CURSOR.build(
+        drive: SYNC_DRIVER.new(DummySyncPipeline.new(
+                                 [entry(STAGES::RETRY, probe),
+                                  entry(STAGES::AUTH, reader),], @transport,
+                               )),
+        request: @request, options: @options, cancellation: @cancellation, bundle: bundle,
+      )
+
+      root.call(@request)
+
+      assert_same(bundle, root.bundle)
+      assert_equal(3, seen.size)
+      seen.each { |carried| assert_same(bundle, carried) }
+    end
+
+    test "cursor bundle: a fork of a fork carries the same object; state: does not touch it" do
+      bundle = seeded
+      forks = []
+      probe = lambda do |req, cur|
+        first = cur.fork(state: { cross_origin: true })
+        forks << first
+        forks << cur.fork
+        first.call(req)
+      end
+      CURSOR.build(
+        drive: SYNC_DRIVER.new(DummySyncPipeline.new([entry(STAGES::REDIRECT, probe)], @transport)),
+        request: @request, options: @options, cancellation: @cancellation, bundle: bundle,
+      ).call(@request)
+
+      forks.each { |fork| assert_same(bundle, fork.bundle) }
+      assert_equal({ cross_origin: true }, forks.first.state(STAGES::REDIRECT))
+    end
+
+    test "cursor bundle: .build refuses anything that is not a Bundle" do
+      drive = SYNC_DRIVER.new(DummySyncPipeline.new([], @transport))
+
+      assert_raises(Dexpace::InvalidArgumentError) do
+        CURSOR.build(drive: drive, request: @request, options: @options,
+                     cancellation: @cancellation, bundle: nil,)
+      end
+      assert_raises(Dexpace::InvalidArgumentError) do
+        CURSOR.build(drive: drive, request: @request, options: @options,
+                     cancellation: @cancellation, bundle: { trace_id: "x" },)
+      end
+    end
+
+    test "cursor bundle: there is still no writer, and #bundle is the only new reader" do
+      writers = CURSOR.public_instance_methods(false).grep(/=\z|bundle./)
+
+      assert_empty(writers)
+      refute_respond_to(cursor_over([]), :bundle=)
+    end
+  end
 end
