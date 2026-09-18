@@ -13,8 +13,9 @@ module Dexpace
     # may hold the list's own delimiters), and a hostile WWW-Authenticate must not be able to
     # drive a backtracking engine (design §6.3). The eight patterns it does use are fixed
     # character classes with no alternation inside a repetition, compiled with the tree's
-    # per-pattern timeout; every loop iteration consumes at least one byte, so the parse is
-    # linear in the input and the suite measures it rather than trusting the claim.
+    # per-pattern timeout and frozen, as HTTPDate's grammar is (Regexp.new, unlike a literal,
+    # returns an unfrozen object); every loop iteration consumes at least one byte, so the
+    # parse is linear in the input and the suite measures it rather than trusting the claim.
     #
     # Public, like Dexpace::HTTPDate: a caller writing a challenge handler for a scheme this SDK
     # does not implement needs the same lenient parser, and it carries no credential-shaped
@@ -39,22 +40,22 @@ module Dexpace
       extend self
 
       # RFC 7230's tchar set: the auth-scheme and every parameter name and token value.
-      TOKEN = Regexp.new("[!#$%&'*+\\-.^_`|~0-9A-Za-z]+", timeout: 1.0)
+      TOKEN = Regexp.new("[!#$%&'*+\\-.^_`|~0-9A-Za-z]+", timeout: 1.0).freeze
       # RFC 7235's token68: TOKEN's letters and digits plus `-._~+/`, then base64 padding,
       # which TOKEN excludes -- so `Bearer dGhl…==` is not readable as a parameter.
-      TOKEN68 = Regexp.new("[A-Za-z0-9\\-._~+/]+=*", timeout: 1.0)
+      TOKEN68 = Regexp.new("[A-Za-z0-9\\-._~+/]+=*", timeout: 1.0).freeze
       # One or more list separators with their whitespace: what sits between two elements.
-      SEPARATORS = Regexp.new("[ \\t]*,[ \\t,]*", timeout: 1.0)
+      SEPARATORS = Regexp.new("[ \\t]*,[ \\t,]*", timeout: 1.0).freeze
       # Whitespace, then a list boundary: a comma or the end of input. Checked, never consumed.
-      BOUNDARY = Regexp.new("[ \\t]*(?:,|\\z)", timeout: 1.0)
+      BOUNDARY = Regexp.new("[ \\t]*(?:,|\\z)", timeout: 1.0).freeze
       # A parameter's `=` with the bad whitespace RFC 7235 tolerates on either side.
-      EQUALS = Regexp.new("[ \\t]*=[ \\t]*", timeout: 1.0)
+      EQUALS = Regexp.new("[ \\t]*=[ \\t]*", timeout: 1.0).freeze
       # The whitespace between the scheme and what follows it.
-      SPACES = Regexp.new("[ \\t]+", timeout: 1.0)
+      SPACES = Regexp.new("[ \\t]+", timeout: 1.0).freeze
       # Optional whitespace at the start of an element, which recovery leaves behind.
-      OWS = Regexp.new("[ \\t]*", timeout: 1.0)
+      OWS = Regexp.new("[ \\t]*", timeout: 1.0).freeze
       # The opening quote of a quoted-string.
-      QUOTE = Regexp.new("\"", timeout: 1.0)
+      QUOTE = Regexp.new("\"", timeout: 1.0).freeze
       private_constant :TOKEN, :TOKEN68, :SEPARATORS, :BOUNDARY, :EQUALS, :SPACES, :OWS, :QUOTE
 
       # The parse itself: `nil`, blank input and an input of nothing but separators all yield
