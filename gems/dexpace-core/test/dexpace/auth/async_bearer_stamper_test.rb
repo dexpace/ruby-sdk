@@ -182,11 +182,16 @@ class DexpaceAuthAsyncBearerStamperTest < DexpaceTestCase
       subject = stamper(provider)
 
       assert_raises(Dexpace::Auth::ProviderError) { subject.stamp(https_request).value }
+      # Caches nothing: an already-expired token is not the cached one either (round 1's R1-5).
+      refute(subject.evict_if_matches("Bearer expired"))
+      assert_nil(subject.instance_variable_get(:@token))
       assert_raises(Dexpace::Auth::ProviderError) { subject.stamp(https_request).value }
+      assert_nil(subject.instance_variable_get(:@token))
       assert_equal(["Bearer fresh"], authorization(subject.stamp(https_request).value))
       nil_token = stamper(ScriptedBearerProvider.new(-> {}))
 
       assert_raises(Dexpace::Auth::ProviderError) { nil_token.stamp(https_request).value }
+      assert_nil(nil_token.instance_variable_get(:@token))
     end
 
     # The regression R12 exists to prevent: AUTH-11's default wrapper mirrors a #fetch-only

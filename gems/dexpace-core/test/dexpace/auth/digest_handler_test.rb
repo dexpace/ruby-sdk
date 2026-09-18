@@ -358,9 +358,32 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
 
         assert_equal(:password, error.field)
         assert_equal("ISO-8859-1", error.encoding)
-        assert_kind_of(Encoding::UndefinedConversionError, error.cause)
+        assert_equal("UTF-8", error.source_encoding)
+        assert_nil(error.cause)
         refute_includes(error.message, "日")
       end
+    end
+
+    # Ruby's conversion error names the offending character (`U+65E5 from UTF-8 to
+    # ISO-8859-1`), which is a character of the password, and #full_message renders a cause on
+    # every supported Ruby -- so the typed failure carries none, and the source encoding is a
+    # member instead (review round 1's R1-3; 6c's P6-85).
+    test "AUTH-8 (P6-85): no rendering of the failure carries a character of the secret" do
+      error = assert_raises(Dexpace::Auth::UnencodableCredentialError) do
+        answer(handler(credential(username: "a", password: "hunter日2")), digest)
+      end
+      renderings = [error.message, error.detailed_message, error.inspect,
+                    error.full_message(highlight: false),
+                    *Dexpace.each_cause(error).map(&:message),]
+
+      assert_nil(error.cause)
+      assert_equal(1, Dexpace.each_cause(error).count)
+      renderings.each do |text|
+        refute_includes(text, "U+65E5", text)
+        refute_includes(text, "日", text)
+        refute_includes(text, "hunter", text)
+      end
+      assert_includes(error.message, "from UTF-8")
     end
 
     test "AUTH-21 (R10): an unencodable username names :username" do
@@ -381,8 +404,10 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
         answer(handler(binary), digest(charset: "UTF-8"))
       end
 
-      assert_equal([:password, "UTF-8"], [error.field, error.encoding])
-      assert_kind_of(Encoding::UndefinedConversionError, error.cause)
+      assert_equal([:password, "UTF-8", "ASCII-8BIT"],
+                   [error.field, error.encoding, error.source_encoding],)
+      assert_nil(error.cause)
+      refute_includes(error.full_message(highlight: false), "\\xE4") # the byte the cause named
       assert_includes(error.message, "advertised charset=UTF-8")
       refute_includes(error.message, "ISO-8859-1")
       invalid = credential(username: "a", password: (+"p\xE4").force_encoding(Encoding::UTF_8))
@@ -390,7 +415,8 @@ class DexpaceAuthDigestHandlerTest < DexpaceTestCase
         answer(handler(invalid), digest(charset: "utf-8"))
       end
 
-      assert_equal([:password, "UTF-8"], [error.field, error.encoding])
+      assert_equal([:password, "UTF-8", "UTF-8"],
+                   [error.field, error.encoding, error.source_encoding],)
       assert_nil(error.cause)
       latin1 = credential(username: "a", password: "pä".encode(Encoding::ISO_8859_1))
 

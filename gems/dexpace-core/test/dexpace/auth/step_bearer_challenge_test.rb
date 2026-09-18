@@ -46,13 +46,18 @@ class DexpaceAuthStepBearerChallengeTest < DexpaceTestCase
     test "AUTH-36: a 401 with a Bearer challenge evicts the token and retries once, freshly" do
       prov = provider("old", "new")
       first = unauthorized_bearer
-      transport = SequencedTransport.new(first, ok)
+      closed_at_retry = nil
+      retry_reply = lambda do |_request|
+        closed_at_retry = closes_of(first) # read AS the retry reaches the transport (R1-2)
+        ok
+      end
+      transport = SequencedTransport.new(first, retry_reply)
       response = dispatch(bearer_step(prov), transport)
 
       assert_equal(200, response.status.code)
       assert_equal(["Bearer old", "Bearer new"], transport.authorization_headers)
       assert_equal(2, prov.fetches)
-      assert_equal(1, closes_of(first))
+      assert_equal(1, closed_at_retry) # the superseded 401 is closed BEFORE the retry drives
       assert_equal(0, closes_of(response))
     end
 

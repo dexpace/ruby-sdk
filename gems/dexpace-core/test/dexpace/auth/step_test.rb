@@ -254,11 +254,21 @@ class DexpaceAuthStepTest < DexpaceTestCase
       assert_equal(0, spy.call.calls)
     end
 
-    test "AUTH-30: the original 401 is closed before the replay; the replay's response is not" do
+    # "Close the original 401 AND drive the replacement", in that order: the close count is
+    # read as the replay reaches the transport, not after the fact, so a replay that raises
+    # cannot leave the 401 open (review round 1's R1-2 -- a close-after-drive mutation survived
+    # the count-only form).
+    test "AUTH-30: the original 401 is closed BEFORE the replay drives; the replay's is not" do
       first = unauthorized("Basic realm=r")
-      transport = SequencedTransport.new(first, ok)
+      closed_at_replay = nil
+      replay = lambda do |_request|
+        closed_at_replay = closes_of(first)
+        ok
+      end
+      transport = SequencedTransport.new(first, replay)
       response = dispatch(step(hook: ->(_c, request, _r) { request }), transport)
 
+      assert_equal(1, closed_at_replay)
       assert_equal(1, closes_of(first))
       assert_equal(0, closes_of(response))
     end

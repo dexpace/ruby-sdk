@@ -5,9 +5,10 @@ require_relative "../../test_helper"
 require_relative "../../../lib/dexpace/auth/basic_handler"
 require_relative "../../support/auth_fixtures"
 
-# Exercises: AUTH-14 -- Basic: `Basic ` + pack("m0") of the UTF-8 bytes, computed once and
-# reused by both roles, the challenge accepted case-insensitively, non-empty (not non-blank)
-# credentials, and never Base64.
+# Exercises: AUTH-14, AUTH-8 -- Basic: `Basic ` + pack("m0") of the UTF-8 bytes, computed once
+# and reused by both roles, the challenge accepted case-insensitively, non-empty (not non-blank)
+# credentials, a field UTF-8 cannot carry refused as a typed, causeless failure naming no byte
+# of it (6c's P6-85), and never Base64.
 class DexpaceAuthBasicHandlerTest < DexpaceTestCase
   include AuthFixtures
 
@@ -79,6 +80,28 @@ class DexpaceAuthBasicHandlerTest < DexpaceTestCase
 
   test "RFC 7617 §2: a username carrying a colon cannot be encoded unambiguously and is refused" do
     assert_raises(Dexpace::InvalidArgumentError) { BasicHandler.new(credential(username: "a:b")) }
+  end
+
+  # The first build let Ruby's own conversion error escape, naming a byte of the password
+  # (`"\xE4" from ASCII-8BIT to UTF-8`); the failure is now typed, names the field and the two
+  # encodings, and carries no cause -- #full_message renders one (review round 1's R1-3).
+  test "AUTH-8, P6-85: a field UTF-8 cannot carry is refused, typed, naming no byte of it" do
+    binary = assert_raises(Dexpace::InvalidArgumentError) do
+      BasicHandler.new(credential(password: "p\xE4".b))
+    end
+
+    assert_includes(binary.message, "password cannot be encoded as UTF-8 from ASCII-8BIT")
+    assert_includes(binary.message, "AUTH-14")
+    assert_nil(binary.cause)
+    [binary.message, binary.inspect, binary.full_message(highlight: false)].each do |text|
+      refute_includes(text, "\\xE4", text)
+    end
+    invalid = assert_raises(Dexpace::InvalidArgumentError) do
+      BasicHandler.new(credential(username: (+"\xE4").force_encoding(Encoding::UTF_8)))
+    end
+
+    assert_includes(invalid.message, "username cannot be encoded as UTF-8 from UTF-8")
+    assert_nil(invalid.cause)
   end
 
   test "never Base64: the source spells pack(\"m0\") and requires no base64" do

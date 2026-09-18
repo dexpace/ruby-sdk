@@ -226,11 +226,19 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
     include Fixtures
 
     test "AUTH-30: a 401 with a challenge consults the hook and replays the replacement once" do
-      transport = settled(unauthorized("Basic realm=r"), ok)
+      first = unauthorized("Basic realm=r")
+      closed_at_replay = nil
+      replay = lambda do |_request|
+        closed_at_replay = closes_of(first) # read AS the replay reaches the transport (R1-2)
+        ok
+      end
+      transport = settled(first, replay)
       response = dispatch(async_step(hook: ->(_c, request, _r) { request }), transport).value
 
       assert_equal(200, response.status.code)
       assert_equal(2, transport.calls.size)
+      assert_equal(1, closed_at_replay) # the 401 is closed BEFORE the replay drives
+      assert_equal(0, closes_of(response))
     end
 
     test "AUTH-30: the default hook yields no replacement; AUTH-33: no challenge, no consulting" do
@@ -286,6 +294,21 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
       assert_equal(1, closes_of(first))
     end
 
+    # Round 1's R1-1: the settled value was checked outside the closing frame, so this shape
+    # failed the future with the 401 left open; a future of a future is the same clause.
+    test "AUTH-32: a hook FUTURE fulfilling with a non-request closes the 401, fails the future" do
+      inner = Completer.new.tap { |completer| completer.fulfil(https_request) }.future
+      ["junk", inner].each do |value|
+        first = unauthorized("Basic realm=r")
+        hook = ->(*) { Completer.new.tap { |completer| completer.fulfil(value) }.future }
+        future = dispatch(async_step(hook: hook), settled(first, ok))
+        error = assert_raises(Dexpace::InvalidArgumentError) { future.value }
+
+        assert_includes(error.message, "got #{value.class}")
+        assert_equal(1, closes_of(first))
+      end
+    end
+
     test "AUTH-31 on the async path: a non-replayable replacement surfaces the 401 unclosed" do
       first = unauthorized("Basic realm=r")
       transport = settled(first, ok)
@@ -304,11 +327,18 @@ class DexpaceAuthAsyncStepTest < DexpaceTestCase
 
     test "AUTH-36, AUTH-37: the bearer 401 branch awaits a fresh fetch, never re-sends the token" do
       stamper = async_bearer("old", "new")
-      transport = settled(unauthorized_bearer, ok)
+      first = unauthorized_bearer
+      closed_at_retry = nil
+      retry_reply = lambda do |_request|
+        closed_at_retry = closes_of(first)
+        ok
+      end
+      transport = settled(first, retry_reply)
       response = dispatch(async_step(stamper: stamper), transport).value
 
       assert_equal(200, response.status.code)
       assert_equal(["Bearer old", "Bearer new"], transport.authorization_headers)
+      assert_equal(1, closed_at_retry) # the superseded 401 is closed BEFORE the retry drives
     end
 
     test "AUTH-36: a token another request refreshed is preserved and reused, no fetch" do
