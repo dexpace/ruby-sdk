@@ -278,6 +278,25 @@ class DexpaceResilienceRetryStepTest < DexpaceTestCase
       refute_predicate(response.body, :closed?)
     end
 
+    test "RETRY-35 / OBS-30: a tracer raising in retries_exhausted propagates, terminal closed" do
+      # R1-1: the terminal emission sits inside the same fence as the decision -- a throwing
+      # tracer fails the request (OBS-30, never contained) but the terminal error-status response
+      # it would otherwise have returned is closed first, as the async pump's guarded block
+      # already did; round 0 had closed the same drift for attempt_failed only (R0-4).
+      terminal = retry_response(503)
+      exploding = ::Object.new
+      def exploding.attempt_started(*) = nil
+      def exploding.attempt_failed(*) = nil
+      def exploding.retries_exhausted(*) = raise("tracer blew up")
+      step = RetryStep.build(settings: retry_settings(max_retries: 1),
+                             http_tracer_factory: ->(_cursor) { exploding },)
+
+      error = assert_raises(::RuntimeError) { drive(step, [retry_response(503), terminal]) }
+
+      assert_equal("tracer blew up", error.message)
+      assert_predicate(terminal.body, :closed?, "closed before the raise propagated")
+    end
+
     test "RETRY-25: a fatal-family error propagates unchanged, unretried, unattached, unreported" do
       tracer = Dexpace::RecordingHTTPTracer.new
       step = RetryStep.build(settings: retry_settings(max_retries: 3),

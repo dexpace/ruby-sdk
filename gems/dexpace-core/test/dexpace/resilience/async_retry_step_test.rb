@@ -141,12 +141,14 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
 
     test "R2 / RETRY-31: a zero-length delay completes inline and re-arms the pump, no scheduler" do
       assert_nil(::Fiber.scheduler)
-      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 1))
+      clock = FakeClock.new
+      step = AsyncRetryStep.build(settings: inline_settings(clock: clock, max_retries: 1))
       future, transport, = drive(step, [retry_response(503), retry_response(200)])
 
       assert_predicate(future, :settled?, "settled before #call returned: no wait happened")
       assert_equal(200, future.value.status.code)
       assert_equal(2, transport.calls.size)
+      assert_empty(clock.sleeps, "RETRY-31: the wait is Async.delay's, never the clock's sleep")
     end
 
     test "R2 / CFG-18: a positive delay under a scheduler parks the fiber, blocks no thread" do
@@ -166,11 +168,14 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       assert_equal(200, future.value.status.code)
       assert_operator(scheduler.block_count, :>=, 2, "one park per positive wait")
       assert_equal(0, scheduler.kernel_sleep_count)
+      assert_empty(settings.clock.sleeps, "RETRY-31 / RETRY-26: no Clock#sleep beside the park")
     end
 
     test "R2 / RETRY-33: a positive delay with NO scheduler fails the future with SeamError" do
       assert_nil(::Fiber.scheduler)
-      step = AsyncRetryStep.build(settings: retry_settings(initial_delay: 0.01, max_retries: 2))
+      clock = FakeClock.new
+      settings = retry_settings(clock: clock, initial_delay: 0.01, max_retries: 2)
+      step = AsyncRetryStep.build(settings: settings)
       first = RetryableError.new("first")
       future, transport, = drive(step, [first, retry_response(200)])
 
@@ -180,6 +185,19 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       assert_match(/Fiber\.set_scheduler/, error.message)
       assert_equal([first], Dexpace.suppressed(error), "the trail travels with the SeamError")
       assert_equal(1, transport.calls.size, "no second attempt was launched")
+      assert_empty(clock.sleeps, "the clock was never asked to sleep: no blocking fallback")
+    end
+
+    test "RETRY-31 / RETRY-26: the async driver names no blocking sleep, by text" do
+      # Every behavioural case in this suite runs on a FakeClock, whose #sleep records and
+      # returns, so a blocking Clock#sleep slipped in beside Async.delay kept the whole suite green
+      # on its own (R1-2); the three clock.sleeps assertions above and this scan are what turn it
+      # red. The one wait the driver may name is Async.delay's.
+      path = File.expand_path("../../../lib/dexpace/resilience/async_retry_step.rb", __dir__)
+      code = File.read(path).gsub(/^\s*#.*$/, "")
+
+      assert_empty(code.scan(/\bsleep\b/), "async_retry_step.rb names a sleep")
+      assert_equal(1, code.scan("Dexpace::Async.delay(").size, "the one wait is Async.delay's")
     end
 
     test "RETRY-45: no scheduler is installed, read or shut down by the driver" do
@@ -258,6 +276,40 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       assert_predicate(open_response.body, :closed?)
     end
 
+    test "RETRY-33 / RETRY-35: a throwing delay computation closes the response and fails" do
+      open_response = retry_response(503)
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 1),
+                                  delay_override: ->(*) { raise ::NotImplementedError, "fatal" },)
+      transport = ScriptedAsyncTransport.new([open_response])
+      built = Dexpace::Pipeline::Builder.new(transport: transport).append(step).build_async
+
+      # The fatal family is re-raised AFTER the future is failed (RETRY-25 with RETRY-33), and
+      # the async driver's normalisation lets a ScriptError through, so it reaches this frame.
+      assert_raises(::NotImplementedError) { built.call(retry_request) }
+      assert_predicate(open_response.body, :closed?)
+    end
+
+    test "RETRY-25: a fatal-family error from the downstream is surfaced unchanged, unretried" do
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 3))
+      fatal = ::NoMemoryError.new("oom")
+      completer = Dexpace::Async::Completer.new
+      completer.fail(fatal)
+      transport = ->(_request, _options, _cancellation) { completer.future }
+      built = Dexpace::Pipeline::Builder.new(transport: transport).append(step).build_async
+      future = built.call(retry_request)
+
+      surfaced = assert_raises(::NoMemoryError) { future.value }
+
+      assert_same(fatal, surfaced)
+      assert_empty(Dexpace.suppressed(surfaced))
+    end
+  end
+
+  # RETRY-33, RETRY-35, OBS-30: the tracer and its factory inside the pump's fence -- a raise in any
+  # callback fails the future with the response it was handed closed first, on both terminal paths.
+  class TracerFencesTest < DexpaceTestCase
+    include Fixtures
+
     test "RETRY-33: a throwing tracer callback completes the future exceptionally, no hang" do
       exploding = ::Object.new
       def exploding.attempt_started(*) = raise("tracer blew up")
@@ -288,6 +340,27 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
       assert_equal(1, transport.calls.size)
     end
 
+    test "RETRY-33 / RETRY-35: a tracer raising in retries_exhausted closes the terminal one" do
+      # R1-1's twin: Pump#finish runs inside guarded(response), so the terminal error-status
+      # response is closed and the future fails with the tracer's raise -- the sync driver's
+      # fenced settle now does the same.
+      terminal = retry_response(503)
+      exploding = ::Object.new
+      def exploding.attempt_started(*) = nil
+      def exploding.attempt_failed(*) = nil
+      def exploding.retries_exhausted(*) = raise("tracer blew up")
+      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 1),
+                                  http_tracer_factory: ->(_cursor) { exploding },)
+      future, transport, = drive(step, [retry_response(503), terminal])
+
+      assert_predicate(future, :settled?)
+      error = assert_raises(::RuntimeError) { future.value }
+
+      assert_equal("tracer blew up", error.message)
+      assert_predicate(terminal.body, :closed?, "the sync driver closes it the same way")
+      assert_equal(2, transport.calls.size)
+    end
+
     test "RETRY-33: a throwing factory completes the future exceptionally" do
       step = AsyncRetryStep.build(settings: inline_settings,
                                   http_tracer_factory: ->(_cursor) { raise "no tracer" },)
@@ -295,34 +368,6 @@ class DexpaceResilienceAsyncRetryStepTest < DexpaceTestCase
 
       assert_raises(::RuntimeError) { future.value }
       assert_equal(0, transport.calls.size)
-    end
-
-    test "RETRY-33 / RETRY-35: a throwing delay computation closes the response and fails" do
-      open_response = retry_response(503)
-      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 1),
-                                  delay_override: ->(*) { raise ::NotImplementedError, "fatal" },)
-      transport = ScriptedAsyncTransport.new([open_response])
-      built = Dexpace::Pipeline::Builder.new(transport: transport).append(step).build_async
-
-      # The fatal family is re-raised AFTER the future is failed (RETRY-25 with RETRY-33), and
-      # the async driver's normalisation lets a ScriptError through, so it reaches this frame.
-      assert_raises(::NotImplementedError) { built.call(retry_request) }
-      assert_predicate(open_response.body, :closed?)
-    end
-
-    test "RETRY-25: a fatal-family error from the downstream is surfaced unchanged, unretried" do
-      step = AsyncRetryStep.build(settings: inline_settings(max_retries: 3))
-      fatal = ::NoMemoryError.new("oom")
-      completer = Dexpace::Async::Completer.new
-      completer.fail(fatal)
-      transport = ->(_request, _options, _cancellation) { completer.future }
-      built = Dexpace::Pipeline::Builder.new(transport: transport).append(step).build_async
-      future = built.call(retry_request)
-
-      surfaced = assert_raises(::NoMemoryError) { future.value }
-
-      assert_same(fatal, surfaced)
-      assert_empty(Dexpace.suppressed(surfaced))
     end
   end
 
