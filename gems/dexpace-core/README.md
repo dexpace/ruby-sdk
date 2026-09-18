@@ -42,14 +42,22 @@ of `NO_SPAN`, `NO_TRACER` and `NO_TRACER_FACTORY` (given to the same three objec
 `Tracing` with `.current_span`, `.activate`, `.with_span`, `.correlate` and
 `.with_correlated_span`, `Scope` and `NO_SCOPE`, `TraceIdFlavour#generate_trace_id` and
 `Bundle#sampled?`, the vocabulary `HTTPTracer` with `NULL` and `CallableAdapter`, `NO_METER` over
-the `_Meter` / `_Counter` / `_Histogram` interfaces, and phase 5b's three `Diagnostics` constants
-shipped early. Nothing else yet: the pillar step families, the instrumentation step and every
-adapter are later phases', nothing emits a trace or a metric, and no transport ships here, so
+the `_Meter` / `_Counter` / `_Histogram` interfaces, and the three `Diagnostics` constants shipped
+early for phase 5b
+-- and phase 5b's logging facade and redaction, also under `Dexpace::Instrumentation`: `Severity`,
+`Keys` and `Events`, the `_Sink` duck type with `NULL_SINK`, `Event` with `Event::INERT`, `Logger`
+with `Logger::NULL`, `Instrumentation.contain` and `.diagnostic`, `Diagnostics.capture` / `.with` /
+`.folded` and `RESERVED_PREFIX`, `RedactionPolicy` and `Redactor` with their `DEFAULT`s,
+`Preview.render`, `HTTPLogging`, the pipeline steps `Step` and `AsyncStep` at `Stages::LOGGING`,
+`Configuration::Keys::LOG_PREVIEW_BYTES`, and the `logger:` keyword on `Dexpace.close_quietly`,
+`Hooks.notify` and `Proxy.resolve`. Nothing else yet: the pillar step families and every adapter
+are later phases', nothing emits the HTTP-tracer vocabulary, and no transport ships here, so
 nothing talks to a socket. The as-built pages are `docs/sdk-documentation/http.md`,
 `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`, `docs/sdk-documentation/body.md`,
 `docs/sdk-documentation/execution-context.md`, `docs/sdk-documentation/recovery.md`,
-`docs/sdk-documentation/pipelines.md`, `docs/sdk-documentation/configuration.md` and
-`docs/sdk-documentation/tracing-and-metrics.md`.
+`docs/sdk-documentation/pipelines.md`, `docs/sdk-documentation/configuration.md`,
+`docs/sdk-documentation/tracing-and-metrics.md` and
+`docs/sdk-documentation/logging-and-redaction.md`.
 
 ## Install
 
@@ -160,6 +168,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   no-op protocols, the current span and its scope handle, log correlation and the floor's
   residual, trace-id generation, the HTTP-tracer vocabulary and its ordering contract, the no-op
   meter, and what the no-op path costs.
+- `docs/sdk-documentation/logging-and-redaction.md` -- the logging facade and redaction as built:
+  the sink and the severity set, the logger and the event, rendering and the byte cap, the
+  redactor and its policy, the diagnostic-context bridge and the floor, containment, the body
+  preview, the logging level and its keys, the step on both runtimes, and the four wirings.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

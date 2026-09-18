@@ -16,9 +16,11 @@ example below was run against the built code on 4.0.6 and 3.2.11 and printed the
 with two exceptions that are the interpreter's and not the layer's: a `Hash#inspect` on the floor
 spells `{"APP_NAME"=>"demo"}` where 4.0.6 spells `{"APP_NAME" => "demo"}`, and
 `BuildInfo::RUNTIME_VERSION` is the interpreter that ran it. The observability layer — the logging
-sink, the redaction rules and the instrumentation events — is phase 5b's and phase 5c's and is
-deliberately not this page: the one place this layer speaks to an operator is a `Kernel#warn` from
-the proxy resolver, and that is the whole of it.
+sink, the redaction rules and the instrumentation events — is phase 5b's and phase 5c's and has its
+own pages ([`logging-and-redaction.md`](./logging-and-redaction.md),
+[`tracing-and-metrics.md`](./tracing-and-metrics.md)): the one place this layer speaks to an
+operator is a `Kernel#warn` from the proxy resolver, and since phase 5b the same helper also emits an
+`http.instrumentation.config` event through the `logger:` keyword `Proxy.resolve` gained.
 
 ## The chain: `Dexpace::Configuration`
 
@@ -211,11 +213,14 @@ slot in its teardown; `config_test.rb` is the shape to copy.
 
 ## The keys: `Configuration::Keys`, and the two layers that read them
 
-`Configuration::Keys` declares the seven names `CFG-14` fixes as `String` constants:
+`Configuration::Keys` declares the seven names `CFG-14` fixes as `String` constants —
 `MAX_RETRY_ATTEMPTS`, `LOG_LEVEL`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`,
-`MAX_MATERIALIZED_BYTES` and `MAX_TRACKED_CONTEXTS`. Declaring a key is not reading it: the first
-two are read by the retry layer and the logging layer when those land, the three proxy names by
-`Proxy.resolve` below, and the last two by the two earlier layers this phase wired to the chain.
+`MAX_MATERIALIZED_BYTES` and `MAX_TRACKED_CONTEXTS` — and, since phase 5b, an eighth,
+`LOG_PREVIEW_BYTES`. Declaring a key is not reading it: `MAX_RETRY_ATTEMPTS` is read by the retry
+layer when it lands; `LOG_LEVEL` and `LOG_PREVIEW_BYTES` are the names a caller hands the logging
+layer (`HTTPLogging.resolve(config, key:)` and `Step.build(preview_bytes:)`), which reads neither on
+its own; the three proxy names are read by `Proxy.resolve` below, and the last two by the two earlier
+layers this phase wired to the chain.
 The seven `https.proxy*` / `http.proxy*` / `http.nonProxyHosts` property names are the resolver's
 private business and are not on `Keys`.
 
@@ -425,10 +430,11 @@ pat == Dexpace::Proxy::HostPattern.of("*.example.?om")                    # => t
 
 ### Resolution: `Proxy.resolve`
 
-`Proxy.resolve(configuration = Dexpace.configuration)` reads a proxy out of the chain and **never
-raises** on its content: an invalid configuration yields `nil` after one `Kernel#warn` prefixed
-`[dexpace]` (`CFG-24`; P5-8 keeps it `Kernel#warn` — phase 5b adds an instrumentation event
-beside it and removes nothing). The one thing that does raise is being handed something that is
+`Proxy.resolve(configuration = Dexpace.configuration, logger: Instrumentation::Logger::NULL)` reads
+a proxy out of the chain and **never raises** on its content: an invalid configuration yields `nil`
+after one `Kernel#warn` prefixed `[dexpace]` (`CFG-24`; P5-8 keeps it `Kernel#warn` — phase 5b added
+an `http.instrumentation.config` event beside it through `logger:` and removed nothing). The one
+thing that does raise is being handed something that is
 not a `Configuration`, which is the caller's argument and not the configuration's content.
 `CFG-28`'s prohibition on implicit reads is met structurally: nothing in core calls `.resolve`, so
 no environment read happens until a caller asks.
@@ -602,6 +608,7 @@ Dexpace::DeepValue                                                        # rais
   block the calling thread on a timed queue pop and nothing else; `Async.delay` refuses rather
   than blocks; `Proxy.resolve` warns rather than raises. No `Timeout.timeout`, no `Thread#raise`,
   no `Kernel#sleep` exists in this layer.
-- **The proxy resolver's warning is `Kernel#warn` and stays so.** Phase 5b's logging layer adds an
-  event beside it; a consumer that wants the warning somewhere else redirects `$stderr` or waits
-  for that layer, and does not expect this one to change.
+- **The proxy resolver's warning is `Kernel#warn` and stays so.** Phase 5b's logging layer added an
+  event beside it, reachable through `Proxy.resolve(config, logger:)`; a consumer that wants the
+  warning's text somewhere else passes a logger or redirects `$stderr`, and does not expect the
+  warning itself to change.

@@ -5,14 +5,16 @@ skeletons and the gate set, phase 1 the HTTP domain model in `dexpace-core`, pha
 layer in the same gem, phase 3a the byte-streaming layer beneath every body, phase 3b the body
 layer on top of it, phase 4a the execution context one in-flight call carries, phase 4b the
 recovery layer and the error trail, phase 4c the stage pipeline, phase 5a the configuration
-layer and the clock, and phase 5c the tracing and metrics layer; the adapters are still to
-come, so this page is still a stub: it names the pages this tree will eventually hold and where
-each one's content will come from, so the plan for the documentation exists before the
-documentation does. Ten pages are real already, because their subjects are:
-[`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md), [`seams.md`](./seams.md),
-[`io.md`](./io.md), [`body.md`](./body.md), [`execution-context.md`](./execution-context.md),
-[`recovery.md`](./recovery.md), [`pipelines.md`](./pipelines.md),
-[`configuration.md`](./configuration.md) and [`tracing-and-metrics.md`](./tracing-and-metrics.md).
+layer and the clock, phase 5c the tracing and metrics layer, and phase 5b the logging facade and
+redaction; the adapters are still to come, so this page is still a stub: it names the pages this
+tree will eventually hold and where each one's content will come from, so the plan for the
+documentation exists before the documentation does. Eleven pages are real already, because their
+subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
+[`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
+[`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
+[`pipelines.md`](./pipelines.md), [`configuration.md`](./configuration.md),
+[`tracing-and-metrics.md`](./tracing-and-metrics.md) and
+[`logging-and-redaction.md`](./logging-and-redaction.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -98,9 +100,17 @@ contract and bus adapter, and the no-op meter with its shared instruments — an
 v1 emits yet. Written against the layer phase 5c shipped; derives from
 `docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1, read together with the
 instrumentation deviations recorded in
-`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`. The logging
-half — the event object, the sink, redaction and the instrumentation step — is phase 5b's and
-arrives with it.
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[logging-and-redaction.md](./logging-and-redaction.md) — the logging facade and redaction: the
+duck-typed sink and the closed severity set, the logger and the accumulating event with its
+inert twin, the one rendering rule and the byte cap, the redactor and its default-deny policy,
+the diagnostic-context fold and the snapshot bridge with what the 3.2 floor makes of it, the
+containment primitive every emission runs inside, the body preview, the HTTP logging level and
+its two configuration keys, the instrumentation step on both runtimes, and the four places
+earlier layers now speak through it. Written against the layer phase 5b shipped; derives from
+`docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 and
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 auth.md — tiers, credentials, schemes, challenges, and the redirect-safe re-issue rule. Derives
 from `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md`.

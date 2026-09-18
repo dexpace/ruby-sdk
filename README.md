@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a and 5c are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b and 5c are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -42,8 +42,13 @@ resolver, and the RFC 1123 date, UUID, retryability and build-info utilities
 and tracer-factory protocols behind the three no-op singletons, the current-span carrier and its
 scope handle, log correlation over the two diagnostic-context keys, trace-id generation and the
 sampled bit, the HTTP-tracer vocabulary with its ordering contract, and the no-op meter
-(`docs/sdk-documentation/tracing-and-metrics.md`); nothing emits a trace or a metric yet, and
-nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
+(`docs/sdk-documentation/tracing-and-metrics.md`) — and the logging facade and redaction: the
+duck-typed sink and the closed severity set, the logger and the accumulating event with its inert
+twin, the redactor and its default-deny policy, the diagnostic-context fold and snapshot bridge,
+the containment every emission runs inside, the body preview, the HTTP logging level and its two
+keys, and the instrumentation step on both runtimes — the one thing that starts a span and records
+the two metrics per request (`docs/sdk-documentation/logging-and-redaction.md`); nothing emits the
+HTTP-tracer vocabulary yet, and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |
