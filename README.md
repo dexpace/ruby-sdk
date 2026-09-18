@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c and 6a are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a and 6c are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -53,8 +53,14 @@ pacing-header parser and tuning constants, the re-sendability gate, the one conf
 both stacks build from, the stage-based retry step on both runtimes with its iterative async
 trampoline, and the recovery-chain retry beneath the orchestrator with its total-timeout budget —
 the three drivers that emit the HTTP-tracer vocabulary's per-attempt group
-(`docs/sdk-documentation/retry.md`); the operation-lifecycle and transport groups of that vocabulary
-are emitted by nothing yet, and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
+(`docs/sdk-documentation/retry.md`) — and the authentication layer: the closed scheme set and the
+pure three-tier resolver, the four credentials that redact in every rendering, the never-raising
+RFC 7235 challenge parser, the Basic and Digest handlers with the chain that composes them, the
+static key stamper, the bearer stamper on each runtime with its single-flight refresh, and the
+AUTH pillar step on both runtimes with its HTTPS guard, its cursor-read cross-origin suppression
+and its 401 replay (`docs/sdk-documentation/auth.md`); the operation-lifecycle and transport
+groups of the HTTP-tracer vocabulary are emitted by nothing yet, the redirect step is phase 6b's,
+and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |

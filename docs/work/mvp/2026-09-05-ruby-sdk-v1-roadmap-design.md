@@ -2480,6 +2480,21 @@ design.
   and is caught by the fence around the *caller*, never by a callback's rescue. Touches `RETRY-30`,
   `RETRY-31`, `RETRY-33`. Added after phase 10's planning pass, so it is the forty-third bullet and is not
   yet in its design's disposition table; phase 10 dispositions it at execution.
+- **After phase 6 the body-replayability predicate has three spellings, two of them public and
+  `NFR-4`-locked.** Found 2026-09-18 by phase 6c's implementation, reading the three sub-phase designs
+  side by side: 6a's plan writes `Dexpace::Resilience::Resend.eligible?(request)` for `RETRY-5`'s
+  idempotency-and-replayability gate, 6b's writes `Dexpace::Resilience::Resend.replayable_body?(request)`
+  for `REDIR-6`'s, and 6c — cut from `main` with neither present — ships `AUTH-31`'s gate as one private
+  `Step#replayable?` that `AsyncStep` inherits, declining the design's public `Auth::Replayability`
+  module so as not to add a third public name (6c's P6-80). 6b's and 6c's are one predicate under two
+  names — no body, or a body answering `#replayable?` truthfully — and 6a's differs only for a body-less
+  request, where `RETRY-7` asks the method's idempotency instead. Whether one public predicate serves the three call
+  sites, and which name it keeps, is phase 10's consolidation to decide once 6a and 6b have landed and
+  the two public spellings are in `sig/`; 6c's private method is the one that costs nothing to fold.
+  Touches `RETRY-5`, `REDIR-6`, `AUTH-31`, `NFR-4`. Added after phase 10's planning pass by phase 6c
+  and referred to by date and content, never by ordinal, because phase 6a's lane is adding bullets to
+  this list at the same time; it is not yet in phase 10's design's disposition table, and phase 10
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3538,3 +3553,113 @@ points the `.rbs` half at its owner. The nit: three counts inside the checklist 
 (48 manifest rows, 1004 rows, `P6-51`–`P6-58`) and read 49, 1005 and `P6-51`–`P6-61`. No ledger row is
 added: the terminal fence, like round 1's `attempt_failed` fence, deviates from nothing the design states,
 and the design's As-built addendum carries a round-2 paragraph saying so.
+
+**2026-09-18** — **Phase 6c implemented**, as three stacked branches against issue #24: code, tests,
+documentation, cut from **`main` at `f1fe848`** — the 5b docs merge, which holds all of phase 5 and
+nothing of phase 6a, being built at the same time in another worktree off the same base — so the
+`Cursor` context-bundle widening the charter assigns to 6a was **consumed not at all**, the steps
+take their own `logger:` keyword, and `AUTH-31` calls phase 3b's `Body#replayable?` directly, as the
+design's Independence section said it would when 6a was absent. Every one of the plan's sixteen
+tasks plus 11a executed in order, TDD, with no task skipped. `dexpace-core` carries the
+authentication layer beside the ten layers before it — twenty-five new `lib/` files: `auth.rb`,
+`error/auth_resolution_error.rb` (flat, `AUTH-6`'s general failure) and twenty-three under `auth/`,
+from `validation.rb` (the twelfth `private_constant`) and the closed `scheme.rb` through the four
+credentials, `challenge.rb` and the `StringScanner` parser `challenges.rb`, `basic_handler.rb` and
+`digest_handler.rb`, `challenge_handler_chain.rb`, `key_stamper.rb`, `bearer_provider.rb`,
+`bearer_stamper.rb`, `async_bearer_stamper.rb`, the three namespaced errors filed under `auth/`
+because the constant path decides the file path (6c's P6-82), and the pillar `step.rb` /
+`async_step.rb`; three earlier files widened, each a designed widening — `bounded_map.rb` gains
+`#update(key) { |old| new }`, phase 4a's own forward-table addition (the `AUTH-19` and `XCUT-14`
+rows), `instrumentation/keys.rb` gains `Events::AUTH_REFRESH`, the ninth event and the first outside
+the `http.instrumentation.` prefix (P6-77), and `lib/dexpace.rb` a twenty-five-line `# Phase 6c:`
+block after 5b's — with their `sig/` mirrors (twenty-five new, two widened; the strict target green
+with no relaxation, no `Digest`, `SecureRandom` or `Random` in any signature because `_Hasher` and
+`_CnonceSource` are interfaces); every public file with a `test/` mirror, plus `bounded_map_test.rb`,
+the first true mirror of a private constant, so `bounded_map.rb` leaves `CLAUDE.md`'s exception list
+as `auth/validation.rb` joins it and the count stays eleven; eight top-level test-support doubles,
+one class per file (`ChallengeFixtures`, `FixedCnonce`, `SequencedTransport` — named so as not to
+collide with the `ScriptedTransport` 6a is writing at the same time, for the manager to reconcile
+after both lanes land — `SequencedAsyncTransport`, `ScriptedBearerProvider`,
+`ScriptedAsyncBearerProvider`, `SpyCursor` and `AuthFixtures`); and the surface manifest regenerated
+once from 956 to 1 059 lines with all 103 rows read against the object model. Three existing tests
+changed, all on the code branch as pins the code invalidated: the smoke suite's layer table and its
+preloaded stdlib features (`digest`, or the top-level `Digest` reads as a leak), `seam_surface_test.rb`'s
+require pin (four features become five) and 5b's `keys_test.rb` (eight events become nine). **The
+postponed work phase 4a handed here has landed** — `BoundedMap#update` — and **6c postpones
+nothing**: no ⏳ row, no `docs/first-release.md` entry filed, no deferral. The checklist is at
+`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-checklist.md`: thirty-eight own
+rows, **38 ✅**, nothing ⏳, nothing 🚫, nothing N/A, plus the Task 15 row — the end-to-end
+cross-origin convergence test is **written and guarded** on `defined?(Dexpace::Redirect::Step)`, its
+body proven against a scratch stub both ways, skipping on this base with a reason that names 6b as
+the phase that un-guards it — and twelve cross-reference rows. `bundle exec rake` is green on 4.0.6
+at the tests tip and the docs tip with 99.98% line coverage (6,578 / 6,579 — the registry-claim race
+branch every phase since 2 has recorded; every auth file at 100%) against the 80% floor and 2,333
+runs across the six gems (283 more than the base, one skip: Task 15's); the
+matrix set is green on 3.2.11, 3.3.12 and 3.4.10; the code tip is green on all seventeen gates too,
+run one by one, clean under the honest RuboCop command on its own tree, its `test:gems` above the
+floor on 4.0.6 and on 3.2.11, so the one exception the layering rule allows was not needed. **The
+matrix facts were re-run on all four interpreters** as a standing test (`matrix_facts_test.rb`), the
+plan's eight and the design's two floor facts holding identically on every row, and **the four
+Digest expectations were derived on every interpreter and never transcribed** — RFC 2617 §3.5's
+`qop=auth` vector `6629fae4…`, its legacy no-qop form `670fd8c2…`, RFC 7616 §3.9.1's inputs under
+SHA-256 `9fbf3e22…` and SHA-256-sess `a0316f89…`, identical on all four. Two facts neither the plan
+nor the design stated were found by the build and hold on every row: **`pp` walks a `Data`'s
+members and never calls an `#inspect` override**, so `pp token` printed the secret with `#to_s` and
+`#inspect` alone — both `Data` credentials now override `#pretty_print` too (**P6-72**), and
+`docs/knowledge/notes/authentication.md` is the corpus's first authentication note, correcting the
+harvested two-rendering rule; and **a UTF-8-tagged String with an invalid byte makes
+`StringScanner#scan` and `String#downcase` raise**, so the never-raising parser scans such a value
+as bytes (**P6-74**). **Every guard the brief asks to be run red was run red**, sixty-one single-edit
+mutations on 4.0.6 and again on 3.2.11 plus the cop and the require gate by hand: fifty-seven caught
+on the first pass, two re-spelled because an unused-variable warning crashed the suite before the
+assertion could, and **two found gaps in the suite, each closed** — the parameter-name fold survived
+because the parser folded a second time on top of the model (the parser's duplicate fold is gone and
+`Challenge.build` is the one fold point, **P6-83**), and the async step's frame rescue survived every
+pipeline test because the driver's own `PIPE-30` normalisation catches a synchronous raise, which is
+why `async_step_test.rb` now calls the step directly on a root cursor; one mutation hangs the suite
+rather than failing it — a background refresh that waits on its own unsettled fetch — which is the
+guard firing as the brief's "a hang there is a finding", reported as an assertion by the `R12 as
+code` source scan; on the second pass all sixty-one are caught on both interpreters, the `base64`
+mutation by the require gate reading "bundled since 3.4.0" on 4.0.6 and "not in the require
+allowlist" on 3.2.11, and the `downcase(:turkic)` mutation by the cop. Twenty-eight departures from
+the plan's text are itemised in the checklist, none lowering a gate; the ones that touch public
+behaviour, the contract a later phase cites, or a statement the design makes are the as-built rows
+**P6-71–P6-83** (6c's numbering, starting at 71 because the three phase-6 lanes are numbered
+apart): `Step.build(stamper:, challenge_hook:, logger:)` with `.new` private and no `redactor:`,
+`AsyncStep < Step` accepting a `#stamp`- or `#call`-shaped stamper (P6-71); the username redacted
+beside the password on `PasswordCredential` (P6-73); `BasicHandler` refusing a colon in the username
+and transcoding the pair to UTF-8 before `pack("m0")` (P6-75); `DigestHandler` sending a non-ASCII
+username as RFC 7616 §3.4's `username*=UTF-8''…`, declining a challenge whose `realm`, `nonce` or
+`opaque` `HTTP-18`'s outbound grammar cannot carry, and matching the algorithm token
+case-insensitively (P6-76); the async hook allowed to answer a `Future` (P6-78); every inner future
+the async step watches registered through one `observe` that forwards a cancellation as a
+cancellation and cancels the inner future when the outer is (P6-79, found when the first draft wired
+cancellation only on the cross-origin path); no `Auth::Replayability` module — `AUTH-31`'s gate is
+one private `Step#replayable?` that `AsyncStep` inherits (P6-80); `BearerProvider.fetch_async` /
+`.conforms?` shipped as `AUTH-11`'s real never-raising default, which the plan never wrote (P6-81);
+`Scheme::ALL` public with `.[]` hidden beside `.new`, `Requirement.build(scheme:)` resolving a
+String or Symbol through `Scheme.of`, `Descriptor.build(requirements:)` keyword-shaped (P6-83).
+**The design's two findings were verified at their owner, `docs/first-release.md`, and not
+re-filed** — the `AuthDescriptor` carrier under § Blockers and the query-/cookie-carried `apiKey`
+under § What v1 ships without — with one phrase of the first corrected to what was built: the step
+takes one `stamper:` and no `Scheme => credential` table. **One finding is new and routed above to
+phase 10's inbound list**, by date and content and never by ordinal because 6a's lane is adding to
+the same list: after phase 6 the body-replayability predicate has three spellings, two public and
+`NFR-4`-locked. `docs/sdk-documentation/auth.md` is the as-built page, every fence run verbatim on
+4.0.6 and 3.2.11 as one script (77 checks, identical on both) and no example printing a secret — the
+only credential-bearing strings it prints are the header values the layer exists to produce, over
+placeholder credentials and the RFCs' published vectors; `architecture.md`, the core README,
+`README.md` and `docs/README.md` point at it. `docs/deviations.md` is untouched, for phase 10 to
+flip. The consolidation of P6-1–P6-7 and P6-71–P6-83 into design §10 and the §6.3 addendum are a
+human's, as they were for 3a through 5b: `docs/sdk-design-ruby/` is frozen, and no frozen sentence is
+contradicted — §6.3's `Step.new(…)` spelling is honoured in substance by `.build`, and its
+"raise a bare error" reading of `AUTH-21`'s Latin-1 branch by the typed
+`UnencodableCredentialError` — so no `C15`. The counts that changed, on top of `main` at `f1fe848`:
+`dexpace-core`'s `lib/dexpace/` is one hundred and sixty-five phase-1 through phase-6c files beside
+phase 0's `version.rb`, eleven `private_constant`s without a `test/` mirror (`bounded_map.rb` out,
+`auth/validation.rb` in), twelve checklists, twelve as-built pages, the surface manifest 1 059 lines,
+54 corpus notes across 22 files. `CLAUDE.md`'s built-phases paragraph, its gem and phase-directory
+sentences and the constraints-that-bite list are rewritten from what was built, for 6c on top of
+5b — and, because 6a is landing off the same base at the same time, whichever of the two phase-6
+lanes merges second rebases its counts and its `CLAUDE.md` sentences over the other's, the 4a
+rebase-and-reprove recipe.

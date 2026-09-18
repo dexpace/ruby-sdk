@@ -98,8 +98,9 @@ stated in the release notes rather than discovered at `bundle install`.
       carried**: `docs/sdk-design-ruby/` names no field on `Request`, on `RequestOptions`, or on any
       `Operation` construct for it, and no `AUTH` requirement asks for one. `AUTH-1`–`AUTH-7` describe the
       descriptor and the resolver as data and a function, never a carrier. `6c` therefore ships the AUTH
-      pillar step accepting an **already-resolved** credential (or a caller-supplied `Scheme => credential`
-      table) at construction time, treating the resolver as a standalone library object whose caller —
+      pillar step accepting an **already-resolved** stamper — `Step.build(stamper:)`, built 2026-09-18, takes
+      one stamper and no `Scheme => credential` table — at construction time, treating the resolver as a
+      standalone library object whose caller —
       presumably Operation-building code, outside `AUTH`'s scope entirely — invokes it and threads the result
       into the step. **Release-gated since 2026-09-13; this line owns the decision**, filed 2026-09-09 by
       phase 6c's design. No v1 phase builds that Operation-level wiring, so `AUTH-4`–`AUTH-7`'s resolver ships
