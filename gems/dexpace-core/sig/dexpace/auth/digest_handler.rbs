@@ -58,6 +58,7 @@ module Dexpace
       def ha1_for: (Computed computed, _Hasher hasher, Array[String] ha1_parts) -> String
       def credential_bytes: (Hash[String, String] params) -> Array[String]
       def materialize: (String text, Symbol field, Encoding target) -> String
+      def unencodable: (String text, Symbol field, Encoding target) -> UnencodableCredentialError
       def join: (*String parts) -> String
       def next_count: (String nonce) -> String
       def request_target: (Dexpace::Request request) -> String

@@ -33,7 +33,9 @@ module Dexpace
       def drive_replacement: (Dexpace::Async::Future restamped, Exchange exchange) -> void
       def restamp: (Dexpace::Request stamped, bool evicted) -> Dexpace::Async::Future
       def replay_async: (String challenge, Exchange exchange) -> void
-      def replacement!: (untyped replacement) -> untyped
+      def settle_replay: (Dexpace::Async::Settlement settlement, Exchange exchange) -> void
+      def consult: (String challenge, Dexpace::Request stamped, Dexpace::Response response) -> untyped
+      def settled_replacement!: (untyped replacement, Dexpace::Response response) -> untyped
       def replace: (untyped replacement, Exchange exchange) -> void
     end
   end

@@ -182,10 +182,19 @@ module Dexpace
       end
 
       # AUTH-32: a hook that raises, or returns something that is not a request, leaves the
-      # open 401 closed behind it -- the close failure, if any, on the error's suppressed trail.
+      # open 401 closed behind it.
       def consult(challenge, stamped, response)
-        replacement = @challenge_hook.call(challenge, stamped, response)
-        replacement!(replacement)
+        closing_on_error(response) do
+          replacement!(@challenge_hook.call(challenge, stamped, response))
+        end
+      end
+
+      # AUTH-32's one closing frame, for both runtimes: a raise inside the block closes the open
+      # 401 before propagating -- the close failure, if any, on the error's suppressed trail. The
+      # async step wraps its hook's SETTLED value in it too, so a future that fulfils with a
+      # non-request closes the 401 exactly as a synchronous non-request does (review round 1).
+      def closing_on_error(response)
+        yield
       rescue ::StandardError => error
         Dexpace.close_quietly(response, onto: error)
         raise

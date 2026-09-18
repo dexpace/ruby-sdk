@@ -149,6 +149,7 @@ Dexpace::Auth::Step::NO_STAMP : Proc
 Dexpace::Auth::UnencodableCredentialError
 Dexpace::Auth::UnencodableCredentialError#encoding
 Dexpace::Auth::UnencodableCredentialError#field
+Dexpace::Auth::UnencodableCredentialError#source_encoding
 Dexpace::AuthResolutionError
 Dexpace::AuthResolutionError#available
 Dexpace::AuthResolutionError#required

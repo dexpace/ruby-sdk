@@ -43,6 +43,7 @@ module Dexpace
       def replay: (String challenge, Dexpace::Request stamped, Dexpace::Response response,
                    Pipeline::Cursor cursor) -> Dexpace::Response
       def consult: (String challenge, Dexpace::Request stamped, Dexpace::Response response) -> untyped
+      def closing_on_error: [T] (Dexpace::Response response) { () -> T } -> T
       def replacement!: (untyped replacement) -> untyped
     end
   end

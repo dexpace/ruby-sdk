@@ -222,14 +222,22 @@ module Dexpace
       # no code for). The UTF-8 branch fires only for a value that is not text under its own tag
       # -- a BINARY-tagged one, whose high bytes have no UTF-8 meaning, or a UTF-8-tagged one
       # with an invalid sequence, which `encode` to the same encoding passes through unvalidated
-      # and would otherwise be hashed as it is (verified on 3.2.11, 3.4.10 and 4.0.6).
+      # and would otherwise be hashed as it is (verified on 3.2.11, 3.4.10 and 4.0.6). The
+      # rescued conversion error is NOT the cause: its message names the offending character of
+      # the secret, and #full_message renders a cause (AUTH-8; 6c's P6-85). `cause: nil` on both
+      # raises, so neither picks up a caller's in-flight `$!` either.
       def materialize(text, field, target)
         encoded = text.encode(target)
         return encoded.b if encoded.valid_encoding?
 
-        raise UnencodableCredentialError.new(field: field, encoding: target.name)
-      rescue ::Encoding::UndefinedConversionError, ::Encoding::InvalidByteSequenceError => error
-        raise UnencodableCredentialError.new(field: field, encoding: target.name), cause: error
+        raise unencodable(text, field, target), cause: nil
+      rescue ::Encoding::UndefinedConversionError, ::Encoding::InvalidByteSequenceError
+        raise unencodable(text, field, target), cause: nil
+      end
+
+      def unencodable(text, field, target)
+        UnencodableCredentialError.new(field: field, encoding: target.name,
+                                       source_encoding: text.encoding.name,)
       end
 
       # Every hash input is BINARY, so the joiner is too.

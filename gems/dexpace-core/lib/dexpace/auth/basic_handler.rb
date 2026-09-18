@@ -27,21 +27,21 @@ module Dexpace
     # RFC 7617" -- and not AUTH-9's non-blank one (6c's P6-3): a password of three spaces is a
     # legal Basic password. Nothing here re-validates the header at the wire; that is the
     # transport adapter's re-validation pass (phase 8).
+    #
+    # A field that cannot be transcoded to UTF-8 -- a BINARY-tagged one with a high byte, or a
+    # UTF-8-tagged one with an invalid sequence, which `encode` to the same encoding passes
+    # through unvalidated -- is refused at construction as an InvalidArgumentError naming the
+    # FIELD and the two encodings, never the value, and carrying no cause: Ruby's conversion
+    # error names the offending byte of the secret, and #full_message renders a cause (AUTH-8;
+    # 6c's P6-85, review round 1). InvalidArgumentError's usual "the original left as the
+    # cause" rule yields to that, for a credential.
     class BasicHandler
       # @param credential [PasswordCredential]
-      # @raise [Dexpace::InvalidArgumentError] on an empty username or password (AUTH-14)
+      # @raise [Dexpace::InvalidArgumentError] on an empty username or password (AUTH-14), a
+      #   colon in the username, or a field that is not text UTF-8 can carry
       def initialize(credential)
-        unless credential.is_a?(PasswordCredential)
-          raise InvalidArgumentError, "a Dexpace::Auth::PasswordCredential is required"
-        end
-        if credential.username.empty? || credential.password.empty?
-          raise InvalidArgumentError, "username and password must be non-empty (AUTH-14)"
-        end
-        if credential.username.include?(":")
-          raise InvalidArgumentError, "a Basic username must not contain a colon (RFC 7617 §2)"
-        end
-
-        pair = "#{credential.username}:#{credential.password}".encode(::Encoding::UTF_8)
+        credential!(credential)
+        pair = "#{utf8!(credential.username, :username)}:#{utf8!(credential.password, :password)}"
         @value = "Basic #{[pair].pack("m0")}".freeze
         freeze
       end
@@ -68,6 +68,40 @@ module Dexpace
         return nil unless challenges.any? { |challenge| challenge.scheme == "basic" }
 
         @value
+      end
+
+      private
+
+      def credential!(credential)
+        unless credential.is_a?(PasswordCredential)
+          raise InvalidArgumentError, "a Dexpace::Auth::PasswordCredential is required"
+        end
+        if credential.username.empty? || credential.password.empty?
+          raise InvalidArgumentError, "username and password must be non-empty (AUTH-14)"
+        end
+        return unless credential.username.include?(":")
+
+        raise InvalidArgumentError, "a Basic username must not contain a colon (RFC 7617 §2)"
+      end
+
+      # AUTH-14 names the UTF-8 bytes of the pair, so each field is transcoded under its own
+      # name and must be valid text once it is; the failure is typed, names no value or byte,
+      # and carries no cause (see the class comment).
+      def utf8!(text, field)
+        encoded = text.encode(::Encoding::UTF_8)
+        return encoded if encoded.valid_encoding?
+
+        raise not_utf8(text, field), cause: nil
+      rescue ::Encoding::UndefinedConversionError, ::Encoding::InvalidByteSequenceError
+        raise not_utf8(text, field), cause: nil
+      end
+
+      def not_utf8(text, field)
+        InvalidArgumentError.new(
+          "the #{field} cannot be encoded as UTF-8 from #{text.encoding.name}: a Basic " \
+          "credential is the UTF-8 bytes of username:password, and the value is not text " \
+          "UTF-8 can carry (AUTH-14)",
+        )
       end
     end
   end

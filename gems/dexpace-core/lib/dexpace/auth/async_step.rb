@@ -175,21 +175,34 @@ module Dexpace
         result = consult(challenge, exchange.stamped, exchange.response)
         return replace(result, exchange) unless result.is_a?(Dexpace::Async::Future)
 
-        observe(result, exchange.completer) do |settlement|
-          if settlement.success?
-            replace(replacement!(settlement.response), exchange)
-          else
-            Dexpace.close_quietly(exchange.response, onto: settlement.error) # AUTH-32
-            forward_failure(settlement, exchange.completer)
-          end
+        observe(result, exchange.completer) { |settlement| settle_replay(settlement, exchange) }
+      end
+
+      # The hook's future settled: its value replayed through the same check and gate as a
+      # direct answer, or its failure forwarded with the 401 closed first (AUTH-32).
+      def settle_replay(settlement, exchange)
+        if settlement.success?
+          replace(settled_replacement!(settlement.response, exchange.response), exchange)
+        else
+          Dexpace.close_quietly(exchange.response, onto: settlement.error)
+          forward_failure(settlement, exchange.completer)
         end
       end
 
-      # The hook may hand back a future; the sync check is deferred to its settlement.
-      def replacement!(replacement)
-        return replacement if replacement.is_a?(Dexpace::Async::Future)
+      # The hook may hand back a future (P6-78), passed through here and checked once it
+      # settles; a direct answer meets the sync check, and a raise closes the 401 (AUTH-32).
+      def consult(challenge, stamped, response)
+        closing_on_error(response) do
+          result = @challenge_hook.call(challenge, stamped, response)
+          result.is_a?(Dexpace::Async::Future) ? result : replacement!(result)
+        end
+      end
 
-        super
+      # AUTH-32's third clause once the hook's future settles: a value that is not a request or
+      # nil -- a future of a future included -- closes the open 401 before the frame fails the
+      # step's future, exactly as the sync #consult does for a direct answer (review round 1).
+      def settled_replacement!(replacement, response)
+        closing_on_error(response) { replacement!(replacement) }
       end
 
       # AUTH-30, AUTH-31: nil or a non-replayable replacement surfaces the 401 (unclosed);

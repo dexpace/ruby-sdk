@@ -16,8 +16,16 @@ module Dexpace
     # UTF-8, for a value that is not text under its own tag -- a BINARY-tagged credential, or a
     # UTF-8-tagged one carrying an invalid sequence -- so the message says why THIS encoding
     # applied and never blames the challenge for a byte the caller supplied (6c's P6-84). The
-    # message names the FIELD and the encoding, never the value (AUTH-8). #cause is the rescued
-    # conversion error, or nil when the value was refused for its own invalid bytes.
+    # message names the FIELD, the target encoding and the value's own encoding, never the value
+    # (AUTH-8).
+    #
+    # #cause is ALWAYS nil, and the source encoding is a member instead (6c's P6-85): Ruby's
+    # conversion error names the offending character (`U+65E5 from UTF-8 to ISO-8859-1`) or byte
+    # (`"\xE4" from ASCII-8BIT to UTF-8`), which is a character of the secret, and #full_message
+    # renders a cause on every supported Ruby -- so R10's "the rescued conversion error as #cause"
+    # was the one diagnostic rendering through which a credential could leak, and it is dropped.
+    # Review round 1 (2026-09-18) found it. The design's `raise …, cause:` discipline is kept:
+    # the value is nil, explicitly, so a raise inside a caller's rescue picks up no `$!` either.
     #
     # Filed under lib/dexpace/auth/ because the constant is namespaced under Auth, as phase
     # 2's Serde errors are under lib/dexpace/serde/: the file path follows the constant path.
@@ -28,7 +36,7 @@ module Dexpace
       # differs between the two branches.
       REASONS = {
         "UTF-8" => "the Digest challenge advertised charset=UTF-8 and the value cannot be " \
-                   "transcoded to it from its own encoding",
+                   "transcoded to it from its own encoding, or is not valid text under its own tag",
         "ISO-8859-1" => "the Digest challenge did not advertise charset=UTF-8, so RFC 7616's " \
                         "default encoding applies",
       }.freeze
@@ -39,14 +47,20 @@ module Dexpace
       # @return [String] the target encoding's name: "ISO-8859-1" under RFC 7616's default,
       #   "UTF-8" when the challenge advertised it and the value could not be transcoded to it
       attr_reader :encoding
+      # @return [String] the value's own encoding name ("UTF-8", "ASCII-8BIT", …): the part of
+      #   the dropped conversion error's message that was NOT a character of the secret
+      attr_reader :source_encoding
 
       # @param field [Symbol]
       # @param encoding [String]
-      def initialize(field:, encoding:)
+      # @param source_encoding [String]
+      def initialize(field:, encoding:, source_encoding:)
         @field = field
         @encoding = encoding
+        @source_encoding = source_encoding
         reason = REASONS.fetch(encoding, "no Digest hash input can be materialised under it")
-        super("the #{field} cannot be encoded as #{encoding}: #{reason} (AUTH-21)")
+        super("the #{field} cannot be encoded as #{encoding} from #{source_encoding}: #{reason} " \
+              "(AUTH-21)")
       end
     end
   end
