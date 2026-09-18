@@ -1,10 +1,20 @@
 module Dexpace
   module Instrumentation
-    # Empty on purpose, like _Span: phase 5c fixes the tracer protocol.
+    # OBS-25's tracer protocol, as phase 5c fixed it (phase 4a declared this empty on purpose and
+    # phase 5c widened it in place): opentelemetry-api's Tracer#start_span and #in_span as a
+    # structural subset. Named keywords, never a `**` splat (P5-42). OBS-29's 1:1 clause binds a
+    # stateful implementation of this interface and not the shared no-op (P5-43).
     interface _Tracer
+      def start_span: (
+        String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?, ?with_parent: untyped?,
+      ) -> _Span
+      def in_span: [T] (
+        String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?,
+      ) { (_Span) -> T } -> T
     end
 
-    # The one method CTX-20 forces, in opentelemetry-api 1.11.0's own shape (P4-8).
+    # The one method CTX-20 forces, in opentelemetry-api 1.11.0's own shape (P4-8). Unchanged by
+    # phase 5c: boundary 10, and narrowing a released interface is an NFR-4 break.
     interface _TracerFactory
       def tracer: (
         ?String? deprecated_name, ?String? deprecated_version,
@@ -16,6 +26,12 @@ module Dexpace
     # target types the two singletons' construction. The privacy lives in
     # lib/dexpace/instrumentation/no_tracer.rb.
     class NoTracer
+      def start_span: (
+        String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?, ?with_parent: untyped?,
+      ) -> _Span
+      def in_span: [T] (
+        String name, ?attributes: Hash[String, untyped]?, ?kind: Symbol?,
+      ) ?{ (_Span) -> T } -> (T | _Span)
     end
 
     class NoTracerFactory

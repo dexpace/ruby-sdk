@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+require "securerandom"
 require_relative "../model"
 
 module Dexpace
@@ -11,14 +12,27 @@ module Dexpace
     # OBS-27's trace-id encoding flavours, and the value CTX-14's "a trace-id encoding flavor"
     # slot holds: a frozen Data over a frozen table with an .of factory (type-system/545949a5),
     # never a case statement or a bare Symbol -- the per-flavour behaviour, a pattern, a sentinel
-    # and a range, is data, not code.
+    # and a range, is data, not code. Phase 5c's #generate_trace_id is the ONE exception to that
+    # sentence and P5-50 records why: generation is behaviour a member cannot hold, a fourth
+    # member holding a callable would be redefinition (boundary 10 forbids adding a Data
+    # member, since it changes the generated ==, hash and to_h under every Bundle::NONE
+    # comparison), and a table keyed on the name outside the Data is the case statement wearing
+    # a hash.
     #
     # The flavour governs the TRACE id only. CTX-14's words are "a trace-id encoding flavor",
     # OBS-27's scope is "trace-id generation", and OBS-26 states the span-id rule unqualified, so
     # a Datadog-flavoured bundle carries a decimal trace id and a hex span id. That reads oddly
     # and it is what the two requirements say together (Bundle::INVALID_SPAN_ID is the one
-    # span-id sentinel; P4-7).
+    # span-id sentinel; P4-7). No span-id generator ships (P5-44): OBS-26 states the span-id rule
+    # as a validity rule Bundle.build already enforces, and core creates no spans.
     class TraceIdFlavour < Data.define(:name, :trace_id_pattern, :invalid_trace_id, :max_value)
+      # OBS-27's coerced W3C draw: the lowest non-zero 128-bit value, 31 hex zeros and a one.
+      COERCED_W3C_TRACE_ID = "#{"0" * 31}1".freeze
+      private_constant :COERCED_W3C_TRACE_ID
+
+      # The exclusive bound of a Datadog draw: 2**64, as a shift for the reason DATADOG gives.
+      DATADOG_DRAW_BOUND = 1 << 64
+      private_constant :DATADOG_DRAW_BOUND
       include Dexpace::Model
 
       private_class_method :new
@@ -80,6 +94,40 @@ module Dexpace
         bound.nil? || trace_id.to_i <= bound
       end
       private :renderable?
+
+      # OBS-27's generation, per flavour: W3C draws 128 bits and renders them as 32 lowercase hex
+      # chars (SecureRandom#hex emits lowercase by construction, so nothing is case-folded);
+      # DATADOG draws a 64-bit unsigned integer and renders it decimal; NONE "always yields the
+      # invalid sentinel", which is not an error. A zero draw is coerced to the lowest non-zero
+      # value of the flavour -- a substitution and not a redraw, because "a zero draw MUST be
+      # coerced to a non-zero value" is the requirement's own word and a redraw loop against an
+      # injected always-zero generator never terminates; a real CSPRNG reaches the branch with
+      # probability 2**-128 and 2**-64, so the substitution's determinism costs nothing.
+      #
+      # The randomness source is the CSPRNG path (XCUT-21's), which keeps it a separate code path
+      # from CFG-32's non-cryptographic UUID (boundary 8). `generator` is a test seam and not
+      # requirement surface: the coercion is unreachable by sampling, so a test injects an object
+      # answering `#hex(bytes)` and `#random_number(max)` -- SecureRandom's own two methods,
+      # which a seeded `Random` also has -- rather than swapping a module process-wide. Positional
+      # and defaulted, so the production call allocates nothing beyond the id itself.
+      #
+      # @param generator [#hex, #random_number] the randomness source; SecureRandom by default
+      # @return [String] a frozen trace id valid under this flavour, or NONE's sentinel
+      # @raise [InvalidArgumentError] for a flavour outside OBS-27's three (P5-50)
+      def generate_trace_id(generator = ::SecureRandom)
+        case name
+        when :w3c
+          drawn = generator.hex(16)
+          drawn == invalid_trace_id ? COERCED_W3C_TRACE_ID : drawn.freeze
+        when :datadog
+          drawn = generator.random_number(DATADOG_DRAW_BOUND)
+          (drawn.zero? ? 1 : drawn).to_s.freeze
+        when :none
+          invalid_trace_id
+        else
+          raise InvalidArgumentError, "no trace-id generator for flavour #{name.inspect}"
+        end
+      end
 
       # OBS-27's no-op flavour: "always yields the invalid sentinel". The pattern matches nothing,
       # so only OBS-26's 32 hex zeros renders -- a disabled-tracing bundle carries no trace id of

@@ -40,7 +40,9 @@ class DexpaceTest < DexpaceTestCase
   # context, phase 4b's recovery layer, phase 4c's pipeline and phase 5a's configuration layer;
   # Dexpace::Hooks, Dexpace::BoundedMap, Dexpace::CallKey, Dexpace::Recovery::Ownership, the two
   # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue and Dexpace::ProxyResolution are
-  # private_constants and appear in no constants(false) list.
+  # private_constants and appear in no constants(false) list. Phase 5c's tracing and metrics
+  # layer adds no flat constant: everything it ships is under Dexpace::Instrumentation, which
+  # the Layers case below pins.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -120,6 +122,26 @@ class DexpaceTest < DexpaceTestCase
       assert_equal(16, Dexpace::Pipeline.const_get(:Stages)::ALL.size)
       assert_empty(Dexpace::Pipeline.constants(false) & %i[SyncDriver AsyncDriver], "private")
       assert_raises(::NameError) { Dexpace::Pipeline::SyncDriver }
+    end
+
+    # A consumer requires "dexpace" and nothing else: the tracing and metrics layer resolves too
+    # (phase 5c), the whole of it under Dexpace::Instrumentation -- 5b's three diagnostics
+    # constants shipped early among it (P5-71) -- and the six no-op classes, the two instrument
+    # singletons and the current-span key are private.
+    test "requiring dexpace alone makes the whole tracing and metrics layer resolve" do
+      instrumentation = Dexpace::Instrumentation
+
+      assert_equal(
+        %i[
+          Bundle CallableAdapter Diagnostics HTTPTracer NO_METER NO_SCOPE NO_SPAN NO_TRACER
+          NO_TRACER_FACTORY NULL Scope TraceIdFlavour Tracing
+        ],
+        instrumentation.constants(false).sort,
+      )
+      assert_equal(%i[trace.id span.id], instrumentation::Diagnostics::DEFAULT_KEYS)
+      assert_raises(::NameError) { Dexpace::Instrumentation::NoScope }
+      assert_raises(::NameError) { Dexpace::Instrumentation::NO_COUNTER }
+      assert_raises(::NameError) { Dexpace::Instrumentation::CURRENT_SPAN_KEY }
     end
 
     # A consumer requires "dexpace" and nothing else: the execution context resolves too (phase

@@ -37,6 +37,8 @@ module Dexpace
 
       def valid?: () -> bool
       def remote?: () -> bool
+      # Phase 5c, OBS-26: the low bit of trace_flags.
+      def sampled?: () -> bool
 
       private def validate_identifiers!: (TraceIdFlavour flavour, String trace_id, String span_id) -> void
       private def validate_wire_fields!: (String trace_flags, Array[[String, String]] trace_state) -> void

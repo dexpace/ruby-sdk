@@ -1,0 +1,45 @@
+module Dexpace
+  module Instrumentation
+    # OBS-31's monotonic counter. OBS-33: only non-negative increments are valid; a negative
+    # delta is undefined behaviour and the caller's responsibility, and the core instrument MUST
+    # NOT validate it on the hot path -- and does not. This sentence is where OBS-33's
+    # MUST-document clause binds: a duck-typed SPI has no other place for it.
+    interface _Counter
+      def add: (Integer amount, ?attributes: Hash[String, untyped]?) -> void
+    end
+
+    # OBS-31's floating-point histogram. OBS-33: tolerates any input without throwing; the no-op
+    # discards it, and handling of non-finite values (NaN, +/-Infinity) is a concrete adapter's.
+    interface _Histogram
+      def record: (Numeric amount, ?attributes: Hash[String, untyped]?) -> void
+    end
+
+    # OBS-31's Meter, declared filled here and only here (5b's step types its `meter:` against
+    # it); a second declaration of one interface name is an `rbs validate` failure. `untyped`
+    # appears only as an attribute value: OBS-31 fixes nothing about the value type.
+    interface _Meter
+      def create_counter: (String name, ?unit: String?, ?description: String?) -> _Counter
+      def create_histogram: (String name, ?unit: String?, ?description: String?) -> _Histogram
+    end
+
+    # Three private_constants with no visibility in RBS; declared because the strict `core` Steep
+    # target types the singletons' construction. The privacy lives in
+    # lib/dexpace/instrumentation/meter.rb.
+    class NoCounter
+      def add: (Integer amount, ?attributes: Hash[String, untyped]?) -> nil
+    end
+
+    class NoHistogram
+      def record: (Numeric amount, ?attributes: Hash[String, untyped]?) -> nil
+    end
+
+    class NoMeter
+      def create_counter: (String name, ?unit: String?, ?description: String?) -> _Counter
+      def create_histogram: (String name, ?unit: String?, ?description: String?) -> _Histogram
+    end
+
+    NO_COUNTER: _Counter
+    NO_HISTOGRAM: _Histogram
+    NO_METER: _Meter
+  end
+end

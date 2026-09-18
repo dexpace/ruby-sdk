@@ -326,6 +326,7 @@ Dexpace::Instrumentation::Bundle
 Dexpace::Instrumentation::Bundle#flavour
 Dexpace::Instrumentation::Bundle#remote
 Dexpace::Instrumentation::Bundle#remote?
+Dexpace::Instrumentation::Bundle#sampled?
 Dexpace::Instrumentation::Bundle#span
 Dexpace::Instrumentation::Bundle#span_id
 Dexpace::Instrumentation::Bundle#trace_flags
@@ -336,10 +337,45 @@ Dexpace::Instrumentation::Bundle#valid?
 Dexpace::Instrumentation::Bundle.build
 Dexpace::Instrumentation::Bundle::INVALID_SPAN_ID : String
 Dexpace::Instrumentation::Bundle::NONE : Dexpace::Instrumentation::Bundle
+Dexpace::Instrumentation::CallableAdapter
+Dexpace::Instrumentation::CallableAdapter#attempt_failed
+Dexpace::Instrumentation::CallableAdapter#attempt_started
+Dexpace::Instrumentation::CallableAdapter#connection_acquired
+Dexpace::Instrumentation::CallableAdapter#operation_failed
+Dexpace::Instrumentation::CallableAdapter#operation_started
+Dexpace::Instrumentation::CallableAdapter#operation_succeeded
+Dexpace::Instrumentation::CallableAdapter#request_sent
+Dexpace::Instrumentation::CallableAdapter#request_url_resolved
+Dexpace::Instrumentation::CallableAdapter#response_headers_received
+Dexpace::Instrumentation::CallableAdapter#response_received
+Dexpace::Instrumentation::CallableAdapter#retries_exhausted
+Dexpace::Instrumentation::Diagnostics
+Dexpace::Instrumentation::Diagnostics::DEFAULT_KEYS : Array
+Dexpace::Instrumentation::Diagnostics::SPAN_ID : Symbol
+Dexpace::Instrumentation::Diagnostics::TRACE_ID : Symbol
+Dexpace::Instrumentation::HTTPTracer
+Dexpace::Instrumentation::HTTPTracer#attempt_failed
+Dexpace::Instrumentation::HTTPTracer#attempt_started
+Dexpace::Instrumentation::HTTPTracer#connection_acquired
+Dexpace::Instrumentation::HTTPTracer#operation_failed
+Dexpace::Instrumentation::HTTPTracer#operation_started
+Dexpace::Instrumentation::HTTPTracer#operation_succeeded
+Dexpace::Instrumentation::HTTPTracer#request_sent
+Dexpace::Instrumentation::HTTPTracer#request_url_resolved
+Dexpace::Instrumentation::HTTPTracer#response_headers_received
+Dexpace::Instrumentation::HTTPTracer#response_received
+Dexpace::Instrumentation::HTTPTracer#retries_exhausted
+Dexpace::Instrumentation::NO_METER : Dexpace::Instrumentation::NoMeter
+Dexpace::Instrumentation::NO_SCOPE : Dexpace::Instrumentation::NoScope
 Dexpace::Instrumentation::NO_SPAN : Dexpace::Instrumentation::NoSpan
 Dexpace::Instrumentation::NO_TRACER : Dexpace::Instrumentation::NoTracer
 Dexpace::Instrumentation::NO_TRACER_FACTORY : Dexpace::Instrumentation::NoTracerFactory
+Dexpace::Instrumentation::NULL : Dexpace::Instrumentation::NullHTTPTracer
+Dexpace::Instrumentation::Scope
+Dexpace::Instrumentation::Scope#close
+Dexpace::Instrumentation::Scope.build
 Dexpace::Instrumentation::TraceIdFlavour
+Dexpace::Instrumentation::TraceIdFlavour#generate_trace_id
 Dexpace::Instrumentation::TraceIdFlavour#invalid_trace_id
 Dexpace::Instrumentation::TraceIdFlavour#max_value
 Dexpace::Instrumentation::TraceIdFlavour#name
@@ -352,6 +388,12 @@ Dexpace::Instrumentation::TraceIdFlavour::ALL : Array
 Dexpace::Instrumentation::TraceIdFlavour::DATADOG : Dexpace::Instrumentation::TraceIdFlavour
 Dexpace::Instrumentation::TraceIdFlavour::NONE : Dexpace::Instrumentation::TraceIdFlavour
 Dexpace::Instrumentation::TraceIdFlavour::W3C : Dexpace::Instrumentation::TraceIdFlavour
+Dexpace::Instrumentation::Tracing
+Dexpace::Instrumentation::Tracing#activate
+Dexpace::Instrumentation::Tracing#correlate
+Dexpace::Instrumentation::Tracing#current_span
+Dexpace::Instrumentation::Tracing#with_correlated_span
+Dexpace::Instrumentation::Tracing#with_span
 Dexpace::InvalidArgumentError
 Dexpace::MediaType
 Dexpace::MediaType#charset

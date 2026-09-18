@@ -1,0 +1,31 @@
+module Dexpace
+  module Instrumentation
+    # OBS-28's eleven-method vocabulary, a module an implementer includes. No `interface
+    # _HTTPTracer` is declared, deliberately: eleven signatures with no core caller would be
+    # eleven NFR-4-locked shapes nothing checks, and the module's own declaration is the
+    # contract; if phase 6 wires the vocabulary, the interface arrives with the wiring.
+    module HTTPTracer
+      def operation_started: (untyped context) -> void
+      def operation_succeeded: (untyped context, untyped response) -> void
+      def operation_failed: (untyped context, untyped error) -> void
+
+      def attempt_started: (untyped context, Integer attempt) -> void
+      def attempt_failed: (untyped context, untyped error, Numeric next_delay) -> void
+      def retries_exhausted: (untyped context, untyped error) -> void
+
+      def request_url_resolved: (untyped context, untyped url) -> void
+      def connection_acquired: (untyped context, String host, Integer port) -> void
+      def request_sent: (untyped context, Integer byte_count) -> void
+      def response_headers_received: (untyped context, Integer status, untyped headers) -> void
+      def response_received: (untyped context, Integer byte_count) -> void
+    end
+
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types NULL's construction.
+    class NullHTTPTracer
+      include HTTPTracer
+    end
+
+    NULL: HTTPTracer
+  end
+end

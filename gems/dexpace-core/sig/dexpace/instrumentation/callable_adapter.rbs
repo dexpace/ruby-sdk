@@ -1,0 +1,25 @@
+module Dexpace
+  module Instrumentation
+    # Design §8.1's bus adapter over one `#call(name, payload)` object; the eleven overrides
+    # keep the vocabulary's signatures and return nil. Allocates a payload Hash per event.
+    class CallableAdapter
+      include HTTPTracer
+
+      @callable: untyped
+
+      def initialize: (untyped callable) -> void
+
+      def operation_started: (untyped context) -> nil
+      def operation_succeeded: (untyped context, untyped response) -> nil
+      def operation_failed: (untyped context, untyped error) -> nil
+      def attempt_started: (untyped context, Integer attempt) -> nil
+      def attempt_failed: (untyped context, untyped error, Numeric next_delay) -> nil
+      def retries_exhausted: (untyped context, untyped error) -> nil
+      def request_url_resolved: (untyped context, untyped url) -> nil
+      def connection_acquired: (untyped context, String host, Integer port) -> nil
+      def request_sent: (untyped context, Integer byte_count) -> nil
+      def response_headers_received: (untyped context, Integer status, untyped headers) -> nil
+      def response_received: (untyped context, Integer byte_count) -> nil
+    end
+  end
+end

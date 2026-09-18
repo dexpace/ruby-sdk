@@ -56,10 +56,13 @@ class DexpaceInstrumentationNoTracerTest < DexpaceTestCase
     assert_raises(::NameError) { Dexpace::Instrumentation::NoTracerFactory }
   end
 
-  # Phase 4 fixes the slot and not the protocol: the tracer answers nothing beyond Object's own
-  # surface, and the factory answers exactly the one method CTX-20's embedded MUST forces.
-  test "NO_TRACER responds to nothing beyond Object; the factory defines exactly #tracer" do
-    assert_empty(Dexpace::Instrumentation::NO_TRACER.class.public_instance_methods(false))
+  # Phase 4 fixed the slots and phase 5c the protocol: the tracer answers exactly OBS-25's two
+  # methods, and the factory still exactly the one CTX-20's embedded MUST forces.
+  test "NO_TRACER defines exactly #start_span and #in_span; the factory exactly #tracer" do
+    assert_equal(
+      %i[in_span start_span],
+      Dexpace::Instrumentation::NO_TRACER.class.public_instance_methods(false).sort,
+    )
     assert_equal(
       [:tracer],
       Dexpace::Instrumentation::NO_TRACER_FACTORY.class.public_instance_methods(false),

@@ -25,8 +25,8 @@ module Dexpace
     #
     # trace_state is a list of pairs, not a Hash: OBS-26 says "a vendor trace-state list" and W3C
     # tracestate is ordered, most recent vendor first, which a Hash would lose. trace_flags stays
-    # the two-hex-char wire form OBS-26 fixes; a #sampled? predicate is deliberately not shipped
-    # (CTX-14 does not ask for it, and phase 5 may add it, since adding a method widens).
+    # the two-hex-char wire form OBS-26 fixes; phase 5c added the #sampled? predicate over it,
+    # which phase 4a reserved for phase 5 (adding a method widens; no member changed).
     class Bundle < Data.define(
       :trace_id, :span_id, :trace_flags, :trace_state, :flavour, :remote, :span, :tracer_factory,
     )
@@ -101,6 +101,15 @@ module Dexpace
       #
       # @return [Boolean]
       def remote? = remote
+
+      # OBS-26's sampled decision: the low bit of the two-hex-char W3C flags byte trace_flags
+      # carries. Phase 5c's, over the member phase 4a stored and without a ninth member -- a
+      # byte whose low bit nobody can read is a member with no reader (P5-41). False for NONE.
+      #
+      # @return [Boolean]
+      def sampled?
+        trace_flags.hex.allbits?(1)
+      end
 
       # The flavour must be a TraceIdFlavour, the trace id one that flavour renders -- the
       # sentinel or a value its pattern accepts -- and the span id OBS-26's 16 lowercase hex

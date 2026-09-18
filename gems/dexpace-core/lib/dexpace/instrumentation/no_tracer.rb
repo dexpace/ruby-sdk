@@ -1,12 +1,59 @@
 # frozen_string_literal: true
 # SPDX-License-Identifier: MIT
 
+require_relative "no_span"
+
 module Dexpace
   module Instrumentation
-    # CTX-20's no-op tracer, the object behind NO_TRACER, returned by NO_TRACER_FACTORY#tracer.
-    # Responds to nothing beyond Object's own surface for the reason NoSpan does: the tracer
-    # protocol is OBS-21..OBS-25, phase 5c's, and it lands as methods on this private class.
-    class NoTracer; end # rubocop:disable Lint/EmptyClass -- postponed protocol: phase 5c adds it.
+    # CTX-20's no-op tracer, the object behind NO_TRACER, returned by NO_TRACER_FACTORY#tracer,
+    # with OBS-25's protocol as phase 5c gave it (the protocol phase 4a postponed): "a no-op
+    # Tracer returning a shared no-op Span" is a reference-identity claim, and both methods hand
+    # back the published NO_SPAN from arguments already on the stack, so the no-op path allocates
+    # nothing (OBS-25; a four-keyword signature called with one positional argument measures at
+    # the floor, verified fact 1). Every method works on a FROZEN receiver and none writes an
+    # ivar. Named keywords, never a `**` splat (P5-42, Dexpace/NoKeywordSplat).
+    #
+    # The signatures are opentelemetry-api's Tracer#start_span and #in_span as a structural
+    # subset (design §8.1, P4-8's argument): `with_parent:` and `kind:` are the gem's own
+    # keywords; its `links:` and `start_timestamp:` are not mirrored, because nothing in this
+    # SDK passes either and a locked keyword nothing passes is NFR-4 surface with no caller.
+    #
+    # The implementer contract, where a duck-typed SPI can bind it: OBS-29's "One tracer
+    # instance corresponds 1:1 to a single logical operation lifecycle" binds a tracer that
+    # accumulates per-operation STATE -- a recording tracer's factory returns a fresh instance
+    # per operation -- and does not bind this stateless one, which NO_TRACER_FACTORY returns
+    # shared on every call as OBS-25 requires; the two MUSTs are consistent only so read (P5-43).
+    # Every method is safe to invoke concurrently and never raises (OBS-30).
+    class NoTracer
+      # rubocop:disable Lint/UnusedMethodArgument -- the arguments are the documented protocol
+      # and are ignored by construction; OBS-25 requires the shared singleton back regardless.
+
+      # OBS-25: the shared no-op span, whatever it is asked to start.
+      #
+      # @param name [String] the span name
+      # @param attributes [Hash{String => Object}, nil] initial attributes, frozen by the caller
+      # @param kind [Symbol, nil] the span kind (:client for an outbound request)
+      # @param with_parent [Object, nil] an explicit parent context, else the current span
+      # @return [Object] NO_SPAN, always
+      def start_span(name, attributes: nil, kind: nil, with_parent: nil)
+        NO_SPAN
+      end
+
+      # OBS-25: yields the shared no-op span and returns the block's value; without a block,
+      # the span itself. A raise inside the block is the caller's (OBS-30: nothing rescues).
+      #
+      # @param name [String] the span name
+      # @param attributes [Hash{String => Object}, nil] initial attributes, frozen by the caller
+      # @param kind [Symbol, nil] the span kind
+      # @yieldparam span [Object] NO_SPAN
+      # @return [Object] the block's value, or NO_SPAN without a block
+      def in_span(name, attributes: nil, kind: nil)
+        return NO_SPAN unless block_given?
+
+        yield NO_SPAN
+      end
+      # rubocop:enable Lint/UnusedMethodArgument
+    end
     private_constant :NoTracer
 
     # The one shared, frozen no-op tracer. Public rather than private for the same reason
