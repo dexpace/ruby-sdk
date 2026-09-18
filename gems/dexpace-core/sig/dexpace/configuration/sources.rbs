@@ -1,0 +1,16 @@
+module Dexpace
+  # CFG-11's seam: a callable from key name to String?. What a fake satisfies and what every
+  # Configuration member and builder writer types against.
+  interface _ConfigSource
+    def call: (String key) -> String?
+  end
+
+  class Configuration
+    module Sources
+      ENVIRONMENT: ^(String) -> String?
+      NONE: ^(String) -> String?
+
+      def self.from_hash: (Hash[untyped, untyped] map) -> ^(String) -> String?
+    end
+  end
+end

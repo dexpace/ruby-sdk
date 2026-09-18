@@ -8,13 +8,15 @@ require_relative "test_helper"
 class DexpaceTest < DexpaceTestCase
   # The top-level namespace is snapshotted around the require, so "defines nothing outside
   # Dexpace" holds whether this file loads alone or after the other five gems in one
-  # `rake test:gems` process, where Dexpace already exists. The three stdlib features core
+  # `rake test:gems` process, where Dexpace already exists. The four stdlib features core
   # requires (all on the require allowlist) are loaded first: the constants they define --
-  # URI, StringScanner and strscan's ScanError alias, and phase 3b's SecureRandom -- are theirs,
-  # not the entry file's.
+  # URI, StringScanner and strscan's ScanError alias, phase 3b's SecureRandom, and phase 5a's
+  # `time`, which pulls in Date and DateTime for Time#httpdate -- are theirs, not the entry
+  # file's.
   require "uri"
   require "strscan"
   require "securerandom"
+  require "time"
   TOP_LEVEL_BEFORE = Object.constants
   NAMESPACE_BEFORE = defined?(Dexpace) ? Dexpace.constants(false) : []
   require "dexpace"
@@ -35,8 +37,9 @@ class DexpaceTest < DexpaceTestCase
   # Every public constant the surface manifest records, and the check that catches a file added
   # to lib/ and forgotten in the entry point. Phase 1's domain model, then phase 2's seam layer,
   # then phase 3a's byte-streaming layer, then phase 3b's body layer, then phase 4a's execution
-  # context, phase 4b's recovery layer and phase 4c's pipeline; Dexpace::Hooks, Dexpace::BoundedMap,
-  # Dexpace::CallKey, Dexpace::Recovery::Ownership and the two pipeline drivers are
+  # context, phase 4b's recovery layer, phase 4c's pipeline and phase 5a's configuration layer;
+  # Dexpace::Hooks, Dexpace::BoundedMap, Dexpace::CallKey, Dexpace::Recovery::Ownership, the two
+  # pipeline drivers, Dexpace::ConfigParsers, Dexpace::DeepValue and Dexpace::ProxyResolution are
   # private_constants and appear in no constants(false) list.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
@@ -57,8 +60,12 @@ class DexpaceTest < DexpaceTestCase
   ].freeze
   RECOVERY_LAYER = %i[Suppressible OutcomeError ProtocolError Outcome Recovery].freeze
   PIPELINE_LAYER = %i[PipelineError Pipeline AsyncPipeline].freeze
+  CONFIGURATION_LAYER = %i[
+    BuildInfo UUID Retryability HTTPDate Clock Configuration Proxy
+  ].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
+    CONFIGURATION_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do

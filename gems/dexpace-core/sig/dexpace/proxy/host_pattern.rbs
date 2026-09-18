@@ -1,0 +1,23 @@
+module Dexpace
+  class Proxy
+    class HostPattern < Data
+      include Model
+
+      attr_reader glob: String
+
+      private def self.new: (glob: String) -> instance
+      def initialize: (glob: String) -> void
+
+      def self.build: (glob: String) -> HostPattern
+      def self.of: (String glob) -> HostPattern
+      def matches?: (untyped host) -> bool
+
+      private
+
+      @matcher: Regexp
+
+      attr_reader matcher: Regexp
+      def translate: (String glob) -> Regexp
+    end
+  end
+end

@@ -6,8 +6,8 @@ module Dexpace
       def initialize: (Dexpace::Async::Completer completer) -> void
       def settled?: () -> bool
       def cancelled?: () -> bool
-      def wait: (?cancellation: Dexpace::Cancellation?) -> self
-      def value: (?cancellation: Dexpace::Cancellation?) -> untyped
+      def wait: (?cancellation: Dexpace::Cancellation?, ?deadline: Numeric?, ?clock: _Clock) -> self
+      def value: (?cancellation: Dexpace::Cancellation?, ?deadline: Numeric?, ?clock: _Clock) -> untyped
       def on_settle: () { (Dexpace::Async::Settlement) -> void } -> self
       def cancel: (?untyped reason) -> self
       def then: () { (untyped) -> untyped } -> Dexpace::Async::Future

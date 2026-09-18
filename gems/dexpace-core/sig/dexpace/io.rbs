@@ -2,6 +2,8 @@ module Dexpace
   module IO
     MAX_MATERIALIZED_BYTES: Integer
 
+    def self.max_materialized_bytes: (?Configuration configuration) -> Integer
+
     # IO-1's primitive, as a type. #write_all accepts anything satisfying it (IO-17).
     interface _Source
       def read_into: (String dest, count: Integer) -> Integer

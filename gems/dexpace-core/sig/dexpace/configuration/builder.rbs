@@ -1,0 +1,28 @@
+module Dexpace
+  class Configuration
+    class Builder
+      include Dexpace::Builder
+
+      def initialize: (?overrides: Hash[untyped, untyped], ?env_source: _ConfigSource,
+                       ?property_source: _ConfigSource?) -> void
+      def override: (String | Symbol key, untyped value) -> self
+      def remove: (String | Symbol key) -> self
+      def property: (String | Symbol key, untyped value) -> self
+      def property_source=: (_ConfigSource source) -> void
+      def env_source=: (_ConfigSource source) -> void
+      def build: () -> Configuration
+
+      private
+
+      @overrides: Hash[String, String]
+      @env_source: _ConfigSource
+      @property_source: _ConfigSource?
+      @properties: Hash[String, String]
+      @property_source_explicit: bool
+
+      def composed_source: () -> _ConfigSource
+      def key!: (untyped key) -> String
+      def source!: (String name, untyped source) -> _ConfigSource
+    end
+  end
+end

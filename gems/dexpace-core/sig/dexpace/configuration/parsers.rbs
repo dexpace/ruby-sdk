@@ -1,0 +1,22 @@
+# Dexpace::ConfigParsers is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its three functions declared to type their call sites in configuration.rb. RBS has no
+# visibility for a constant, so the privacy lives in lib/dexpace/configuration/parsers.rb alone.
+module Dexpace
+  module ConfigParsers
+    DURATION_ISO: Regexp
+    DURATION_UNIT: Regexp
+    DURATION_BARE: Regexp
+    UNIT_SECONDS: Hash[String, Float]
+    ISO_SCALES: Hash[Symbol, Float]
+
+    def self?.parse_integer: (untyped raw, ?default: Integer?) -> Integer?
+    def self?.parse_boolean: (untyped raw, ?default: bool?) -> bool?
+    def self?.parse_duration: (untyped raw, ?default: Float?) -> Float?
+
+    private
+
+    def iso_seconds: (String text) -> Float?
+    def shorthand_seconds: (String text) -> Float?
+  end
+end

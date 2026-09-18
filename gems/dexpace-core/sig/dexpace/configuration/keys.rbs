@@ -1,0 +1,13 @@
+module Dexpace
+  class Configuration
+    module Keys
+      MAX_RETRY_ATTEMPTS: String
+      LOG_LEVEL: String
+      HTTP_PROXY: String
+      HTTPS_PROXY: String
+      NO_PROXY: String
+      MAX_MATERIALIZED_BYTES: String
+      MAX_TRACKED_CONTEXTS: String
+    end
+  end
+end

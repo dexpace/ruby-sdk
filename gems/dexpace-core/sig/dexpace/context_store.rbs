@@ -2,10 +2,13 @@ module Dexpace
   class ContextStore
     MAX_TRACKED_CONTEXTS: Integer
 
-    self.@default: ContextStore
+    self.@default: ContextStore?
+    self.@default_mutex: Thread::Mutex
     @map: BoundedMap
 
     def self.default: () -> ContextStore
+    private def self.build_default: () -> ContextStore
+    private def self.configured_cap: () -> Integer
 
     def initialize: (?cap: Integer) -> void
     def set: (Context context) -> Context

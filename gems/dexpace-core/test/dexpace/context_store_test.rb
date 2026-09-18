@@ -360,30 +360,34 @@ class DexpaceContextStoreTest < DexpaceTestCase
 
     # .default is the one process-wide instance; this suite never writes to it (CTX-17 keeps
     # construction off the store), so what is asserted here is its identity across calls and
-    # that it is a store. The eager-assignment half is the next case's.
+    # that it is a store. The construction half is the next case's.
     test ".default is one process-wide instance, the same object on every call" do
       assert_same(Dexpace::ContextStore.default, Dexpace::ContextStore.default)
       assert_instance_of(Dexpace::ContextStore, Dexpace::ContextStore.default)
     end
 
-    # Why .default is assigned at file load rather than memoised: `@default ||= new` is an
-    # unsynchronised read-modify-write over shared state (XCUT-11), and eager assignment is also
-    # what keeps CTX-17 inert for a .build that takes the default store -- construction reads a
-    # singleton that already exists and writes nothing. The identity case cannot see the
-    # difference: by the time it runs, some earlier .build in this process has called .default
-    # and a memoised store would already exist. Only a fresh process can, so this asks one --
-    # `require "dexpace"` and nothing else, then whether the ivar is set before any call. A
-    # memoised .default with the load-time line deleted prints false.
-    test ".default is assigned at file load: a fresh process holds it before any call" do
+    # Phase 4a assigned .default at file load, because `@default ||= new` is an unsynchronised
+    # read-modify-write over shared state (XCUT-11). Phase 5a attached the cap's configuration
+    # source and moved the construction to the FIRST call, under a mutex, so that a
+    # Dexpace.configure at boot reaches the cap -- read at load, only the environment tier ever
+    # could. The identity case cannot see either shape: by the time it runs some earlier .build
+    # in this process has called .default. Only a fresh process can, so this asks one --
+    # `require "dexpace"` and nothing else -- and checks that no store exists before the first
+    # call and that the first two calls agree. The synchronisation half is
+    # context_store_config_test.rb's race under a slow seam; the load-time shape prints
+    # "false true" here, and an unsynchronised `||=` prints more than one store there.
+    test ".default is built on its first call: a fresh process holds none before it" do
       lib = File.expand_path("../../lib", __dir__)
       out, err, status = Open3.capture3(
+        { "RUBYOPT" => nil },
         RbConfig.ruby, "-w", "-W:deprecated", "-I", lib, "-e",
-        'require "dexpace"; print Dexpace::ContextStore.instance_variable_defined?(:@default)',
+        'require "dexpace"; print Dexpace::ContextStore.instance_variable_get(:@default).nil?, ' \
+        '" ", Dexpace::ContextStore.default.equal?(Dexpace::ContextStore.default)',
       )
 
       assert_predicate(status, :success?, err)
       assert_empty(err)
-      assert_equal("true", out)
+      assert_equal("true true", out)
     end
   end
 end

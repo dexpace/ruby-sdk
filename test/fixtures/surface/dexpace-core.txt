@@ -1,9 +1,13 @@
 Dexpace
 Dexpace.attach_suppressed
 Dexpace.close_quietly
+Dexpace.configuration
+Dexpace.configure
 Dexpace.each_cause
+Dexpace.reset_config!
 Dexpace.suppressed
 Dexpace::Async
+Dexpace::Async.delay
 Dexpace::Async::Completer
 Dexpace::Async::Completer#await
 Dexpace::Async::Completer#fail
@@ -82,6 +86,13 @@ Dexpace::BufferBody#media_type
 Dexpace::BufferBody#replayable?
 Dexpace::BufferBody#source
 Dexpace::BufferBody#write_to
+Dexpace::BuildInfo
+Dexpace::BuildInfo::IDENTITY_TOKENS : Array
+Dexpace::BuildInfo::OS_NAME : String
+Dexpace::BuildInfo::RUNTIME_VENDOR : String
+Dexpace::BuildInfo::RUNTIME_VERSION : String
+Dexpace::BuildInfo::SDK_VERSION : String
+Dexpace::BuildInfo::UNKNOWN : String
 Dexpace::Builder
 Dexpace::Builder#build
 Dexpace::Builder.build_all
@@ -119,12 +130,51 @@ Dexpace::ChunkedBody
 Dexpace::ChunkedBody#content_length
 Dexpace::ChunkedBody#media_type
 Dexpace::ChunkedBody#write_to
+Dexpace::Clock
+Dexpace::Clock#monotonic
+Dexpace::Clock#now
+Dexpace::Clock#sleep
+Dexpace::Clock.deadline_in
+Dexpace::Clock::SYSTEM : Dexpace::Clock
 Dexpace::Closeable
 Dexpace::Closeable#close
 Dexpace::Closeable#closed?
 Dexpace::Closeable#initialize_closeable
 Dexpace::Closeable#owned?
 Dexpace::ClosedError
+Dexpace::Configuration
+Dexpace::Configuration#boolean
+Dexpace::Configuration#derive
+Dexpace::Configuration#duration
+Dexpace::Configuration#env_source
+Dexpace::Configuration#integer
+Dexpace::Configuration#new_builder
+Dexpace::Configuration#overrides
+Dexpace::Configuration#property_source
+Dexpace::Configuration#raw_property
+Dexpace::Configuration#string
+Dexpace::Configuration.build
+Dexpace::Configuration.builder
+Dexpace::Configuration::Builder
+Dexpace::Configuration::Builder#build
+Dexpace::Configuration::Builder#env_source=
+Dexpace::Configuration::Builder#override
+Dexpace::Configuration::Builder#property
+Dexpace::Configuration::Builder#property_source=
+Dexpace::Configuration::Builder#remove
+Dexpace::Configuration::EMPTY : Dexpace::Configuration
+Dexpace::Configuration::Keys
+Dexpace::Configuration::Keys::HTTPS_PROXY : String
+Dexpace::Configuration::Keys::HTTP_PROXY : String
+Dexpace::Configuration::Keys::LOG_LEVEL : String
+Dexpace::Configuration::Keys::MAX_MATERIALIZED_BYTES : String
+Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS : String
+Dexpace::Configuration::Keys::MAX_TRACKED_CONTEXTS : String
+Dexpace::Configuration::Keys::NO_PROXY : String
+Dexpace::Configuration::Sources
+Dexpace::Configuration::Sources.from_hash
+Dexpace::Configuration::Sources::ENVIRONMENT : Proc
+Dexpace::Configuration::Sources::NONE : Proc
 Dexpace::Context
 Dexpace::Context#close
 Dexpace::ContextConflictError
@@ -174,6 +224,9 @@ Dexpace::FormBody#pairs
 Dexpace::FormBody#replayable?
 Dexpace::FormBody#write_to
 Dexpace::FormBody::MEDIA_TYPE : Dexpace::MediaType
+Dexpace::HTTPDate
+Dexpace::HTTPDate#format
+Dexpace::HTTPDate#parse
 Dexpace::HeaderName
 Dexpace::HeaderName#==
 Dexpace::HeaderName#eql?
@@ -224,6 +277,7 @@ Dexpace::Headers::DIRECTIONS : Array
 Dexpace::Headers::EMPTY : Dexpace::Headers
 Dexpace::Headers::EMPTY_INBOUND : Dexpace::Headers
 Dexpace::IO
+Dexpace::IO.max_materialized_bytes
 Dexpace::IO::Buffer
 Dexpace::IO::Buffer#bytesize
 Dexpace::IO::Buffer#clear
@@ -488,6 +542,32 @@ Dexpace::ProtocolError#response
 Dexpace::ProtocolError#status
 Dexpace::ProtocolError.for
 Dexpace::ProtocolError.for_or_nil
+Dexpace::Proxy
+Dexpace::Proxy#bypass?
+Dexpace::Proxy#bypass_all
+Dexpace::Proxy#challenge_handler
+Dexpace::Proxy#host
+Dexpace::Proxy#inspect
+Dexpace::Proxy#non_proxy_hosts
+Dexpace::Proxy#password
+Dexpace::Proxy#port
+Dexpace::Proxy#to_s
+Dexpace::Proxy#type
+Dexpace::Proxy#username
+Dexpace::Proxy.build
+Dexpace::Proxy.resolve
+Dexpace::Proxy::HostPattern
+Dexpace::Proxy::HostPattern#glob
+Dexpace::Proxy::HostPattern#matches?
+Dexpace::Proxy::HostPattern.build
+Dexpace::Proxy::HostPattern.of
+Dexpace::Proxy::Type
+Dexpace::Proxy::Type#name
+Dexpace::Proxy::Type#with
+Dexpace::Proxy::Type.of
+Dexpace::Proxy::Type::HTTP : Dexpace::Proxy::Type
+Dexpace::Proxy::Type::SOCKS4 : Dexpace::Proxy::Type
+Dexpace::Proxy::Type::SOCKS5 : Dexpace::Proxy::Type
 Dexpace::Query
 Dexpace::Query#==
 Dexpace::Query#[]
@@ -654,6 +734,8 @@ Dexpace::ResponseLoggingBody#preview_bytes
 Dexpace::ResponseLoggingBody#snapshot
 Dexpace::ResponseLoggingBody#source
 Dexpace::ResponseLoggingBody#write_to
+Dexpace::Retryability
+Dexpace::Retryability#retryable_status?
 Dexpace::SeamError
 Dexpace::Serde
 Dexpace::Serde.conforms?
@@ -727,4 +809,6 @@ Dexpace::TypedResponse#value
 Dexpace::URL
 Dexpace::URL#external_form
 Dexpace::URL#parse!
+Dexpace::UUID
+Dexpace::UUID#generate
 Dexpace::VERSION : String

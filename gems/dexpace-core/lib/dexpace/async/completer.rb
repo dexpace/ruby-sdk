@@ -5,11 +5,57 @@ require_relative "settlement"
 require_relative "../closeable"
 require_relative "../cancellation"
 require_relative "../hooks"
+require_relative "../clock"
 require_relative "../error/cancelled_error"
 require_relative "../error/invalid_argument_error"
 
 module Dexpace
   module Async
+    # The deadline: keyword's two argument checks, shared by Completer#await and, through it,
+    # Future#wait and #value. A private module because the checks are the same at every entry.
+    module Deadline
+      extend self
+
+      # @return [Float, nil] the deadline as a Float instant, or nil for no deadline
+      def validate(deadline, clock)
+        return nil if deadline.nil?
+
+        unless deadline.is_a?(::Numeric)
+          raise Dexpace::InvalidArgumentError,
+                "deadline: takes a monotonic instant (Numeric), got #{deadline.class}"
+        end
+        unless clock.respond_to?(:monotonic)
+          raise Dexpace::InvalidArgumentError,
+                "clock: takes a Dexpace::_Clock answering #monotonic, got #{clock.class}"
+        end
+
+        instant = deadline #: untyped
+        instant.to_f
+      end
+
+      # The wait itself: pops `gate` until the block answers settled -- phase 2's unbounded loop
+      # when `limit` is nil, and otherwise with a timeout recomputed from `clock` on every
+      # iteration until `limit` passes. A closed gate pops nil at once, so a settlement that lands
+      # between two iterations ends the loop on the next read.
+      #
+      # @return [Boolean] whether the limit passed with the block still answering false
+      def expired?(gate, limit, clock)
+        until yield
+          if limit.nil?
+            gate.pop
+            next
+          end
+
+          remaining = limit - clock.monotonic
+          return true if remaining <= 0
+
+          gate.pop(timeout: remaining)
+        end
+        false
+      end
+    end
+    private_constant :Deadline
+
     # The write side of the canonical async pivot, and where the pivot's state lives.
     #
     # Design §10.3: the pivot is core-owned because Ruby's async ecosystem is fragmented across
@@ -119,12 +165,42 @@ module Dexpace
       # Kernel#sleep poll: under a registered Fiber.scheduler a blocking queue pop routes through
       # the scheduler's block/unblock hooks instead of parking the OS thread (verified on 3.2.11,
       # 3.4.10 and 4.0.6; Task 6 asserts it).
-      def await(cancellation = nil)
+      #
+      # `deadline:` is the keyword phase 2 postponed to phase 5 (P2-5): an INSTANT on
+      # Clock#monotonic's scale, never a duration, so a wait resumed spuriously cannot extend it
+      # -- `remaining` is recomputed from `clock` on every iteration and the TOTAL wait is what is
+      # bounded. Clock.deadline_in is how a caller names the scale; computing one off Time.now is
+      # the mistake CFG-16 forbids. On expiry this cancels the future through #request_cancel --
+      # one settlement, published before the hooks run, so the producer's abort hook fires and
+      # SEAM-30's lost-race close applies to whatever it later delivers -- and returns. It does
+      # not raise: #await never raised and Future#wait is documented never to raise the failure,
+      # so raising here would narrow two signatures NFR-4 locks. Future#value raises on its next
+      # line, because the settlement it finds is a cancellation carrying :deadline_expired, a
+      # Symbol and not a sentence (XCUT-2: a deadline and a cancel are told apart by #reason,
+      # never by a string match). A deadline bounds a wait; it aborts nothing in the background,
+      # and nothing fires when nobody is waiting. The mechanism is a timed gate pop, not a
+      # deadline-derived token composed through Cancellation.any as phase 2 anticipated.
+      #
+      # The two keywords are validated BEFORE the settled short-circuit: a settled future ignores
+      # an expired deadline, not an invalid one, and a wrong argument type is the caller's error
+      # whichever state the completer is in. The positional token keeps phase 2's order -- it is
+      # armed only when there is a wait to arm it for.
+      #
+      # @param cancellation [Dexpace::Cancellation, nil] positional, as phase 2 shipped it
+      # @param deadline [Numeric, nil] a monotonic instant; nil is phase 2's unbounded wait
+      # @param clock [_Clock] the seam the deadline is measured against
+      # @return [self]
+      # @raise [Dexpace::InvalidArgumentError] on a non-Numeric deadline or a clock without
+      #   #monotonic, settled or not
+      def await(cancellation = nil, deadline: nil, clock: Dexpace::Clock::SYSTEM)
+        limit = Deadline.validate(deadline, clock)
         return self if settled?
 
         subscription = arm(cancellation)
         begin
-          @gate.pop until settled?
+          # An expiry that loses the race to a real settlement is a no-op: #request_cancel
+          # returns false on a settled completer.
+          request_cancel(:deadline_expired) if Deadline.expired?(@gate, limit, clock) { settled? }
         ensure
           subscription&.detach
         end

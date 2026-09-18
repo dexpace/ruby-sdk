@@ -1,0 +1,11 @@
+module Dexpace
+  # What .retryable_status? accepts beside an Integer: a Dexpace::Status, or anything answering
+  # #code with one.
+  interface _RetryableStatus
+    def code: () -> Integer
+  end
+
+  module Retryability
+    def self?.retryable_status?: (Integer | _RetryableStatus status) -> bool
+  end
+end

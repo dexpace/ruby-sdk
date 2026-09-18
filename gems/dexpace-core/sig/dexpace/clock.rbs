@@ -1,0 +1,26 @@
+module Dexpace
+  # The time seam a fake satisfies and what Future#value(clock:) types against: exactly the three
+  # operations CFG-15 declares.
+  interface _Clock
+    def now: () -> ::Time
+    def monotonic: () -> Float
+    def sleep: (Numeric duration, ?cancellation: Dexpace::Cancellation?) -> nil
+  end
+
+  class Clock
+    # Clock::Guard is a private_constant and not public API: declared because the strict `core`
+    # Steep target types its two call sites.
+    module Guard
+      def self?.duration: (untyped value) -> Float
+      def self?.token: (untyped cancellation) -> Dexpace::Cancellation?
+    end
+
+    SYSTEM: Clock
+
+    def now: () -> ::Time
+    def monotonic: () -> Float
+    def sleep: (Numeric duration, ?cancellation: Dexpace::Cancellation?) -> nil
+
+    def self.deadline_in: (Numeric duration, ?clock: _Clock) -> Float
+  end
+end

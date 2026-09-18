@@ -56,15 +56,16 @@ module Dexpace
       end
     end
 
-    # HTTP-46. Bytes beyond Dexpace::IO::MAX_MATERIALIZED_BYTES are compared by identity rather than
-    # by value, because #snapshot refuses to materialise them (IO-9) and an equality check must not
-    # be the thing that raises. #hash is over the length and media type only, which is consistent:
-    # equal bodies always hash equally.
+    # HTTP-46. Bytes beyond the materialisation ceiling (Dexpace::IO.max_materialized_bytes, the
+    # configured one since phase 5a) are compared by identity rather than by value, because
+    # #snapshot refuses to materialise them (IO-9) and an equality check must not be the thing
+    # that raises. #hash is over the length and media type only, which is consistent: equal
+    # bodies always hash equally.
     def ==(other)
       return true if equal?(other)
       return false unless other.is_a?(BufferBody)
       return false unless media_type == other.media_type && content_length == other.content_length
-      return false if content_length > Dexpace::IO::MAX_MATERIALIZED_BYTES
+      return false if content_length > Dexpace::IO.max_materialized_bytes
 
       @buffer.snapshot == other.send(:snapshot_bytes)
     end
