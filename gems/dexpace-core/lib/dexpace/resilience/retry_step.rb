@@ -38,12 +38,14 @@ module Dexpace
     #
     # RETRY-35's three orderings, in #call: the delay is resolved from the still-open response
     # FIRST, the response is closed BEFORE the wait, and the retry decision, the delay
-    # resolution and the tracer's attempt_failed are all fenced so the response is closed before
+    # resolution and BOTH tracer emissions that follow a failure -- attempt_failed on the retry
+    # path, retries_exhausted on the terminal path -- are fenced so the response is closed before
     # any throwable -- a RetryPredicateError above all, a throwing tracer too -- propagates,
-    # exactly as the async driver's guarded block already did. RETRY-34 on the terminal path:
-    # the whole prior trail is attached to the instance actually surfaced, through
-    # Dexpace.attach_suppressed, and is discarded on success or on a returned error-status
-    # response, which is a Response and not a throwable to attach to (stated, not dropped).
+    # exactly as the async driver's guarded block does on both of its paths (R0-4, R1-1).
+    # RETRY-34 on the terminal path: the whole prior trail is attached to the instance actually
+    # surfaced, through Dexpace.attach_suppressed, and is discarded on success or on a returned
+    # error-status response, which is a Response and not a throwable to attach to (stated, not
+    # dropped).
     class RetryStep
       include RetryStepHelpers
 
@@ -178,12 +180,17 @@ module Dexpace
       # The terminal path. A throwable is surfaced with the whole trail attached and, when the
       # budget is what stopped it, retries_exhausted first; a response is returned as it is, its
       # trail discarded, since a Response carries no suppressed trail to attach to (RETRY-34) --
-      # the ProtocolError the tracer sees for an exhausted error status carries it instead.
+      # the ProtocolError the tracer sees for an exhausted error status carries it instead. The
+      # emission runs inside the fence, as attempt_failed does on the retry path: a tracer that
+      # raises in retries_exhausted propagates (OBS-30) but the terminal error-status response
+      # is closed first, exactly as Pump#finish is closed by its guarded block (R1-1).
       def settle(run, response, failure, verdict)
         return response if response && verdict == STOP
 
-        attach_trail(failure, run.trail)
-        run.tracer.retries_exhausted(run.cursor, failure) if verdict == EXHAUSTED
+        fenced(response) do
+          attach_trail(failure, run.trail)
+          run.tracer.retries_exhausted(run.cursor, failure) if verdict == EXHAUSTED
+        end
         return response if response
 
         raise failure, cause: nil # pipeline/7ce4431d: a carried error, never a bare raise
