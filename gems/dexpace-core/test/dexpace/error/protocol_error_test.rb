@@ -72,7 +72,54 @@ class DexpaceProtocolErrorTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::ProtocolError.for_or_nil(nil) }
   end
 
-  # No test pins the ABSENCE of #retryable_by_status?: XCUT-5's baked flag is postponed to phase
-  # 6a, Task 6, which adds the predicate to THIS class and extends THIS suite. A postponement is
-  # recorded in a checklist row, not pinned by an assertion a later phase has to delete.
+  # Phase 6a's Task 6 added the predicate 4b postponed; the nested class below is its suite,
+  # extending this file exactly as the postponement said it would.
+
+  # XCUT-5 / RETRY-3: the baked flag, computed at construction from the SINGLE shared status
+  # classifier (5a's Dexpace::Retryability), and deliberately not named #retryable? (P6-10).
+  class RetryableTest < DexpaceTestCase
+    include RecoveryFixtures
+
+    test "RETRY-3 / XCUT-5: retryable_by_status? is computed at construction from Retryability" do
+      error = Dexpace::ProtocolError.for(build_response(503))
+
+      assert_predicate(error, :retryable_by_status?)
+      assert_equal(Dexpace::Retryability.retryable_status?(503), error.retryable_by_status?)
+      assert_same(error.retryable_by_status?, error.retryable_by_status?, "baked, not recomputed")
+    end
+
+    test "RETRY-3 / XCUT-5: the flag agrees with the classifier across the whole error range" do
+      (400..599).each do |code|
+        error = Dexpace::ProtocolError.for(build_response(code))
+        expected = Dexpace::Retryability.retryable_status?(code)
+
+        assert_equal(expected, error.retryable_by_status?, code.to_s)
+      end
+      refute_predicate(Dexpace::ProtocolError.for(build_response(501)), :retryable_by_status?)
+      refute_predicate(Dexpace::ProtocolError.for(build_response(505)), :retryable_by_status?)
+      refute_predicate(Dexpace::ProtocolError.for(build_response(404)), :retryable_by_status?)
+      assert_predicate(Dexpace::ProtocolError.for(build_response(408)), :retryable_by_status?)
+      assert_predicate(Dexpace::ProtocolError.for(build_response(429)), :retryable_by_status?)
+    end
+
+    test "RETRY-3: no per-subclass constant -- a subclass inherits the computed flag" do
+      subclass = Class.new(Dexpace::ProtocolError)
+
+      assert_predicate(subclass.new(build_response(502)), :retryable_by_status?)
+      refute_predicate(subclass.new(build_response(501)), :retryable_by_status?)
+    end
+
+    test "P6-10: a ProtocolError does NOT answer XCUT-6's generic #retryable? capability" do
+      error = Dexpace::ProtocolError.for(build_response(503))
+
+      refute_respond_to(error, :retryable?)
+      refute(Dexpace::Resilience::Policy.throwable_retryable?(error))
+    end
+
+    test "NFR-4: the constructor keeps 4b's single positional parameter and the two factories" do
+      assert_equal(1, Dexpace::ProtocolError.instance_method(:initialize).arity)
+      assert_instance_of(Dexpace::ProtocolError, Dexpace::ProtocolError.for(build_response(503)))
+      assert_nil(Dexpace::ProtocolError.for_or_nil(build_response(200)))
+    end
+  end
 end

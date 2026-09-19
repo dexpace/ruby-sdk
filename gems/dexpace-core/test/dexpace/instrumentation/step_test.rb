@@ -711,4 +711,72 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
       assert_same(Dexpace::Instrumentation::NO_SPAN, Dexpace::Instrumentation::Tracing.current_span)
     end
   end
+
+  # Phase 6a's Task 8: the reconciled precedence's first clause, live through Cursor#bundle.
+  class BundlePrecedenceTest < DexpaceTestCase
+    include Fixtures
+
+    W3C = Dexpace::Instrumentation::TraceIdFlavour::W3C
+
+    def bundle_with(factory, span: Dexpace::Instrumentation::NO_SPAN)
+      Dexpace::Instrumentation::Bundle.build(trace_id: "a" * 32, span_id: "b" * 16, flavour: W3C,
+                                             tracer_factory: factory, span: span,)
+    end
+
+    test "cursor bundle: a seeded bundle's tracer factory wins over the step's own keyword" do
+      own = Dexpace::RecordingTracerFactory.new
+      from_bundle = Dexpace::RecordingTracerFactory.new
+      step = Step.build(logger: Logger::NULL, level: HTTPLogging::NONE, tracer_factory: own)
+      request = build_request
+      transport = FakeTransport.new(response: build_response(request))
+
+      pipeline(step, transport).call(request, bundle: bundle_with(from_bundle))
+
+      assert_equal(1, from_bundle.tracers.size)
+      assert_equal("GET", from_bundle.tracers.first.name)
+      assert_equal(1, from_bundle.tracers.first.spans.first.finished_at.size)
+      assert_empty(own.tracers, "the keyword is the SECOND clause")
+    end
+
+    test "cursor bundle: with no seeded bundle the step's keyword resolves, as in phase 5" do
+      own = Dexpace::RecordingTracerFactory.new
+      step = Step.build(logger: Logger::NULL, level: HTTPLogging::NONE, tracer_factory: own)
+      request = build_request
+
+      drive(step, request, response: build_response(request))
+
+      assert_equal(1, own.tracers.size)
+    end
+
+    test "cursor bundle / OBS-23: a valid seeded bundle pushes its ids onto the diagnostics" do
+      seen = {}
+      factory = Dexpace::RecordingTracerFactory.new
+      step = Step.build(logger: Logger::NULL, level: HTTPLogging::NONE)
+      request = build_request
+      transport = FakeTransport.new(response: build_response(request), before_return: lambda {
+        seen[:trace] = ::Fiber[Dexpace::Instrumentation::Diagnostics::TRACE_ID]
+        seen[:span] = ::Fiber[Dexpace::Instrumentation::Diagnostics::SPAN_ID]
+        seen[:current] = Dexpace::Instrumentation::Tracing.current_span
+      },)
+
+      pipeline(step, transport).call(request, bundle: bundle_with(factory))
+
+      assert_equal("a" * 32, seen[:trace])
+      assert_equal("b" * 16, seen[:span])
+      assert_same(factory.tracers.first.spans.first, seen[:current], "a recording span was current")
+      assert_nil(::Fiber[Dexpace::Instrumentation::Diagnostics::TRACE_ID], "restored after")
+      assert_same(Dexpace::Instrumentation::NO_SPAN, Dexpace::Instrumentation::Tracing.current_span)
+    end
+
+    test "cursor bundle: the meter has no bundle source -- the keyword resolves regardless" do
+      meter = Dexpace::RecordingMeter.new
+      step = Step.build(logger: Logger::NULL, level: HTTPLogging::NONE, meter: meter)
+      request = build_request
+      transport = FakeTransport.new(response: build_response(request))
+
+      pipeline(step, transport).call(request, bundle: bundle_with(Dexpace::RecordingTracerFactory.new))
+
+      assert_equal(1, meter.counters.first.records.size)
+    end
+  end
 end

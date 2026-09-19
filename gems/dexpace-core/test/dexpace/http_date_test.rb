@@ -113,6 +113,23 @@ module HTTPDateTest
       end
     end
 
+    # Phase 6a's R1: RETRY-15's HTTP-date tolerances, asserted against the ONE parser. The day
+    # group was widened from (\d{2}) to (\d{1,2}); the weekday was already informational (CFG-30)
+    # and stays required (CFG-31) -- the row above asserts the bare form still fails.
+    test "RETRY-15: a single-digit day parses as that day, the weekday still informational" do
+      assert_equal(EXAMPLE, Dexpace::HTTPDate.parse("Sun, 6 Nov 1994 08:49:37 GMT"))
+      assert_equal(EXAMPLE, Dexpace::HTTPDate.parse("Mon, 6 Nov 1994 08:49:37 GMT"))
+      assert_equal(EXAMPLE, Dexpace::HTTPDate.parse("xyz, 6 nov 1994 08:49:37 utc"))
+      assert_equal(Time.utc(2024, 1, 1), Dexpace::HTTPDate.parse("Mon, 1 Jan 2024 00:00:00 GMT"))
+    end
+
+    test "RETRY-15: the widening admits digit COUNT, not calendar nonsense or a third digit" do
+      ["Sun, 0 Nov 1994 08:49:37 GMT", "Sun, 006 Nov 1994 08:49:37 GMT",
+       "Sun,  6 Nov 1994 08:49:37 GMT", "Sun, 6  Nov 1994 08:49:37 GMT",].each do |text|
+        assert_raises(Dexpace::InvalidArgumentError, text.inspect) { Dexpace::HTTPDate.parse(text) }
+      end
+    end
+
     test "CFG-31: a well-formed but impossible date fails as a parse error, not an ArgumentError" do
       ["Sun, 32 Nov 1994 08:49:37 GMT", "Sun, 31 Nov 1994 08:49:37 GMT",
        "Sun, 06 Nov 1994 24:00:00 GMT", "Sun, 06 Nov 1994 08:60:37 GMT",
