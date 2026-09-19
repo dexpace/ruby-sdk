@@ -8,13 +8,14 @@ require_relative "../../../lib/dexpace/auth/key_stamper"
 require_relative "../../../lib/dexpace/auth/key_credential"
 require_relative "../../support/auth_fixtures"
 
-# Exercises: REDIR-11, AUTH-29 -- the phase-6 charter's convergence point 1: the end-to-end
-# cross-origin credential-leak test with the REAL redirect step in front of the real AUTH step.
-# Written by phase 6c and guarded, because Dexpace::Redirect::Step does not exist on 6c's base;
-# OWNED BY PHASE 6b, which lands last and un-guards it against its real step (the checklist
-# row says so). The body is real -- proven against a stub redirect step in a scratch script
-# that forked with and without the marker -- and every helper is defined, so un-guarding is one
-# line. 6c's own AUTH-29 proof against phase 4c's ForkingProbe is complete without it.
+# Exercises: REDIR-11, REDIR-7, REDIR-8, AUTH-29 -- the phase-6 charter's convergence point 1:
+# the end-to-end cross-origin credential-leak test with the REAL redirect step in front of the
+# real AUTH step. Written by phase 6c, guarded with a skip because Dexpace::Redirect::Step did
+# not exist on 6c's base, and un-guarded by phase 6b, which landed last and owns it (the 6b
+# checklist's convergence-point row): the guard is gone, the step is built through
+# Redirect::Step.build (6b's .new is private), and before the real step was installed the body
+# was run red against a stub REDIRECT step that forked without the marker -- it failed on
+# `authorization` reaching the foreign origin, the leak this test exists to catch.
 class DexpaceAuthCrossOriginConvergenceTest < DexpaceTestCase
   include AuthFixtures
 
@@ -42,9 +43,6 @@ class DexpaceAuthCrossOriginConvergenceTest < DexpaceTestCase
   end
 
   test "no Authorization header reaches a foreign origin after a redirect" do
-    skip "phase 6b's Dexpace::Redirect::Step is not on this base; 6b un-guards this test" \
-      unless defined?(Dexpace::Redirect::Step)
-
     pipeline = Dexpace::Pipeline.builder(transport: two_hop_cross_origin_transport)
       .append(Dexpace::Redirect::Step.build, stage: STAGES::REDIRECT)
       .append(Dexpace::Auth::Step.build(
