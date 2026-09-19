@@ -3735,3 +3735,29 @@ rewrite an earlier fixer's commit. At the repaired tips the full rake reports 2,
 assertions, one skip and 6,621 / 6,622 lines (99.98%) on 4.0.6, the code tip 92.43% with all
 seventeen gates green one by one, and the matrix set 2,353 runs at 99.98% on 3.2.11; the surface
 manifest is still 1 060 lines, no public method having been added.
+
+**2026-09-19** — **Phase 6c reconciled onto `main` after phase 6a**, by a rebase-and-reprove pass. Phase 6a's
+stack merged first (#72 `e437d11` → #73 `153c675` → #74 `905523c`), so 6c's three branches — built off
+`f1fe848` and reviewed at `430c527` → `13fe732` → `2039060` — were rebased onto `main` `905523c` with
+`git rebase --onto` (rerere disabled), every 6c commit preserved and none reordered. The re-proof's honest
+RuboCop run found the one thing the rebase itself could not: the reconciled smoke suite's `Layers` class
+carried both lanes' pins and reached 104 lines, over `Metrics/ClassLength`, which the nested-worktree rake
+gate does not see — so one `fix:` commit on the code branch moves the two phase-6 cases into a sibling
+`PhaseSixLayers` class (the shape phase 4a's reconciliation used), and the stack is `5a74e17` →
+`a870f7e` → this paragraph's own commit. Nine files both lanes had changed were reconciled
+inside the rebased commits and nowhere else: `gems/dexpace-core/lib/dexpace.rb` (6a's `# Phase 6a:` block,
+then 6c's `# Phase 6c:` block, each verbatim), `gems/dexpace-core/test/dexpace_test.rb` (both layer pins,
+`RESILIENCE_LAYER` then `AUTH_LAYER`, 6a's "retry layer resolves" case and 6c's `Auth.constants` pin),
+`test/fixtures/surface/dexpace-core.txt` (regenerated, not merged: 1,005 rows on `main` plus 6c's 104,
+1,109), `CLAUDE.md` (re-derived from the combined tree: "… 5c, 6a and 6c are built", one hundred and
+seventy-four `lib/` files beside `version.rb`, thirteen `private_constant` test-mirror exceptions — 6a's
+`resilience/pacing_parsers.rb` and `retry_step_helpers.rb` and 6c's `auth/validation.rb` beside the ten
+`bounded_map.rb` left when 6c gave it a true mirror — thirteen checklists, both layers in the opening
+paragraph, 6a's four and 6c's three "Constraints that will bite" lines), `README.md`, `docs/README.md`,
+`docs/sdk-documentation/architecture.md` and `gems/dexpace-core/README.md` (both pages, `retry.md` and
+`auth.md`), and this roadmap (both status notes in merge order, and both phase-10 inbound bullets — 6a's,
+which numbers itself the forty-third, placed before 6c's dated one so the ordinal stays true). Every file
+only one lane touched is byte-identical to that lane's reviewed tip. The 6c checklist's count sentences
+describe its own base, `f1fe848`, and say so; the combined tree's counts are `CLAUDE.md`'s. Re-proven at
+every rebased tip on 4.0.6 and the matrix rows before the push; the one skip in the suite is still 6c's
+guarded end-to-end cross-origin test, which 6b un-guards.

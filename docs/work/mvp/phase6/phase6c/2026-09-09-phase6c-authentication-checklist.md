@@ -29,6 +29,21 @@ here is under `gems/dexpace-core/test/`, mirrors its `lib/` file one for one (fi
 mirror and say so below; one `private_constant` carries no `test/` mirror and is asserted at its call
 sites), and opens with the IDs it exercises.
 
+
+**Reconciled onto `main` after phase 6a, 2026-09-19.** Phase 6a (#72–#74) merged first, so this stack was
+rebased from `f1fe848` onto `main` `905523c` by a rebase-and-reprove pass — every commit preserved, the
+nine files both lanes changed reconciled inside the rebased commits (the entry file, the smoke suite's
+layer table, the regenerated manifest, `CLAUDE.md`, the three READMEs, `architecture.md`, the roadmap).
+The sentences below that count the tree — "the count stays eleven" for the `private_constant` test-mirror
+exceptions, the `lib/` file total, the manifest at 1 060 — describe **this phase on its own base** and
+are kept as its record; on the combined tree the exceptions are thirteen (6a's `resilience/pacing_parsers.rb`
+and `resilience/retry_step_helpers.rb` join `auth/validation.rb` and the ten that predate both), the
+manifest is 1 109 rows (main's 1 005 plus this phase's 104, regenerated), and `CLAUDE.md` on the docs tip
+carries the combined figures. Nothing 6a shipped is consumed by this phase: the `Cursor` context-bundle
+widening exists on the combined tree and the steps still take their own `logger:` keyword, as the
+Independence section committed to; `AUTH-31` still calls phase 3b's `Body#replayable?` directly; the
+roadmap's 2026-09-19 reconciliation note carries the old and new tips.
+
 ## Requirement rows
 
 Thirty-eight own rows — `AUTH-1`–`AUTH-38` — plus one row for the Task 15 convergence test and
