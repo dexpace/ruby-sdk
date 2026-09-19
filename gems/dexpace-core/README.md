@@ -5,7 +5,8 @@ This gem is the core: the domain model, the pipeline and every seam's contract.
 
 **Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer,
 the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
-layer, the tracing, metrics and logging layers and the retry layer are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+layer, the tracing, metrics and logging layers, the retry layer and the authentication layer
+are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -60,15 +61,25 @@ stage-based pillar step `RetryStep` and its async twin `AsyncRetryStep` at `Stag
 recovery-chain engine `RecoveryRetry` that decorates a raw transport beneath the orchestrator, the
 flat `Dexpace::RetryPredicateError`, and three wirings into earlier layers: `ProtocolError#retryable_by_status?`,
 `Pipeline::Cursor#bundle` with the `bundle:` keyword on both runtimes' `#call` (which 5b's
-instrumentation step now reads), and `HTTPDate.parse`'s single-digit day. Nothing else yet: the
-redirect and auth pillar steps, the `standard` constructors and every adapter are later phases',
-the three retry drivers are the only emitters of the HTTP-tracer vocabulary (its per-attempt group),
-and no transport ships here, so nothing talks to a socket. The as-built pages are
+instrumentation step now reads), and `HTTPDate.parse`'s single-digit day -- and phase 6c's
+authentication layer under `Dexpace::Auth`: the closed `Scheme` set,
+`Requirement`, `Descriptor` and the pure `Resolver` with the flat `Dexpace::AuthResolutionError`,
+the four credentials `BearerToken`, `KeyCredential`, `NamedKeyCredential` and
+`PasswordCredential`, the RFC 7235 parser `Challenges.parse` over `Challenge`, `BasicHandler`,
+`DigestHandler`, `ChallengeHandlerChain` and its `#as_challenge_hook`, `KeyStamper`,
+`BearerStamper`, `AsyncBearerStamper` and `BearerProvider.fetch_async`, the three errors
+`UnencodableCredentialError`, `HTTPSRequiredError` and `ProviderError`, and the AUTH pillar
+`Step` / `AsyncStep` at `Stages::AUTH`, plus `Instrumentation::Events::AUTH_REFRESH` and
+`BoundedMap#update`. Nothing else yet: the redirect pillar step, the `standard` constructors and
+every adapter are later phases', the three retry drivers are the only emitters of the HTTP-tracer
+vocabulary (its per-attempt group), and no transport ships here, so nothing talks to a socket.
+The as-built pages are
 `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`,
 `docs/sdk-documentation/body.md`, `docs/sdk-documentation/execution-context.md`,
 `docs/sdk-documentation/recovery.md`, `docs/sdk-documentation/pipelines.md`,
 `docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
-`docs/sdk-documentation/logging-and-redaction.md` and `docs/sdk-documentation/retry.md`.
+`docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md` and
+`docs/sdk-documentation/auth.md`.
 
 ## Install
 
@@ -187,6 +198,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   questions, the calculator, the pacing parser, the re-sendability gate, the one configuration,
   the stage step on both runtimes and the async trampoline, the recovery-chain engine and its
   budget, the per-attempt tracer events, and the three wirings into earlier layers.
+- `docs/sdk-documentation/auth.md` -- the authentication layer as built: the scheme set and the
+  resolver, the credentials and their three redacted renderings, the challenge parser, Basic and
+  Digest with the chain and its hook, the key stamper, the bearer stamper on each runtime, and the
+  AUTH step's guard, cross-origin suppression, 401 replay and bearer 401 branch.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

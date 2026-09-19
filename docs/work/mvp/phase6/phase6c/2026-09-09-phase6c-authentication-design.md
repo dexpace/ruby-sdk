@@ -1105,6 +1105,152 @@ ledgers concurrently, and is resolved at consolidation into design §10, not her
 | P6-7 | `AUTH-31`'s replayability gate is applied to `AUTH-36`'s eviction-driven bearer retry as well, which `AUTH-36` does not require | `AUTH-31`, `AUTH-36`; §11.12 | A non-replayable body cannot be sent twice whichever of the two 401 paths re-drives it; §11.12 already resolves the four sync/async drifts "toward the stricter, uniform behaviour, each through a single shared implementation". Strictly narrows what is sent, never what is accepted. |
 | P6-5 | "Kick off an off-thread background refresh" (`AUTH-37`) is implemented as calling the provider's async fetch and attaching `#on_settle` without awaiting it — no thread is spawned by phase 6 itself | `AUTH-37`, `AUTH-11`; `Dexpace::Async::Future#on_settle` | Argued in full under `R12`. The SDK owns no thread pool; "off-thread"-ness is a property of the caller's provider implementation, exactly as `AUTH-11` already establishes for the default-mirrored case. |
 
+### As built, 2026-09-18
+
+P6-1 through P6-7 stand as written; every one is implemented as its row says, and the plan's
+open-question answers were carried through — the SHA-256 expectations derived and never transcribed,
+the constants namespaced, `KeyStamper` and `BasicHandler#call` shared by both runtimes. This phase was
+cut from `main` at `f1fe848`, which holds all of phase 5 and nothing of phase 6a, so the `Cursor`
+context-bundle widening was consumed not at all and the step takes its own `logger:`. Execution added
+the rows below, numbered from **P6-71** because the three phase-6 lanes are numbered apart — 6a's
+as-built additions start at P6-51, 6b's at P6-91 — and the design's own P6-1–P6-7 knowingly collide with
+6a's P6-1–P6-12, which the roadmap's 2026-09-10 catch-up entry records and phase 10's consolidation
+resolves; outside this document every citation reads "6c's P6-n". The checklist's "Deviations from
+the plan" is the itemised list against the plan's text; the rows here are the ones that touch public
+behaviour, the contract a later phase cites, or a statement this document makes.
+
+Nine statements above read differently against the source, and the difference is recorded here
+rather than by rewriting the text it corrects:
+
+- **The pinned constructor is `Step.build`, not `Step.new`, and it has no `redactor:` keyword.** Phase
+  5b's step took `.build` with `.new` private (P5-34) and one redactor per path — the logger's (P5-95);
+  the built step follows both. It emits no log event of its own, so `redactor:` would have been a
+  keyword nothing reads, which is the argument this document itself makes against `refresh_margin:`
+  on the step. `logger:` stays, because a superseded 401 is closed through `Dexpace.close_quietly` and
+  §3.7's second disposal route needs somewhere to report a close failure (P6-71).
+- **`AUTH-8` has three renderings, not two.** The object model's "`#to_s`/`#inspect` both redact" is
+  one short for a `Data`: `pp` walks the members. Both `Data` credentials override `#pretty_print` too
+  (P6-72), and `docs/knowledge/notes/authentication.md` records the fact against the corpus's rule.
+- **`Dexpace::Auth::Replayability` does not exist.** The layout's public module became one private
+  predicate on `Step` that `AsyncStep` inherits — still "one implementation, two drivers", with no third
+  public spelling of the predicate beside 6a's and 6b's (P6-80).
+- **`BearerProvider` is not documentation-only.** It ships `AUTH-11`'s default async fetch as a real
+  function, which the plan never wrote (P6-81).
+- **The three `Auth::` errors are filed under `lib/dexpace/auth/`**, not flat under `error/`: the constant
+  path decides the file path, as phase 2's `Serde` errors sit under `serde/` (P6-82). The resolved open
+  question 2 above stands for the constants and not for the files.
+- **`R10`'s typed failure names the branch that raised, and the UTF-8 branch can raise too.** `R10`
+  above fixes `encoding:` as `"ISO-8859-1"` because only the Latin-1 branch was a raising path in its
+  reading; as built, `materialize` transcodes on both branches — a Latin-1-tagged `pä` under
+  `charset=UTF-8` hashes its UTF-8 bytes, which the object model's `string.b` would have hashed as
+  Latin-1 — so a BINARY-tagged credential, or a UTF-8-tagged one with an invalid sequence, has no
+  UTF-8 hash input either and is refused with `encoding: "UTF-8"` and a reason worded for that
+  branch (P6-84). Review round 0 (2026-09-18) found the first build naming ISO-8859-1 on both
+  branches and blaming the challenge for a byte the caller supplied.
+- **`R10`'s typed failure carries NO `#cause`, and `BasicHandler` raises its own typed refusal.** `R10`
+  above sets `#cause` to the rescued `Encoding::UndefinedConversionError` "because it is free and
+  consistent"; it is neither. Ruby's conversion error names the offending character (`U+65E5 from UTF-8
+  to ISO-8859-1` — U+65E5 is 日, a character of the password) or byte (`"\xE4" from ASCII-8BIT to
+  UTF-8`), and `#full_message` — what Ruby prints for an uncaught exception, what `Dexpace.each_cause`
+  walks — renders a cause on every supported Ruby, so the cause was the one diagnostic rendering
+  through which a credential could leak (`AUTH-8`). Both raises in `materialize` now spell `cause: nil`
+  and the error carries the value's own encoding as `#source_encoding` and in its message instead, so
+  the diagnostic loses only the character; and `BasicHandler`, which let the bare conversion error
+  escape at construction for a BINARY-tagged or invalid UTF-8-tagged field, refuses it as an
+  `InvalidArgumentError` naming the field and the two encodings, `cause: nil` (P6-85). Review round 1
+  (2026-09-18) found it; `docs/knowledge/notes/error-handling.md` narrows the styleguide's "the original
+  exception object as the `cause:`" rule for a secret.
+- **`R12`'s "second `Completer`" is load-bearing, and P6-79's "cancels the inner future" stops at
+  the waiter.** `R12` above says the caller's future is "built by chaining through `#on_settle` and a
+  second `Completer`"; the first build derived it through 4c's `Future#then` instead, and `#then`
+  wires the derived future's cancellation back to its source — the right direction for a
+  one-to-one derivation and the wrong one here, where the source is the single-flight slot every
+  coalesced caller shares. Cancelling one request's future, which the async step forwards to its
+  stamp future (P6-79), cancelled every other waiter and every new arrival until the provider
+  settled. `AsyncBearerStamper#awaiting` now builds each waiter's future as `R12` says, settled from
+  the slot's settlement and never wired back to it, so a cancellation detaches one waiter and the
+  fetch, the cache and the other waiters are untouched; a provider cancelling its own fetch cancels
+  the slot and every waiter as a cancellation, `Future#then`'s rule one link down (P6-86). Review
+  round 2 (2026-09-18) found it.
+- **`AUTH-35`'s validation has a fourth check, and it is the port's.** `R12`'s mechanism and the
+  object model above both state the rule as "non-nil, not already expired with no margin" (plus the
+  class check the build added), which is the requirement's own text; a token that passes all three
+  but whose `Bearer <token>` wire form `HTTP-18`'s outbound grammar refuses — a trailing newline
+  read off a file, a CR, a non-ASCII byte — was written into the cache by both stampers, where it could
+  never be sent and so never evicted (`AUTH-36` matches the value a 401 rejected, and no 401 ever
+  comes): the sync stamper raised `HTTP-18`'s `InvalidArgumentError` on every later call with the
+  provider never asked again, and the async stamper's fresh zone raised it synchronously out of
+  `#stamp`, which returns a `Future`, failing every later request through an `AsyncStep` until the
+  token expired — never, for a token with no expiry. `AUTH-35`'s "MUST NOT be cached, so a later
+  request retries" reaches this misbehaving result too, so `BearerStamper#validate` and
+  `AsyncBearerStamper#invalid` refuse it as a `ProviderError` whose message never names the token,
+  caching nothing; the check lives where the token arrives, as `KeyStamper`'s does at construction,
+  and not in `BearerToken.build`, whose contract is `AUTH-9`'s non-blank rule (P6-87). Review
+  round 3 (2026-09-18) found it, in the fixture round 2's own cancellation test fed the stamper.
+
+Review round 0 (2026-09-18) also found `compute` taking the nonce count before hashing, so a refused
+attempt consumed an `nc`; the object model's `authorization_for` fence above materialises the
+credential first and takes the count after, and the built method now follows it — a return to this
+document, not a deviation from it, so it carries no row. The round's other findings were the suite's:
+`AsyncStep`'s post-eviction routing ("`#stamp_fresh`, never `#stamp`, after an eviction") was
+asserted only through the real stamper, which fetches through either method once its cache is
+empty, and is now told apart through a stamper double whose two stamps differ on the wire; and the
+parser's eight patterns are pinned as frozen, timeout-compiled `Regexp`s, which needed the `.freeze`
+`Regexp.new` does not give.
+
+Review round 1 (2026-09-18) found one more gap in the async step that this document's own P6-78 row
+promised closed: a challenge hook answering a *future* that fulfils with something that is not a
+request or nil failed the step's future with the 401 body left open, because the settled value was
+checked outside the frame that closes the 401. `Step#consult`'s rescue is now one private
+`closing_on_error(response)` frame both runtimes use, `AsyncStep` overrides `consult` to pass a future
+through, and the settled value is checked inside the same frame — so a String, or a future of a future,
+closes the 401 before the frame fails the future, exactly as a synchronous non-request does. P6-78's
+statement stands as written and now holds for every shape; no row. The round's other findings were the
+suite's: `AUTH-30`'s "close the original 401 AND drive the replacement" order was asserted by count
+alone, so a close-after-drive mutation survived on both interpreters, and the replay's scripted reply
+now reads the close count as the second drive reaches the transport; and the async stamper's "caches
+nothing" for a rejected already-expired token is pinned through `#evict_if_matches`.
+
+Review round 2 (2026-09-18) found the shared-fetch cancellation above (P6-86) and two suite gaps:
+the handler-level `AUTH-24` test was probabilistic — sixteen threads reusing one nonce never observe
+a lost increment under the GVL, so a counter reading through `#[]` and writing through `#set`
+survived it — and now pins the increment to `BoundedMap#update` deterministically by narrowing the
+frozen handler's store in place so every other accessor raises; and the async
+`#evict_if_matches`'s exactness clause was unpinned where the sync one's was, so the async case
+carries the same doubled-space and superstring refutations. The round's two nits: a class-comment
+line beginning `@lock` that YARD read as an unknown tag, and the checklist's at-implementation
+sentence about `cause: nil`, both corrected.
+
+Review round 3 (2026-09-18) found the poisoned cache above (P6-87): the token round 2's cancellation
+test fed the stamper to prove `#deliver`'s rescue — one `HTTP-18`'s grammar refuses — was exactly a
+token `AUTH-35`'s three checks accept, and the test asserted only that its waiter failed, not that
+the cache stayed empty. With the fourth rejection in place a cached token always stamps, so the
+async `#stamp`'s fresh and expiring zones cannot raise, and the rescue's remaining reason is a
+request whose own derivation refuses, which is what now pins it. The round's one nit, two
+73-character body lines in the round-2 documentation commit, is deferred to the PR body: rewrapping
+them would rewrite an earlier fixer's commit.
+
+| # | Deviation | Requirement / document | Why |
+|---|---|---|---|
+| P6-71 | `Dexpace::Auth::Step.build(stamper:, challenge_hook: NO_REPLACEMENT, logger: Instrumentation::Logger::NULL)` with `.new` private, frozen, the same three keywords on `AsyncStep` — no `redactor:`; the sync stamper is anything `Registry.callable?` accepts at arity 1 and the async step additionally accepts an object answering `#stamp(request) -> Future`, adapting a `#call`-shaped one into a settled future | The pinned constructor above; 5b's P5-34, P5-95; `AUTH-27`, `AUTH-30` | One construction shape per phase since 5b; a keyword nothing reads is a signature NFR-4 locks for no reason; a sync `BearerStamper`, `KeyStamper` or `BasicHandler` installed on the async step should work, and does |
+| P6-72 | `BearerToken` and `PasswordCredential` override `#pretty_print(printer)` beside `#to_s` and `#inspect` | `AUTH-8`; design §6.3's two-rendering sentence; `docs/knowledge/notes/authentication.md` | `pp` gives a `Data` its own `#pretty_print` over `members` and never calls `#inspect` (verified on every supported Ruby); `pp token` printed the secret with the two overrides alone |
+| P6-73 | `PasswordCredential#to_s`/`#inspect`/`#pretty_print` redact the username as well as the password; `NamedKeyCredential#name` stays visible | `AUTH-8`; phase 5a's checklist item 24 (`CFG-22`) | The username is half of the value Basic puts on the wire and `AUTH-8` does not list it among the non-secret fields that MAY remain visible; 5a's review masked the proxy username for the same pair. The key NAME is on `AUTH-8`'s visible list and is the half a caller needs to tell two credentials apart |
+| P6-74 | `Challenges.parse` scans a header value whose bytes are invalid under its own tag as BINARY, and keeps a valid value's tag | `AUTH-13`; `HTTP-19` (inbound values admit obs-text and carry the transport's tag) | `StringScanner#scan` and `String#downcase` both raise `ArgumentError` on a UTF-8-tagged String with an invalid byte, so the plan's fence would have raised from the parser `AUTH-13` says never raises |
+| P6-75 | `BasicHandler` refuses a username containing `:` and transcodes the `username:password` pair to UTF-8 before `pack("m0")` | `AUTH-14`; RFC 7617 §2 | A colon makes the pair unparseable by the server, silently; the requirement names "UTF-8 bytes of `username:password`", and a Latin-1-tagged credential would otherwise pack Latin-1 bytes |
+| P6-76 | `DigestHandler` sends a non-ASCII username as RFC 7616 §3.4's `username*=UTF-8''<pct-encoded>` (hashing the raw username), declines a challenge whose `realm`, `nonce` or `opaque` the outbound header grammar cannot carry, and matches the `algorithm` token case-insensitively | `AUTH-16`, `AUTH-22`, `AUTH-25`; `HTTP-18` | `HTTP-18` refuses a byte above 0x7F in an outbound value, so RFC 7616 §3.9.1's `username="Jäsøn Doe"` cannot be stamped as printed; `username*` is the RFC's own wire form for it, and RFC 7616 defines no encoded form for the three echoed values, so a challenge carrying one is unsatisfiable rather than an `InvalidArgumentError` out of the hook |
+| P6-77 | `Instrumentation::Events::AUTH_REFRESH = "http.auth.refresh"`, the ninth event and the first outside the `http.instrumentation.` prefix; `AsyncBearerStamper.new(…, logger: Logger::NULL)` reports a failed background refresh through `Instrumentation.diagnostic` at WARNING with the cause | `AUTH-37`'s "log-and-continue"; `OBS-39`, `OBS-20` | The requirement asks for a log; the vocabulary home is 5b's `Events`, extended in place rather than split across namespaces; the diagnostic runs inside `Instrumentation.contain`, so a raising sink cannot fail the refresh callback either |
+| P6-78 | `AsyncStep`'s challenge hook may answer a `Dexpace::Async::Future` of a replacement (or of nil) as well as a request or nil; a failed hook future closes the 401 and fails the step's future | `AUTH-32`'s three clauses ("its async future completes exceptionally"), `AUTH-30` | Without it the second of `AUTH-32`'s three clauses has no path on this port |
+| P6-79 | Every inner future the async step watches — the stamp, the drive, the re-stamp, the hook's future, the replay — is registered through one `observe(future, completer)` that runs the settlement inside the frame, forwards a cancellation as a cancellation, and cancels the inner future when the step's future is cancelled | `SEAM-18`, `ASYNC-6`; 4c's `Future#then` rules | The first draft wired cancellation only on the cross-origin path; cancelling the step's future left the transport's drive running |
+| P6-80 | No `Dexpace::Auth::Replayability`: `AUTH-31`'s gate is one private `Step#replayable?` that `AsyncStep < Step` inherits | `AUTH-31`; spec-forced boundary 13; `api-design/b0e18938`; `NFR-4` | 6a's `Resend.eligible?` and 6b's `Resend.replayable_body?` are already two public spellings of the same predicate; a third, NFR-4-locked, buys nothing over an inherited method, and the sharing between the two runtimes is inheritance, 5b's P5-34 shape |
+| P6-81 | `Dexpace::Auth::BearerProvider` is a module with two functions, `.fetch_async(provider)` and `.conforms?(provider)`, beside the two RBS interfaces `_BearerProvider` and `_AsyncBearerProvider`; `.fetch_async` never raises: a `#fetch`-only provider mirrors into a settled or already-failed future, a nil token into a failed `ProviderError` future, a `#fetch_async` override's synchronous raise or non-`Future` return into a failed future | `AUTH-11`; `NFR-11` | The requirement's own text fixes the default async fetch and the normalisation, and the plan wrote neither; the interfaces are what the scan can name |
+| P6-82 | `unencodable_credential_error.rb`, `https_required_error.rb` and `provider_error.rb` live under `lib/dexpace/auth/`; `bounded_map.rb` gains a true `test/` mirror (`bounded_map_test.rb`) and leaves `CLAUDE.md`'s private-constant exception list as `auth/validation.rb` joins it | Resolved open question 2 (files); phase 4a's P4-3; `XCUT-14` | The constant path decides the file path (phase 2's `serde/`); `#update` is the first `BoundedMap` method with no consumer of its own to assert it through, and `AUTH-24`'s deterministic proof needs the map directly |
+| P6-83 | `Requirement.build(scheme:)` resolves a String, a Symbol or a copied constant through `Scheme.of`; `Descriptor.build(requirements:)` is keyword-shaped; `Scheme::ALL` is public with `.[]` hidden beside `.new`; `Challenge.build` is the one place the scheme and parameter names are folded and exposes `#token68`; the resolver's `available_schemes` are resolved the same way | `AUTH-1`–`AUTH-5`, `AUTH-12`; design §4's construction pattern; `HTTP-3`'s `#with` | `Model#with` is `self.class.build(**to_h, **changes)`, so a positional `.build` breaks derivation; a `Data`'s generated `.[]` is a second public constructor; one fold point means a hand-built and a parsed challenge meet a handler in one shape |
+| P6-84 | `UnencodableCredentialError#encoding` names the branch that raised — `"ISO-8859-1"` under RFC 7616's default, `"UTF-8"` when the challenge advertised it — and its message's reason is that branch's own; `DigestHandler#materialize` transcodes on both branches and refuses, under `charset=UTF-8`, a BINARY-tagged credential (the conversion error as `#cause`) or a UTF-8-tagged one with an invalid sequence (`#cause` nil) | `AUTH-21`, `R10`; `AUTH-8`; review round 0's R0-3 (2026-09-18) | Round 0's tree rescued both branches into an error that always said ISO-8859-1 and "the challenge did not advertise charset=UTF-8", false for the UTF-8 branch; `encode` to the same encoding passes invalid bytes through unvalidated (verified on 3.2.11, 3.4.10 and 4.0.6), so an invalid UTF-8-tagged credential would have been hashed as it was — the silently wrong response `R10` rejects |
+| P6-85 | `UnencodableCredentialError` is raised with `cause: nil` on both of `DigestHandler#materialize`'s raising paths and carries the value's own encoding as `#source_encoding` and in its message ("cannot be encoded as ISO-8859-1 from UTF-8"), never the rescued `Encoding::UndefinedConversionError`; `BasicHandler` refuses a username or password UTF-8 cannot carry — BINARY-tagged with a high byte, or UTF-8-tagged with an invalid sequence — as an `InvalidArgumentError` naming the field and the two encodings, `cause: nil`, in place of the bare conversion error it let escape | `AUTH-8`, `AUTH-14`, `AUTH-21`; `R10`'s "`#cause` set to the rescued `Encoding::UndefinedConversionError`" and P6-84's "(the conversion error as `#cause`)", both amended; `InvalidArgumentError`'s class comment ("the original left as the `cause`"); review round 1's R1-3 (2026-09-18); `docs/knowledge/notes/error-handling.md` | The conversion error's message names the offending character or byte of the secret (`U+65E5`, `"\xE4"`), and `#full_message` renders a cause on 3.2.11 through 4.0.6, so a cause here is a diagnostic rendering of the credential `AUTH-8` forbids; `cause: nil` rather than a bare raise so a caller's in-flight `$!` is not assigned either; the source encoding is the part of the dropped message that was not the secret |
+| P6-86 | `AsyncBearerStamper`'s expired-or-missing zone settles a `Completer` of its own from the single-flight slot's settlement, never a `Future#then` derivation of the slot, and registers nothing on the slot's completer; cancelling one waiter's future detaches that waiter alone — the fetch runs on, the token is cached, the other waiters and every later arrival stamp it — while a cancellation of the slot itself (a provider cancelling its own fetch) is forwarded to every waiter as a cancellation carrying the provider's reason, and a stamp the outbound grammar refuses fails that waiter only | `AUTH-37`, `SEAM-18`, `ASYNC-6`; `R12`'s "second `#on_settle` and a second `Completer`"; P6-79's "cancels the inner future when the step's future is cancelled", narrowed to the waiter; review round 2's R2-1 (2026-09-18) | `Future#then`'s bidirectional cancellation is 4c's rule for a one-to-one derivation; on a many-to-one slot it makes one caller's cancellation every caller's, and leaves the slot set so new arrivals coalesce onto an already-cancelled future until the provider settles — `AUTH-37`'s coalescing shares the fetch, not the decision to give up on it |
+| P6-87 | A fetched token whose `Bearer <token>` wire form `HeaderSyntax.valid_outbound_value?` refuses is `AUTH-35`'s fourth rejection on both stampers: `BearerStamper#validate` raises and `AsyncBearerStamper#invalid` returns a `ProviderError` whose message never names the token, nothing is cached, the sync call raises from inside the lock with `@token` untouched, the async waiters fail with it, the slot clears, an unusable BACKGROUND refresh is logged as `http.auth.refresh` and the next call fetches again; a cached token therefore always stamps, and `#stamp`'s fresh and expiring zones cannot raise | `AUTH-35`, `AUTH-37`, `AUTH-11`; `HTTP-18`, `HTTP-20`, `AUTH-8`; `R12`'s and the object model's "non-nil, not already expired with no margin", both widened; P6-86's "a stamp the outbound grammar refuses fails that waiter only", amended — such a token never reaches the stamp; `KeyStamper`'s construction-time check (`AUTH-26`); review round 3's R3-1 (2026-09-18) | Such a token can never be sent, so no 401 could ever evict it (`AUTH-36` matches the value a 401 rejected) and caching it failed every later request until it expired — never, for a token with no expiry — with the provider never asked again, which is the "MUST NOT be cached, so a later request retries" `AUTH-35` forbids; the check belongs where the token arrives, as `KeyStamper`'s does, and not in `BearerToken.build`, whose contract is `AUTH-9`'s non-blank rule and which a forged token would bypass anyway |
+
+
 ## Work phase 6c postpones, and who owns it now
 
 **None.** Every one of `6c`'s 38 IDs is implemented in full (`AUTH-29`'s stripping clause satisfied

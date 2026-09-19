@@ -13,10 +13,10 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c and 6a are built; the domain model, the seam layer, the
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a and 6c are built; the domain model, the seam layer, the
 byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
-configuration layer, the tracing and metrics layer, the logging facade with its redaction and the retry
-layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry
+layer and the authentication layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -124,8 +124,26 @@ postponement), `Pipeline::Cursor#bundle` seeded by the optional `bundle:` keywor
 and `AsyncPipeline#call` and read by 5b's `Step#open_span` (the context-bundle widening), and
 `HTTPDate.parse`'s single-digit day; the three drivers emit the HTTP-tracer vocabulary's per-attempt
 group and nothing emits its other two
-(`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-checklist.md`); every other gem's `lib/`
-still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
+(`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-checklist.md`) — and the
+authentication layer, §6.3's chapter 11, under `Dexpace::Auth`: the closed five-member `Scheme` set with
+`ALL` and `.of`, `Requirement`, `Descriptor` with `#allows_anonymous?` and the pure three-tier `Resolver`
+with the flat `Dexpace::AuthResolutionError`, the four credentials `BearerToken` (with `#expired?`),
+`KeyCredential`, `NamedKeyCredential` and `PasswordCredential` — every one redacting in `#to_s`,
+`#inspect` and, for the two `Data`s, `#pretty_print` — the never-raising RFC 7235 list parser
+`Challenges.parse` over `Challenge` with its one fold point and `TOKEN68`, `BasicHandler` (preemptive
+`#call` and challenge-answering `#authorization_for`), the challenge-only `DigestHandler` with
+`ALGORITHMS`, `DEFAULT_CAP` and its own nonce-count `BoundedMap`, `ChallengeHandlerChain` with
+`#header_name(proxy:)` and `#as_challenge_hook`, the stateless `KeyStamper`, the single-flight
+`BearerStamper` with `DEFAULT_REFRESH_MARGIN` and `#evict_if_matches`, the three-zone
+`AsyncBearerStamper` with `#stamp` and `#stamp_fresh`, `BearerProvider.fetch_async` / `.conforms?` over
+the `_BearerProvider` / `_AsyncBearerProvider` interfaces, the three namespaced errors
+`UnencodableCredentialError`, `HTTPSRequiredError` and `ProviderError`, the pillar `Step` at
+`Stages::AUTH` built through `.build(stamper:, challenge_hook:, logger:)` with `NO_REPLACEMENT` and
+`NO_STAMP`, and `AsyncStep < Step` — plus two wirings into earlier layers:
+`Instrumentation::Events::AUTH_REFRESH`, the ninth event, and `BoundedMap#update`, the read-yield-write
+the nonce counter needs
+(`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-checklist.md`); every other
+gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
@@ -723,6 +741,63 @@ Each is one line plus the chapter to read before touching the area.
   driver's "never a blocking sleep" is asserted, not stated — the async wait tests read `clock.sleeps`
   off the recording `FakeClock`, which is the only thing that turns a `Clock#sleep` slipped in beside
   `Async.delay` red, since that clock records and returns.
+- **A `private_constant` of `Dexpace` is reachable only by its BARE name from a full-nesting body** —
+  `Dexpace::BoundedMap` raises `NameError` even from inside `module Dexpace`, and the compact
+  `module Dexpace::Auth::X` form cannot see it at all, so `DigestHandler` writes `BoundedMap.new(cap:)`
+  inside `module Dexpace; module Auth; class DigestHandler` and nothing else works on any supported Ruby
+  (`docs/knowledge/notes/execution-context.md`; 6c's P6-4). The nonce counter is one per handler, its cap
+  a constructor keyword defaulting to `AUTH-19`'s 1024 and read from no configuration chain, and the
+  increment is `BoundedMap#update` — one read-modify-write under the map's own mutex, which is what makes
+  `AUTH-24`'s non-duplicated counts true; `bounded_map_test.rb` proves it deterministically with a forced
+  interleaving, never with a race that "usually" fails.
+- **`BearerStamper#call` reads its cached token with NO lock, and `#refresh!` calls the provider WHILE
+  HOLDING the credential's mutex** — the reference is written once under the lock and the `BearerToken` it
+  points to is frozen, so the lock-free read is safe by publication on every Ruby; and the lock-across-fetch
+  is `XCUT-12`'s one sanctioned exception to "never hold a mutex across a suspension point", because
+  serialising the fetch is what single-flight means and the lock is this credential's own (`AUTH-34`). The
+  async stamper holds the same lock only to register a `Completer` and fetches outside it; `AUTH-37`'s three
+  zones are fresh (settled, no fetch), expiring (stamped now, background refresh never awaited, a failure
+  logged as `Events::AUTH_REFRESH` and nothing else) and expired (a `Completer` of the request's own, settled
+  from the one coalesced fetch's `#on_settle` and never a `Future#then` derivation of it — `#then` wires the
+  derived future's cancellation back to its source, and the source is the slot every coalesced request
+  shares, so one request giving up would cancel them all; a cancelled waiter is detached alone and only the
+  provider's own settlement settles the slot, a cancellation there forwarded as a cancellation; 6c's P6-86).
+  A nil, non-token or already-expired token, or one whose `Bearer <token>` wire form the outbound header
+  grammar refuses — a trailing newline read off a file, which could never be sent and so never be evicted
+  by a 401 — raises `Auth::ProviderError` from inside the lock with the cache untouched, and fails the
+  async waiters the same way with the slot freed, so the next call fetches again (`AUTH-35`; the fourth
+  rejection is 6c's P6-87).
+- **Basic is `["u:p"].pack("m0")` over the UTF-8 bytes and Digest is `::Digest::MD5` / `::Digest::SHA256`
+  with `::SecureRandom.hex(16)` for the cnonce** — `base64` is bundled from 3.4 and refused by the
+  require allowlist; `digest` and `securerandom` stay default through 4.0 and are allowlisted, and the
+  smoke-suite constant snapshot preloads `digest` so the top-level `Digest` it defines is not read as a
+  leak (`AUTH-14`, `AUTH-20`; design §10 entry 7). A Digest challenge whose `realm`, `nonce` or `opaque`
+  the outbound grammar cannot carry is declined, never raised from the header write, and a non-ASCII
+  username goes out as RFC 7616 §3.4's `username*=UTF-8''…` (6c's P6-76). Digest hash inputs are
+  transcoded to UTF-8 under `charset=UTF-8` and to ISO-8859-1 otherwise, and a credential either branch
+  cannot represent raises `Auth::UnencodableCredentialError` naming THAT branch's encoding — never
+  `:replace`, and never a UTF-8-tagged value with an invalid sequence hashed as it is, which `encode` to
+  the same encoding passes through unvalidated (`AUTH-21`; 6c's P6-1, P6-84); the credential is
+  materialised BEFORE the nonce count is taken, so a refused attempt consumes no `nc`. **That failure,
+  and `BasicHandler`'s `InvalidArgumentError` for a field UTF-8 cannot carry, are raised `cause: nil`
+  with the value's own encoding as `#source_encoding` / in the message instead** — Ruby's conversion
+  error names the offending character (`U+65E5 from UTF-8 to ISO-8859-1`) or byte of the secret, and
+  `#full_message` renders a cause on every supported Ruby, so the styleguide's "the original as the
+  `cause`" rule yields to `AUTH-8` for a credential (6c's P6-85, `docs/knowledge/notes/error-handling.md`).
+- **A `Data` that carries a secret overrides `#pretty_print` beside `#to_s` and `#inspect`** — pp.rb gives
+  `Data` its own `#pretty_print` over `members` and never consults an `#inspect` override, so
+  `pp credential` printed the token with the two overrides alone; a plain class pretty-prints through
+  `#inspect` and needs no third (`AUTH-8`; 6c's P6-72, `docs/knowledge/notes/authentication.md`). The
+  real fields stay intact: `#to_h`, `#members` and `#deconstruct_keys` still expose them, which `AUTH-8`
+  permits.
+- **The AUTH step forks for every drive and reads the cross-origin marker off `cursor.state(Stages::REDIRECT)`,
+  never off a header** — the check runs FIRST, before the HTTPS guard and before any stamp or fetch, so a
+  plaintext foreign hop goes out credential-free instead of raising `Auth::HTTPSRequiredError`
+  (`AUTH-28`, `AUTH-29`; design §10 entry 15). A 401 is replayed at most once, after the replacement
+  body's `#replayable?` said yes and the 401 was closed, and a 401 with no `WWW-Authenticate` is returned
+  unchanged without consulting the hook (`AUTH-30`–`AUTH-33`); `Step.build(stamper:, challenge_hook:,
+  logger:)` is the whole constructor and `AsyncStep < Step` shares every branch through one private
+  `#replayable?` — there is no `Auth::Replayability` module (6c's P6-71, P6-80).
 
 ## Public API surface
 
@@ -824,14 +899,15 @@ probe compares each against the live tree, and a count written anywhere else in 
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
-  metrics layer and the phase-6a retry layer — one hundred and forty-nine phase-1, phase-2, phase-3a,
-  phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b, phase-5c and phase-6a files under
-  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one
-  hundred and forty-nine but the thirteen `private_constant`s `hooks.rb`, `bounded_map.rb`,
-  `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`,
-  `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`,
-  `instrumentation/render.rb`, `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb` and
-  `resilience/retry_step_helpers.rb` mirrored in `test/`; every
+  metrics layer, the phase-6a retry layer and the phase-6c authentication layer — one hundred and
+  seventy-four phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b,
+  phase-5c, phase-6a and phase-6c files under `lib/dexpace/` beside phase 0's `version.rb`, every one
+  mirrored in `sig/`, and every one of the one hundred and seventy-four but the thirteen
+  `private_constant`s `hooks.rb`, `context/call_key.rb`, `recovery/ownership.rb`,
+  `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`,
+  `proxy/resolution.rb`, `instrumentation/render.rb`, `instrumentation/emitter.rb`,
+  `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb` and `auth/validation.rb` mirrored
+  in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -843,7 +919,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  twelve checklists written so far, each at implementation; `phase4/`
+  thirteen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -854,7 +930,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
-  (authentication); each holds a design and a plan, and `phase6a/` holds its checklist too. Phase 6 is the largest **build** phase in the
+  (authentication); each holds a design and a plan, and `phase6a/` and `phase6c/` hold their checklists
+  too, each written at implementation on 2026-09-18. Phase 6 is the largest **build** phase in the
   roadmap — only the audit-led phase 10, at 124, carries more requirement IDs:
   111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus the fifteen `RECOV` IDs phase 4 handed it
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
@@ -914,5 +991,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's and phase 6a's is still to be written at execution time.
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's and phase 6c's is still to be written at
+  execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
