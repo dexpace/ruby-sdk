@@ -3875,3 +3875,27 @@ amending the implementer's commits — and are the squash-merge's to shorten, ev
 adds keeping the 74/72 limits. No ledger row is added: the design's As-built addendum carries a
 round-1 paragraph saying the round found no behaviour the document states that the code fails to
 honour.
+
+**2026-09-19, review round 2 of the phase-6b stack.** Round 1 returned `changes_requested` with one
+should-fix on the tests branch and one nit on the docs branch, nothing touching `lib/`. The should-fix:
+of fifty-nine mutations the round ran, one survived on 4.0.6 and 3.2.11 on a MUST clause with a real
+gap — the fragment dropped from the resolved target left every redirect suite green, because `REDIR-13`
+names "path, query, and fragment" and no test in the phase drove a fragment-carrying `Location`, while
+the `REDIR-14` case titled "a query-only, a fragment-only and a network-path reference" carried no
+fragment and the checklist's `REDIR-14` row claimed one (the code was right: the reviewer's probe showed
+`/y#frag` reaching the transport as `https://h/y#frag`). `LocationTest`'s `REDIR-14` chain now carries
+the fragment-only reference, which resolves against the current hop and keeps that hop's path and query
+(`page=2#only`, never `page=1#only`), and a `REDIR-13` case sends a fragment, a percent-encoded fragment,
+an empty query and an empty fragment, each asserted byte for byte on the URL the transport received —
+the fragment dropped, the empty query dropped (the corner the round folded in), the empty fragment
+dropped and a percent-encoded fragment decoded are guards 53–56, each red on both rows, the first on
+two cases. The addition pushed `LocationTest` over `Metrics/ClassLength`, so `REDIR-15`'s three downgrade
+cases and `REDIR-18`'s two screen cases moved to a `RefusedTargetTest`, a split by concern and not a
+disable; the step suite is eleven nested classes and the checklist's rows, guard table, audit row and
+departures cite the new class where a case moved. The battery is fifty-six, fifty-five caught on both
+rows, guard 3 still the one equivalent mutant; the docs tip runs 2,708 tests and 67,685 assertions on
+4.0.6 with every gate green. The nit — departure 32 said `step_test.rb` had "seven classes" where the
+suite had ten — reads eleven now, and the two stale "two" counts for the constructors' suite, which has
+been three nested classes since round 1's split, were corrected in the same pass. No ledger row is
+added: the design's As-built addendum carries a round-2 paragraph saying the round found no behaviour
+the document states that the code fails to honour.

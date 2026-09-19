@@ -967,3 +967,17 @@ had no test driving a cross-origin 303 with `Cookie` or `Proxy-Authorization`, a
 checklist's guards 51 and 52, red on 4.0.6 and 3.2.11, with no `lib/` line changed; the round's two nits
 — the checklist's `NFR-13` count and the two over-long commit subjects — are the checklist's and the
 stack's, not this document's.
+
+**Review round 2, 2026-09-19.** Round 1 of the stack's review found no behaviour this document states
+that the code fails to honour either, and adds no row: its one should-fix was a coverage gap behind
+`REDIR-13`'s row. The MUST names "path, query, and fragment", and `Location.resolve` — one
+`URI::RFC3986_PARSER.join`, no re-rendering — preserves all three, which the reviewer's own probe showed
+reaching the transport byte for byte; but no test in the phase drove a fragment-carrying `Location`,
+the `REDIR-14` case titled for a fragment-only reference carried none, and dropping the fragment from
+the resolved target left every redirect suite green on 4.0.6 and 3.2.11. `LocationTest` now drives the
+fragment-only reference, which resolves against the *current* hop and keeps that hop's path and query,
+and a `REDIR-13` case sends a fragment, a percent-encoded fragment, an empty query and an empty
+fragment; the four mutations behind them are the checklist's guards 53–56, red on both rows, and the
+`REDIR-15` and `REDIR-18` cases moved to a `RefusedTargetTest` when the addition crossed
+`Metrics/ClassLength`. No `lib/` line changed; the round's one nit — a class count in the checklist's
+departure 32 — is the checklist's.

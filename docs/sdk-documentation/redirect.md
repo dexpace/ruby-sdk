@@ -141,8 +141,8 @@ res, transport = follow(step, response(302, location: "mailto:a@b"))
 
 The `Location` parsing route is `URI::RFC3986_PARSER.join`, directly — never `URI.join`, which a phase-0
 cop refuses, and never `Dexpace::URL.parse!`, which rejects the relative reference `REDIR-14` requires
-resolving. Resolution preserves an already-percent-encoded path and query, a bracketed IPv6 host and a
-non-default port byte for byte (`REDIR-13`). The userinfo strip is spelled `userinfo = ""`: assigning
+resolving. Resolution preserves an already-percent-encoded path, query and fragment, a bracketed IPv6
+host and a non-default port byte for byte (`REDIR-13`). The userinfo strip is spelled `userinfo = ""`: assigning
 `nil` is a silent no-op that forwards the server-supplied credential (`docs/knowledge/notes/redirect-handling.md`).
 One residue, upstream of this layer: `URI#to_s` elides an **explicit** scheme-default port, and phase 1's
 `URL.parse!` re-parses a URI from its text, so `Location: https://h:443/y` reaches the wire as
