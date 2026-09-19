@@ -1,0 +1,21 @@
+module Dexpace
+  module Auth
+    # AUTH-8, AUTH-9, AUTH-10: the bearer token, redacted in every rendering.
+    class BearerToken < Data
+      include Model
+
+      attr_reader token: String
+      attr_reader expiry: ::Time?
+
+      private def self.new: (token: String, expiry: ::Time?) -> instance
+      def initialize: (token: untyped, expiry: ::Time?) -> void
+
+      def self.build: (token: untyped, ?expiry: ::Time?) -> BearerToken
+
+      def expired?: (now: ::Time, ?margin: Numeric) -> bool
+      def to_s: () -> String
+      def inspect: () -> String
+      def pretty_print: (untyped printer) -> void
+    end
+  end
+end

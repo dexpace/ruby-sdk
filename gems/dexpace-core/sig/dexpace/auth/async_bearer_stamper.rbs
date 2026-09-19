@@ -1,0 +1,37 @@
+module Dexpace
+  module Auth
+    # AUTH-37, AUTH-36 (async half), AUTH-11: the three-zone async bearer stamper.
+    class AsyncBearerStamper
+      @provider: untyped
+      @clock: _Clock
+      @refresh_margin: Numeric
+      @logger: Instrumentation::Logger
+      @lock: Thread::Mutex
+      @token: BearerToken?
+      @in_flight: Dexpace::Async::Future?
+
+      def initialize: (provider: untyped, ?clock: _Clock, ?refresh_margin: Numeric,
+                       ?logger: Instrumentation::Logger) -> void
+
+      def stamp: (Dexpace::Request request) -> Dexpace::Async::Future
+      def stamp_fresh: (Dexpace::Request request) -> Dexpace::Async::Future
+      def evict_if_matches: (String rejected_header) -> bool
+
+      private
+
+      def zone: (BearerToken token) -> Symbol
+      def awaiting: (Dexpace::Request request) -> Dexpace::Async::Future
+      def deliver: (Dexpace::Async::Settlement settlement, Dexpace::Request request,
+                    Dexpace::Async::Completer own) -> void
+      def header: (BearerToken token) -> String
+      def stamp_with: (Dexpace::Request request, BearerToken token) -> Dexpace::Request
+      def settled: (Dexpace::Request request) -> Dexpace::Async::Future
+      def refresh_future: () -> Dexpace::Async::Future
+      def start_fetch: (Dexpace::Async::Completer completer) -> void
+      def settle: (Dexpace::Async::Completer target, Dexpace::Async::Settlement settlement,
+                  Exception? error) { (untyped) -> untyped } -> void
+      def invalid: (untyped token) -> Exception?
+      def background_refresh: () -> void
+    end
+  end
+end

@@ -1,0 +1,30 @@
+module Dexpace
+  module Auth
+    # AUTH-1: the closed five-member set, in Pipeline::Stage's shape (P4-32, P4-56): both
+    # generated constructors private, no .build, #with refusing.
+    class Scheme < Data
+      include Model
+
+      attr_reader name: String
+
+      # A private_constant; declared because the strict `core` Steep target types its uses.
+      NAMES: Array[String]
+
+      OAUTH2: Scheme
+      API_KEY: Scheme
+      BASIC: Scheme
+      DIGEST: Scheme
+      NO_AUTH: Scheme
+      ALL: Array[Scheme]
+
+      private def self.new: (name: String) -> instance
+      def initialize: (name: String) -> void
+
+      def self.of: (String | Symbol | Scheme token) -> Scheme
+
+      # Always raises: the closed set has no derivation.
+      def with: (?untyped _changes) -> bot
+      def to_s: () -> String
+    end
+  end
+end

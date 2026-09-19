@@ -50,6 +50,109 @@ Dexpace::AsyncTransport.registered_keys
 Dexpace::AsyncTransport.resolve
 Dexpace::AsyncTransport.swap
 Dexpace::AsyncTransport.sync_over
+Dexpace::Auth
+Dexpace::Auth::AsyncBearerStamper
+Dexpace::Auth::AsyncBearerStamper#evict_if_matches
+Dexpace::Auth::AsyncBearerStamper#stamp
+Dexpace::Auth::AsyncBearerStamper#stamp_fresh
+Dexpace::Auth::AsyncStep
+Dexpace::Auth::AsyncStep#call
+Dexpace::Auth::BasicHandler
+Dexpace::Auth::BasicHandler#authorization_for
+Dexpace::Auth::BasicHandler#call
+Dexpace::Auth::BearerProvider
+Dexpace::Auth::BearerProvider#conforms?
+Dexpace::Auth::BearerProvider#fetch_async
+Dexpace::Auth::BearerStamper
+Dexpace::Auth::BearerStamper#call
+Dexpace::Auth::BearerStamper#evict_if_matches
+Dexpace::Auth::BearerStamper::DEFAULT_REFRESH_MARGIN : Integer
+Dexpace::Auth::BearerToken
+Dexpace::Auth::BearerToken#expired?
+Dexpace::Auth::BearerToken#expiry
+Dexpace::Auth::BearerToken#inspect
+Dexpace::Auth::BearerToken#pretty_print
+Dexpace::Auth::BearerToken#to_s
+Dexpace::Auth::BearerToken#token
+Dexpace::Auth::BearerToken.build
+Dexpace::Auth::Challenge
+Dexpace::Auth::Challenge#params
+Dexpace::Auth::Challenge#scheme
+Dexpace::Auth::Challenge#token68
+Dexpace::Auth::Challenge.build
+Dexpace::Auth::Challenge::TOKEN68 : String
+Dexpace::Auth::ChallengeHandlerChain
+Dexpace::Auth::ChallengeHandlerChain#as_challenge_hook
+Dexpace::Auth::ChallengeHandlerChain#authorization_for
+Dexpace::Auth::ChallengeHandlerChain#header_name
+Dexpace::Auth::Challenges
+Dexpace::Auth::Challenges#parse
+Dexpace::Auth::Descriptor
+Dexpace::Auth::Descriptor#allows_anonymous?
+Dexpace::Auth::Descriptor#requirements
+Dexpace::Auth::Descriptor.build
+Dexpace::Auth::DigestHandler
+Dexpace::Auth::DigestHandler#authorization_for
+Dexpace::Auth::DigestHandler::ALGORITHMS : Array
+Dexpace::Auth::DigestHandler::DEFAULT_CAP : Integer
+Dexpace::Auth::HTTPSRequiredError
+Dexpace::Auth::HTTPSRequiredError#scheme
+Dexpace::Auth::HTTPSRequiredError#step
+Dexpace::Auth::KeyCredential
+Dexpace::Auth::KeyCredential#header_name
+Dexpace::Auth::KeyCredential#inspect
+Dexpace::Auth::KeyCredential#key_value
+Dexpace::Auth::KeyCredential#prefix
+Dexpace::Auth::KeyCredential#to_s
+Dexpace::Auth::KeyStamper
+Dexpace::Auth::KeyStamper#call
+Dexpace::Auth::NamedKeyCredential
+Dexpace::Auth::NamedKeyCredential#header_name
+Dexpace::Auth::NamedKeyCredential#inspect
+Dexpace::Auth::NamedKeyCredential#key_value
+Dexpace::Auth::NamedKeyCredential#name
+Dexpace::Auth::NamedKeyCredential#prefix
+Dexpace::Auth::NamedKeyCredential#to_s
+Dexpace::Auth::PasswordCredential
+Dexpace::Auth::PasswordCredential#inspect
+Dexpace::Auth::PasswordCredential#password
+Dexpace::Auth::PasswordCredential#pretty_print
+Dexpace::Auth::PasswordCredential#to_s
+Dexpace::Auth::PasswordCredential#username
+Dexpace::Auth::PasswordCredential.build
+Dexpace::Auth::ProviderError
+Dexpace::Auth::REDACTED : String
+Dexpace::Auth::Requirement
+Dexpace::Auth::Requirement#params
+Dexpace::Auth::Requirement#scheme
+Dexpace::Auth::Requirement#scopes
+Dexpace::Auth::Requirement.build
+Dexpace::Auth::Resolver
+Dexpace::Auth::Resolver#resolve
+Dexpace::Auth::Scheme
+Dexpace::Auth::Scheme#name
+Dexpace::Auth::Scheme#to_s
+Dexpace::Auth::Scheme#with
+Dexpace::Auth::Scheme.of
+Dexpace::Auth::Scheme::ALL : Array
+Dexpace::Auth::Scheme::API_KEY : Dexpace::Auth::Scheme
+Dexpace::Auth::Scheme::BASIC : Dexpace::Auth::Scheme
+Dexpace::Auth::Scheme::DIGEST : Dexpace::Auth::Scheme
+Dexpace::Auth::Scheme::NO_AUTH : Dexpace::Auth::Scheme
+Dexpace::Auth::Scheme::OAUTH2 : Dexpace::Auth::Scheme
+Dexpace::Auth::Step
+Dexpace::Auth::Step#call
+Dexpace::Auth::Step#stage
+Dexpace::Auth::Step.build
+Dexpace::Auth::Step::NO_REPLACEMENT : Proc
+Dexpace::Auth::Step::NO_STAMP : Proc
+Dexpace::Auth::UnencodableCredentialError
+Dexpace::Auth::UnencodableCredentialError#encoding
+Dexpace::Auth::UnencodableCredentialError#field
+Dexpace::Auth::UnencodableCredentialError#source_encoding
+Dexpace::AuthResolutionError
+Dexpace::AuthResolutionError#available
+Dexpace::AuthResolutionError#required
 Dexpace::Body
 Dexpace::Body#==
 Dexpace::Body#close
@@ -369,6 +472,7 @@ Dexpace::Instrumentation::Event#event
 Dexpace::Instrumentation::Event#field
 Dexpace::Instrumentation::Event::INERT : Dexpace::Instrumentation::Event::Inert
 Dexpace::Instrumentation::Events
+Dexpace::Instrumentation::Events::AUTH_REFRESH : String
 Dexpace::Instrumentation::Events::HTTP_REQUEST : String
 Dexpace::Instrumentation::Events::HTTP_RESPONSE : String
 Dexpace::Instrumentation::Events::INSTRUMENTATION_CLOSE : String

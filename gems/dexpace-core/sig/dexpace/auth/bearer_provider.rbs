@@ -1,0 +1,24 @@
+module Dexpace
+  module Auth
+    # AUTH-11: the provider duck type -- #fetch, and optionally #fetch_async.
+    interface _BearerProvider
+      def fetch: () -> BearerToken?
+    end
+
+    interface _AsyncBearerProvider
+      def fetch: () -> BearerToken?
+      def fetch_async: () -> Dexpace::Async::Future
+    end
+
+    # AUTH-11: the default async fetch over either shape, which never raises.
+    module BearerProvider
+      def self?.fetch_async: (untyped provider) -> Dexpace::Async::Future
+      def self?.conforms?: (untyped provider) -> bool
+
+      private
+
+      def self?.mirror: (untyped provider) -> Dexpace::Async::Future
+      def self?.failed: (Exception error) -> Dexpace::Async::Future
+    end
+  end
+end

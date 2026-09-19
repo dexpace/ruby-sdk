@@ -1,0 +1,20 @@
+module Dexpace
+  module Auth
+    # What KeyStamper is written against: KeyCredential and NamedKeyCredential both answer it.
+    interface _KeyCredential
+      def header_name: () -> String
+      def prefix: () -> String?
+      def key_value: () -> String
+    end
+
+    # AUTH-26: static key-credential stamping, stateless after construction.
+    class KeyStamper
+      @header_name: String
+      @value: String
+
+      def initialize: (_KeyCredential & Object credential) -> void
+
+      def call: (Dexpace::Request request) -> Dexpace::Request
+    end
+  end
+end

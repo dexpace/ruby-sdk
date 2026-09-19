@@ -1,0 +1,20 @@
+module Dexpace
+  module Auth
+    # AUTH-2: one scheme bound to its own scopes and params, deep-frozen once.
+    class Requirement < Data
+      include Model
+
+      attr_reader scheme: Scheme
+      attr_reader scopes: Array[String]
+      attr_reader params: Hash[untyped, untyped]
+
+      private def self.new: (scheme: String | Symbol | Scheme, scopes: Array[String],
+                             params: Hash[untyped, untyped]) -> instance
+      def initialize: (scheme: String | Symbol | Scheme, scopes: Array[String],
+                       params: Hash[untyped, untyped]) -> void
+
+      def self.build: (scheme: String | Symbol | Scheme, ?scopes: Array[String],
+                       ?params: Hash[untyped, untyped]) -> Requirement
+    end
+  end
+end

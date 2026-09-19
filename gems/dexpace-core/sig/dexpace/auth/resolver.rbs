@@ -1,0 +1,14 @@
+module Dexpace
+  module Auth
+    # AUTH-4 through AUTH-7: tier resolution as a pure module function.
+    module Resolver
+      def self?.resolve: (per_call: Descriptor?, operation: Descriptor?, client: Descriptor?,
+                          available_schemes: Enumerable[String | Symbol | Scheme]) -> Requirement
+
+      private
+
+      def self?.selected!: (untyped descriptor) -> Descriptor
+      def self?.first_satisfiable: (Descriptor descriptor, Array[Scheme] available) -> Requirement?
+    end
+  end
+end

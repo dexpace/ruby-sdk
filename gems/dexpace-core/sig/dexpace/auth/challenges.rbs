@@ -1,0 +1,40 @@
+module Dexpace
+  module Auth
+    # AUTH-12, AUTH-13: the RFC 7235 challenge-list parser. Its patterns and its Parser class are
+    # private_constants, declared because the strict `core` Steep target types their uses.
+    module Challenges
+      TOKEN: Regexp
+      TOKEN68: Regexp
+      SEPARATORS: Regexp
+      BOUNDARY: Regexp
+      EQUALS: Regexp
+      SPACES: Regexp
+      OWS: Regexp
+      QUOTE: Regexp
+
+      def self?.parse: (String? header_value) -> Array[Challenge]
+
+      class Parser
+        @scanner: StringScanner
+        @scheme: String?
+        @params: Hash[String, String]
+        @boundary: bool
+
+        attr_reader challenges: Array[Challenge]
+
+        def initialize: (String input) -> void
+        def run: () -> void
+
+        private
+
+        def step: () -> void
+        def parameter: (String name) -> void
+        def open_challenge: (String name) -> void
+        def scan_value: () -> String?
+        def recover: () -> void
+        def skip_quoted: () -> void
+        def emit: () -> void
+      end
+    end
+  end
+end

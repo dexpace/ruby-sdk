@@ -1,0 +1,25 @@
+module Dexpace
+  module Auth
+    # AUTH-11, AUTH-34, AUTH-35, AUTH-36: the sync bearer stamper.
+    class BearerStamper
+      DEFAULT_REFRESH_MARGIN: Integer
+
+      @provider: untyped
+      @clock: _Clock
+      @refresh_margin: Numeric
+      @lock: Thread::Mutex
+      @token: BearerToken?
+
+      def initialize: (provider: untyped, ?clock: _Clock, ?refresh_margin: Numeric) -> void
+
+      def call: (Dexpace::Request request) -> Dexpace::Request
+      def evict_if_matches: (String rejected_header) -> bool
+
+      private
+
+      def header: (BearerToken token) -> String
+      def refresh!: () -> BearerToken
+      def validate: (untyped fetched) -> BearerToken
+    end
+  end
+end

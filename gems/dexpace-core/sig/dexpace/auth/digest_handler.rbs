@@ -1,0 +1,74 @@
+module Dexpace
+  module Auth
+    # A hash function the handler drives: what ::Digest::MD5 and ::Digest::SHA256 answer.
+    # An interface rather than `singleton(Digest::Base)`, because NFR-11's scan admits no
+    # stdlib constant but the fixed allow-list in a public signature.
+    interface _Hasher
+      def hexdigest: (String input) -> String
+    end
+
+    # The cnonce source: SecureRandom's #hex(bytes), which a fixed test source shares.
+    interface _CnonceSource
+      def hex: (Integer bytes) -> String
+    end
+
+    # AUTH-15 through AUTH-24: RFC 7616 Digest. HASHES, ECHOED and Computed are private.
+    class DigestHandler
+      ALGORITHMS: Array[String]
+      DEFAULT_CAP: Integer
+      HASHES: Hash[String, _Hasher]
+      ECHOED: Array[String]
+
+      class Computed < Data
+        attr_reader challenge: Challenge
+        attr_reader algorithm: String
+        attr_reader uri: String
+        attr_reader cnonce: String
+        attr_reader nc: String
+        attr_reader qop: String?
+        attr_reader response: String?
+
+        def self.new: (challenge: Challenge, algorithm: String, uri: String, cnonce: String,
+                       nc: String, qop: String?, response: String?) -> instance
+      end
+
+      @credential: PasswordCredential
+      @preference: Array[String]
+      @cnonce_source: _CnonceSource & Object
+      @nonces: BoundedMap
+
+      def initialize: (PasswordCredential credential, ?preference: Array[String], ?cap: Integer,
+                       ?cnonce_source: _CnonceSource & Object) -> void
+
+      def authorization_for: (Array[Challenge] challenges, Dexpace::Request request,
+                              ?proxy: bool) -> String?
+
+      private
+
+      def credential!: (untyped credential) -> PasswordCredential
+      def preference!: (untyped preference) -> Array[String]
+      def select: (Array[Challenge] challenges) -> Challenge?
+      def satisfiable?: (Challenge challenge) -> bool
+      def echoable?: (Hash[String, String] params) -> bool
+      def algorithm_of: (Challenge challenge) -> String?
+      def qop_auth?: (Challenge challenge) -> bool
+      def compute: (Challenge challenge, Dexpace::Request request) -> Computed
+      def response_for: (Computed computed, String method, Array[String] ha1_parts) -> String
+      def response_digest: (_Hasher hasher, Computed computed, String ha1, String ha2) -> String
+      def ha1_for: (Computed computed, _Hasher hasher, Array[String] ha1_parts) -> String
+      def credential_bytes: (Hash[String, String] params) -> Array[String]
+      def materialize: (String text, Symbol field, Encoding target) -> String
+      def unencodable: (String text, Symbol field, Encoding target) -> UnencodableCredentialError
+      def join: (*String parts) -> String
+      def next_count: (String nonce) -> String
+      def request_target: (Dexpace::Request request) -> String
+      def render: (Computed computed) -> String
+      def echoed: (Computed computed) -> Array[String]
+      def negotiated: (Computed computed) -> Array[String]
+      def opaque: (Computed computed) -> Array[String]
+      def quoted: (String name, String value) -> String
+      def username_field: () -> String
+      def quote: (String value) -> String
+    end
+  end
+end

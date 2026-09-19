@@ -1,0 +1,24 @@
+module Dexpace
+  module Auth
+    # AUTH-12: one parsed challenge, folded once at construction.
+    class Challenge < Data
+      include Model
+
+      TOKEN68: String
+
+      attr_reader scheme: String
+      attr_reader params: Hash[String, String]
+
+      private def self.new: (scheme: String, params: Hash[String, String]) -> instance
+      def initialize: (scheme: untyped, params: untyped) -> void
+
+      def self.build: (scheme: untyped, ?params: Hash[String, String]) -> Challenge
+
+      def token68: () -> String?
+
+      private
+
+      def fold: (Hash[untyped, untyped] params) -> Hash[String, String]
+    end
+  end
+end

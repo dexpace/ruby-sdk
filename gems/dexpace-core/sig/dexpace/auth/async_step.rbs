@@ -1,0 +1,42 @@
+module Dexpace
+  module Auth
+    # AUTH-27 through AUTH-38 on the async runtime: Step over 4c's _AsyncStep. Exchange is a
+    # private value carried through the callbacks; declared for the strict target.
+    class AsyncStep < Step
+      class Exchange < Data
+        attr_reader stamped: Dexpace::Request
+        attr_reader response: Dexpace::Response
+        attr_reader cursor: Pipeline::Cursor
+        attr_reader completer: Dexpace::Async::Completer
+
+        def self.new: (stamped: Dexpace::Request, response: Dexpace::Response,
+                       cursor: Pipeline::Cursor, completer: Dexpace::Async::Completer) -> instance
+      end
+
+      def self.build: (stamper: untyped, ?challenge_hook: untyped,
+                       ?logger: Instrumentation::Logger) -> AsyncStep
+
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Async::Future
+
+      private
+
+      def self.stamper!: (untyped stamper) -> void
+      def guarded: (Dexpace::Async::Completer completer) { () -> untyped } -> void
+      def stamp_async: (Dexpace::Request request) -> Dexpace::Async::Future
+      def settled: (untyped value) -> Dexpace::Async::Future
+      def observe: (Dexpace::Async::Future future, Dexpace::Async::Completer completer) { (Dexpace::Async::Settlement) -> untyped } -> void
+      def chain_into: (Dexpace::Async::Future future, Dexpace::Async::Completer completer) -> void
+      def forward_failure: (Dexpace::Async::Settlement settlement, Dexpace::Async::Completer completer) -> void
+      def drive: (Dexpace::Async::Settlement settlement, Pipeline::Cursor cursor, Dexpace::Async::Completer completer) -> void
+      def handle: (Exchange exchange) -> void
+      def bearer_retry_async: (Exchange exchange) -> void
+      def drive_replacement: (Dexpace::Async::Future restamped, Exchange exchange) -> void
+      def restamp: (Dexpace::Request stamped, bool evicted) -> Dexpace::Async::Future
+      def replay_async: (String challenge, Exchange exchange) -> void
+      def settle_replay: (Dexpace::Async::Settlement settlement, Exchange exchange) -> void
+      def consult: (String challenge, Dexpace::Request stamped, Dexpace::Response response) -> untyped
+      def settled_replacement!: (untyped replacement, Dexpace::Response response) -> untyped
+      def replace: (untyped replacement, Exchange exchange) -> void
+    end
+  end
+end

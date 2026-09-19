@@ -1,0 +1,21 @@
+module Dexpace
+  module Auth
+    # AUTH-14: Basic, preemptive through #call and challenge-answered through
+    # #authorization_for, one precomputed value.
+    class BasicHandler
+      @value: String
+
+      def initialize: (PasswordCredential credential) -> void
+
+      def call: (Dexpace::Request request) -> Dexpace::Request
+      def authorization_for: (Array[Challenge] challenges, Dexpace::Request _request,
+                              ?proxy: bool) -> String?
+
+      private
+
+      def credential!: (PasswordCredential credential) -> void
+      def utf8!: (String text, Symbol field) -> String
+      def not_utf8: (String text, Symbol field) -> InvalidArgumentError
+    end
+  end
+end

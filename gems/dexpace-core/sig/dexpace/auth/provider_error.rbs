@@ -1,0 +1,8 @@
+module Dexpace
+  module Auth
+    # AUTH-35, AUTH-11: a misbehaving bearer provider result.
+    class ProviderError < ::StandardError
+      include Dexpace::Error
+    end
+  end
+end

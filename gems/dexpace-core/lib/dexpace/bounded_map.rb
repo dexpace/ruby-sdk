@@ -102,6 +102,32 @@ module Dexpace
       end
     end
 
+    # Read-modify-write in ONE critical section: yields the slot's current occupant (nil when
+    # absent or evicted) under this map's own mutex, stores what the block returns, drains back
+    # under the cap in the same section as #set does, and returns the stored value. Added by
+    # phase 6 for AUTH-19's per-nonce counter, whose increment is `update(nonce) { |n| (n || 0)
+    # + 1 }` -- the read and the write under one lock is what makes AUTH-24's "concurrent reuse
+    # of one nonce still yields correct, non-duplicated counts" true, and a read through #[]
+    # followed by #set would not be (the class comment anticipated it).
+    #
+    # The block runs while the lock is held and MUST touch only in-memory state: no I/O, no
+    # other lock, no call back into this map (a non-reentrant Thread::Mutex would raise), and
+    # never a suspension point (concurrency-and-async/f414b864). A block that raises leaves the
+    # slot as it was.
+    #
+    # @param key [Object] the slot
+    # @yieldparam current [Object, nil] the slot's occupant, or nil
+    # @yieldreturn [Object] the new occupant
+    # @return [Object] the value stored
+    def update(key)
+      @mutex.synchronize do
+        value = yield(@h[key])
+        @h[key] = value
+        drain
+        value
+      end
+    end
+
     # @return [Integer] the number of live entries, at most the cap once inserts quiesce
     def size
       @mutex.synchronize { @h.size }
