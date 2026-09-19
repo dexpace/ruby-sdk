@@ -167,9 +167,13 @@ replaces the whole collection and `#install_preset(entries)` fills empty pillars
 the whole set — every element a `Dexpace::Pipeline::Entry`, and no two distinct steps on one pillar
 within the set — before touching a bucket, so a rejected call leaves the collection exactly as it
 was. `#install_preset` additionally refuses if any target pillar is already occupied, naming every
-occupant. It is the mechanism the standard-resilience preset will be written over in phase 6; the
-step set it would install (redirect, retry, instrumentation) does not exist yet, and there is no
-`Pipeline.standard` until it does.
+occupant. It is the mechanism the two standard-resilience presets are written over, and nothing
+else is: since phase 6b's Task 13a, `Pipeline.standard(over, ...)` installs the redirect, retry and
+instrumentation steps into a transport or a builder handed in — a builder whose target pillar is
+already occupied rejects the whole call, which is what makes `PIPE-24` reachable through the
+constructor — and `AsyncPipeline.standard(over, redirect: :unsupported, ...)` the async retry and
+instrumentation steps; both are described, with the keywords they thread through, in
+[`redirect.md`](./redirect.md).
 
 ```ruby
 builder = Dexpace::Pipeline.builder(transport: transport)
@@ -309,12 +313,21 @@ failed.value                                        # raises RuntimeError: step 
 Dexpace::AsyncPipeline.map_response(ap.call(request)) { |response| response.status.code }.value   # => 200
 ```
 
-The asymmetry the specification asks a port to document: the sync standard pipeline, when phase 6
-adds it, installs the redirect step, and the async standard pipeline does not follow redirects at
-the pipeline layer and takes an explicit `redirect: :unsupported` so the absence is visible at the
-call site. Neither constructor exists yet. What does exist is deliberate: `REDIRECT` is installable
-on the async path, because the two runtimes share one staging policy and that constraint is the
-preset's, not the runtime's.
+The asymmetry the specification asks a port to document: the sync standard pipeline,
+`Pipeline.standard`, installs the redirect step, and the async standard pipeline,
+`AsyncPipeline.standard`, does not follow redirects at the pipeline layer and takes an explicit
+`redirect: :unsupported` — a required keyword, refusing every other value — so the absence is
+visible at the call site. Both constructors exist since phase 6b's Task 13a (`PIPE-39`; the worked
+examples are in [`redirect.md`](./redirect.md)). What is deliberate on the runtime's side:
+`REDIRECT` is installable on the async path by hand, because the two runtimes share one staging
+policy and that constraint is the preset's, not the runtime's.
+
+```ruby
+Dexpace::AsyncPipeline.standard(async_transport, redirect: :unsupported).entries.map { |e| e.stage.name }
+# => [:retry, :logging]
+Dexpace::Pipeline.standard(transport).entries.map { |e| e.stage.name }
+# => [:redirect, :retry, :logging]
+```
 
 ## The bridges, which this layer does not ship
 

@@ -881,3 +881,121 @@ concurrently under the same phase and a number assigned in isolation could colli
 
 **Nothing else in this sub-phase substitutes a mechanism the reference specifies.** The cross-origin marker
 substitution is §10.15's, already argued and consolidated, and `6b` implements it rather than re-arguing it.
+
+### As built, 2026-09-19
+
+The one candidate above is now a row, and the order it names is corrected: the step is built as `R9`
+says — the predicate is consulted, then the cap vetoes — and not as this ledger's own paragraph and the
+roadmap's 6b note put it ("checked *before* a configured predicate is consulted"). This sub-phase was cut
+from `main` at `e61864f`, which holds both 6a and 6c, so it landed **last**: Task 2 extended 6a's
+`resend.rb` in place, Task 13a wrote the two `standard` constructors over 6a's `RetryStep` /
+`AsyncRetryStep` and 5b's steps, and convergence point 1 — 6c's guarded end-to-end test — was un-guarded
+here. The `Cursor` context-bundle widening (6a's Task 8) exists on this base and is consumed **not at
+all**: a `Bundle` carries a span tracer factory and trace ids, not a logger, and the step's `logger:`
+keyword is its own, as *Independence* committed to. Execution added the rows below, numbered from
+**P6-91** as the manager fixed it — 6a's as-built rows are P6-51–P6-61 and 6c's P6-71–P6-87, and this
+document numbered nothing before today; outside this document a 6a or 6c row is cited as "6a's P6-n" /
+"6c's P6-n". The checklist's "Deviations from the plan" is the itemised list against the plan's text; the
+rows here are the ones that touch public behaviour, the contract a later phase cites, or a statement
+this document makes.
+
+Seven statements above read differently against the source, and the difference is recorded here rather
+than by rewriting the text it corrects:
+
+- **The step is `Step.build`, `.new` private, frozen, and has no `redactor:` keyword.** The object
+  model's `Step.new(...)` with seven keywords departs from every configured public class in the tree
+  since 5b (`Instrumentation::Step.build`, 6a's `RetryStep.build`, 6c's `Auth::Step.build`), and `R8`'s
+  "own `logger:`/`redactor:` keywords" re-introduces the two-policy drift 5b's review removed (P5-95:
+  one redactor per logging path, the logger's). The private `Emitter` reads `logger.redactor`; a
+  caller who wants a different policy builds the logger with it (P6-93).
+- **`NotReplayableError` is flat under `Dexpace::`**, not `Dexpace::Resilience::NotReplayableError`:
+  6a filed its one `Resilience` error, `RetryPredicateError`, flat under `error/` (6a's P6-56) and a
+  namespace holding one flat and one nested error would be two conventions (P6-94).
+- **`Location.resolve` also refuses a host-less target, and it strips and freezes.** `R7`'s screen is the
+  scheme alone; measured on every row, `join` also hands back `http:foo` (host `nil`) and `http:///p`
+  (host `""`), which `Origin.of` would have read as `nil.downcase` or dispatched host-less, so the screen
+  is scheme AND host — `REDIR-18`'s "unresolvable". And the userinfo strip and the freeze live inside
+  `Location.resolve` rather than at `Step`'s call site: one function turns a wire value into a
+  dispatchable, credential-free, frozen target, and the conversion-and-log site in `Step` stays one
+  `rescue` (P6-95).
+- **The Set-of-URI rationale under `R9` is false.** `URI::Generic` defines `==`, `eql?` and `hash`, and
+  `Set[a].include?(b)` is `true` for two parses of one string on every row (`matrix_facts_test.rb`).
+  `visited_uris` stays a `Set<String>` of external forms — the wire-exact rendering is the right key
+  regardless — but not for the reason this document gave; no YARD repeats it.
+- **`REDIR-13` has a residue upstream of this layer.** `URI#to_s` elides an explicit scheme-default port
+  and phase 1's `URL.parse!` re-parses a URI from its text (P5-91), so `Location: https://h:443/y`
+  reaches the wire as `https://h/y`; every non-default port and every IPv6 literal survives, the origin
+  is unchanged, and the elision is phase 1's (P6-96).
+- **`REDIR-15`'s rejection is emitted, not only raised.** `R8` defined `SCHEME_DOWNGRADE_REJECTED` and the
+  plan wired only the permitted branch; a constant nothing emits is an event a reader waits for in vain,
+  and `REDIR-28`'s "scheme-downgrade event" has two outcomes. The refusal is recorded at WARNING before
+  the response is closed and the error raised (P6-97).
+- **The hop record's status key is 5b's.** `Keys::STATUS_CODE` is not shipped;
+  `Instrumentation::Keys::HTTP_RESPONSE_STATUS_CODE` is one name for one thing across every record
+  (P6-98).
+
+Two things this document did not say and the build decided:
+
+- **A raising predicate closes the current response.** `REDIR-22b` names the two build failures; a
+  caller's predicate that raises is neither, and the requirement's own reason — nobody else will close
+  a response the caller never receives — applies to it unchanged. The frame that closes before a raise
+  covers the predicate call too (P6-99).
+- **The two `standard` constructors' keyword set** (P6-100), below — the design's convergence point 2
+  handed the task to "whichever lands second", and that is this sub-phase.
+
+| # | Deviation | Touches | Why |
+|---|---|---|---|
+| P6-91 | `REDIR-17`'s cap is a hard ceiling applied **over** a configured predicate's answer: on a recognized 3xx the snapshot is allocated and the predicate consulted at every hop, the capped one included, and only then does the cap veto a `true` — never "before a configured predicate is consulted", as this ledger's paragraph above and the roadmap's 6b note put it | `REDIR-17`, `REDIR-20`, `REDIR-21`, `REDIR-23` | `R9`'s argument, as built: placing the cap above the predicate would make `REDIR-21`'s "always … consults the configured predicate" false at the one hop a predicate most wants to be heard; the predicate reads `redirect_count` off the snapshot and may stop earlier, and cannot lift the cap because `REDIR-17` is phrased with no carve-out and an uncapped predicate would make `REDIR-23`'s stack safety unbounded in connections (`step_test.rb` `PredicateTest`, "the cap vetoes a predicate that says FOLLOW"; guard 20) |
+| P6-92 | New public names, `NFR-4`-locked from this phase (6a's P6-1/P6-2 precedent): `Dexpace::Redirect::Step` (`.build`, `#stage`, `#call`, `DEFAULT_ALLOWED_METHODS`, `DEFAULT_MAX_HOPS`), `Redirect::ConditionSnapshot` (`.build`, three readers, `#with`), `Redirect::Events` (five), `Redirect::Keys` (four), `Redirect::SchemeDowngradeError`, `Dexpace::NotReplayableError`, `Resilience::Resend.replayable_body?`, `Pipeline.standard`, `AsyncPipeline.standard` — twenty-eight manifest rows, 1 109 → 1 137, all widenings | `NFR-4`; the object model above; `PIPE-39` | Every one is named in the object model or in the rows below; `Origin`, `Location`, `Chain`, `Emitter` and `Reissue` are `private_constant`s with `sig/` mirrors and no manifest row |
+| P6-93 | `Redirect::Step.build(allowed_methods: DEFAULT_ALLOWED_METHODS, follow303: false, max_hops: DEFAULT_MAX_HOPS, allow_scheme_downgrade: false, predicate: nil, logger: Logger::NULL)`, `.new` private, frozen, with **no `redactor:`** keyword: the records go through `logger.redactor` | `R8`; the object model's constructor; 5b's P5-34, P5-95 | One construction shape per phase since 5b, and one redaction policy per logging path — `R8`'s second keyword re-introduced the drift 5b's review removed; the "raising redactor" case is `Logger.build(sink:, redactor: raising)` and the emitter's own rescue degrades the field to the placeholder |
+| P6-94 | `Dexpace::NotReplayableError` is flat under `Dexpace::`, in `lib/dexpace/error/not_replayable_error.rb`, not `Dexpace::Resilience::NotReplayableError` | `REDIR-6`; *Independence*; 6a's P6-56 | The one other `Resilience` error, `RetryPredicateError`, is flat; the smoke suite's layer table pins it beside `Redirect` |
+| P6-95 | `Location.resolve` screens for an `http`/`https` scheme **and** a non-empty host, and answers the target userinfo-stripped and frozen; `Step#resolve` is one `rescue ::URI::InvalidURIError` that logs the raw value and answers nil | `REDIR-12`, `REDIR-18`; `R7` | `join` resolves `http:foo` and `http:///p` without raising (verified on every row); a host-less target is `REDIR-18`'s "unresolvable" and would otherwise raise `NoMethodError` inside `Origin` or be dispatched host-less; one function owns the wire-value-to-target transformation |
+| P6-96 | `REDIR-13`'s "MUST preserve explicit ports" holds for every non-default port and every IPv6 literal, and an **explicit scheme-default port is elided** — `Location: https://h:443/y` reaches the wire as `https://h/y` | `REDIR-13`; phase 1's `URL.parse!`; 5b's P5-91 | `URI#to_s` drops a default port on every supported Ruby and `URL.parse!` re-parses a URI from its text, so the elision happens at phase 1's model boundary, upstream of this layer; the origin triple reads the parsed port and is unchanged; the suite never asserts that `:443` survives (`step_test.rb` `LocationTest`, "REDIR-13 residue") |
+| P6-97 | `REDIR-15`'s refusal emits `Events::SCHEME_DOWNGRADE_REJECTED` at WARNING before the current response is closed and `SchemeDowngradeError` raised; the opt-in emits `SCHEME_DOWNGRADE_PERMITTED` | `REDIR-15`, `REDIR-28`; `R8` | `REDIR-28`'s "scheme-downgrade event" has two outcomes and two names, and a defined constant nothing emits is a trap under `OBS-39`'s "stable and predictable set" |
+| P6-98 | The hop record's status field is `Instrumentation::Keys::HTTP_RESPONSE_STATUS_CODE`; `Redirect::Keys` has no `STATUS_CODE` and holds four keys, not five | `REDIR-28`, `OBS-39`; `R8`'s `Keys` listing | One name for one thing across every record core emits; the redirect response's status IS a response status code |
+| P6-99 | A predicate that raises leaves the current response **closed** — the frame that closes before a raise (`REDIR-22b`) wraps the decision as well as the build | `REDIR-20`, `REDIR-22` | `REDIR-22b` names the two build failures; a raising predicate is a third raise out of the same loop with the same consequence — a response the caller never receives — and the requirement's reason applies unchanged (`step_test.rb` `PredicateTest`, "a predicate that raises") |
+| P6-100 | `Pipeline.standard(over, redirect: nil, settings: RetrySettings.build, http_tracer_factory: nil, logger: Logger::NULL, level: HTTPLogging::DEFAULT, preview_bytes: nil)` and `AsyncPipeline.standard(over, redirect:, …the same…)`: `over` is a transport **or** a `Pipeline::Builder` already holding one; the async `redirect:` is required and admits `:unsupported` alone; a nil `http_tracer_factory:` leaves the retry family's own private default in place; no `builder:`, `retry:` or `instrumentation:` keyword | `PIPE-24`, `PIPE-32`, `PIPE-39`, `REDIR-25`; design §5.3; the charter's `R14` | `PIPE-24`'s "into EMPTY slots only … rejecting the whole call if any is occupied" is reachable through the constructor only if a builder can be handed in, and a positional that is ignored when `builder:` is given (the plan's shape) is a worse API than one positional discriminated by type; `retry` is a keyword Ruby cannot read back (`SyntaxError: Invalid retry`); the four shared keywords thread to the steps rather than taking built steps, so `logger:` reaches the redirect step too (`pipeline/standard_test.rb`; guards 43–51) |
+
+**Review round 1, 2026-09-19.** Round 0 of the stack's review found no behaviour this document states
+that the code fails to honour, and adds no row: its two should-fix findings were coverage gaps in the
+suites behind two checklist rows. `PIPE-39`'s "`settings:` … reach the retry step" was inferred from a
+call count the default schedule reproduces — the default settings retry a 503 too, after a real backoff
+on `Clock::SYSTEM` — so the sync wiring case now reads the retry's one wait off the `FakeClock` the
+settings carry and a second case drives `max_retries: 0`; and `REDIR-9`'s "or the 303 GET rebuild"
+clause, which `Reissue.build` honours by stripping before it rebuilds (the *Object model*'s order),
+had no test driving a cross-origin 303 with `Cookie` or `Proxy-Authorization`, and has one. Both are the
+checklist's guards 51 and 52, red on 4.0.6 and 3.2.11, with no `lib/` line changed; the round's two nits
+— the checklist's `NFR-13` count and the two over-long commit subjects — are the checklist's and the
+stack's, not this document's.
+
+**Review round 2, 2026-09-19.** Round 1 of the stack's review found no behaviour this document states
+that the code fails to honour either, and adds no row: its one should-fix was a coverage gap behind
+`REDIR-13`'s row. The MUST names "path, query, and fragment", and `Location.resolve` — one
+`URI::RFC3986_PARSER.join`, no re-rendering — preserves all three, which the reviewer's own probe showed
+reaching the transport byte for byte; but no test in the phase drove a fragment-carrying `Location`,
+the `REDIR-14` case titled for a fragment-only reference carried none, and dropping the fragment from
+the resolved target left every redirect suite green on 4.0.6 and 3.2.11. `LocationTest` now drives the
+fragment-only reference, which resolves against the *current* hop and keeps that hop's path and query,
+and a `REDIR-13` case sends a fragment, a percent-encoded fragment, an empty query and an empty
+fragment; the four mutations behind them are the checklist's guards 53–56, red on both rows, and the
+`REDIR-15` and `REDIR-18` cases moved to a `RefusedTargetTest` when the addition crossed
+`Metrics/ClassLength`. No `lib/` line changed; the round's one nit — a class count in the checklist's
+departure 32 — is the checklist's.
+
+**Review round 3, 2026-09-19.** Round 2 of the stack's review found no behaviour this document
+states that the code fails to honour either, and adds no row: its two should-fixes were coverage
+gaps behind two MUST rows, each found by mutations that survived on 4.0.6 and 3.2.11 while the
+reviewer's own probes showed the code right. `REDIR-3` says "there is deliberately NO automatic
+POST→GET rewrite for 301/302", and `Reissue.build` honours it — `request.with(url:, headers:)` on
+every non-303 hop, the method and the body untouched — but no test followed a 301 or a 302 on a
+non-`GET`/`HEAD` method and asserted the re-issued method or body, so a rewrite on those two
+statuses (the method, the body, or both) left every suite green; `ReissueTest` now follows a 301 and
+a 302 on a `POST` and on a `PUT` and asserts the method token, the same body object and the
+`Content-Type` on the transport's second call. `REDIR-5` says "case-insensitively", and
+`Reissue.rebuild_as_get`'s prefix test is the `name.downcase.start_with?("content-")` the *Scope*
+bullet spells — but every 303 case carried canonical casing, so dropping the fold survived; a case
+whose `POST` carries `content-type`, `CONTENT-LENGTH` and `cOnTeNt-Language` now asserts each gone
+from the rebuilt `GET`. The four mutations are the checklist's guards 57–60, red on both rows, and
+the four earlier 303 cases moved unchanged to a `RebuildTest`, which the new one joins, when
+`ReissueTest` reached `Metrics/ClassLength`. No `lib/` line changed; the round's one nit — a page
+count in `docs/README.md` — is the index's.

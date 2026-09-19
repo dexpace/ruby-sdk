@@ -58,8 +58,14 @@ pure three-tier resolver, the four credentials that redact in every rendering, t
 RFC 7235 challenge parser, the Basic and Digest handlers with the chain that composes them, the
 static key stamper, the bearer stamper on each runtime with its single-flight refresh, and the
 AUTH pillar step on both runtimes with its HTTPS guard, its cursor-read cross-origin suppression
-and its 401 replay (`docs/sdk-documentation/auth.md`); the operation-lifecycle and transport
-groups of the HTTP-tracer vocabulary are emitted by nothing yet, the redirect step is phase 6b's,
+and its 401 replay (`docs/sdk-documentation/auth.md`) — and the redirect layer: the synchronous
+redirect pillar step that forks per hop with the cross-origin marker as cursor state, strips
+`Authorization` before every re-issue and judges cross-origin against the seed origin, the
+read-only condition snapshot a predicate receives, the layer's event and key vocabulary, the
+scheme-downgrade and not-replayable errors, the second re-sendability predicate, and the two
+`standard` constructors phase 4c postponed — `Pipeline.standard` and `AsyncPipeline.standard` with
+its required `redirect: :unsupported` (`docs/sdk-documentation/redirect.md`); the
+operation-lifecycle and transport groups of the HTTP-tracer vocabulary are emitted by nothing yet,
 and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
 

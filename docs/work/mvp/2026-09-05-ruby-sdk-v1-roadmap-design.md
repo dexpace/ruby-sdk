@@ -2495,6 +2495,22 @@ design.
   and referred to by date and content, never by ordinal, because phase 6a's lane is adding bullets to
   this list at the same time; it is not yet in phase 10's design's disposition table, and phase 10
   dispositions it at execution.
+- **An explicit scheme-default port is elided at phase 1's model boundary, and a redirect target
+  inherits it.** Found 2026-09-19 by phase 6b's implementation, re-running its `Location` facts on every
+  interpreter: `URI#to_s` drops an explicit `:443` on `https` and `:80` on `http` on every supported
+  Ruby, and phase 1's `Dexpace::URL.parse!` re-parses a URI argument from its text (XCUT-15's reason: a
+  `dup` would alias the caller's component Strings), so `Location: https://h:443/y` reaches the wire
+  as `https://h/y` — and so does a caller's own `Request.build(url: "https://h:443/y")`, which is what
+  makes it phase 1's and not the redirect step's. `REDIR-13`'s "MUST preserve … explicit ports" holds
+  for every non-default port and every IPv6 literal, the origin triple reads the parsed port and is
+  unchanged, and 5b's redactor met the same elision (P5-91) and reassembles from the split components
+  instead. Whether phase 1's model should keep an explicit default port in its external form — a
+  `URL.parse!` that owns the components without `to_s`, and what `HTTP-46`'s textual comparison then
+  says about `https://h:443/y` against `https://h/y` — is phase 10's `NFR-4`/`HTTP-46` audit to decide,
+  since the answer changes what a caller's request renders and not only a redirect's. Touches
+  `REDIR-13`, `HTTP-46`, `HTTP-47`, `XCUT-15`. Recorded as 6b's P6-96; added after phase 10's planning
+  pass and referred to by date and content, never by ordinal; not yet in phase 10's design's disposition
+  table, which dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3761,3 +3777,148 @@ only one lane touched is byte-identical to that lane's reviewed tip. The 6c chec
 describe its own base, `f1fe848`, and say so; the combined tree's counts are `CLAUDE.md`'s. Re-proven at
 every rebased tip on 4.0.6 and the matrix rows before the push; the one skip in the suite is still 6c's
 guarded end-to-end cross-origin test, which 6b un-guards.
+
+**2026-09-19** — **Phase 6b implemented**, as three stacked branches against issue #23: code, tests,
+documentation, cut from `main` at `e61864f`, which holds every phase through 6c — so this is the lane
+that landed last and **phase 6 is complete**. `dexpace-core` carries the redirect layer beside the twelve
+layers before it — ten new `lib/` files: the flat `error/not_replayable_error.rb` and, under `redirect/`,
+`origin.rb` (private), `location.rb` (private), `condition_snapshot.rb`, `events.rb`,
+`scheme_downgrade_error.rb`, `chain.rb` (private), `emitter.rb` (private), `reissue.rb` (private) and
+`step.rb` — with their `sig/` mirrors, every public one with a `test/` mirror, and three test files with
+no `lib/` mirror (`redirect/matrix_facts_test.rb`, `pipeline/standard_test.rb`, and 6c's
+`auth/cross_origin_convergence_test.rb`, un-guarded); three earlier-phase files widened in place, each a
+designed widening: 6a's `resilience/resend.rb` gains `.replayable_body?` beside `.eligible?` (the plan's
+"EXISTS" branch), and 4c's `pipeline.rb` and `async_pipeline.rb` gain the two `standard` constructors
+over `Builder#install_preset`; the entry file's ten-line `# Phase 6b:` block after 6c's; the surface
+manifest regenerated once from 1 109 to 1 137 rows with all 28 read against the object model; and two
+top-level test-support doubles (`RedirectFixtures`, `CredentialProbe`) beside 6a's `ScriptedTransport`,
+reused as it is. Three existing tests changed on the code branch as pins the code invalidated — the smoke
+suite's layer table (a `REDIRECT_LAYER`), 4c's `async_pipeline_test.rb` (`refute_respond_to` →
+`assert_respond_to` on both `.standard`s) and the constructor line of 6c's
+`cross_origin_convergence_test.rb` (`.new` → `.build`, forced by 6b's private constructor; its
+`defined?` guard stops skipping the moment the code lands, so the test runs and passes on the code
+tip) — and three on the tests branch: 6a's `resend_test.rb` (a nested `ReplayableBodyTest`), 6c's
+`cross_origin_convergence_test.rb` again (the dead guard line removed, the header rewritten) and 6b's
+own `step_test.rb` (a `Cookie` assertion the guards found missing). **The work three
+owners handed to "whichever lands second" has landed here**: the `standard` constructors phase 4c
+postponed — `Pipeline.standard(over, redirect: nil, settings:, http_tracer_factory:, logger:, level:,
+preview_bytes:)` installing redirect + retry + instrumentation, and `AsyncPipeline.standard(over,
+redirect:, …)` installing the async retry and instrumentation steps with `redirect: :unsupported` a
+REQUIRED keyword admitting nothing else — written over `install_preset` and nothing else, `over` a
+transport or a `Pipeline::Builder` so `PIPE-24`'s empty-pillars rule is reachable through the
+constructor, closing 4c's `PIPE-39` ⏳ row here while 4c's row stays as its record, and making
+`REDIR-25` substantive rather than vacuous; convergence point 1 — 6c's guarded end-to-end cross-origin
+credential-leak test — un-guarded against the real step, after a scratch stub that followed the
+`Location` but forked without the marker failed it on `Expected ["authorization"] to not include
+"authorization"`, so the one skip every `test:gems` run on `main` carried is gone; and 6a's
+`Cursor` context-bundle widening consumed **not at all** — a `Bundle` carries a span tracer factory and
+trace ids, not a logger, and the step's `logger:` is its own. The design's R7, R8 and R9 stand as
+decided, with two of R8's words corrected in execution: the step takes no `redactor:` (one redactor per
+logging path, the logger's — 5b's P5-95, 6c's P6-71) and the emitter reads `logger.redactor`; and the
+design's own ledger paragraph is corrected by its As-built addendum — the cap is applied OVER a
+configured predicate's answer, as R9 argues, never "before a configured predicate is consulted" as the
+paragraph and this roadmap's 6b note said (P6-91). Seven more execution findings, each a guard or a
+fact: `join` resolves `http:foo` and `http:///p` to host-less URIs without raising, so
+`Location.resolve` screens the host as well as the scheme (P6-95); `URI#to_s` elides an explicit `:443`
+and `URL.parse!` re-parses from it, so `REDIR-13`'s explicit-port clause has a default-port residue
+upstream of this layer, on phase 10's inbound list by date and content (P6-96); the design's
+Set-of-URI rationale is false on every row (`URI::Generic` is `eql?` by value) and the `Set<String>`
+stands on the external form alone; the plan's malformed fixture `https://user:pass@ht!tp://bad` is a
+VALID URI; a raising predicate closes the current response (P6-99); `REDIR-15`'s refusal is emitted
+before it is raised (P6-97); and the hop record's status key is 5b's (P6-98). The checklist is at
+`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-checklist.md`: twenty-eight own rows —
+twenty-seven ✅, `REDIR-27` ⏳ — plus the phase-level `PIPE-39`, `PIPE-32`, `PIPE-24` and
+convergence-point rows and fifteen cross-reference rows; fifty guards run red on 4.0.6 and 3.2.11, one
+recorded as staying green on both and why (an equivalent mutant: the strip is cumulative, so the
+seed-versus-previous comparison is observable only through the marker, which its own guard catches);
+thirty departures from the plan's text itemised; the design's As-built addendum adds P6-91–P6-100.
+Every one of the seventeen gates is green on the docs tip on 4.0.6 (2,705 runs, 67,656 assertions,
+0 skips, line coverage 99.98 %), the matrix rows on 3.2.11, 3.3.12 — where the default uri gem prints
+a different `InvalidURIError` message and `gates:clean_bundle` loads it, which is why no assertion
+matches one — and 3.4.10, and RuboCop by the honest `--ignore-parent-exclusion` command; the code tip
+alone is green on every one of the seventeen gates run individually on 4.0.6 and on the 3.2.11 matrix
+row, above the coverage floor, so no tip in the stack is red. `docs/sdk-documentation/redirect.md` is
+the fourteenth as-built page, every example run on 4.0.6 and 3.2.11 and identical on both;
+`pipelines.md`'s two "no `Pipeline.standard` yet" passages are repaired; `architecture.md`, the two
+READMEs and `docs/README.md` point at it; `CLAUDE.md`'s built-phases paragraph gains the redirect layer
+and the constructors, its counts move to one hundred and eighty-four `lib/dexpace/` files, eighteen
+`private_constant`s without a `test/` mirror and fourteen checklists, and its constraints-that-bite list
+gains four lines. `docs/first-release.md` changes in one entry — the `PIPE-32`/`REDIR-25`
+behavioural-asymmetries line, future-tense about the constructors, now says they were built in that
+shape — and its `REDIR-27` entry is cited, not rewritten; `docs/deviations.md` is untouched, for phase
+10 to flip; `docs/knowledge/notes/redirect-handling.md` gains one Reference entry closing the userinfo
+note's floor caveat on every row. The consolidation of P6-91–P6-100 into design §10 and §6.2's
+`URI.join` spelling are a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen, and
+§6.2's sentence states the semantics that were built, so no `C15`.
+
+**2026-09-19, review round 1 of the phase-6b stack.** Round 0 returned `changes_requested` with no
+blocking finding, two should-fix and two nits, every one on the tests or the docs branch and none
+touching `lib/`. Should-fix, both coverage gaps behind a checklist row whose cited test did not prove
+the clause it claimed, each found by a mutation that survived on 4.0.6 and 3.2.11: dropping `settings:`
+from the sync `Pipeline.standard`'s `RetryStep.build` left `standard_test.rb` green — the default
+settings retry a 503 too, after a real backoff on `Clock::SYSTEM`, so the call count could not tell
+the two schedules apart — and the sync wiring case now holds its `FakeClock` and asserts the retry's
+one wait on it at the flat settings' zero delay, with a second case driving `max_retries: 0` and
+asserting the 503 back unretried after one call (guard 51); and keeping `Cookie` and
+`Proxy-Authorization` on a cross-origin 303 GET rebuild left the redirect suites green, since every
+303 case was same-origin and carried neither header — `ReissueTest` gains the cross-origin 303 over
+a `POST` carrying both, the rebuilt `GET` carrying none of the four headers `REDIR-9` and `REDIR-7`
+name and keeping `Accept`, and the same-origin 303 keeping the two origin-scoped headers (guard 52).
+The addition pushed `WiringTest` over `Metrics/ClassLength`, so the two `PIPE-24` cases and the
+`install_preset` source scan moved to an `InstallationTest`, a split and not a disable. The battery is
+fifty-two, fifty-one caught on both rows, guard 3 still the one equivalent mutant; the checklist's
+`REDIR-9`, `PIPE-39`, `PIPE-24` and `NFR-13` rows and its guard table say so, and its departures from
+the plan are thirty-two. The nits: the `NFR-13` row had counted ten new `test/` files where nine were
+added (seven suites and two doubles) and reads nine; and the tests and docs commit subjects at 80 and
+77 characters, with fifty-five body lines past 72, are left as they are — the fix rules forbid
+amending the implementer's commits — and are the squash-merge's to shorten, every commit this round
+adds keeping the 74/72 limits. No ledger row is added: the design's As-built addendum carries a
+round-1 paragraph saying the round found no behaviour the document states that the code fails to
+honour.
+
+**2026-09-19, review round 2 of the phase-6b stack.** Round 1 returned `changes_requested` with one
+should-fix on the tests branch and one nit on the docs branch, nothing touching `lib/`. The should-fix:
+of fifty-nine mutations the round ran, one survived on 4.0.6 and 3.2.11 on a MUST clause with a real
+gap — the fragment dropped from the resolved target left every redirect suite green, because `REDIR-13`
+names "path, query, and fragment" and no test in the phase drove a fragment-carrying `Location`, while
+the `REDIR-14` case titled "a query-only, a fragment-only and a network-path reference" carried no
+fragment and the checklist's `REDIR-14` row claimed one (the code was right: the reviewer's probe showed
+`/y#frag` reaching the transport as `https://h/y#frag`). `LocationTest`'s `REDIR-14` chain now carries
+the fragment-only reference, which resolves against the current hop and keeps that hop's path and query
+(`page=2#only`, never `page=1#only`), and a `REDIR-13` case sends a fragment, a percent-encoded fragment,
+an empty query and an empty fragment, each asserted byte for byte on the URL the transport received —
+the fragment dropped, the empty query dropped (the corner the round folded in), the empty fragment
+dropped and a percent-encoded fragment decoded are guards 53–56, each red on both rows, the first on
+two cases. The addition pushed `LocationTest` over `Metrics/ClassLength`, so `REDIR-15`'s three downgrade
+cases and `REDIR-18`'s two screen cases moved to a `RefusedTargetTest`, a split by concern and not a
+disable; the step suite is eleven nested classes and the checklist's rows, guard table, audit row and
+departures cite the new class where a case moved. The battery is fifty-six, fifty-five caught on both
+rows, guard 3 still the one equivalent mutant; the docs tip runs 2,708 tests and 67,685 assertions on
+4.0.6 with every gate green. The nit — departure 32 said `step_test.rb` had "seven classes" where the
+suite had ten — reads eleven now, and the two stale "two" counts for the constructors' suite, which has
+been three nested classes since round 1's split, were corrected in the same pass. No ledger row is
+added: the design's As-built addendum carries a round-2 paragraph saying the round found no behaviour
+the document states that the code fails to honour.
+
+**2026-09-19, review round 3 of the phase-6b stack.** Round 2 returned `changes_requested` with two
+should-fix on the tests branch and one nit on the docs branch, nothing touching `lib/`. The
+should-fixes: of seventy mutations the round ran, four survived on 4.0.6 and 3.2.11 on two MUST
+clauses with real gaps, the code right by the reviewer's own probes on both interpreters. `REDIR-3`
+says "there is deliberately NO automatic POST→GET rewrite for 301/302", and no test followed a 301
+or a 302 on a non-`GET`/`HEAD` method and asserted the re-issued method or body — the only
+method-and-body assertions on a method-preserving hop were `REDIR-4`'s 307/308 cases — so rewriting
+the method, dropping the body, or both, on 301/302 alone left every suite green; `ReissueTest` now
+follows a 301 and a 302 on a `POST` and on a `PUT` under an allowed set admitting the method and
+asserts the original method token, the same body object and the `Content-Type` still travelling on
+the transport's second call (guards 57–59). `REDIR-5` says "case-insensitively", and every 303 case
+carried canonical casing, so a prefix test that dropped the fold survived; a new case whose `POST`
+carries `content-type`, `CONTENT-LENGTH` and `cOnTeNt-Language`, in that casing on `Headers#names`,
+asserts each gone from the rebuilt `GET` with `Accept` alone left (guard 60). `ReissueTest` was at
+97 code lines, so its four 303 cases, two constants and two helpers moved unchanged to a
+`RebuildTest`, which the new fold case joins — a split by concern and not a disable; the step suite
+is twelve nested classes and the checklist's `REDIR-3`, `REDIR-5`, `REDIR-9` and `HTTP-13` rows, its
+guard table, its audit row and its departures cite the new class where a case moved. The battery is
+sixty, fifty-nine caught on both rows, guard 3 still the one equivalent mutant. The nit —
+`docs/README.md` said "the thirteen pages written so far" while listing fourteen — reads fourteen.
+No ledger row is added: the design's As-built addendum carries a round-3 paragraph saying the round
+found no behaviour the document states that the code fails to honour.

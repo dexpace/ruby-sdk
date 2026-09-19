@@ -416,14 +416,15 @@ MUST state every item here**, for the same reason the section above is stated.
 - **The async standard pipeline follows no redirects — `PIPE-32`, `REDIR-25` (MUST).** Added
   2026-09-13 by the roadmap-level generator-fitness review. `Pipeline.standard` installs redirect, retry
   and instrumentation; `AsyncPipeline.standard` requires `redirect: :unsupported` as a **required**
-  keyword and installs no step at `Stages::REDIRECT` (phase 6b's Task 13a, the constructors phase 4c
-  postponed). That is the requirement, not a shortfall — `PIPE-32` forbids pipeline-layer redirect
-  following on the async path — and `PIPE-32`'s own last clause, "a port MUST document this asymmetry
-  with the sync standard pipeline", is discharged in phase 4c's design and in the YARD on
-  `Dexpace::AsyncPipeline`. What that does not reach is a **consumer**: a generated client exposing a
-  sync and an async method for one operation ships two behaviours on a 301/302, and the reader who needs
-  to know types neither constant. So the release notes state it, and `docs/sdk-documentation/` states it
-  beside the worked example the blocker above owes.
+  keyword and installs no step at `Stages::REDIRECT` — as built by phase 6b's Task 13a on 2026-09-19,
+  the constructors phase 4c postponed, exactly in this shape. That is the requirement, not a shortfall —
+  `PIPE-32` forbids pipeline-layer redirect following on the async path — and `PIPE-32`'s own last
+  clause, "a port MUST document this asymmetry with the sync standard pipeline", is discharged in phase
+  4c's design, in the YARD on `Dexpace::AsyncPipeline` and in `docs/sdk-documentation/redirect.md`. What
+  that does not reach is a **consumer**: a generated client exposing a sync and an async method for one
+  operation ships two behaviours on a 301/302, and the reader who needs to know types neither constant.
+  So the release notes state it, and `docs/sdk-documentation/` states it beside the worked example the
+  blocker above owes.
 
 - **The HTTP-tracer vocabulary has no wired emitter for two of its three groups — `OBS-28`, `OBS-29`
   (MUST), `CTX-14`, `CTX-20`.** Added 2026-09-13 by phase 10's design, which closed this as a decision
