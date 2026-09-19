@@ -25,7 +25,7 @@ module Dexpace
       # PIPE-13: invoke the entry at `position` with a cursor bound to it, or -- past the last
       # entry -- dispatch to the terminal transport with the in-flight request, the caller's
       # options and the token (PIPE-17).
-      def advance(position:, request:, options:, cancellation:, state:)
+      def advance(position:, request:, options:, cancellation:, bundle:, state:)
         entries = @pipeline.entries
         return @pipeline.transport.call(request, options, cancellation) if position >= entries.size
 
@@ -33,7 +33,7 @@ module Dexpace
         # entry it is invoking, at the position after it).
         cursor = Cursor.send(:new, drive: self, owner_index: position, position: position + 1,
                                    request: request, options: options, cancellation: cancellation,
-                                   state: state,)
+                                   bundle: bundle, state: state,)
         entries.fetch(position).step.call(request, cursor)
       end
     end

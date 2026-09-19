@@ -35,10 +35,17 @@ module Dexpace
     # Time.httpdate rejects a bare "06 Nov 1994 ..." too, so the port and the stdlib agree. No
     # normalisation runs before the match, which is how CFG-31's blank-input failure is a
     # property of the pattern rather than of whatever a normaliser did to the input. The timeout
-    # is per-pattern (never Regexp.timeout), on a fixed-width grammar that cannot backtrack, by
-    # the same rule phase 1 applied to a two-character hex pattern.
+    # is per-pattern (never Regexp.timeout), on a grammar whose one variable-width group is a
+    # bounded digit run that cannot backtrack, by the same rule phase 1 applied to a
+    # two-character hex pattern. The day group is (\d{1,2}), not (\d{2}): RETRY-15 requires the
+    # Retry-After HTTP-date form to be parsed "tolerant of an informational weekday and
+    # single-digit day", design §6.1 forbids a second parser, and phase 6a widened this group in
+    # place (its R1) -- "Sun, 6 Nov 1994 08:49:37 GMT" parses as 6 November. Nothing else moved:
+    # the weekday is still REQUIRED and still not validated (CFG-30's "informational only" and
+    # RETRY-15's "informational weekday" are one tolerance), and RFC 850, asctime, a leading
+    # space, a two-digit year and a trailing token all still fail (CFG-31).
     GRAMMAR = ::Regexp.new(
-      '\A[A-Za-z]{3}, (\d{2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ' \
+      '\A[A-Za-z]{3}, (\d{1,2}) ([A-Za-z]{3}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) ' \
       '(GMT|UTC|\+0000|\+00:00)\z',
       ::Regexp::IGNORECASE,
       timeout: 1.0,
@@ -46,8 +53,8 @@ module Dexpace
 
     # Neither is public surface -- a month table and one pattern with a single reader each, and
     # P5-1 enumerates HTTPDate alone. A bare reference from inside `module Dexpace; module
-    # HTTPDate` resolves whatever the visibility, so phase 6a widening the day group edits this
-    # file at no cost.
+    # HTTPDate` resolves whatever the visibility, which is what let phase 6a widen the day group
+    # above in place at no cost to the public surface.
     private_constant :MONTHS, :GRAMMAR
 
     # The canonical HTTP-date form, rendered in UTC with a literal GMT and a zero-padded day
@@ -67,10 +74,11 @@ module Dexpace
       time.getutc.httpdate
     end
 
-    # The UTC instant an RFC 1123 date denotes, with CFG-30's four tolerances and CFG-31's
-    # strictness: the four zone tokens all mean the zero offset, month and zone case do not
-    # matter, the weekday is stripped and never compared against the date; blank input, a missing
-    # comma, RFC 850, asctime, a leading space, a single-digit day and a trailing token all fail.
+    # The UTC instant an RFC 1123 date denotes, with CFG-30's four tolerances, RETRY-15's
+    # single-digit day (phase 6a's widening) and CFG-31's strictness: the four zone tokens all
+    # mean the zero offset, month and zone case do not matter, the weekday is stripped and never
+    # compared against the date, a one-digit day is read as that day; blank input, a missing
+    # comma, an absent weekday, RFC 850, asctime, a leading space and a trailing token all fail.
     # So does a syntactically well-formed but impossible date -- Time.utc silently normalises
     # 31 November, 29 February 1995, hour 24 and second 60 into the next day, month, day or
     # minute, so every component is checked against what Time.utc built rather than trusted.

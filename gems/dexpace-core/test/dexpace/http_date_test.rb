@@ -103,7 +103,7 @@ module HTTPDateTest
         "Sun,\n06 Nov 1994 08:49:37 GMT",    # \s+ would accept this; a literal space does not
         "Sun, 06 Nov 1994 08:49:37 GMT\n",   # \Z would accept this; \z does not
         "Sun, 06 Nov 1994 08:49:37 GMT junk",
-        "Sun, 6 Nov 1994 08:49:37 GMT",      # single-digit day
+        "06 Nov 1994 08:49:37 GMT",          # no weekday at all: CFG-31's prefix is required
         "Sun, 06 Nov 1994 08:49:37",         # no zone
         "Sun, 06 Nov 1994 08:49:37 +0100",   # a non-zero offset is not one of the four tokens
         "Sun, 06 Nov 1994 08:49:37 EST",

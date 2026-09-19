@@ -1,0 +1,37 @@
+module Dexpace
+  module Resilience
+    # The one shared retry policy core (RETRY-13, RECOV-30, R5). `random` is untyped on the two
+    # methods that take one: ::Random is outside NFR-11's stdlib allowlist and the contract is
+    # #rand over a Range, the shape trace_id_flavour.rbs already uses for its generator.
+    module Policy
+      DEFAULT_INITIAL_DELAY: Float
+      DEFAULT_MULTIPLIER: Float
+      DEFAULT_MAX_DELAY: Float
+      DEFAULT_JITTER: Float
+      DEFAULT_MAX_RETRIES: Integer
+      DEFAULT_RETRYABLE_STATUSES: ::Set[Integer]
+      DEFAULT_PACING_HEADER_ORDER: Array[String]
+      MAX_PACING_DELAY_SECONDS: Integer
+      MAX_DURATION_NANOSECONDS: Integer
+      NANOSECOND: Float
+
+      def self?.retry_eligible?: (Integer status, set: ::Set[Integer]) -> bool
+      def self?.throwable_retryable?: (::Exception error) -> bool
+      def self?.cancellation?: (::Exception error) -> bool
+      def self?.retryable?: (::Exception error, retryable_statuses: ::Set[Integer]) -> bool
+      def self?.backoff_delay: (Integer attempt, initial_delay: Numeric, multiplier: Numeric,
+                                max_delay: Numeric, jitter: Numeric, random: untyped) -> Float
+      def self?.pacing_delay: (Dexpace::Headers headers, header_order: Array[String],
+                               ?now: ::Time, ?random: untyped) -> Float?
+      def self?.effective_max_retries: (override: Integer?, configured: Integer,
+                                        ?logger: Instrumentation::Logger) -> Integer
+      def self?.budget_remaining: (elapsed: Numeric, total_timeout: Numeric) -> Float
+
+      private
+
+      def seconds: (Numeric value) -> Float
+      def jittered: (Float unjittered, Numeric jitter, untyped random) -> Float
+      def parse_form: (String name, String value, ::Time now, untyped random) -> Float?
+    end
+  end
+end

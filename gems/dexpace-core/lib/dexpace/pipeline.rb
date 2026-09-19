@@ -4,6 +4,7 @@
 require_relative "closeable"
 require_relative "http/request_options"
 require_relative "cancellation"
+require_relative "instrumentation/bundle"
 
 module Dexpace
   # The synchronous stage-based execution pipeline (design §5.1): sixteen totally ordered stages
@@ -82,15 +83,22 @@ module Dexpace
     # holds with no cursor allocated at all. There is no reading under which a NON-empty pipeline
     # may skip the cursor (R12).
     #
+    # `bundle:` is phase 6a's widening (Task 8): the per-call instrumentation bundle the cursor
+    # carries to every step (Cursor#bundle), Bundle::NONE when omitted. An optional keyword
+    # beside the transport SPI's three positionals, which Transport.conforms? still accepts, so
+    # a Pipeline stays a Dexpace::Transport by the duck type (P4-38's reasoning, widened, P6-51).
+    #
     # @param request [Dexpace::Request]
     # @param options [Dexpace::RequestOptions] the caller's per-call options, threaded unchanged
     # @param cancellation [Dexpace::Cancellation]
+    # @param bundle [Dexpace::Instrumentation::Bundle] the per-call correlation bundle
     # @return [Dexpace::Response]
-    def call(request, options = RequestOptions::EMPTY, cancellation = Cancellation.none)
+    def call(request, options = RequestOptions::EMPTY, cancellation = Cancellation.none,
+             bundle: Instrumentation::Bundle::NONE)
       return @transport.call(request, options, cancellation) if @entries.empty?
 
       Cursor.build(drive: @driver_class.new(self), request: request, options: options,
-                   cancellation: cancellation,).call(request)
+                   cancellation: cancellation, bundle: bundle,).call(request)
     end
   end
 end

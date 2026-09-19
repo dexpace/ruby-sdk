@@ -21,7 +21,9 @@ module Dexpace
     # NONE.with (both validate), may add METHODS here and to TraceIdFlavour, may give the two
     # no-op classes their protocols, and may not rename or remove a member, add one, store
     # validity, change the sentinels, replace the flavour with a Symbol or hand this class a
-    # second NONE.
+    # second NONE. Phase 6a honoured the same obligation: it added no member and no method, and
+    # made a bundle reachable by a pipeline step through Pipeline::Cursor#bundle, seeded per
+    # call by the `bundle:` keyword on Pipeline#call and AsyncPipeline#call (its Task 8).
     #
     # trace_state is a list of pairs, not a Hash: OBS-26 says "a vendor trace-state list" and W3C
     # tracestate is ordered, most recent vendor first, which a Hash would lose. trace_flags stays

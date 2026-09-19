@@ -19,6 +19,6 @@ module Dexpace
     def self.direct: (untyped transport) -> AsyncPipeline
     def self.map_response: (Dexpace::Async::Future source) { (Dexpace::Response response) -> untyped } -> Dexpace::Async::Future
 
-    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation) -> Dexpace::Async::Future
+    def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation, ?bundle: Instrumentation::Bundle) -> Dexpace::Async::Future
   end
 end

@@ -223,6 +223,7 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
                                            meter: meter,)
       raising_cursor = ::Object.new
       def raising_cursor.call(_request) = raise(::IOError, "synchronous head failure")
+      def raising_cursor.bundle = Dexpace::Instrumentation::Bundle::NONE
 
       assert_raises(::IOError) { step.call(build_request, raising_cursor) }
       assert_equal(1, factory.tracers.first.spans.first.finished_at.size)
@@ -289,6 +290,7 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
         completer.future
       end
       cursor.define_singleton_method(:fork) { |state: nil| raise "forked with #{state.inspect}" }
+      cursor.define_singleton_method(:bundle) { Dexpace::Instrumentation::Bundle::NONE }
       request = build_request
 
       assert_same(completer.future, step.call(request, cursor))

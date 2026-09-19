@@ -1,0 +1,47 @@
+module Dexpace
+  module Resilience
+    # The synchronous stage-based retry step at Stages::RETRY (RETRY-1..45's stage half). The
+    # factory and the two hooks are untyped callables: `^(Pipeline::Cursor) -> _HTTPTracer` is
+    # what the factory answers, and the hooks' argument shapes are in the YARD; typing a caller's
+    # lambda strictly here would refuse every arity-tolerant Proc a caller writes (P5-14's
+    # precedent for the generator).
+    class RetryStep
+      include RetryStepHelpers
+
+      NULL_TRACER_FACTORY: ^(untyped) -> Instrumentation::_HTTPTracer
+
+      private def self.new: (settings: RetrySettings, http_tracer_factory: untyped,
+                             delay_override: untyped, should_retry: untyped,
+                             logger: Instrumentation::Logger) -> instance
+      def initialize: (settings: RetrySettings, http_tracer_factory: untyped,
+                       delay_override: untyped, should_retry: untyped,
+                       logger: Instrumentation::Logger) -> void
+
+      def self.build: (?settings: RetrySettings, ?http_tracer_factory: untyped,
+                       ?delay_override: untyped, ?should_retry: untyped,
+                       ?logger: Instrumentation::Logger) -> RetryStep
+
+      def stage: () -> Pipeline::Stage
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Response
+
+      # A private_constant: the per-call locals, declared for the strict target.
+      class Run < Data
+        attr_reader tracer: untyped
+        attr_reader cursor: Pipeline::Cursor
+        attr_reader max_retries: Integer
+        attr_reader trail: Array[::Exception]
+
+        def self.new: (tracer: untyped, cursor: Pipeline::Cursor, max_retries: Integer,
+                       trail: Array[::Exception]) -> instance
+      end
+
+      private
+
+      def drive: (Run run, Dexpace::Request request, Integer attempt) -> [Dexpace::Response?, ::Exception?]
+      def fenced: [T] (Dexpace::Response? response) { () -> T } -> T
+      def attempt_once: (Run run, Dexpace::Request request, Integer attempt) -> Dexpace::Response?
+      def wait: (Run run, Integer attempt, Dexpace::Response? response, ::Exception failure) -> nil
+      def settle: (Run run, Dexpace::Response? response, ::Exception failure, Symbol verdict) -> Dexpace::Response
+    end
+  end
+end

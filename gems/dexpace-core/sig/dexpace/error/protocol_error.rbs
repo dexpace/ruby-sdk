@@ -2,12 +2,17 @@ module Dexpace
   class ProtocolError < ::StandardError
     include Dexpace::Error
 
+    @retryable_by_status: bool
+
     attr_reader response: Dexpace::Response
     attr_reader status: Dexpace::Status
 
     def self.for: (Dexpace::Response response) -> Dexpace::ProtocolError
     def self.for_or_nil: (Dexpace::Response response) -> Dexpace::ProtocolError?
     def initialize: (Dexpace::Response response) -> void
+
+    # XCUT-5's baked flag (RETRY-3), added by phase 6a: a widening, the constructor unchanged.
+    def retryable_by_status?: () -> bool
 
     private
 

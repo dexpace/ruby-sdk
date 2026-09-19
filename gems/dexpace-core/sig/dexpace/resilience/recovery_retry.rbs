@@ -1,0 +1,60 @@
+module Dexpace
+  module Resilience
+    # The recovery-chain retry engine (RECOV-17..30, RECOV-34), a Dexpace::Transport decorator
+    # installed as Recovery::Orchestrator's `transport:` (P6-3). The transport and the factory are
+    # untyped callables, as on the two stage drivers.
+    class RecoveryRetry
+      NULL_TRACER_FACTORY: ^(untyped) -> Instrumentation::_HTTPTracer
+      RETRY: Symbol
+      EXHAUSTED: Symbol
+      STOP: Symbol
+
+      @transport: untyped
+      @settings: RetrySettings
+      @http_tracer_factory: untyped
+      @logger: Instrumentation::Logger
+
+      # A private_constant: the per-call locals (RECOV-28), declared for the strict target.
+      class Run < Data
+        attr_reader tracer: untyped
+        attr_reader request: Dexpace::Request
+        attr_reader options: Dexpace::RequestOptions
+        attr_reader cancellation: Dexpace::Cancellation
+        attr_reader max_attempts: Integer
+        attr_reader started: Float
+        attr_reader trail: Array[::Exception]
+
+        def self.new: (tracer: untyped, request: Dexpace::Request,
+                       options: Dexpace::RequestOptions, cancellation: Dexpace::Cancellation,
+                       max_attempts: Integer, started: Float,
+                       trail: Array[::Exception]) -> instance
+      end
+
+      private def self.new: (transport: untyped, settings: RetrySettings,
+                             http_tracer_factory: untyped,
+                             logger: Instrumentation::Logger) -> instance
+      def initialize: (transport: untyped, settings: RetrySettings, http_tracer_factory: untyped,
+                       logger: Instrumentation::Logger) -> void
+
+      def self.build: (transport: untyped, ?settings: RetrySettings,
+                       ?http_tracer_factory: untyped,
+                       ?logger: Instrumentation::Logger) -> RecoveryRetry
+
+      def call: (Dexpace::Request request, Dexpace::RequestOptions options,
+                 Dexpace::Cancellation cancellation) -> Dexpace::Response
+
+      private
+
+      def attempt_once: (Run run, Integer attempt) -> Dexpace::Response?
+      def wait: (Run run, Integer attempt, Dexpace::Response? response, ::Exception error) -> nil
+      def max_attempts: () -> Integer
+      def exchange: (Dexpace::Request request, Dexpace::RequestOptions options,
+                     Dexpace::Cancellation cancellation) -> [Dexpace::Response?, ::Exception?]
+      def decision: (Dexpace::Request request, ::Exception error, Integer attempt,
+                     Integer max_attempts) -> Symbol
+      def delay_within_budget: (Run run, Integer attempt, Dexpace::Response? response) -> Float?
+      def hinted_delay: (Dexpace::Response? response) -> Float?
+      def surface: (Run run, ::Exception error, exhausted: bool) -> bot
+    end
+  end
+end

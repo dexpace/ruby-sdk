@@ -142,6 +142,7 @@ class DexpaceInstrumentationStepTest < DexpaceTestCase
       response
     end
     cursor.define_singleton_method(:fork) { |state: nil| raise "forked with #{state.inspect}" }
+    cursor.define_singleton_method(:bundle) { Dexpace::Instrumentation::Bundle::NONE }
 
     assert_same(response, step.call(request, cursor))
     assert_equal([request], cursor.instance_variable_get(:@calls))

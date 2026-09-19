@@ -1,0 +1,63 @@
+module Dexpace
+  module Resilience
+    # The asynchronous stage-based retry step at Stages::RETRY, over 4c's _AsyncStep. The keyword
+    # types are RetryStep's.
+    class AsyncRetryStep
+      include RetryStepHelpers
+
+      NULL_TRACER_FACTORY: ^(untyped) -> Instrumentation::_HTTPTracer
+
+      private def self.new: (settings: RetrySettings, http_tracer_factory: untyped,
+                             delay_override: untyped, should_retry: untyped,
+                             logger: Instrumentation::Logger) -> instance
+      def initialize: (settings: RetrySettings, http_tracer_factory: untyped,
+                       delay_override: untyped, should_retry: untyped,
+                       logger: Instrumentation::Logger) -> void
+
+      def self.build: (?settings: RetrySettings, ?http_tracer_factory: untyped,
+                       ?delay_override: untyped, ?should_retry: untyped,
+                       ?logger: Instrumentation::Logger) -> AsyncRetryStep
+
+      def stage: () -> Pipeline::Stage
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Async::Future
+
+      # A private_constant with no visibility in RBS: the per-call trampoline (RETRY-30),
+      # declared because the strict `core` Steep target types its construction and its body.
+      class Pump
+        include RetryStepHelpers
+
+        @request: Dexpace::Request
+        @cursor: Pipeline::Cursor
+        @completer: Dexpace::Async::Completer
+        @tracer: untyped
+        @max_retries: Integer
+        @attempt: Integer
+        @trail: Array[::Exception]
+        @mutex: ::Thread::Mutex
+        @running: bool
+        @rearm: bool
+        @pending_delay: Dexpace::Async::Future?
+
+        def initialize: (settings: RetrySettings, http_tracer_factory: untyped,
+                         delay_override: untyped, should_retry: untyped,
+                         logger: Instrumentation::Logger, request: Dexpace::Request,
+                         cursor: Pipeline::Cursor) -> void
+        def start: () -> Dexpace::Async::Future
+
+        private
+
+        def resume: () -> void
+        def claim: (Symbol step) -> bool
+        def launch: () -> void
+        def settled: (Dexpace::Async::Settlement settlement) -> void
+        def delivered?: (Dexpace::Response? response, ::Exception? error) -> bool
+        def retry_after: (Dexpace::Response? response, ::Exception? error, ::Exception failure) -> void
+        def finish: (Dexpace::Response? response, ::Exception failure, Symbol verdict) -> void
+        def wait: (Float delay) -> void
+        def abort: (untyped reason) -> void
+        # The block answers whatever its terminal path answered; nothing reads it.
+        def guarded: (Dexpace::Response? response) { () -> untyped } -> untyped
+      end
+    end
+  end
+end

@@ -192,6 +192,24 @@ require_relative "dexpace/instrumentation/emitter"
 require_relative "dexpace/instrumentation/step"
 require_relative "dexpace/instrumentation/async_step"
 
+# Phase 6a: the retry layer, in dependency order -- after 5b's block, because the settings read
+# the clock and the configuration slot (5a) and the steps emit through the logging facade (5b)
+# and the HTTP-tracer vocabulary (5c). The one flat error first, then the shared policy core
+# (the private parsers, the policy over them, the re-sendability gate, the settings), then the
+# private helpers the two stage drivers share, the two drivers, and the recovery-stack engine.
+# Three earlier files gained a method or a keyword in place and appear above: http_date.rb (the
+# day group), error/protocol_error.rb (the baked flag) and pipeline/cursor.rb with the two
+# runtimes and the two instrumentation steps (the context-bundle widening).
+require_relative "dexpace/error/retry_predicate_error"
+require_relative "dexpace/resilience/pacing_parsers"
+require_relative "dexpace/resilience/policy"
+require_relative "dexpace/resilience/resend"
+require_relative "dexpace/resilience/retry_settings"
+require_relative "dexpace/resilience/retry_step_helpers"
+require_relative "dexpace/resilience/retry_step"
+require_relative "dexpace/resilience/async_retry_step"
+require_relative "dexpace/resilience/recovery_retry"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

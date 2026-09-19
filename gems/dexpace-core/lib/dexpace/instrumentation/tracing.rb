@@ -80,11 +80,12 @@ module Dexpace
       # the push is skipped and activation delegates to plain current-span activation, in the
       # requirement's own words. And for a bundle that is not #valid? it likewise delegates: an
       # all-zero id "MUST be treated as invalid/no-trace" (OBS-26), and a recording span paired
-      # with Bundle::NONE is the only state 5b's step can reach in phase 5 (R11) -- without the
-      # guard every log event of a tracing-enabled client would carry trace.id=<32 zeros>, a
-      # fake trace and worse than an absent key. Bundle#valid? is 4a's derived predicate and is
-      # exactly this test; once phase 6a's Task 8 makes a populated bundle reachable, the guard
-      # stops firing. NO_SCOPE when the span and both key values are already in place.
+      # with Bundle::NONE was the only state 5b's step could reach in phase 5 (R11) -- without
+      # the guard every log event of a tracing-enabled client would carry trace.id=<32 zeros>,
+      # a fake trace and worse than an absent key. Bundle#valid? is 4a's derived predicate and
+      # is exactly this test; since phase 6a's Task 8 made a populated bundle reachable through
+      # Cursor#bundle, the guard fires only for a call that seeded none. NO_SCOPE when the span
+      # and both key values are already in place.
       #
       # @param span [Object] the _Span to make current
       # @param bundle [Bundle] the correlation bundle whose ids are pushed

@@ -622,6 +622,7 @@ Dexpace::Pipeline::Builder#replace
 Dexpace::Pipeline::Builder.flattening
 Dexpace::Pipeline::Builder.nesting
 Dexpace::Pipeline::Cursor
+Dexpace::Pipeline::Cursor#bundle
 Dexpace::Pipeline::Cursor#call
 Dexpace::Pipeline::Cursor#cancellation
 Dexpace::Pipeline::Cursor#fork
@@ -681,6 +682,7 @@ Dexpace::Protocol::HTTP_2 : Dexpace::Protocol
 Dexpace::Protocol::WIRE_FORMS : Array
 Dexpace::ProtocolError
 Dexpace::ProtocolError#response
+Dexpace::ProtocolError#retryable_by_status?
 Dexpace::ProtocolError#status
 Dexpace::ProtocolError.for
 Dexpace::ProtocolError.for_or_nil
@@ -832,6 +834,52 @@ Dexpace::RequestOptions::Builder#max_retries=
 Dexpace::RequestOptions::Builder#tag
 Dexpace::RequestOptions::Builder#timeout=
 Dexpace::RequestOptions::EMPTY : Dexpace::RequestOptions
+Dexpace::Resilience
+Dexpace::Resilience::AsyncRetryStep
+Dexpace::Resilience::AsyncRetryStep#call
+Dexpace::Resilience::AsyncRetryStep#stage
+Dexpace::Resilience::AsyncRetryStep.build
+Dexpace::Resilience::Policy
+Dexpace::Resilience::Policy#backoff_delay
+Dexpace::Resilience::Policy#budget_remaining
+Dexpace::Resilience::Policy#cancellation?
+Dexpace::Resilience::Policy#effective_max_retries
+Dexpace::Resilience::Policy#pacing_delay
+Dexpace::Resilience::Policy#retry_eligible?
+Dexpace::Resilience::Policy#retryable?
+Dexpace::Resilience::Policy#throwable_retryable?
+Dexpace::Resilience::Policy::DEFAULT_INITIAL_DELAY : Float
+Dexpace::Resilience::Policy::DEFAULT_JITTER : Float
+Dexpace::Resilience::Policy::DEFAULT_MAX_DELAY : Float
+Dexpace::Resilience::Policy::DEFAULT_MAX_RETRIES : Integer
+Dexpace::Resilience::Policy::DEFAULT_MULTIPLIER : Float
+Dexpace::Resilience::Policy::DEFAULT_PACING_HEADER_ORDER : Array
+Dexpace::Resilience::Policy::DEFAULT_RETRYABLE_STATUSES : Set
+Dexpace::Resilience::Policy::MAX_DURATION_NANOSECONDS : Integer
+Dexpace::Resilience::Policy::MAX_PACING_DELAY_SECONDS : Integer
+Dexpace::Resilience::RecoveryRetry
+Dexpace::Resilience::RecoveryRetry#call
+Dexpace::Resilience::RecoveryRetry.build
+Dexpace::Resilience::Resend
+Dexpace::Resilience::Resend#eligible?
+Dexpace::Resilience::RetrySettings
+Dexpace::Resilience::RetrySettings#backoff_arguments
+Dexpace::Resilience::RetrySettings#clock
+Dexpace::Resilience::RetrySettings#header_order
+Dexpace::Resilience::RetrySettings#initial_delay
+Dexpace::Resilience::RetrySettings#jitter
+Dexpace::Resilience::RetrySettings#max_delay
+Dexpace::Resilience::RetrySettings#max_retries
+Dexpace::Resilience::RetrySettings#multiplier
+Dexpace::Resilience::RetrySettings#pacing_header_order
+Dexpace::Resilience::RetrySettings#random
+Dexpace::Resilience::RetrySettings#retryable_statuses
+Dexpace::Resilience::RetrySettings#total_timeout
+Dexpace::Resilience::RetrySettings.build
+Dexpace::Resilience::RetryStep
+Dexpace::Resilience::RetryStep#call
+Dexpace::Resilience::RetryStep#stage
+Dexpace::Resilience::RetryStep.build
 Dexpace::Response
 Dexpace::Response#body
 Dexpace::Response#body_bytes
@@ -876,6 +924,7 @@ Dexpace::ResponseLoggingBody#preview_bytes
 Dexpace::ResponseLoggingBody#snapshot
 Dexpace::ResponseLoggingBody#source
 Dexpace::ResponseLoggingBody#write_to
+Dexpace::RetryPredicateError
 Dexpace::Retryability
 Dexpace::Retryability#retryable_status?
 Dexpace::SeamError

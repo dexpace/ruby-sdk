@@ -310,7 +310,9 @@ class DexpacePipelineCursorTest < DexpaceTestCase
       methods = CURSOR.public_instance_methods(false)
 
       assert_empty(methods.grep(/=\z/), "no writer of any name may appear on Cursor")
-      assert_equal(%i[call cancellation fork may_fork? options request spent? state], methods.sort)
+      # #bundle is phase 6a's Task 8 reader; the pin grew by one reader and no writer.
+      assert_equal(%i[bundle call cancellation fork may_fork? options request spent? state],
+                   methods.sort,)
     end
 
     test "R11 assertion 2: the reachable state map is frozen, and unwritten stages share one" do

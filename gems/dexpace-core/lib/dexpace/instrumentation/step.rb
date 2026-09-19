@@ -38,16 +38,21 @@ module Dexpace
     #
     # The two slots are keywords defaulting to the constants the phase ships -- phase 4a's
     # NO_TRACER_FACTORY and phase 5c's NO_METER (P5-33) -- and the two instruments are created
-    # once here, in .build, never per request (OBS-31). The reconciled precedence's first clause,
-    # "the request context's bundle when it is not Bundle::NONE", is not implementable in phase
-    # 5: no reader exists by which a pipeline step reaches a RequestContext or a Bundle (4c does
-    # not consume 4a; Request's members are method, url, headers and body; PIPE-11 forbids
-    # ambient carriage), so the step resolves to its keyword and to Bundle::NONE, which is
-    # OBS-34's and XCUT-19(e)'s own default configuration. Phase 6a's Task 8 owns the Cursor
-    # widening that closes it, at which point #open_span is the one method that changes. Until
-    # then the span is named by the request's method token, which is also what the tracer
-    # factory is asked for: the operation identifier is 4a's RequestContext#operation_name, out
-    # of reach for the same reason.
+    # once here, in .build, never per request (OBS-31). The reconciled precedence's three
+    # clauses -- "the request context's bundle when it is not Bundle::NONE, else the step's
+    # constructor keyword, else the constant" -- are honoured for the TRACER FACTORY since phase
+    # 6a's Task 8 widened Cursor with #bundle: #open_span reads the cursor's bundle and takes its
+    # tracer factory when the bundle is not Bundle::NONE, else this step's keyword (which is the
+    # constant when nothing was passed), and Tracing.correlate is handed the same bundle, so a
+    # populated one pushes its trace and span ids onto the diagnostic context (OBS-23). The
+    # meter has no bundle source: CTX-14's bundle carries no meter and the two instruments are
+    # created once at .build (OBS-31), so the meter's precedence is the keyword, then the
+    # constant, and that is the whole of it. A call that seeds no bundle resolves exactly as
+    # phase 5 did -- the keyword and Bundle::NONE, OBS-34's and XCUT-19(e)'s own default
+    # configuration. The span is still named by the request's method token, which is also what
+    # the tracer factory is asked for: the operation identifier is 4a's
+    # RequestContext#operation_name and the cursor's bundle carries no name (P6-51;
+    # docs/first-release.md's behavioural-asymmetries entry).
     #
     # The level guard is read once at the top of #call and consulted at three sites -- the two
     # emissions and the body wrapping -- and a step that re-read it inside a helper would be one
@@ -124,8 +129,9 @@ module Dexpace
       # @return [Dexpace::Response] the response, its body wrapped at the body level
       def call(request, cursor)
         started = @clock.monotonic
-        span = open_span(request)
-        scope = Tracing.correlate(span, Bundle::NONE)
+        bundle = cursor.bundle
+        span = open_span(request, bundle)
+        scope = Tracing.correlate(span, bundle)
         begin
           request = prepare(request)
           response = cursor.call(request)
@@ -144,11 +150,13 @@ module Dexpace
 
       private
 
-      # 4a's #tracer, then 5c's #start_span, both named by the method token until phase 6a's
-      # Task 8 makes the operation name reachable (see the class comment).
-      def open_span(request)
+      # 4a's #tracer, then 5c's #start_span, both named by the method token (see the class
+      # comment). The factory is the cursor's bundle's when the call seeded one, else this
+      # step's own: the reconciled precedence's first clause, live since phase 6a's Task 8.
+      def open_span(request, bundle)
         name = request.method.to_s
-        @tracer_factory.tracer(name: name).start_span(name)
+        factory = bundle.equal?(Bundle::NONE) ? @tracer_factory : bundle.tracer_factory
+        factory.tracer(name: name).start_span(name)
       end
 
       # 5c's #finish and the two instruments, unwrapped. `attributes:` is optional on both
