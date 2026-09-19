@@ -15,8 +15,9 @@ require_relative "../../support/recording_sink"
 # the driver makes a forkable cursor) over a scripted transport whose every reply carries a
 # close-counting body. Split under Metrics/ClassLength: construction and options; the decision
 # skeleton; the credential hygiene and the marker (the correctness-sensitive core); Location
-# resolution and the userinfo strip; the downgrade and the target screen; body lifecycle,
-# replayability and the 303 rebuild; REDIR-28's records; and the fork-for-every-drive contract.
+# resolution and the userinfo strip; the downgrade and the target screen; the method-preserving
+# re-issue and its replayability gate; the 303 rebuild; the body lifecycle; REDIR-28's records;
+# and the fork-for-every-drive contract.
 class DexpaceRedirectStepTest < DexpaceTestCase
   Step = Dexpace::Redirect::Step
   Events = Dexpace::Redirect::Events
@@ -602,81 +603,28 @@ class DexpaceRedirectStepTest < DexpaceTestCase
     end
   end
 
-  # Task 12, the re-issue: REDIR-3, REDIR-4, REDIR-5, REDIR-6 and the 303 rebuild.
+  # Task 12, the method-preserving re-issue: REDIR-3, REDIR-4 and REDIR-6 -- a followed 301, 302,
+  # 307 or 308 re-sends the ORIGINAL method with the SAME body, or refuses to re-send at all.
   class ReissueTest < DexpaceTestCase
     include Fixtures
 
-    CONTENT_HEADERS = {
-      "Content-Type" => "application/json", "Content-Length" => "7", "Content-Language" => "en",
-      "Content-MD5" => "deadbeef", "Accept" => "application/json", "Authorization" => "Bearer t",
-    }.freeze
+    test "REDIR-3: a followed 301 and a followed 302 re-issue the ORIGINAL method with the SAME " \
+         "body object and its Content-Type -- there is deliberately NO automatic POST -> GET " \
+         "rewrite, and a PUT is preserved the same way" do
+      %w[POST PUT].product([301, 302]).each do |method, code|
+        body = replayable_body
+        request = seed_request("https://h/x", method: method, body: body,
+                                              headers: { "Content-Type" => "application/json" },)
+        response, transport = follow(redirect_step(allowed_methods: [method]),
+                                     [response_with(code, location: "https://h/y"), ok],
+                                     request: request,)
+        sent = sent_requests(transport)[1]
 
-    # The same POST carrying the two origin-scoped headers REDIR-9 names beside the rest.
-    ORIGIN_SCOPED_HEADERS = CONTENT_HEADERS.merge(
-      "Cookie" => "sid=1", "Proxy-Authorization" => "Basic proxy",
-    ).freeze
-
-    def post_with_content_headers(body: replayable_body, headers: CONTENT_HEADERS)
-      seed_request("https://h/x", method: "POST", body: body, headers: headers)
-    end
-
-    # Opted in, a 303 to `location` over the origin-scoped POST; answers the rebuilt GET.
-    def rebuilt_get_for(location)
-      _, transport = follow(redirect_step(follow303: true),
-                            [response_with(303, location: location), ok],
-                            request: post_with_content_headers(headers: ORIGIN_SCOPED_HEADERS),)
-      sent_requests(transport)[1]
-    end
-
-    test "REDIR-5: a 303 is not followed by default" do
-      response, transport = follow(redirect_step, [response_with(303, location: "https://h/y")],
-                                   request: post_with_content_headers,)
-
-      assert_equal(303, response.status.code)
-      assert_equal(1, transport.calls.size)
-    end
-
-    test "REDIR-5: opted in, a 303 is re-issued as a GET, body dropped, every Content-* header " \
-         "removed by prefix, Authorization stripped, whatever the original method" do
-      _, transport = follow(redirect_step(follow303: true),
-                            [response_with(303, location: "https://h/y"), ok],
-                            request: post_with_content_headers,)
-      rebuilt = sent_requests(transport)[1]
-
-      assert_equal("GET", rebuilt.method.token)
-      assert_nil(rebuilt.body)
-      %w[Content-Type Content-Length Content-Language Content-MD5 Authorization].each do |name|
-        refute_includes(rebuilt.headers, name, name)
+        assert_equal(200, response.status.code, "#{method} #{code}")
+        assert_equal(method, sent.method.token, "#{method} #{code}")
+        assert_same(body, sent.body, "#{method} #{code}")
+        assert_equal(["application/json"], sent.headers["Content-Type"], "#{method} #{code}")
       end
-      assert_includes(rebuilt.headers, "Accept")
-    end
-
-    test "REDIR-9 / REDIR-10 on the 303 rebuild: a CROSS-ORIGIN 303 drops Cookie and " \
-         "Proxy-Authorization beside Authorization and the Content-* headers; a same-origin " \
-         "303 keeps the two origin-scoped headers and drops the rest all the same" do
-      foreign = rebuilt_get_for("https://other.example/y")
-
-      assert_equal("GET", foreign.method.token)
-      %w[Cookie Proxy-Authorization Authorization Content-Type].each do |name|
-        refute_includes(foreign.headers, name, name)
-      end
-      assert_includes(foreign.headers, "Accept")
-
-      same = rebuilt_get_for("https://h/y")
-
-      assert_equal("GET", same.method.token)
-      assert_equal(["sid=1"], same.headers["Cookie"])
-      assert_equal(["Basic proxy"], same.headers["Proxy-Authorization"])
-      refute_includes(same.headers, "Authorization")
-      refute_includes(same.headers, "Content-Type")
-    end
-
-    test "REDIR-5 with REDIR-6: a 303 over a NON-replayable body is followed: it drops the body" do
-      response, = follow(redirect_step(follow303: true),
-                         [response_with(303, location: "https://h/y"), ok],
-                         request: post_with_content_headers(body: consumed_body),)
-
-      assert_equal(200, response.status.code)
     end
 
     test "REDIR-3 / REDIR-4: the ORIGINAL method decides -- POST -> 303 -> GET -> 301 stops at " \
@@ -724,6 +672,103 @@ class DexpaceRedirectStepTest < DexpaceTestCase
 
       assert_same(body, sent_requests(transport)[1].body)
       assert_equal("PUT", sent_requests(transport)[1].method.token)
+    end
+  end
+
+  # Task 12, the 303 rebuild: REDIR-5 (with REDIR-6), REDIR-9 and REDIR-10 on the rebuilt GET, and
+  # HTTP-13 -- the one re-issue that changes the method, drops the body and strips by prefix.
+  class RebuildTest < DexpaceTestCase
+    include Fixtures
+
+    CONTENT_HEADERS = {
+      "Content-Type" => "application/json", "Content-Length" => "7", "Content-Language" => "en",
+      "Content-MD5" => "deadbeef", "Accept" => "application/json", "Authorization" => "Bearer t",
+    }.freeze
+
+    # The same POST carrying the two origin-scoped headers REDIR-9 names beside the rest.
+    ORIGIN_SCOPED_HEADERS = CONTENT_HEADERS.merge(
+      "Cookie" => "sid=1", "Proxy-Authorization" => "Basic proxy",
+    ).freeze
+
+    def post_with_content_headers(body: replayable_body, headers: CONTENT_HEADERS)
+      seed_request("https://h/x", method: "POST", body: body, headers: headers)
+    end
+
+    # Opted in, a 303 to `location` over the origin-scoped POST; answers the rebuilt GET.
+    def rebuilt_get_for(location)
+      _, transport = follow(redirect_step(follow303: true),
+                            [response_with(303, location: location), ok],
+                            request: post_with_content_headers(headers: ORIGIN_SCOPED_HEADERS),)
+      sent_requests(transport)[1]
+    end
+
+    test "REDIR-5: a 303 is not followed by default" do
+      response, transport = follow(redirect_step, [response_with(303, location: "https://h/y")],
+                                   request: post_with_content_headers,)
+
+      assert_equal(303, response.status.code)
+      assert_equal(1, transport.calls.size)
+    end
+
+    test "REDIR-5: opted in, a 303 is re-issued as a GET, body dropped, every Content-* header " \
+         "removed by prefix, Authorization stripped, whatever the original method" do
+      _, transport = follow(redirect_step(follow303: true),
+                            [response_with(303, location: "https://h/y"), ok],
+                            request: post_with_content_headers,)
+      rebuilt = sent_requests(transport)[1]
+
+      assert_equal("GET", rebuilt.method.token)
+      assert_nil(rebuilt.body)
+      %w[Content-Type Content-Length Content-Language Content-MD5 Authorization].each do |name|
+        refute_includes(rebuilt.headers, name, name)
+      end
+      assert_includes(rebuilt.headers, "Accept")
+    end
+
+    test "REDIR-5 / HTTP-13: the Content-* prefix test is case-insensitive -- content-type, " \
+         "CONTENT-LENGTH and cOnTeNt-Language, stored in the caller's casing, are all removed " \
+         "from the rebuilt GET" do
+      names = %w[content-type CONTENT-LENGTH cOnTeNt-Language]
+      headers = { "content-type" => "application/json", "CONTENT-LENGTH" => "7",
+                  "cOnTeNt-Language" => "en", "Accept" => "application/json", }
+      request = post_with_content_headers(headers: headers)
+
+      assert_equal(names + ["Accept"], request.headers.names) # the fold is what is exercised
+
+      _, transport = follow(redirect_step(follow303: true),
+                            [response_with(303, location: "https://h/y"), ok], request: request,)
+      rebuilt = sent_requests(transport)[1]
+
+      names.each { |name| refute_includes(rebuilt.headers, name, name) }
+      assert_equal(["Accept"], rebuilt.headers.names)
+    end
+
+    test "REDIR-9 / REDIR-10 on the 303 rebuild: a CROSS-ORIGIN 303 drops Cookie and " \
+         "Proxy-Authorization beside Authorization and the Content-* headers; a same-origin " \
+         "303 keeps the two origin-scoped headers and drops the rest all the same" do
+      foreign = rebuilt_get_for("https://other.example/y")
+
+      assert_equal("GET", foreign.method.token)
+      %w[Cookie Proxy-Authorization Authorization Content-Type].each do |name|
+        refute_includes(foreign.headers, name, name)
+      end
+      assert_includes(foreign.headers, "Accept")
+
+      same = rebuilt_get_for("https://h/y")
+
+      assert_equal("GET", same.method.token)
+      assert_equal(["sid=1"], same.headers["Cookie"])
+      assert_equal(["Basic proxy"], same.headers["Proxy-Authorization"])
+      refute_includes(same.headers, "Authorization")
+      refute_includes(same.headers, "Content-Type")
+    end
+
+    test "REDIR-5 with REDIR-6: a 303 over a NON-replayable body is followed: it drops the body" do
+      response, = follow(redirect_step(follow303: true),
+                         [response_with(303, location: "https://h/y"), ok],
+                         request: post_with_content_headers(body: consumed_body),)
+
+      assert_equal(200, response.status.code)
     end
   end
 
