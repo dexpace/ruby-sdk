@@ -126,9 +126,11 @@ the tracing and metrics layer is the thing phase 5c built,
 [`sdk-documentation/logging-and-redaction.md`](./sdk-documentation/logging-and-redaction.md),
 because the logging facade and redaction are the things phase 5b built,
 [`sdk-documentation/retry.md`](./sdk-documentation/retry.md), because the retry layer — one policy
-core and its two stacks — is the thing phase 6a built, and
+core and its two stacks — is the thing phase 6a built,
 [`sdk-documentation/auth.md`](./sdk-documentation/auth.md), because the authentication layer is
-the thing phase 6c built.
+the thing phase 6c built, and
+[`sdk-documentation/redirect.md`](./sdk-documentation/redirect.md), because the redirect layer and
+the two `standard` constructors are the things phase 6b built.
 
 ## Keeping this file true
 

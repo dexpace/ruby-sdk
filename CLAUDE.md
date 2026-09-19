@@ -13,10 +13,10 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a and 6c are built; the domain model, the seam layer, the
-byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
-configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry
-layer and the authentication layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b and 6c are built — the whole of phase 6; the domain
+model, the seam layer, the byte-streaming layer, the body layer, the execution context, the recovery layer,
+the stage pipeline, the configuration layer, the tracing and metrics layer, the logging facade with its
+redaction, the retry layer, the authentication layer and the redirect layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -142,8 +142,18 @@ the `_BearerProvider` / `_AsyncBearerProvider` interfaces, the three namespaced 
 `NO_STAMP`, and `AsyncStep < Step` — plus two wirings into earlier layers:
 `Instrumentation::Events::AUTH_REFRESH`, the ninth event, and `BoundedMap#update`, the read-yield-write
 the nonce counter needs
-(`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-checklist.md`); every other
-gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
+(`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-checklist.md`) — and the redirect
+layer, §6.2's chapter 10, under `Dexpace::Redirect`: the synchronous pillar `Step` at `Stages::REDIRECT`
+built through `.build(allowed_methods:, follow303:, max_hops:, allow_scheme_downgrade:, predicate:,
+logger:)` with `DEFAULT_ALLOWED_METHODS` (`{GET, HEAD}`, never `Method::IDEMPOTENT`) and
+`DEFAULT_MAX_HOPS`, forking per hop with `{cross_origin: bool}` as cursor state and never a header; the
+predicate's read-only `ConditionSnapshot`; the `Events` (five) and `Keys` (four) vocabularies;
+`SchemeDowngradeError`; the five private per-call helpers `Origin`, `Location`, `Chain`, `Emitter` and
+`Reissue`; the flat `Dexpace::NotReplayableError`; `Resilience::Resend.replayable_body?` beside 6a's
+`.eligible?`; and — the phase-level work phase 4c postponed — `Pipeline.standard` and
+`AsyncPipeline.standard` over `Builder#install_preset`, the async one taking a required
+`redirect: :unsupported` (`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-checklist.md`);
+every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
@@ -798,6 +808,44 @@ Each is one line plus the chapter to read before touching the area.
   unchanged without consulting the hook (`AUTH-30`–`AUTH-33`); `Step.build(stamper:, challenge_hook:,
   logger:)` is the whole constructor and `AsyncStep < Step` shares every branch through one private
   `#replayable?` — there is no `Auth::Replayability` module (6c's P6-71, P6-80).
+- **The cross-origin marker is `cursor.fork(state: { cross_origin: bool })` on EVERY drive of the redirect
+  step, `false` on the seed's own and on a same-origin hop, and never a request header** — only the
+  REDIRECT pillar's fork can write the slot `Auth::Step` reads, so a server-supplied `Location` has no path
+  to it and nothing on the request needs stripping (`REDIR-11`; design §10 entry 15). "Cross-origin" is
+  `[scheme.downcase, host.downcase, port]` compared against the **seed** request's origin and never the
+  previous hop's (`REDIR-8`), which is what keeps a same-origin sub-redirect on a foreign host from
+  re-exposing the credential; `Authorization` is stripped before every re-issue regardless, as a
+  `Headers::Builder#remove` and never a second add (`REDIR-7`), and the strip is cumulative — once a hop
+  is cross-origin, `Cookie` and `Proxy-Authorization` are gone for every later hop, so the seed-versus-
+  previous distinction is observable only through the marker.
+- **A `Location` is resolved with `URI::RFC3986_PARSER.join` against the CURRENT hop, screened for an
+  `http`/`https` scheme AND a host, and its userinfo cleared with `userinfo = ""` — never `= nil`, which is
+  a silent no-op that forwards the server's credential** — `join` raises `URI::InvalidURIError` on a
+  malformed reference and on nothing else: `mailto:`, `ftp:`, `javascript:`, `http:foo` and `http:///p`
+  all resolve to something with no host or a scheme this client cannot dispatch, so the screen is what
+  makes `REDIR-18`'s third trigger real; the raise is converted BY CLASS at the one site that logs the RAW
+  value, never by message, which differs between uri 0.13 and 1.x (`REDIR-12`, `REDIR-14`, `REDIR-18`;
+  `docs/knowledge/notes/redirect-handling.md`). `URI#to_s` elides an explicit scheme-default port and
+  `URL.parse!` re-parses from it, so `Location: https://h:443/y` reaches the wire as `https://h/y` — the
+  origin is unchanged; never assert that `:443` survives (P5-91, 6b's P6-96).
+- **On a recognised 3xx the redirect step ALWAYS allocates the snapshot and consults a configured
+  predicate, even with no usable `Location`, and `REDIR-17`'s cap is applied OVER the predicate's answer,
+  never before it** — a nil target returns the response unfollowed whatever the predicate said
+  (`REDIR-18`/`REDIR-19` are MUSTs no predicate waives), and a predicate cannot lift the cap (R9, 6b's
+  P6-91). Every "return current" outcome hands the response back OPEN; the current response is closed
+  BEFORE the next fork goes out (an ordering the suite reads through a callable transport entry as the
+  follow-up arrives, since close counts pass for either ordering), and inside a frame that closes it
+  before any raise — a downgrade, a non-replayable body, or a raising predicate — propagates
+  (`REDIR-22`). `REDIR-6`'s gate is `Resend.replayable_body?` and never `.eligible?`, which folds in
+  `RETRY-7` and would refuse a body-less `POST` 307 the allowed set admits.
+- **`Pipeline.standard` and `AsyncPipeline.standard` are written over `Builder#install_preset` and nothing
+  else, take a transport OR a `Pipeline::Builder` as their one positional, and the async one's
+  `redirect: :unsupported` is a required keyword admitting nothing else** — `PIPE-24`'s empty-pillars rule
+  is reachable through the constructor only because a builder can be handed in; the presets thread
+  `settings:` and `http_tracer_factory:` to the retry step, `logger:` to every step, `level:` and
+  `preview_bytes:` to the instrumentation step, and the async preset installs `Instrumentation::AsyncStep`,
+  never the sync `Step`, whose `#call` would treat the future as a response (`PIPE-32`, `PIPE-39`,
+  `REDIR-25`; 4c's R14).
 
 ## Public API surface
 
@@ -899,14 +947,16 @@ probe compares each against the live tree, and a count written anywhere else in 
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
-  metrics layer, the phase-6a retry layer and the phase-6c authentication layer — one hundred and
-  seventy-four phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b,
-  phase-5c, phase-6a and phase-6c files under `lib/dexpace/` beside phase 0's `version.rb`, every one
-  mirrored in `sig/`, and every one of the one hundred and seventy-four but the thirteen
-  `private_constant`s `hooks.rb`, `context/call_key.rb`, `recovery/ownership.rb`,
-  `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`,
-  `proxy/resolution.rb`, `instrumentation/render.rb`, `instrumentation/emitter.rb`,
-  `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb` and `auth/validation.rb` mirrored
+  metrics layer, the phase-6a retry layer, the phase-6c authentication layer and the phase-6b redirect
+  layer — one hundred and eighty-four phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b,
+  phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b and phase-6c files under `lib/dexpace/`
+  beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one hundred and
+  eighty-four but the eighteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
+  `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
+  `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`, `instrumentation/render.rb`,
+  `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb`,
+  `auth/validation.rb`, `redirect/origin.rb`, `redirect/location.rb`, `redirect/chain.rb`,
+  `redirect/emitter.rb` and `redirect/reissue.rb` mirrored
   in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
@@ -919,7 +969,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  thirteen checklists written so far, each at implementation; `phase4/`
+  fourteen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -930,8 +980,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
-  (authentication); each holds a design and a plan, and `phase6a/` and `phase6c/` hold their checklists
-  too, each written at implementation on 2026-09-18. Phase 6 is the largest **build** phase in the
+  (authentication); each holds that sub-phase's design, plan and checklist, the checklists written at
+  implementation on 2026-09-18 (6a, 6c) and 2026-09-19 (6b). Phase 6 is the largest **build** phase in the
   roadmap — only the audit-led phase 10, at 124, carries more requirement IDs:
   111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus the fifteen `RECOV` IDs phase 4 handed it
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
@@ -991,6 +1041,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's and phase 6c's is still to be written at
-  execution time.
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's and phase 6c's is still to be
+  written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

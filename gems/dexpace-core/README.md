@@ -70,16 +70,21 @@ the four credentials `BearerToken`, `KeyCredential`, `NamedKeyCredential` and
 `BearerStamper`, `AsyncBearerStamper` and `BearerProvider.fetch_async`, the three errors
 `UnencodableCredentialError`, `HTTPSRequiredError` and `ProviderError`, and the AUTH pillar
 `Step` / `AsyncStep` at `Stages::AUTH`, plus `Instrumentation::Events::AUTH_REFRESH` and
-`BoundedMap#update`. Nothing else yet: the redirect pillar step, the `standard` constructors and
-every adapter are later phases', the three retry drivers are the only emitters of the HTTP-tracer
-vocabulary (its per-attempt group), and no transport ships here, so nothing talks to a socket.
+`BoundedMap#update`; and the redirect layer under `Dexpace::Redirect` (phase 6b): the synchronous
+pillar `Step` at `Stages::REDIRECT` with `DEFAULT_ALLOWED_METHODS` and `DEFAULT_MAX_HOPS`, the
+predicate's `ConditionSnapshot`, the `Events` and `Keys` vocabularies, `SchemeDowngradeError`, the
+flat `Dexpace::NotReplayableError`, `Resilience::Resend.replayable_body?` beside 6a's `.eligible?`,
+and the two constructors phase 4c postponed, `Pipeline.standard` and `AsyncPipeline.standard`.
+Nothing else yet: every adapter is a later phase's, the three retry drivers are the only emitters
+of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships here, so nothing
+talks to a socket.
 The as-built pages are
 `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`,
 `docs/sdk-documentation/body.md`, `docs/sdk-documentation/execution-context.md`,
 `docs/sdk-documentation/recovery.md`, `docs/sdk-documentation/pipelines.md`,
 `docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
-`docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md` and
-`docs/sdk-documentation/auth.md`.
+`docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md`,
+`docs/sdk-documentation/auth.md` and `docs/sdk-documentation/redirect.md`.
 
 ## Install
 
@@ -202,6 +207,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   resolver, the credentials and their three redacted renderings, the challenge parser, Basic and
   Digest with the chain and its hook, the key stamper, the bearer stamper on each runtime, and the
   AUTH step's guard, cross-origin suppression, 401 replay and bearer 401 branch.
+- `docs/sdk-documentation/redirect.md` -- the redirect layer as built: the pillar step and its
+  options, the credential hygiene and the cursor-state marker, the "return current" outcomes, the
+  303 rebuild and the replayability gate, the scheme downgrade, the predicate's snapshot, the
+  records, the second re-sendability predicate, and the two `standard` pipeline constructors.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.
