@@ -19,9 +19,15 @@ module Dexpace
     # re-sendable even though there is no payload to resend (RETRY-7), and a PUT with a
     # non-replayable body is not either (RETRY-8: both axes, neither implying the other).
     #
-    # Phase 6b extends this module in place with the body-only question REDIR-6 asks
-    # (.replayable_body?) and its NotReplayableError; nothing here anticipates them, and nothing
-    # here is a "no-op if the file exists" skip (the plan's ownership note).
+    # Phase 6b extended this module in place with the body-only question REDIR-6 asks,
+    # .replayable_body?, and filed its NotReplayableError flat under Dexpace:: beside 6a's
+    # RetryPredicateError (P6-56's precedent for this namespace). The two predicates are NOT
+    # interchangeable: .eligible? folds in RETRY-7's idempotency clause, so it refuses a
+    # body-less POST; .replayable_body? asks only whether a present body can be re-sent, because
+    # a redirect's method eligibility is REDIR-3/REDIR-4's configured allowed-method set and is
+    # decided in Redirect::Step. Calling .eligible? at REDIR-6's site would refuse a body-less
+    # POST 307 under an allowed_methods: the specification permits; calling .replayable_body? at
+    # RETRY-5's site would re-send a bare POST.
     module Resend
       extend self
 
@@ -34,6 +40,16 @@ module Dexpace
         return request.method.idempotent? if body.nil?
 
         body.replayable?
+      end
+
+      # REDIR-6: whether `request`'s body, if any, can be re-sent on a method-preserving
+      # redirect. Nothing about the method is asked here (6b's REDIR-6 row).
+      #
+      # @param request [Dexpace::Request]
+      # @return [Boolean] true with no body, else the body's own answer (BODY-1)
+      def replayable_body?(request)
+        body = request.body
+        body.nil? || body.replayable?
       end
     end
   end

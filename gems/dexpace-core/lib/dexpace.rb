@@ -246,6 +246,24 @@ require_relative "dexpace/auth/https_required_error"
 require_relative "dexpace/auth/step"
 require_relative "dexpace/auth/async_step"
 
+# Phase 6b: the redirect layer, in dependency order -- after 6a's and 6c's blocks, because the
+# step consults 6a's Resend (widened in place above with REDIR-6's predicate), 5b's logger and
+# 4c's stages. The flat NotReplayableError first (filed under error/ beside RetryPredicateError,
+# 6a's P6-56 precedent), then the two private resolution helpers, the public snapshot, the event
+# and key vocabularies, the namespaced error, the three private per-call helpers -- the chain,
+# the emitter and the re-issue builder -- and the pillar step last. `uri` is required by
+# location.rb and step.rb, the files that name it; it was on the allowlist before phase 1.
+require_relative "dexpace/error/not_replayable_error"
+require_relative "dexpace/redirect/origin"
+require_relative "dexpace/redirect/location"
+require_relative "dexpace/redirect/condition_snapshot"
+require_relative "dexpace/redirect/events"
+require_relative "dexpace/redirect/scheme_downgrade_error"
+require_relative "dexpace/redirect/chain"
+require_relative "dexpace/redirect/emitter"
+require_relative "dexpace/redirect/reissue"
+require_relative "dexpace/redirect/step"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

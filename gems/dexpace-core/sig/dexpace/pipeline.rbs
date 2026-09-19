@@ -18,7 +18,14 @@ module Dexpace
 
     def self.builder: (transport: untyped) -> Builder
     def self.direct: (untyped transport) -> Pipeline
+    def self.standard: (untyped over, ?redirect: Redirect::Step?, ?settings: Resilience::RetrySettings,
+                        ?http_tracer_factory: untyped, ?logger: Instrumentation::Logger,
+                        ?level: Instrumentation::HTTPLogging, ?preview_bytes: Integer?) -> Pipeline
 
     def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation, ?bundle: Instrumentation::Bundle) -> Dexpace::Response
+
+    private
+
+    def self.standard_redirect: (untyped redirect, Instrumentation::Logger logger) -> Redirect::Step
   end
 end

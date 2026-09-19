@@ -3,6 +3,7 @@
 
 require_relative "../../test_helper"
 require_relative "../../../lib/dexpace/auth/step"
+require_relative "../../../lib/dexpace/redirect/step"
 require_relative "../../../lib/dexpace/auth/key_stamper"
 require_relative "../../../lib/dexpace/auth/key_credential"
 require_relative "../../support/auth_fixtures"
@@ -45,7 +46,7 @@ class DexpaceAuthCrossOriginConvergenceTest < DexpaceTestCase
       unless defined?(Dexpace::Redirect::Step)
 
     pipeline = Dexpace::Pipeline.builder(transport: two_hop_cross_origin_transport)
-      .append(Dexpace::Redirect::Step.new, stage: STAGES::REDIRECT)
+      .append(Dexpace::Redirect::Step.build, stage: STAGES::REDIRECT)
       .append(Dexpace::Auth::Step.build(
                 stamper: Dexpace::Auth::KeyStamper.new(
                   Dexpace::Auth::KeyCredential.new(api_key: "secret"),

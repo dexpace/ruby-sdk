@@ -1,0 +1,22 @@
+# Dexpace::Redirect::Emitter is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the class and
+# its four writers declared to type Step. RBS has no visibility for a constant, so the privacy
+# lives in lib/dexpace/redirect/emitter.rb alone.
+module Dexpace
+  module Redirect
+    class Emitter
+      @logger: Instrumentation::Logger
+
+      def initialize: (Instrumentation::Logger logger) -> void
+      def hop: (from: URI::Generic, to: URI::Generic, status: Dexpace::Status, redirect_count: Integer) -> nil
+      def loop_detected: (from: URI::Generic, to: URI::Generic, redirect_count: Integer) -> nil
+      def scheme_downgrade: (from: URI::Generic, to: URI::Generic, permitted: bool) -> nil
+      def location_malformed: (raw: String, error: Exception) -> nil
+
+      private
+
+      def contained: () { () -> untyped } -> nil
+      def redacted: (URI::Generic uri) -> String
+    end
+  end
+end

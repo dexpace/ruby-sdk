@@ -1,9 +1,10 @@
 module Dexpace
   module Resilience
-    # RETRY-5 through RETRY-8, RECOV-18: the re-sendability gate (R5). Phase 6b widens this
-    # module in place with REDIR-6's body-only predicate and its error.
+    # RETRY-5 through RETRY-8, RECOV-18: the re-sendability gate (R5), and REDIR-6's body-only
+    # predicate beside it (phase 6b).
     module Resend
       def self?.eligible?: (Dexpace::Request request) -> bool
+      def self?.replayable_body?: (Dexpace::Request request) -> bool
     end
   end
 end

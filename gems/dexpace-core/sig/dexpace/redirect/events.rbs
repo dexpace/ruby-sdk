@@ -1,0 +1,20 @@
+module Dexpace
+  module Redirect
+    # REDIR-28's event names, the redirect layer's own vocabulary.
+    module Events
+      HOP_FOLLOWED: String
+      LOOP_DETECTED: String
+      SCHEME_DOWNGRADE_REJECTED: String
+      SCHEME_DOWNGRADE_PERMITTED: String
+      LOCATION_MALFORMED: String
+    end
+
+    # REDIR-28's field keys; the status is logged under Instrumentation::Keys.
+    module Keys
+      FROM_URL: String
+      TO_URL: String
+      REDIRECT_COUNT: String
+      LOCATION_RAW: String
+    end
+  end
+end

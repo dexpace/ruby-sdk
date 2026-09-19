@@ -73,9 +73,12 @@ class DexpaceTest < DexpaceTestCase
   # Phase 6c: the namespace and the one flat error AUTH-6 scopes generally; everything else the
   # layer ships is under Dexpace::Auth, which the Layers case below pins.
   AUTH_LAYER = %i[Auth AuthResolutionError].freeze
+  # Phase 6b: the namespace and the one flat error REDIR-6 scopes generally (filed beside 6a's
+  # RetryPredicateError, P6-56); everything else the layer ships is under Dexpace::Redirect.
+  REDIRECT_LAYER = %i[Redirect NotReplayableError].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
-    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER,
+    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do

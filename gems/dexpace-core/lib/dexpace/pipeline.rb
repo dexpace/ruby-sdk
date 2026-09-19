@@ -5,6 +5,13 @@ require_relative "closeable"
 require_relative "http/request_options"
 require_relative "cancellation"
 require_relative "instrumentation/bundle"
+require_relative "instrumentation/http_logging"
+require_relative "instrumentation/logger"
+require_relative "instrumentation/step"
+require_relative "resilience/retry_settings"
+require_relative "resilience/retry_step"
+require_relative "redirect/step"
+require_relative "error/invalid_argument_error"
 
 module Dexpace
   # The synchronous stage-based execution pipeline (design §5.1): sixteen totally ordered stages
@@ -58,14 +65,73 @@ module Dexpace
     def self.builder(transport:) = Builder.new(transport: transport)
 
     # PIPE-39's first named shape: a step-less pipeline that forwards directly to a transport --
-    # PIPE-9's empty pipeline behind a name a caller can find. The second, Pipeline.standard, is
-    # postponed to phase 6 (6b, Task 13a): the redirect and retry families are phase 6's and the
-    # instrumentation step is phase 5's, and a constructor named for defaults it cannot install
-    # is worse than its absence. Builder#install_preset is the mechanism it will be written over.
+    # PIPE-9's empty pipeline behind a name a caller can find. The second is .standard, below.
     #
     # @param transport [#call] the terminal hop
     # @return [Dexpace::Pipeline]
     def self.direct(transport) = Builder.new(transport: transport).build
+
+    # PIPE-39's second named shape, the sync standard pipeline: the default resilience pillars
+    # over a transport -- phase 6b's Redirect::Step at REDIRECT, phase 6a's Resilience::RetryStep
+    # at RETRY and phase 5b's Instrumentation::Step at LOGGING -- installed through
+    # Builder#install_preset and through nothing else (phase 4c's R14, P4-34: one installation
+    # path, and never a preset that claims defaults it does not install). Written by phase 6b's
+    # Task 13a, the constructor phase 4c postponed until all three families existed.
+    #
+    # `over` is a transport, or a Pipeline::Builder already holding one and possibly other steps:
+    # PIPE-24 is what the second form is for -- the preset installs into EMPTY pillars only, and
+    # a builder whose REDIRECT, RETRY or LOGGING pillar is already occupied rejects the whole call
+    # with nothing installed, while a builder holding steps at other stages keeps them around the
+    # preset's. `redirect:` takes a Redirect::Step configured by the caller, or nil for one built
+    # over `logger:`; the retry step is built over `settings:`, `http_tracer_factory:` and
+    # `logger:`, and the instrumentation step over `logger:`, `level:` and `preview_bytes:`
+    # (required at HTTPLogging::BODY, as Instrumentation::Step.build requires it). The async
+    # counterpart, AsyncPipeline.standard, installs no redirect step and takes an explicit
+    # `redirect: :unsupported` so PIPE-32's asymmetry is visible at the call site.
+    #
+    # @param over [#call, Dexpace::Pipeline::Builder] the terminal hop, or a builder holding it
+    # @param redirect [Dexpace::Redirect::Step, nil] the redirect step; built over `logger:`
+    #   when nil
+    # @param settings [Dexpace::Resilience::RetrySettings] the retry step's configuration
+    # @param http_tracer_factory [#call, nil] the retry step's OBS-29 tracer factory; the
+    #   step's own no-op default when nil
+    # @param logger [Dexpace::Instrumentation::Logger] shared by the three steps
+    # @param level [Dexpace::Instrumentation::HTTPLogging] the instrumentation step's level
+    # @param preview_bytes [Integer, nil] the body-preview cap, required at the body level
+    # @return [Dexpace::Pipeline]
+    # @raise [Dexpace::PipelineError] when a target pillar of `over` is already occupied (PIPE-24)
+    # @raise [Dexpace::InvalidArgumentError] for a `redirect:` that is not a Redirect::Step, a
+    #   transport that is not one, or a level whose requirements are unmet
+    def self.standard(over, redirect: nil, settings: Resilience::RetrySettings.build,
+                      http_tracer_factory: nil, logger: Instrumentation::Logger::NULL,
+                      level: Instrumentation::HTTPLogging::DEFAULT, preview_bytes: nil)
+      retry_step = if http_tracer_factory.nil? # the family's own no-op default stays private
+                     Resilience::RetryStep.build(settings: settings, logger: logger)
+                   else
+                     Resilience::RetryStep.build(settings: settings, logger: logger,
+                                                 http_tracer_factory: http_tracer_factory,)
+                   end
+      entries = [
+        Entry.build(stage: Stages::REDIRECT, step: standard_redirect(redirect, logger)),
+        Entry.build(stage: Stages::RETRY, step: retry_step),
+        Entry.build(stage: Stages::LOGGING,
+                    step: Instrumentation::Step.build(logger: logger, level: level,
+                                                      preview_bytes: preview_bytes,),),
+      ]
+      builder = over.is_a?(Builder) ? over : Builder.new(transport: over)
+      builder.install_preset(entries).build
+    end
+
+    # The preset's redirect step: the caller's, or one built over the preset's logger.
+    def self.standard_redirect(redirect, logger)
+      return Redirect::Step.build(logger: logger) if redirect.nil?
+      return redirect if redirect.is_a?(Redirect::Step)
+
+      raise InvalidArgumentError,
+            "redirect: takes a Dexpace::Redirect::Step or nil on the sync standard pipeline, " \
+            "got #{redirect.inspect}"
+    end
+    private_class_method :standard_redirect
 
     # Only Builder reaches this: `new` is private, and driver_class: is one of the two
     # private_constant drivers, which resolve unqualified inside Builder because it is nested here

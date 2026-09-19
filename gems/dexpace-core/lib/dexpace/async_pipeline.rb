@@ -9,6 +9,14 @@ require_relative "async/future"
 require_relative "pipeline"
 require_relative "pipeline/cursor"
 require_relative "pipeline/async_driver"
+require_relative "pipeline/builder"
+require_relative "pipeline/entry"
+require_relative "pipeline/stages"
+require_relative "instrumentation/async_step"
+require_relative "instrumentation/http_logging"
+require_relative "instrumentation/logger"
+require_relative "resilience/async_retry_step"
+require_relative "resilience/retry_settings"
 require_relative "error/invalid_argument_error"
 
 module Dexpace
@@ -33,15 +41,16 @@ module Dexpace
   # **PIPE-32, and this paragraph IS the requirement's last clause discharged.** The async
   # standard pipeline MUST NOT follow HTTP redirects at the pipeline layer -- there is no async
   # redirect pillar step -- and "a port MUST document this asymmetry with the sync standard
-  # pipeline". The asymmetry: Pipeline.standard will install redirect + retry + instrumentation,
+  # pipeline". The asymmetry: Pipeline.standard installs redirect + retry + instrumentation,
   # while AsyncPipeline.standard installs retry + instrumentation only and takes an explicit
-  # `redirect: :unsupported` argument so the absence is visible at the call site. Neither
-  # constructor exists yet (postponed to phase 6b, Task 13a), so PIPE-32's substantive clause
-  # holds vacuously in phase 4: there is no async standard pipeline to follow a redirect. What
-  # this phase deliberately does NOT do is make Stages::REDIRECT un-installable on the async
-  # path: PIPE-28 requires the identical staging policy in both runtimes, and a builder that
-  # rejected a REDIRECT step for #build_async and accepted it for #build would be two policies.
-  # PIPE-32 constrains the PRESET, not the runtime.
+  # `redirect: :unsupported` argument -- REQUIRED, and refusing every other value -- so the
+  # absence is visible at the call site. Both constructors exist since phase 6b's Task 13a, so
+  # the clause holds substantively: the async standard pipeline has no step at REDIRECT and a
+  # 3xx surfaces to the caller verbatim (REDIR-25). What phase 4c deliberately did NOT do, and
+  # phase 6b keeps, is make Stages::REDIRECT un-installable on the async path: PIPE-28 requires
+  # the identical staging policy in both runtimes, and a builder that rejected a REDIRECT step
+  # for #build_async and accepted it for #build would be two policies. PIPE-32 constrains the
+  # PRESET, not the runtime.
   #
   # PIPE-34's bridge is phase 2's Dexpace::AsyncTransport.sync_over(async_pipeline), not a method
   # here (R13, P4-35): a built async pipeline answers #call(request, options, cancellation) with a
@@ -61,14 +70,68 @@ module Dexpace
 
     private_class_method :new
 
-    # PIPE-39's step-less shape, async form: PIPE-9's empty branch behind a name. The
-    # AsyncPipeline.standard constructor is postponed to phase 6 (6b, Task 13a) with its
-    # `redirect: :unsupported` argument; Builder#install_preset is the mechanism it will be
-    # written over.
+    # PIPE-39's step-less shape, async form: PIPE-9's empty branch behind a name. The second
+    # shape is .standard, below.
     #
     # @param transport [#call] an async transport
     # @return [Dexpace::AsyncPipeline]
     def self.direct(transport) = Pipeline::Builder.new(transport: transport).build_async
+
+    # PIPE-39's second named shape, the async standard pipeline: phase 6a's
+    # Resilience::AsyncRetryStep at RETRY and phase 5b's Instrumentation::AsyncStep at LOGGING,
+    # installed through Pipeline::Builder#install_preset and through nothing else (phase 4c's
+    # R14), and NO step at REDIRECT (PIPE-32, REDIR-25). `redirect:` is a required keyword that
+    # admits exactly `:unsupported`: the asymmetry with Pipeline.standard is spelled at the call
+    # site rather than left as an absence a reader has to notice (design §5.3). Written by phase
+    # 6b's Task 13a, the constructor phase 4c postponed.
+    #
+    # The keywords are Pipeline.standard's, minus a step for REDIRECT: `over` is an async
+    # transport or a Pipeline::Builder holding one (PIPE-24's empty-pillars rule applies to the
+    # second form); the retry step is built over `settings:`, `http_tracer_factory:` and
+    # `logger:`, the instrumentation step over `logger:`, `level:` and `preview_bytes:`. The
+    # async retry step waits through Dexpace::Async.delay, which needs a Fiber.scheduler: with
+    # none registered, a POSITIVE backoff fails the returned future with Dexpace::SeamError
+    # (never a blocking sleep), while a zero-length delay completes inline -- so a preset built
+    # with no scheduler retries only under settings whose delays are zero (6a's P6-54, R2's
+    # third route). This constructor takes no scheduler keyword because the step takes none.
+    #
+    # @param over [#call, Dexpace::Pipeline::Builder] an async transport, or a builder holding one
+    # @param redirect [Symbol] `:unsupported`, and nothing else
+    # @param settings [Dexpace::Resilience::RetrySettings] the retry step's configuration
+    # @param http_tracer_factory [#call, nil] the retry step's OBS-29 tracer factory
+    # @param logger [Dexpace::Instrumentation::Logger] shared by both steps
+    # @param level [Dexpace::Instrumentation::HTTPLogging] the instrumentation step's level
+    # @param preview_bytes [Integer, nil] the body-preview cap, required at the body level
+    # @return [Dexpace::AsyncPipeline]
+    # @raise [Dexpace::InvalidArgumentError] for any `redirect:` but `:unsupported` (PIPE-32), a
+    #   transport that is not one, or a level whose requirements are unmet
+    # @raise [Dexpace::PipelineError] when RETRY or LOGGING of `over` is already occupied (PIPE-24)
+    def self.standard(over, redirect:, settings: Resilience::RetrySettings.build,
+                      http_tracer_factory: nil, logger: Instrumentation::Logger::NULL,
+                      level: Instrumentation::HTTPLogging::DEFAULT, preview_bytes: nil)
+      given = redirect #: untyped
+      unless given == :unsupported
+        raise InvalidArgumentError,
+              "AsyncPipeline.standard follows no redirects at the pipeline layer (PIPE-32); " \
+              "pass redirect: :unsupported, got #{given.inspect}"
+      end
+
+      retry_step = if http_tracer_factory.nil? # the family's own no-op default stays private
+                     Resilience::AsyncRetryStep.build(settings: settings, logger: logger)
+                   else
+                     Resilience::AsyncRetryStep.build(settings: settings, logger: logger,
+                                                      http_tracer_factory: http_tracer_factory,)
+                   end
+      entries = [
+        Pipeline::Entry.build(stage: Pipeline::Stages::RETRY, step: retry_step),
+        Pipeline::Entry.build(stage: Pipeline::Stages::LOGGING,
+                              step: Instrumentation::AsyncStep.build(
+                                logger: logger, level: level, preview_bytes: preview_bytes,
+                              ),),
+      ]
+      builder = over.is_a?(Pipeline::Builder) ? over : Pipeline::Builder.new(transport: over)
+      builder.install_preset(entries).build_async
+    end
 
     # PIPE-31's terminal response-mapping operator (P4-38): a class method over the pivot rather
     # than a #call-with-handler overload, because PIPE-26 requires #call to stay exactly the

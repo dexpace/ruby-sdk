@@ -1,0 +1,50 @@
+module Dexpace
+  # The redirect layer: chapter 10's synchronous pillar step and its vocabulary.
+  module Redirect
+    # REDIR-1 through REDIR-24, REDIR-26, REDIR-28 on the sync runtime: the REDIRECT pillar step.
+    # The predicate is `untyped` because a lambda is a valid value (Registry.callable? validates
+    # the arity).
+    class Step
+      DEFAULT_ALLOWED_METHODS: Set[Dexpace::Method]
+      DEFAULT_MAX_HOPS: Integer
+      RECOGNIZED_CODES: Set[Integer]
+
+      @allowed_methods: Set[Dexpace::Method]
+      @follow303: bool
+      @max_hops: Integer
+      @allow_scheme_downgrade: bool
+      @predicate: untyped
+      @logger: Instrumentation::Logger
+      @emitter: Emitter
+
+      private def self.new: (allowed_methods: Set[Dexpace::Method], follow303: bool, max_hops: Integer,
+                             allow_scheme_downgrade: bool, predicate: untyped,
+                             logger: Instrumentation::Logger) -> instance
+      def initialize: (allowed_methods: Set[Dexpace::Method], follow303: bool, max_hops: Integer,
+                       allow_scheme_downgrade: bool, predicate: untyped,
+                       logger: Instrumentation::Logger) -> void
+
+      def self.build: (?allowed_methods: Enumerable[Dexpace::Method | String | Symbol], ?follow303: bool,
+                       ?max_hops: Integer, ?allow_scheme_downgrade: bool, ?predicate: untyped,
+                       ?logger: Instrumentation::Logger) -> Step
+
+      def stage: () -> Pipeline::Stage
+      def call: (Dexpace::Request request, Pipeline::Cursor cursor) -> Dexpace::Response
+
+      private
+
+      def self.allowed_methods!: (untyped methods) -> Set[Dexpace::Method]
+      def self.boolean!: (String name, untyped value) -> bool
+      def self.max_hops!: (untyped value) -> Integer
+      def self.predicate!: (untyped predicate) -> untyped
+      def self.logger!: (untyped logger) -> Instrumentation::Logger
+      def plan: (Chain chain, Dexpace::Response response) -> Dexpace::Request?
+      def follow?: (Chain chain, Dexpace::Response response, URI::Generic? target) -> bool
+      def resolve_target: (URI::Generic current_url, Dexpace::Response response) -> URI::Generic?
+      def resolve: (URI::Generic current_url, String location) -> URI::Generic?
+      def default_follow?: (Chain chain, Dexpace::Response response, URI::Generic? target) -> bool
+      def commit: (Chain chain, Dexpace::Response response, Dexpace::Request follow_up) -> void
+      def closing_on_error: [T] (Dexpace::Response response) { () -> T } -> T
+    end
+  end
+end

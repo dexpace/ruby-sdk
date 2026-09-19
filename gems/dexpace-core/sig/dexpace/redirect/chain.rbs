@@ -1,0 +1,25 @@
+# Dexpace::Redirect::Chain is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the class and
+# its readers declared to type Step. RBS has no visibility for a constant, so the privacy lives
+# in lib/dexpace/redirect/chain.rb alone.
+module Dexpace
+  module Redirect
+    class Chain
+      @request: Dexpace::Request
+      @seed: [String, String, Integer?]
+      @seed_method: Dexpace::Method
+      @visited: Set[String]
+      @count: Integer
+
+      attr_reader request: Dexpace::Request
+      attr_reader count: Integer
+      attr_reader visited: Set[String]
+      attr_reader seed: [String, String, Integer?]
+      attr_reader seed_method: Dexpace::Method
+
+      def initialize: (Dexpace::Request request) -> void
+      def cross_origin?: () -> bool
+      def advance!: (Dexpace::Request follow_up) -> void
+    end
+  end
+end
