@@ -15,8 +15,8 @@ require_relative "../../support/recording_sink"
 # the driver makes a forkable cursor) over a scripted transport whose every reply carries a
 # close-counting body. Split under Metrics/ClassLength: construction and options; the decision
 # skeleton; the credential hygiene and the marker (the correctness-sensitive core); Location
-# resolution, the userinfo strip and the downgrade; body lifecycle, replayability and the 303
-# rebuild; REDIR-28's records; and the fork-for-every-drive contract.
+# resolution and the userinfo strip; the downgrade and the target screen; body lifecycle,
+# replayability and the 303 rebuild; REDIR-28's records; and the fork-for-every-drive contract.
 class DexpaceRedirectStepTest < DexpaceTestCase
   Step = Dexpace::Redirect::Step
   Events = Dexpace::Redirect::Events
@@ -460,8 +460,8 @@ class DexpaceRedirectStepTest < DexpaceTestCase
     end
   end
 
-  # Task 11: REDIR-12, REDIR-13, REDIR-14, REDIR-15, REDIR-18 -- resolution, the strip and the
-  # downgrade, asserted on the RENDERED URL the transport received, never on #userinfo.
+  # Task 11: REDIR-12, REDIR-13, REDIR-14 -- resolution and the strip, asserted on the RENDERED URL
+  # the transport received, never on #userinfo.
   class LocationTest < DexpaceTestCase
     include Fixtures
 
@@ -476,15 +476,31 @@ class DexpaceRedirectStepTest < DexpaceTestCase
                    sent_urls(transport),)
     end
 
-    test "REDIR-14: a query-only, a fragment-only and a network-path reference all resolve" do
+    test "REDIR-14: a query-only, a fragment-only and a network-path reference all resolve " \
+         "against the CURRENT hop -- the fragment-only one keeps that hop's path and query" do
       _, transport = follow(redirect_step(max_hops: 5),
                             [redirect_to("?page=2"),
+                             redirect_to("#only"),
                              redirect_to("//other.example/p"),
                              ok,],
                             request: seed_request("https://h/list?page=1"),)
 
-      assert_equal(%w[https://h/list?page=1 https://h/list?page=2 https://other.example/p],
+      assert_equal(%w[https://h/list?page=1 https://h/list?page=2 https://h/list?page=2#only
+                      https://other.example/p],
                    sent_urls(transport),)
+    end
+
+    test "REDIR-13: a fragment, a percent-encoded fragment, an empty query and an empty fragment " \
+         "all reach the transport byte for byte" do
+      { "/y#frag" => "https://h/y#frag",
+        "/y?q=1#x" => "https://h/y?q=1#x",
+        "/y?q=a%23b#c%2Fd" => "https://h/y?q=a%23b#c%2Fd",
+        "https://h/y?" => "https://h/y?",
+        "https://h/y#" => "https://h/y#", }.each do |location, expected|
+        _, transport = follow(redirect_step, chain(location, nil), request: seed_request("https://h/x"))
+
+        assert_equal(expected, sent_urls(transport)[1], location)
+      end
     end
 
     test "REDIR-12 / REDIR-13: userinfo is stripped and the encoded path and query survive " \
@@ -517,6 +533,13 @@ class DexpaceRedirectStepTest < DexpaceTestCase
       assert_equal("https://a.example/y", sent_urls(transport)[1])
       assert_equal([false, false], probe.decisions.map { |d| d[:suppressed] })
     end
+  end
+
+  # Task 11, continued: REDIR-15 and REDIR-18 -- the targets the step refuses to follow. A scheme
+  # downgrade raises after the current response is closed (REDIR-22b); an unsupported, host-less
+  # or malformed reference returns it unfollowed and open (REDIR-22c).
+  class RefusedTargetTest < DexpaceTestCase
+    include Fixtures
 
     test "REDIR-15: an HTTPS -> HTTP downgrade is rejected by default, the current response " \
          "closed before the error propagates (REDIR-22b)" do
