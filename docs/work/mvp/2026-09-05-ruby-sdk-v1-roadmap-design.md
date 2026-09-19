@@ -3850,3 +3850,28 @@ shape — and its `REDIR-27` entry is cited, not rewritten; `docs/deviations.md`
 note's floor caveat on every row. The consolidation of P6-91–P6-100 into design §10 and §6.2's
 `URI.join` spelling are a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen, and
 §6.2's sentence states the semantics that were built, so no `C15`.
+
+**2026-09-19, review round 1 of the phase-6b stack.** Round 0 returned `changes_requested` with no
+blocking finding, two should-fix and two nits, every one on the tests or the docs branch and none
+touching `lib/`. Should-fix, both coverage gaps behind a checklist row whose cited test did not prove
+the clause it claimed, each found by a mutation that survived on 4.0.6 and 3.2.11: dropping `settings:`
+from the sync `Pipeline.standard`'s `RetryStep.build` left `standard_test.rb` green — the default
+settings retry a 503 too, after a real backoff on `Clock::SYSTEM`, so the call count could not tell
+the two schedules apart — and the sync wiring case now holds its `FakeClock` and asserts the retry's
+one wait on it at the flat settings' zero delay, with a second case driving `max_retries: 0` and
+asserting the 503 back unretried after one call (guard 51); and keeping `Cookie` and
+`Proxy-Authorization` on a cross-origin 303 GET rebuild left the redirect suites green, since every
+303 case was same-origin and carried neither header — `ReissueTest` gains the cross-origin 303 over
+a `POST` carrying both, the rebuilt `GET` carrying none of the four headers `REDIR-9` and `REDIR-7`
+name and keeping `Accept`, and the same-origin 303 keeping the two origin-scoped headers (guard 52).
+The addition pushed `WiringTest` over `Metrics/ClassLength`, so the two `PIPE-24` cases and the
+`install_preset` source scan moved to an `InstallationTest`, a split and not a disable. The battery is
+fifty-two, fifty-one caught on both rows, guard 3 still the one equivalent mutant; the checklist's
+`REDIR-9`, `PIPE-39`, `PIPE-24` and `NFR-13` rows and its guard table say so, and its departures from
+the plan are thirty-two. The nits: the `NFR-13` row had counted ten new `test/` files where nine were
+added (seven suites and two doubles) and reads nine; and the tests and docs commit subjects at 80 and
+77 characters, with fifty-five body lines past 72, are left as they are — the fix rules forbid
+amending the implementer's commits — and are the squash-merge's to shorten, every commit this round
+adds keeping the 74/72 limits. No ledger row is added: the design's As-built addendum carries a
+round-1 paragraph saying the round found no behaviour the document states that the code fails to
+honour.
