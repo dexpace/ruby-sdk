@@ -106,7 +106,7 @@ domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's 
 configuration layer, phase 5b's logging facade and redaction, phase 5c's tracing and metrics
 layer, phase 6a's retry layer and phase 6c's authentication layer; the other five are
 phase 0's skeletons, a namespace and a `VERSION`. The as-built documentation lands in
-[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the thirteen pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the fourteen pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing

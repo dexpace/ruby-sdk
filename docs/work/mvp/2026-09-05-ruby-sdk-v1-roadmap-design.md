@@ -3899,3 +3899,26 @@ suite had ten — reads eleven now, and the two stale "two" counts for the const
 been three nested classes since round 1's split, were corrected in the same pass. No ledger row is
 added: the design's As-built addendum carries a round-2 paragraph saying the round found no behaviour
 the document states that the code fails to honour.
+
+**2026-09-19, review round 3 of the phase-6b stack.** Round 2 returned `changes_requested` with two
+should-fix on the tests branch and one nit on the docs branch, nothing touching `lib/`. The
+should-fixes: of seventy mutations the round ran, four survived on 4.0.6 and 3.2.11 on two MUST
+clauses with real gaps, the code right by the reviewer's own probes on both interpreters. `REDIR-3`
+says "there is deliberately NO automatic POST→GET rewrite for 301/302", and no test followed a 301
+or a 302 on a non-`GET`/`HEAD` method and asserted the re-issued method or body — the only
+method-and-body assertions on a method-preserving hop were `REDIR-4`'s 307/308 cases — so rewriting
+the method, dropping the body, or both, on 301/302 alone left every suite green; `ReissueTest` now
+follows a 301 and a 302 on a `POST` and on a `PUT` under an allowed set admitting the method and
+asserts the original method token, the same body object and the `Content-Type` still travelling on
+the transport's second call (guards 57–59). `REDIR-5` says "case-insensitively", and every 303 case
+carried canonical casing, so a prefix test that dropped the fold survived; a new case whose `POST`
+carries `content-type`, `CONTENT-LENGTH` and `cOnTeNt-Language`, in that casing on `Headers#names`,
+asserts each gone from the rebuilt `GET` with `Accept` alone left (guard 60). `ReissueTest` was at
+97 code lines, so its four 303 cases, two constants and two helpers moved unchanged to a
+`RebuildTest`, which the new fold case joins — a split by concern and not a disable; the step suite
+is twelve nested classes and the checklist's `REDIR-3`, `REDIR-5`, `REDIR-9` and `HTTP-13` rows, its
+guard table, its audit row and its departures cite the new class where a case moved. The battery is
+sixty, fifty-nine caught on both rows, guard 3 still the one equivalent mutant. The nit —
+`docs/README.md` said "the thirteen pages written so far" while listing fourteen — reads fourteen.
+No ledger row is added: the design's As-built addendum carries a round-3 paragraph saying the round
+found no behaviour the document states that the code fails to honour.

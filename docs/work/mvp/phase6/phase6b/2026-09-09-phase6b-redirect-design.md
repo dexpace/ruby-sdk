@@ -981,3 +981,21 @@ fragment; the four mutations behind them are the checklist's guards 53–56, red
 `REDIR-15` and `REDIR-18` cases moved to a `RefusedTargetTest` when the addition crossed
 `Metrics/ClassLength`. No `lib/` line changed; the round's one nit — a class count in the checklist's
 departure 32 — is the checklist's.
+
+**Review round 3, 2026-09-19.** Round 2 of the stack's review found no behaviour this document
+states that the code fails to honour either, and adds no row: its two should-fixes were coverage
+gaps behind two MUST rows, each found by mutations that survived on 4.0.6 and 3.2.11 while the
+reviewer's own probes showed the code right. `REDIR-3` says "there is deliberately NO automatic
+POST→GET rewrite for 301/302", and `Reissue.build` honours it — `request.with(url:, headers:)` on
+every non-303 hop, the method and the body untouched — but no test followed a 301 or a 302 on a
+non-`GET`/`HEAD` method and asserted the re-issued method or body, so a rewrite on those two
+statuses (the method, the body, or both) left every suite green; `ReissueTest` now follows a 301 and
+a 302 on a `POST` and on a `PUT` and asserts the method token, the same body object and the
+`Content-Type` on the transport's second call. `REDIR-5` says "case-insensitively", and
+`Reissue.rebuild_as_get`'s prefix test is the `name.downcase.start_with?("content-")` the *Scope*
+bullet spells — but every 303 case carried canonical casing, so dropping the fold survived; a case
+whose `POST` carries `content-type`, `CONTENT-LENGTH` and `cOnTeNt-Language` now asserts each gone
+from the rebuilt `GET`. The four mutations are the checklist's guards 57–60, red on both rows, and
+the four earlier 303 cases moved unchanged to a `RebuildTest`, which the new one joins, when
+`ReissueTest` reached `Metrics/ClassLength`. No `lib/` line changed; the round's one nit — a page
+count in `docs/README.md` — is the index's.

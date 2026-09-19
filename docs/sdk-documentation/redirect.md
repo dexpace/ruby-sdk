@@ -154,10 +154,11 @@ row records it.
 A 301, 302, 307 or 308 is followed only when the **original** request's method is in the allowed set,
 and then with the method and the body preserved — there is no `POST` → `GET` rewrite (`REDIR-3`,
 `REDIR-4`). A 303 is not followed by default; opted in, it is re-issued as a `GET` with the body dropped
-and every `Content-*` header removed by prefix, whatever the original method (`REDIR-5`). A
-method-preserving hop re-sends the body, so a present body must be replayable — `Resend.replayable_body?`
-below — or the operation fails with `Dexpace::NotReplayableError` and the redirect is not attempted
-(`REDIR-6`); a 303 is exempt, having no body to re-send.
+and every `Content-*` header removed by prefix, case-insensitively — `content-type` and `CONTENT-LENGTH`
+go the way `Content-Type` does — whatever the original method (`REDIR-5`). A method-preserving hop
+re-sends the body, so a present body must be replayable — `Resend.replayable_body?` below — or the
+operation fails with `Dexpace::NotReplayableError` and the redirect is not attempted (`REDIR-6`); a 303
+is exempt, having no body to re-send.
 
 ```ruby
 post = req("https://api.example/x", method: "POST", body: Dexpace::Body.bytes("{}".b),
