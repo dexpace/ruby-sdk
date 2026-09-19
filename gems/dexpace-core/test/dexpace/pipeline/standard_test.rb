@@ -28,8 +28,10 @@ class DexpacePipelineStandardTest < DexpaceTestCase
 
     def stage_names(pipeline) = pipeline.entries.map { |entry| entry.stage.name }
 
-    def settings(clock: FakeClock.new)
-      Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0, jitter: 0.0, clock: clock)
+    # Flat, zero-delay settings over a recording clock; `overrides` reach RetrySettings.build.
+    def settings(clock: FakeClock.new, **overrides)
+      Dexpace::Resilience::RetrySettings.build(initial_delay: 0.0, jitter: 0.0, clock: clock,
+                                               **overrides,)
     end
 
     def event_names(sink) = sink.payloads.map { |p| p[Dexpace::Instrumentation::Keys::EVENT] }
@@ -72,8 +74,8 @@ class DexpacePipelineStandardTest < DexpaceTestCase
     end
   end
 
-  # PIPE-24 through the constructors, and the keywords reaching the steps.
-  class WiringTest < DexpaceTestCase
+  # PIPE-24 through the constructors, and the one installation path.
+  class InstallationTest < DexpaceTestCase
     include Fixtures
 
     test "PIPE-24: both constructors go through Builder#install_preset -- an occupied pillar in " \
@@ -104,22 +106,52 @@ class DexpacePipelineStandardTest < DexpaceTestCase
       assert_equal(200, pipeline.call(seed_request).status.code)
     end
 
+    test "no second installation path: both constructors are written over install_preset alone" do
+      %w[pipeline.rb async_pipeline.rb].each do |file|
+        source = File.read(File.expand_path("../../../lib/dexpace/#{file}", __dir__))
+        body = source[/def self\.standard.*?^    end$/m]
+
+        refute_nil(body, file)
+        assert_includes(body, "install_preset", file)
+        refute_match(/\.(append|prepend|insert_after|insert_before|replace|reload)\b/, body, file)
+      end
+    end
+  end
+
+  # The keywords reaching the steps, on both presets.
+  class WiringTest < DexpaceTestCase
+    include Fixtures
+
     test "PIPE-39: settings: and http_tracer_factory: reach the retry step, logger: and level: " \
          "the instrumentation step, on the sync preset" do
       tracer = Dexpace::RecordingHTTPTracer.new
       sink = RecordingSink.new
+      clock = FakeClock.new
       transport = sync_transport(response_with(503), response_with(200))
       pipeline = Dexpace::Pipeline.standard(
-        transport, settings: settings, http_tracer_factory: ->(_cursor) { tracer },
+        transport, settings: settings(clock: clock), http_tracer_factory: ->(_cursor) { tracer },
                    logger: logger_over(sink), level: Dexpace::Instrumentation::HTTPLogging::HEADERS,
       )
 
       assert_equal(200, pipeline.call(seed_request).status.code)
       assert_equal(2, transport.calls.size) # the 503 was retried under the flat settings
+      # The retry's one wait ran on THESE settings' clock at their zero delay. The default
+      # settings retry a 503 too -- after a real ~0.2 s backoff on Clock::SYSTEM that leaves this
+      # clock empty -- so the call count alone cannot tell whether settings: reached the step.
+      assert_equal([0.0], clock.sleeps.map { |sleep| sleep[:duration] })
       assert_equal(%i[attempt_started attempt_failed attempt_started], tracer.events.map(&:first))
       requests = event_names(sink).count(Dexpace::Instrumentation::Events::HTTP_REQUEST)
 
       assert_equal(2, requests) # one per attempt: the instrumentation step sits inside RETRY
+    end
+
+    test "PIPE-39: settings: alone governs the sync retry step -- max_retries: 0 leaves a 503 " \
+         "unretried where the default schedule would have retried it" do
+      transport = sync_transport(response_with(503))
+      pipeline = Dexpace::Pipeline.standard(transport, settings: settings(max_retries: 0))
+
+      assert_equal(503, pipeline.call(seed_request).status.code)
+      assert_equal(1, transport.calls.size)
     end
 
     test "PIPE-39: the sync preset follows a redirect and retries a 503 in one call, and the " \
@@ -179,17 +211,6 @@ class DexpacePipelineStandardTest < DexpaceTestCase
       assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Pipeline.standard(Object.new) }
       assert_raises(Dexpace::InvalidArgumentError) do
         Dexpace::Pipeline.standard(sync_transport, redirect: :unsupported)
-      end
-    end
-
-    test "no second installation path: both constructors are written over install_preset alone" do
-      %w[pipeline.rb async_pipeline.rb].each do |file|
-        source = File.read(File.expand_path("../../../lib/dexpace/#{file}", __dir__))
-        body = source[/def self\.standard.*?^    end$/m]
-
-        refute_nil(body, file)
-        assert_includes(body, "install_preset", file)
-        refute_match(/\.(append|prepend|insert_after|insert_before|replace|reload)\b/, body, file)
       end
     end
   end

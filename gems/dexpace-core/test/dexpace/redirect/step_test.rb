@@ -588,8 +588,21 @@ class DexpaceRedirectStepTest < DexpaceTestCase
       "Content-MD5" => "deadbeef", "Accept" => "application/json", "Authorization" => "Bearer t",
     }.freeze
 
-    def post_with_content_headers(body: replayable_body)
-      seed_request("https://h/x", method: "POST", body: body, headers: CONTENT_HEADERS)
+    # The same POST carrying the two origin-scoped headers REDIR-9 names beside the rest.
+    ORIGIN_SCOPED_HEADERS = CONTENT_HEADERS.merge(
+      "Cookie" => "sid=1", "Proxy-Authorization" => "Basic proxy",
+    ).freeze
+
+    def post_with_content_headers(body: replayable_body, headers: CONTENT_HEADERS)
+      seed_request("https://h/x", method: "POST", body: body, headers: headers)
+    end
+
+    # Opted in, a 303 to `location` over the origin-scoped POST; answers the rebuilt GET.
+    def rebuilt_get_for(location)
+      _, transport = follow(redirect_step(follow303: true),
+                            [response_with(303, location: location), ok],
+                            request: post_with_content_headers(headers: ORIGIN_SCOPED_HEADERS),)
+      sent_requests(transport)[1]
     end
 
     test "REDIR-5: a 303 is not followed by default" do
@@ -613,6 +626,26 @@ class DexpaceRedirectStepTest < DexpaceTestCase
         refute_includes(rebuilt.headers, name, name)
       end
       assert_includes(rebuilt.headers, "Accept")
+    end
+
+    test "REDIR-9 / REDIR-10 on the 303 rebuild: a CROSS-ORIGIN 303 drops Cookie and " \
+         "Proxy-Authorization beside Authorization and the Content-* headers; a same-origin " \
+         "303 keeps the two origin-scoped headers and drops the rest all the same" do
+      foreign = rebuilt_get_for("https://other.example/y")
+
+      assert_equal("GET", foreign.method.token)
+      %w[Cookie Proxy-Authorization Authorization Content-Type].each do |name|
+        refute_includes(foreign.headers, name, name)
+      end
+      assert_includes(foreign.headers, "Accept")
+
+      same = rebuilt_get_for("https://h/y")
+
+      assert_equal("GET", same.method.token)
+      assert_equal(["sid=1"], same.headers["Cookie"])
+      assert_equal(["Basic proxy"], same.headers["Proxy-Authorization"])
+      refute_includes(same.headers, "Authorization")
+      refute_includes(same.headers, "Content-Type")
     end
 
     test "REDIR-5 with REDIR-6: a 303 over a NON-replayable body is followed: it drops the body" do
