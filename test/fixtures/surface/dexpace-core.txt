@@ -42,6 +42,7 @@ Dexpace::AsyncPipeline#steps
 Dexpace::AsyncPipeline#transport
 Dexpace::AsyncPipeline.direct
 Dexpace::AsyncPipeline.map_response
+Dexpace::AsyncPipeline.standard
 Dexpace::AsyncTransport
 Dexpace::AsyncTransport.conforms?
 Dexpace::AsyncTransport.install
@@ -669,6 +670,7 @@ Dexpace::MultipartBody::Part#hash
 Dexpace::MultipartBody::Part#headers
 Dexpace::MultipartBody::Part#name
 Dexpace::MultipartBody::Part#replayable?
+Dexpace::NotReplayableError
 Dexpace::Operation
 Dexpace::Operation#build_request
 Dexpace::Operation#method
@@ -709,6 +711,7 @@ Dexpace::Pipeline#steps
 Dexpace::Pipeline#transport
 Dexpace::Pipeline.builder
 Dexpace::Pipeline.direct
+Dexpace::Pipeline.standard
 Dexpace::Pipeline::Builder
 Dexpace::Pipeline::Builder#append
 Dexpace::Pipeline::Builder#append_all
@@ -879,6 +882,30 @@ Dexpace::Recovery::Transform
 Dexpace::Recovery::Transform#apply
 Dexpace::Recovery::Transform#call
 Dexpace::Recovery::Transform#phase
+Dexpace::Redirect
+Dexpace::Redirect::ConditionSnapshot
+Dexpace::Redirect::ConditionSnapshot#redirect_count
+Dexpace::Redirect::ConditionSnapshot#response
+Dexpace::Redirect::ConditionSnapshot#visited_uris
+Dexpace::Redirect::ConditionSnapshot.build
+Dexpace::Redirect::Events
+Dexpace::Redirect::Events::HOP_FOLLOWED : String
+Dexpace::Redirect::Events::LOCATION_MALFORMED : String
+Dexpace::Redirect::Events::LOOP_DETECTED : String
+Dexpace::Redirect::Events::SCHEME_DOWNGRADE_PERMITTED : String
+Dexpace::Redirect::Events::SCHEME_DOWNGRADE_REJECTED : String
+Dexpace::Redirect::Keys
+Dexpace::Redirect::Keys::FROM_URL : String
+Dexpace::Redirect::Keys::LOCATION_RAW : String
+Dexpace::Redirect::Keys::REDIRECT_COUNT : String
+Dexpace::Redirect::Keys::TO_URL : String
+Dexpace::Redirect::SchemeDowngradeError
+Dexpace::Redirect::Step
+Dexpace::Redirect::Step#call
+Dexpace::Redirect::Step#stage
+Dexpace::Redirect::Step.build
+Dexpace::Redirect::Step::DEFAULT_ALLOWED_METHODS : Set
+Dexpace::Redirect::Step::DEFAULT_MAX_HOPS : Integer
 Dexpace::Registry
 Dexpace::Registry#install
 Dexpace::Registry#register
@@ -966,6 +993,7 @@ Dexpace::Resilience::RecoveryRetry#call
 Dexpace::Resilience::RecoveryRetry.build
 Dexpace::Resilience::Resend
 Dexpace::Resilience::Resend#eligible?
+Dexpace::Resilience::Resend#replayable_body?
 Dexpace::Resilience::RetrySettings
 Dexpace::Resilience::RetrySettings#backoff_arguments
 Dexpace::Resilience::RetrySettings#clock
