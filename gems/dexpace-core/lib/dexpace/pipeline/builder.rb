@@ -182,10 +182,9 @@ module Dexpace
       # which is also why a preset that collides with ITSELF on a pillar is rejected. The same
       # object already occupying a pillar is not a collision (PIPE-6) and is not re-installed.
       #
-      # R14 / P4-34: this is the mechanism, and there is no standard step SET behind it. The
-      # redirect and retry families are phase 6's and the instrumentation step is phase 5's, so
-      # Pipeline.standard is postponed to phase 6 (6b, Task 13a) rather than shipping a
-      # constructor named for defaults it cannot install; phase 6 writes it OVER this method.
+      # R14 / P4-34: this is the mechanism, and Pipeline.standard and AsyncPipeline.standard --
+      # written by phase 6b's Task 13a once the redirect, retry and instrumentation families all
+      # existed -- are the two step SETS written OVER it, with no second installation path.
       #
       # @param entries [Array<Dexpace::Pipeline::Entry>]
       # @return [self]

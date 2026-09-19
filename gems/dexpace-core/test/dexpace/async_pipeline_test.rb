@@ -129,15 +129,17 @@ class DexpaceAsyncPipelineTest < DexpaceTestCase
     assert_includes(error.message, "an async transport must return a Dexpace::Async::Future")
   end
 
-  # PIPE-32's substantive clause constrains the postponed PRESET, not the runtime: PIPE-28's
-  # identical staging policy means REDIRECT stays installable on the async path, and the
-  # asymmetry is documented on the class (its last clause) rather than enforced here.
-  test "PIPE-32 & PIPE-28: REDIRECT is installable on the async path, and no .standard exists" do
+  # PIPE-32's substantive clause constrains the PRESET, not the runtime: PIPE-28's identical
+  # staging policy means REDIRECT stays installable on the async path, and the asymmetry is
+  # documented on the class (its last clause) and spelled at .standard's call site, not
+  # enforced here. Both constructors exist since phase 6b's Task 13a (pipeline/standard_test.rb
+  # is their suite); until then this pin read `refute_respond_to` on both.
+  test "PIPE-32 & PIPE-28: REDIRECT is installable on the async path; both .standards exist" do
     pipeline = builder.append(passthrough, stage: STAGES::REDIRECT).build_async
 
     assert_equal(%i[redirect], pipeline.entries.map { |e| e.stage.name })
-    refute_respond_to(Dexpace::AsyncPipeline, :standard, "postponed to phase 6b, Task 13a")
-    refute_respond_to(Dexpace::Pipeline, :standard, "postponed to phase 6b, Task 13a")
+    assert_respond_to(Dexpace::AsyncPipeline, :standard, "phase 6b's Task 13a")
+    assert_respond_to(Dexpace::Pipeline, :standard, "phase 6b's Task 13a")
   end
 
   test "PIPE-27 & PIPE-10: the async runtime latches on close and exposes frozen views" do

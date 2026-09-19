@@ -17,6 +17,9 @@ module Dexpace
     def initialize: (entries: Array[Pipeline::Entry], transport: untyped, driver_class: untyped) -> void
 
     def self.direct: (untyped transport) -> AsyncPipeline
+    def self.standard: (untyped over, redirect: :unsupported, ?settings: Resilience::RetrySettings,
+                        ?http_tracer_factory: untyped, ?logger: Instrumentation::Logger,
+                        ?level: Instrumentation::HTTPLogging, ?preview_bytes: Integer?) -> AsyncPipeline
     def self.map_response: (Dexpace::Async::Future source) { (Dexpace::Response response) -> untyped } -> Dexpace::Async::Future
 
     def call: (Dexpace::Request request, ?Dexpace::RequestOptions options, ?Dexpace::Cancellation cancellation, ?bundle: Instrumentation::Bundle) -> Dexpace::Async::Future
