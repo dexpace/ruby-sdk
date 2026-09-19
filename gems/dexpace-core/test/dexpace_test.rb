@@ -163,29 +163,6 @@ class DexpaceTest < DexpaceTestCase
       assert_raises(::NameError) { Dexpace::Instrumentation::AsyncStep::Pending }
     end
 
-    # A consumer requires "dexpace" and nothing else: the authentication layer resolves too
-    # (phase 6c), under Dexpace::Auth, its one private_constant and its parser's private class as
-    # unreachable as Dexpace::Hooks.
-    test "requiring dexpace alone makes the whole authentication layer resolve" do
-      auth = Dexpace::Auth
-
-      assert_equal(
-        %i[
-          AsyncBearerStamper AsyncStep BasicHandler BearerProvider BearerStamper BearerToken
-          Challenge ChallengeHandlerChain Challenges Descriptor DigestHandler HTTPSRequiredError
-          KeyCredential KeyStamper NamedKeyCredential PasswordCredential ProviderError REDACTED
-          Requirement Resolver Scheme Step UnencodableCredentialError
-        ],
-        auth.constants(false).sort,
-      )
-      assert_equal(Dexpace::AuthResolutionError, Dexpace.const_get(:AuthResolutionError))
-      assert_same(Dexpace::Pipeline::Stages::AUTH, auth::Step.build(stamper: auth::Step::NO_STAMP).stage)
-      assert_raises(::NameError) { Dexpace::Auth::Validation }
-      assert_raises(::NameError) { Dexpace::Auth::Challenges::Parser }
-      assert_raises(::NameError) { Dexpace::Auth::DigestHandler::HASHES }
-      assert_raises(::NameError) { Dexpace::Auth::AsyncStep::Exchange }
-    end
-
     # A consumer requires "dexpace" and nothing else: the execution context resolves too (phase
     # 4a), the instrumentation subsystem keeps its namespace (design §8.1), and the two private
     # constants are as unreachable as Dexpace::Hooks.
@@ -198,25 +175,6 @@ class DexpaceTest < DexpaceTestCase
       refute_includes(Dexpace.constants(false), :CallKey, "Dexpace::CallKey is private")
       assert_raises(::NameError) { Dexpace::BoundedMap }
       assert_raises(::NameError) { Dexpace::CallKey }
-    end
-
-    # A consumer requires "dexpace" and nothing else: the retry layer resolves too (phase 6a) --
-    # the five public Resilience constants, the flat error, and the two private helpers and the
-    # two private per-call classes as unreachable as Dexpace::Hooks. Phase 6b and 6c add their
-    # own constants under Resilience beside these.
-    test "requiring dexpace alone makes the whole retry layer resolve, its helpers private" do
-      resilience = Dexpace::Resilience
-
-      assert_equal(%i[AsyncRetryStep Policy RecoveryRetry Resend RetrySettings RetryStep],
-                   resilience.constants(false).sort,)
-      assert_equal(Dexpace::RetryPredicateError, Dexpace.const_get(:RetryPredicateError))
-      assert_equal(2, resilience::Policy::DEFAULT_MAX_RETRIES)
-      assert_raises(::NameError) { Dexpace::Resilience::PacingParsers }
-      assert_raises(::NameError) { Dexpace::Resilience::RetryStepHelpers }
-      assert_raises(::NameError) { Dexpace::Resilience::AsyncRetryStep::Pump }
-      assert_raises(::NameError) { Dexpace::Resilience::RetryStep::Run }
-      assert_raises(::NameError) { Dexpace::Resilience::RecoveryRetry::Run }
-      assert_raises(::NameError) { Dexpace::Resilience::RetrySettings::UNSET }
     end
 
     # A consumer requires "dexpace" and nothing else: the seam layer resolves too (phase 2).
@@ -242,6 +200,53 @@ class DexpaceTest < DexpaceTestCase
       assert_equal(Dexpace::IO::TeeSink, Dexpace::IO.const_get(:TeeSink))
       assert_equal(Dexpace::StreamError, Dexpace.const_get(:StreamError))
       assert_equal(Dexpace::EndOfStreamError, Dexpace.const_get(:EndOfStreamError))
+    end
+  end
+
+  # The two phase-6 layers, in a second nested class: the retry and authentication pins were built
+  # in parallel lanes and landed beside one another, which pushed `Layers` past Metrics/ClassLength
+  # the way the three phase-4 lanes once did.
+  class PhaseSixLayers < DexpaceTestCase
+    # A consumer requires "dexpace" and nothing else: the retry layer resolves too (phase 6a) --
+    # the five public Resilience constants, the flat error, and the two private helpers and the
+    # two private per-call classes as unreachable as Dexpace::Hooks. Phase 6b and 6c add their
+    # own constants under Resilience beside these.
+    test "requiring dexpace alone makes the whole retry layer resolve, its helpers private" do
+      resilience = Dexpace::Resilience
+
+      assert_equal(%i[AsyncRetryStep Policy RecoveryRetry Resend RetrySettings RetryStep],
+                   resilience.constants(false).sort,)
+      assert_equal(Dexpace::RetryPredicateError, Dexpace.const_get(:RetryPredicateError))
+      assert_equal(2, resilience::Policy::DEFAULT_MAX_RETRIES)
+      assert_raises(::NameError) { Dexpace::Resilience::PacingParsers }
+      assert_raises(::NameError) { Dexpace::Resilience::RetryStepHelpers }
+      assert_raises(::NameError) { Dexpace::Resilience::AsyncRetryStep::Pump }
+      assert_raises(::NameError) { Dexpace::Resilience::RetryStep::Run }
+      assert_raises(::NameError) { Dexpace::Resilience::RecoveryRetry::Run }
+      assert_raises(::NameError) { Dexpace::Resilience::RetrySettings::UNSET }
+    end
+
+    # A consumer requires "dexpace" and nothing else: the authentication layer resolves too
+    # (phase 6c), under Dexpace::Auth, its one private_constant and its parser's private class as
+    # unreachable as Dexpace::Hooks.
+    test "requiring dexpace alone makes the whole authentication layer resolve" do
+      auth = Dexpace::Auth
+
+      assert_equal(
+        %i[
+          AsyncBearerStamper AsyncStep BasicHandler BearerProvider BearerStamper BearerToken
+          Challenge ChallengeHandlerChain Challenges Descriptor DigestHandler HTTPSRequiredError
+          KeyCredential KeyStamper NamedKeyCredential PasswordCredential ProviderError REDACTED
+          Requirement Resolver Scheme Step UnencodableCredentialError
+        ],
+        auth.constants(false).sort,
+      )
+      assert_equal(Dexpace::AuthResolutionError, Dexpace.const_get(:AuthResolutionError))
+      assert_same(Dexpace::Pipeline::Stages::AUTH, auth::Step.build(stamper: auth::Step::NO_STAMP).stage)
+      assert_raises(::NameError) { Dexpace::Auth::Validation }
+      assert_raises(::NameError) { Dexpace::Auth::Challenges::Parser }
+      assert_raises(::NameError) { Dexpace::Auth::DigestHandler::HASHES }
+      assert_raises(::NameError) { Dexpace::Auth::AsyncStep::Exchange }
     end
   end
 
