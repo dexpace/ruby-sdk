@@ -1,0 +1,14 @@
+module Dexpace
+  module Redirect
+    # REDIR-15: an HTTPS -> HTTP hop refused because the caller did not opt in.
+    class SchemeDowngradeError < ::StandardError
+      include Dexpace::Error
+
+      def initialize: (from: URI::Generic, to: URI::Generic) -> void
+
+      private
+
+      def authority: (URI::Generic uri) -> String
+    end
+  end
+end

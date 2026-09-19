@@ -1,0 +1,18 @@
+# Dexpace::Redirect::Reissue is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its one function declared to type Step's call site. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/redirect/reissue.rb alone.
+module Dexpace
+  module Redirect
+    module Reissue
+      def self?.build: (Dexpace::Request request, Dexpace::Response response, URI::Generic target,
+                        cross_origin: bool, allow_scheme_downgrade: bool, emitter: Emitter) -> Dexpace::Request
+
+      private
+
+      def downgrade!: (URI::Generic from, URI::Generic to, bool permitted, Emitter emitter) -> void
+      def strip: (Dexpace::Headers headers, cross_origin: bool) -> Dexpace::Headers
+      def rebuild_as_get: (Dexpace::Request request, URI::Generic target, Dexpace::Headers headers) -> Dexpace::Request
+    end
+  end
+end

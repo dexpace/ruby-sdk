@@ -1,0 +1,18 @@
+module Dexpace
+  module Redirect
+    # REDIR-20: the read-only, defensively-copied condition snapshot a redirect predicate is
+    # handed. A frozen Data; .new is private and .build is the validating factory.
+    class ConditionSnapshot < Data
+      include Model
+
+      attr_reader response: Dexpace::Response
+      attr_reader redirect_count: Integer
+      attr_reader visited_uris: Set[String]
+
+      private def self.new: (response: Dexpace::Response, redirect_count: Integer, visited_uris: Enumerable[String]) -> instance
+      def initialize: (response: Dexpace::Response, redirect_count: Integer, visited_uris: Enumerable[String]) -> void
+
+      def self.build: (response: Dexpace::Response, redirect_count: Integer, visited_uris: Enumerable[String]) -> ConditionSnapshot
+    end
+  end
+end

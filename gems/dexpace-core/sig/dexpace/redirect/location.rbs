@@ -1,0 +1,17 @@
+# Dexpace::Redirect::Location is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its one function declared to type Step's call site. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/redirect/location.rb alone.
+module Dexpace
+  module Redirect
+    module Location
+      SUPPORTED_SCHEMES: Array[String]
+
+      def self?.resolve: (URI::Generic current_url, String header_value) -> URI::Generic
+
+      private
+
+      def dispatchable?: (URI::Generic target) -> bool
+    end
+  end
+end

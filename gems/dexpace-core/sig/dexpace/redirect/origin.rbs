@@ -1,0 +1,12 @@
+# Dexpace::Redirect::Origin is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its two functions declared to type Step's call sites. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/redirect/origin.rb alone.
+module Dexpace
+  module Redirect
+    module Origin
+      def self?.of: (URI::Generic uri) -> [String, String, Integer?]
+      def self?.cross?: ([String, String, Integer?] seed, URI::Generic target) -> bool
+    end
+  end
+end
