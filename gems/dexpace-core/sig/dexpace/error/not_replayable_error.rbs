@@ -1,0 +1,8 @@
+module Dexpace
+  # REDIR-6: the clear error for a present, non-replayable body at a re-send site.
+  class NotReplayableError < ::StandardError
+    include Dexpace::Error
+
+    def initialize: (String context) -> void
+  end
+end
