@@ -13,10 +13,10 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b and 5c are built; the domain model, the seam layer, the
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c and 6a are built; the domain model, the seam layer, the
 byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
-configuration layer, the tracing and metrics layer and the logging facade with its redaction are the only
-domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+configuration layer, the tracing and metrics layer, the logging facade with its redaction and the retry
+layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -105,8 +105,27 @@ inert `Event::INERT`, the facade `Logger` with `.build(sink:, context:, redactor
 and `Hooks.notify` gain `logger:` and emit an `http.instrumentation.*` diagnostic where they dropped a
 failure, `Proxy.resolve` gains `logger:` and its `Kernel#warn` sites emit the config diagnostic beside the
 warning, and the two phase-3b logging wrappers are constructed by `Step` alone, at `HTTPLogging::BODY`
-alone (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`); every other
-gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
+alone (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`) — and the
+retry layer, chapter 9's two stacks over one policy, under `Dexpace::Resilience`: the shared policy
+core `Policy` with the two-axis classifier consult (`.retry_eligible?` over the configurable set,
+`.throwable_retryable?` as the capability query over `Dexpace.each_cause`, `.cancellation?` as the
+guard in front of both, `.retryable?` dispatching between them), the backoff calculator
+`.backoff_delay`, the total pacing-header parser `.pacing_delay` over the private `PacingParsers`,
+`.effective_max_retries`, the recovery-only `.budget_remaining` and the nine constants (`RETRY-12`'s five defaults, `DEFAULT_RETRYABLE_STATUSES`,
+`DEFAULT_PACING_HEADER_ORDER` and the two ceilings); the re-sendability gate `Resend.eligible?`; the
+one frozen configuration `RetrySettings` both stacks build from, the first reader of
+`Keys::MAX_RETRY_ATTEMPTS`; the stage-based pillar step `RetryStep` and its async twin
+`AsyncRetryStep` at `Stages::RETRY`, sharing the private `RetryStepHelpers`, the async one driven by
+a private per-call `Pump` trampoline; the recovery-chain engine `RecoveryRetry` installed as
+`Recovery::Orchestrator`'s `transport:` with its total-timeout budget; the flat
+`Dexpace::RetryPredicateError`; the RBS interface `_HTTPTracer` beside 5c's module — plus three
+wirings into earlier layers: `ProtocolError#retryable_by_status?` (XCUT-5's baked flag, phase 4b's
+postponement), `Pipeline::Cursor#bundle` seeded by the optional `bundle:` keyword on `Pipeline#call`
+and `AsyncPipeline#call` and read by 5b's `Step#open_span` (the context-bundle widening), and
+`HTTPDate.parse`'s single-digit day; the three drivers emit the HTTP-tracer vocabulary's per-attempt
+group and nothing emits its other two
+(`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-checklist.md`); every other gem's `lib/`
+still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
@@ -640,6 +659,70 @@ Each is one line plus the chapter to read before touching the area.
   finish and the two instruments have exactly one owner — the head's `ensure` only when the head raised
   before the chain handed back its future, the settlement callback otherwise — so an inline settlement
   that raises is never torn down twice (P5-109).
+- **One calculator, two budget policies, split by file** — `Resilience::Policy.backoff_delay` takes no
+  total-timeout parameter and `Policy.budget_remaining` is a separate function that only
+  `RecoveryRetry` names; `retry_step.rb`, `async_retry_step.rb` and `retry_step_helpers.rb` never spell
+  `budget_remaining` or `total_timeout`, and a text scan in `retry_step_test.rb` is the guard, so
+  `RETRY-28`'s prohibition on the stage stack is a property of the source and not a runtime check
+  (P6-5). The configured retryable-status set is consulted alone — `Policy.retry_eligible?(status,
+  set:)` has no baked-flag parameter, so the AND `RETRY-37` forbids is a method that does not exist —
+  and every delay literal lives in `Policy` (`RETRY-13`; the same suite scans for a second one).
+- **The baked flag is `ProtocolError#retryable_by_status?` and never `#retryable?`** — `#retryable?` is
+  `XCUT-6`'s open capability, the one `Policy.throwable_retryable?` probes over every cause; a
+  `ProtocolError` answering it would let the baked set override the configured set whenever the error
+  is wrapped, so the two questions carry two names (P6-10). The capability query has a stated blind
+  spot: a bare stdlib I/O or timeout error escaping an adapter *unwrapped* classifies not retryable,
+  which is why phase 8's adapters must wrap what they let escape in something answering `#retryable?`
+  (P6-4; `docs/first-release.md`'s release-path entry).
+- **Every pillar step forks for every drive, the first included, and the two retry drivers are the
+  first two built that way** — `RetryStep` and `AsyncRetryStep` never call their own cursor's `#call`
+  (a fork is what has a stage slot to write; `RetryFixtures::RecordingWrapper` counts forks and calls
+  through the real driver), re-send the same frozen request through a fresh fork, check the
+  cancellation token at the top of every attempt (a zero-length `Clock#sleep` returns before its own
+  token check), resolve the delay from the still-open response and close it before the wait, and
+  attach the whole prior trail to the surfaced instance through `Dexpace.attach_suppressed` — the
+  carried raise spelled `raise error, cause: nil`. `retries_exhausted` fires only when a RETRYABLE
+  failure met a spent budget; a failure that was never retryable is not an exhausted retry (5c's
+  `ordering_test.rb`, third case; P6-58).
+- **The async retry driver's delay needs a scheduler, and a zero delay completes inline** —
+  `AsyncRetryStep` waits through `Async.delay`, which raises `SeamError` SYNCHRONOUSLY for a positive
+  delay with no `Fiber.scheduler`; the pump's fence turns that into a failed future carrying the trail,
+  never a blocking sleep (R2's third route). Its loop is a re-arm-flag trampoline, not a callback that
+  calls the next attempt: `Future#on_settle` runs inline on a settled future, so every scripted
+  downstream and every zero-length delay settles inline and a recursive pump overflows at ~1,500
+  attempts on every interpreter; `async_retry_step_test.rb` measures `caller.size` flat across 2,001
+  (P6-54). A fatal-family error that ARRIVES as a settlement meets no rescue arm and is delivered
+  unclassified before the decision runs (P6-55). The driver installs, reads and closes no scheduler.
+- **`Pipeline#call` and `AsyncPipeline#call` take one optional `bundle:` keyword beside the transport
+  SPI's three positionals, and `Cursor#bundle` carries it across every fork** — `Bundle::NONE` by
+  default, validated a `Bundle` at `Cursor.build`; 5b's `Step#open_span(request, bundle)` takes the
+  bundle's tracer factory when it is not `NONE` and correlates over the same bundle, while the meter has
+  no bundle source (P6-51). It is NOT the retry step's HTTP-tracer source: `OBS-29`'s per-operation
+  tracer comes from `http_tracer_factory:`, called once per operation with the cursor (or the request
+  on the recovery stack), because `Bundle#tracer_factory` produces span tracers (P6-7).
+- **`0.0 * Float::INFINITY` is `NaN`, and `[NaN, 8.0].min` raises** — Ruby's float saturation covers
+  every backoff overflow but a zero initial delay at a large attempt, so `Policy.backoff_delay` answers
+  zero before taking the power (P6-53), and `Random#rand` raises `Errno::EDOM` over an infinite bound,
+  so the reset jitter is drawn only over a finite band. `RetrySettings#random` defaults to the
+  `::Random` CLASS, not a shared instance (P6-52).
+- **A cancellation is never retryable, structurally; a negative CONFIGURED retry count is clamped where
+  it is read; and the pacing parser's digit runs are bounded** — `Policy.cancellation?` walks the cause
+  chain for a `CancelledError` and is consulted by `Policy.retryable?` and by the stage drivers' decision
+  BEFORE the re-sendability gate and before a caller's `should_retry`, so a predicate answering `true`
+  never sees a cancellation and a transport that wrapped the token's raise in its own retryable error is
+  terminal on all three drivers (P6-60). `RetrySettings.build` clamps a negative `MAX_RETRY_ATTEMPTS`
+  to the default through `Policy.effective_max_retries` and logs it once through its `logger:`
+  keyword — read at build, never held — while an explicit negative `max_retries:` is `RECOV-34`'s
+  refusal (P6-59). `PacingParsers`' grammars admit at most fifteen digits per run and a 64-byte value:
+  an unbounded `String#to_f` over a 10 MB header cost seconds and, past ~309 digits, emitted Ruby's
+  out-of-range warning that the `-w` suite turned into an error `Policy#parse_form`'s fence swallowed —
+  `WarningCapture`, not the raiser, is what a no-warning assertion needs (P6-61). The sync `RetryStep`
+  emits `attempt_failed` inside the same `RETRY-35` fence as the delay resolution and `retries_exhausted`
+  inside the same fence as the decision, as the async pump always did on both of its paths, so a
+  throwing tracer never leaves a superseded or a terminal error-status response open; and the async
+  driver's "never a blocking sleep" is asserted, not stated — the async wait tests read `clock.sleeps`
+  off the recording `FakeClock`, which is the only thing that turns a `Clock#sleep` slipped in beside
+  `Async.delay` red, since that clock records and returns.
 
 ## Public API surface
 
@@ -740,14 +823,15 @@ probe compares each against the live tree, and a count written anywhere else in 
   per file, a smoke suite, a README, a LICENSE copy and a per-gem `Rakefile`. `dexpace-core`'s `lib/` holds
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
-  the phase-5a configuration layer, the phase-5b logging facade and redaction and the phase-5c tracing and
-  metrics layer — one hundred and forty phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b,
-  phase-4c, phase-5a, phase-5b and phase-5c files under `lib/dexpace/` beside phase 0's `version.rb`,
-  every one mirrored in `sig/`, and every one of the one hundred and forty but the eleven
-  `private_constant`s `hooks.rb`, `bounded_map.rb`, `context/call_key.rb`, `recovery/ownership.rb`,
-  `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`,
-  `proxy/resolution.rb`, `instrumentation/render.rb` and `instrumentation/emitter.rb` mirrored in
-  `test/`; every
+  the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
+  metrics layer and the phase-6a retry layer — one hundred and forty-nine phase-1, phase-2, phase-3a,
+  phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b, phase-5c and phase-6a files under
+  `lib/dexpace/` beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one
+  hundred and forty-nine but the thirteen `private_constant`s `hooks.rb`, `bounded_map.rb`,
+  `context/call_key.rb`, `recovery/ownership.rb`, `pipeline/sync_driver.rb`,
+  `pipeline/async_driver.rb`, `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`,
+  `instrumentation/render.rb`, `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb` and
+  `resilience/retry_step_helpers.rb` mirrored in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
   else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
@@ -759,7 +843,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  eleven checklists written so far, each at implementation; `phase4/`
+  twelve checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -770,7 +854,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase6/` carries its segmentation design,
   `docs/work/mvp/phase6/2026-09-09-phase6-segmentation-design.md`, and three sub-phase
   directories — `phase6/phase6a/` (retry), `phase6/phase6b/` (redirect) and `phase6/phase6c/`
-  (authentication); each holds a design and a plan. Phase 6 is the largest **build** phase in the
+  (authentication); each holds a design and a plan, and `phase6a/` holds its checklist too. Phase 6 is the largest **build** phase in the
   roadmap — only the audit-led phase 10, at 124, carries more requirement IDs:
   111 own IDs (`RETRY-1`–`45`, `REDIR-1`–`28`, `AUTH-1`–`38`) plus the fifteen `RECOV` IDs phase 4 handed it
   (`RECOV-17`–`RECOV-30` and `RECOV-34`), which land in `6a` with their own checklist rows while
@@ -830,5 +914,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's and phase 5c's is still to be written at execution time.
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's and phase 6a's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

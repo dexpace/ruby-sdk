@@ -2466,6 +2466,20 @@ design.
   and 4b. Every phase-5b suite is hermetic under the same environment. Touches `IO-9`, `BODY-19`,
   `BODY-22`, `BODY-30`, `RECOV-16`, `CFG-11`. Added after phase 10's planning pass, so it is the forty-second
   bullet and is not yet in its design's disposition table; phase 10 dispositions it at execution.
+- **Phase 6a's design describes an async retry pump that recurses, and states the opposite.** Found
+  2026-09-18 by phase 6a's implementation. The design's `AsyncRetryStep` sketch re-arms by calling
+  `pump.call(attempt + 1)` from inside the delay future's `on_settle` callback and its `RETRY-30`
+  paragraph beneath says this "does not grow the Ruby call stack across retries"; measured on 3.2.11,
+  3.3.12, 3.4.10 and 4.0.6, `Future#on_settle` runs its block inline on an already-settled future — which
+  every scripted downstream and every zero-length `Async.delay` is — so the sketch grows the stack seven
+  frames per attempt and raises `SystemStackError` at roughly 1,500 attempts, while the plan's 200-attempt
+  `RETRY-30` test passed vacuously. The built driver is a re-arm-flag trampoline whose test measures
+  `caller.size` flat across 2,001 attempts (6a's as-built `P6-54`); the design's sketch and paragraph are
+  what phase 10 corrects, so neither 6b's nor 6c's async work copies them. The same read found the
+  design's `R2` paragraph right for the wrong reason: `Async.delay`'s `SeamError` is raised synchronously
+  and is caught by the fence around the *caller*, never by a callback's rescue. Touches `RETRY-30`,
+  `RETRY-31`, `RETRY-33`. Added after phase 10's planning pass, so it is the forty-third bullet and is not
+  yet in its design's disposition table; phase 10 dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3410,3 +3424,117 @@ manifest 956 lines, 53 corpus notes. `CLAUDE.md`'s built-phases paragraph, its g
 phase-directory sentences and the constraints-that-bite list are rewritten from what was built, for
 5b on top of 5a and 5c — the first phase-5 record whose counts need no rebase-and-reprove pass,
 because its base already held both siblings.
+
+**2026-09-18** — **Phase 6a implemented**, as three stacked branches against issue #22: code, tests,
+documentation, cut from `main` at `f1fe848`, which holds every phase through 5b; phase 6c was built at the
+same time off the same `main`, and nothing here describes anything of 6c's as landed. `dexpace-core`
+carries the retry layer beside the ten layers before it — nine new `lib/` files: the flat
+`error/retry_predicate_error.rb` and, under `resilience/`, `pacing_parsers.rb` (private), `policy.rb`,
+`resend.rb`, `retry_settings.rb`, `retry_step_helpers.rb` (private), `retry_step.rb`,
+`async_retry_step.rb` and `recovery_retry.rb` — with their `sig/` mirrors, every public one with a
+`test/` mirror, and one test file with no `lib/` mirror (`budget_equivalence_test.rb`, the `RETRY-14`
+convergence test across all three drivers); eleven earlier-phase files widened in place, each a designed
+widening: `http_date.rb`'s day group `(\d{2})` → `(\d{1,2})` (R1: the single-digit day, the weekday still
+required and still informational), `error/protocol_error.rb` gaining `#retryable_by_status?` (4b's
+postponement, from 5a's `Retryability`, deliberately not `#retryable?`), and the context-bundle widening
+across `pipeline/cursor.rb` (`#bundle`, `bundle:` on `.build`, copied by `#fork`), both private drivers,
+`pipeline.rb` and `async_pipeline.rb` (`bundle:` on `#call`, still transports by the duck type) and 5b's
+`instrumentation/step.rb` / `async_step.rb` (`#open_span(request, bundle)` and the correlation over the
+cursor's bundle — 5b's `bundle_for`, which the 6a plan named, never existed); `interface _HTTPTracer`
+declared inside 5c's existing `http_tracer.rbs` (R3), the entry file's nine-line `# Phase 6a:` block after
+5b's, the surface manifest regenerated once from 956 to 1004 rows with all 48 read against the object
+model, and three top-level test-support doubles (`ScriptedTransport`, `ScriptedAsyncTransport`,
+`RetryFixtures`) beside phase 2's untouched `FakeTransport`. Five existing tests changed on the code
+branch as pins the code invalidated: the smoke suite's layer table (a `RESILIENCE_LAYER`), 4c's
+`cursor_test.rb` method-set pin (`bundle`), 5a's `http_date_test.rb` rejection element (the single-digit
+day replaced by the bare-date row), and 5b's three `Object.new` cursor stand-ins in `step_test.rb` and
+`async_step_test.rb` (each gains `#bundle`). **The postponed work four earlier phases handed here has
+landed**: the recovery-stack retry engine — `RECOV-17`–`RECOV-30` and `RECOV-34`, phase 4's segmentation,
+each with its own checklist row and its `RETRY` twin as an annotation, phase 4's fifteen ⏳ rows staying
+as they are; `ProtocolError#retryable_by_status?`, phase 4b's; `CFG-35`'s throwable half, phase 5a's, as
+`Policy.throwable_retryable?`; and the per-attempt half of `OBS-29`'s wiring, phase 5c's — all three
+drivers emit `attempt_started`, `attempt_failed` and `retries_exhausted` through `http_tracer_factory:`,
+called once per operation with the cursor (stage) or the request (recovery), and `retries_exhausted` only
+when a RETRYABLE failure met a spent budget (5c's ordering test's third case). **What stays where it is**:
+the operation-lifecycle triple and the transport milestones (phase 10's inbound list and
+`docs/first-release.md`'s behavioural-asymmetries entry, both verified rather than re-filed);
+`Pipeline.standard` / `AsyncPipeline.standard` — NOT claimed, 6b's Task 13a, over `RetryStep` and
+`AsyncRetryStep` which declare `#stage`; `RECOV-31`, `RETRY-29`, `RETRY-38`, `RETRY-43` declined for v1;
+`RETRY-4`'s flag on phase 8a's Task 2 (the `P6-4` entry, verified present). The design's R1, R2, R3, R4,
+R5, R6 and R15 stand as decided, with R2's mechanism corrected in execution: the plan's async pump
+RECURSED — `Future#on_settle` runs inline on a settled future, and the sketch overflowed at ~1,500
+zero-length attempts on every interpreter — and the built `AsyncRetryStep::Pump` is a re-arm-flag
+trampoline measured flat across 2,001 (P6-54, the forty-third inbound bullet above); a positive
+`Async.delay` with no scheduler raises `SeamError` synchronously and the pump's fence fails the future
+with it, never a blocking sleep. Three more execution findings, each a guard that would have stayed
+green: `0.0 * Infinity` is `NaN` and `[NaN, 8.0].min` raises, so the calculator guards a zero initial
+delay (P6-53); a fatal-family error that ARRIVES as an async settlement meets no rescue arm and was
+retried until `Pump#delivered?` delivered it unclassified (P6-55); and RuboCop's `Minitest/AssertInDelta`
+autocorrection had turned every exact float assertion into a 0.001-delta one, which the degenerate-jitter
+guard exposed (the exact cases now carry `0.0`). The checklist is at
+`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-checklist.md`: sixty own rows — fifty-six ✅, one
+owner-elsewhere (`RETRY-4`), three ⏳ — plus `RECOV-31` ⏳, the inherited `CFG-35` ✅, and twenty
+cross-reference rows; thirty-one guards run red on 4.0.6 and 3.2.11 with one recorded as staying green
+and why (the async attempt-boundary check sits behind the cancellation subscription); twenty-four
+departures from the plan's text itemised; the design's As-built addendum adds P6-51–P6-58 (6c's rows
+start at P6-71, 6b's at P6-91). Every one of the seventeen gates is green on the docs tip on 4.0.6
+(2,259 runs, 64,742 assertions, line coverage 99.98 %), the matrix rows on 3.2.11 (100 %), 3.3.12 and
+3.4.10, and RuboCop by the honest `--ignore-parent-exclusion` command; the code tip alone, without the
+suites, is green on every one of the seventeen gates run individually on 4.0.6 at 95.05 % line coverage
+and on the 3.2.11 matrix row, so no tip in the stack is red, not even on the coverage floor.
+`docs/sdk-documentation/retry.md` is the twelfth as-built page, every example run on 4.0.6 and 3.2.11 and
+identical on both; `architecture.md`, the two READMEs and `docs/README.md` point at it; `CLAUDE.md`'s
+built-phases paragraph gains the retry layer, its counts move to one hundred and forty-nine `lib/dexpace/`
+files, thirteen `private_constant`s without a `test/` mirror, twelve checklists and twelve pages, and its
+constraints-that-bite list gains five lines. `docs/first-release.md` changes in no line — its `P6-4`
+entry, its declined-IDs entry and its `OBS-29` entry each read true as built — and `docs/deviations.md` is
+untouched, for phase 10 to flip; no harvested rule was found wrong, so `docs/knowledge/notes/` gains
+nothing. The consolidation of P6-1–P6-12 and P6-51–P6-58 into design §10 is a human's, as it was for
+every phase before: `docs/sdk-design-ruby/` is frozen and no frozen sentence is contradicted, so no `C15`.
+
+**2026-09-18, review round 1 of the phase-6a stack.** Round 0 returned `changes_requested` with two
+blocking and five should-fix findings, every one repaired on the branch that owns the file. Blocking:
+the three driver suites built their default settings off the LIVE configuration slot (a host
+`MAX_RETRY_ATTEMPTS=0` broke the recovery suite, `-1` all three) and now carry the `FakeConfigSource`
+seam in their `Fixtures` modules, the seven suites answering identically with the variable set to `0`
+and to `-1`; and the public `error/retry_predicate_error.rb` had no `test/` mirror, so
+`retry_predicate_error_test.rb` exists and the count sentences read true. Should-fix, on the code
+branch with the proof on the tests branch: the pacing parser converted an unbounded digit run (a 10 MB
+value stalled the retry decision for seconds and a 400-digit one emitted a Ruby out-of-range warning
+the suite's raiser and `parse_form`'s fence had hidden) and now bounds every run at fifteen digits behind
+a 64-byte ceiling, answering `nil` in microseconds with no warning (`P6-61`); the sync `RetryStep` emitted
+`attempt_failed` outside the `RETRY-35` fence and leaked the superseded response when a tracer raised,
+where the async pump closed it — the emission is inside the fence on both; a caller's `should_retry`
+answering `true` retried a downstream `CancelledError`, and `Policy.cancellation?` (a ninth public
+function, the manifest at 1005 rows) now guards `Policy.retryable?` and the stage drivers' decision ahead
+of the predicate and the capability, so a wrapped cancellation is terminal on all three drivers
+(`P6-60`); a negative configured `MAX_RETRY_ATTEMPTS` raised at `RetrySettings.build`, leaving `RETRY-41`'s
+clamp unreachable from any driver — `.build` takes `logger:` and clamps-and-logs at its one read of
+the key, an explicit negative argument still `RECOV-34`'s refusal (`P6-59`); and the at-the-cap jitter
+test now asserts samples on both sides of the cap, so round 0's one surviving mutation (jitter before
+the cap, then clipped) is caught. Three nits closed: `step.rb`'s comment cites `P6-51`, not `P6-52`;
+`RetrySettings#backoff_arguments` and `#header_order` are named in the design's As-built preamble beside
+`P6-2`; the retry-after-ms exemption in the totality suite is gone with its cause. Guards 32–37 in the
+checklist are the round's, each red on 4.0.6 and 3.2.11. One observation routed nowhere because it is
+not a defect: phase 1's inbound `Headers` builder validates a 10 MB header value in about three
+seconds, linearly, which is where the wire-value-sized cost now sits — a header-size cap is a transport
+adapter's, phase 8's.
+
+**2026-09-18, review round 2 of the phase-6a stack.** Round 1 returned `changes_requested` with one
+blocking finding, two should-fix and one nit, every one repaired on the branch that owns the file.
+Should-fix, on the code branch with the proof on the tests branch: the sync/async drift round 1 closed
+for `attempt_failed` was still open on the terminal path — `RetryStep#settle` emitted `retries_exhausted`
+outside any fence, so a tracer that raised there propagated with the terminal error-status response
+still open while `Pump#finish` closed it — and the terminal path's emission now runs inside the sync
+step's fence, both stage suites asserting the close (guard 38). Should-fix, on the tests branch alone:
+round 1's one surviving mutation, a blocking `Clock#sleep` inserted beside `Async.delay`, had left the
+async suite green because every async case runs on a `FakeClock` whose `#sleep` records and returns and
+nothing read it; the inline, parked and no-scheduler cases now assert `clock.sleeps` empty and a text
+scan refuses the token `sleep` in the driver's source (guard 39), with no `lib/` line changed. Blocking,
+by the brief's definition, a one-row docs fix: the checklist's `NFR-13` row had claimed every new `.rbs`
+opens with the SPDX header, and none does — no `.rbs` in the repository does, and the header reaches
+`sig/` with phase 10's Task 5 (`gates:spdx_rbs`) — so the row now claims the twenty new `.rb` files and
+points the `.rbs` half at its owner. The nit: three counts inside the checklist were stale after round 1
+(48 manifest rows, 1004 rows, `P6-51`–`P6-58`) and read 49, 1005 and `P6-51`–`P6-61`. No ledger row is
+added: the terminal fence, like round 1's `attempt_failed` fence, deviates from nothing the design states,
+and the design's As-built addendum carries a round-2 paragraph saying so.

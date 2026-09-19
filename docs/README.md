@@ -103,10 +103,10 @@ Six gems exist under `gems/`, all at `0.0.0` and none published — each a gemsp
 root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds phase 1's HTTP
 domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's body layer, phase
 4a's execution context, phase 4b's recovery layer, phase 4c's stage pipeline, phase 5a's
-configuration layer, phase 5b's logging facade and redaction and phase 5c's tracing and metrics
-layer; the other five are
+configuration layer, phase 5b's logging facade and redaction, phase 5c's tracing and metrics
+layer and phase 6a's retry layer; the other five are
 phase 0's skeletons, a namespace and a `VERSION`. The as-built documentation lands in
-[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the eleven pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the twelve pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
@@ -122,9 +122,11 @@ the thing phase 4c built, and
 [`sdk-documentation/configuration.md`](./sdk-documentation/configuration.md), because the
 configuration layer and the clock are the things phase 5a built,
 [`sdk-documentation/tracing-and-metrics.md`](./sdk-documentation/tracing-and-metrics.md), because
-the tracing and metrics layer is the thing phase 5c built, and
+the tracing and metrics layer is the thing phase 5c built,
 [`sdk-documentation/logging-and-redaction.md`](./sdk-documentation/logging-and-redaction.md),
-because the logging facade and redaction are the things phase 5b built.
+because the logging facade and redaction are the things phase 5b built, and
+[`sdk-documentation/retry.md`](./sdk-documentation/retry.md), because the retry layer — one policy
+core and its two stacks — is the thing phase 6a built.
 
 ## Keeping this file true
 
