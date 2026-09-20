@@ -20,9 +20,13 @@ N/A not applicable in this port.
 Plan: `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination.md`. Task numbers are that plan's
 (seventeen). Design: `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-design.md`, whose
 Deviation Ledger numbered P7-1–P7-6 before execution (colliding with 7a's P7-1–P7-9, numbered in
-isolation; phase 10's consolidation resolves it) and whose as-built rows **P7-101–P7-115** are cited
+isolation; phase 10's consolidation resolves it) and whose as-built rows **P7-101–P7-116** are cited
 below (7a's rows are cited as "7a's P7-n", 7b's as "7b's P7-n"; the manager fixed the numbering so the
 three lanes never collide); the charter is `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`.
+Review round 0 (2026-09-20) asked for two changes and this document records them where they land:
+`Page.build` now names a non-String key (R0-1, guard 46) and `LinkHeader` reads only the first `rel`
+parameter of a link-value (R0-3, P7-116, guard 47); the sentence below about which branch carried
+`http/url_test.rb` was corrected (R0-2).
 Every test file named here is under `gems/dexpace-core/test/`, mirrors its `lib/` file one for one
 (two carry no `lib/` mirror and say so below; one `private_constant`, `page/closing.rb`, carries no
 `test/` mirror and is asserted through the two views and the lifetime suite), and opens with the IDs
@@ -40,7 +44,7 @@ N/A; the seven rows the design says must be stated rather than ticked (`PAGE-1`,
 |---|---|---|---|---|
 | `PAGE-1` | MUST | ✅ | 11, 12, 14 | **Four sites, not two**: the blocking engine's `Items` (server order across page boundaries, `[[1, 2], [], [3, 4], [5]]` → `[1, 2, 3, 4, 5]`) and `Pages` (three page objects for three pages, each with status, headers and the executed request), and the async engine's `#walk` (items, serially) and `#walk_pages` (whole live pages, each open for the consumer's call and closed exactly once after it) over one pump with a two-branch drain — `PAGE-27` names the page-level drain in as many words, so a row citing the blocking views alone would tick a MUST the async engine did not meet (`items_test.rb` "PAGE-1"; `pages_test.rb` "PAGE-1"; `async_paginator_test.rb` "PAGE-1 (async)", "PAGE-27 (async, page-level)") |
 | `PAGE-2` | MUST | ✅ | 5 | `Page#items` is a frozen SHALLOW copy (P7-101: the collection is owned, the elements stay the caller's, never `Model.own`'s deep copy, which raises on a Proc), never nil, possibly empty; `#status`, `#headers`, `#request` are read off the frozen `Response` `Data` and survive `#close`, which invalidates the body alone (`page_test.rb`, three `PAGE-2` cases) |
-| `PAGE-3` | MUST | ✅ | 5, 15 | `Page` is a plain class including `Dexpace::Closeable`, not a `Data` (a `Data` cannot hold the latch; `Response#close` is a pure forward with none of its own): three `#close`es release the response once, a raising release leaves the latch flipped and is never retried; `.build` refuses anything but a real `Dexpace::Response` (P7-107); a fetcher's page owns its response and the walk, not the fetcher, closes it (`page_test.rb`, two `PAGE-3` cases and the duck-refusal; `fetchers_test.rb` "PAGE-34 / PAGE-3"; guard 39) |
+| `PAGE-3` | MUST | ✅ | 5, 15 | `Page` is a plain class including `Dexpace::Closeable`, not a `Data` (a `Data` cannot hold the latch; `Response#close` is a pure forward with none of its own): three `#close`es release the response once, a raising release leaves the latch flipped and is never retried; `.build` refuses anything but a real `Dexpace::Response`, and a `next_link` or `continuation_token` that is neither nil nor a String, named (P7-107; guard 46); a fetcher's page owns its response and the walk, not the fetcher, closes it (`page_test.rb`, two `PAGE-3` cases and the duck-refusal; `fetchers_test.rb` "PAGE-34 / PAGE-3"; guard 39) |
 | `PAGE-4` | MUST | ✅ | 4, 7, 8, 9 | `Info` is a frozen `Data` whose `next_request == nil` is the single end-of-stream signal — no `terminal?`, no sentinel, no exception path; `.terminal(items:)` names the case; empty items with a non-nil next request is a valid non-terminal page. The three built-ins do NOT rescue the extractor: a raise is a parse failure and `PAGE-13`'s path, never an end (`info_test.rb`, four `PAGE-4` cases; the "PAGE-4: an extractor that raises" case in each of the three strategy suites; guard 44) |
 | `PAGE-5` | MUST | ✅ | 7, 8, 9, 10 | The three strategies are frozen `Data`s with no instance variables at all (a `Data` holds none, measured) so "immutable and safe to share" is structural; one `CursorStrategy` serves two walks with different templates; `#parse` closes nothing (`closes` 0 on the real response) and the walk hands the strategy an open, unmutated response (`closes` 0 seen from inside `#parse`) (`cursor_strategy_test.rb`, `page_number_strategy_test.rb`, `link_strategy_test.rb`, each "PAGE-5"; `walk_test.rb` "PAGE-5") |
 | `PAGE-6` | MUST | ✅ | 13, 14 | `R10`'s two assertions, separately. **Blocking**: `Paginator.build` → 0 exchanges; `#items` → 0; `#items.to_enum(:each)` → 0; `#pages` → 0; `#pages.each` (block-less) → 0; then `first(1)` is 1 exchange and `first(2)` two more. A repeated `Pages#more?` reads the staged page and costs nothing. **Non-blocking**: `AsyncPaginator.build` → 0; `#walk` → 1 exchange immediately (the requirement's own carve-out), then one per page consumed, the future settling with the page count (`paginator_test.rb`, two `PAGE-6` cases; `pages_test.rb` "PAGE-6 / PAGE-12", "PAGE-6"; `async_paginator_test.rb`, two `PAGE-6` cases; guards 4, 18, 19) |
@@ -55,7 +59,7 @@ N/A; the seven rows the design says must be stated rather than ticked (`PAGE-1`,
 | `PAGE-15` | MUST | ✅ (P7-1) | 10, 12, 16 | **Two of three clauses**, stated: (a) a close error while releasing a held page is SURFACED — on `Pages#close` after a probe, on the advance in `Walk#hold`, on the eager close in `Items`, and through a short-circuiting terminal (`break`, `first`) — never swallowed; (c) when both held pages fail to close the first failure propagates with the second on its suppressed trail, on the one reachable two-slot state (a probe from INSIDE the loop, then `break`). (b), "re-thrown wrapped", is **vacuous by a false antecedent** — no Ruby terminal can fail to declare an error type; measured four ways on every row, `matrix_facts_test.rb` fact 1 — and `lifetime_test.rb` "P7-1" asserts the concrete class with a nil `#cause` so a wrapper introduced later fails loudly; the vacuity is `docs/first-release.md`'s `C13`, already filed. The advance close is a bare close, never `close_quietly` (`pages_test.rb` `SurfacedCloseTest`; `walk_test.rb` `SlotsTest`; `lifetime_test.rb`, five `PAGE-15` cases; guards 6, 7, 8) |
 | `PAGE-16` | MUST | ✅ (P7-6) | 7 | `CursorStrategy.build(extract:, parameter: "cursor")`: ONE extractor call, `[items, cursor]` back, `nil` OR `""` end-of-stream, otherwise the template with the parameter spliced (replacing an earlier value in place); the cursor also travels as `Info#continuation_token`. **"A single read of the response body" is the EXTRACTOR's read and core performs none**: a `RecordingBody`'s `source_count` reads 1 through an extractor that reads and 0 through one that does not, and an extractor reading through `Response#body_string` gets the single-use rule from 3b's body (`ClosedError` on a second read). The extractor's answer shape is checked, not destructured blindly (P7-107) (`cursor_strategy_test.rb`, six `PAGE-16` cases; guard 20) |
 | `PAGE-17` | MUST | ✅ | 8 | `PageNumberStrategy.build(extract_items:, parameter: "page", start: 1)`: an empty items list is end-of-stream, checked FIRST; the current page is read from the EXECUTED request (`response.request`: `?page=5` on the response and `?page=1` on the template gives `page=6`); absent, empty, `abc`, `-2`, `1.5`, `1e3`, a non-ASCII numeral and a space all fall back to `start` (`page=8` under `start: 7`); a percent-encoded digit run is read decoded and counts (P7-114); `parameter:` and `start:` are configurable, `start: 0` admitted; the next request is the TEMPLATE with its page spliced, other parameters byte-identical, method and body carried (`page_number_strategy_test.rb`, six `PAGE-17` cases; guards 21, 22) |
-| `PAGE-18` | MUST | ✅ | 6, 9 | `LinkHeader`, a character-level state machine with no `Regexp` (a source scan asserts it): a comma inside `<…>` and inside a quoted value does not split link-values, a semicolon inside a quoted value does not split parameters, quoted-pair escapes are honoured, `rel` may be unquoted, multi-token (space or tab) and any case (`NEXT`, `"prev  next"`, `"last\tnext"`), the token is `next` and not `nextish` or `prev-next`, the FIRST matching link-value wins, parameter names fold (`REL=next`); no header, no `rel=next` segment, an empty set and malformed input are all end-of-stream, never a raise (P7-115). `LinkStrategy.build(extract_items:, header: "Link")` reads the header under the fold and the name is configurable (`link_header_test.rb`, eleven cases; `link_strategy_test.rb` "PAGE-18", two cases; guards 23, 24) |
+| `PAGE-18` | MUST | ✅ | 6, 9 | `LinkHeader`, a character-level state machine with no `Regexp` (a source scan asserts it): a comma inside `<…>` and inside a quoted value does not split link-values, a semicolon inside a quoted value does not split parameters, quoted-pair escapes are honoured, `rel` may be unquoted, multi-token (space or tab) and any case (`NEXT`, `"prev  next"`, `"last\tnext"`), the token is `next` and not `nextish` or `prev-next`, the FIRST matching link-value wins, parameter names fold (`REL=next`), and only the FIRST `rel` parameter of a link-value is read — RFC 8288 §3.3's "occurrences after the first MUST be ignored", so `<u>; rel="prev"; rel="next"` is not a next link (P7-116); no header, no `rel=next` segment, an empty set and malformed input are all end-of-stream, never a raise (P7-115). `LinkStrategy.build(extract_items:, header: "Link")` reads the header under the fold and the name is configurable (`link_header_test.rb`, twelve cases; `link_strategy_test.rb` "PAGE-18", two cases; guards 23, 24, 47) |
 | `PAGE-19` | MUST | ✅ (P7-3, P7-4, P7-104) | 2, 9 | `Dexpace::URL.resolve(base, reference)` wraps the pinned `URI::RFC3986_PARSER.join` (phase 1's file widened by one function, P7-3): base `/repo/issues?page=1` + `?page=2` → `/repo/issues?page=2`, the path preserved; `not a url`, `http://[bad` and whitespace answer nil. `Page.next_request_from(template, response, target)` — public, so a body-derived next URL reaches the same rules — answers nil for a nil, blank or whitespace target BEFORE resolution (`join(base, "")` is the base itself, P7-5), for an unresolvable one, and for one this client cannot dispatch: `mailto:`, `javascript:`, `ftp:`, `http:foo`, `http:///p`, every one a SUCCESSFUL join (P7-104, consistent with `REDIR-18`; no diagnostic, the engine has no logger); the base is the RESPONSE's request URL, not the template's (`http/url_test.rb` `ResolveTest`; `page_test.rb` `NextRequestFromTest`; `link_strategy_test.rb`, four `PAGE-19`/`P7-5`/`P7-104` cases; guards 25, 26, 43) |
 | `PAGE-20` | SHOULD | ✅ | 6, 9 | Several `Link` instances are joined with `", "` and scanned as one (one `last` and one `next` in either order → next followed); `nil`, `[]` and `[""]` are no next link (`link_header_test.rb` "PAGE-20", "no rel=next segment and no header"; `link_strategy_test.rb` "PAGE-20") |
 | `PAGE-21` | MUST | ✅ | 3 | `QueryRewriter.set` tokenises on `&` and the FIRST `=`, copies every untargeted segment as the bytes it found — `flag` stays value-less, `filter=a:b` keeps its colon, `a=b=c`, an empty segment and `%zz` survive — and re-encodes only the targeted name and value; `Dexpace::Query` is deliberately not used (`Query.parse(q).encode` rewrites `filter=a:b` to `filter=a%3Ab`, guard 27). **The half already built**: the codec is phase 1's `PercentEncoding`, shipped and tested. Asserted as byte identity of the untargeted SEGMENTS, plus a 128-sample property test (`query_rewriter_test.rb`, two `PAGE-21` cases and the property; guard 27) |
@@ -71,7 +75,7 @@ N/A; the seven rows the design says must be stated rather than ticked (`PAGE-1`,
 | `PAGE-31` | SHOULD | ✅ | 14 | The pump is 6a's re-arm-flag trampoline over `claim(:start | :continue)` under a mutex held across the flip only: 3,000 synchronously-completed pages through BOTH the inline path and an `InlineExecutor` leave `caller.size` at page 3,000 equal to page 1's. Measured through the real `Completer`: a pump that re-enters itself from `on_settle` overflows at 2,619 (3.2.11) / 2,847 (3.3.12, 3.4.10, 4.0.6) pages; guard 32 is that shape and raises `SystemStackError` (`async_paginator_test.rb` `TrampolineTest` "PAGE-31"; `matrix_facts_test.rb` fact 3; guard 32) |
 | `PAGE-32` | MUST | ✅ | 14, 16 | `Pump#drain` closes the page whether the consumer returned or raised: on the success path a throwing close propagates into the fence and fails the future (`IOError` out of `Future#value`, within the deadline — never a hang); when the consumer already failed the close is `Dexpace.close_quietly`, the consumer's cause stays primary (`assert_same`) and the close error is swallowed, not attached (`Dexpace.suppressed` empty — the requirement's own word) (`async_paginator_test.rb` `FailureTest`, two `PAGE-32` cases; `lifetime_test.rb` "INVERSION, PAGE-32 (async)"; guard 33) |
 | `PAGE-33` | MUST | ✅ | 14 | **Discharged by documentation, at `AsyncPaginator#walk`'s YARD** (and `docs/sdk-documentation/pagination.md`), with both halves given a code site: the first half — a response the transport delivers after the cancel settled its future never reaches the paginator — is phase 2's `Completer#fulfil` on a settled completer returning false and closing the response itself (`SEAM-30`), measured (`closes` 1, the consumer never invoked); the second — an already-dispatched request completing after the abort is closed and discarded — is `Pump#settled`'s settled check before the drain, `PAGE-26`'s drop. The race itself is not observable and is not tested (`async_paginator_test.rb` `CancellationTest` "PAGE-33", "PAGE-26: a page parsed after the walk settled") |
-| `PAGE-34` | MUST | ✅ | 15 | `Fetchers.build(first:, next_page:, options:)`: the first fetcher is called exactly once per walk; the next-page fetcher is keyed off `previous.next_link`, falling back to `continuation_token` when the link is absent or blank (`["L"]` when both are present; `%w[T T2]` across two blank-link pages); a blank link with no token and a nil page from either fetcher end the stream; a nil first page is an empty stream; a fetcher's page owns its response and the walk closes it, the fetcher never does (`closes` 0 while the consumer holds it, 1 after); a non-`Page` answer is refused (P7-107); the same `Items`/`Pages`/`each_item`/`each_page` surface over the same private `Walk`, uncapped (P7-111) (`fetchers_test.rb`, seven `PAGE-34` cases and "PAGE-1 / PAGE-12"; guard 36) |
+| `PAGE-34` | MUST | ✅ | 15 | `Fetchers.build(first:, next_page:, options:)`: the first fetcher is called exactly once per walk; the next-page fetcher is keyed off `previous.next_link`, falling back to `continuation_token` when the link is absent or blank (`["L"]` when both are present; `%w[T T2]` across two blank-link pages); a blank link with no token and a nil page from either fetcher end the stream; a nil first page is an empty stream; a fetcher's page owns its response and the walk closes it, the fetcher never does (`closes` 0 while the consumer holds it, 1 after); a non-`Page` answer is refused, and so is a page whose `next_link` or `continuation_token` is not a String — at `Page.build`, by name, before the front-end keys off it (P7-107; guard 46); the same `Items`/`Pages`/`each_item`/`each_page` surface over the same private `Walk`, uncapped (P7-111) (`fetchers_test.rb`, eight `PAGE-34` cases and "PAGE-1 / PAGE-12"; guard 36) |
 | `PAGE-35` | SHOULD | ✅ vacuous by construction | 15 | **Design §12's own disposition, neither ⏳ nor 🚫**: the SHOULD is conditional on a MUTABLE paging-options object and the port offers a frozen `RequestOptions`. What the port supplies, stated: the SAME frozen instance is threaded to every fetcher that takes it, by identity (`assert_same` across both fetcher calls; arity decides — `-> { }` and `->(key) { }` are called without it), `Page#continuation_token` is the first-class per-page channel (`PAGE-34`) and a Ruby callable carries its own binding; the "mutation visibility" clause is documented as unobservable in `Fetchers`' YARD (`fetchers_test.rb` `OptionsAndViewsTest`, two `PAGE-35` cases; guard 37) |
 | `PAGE-36` | MUST | ✅ | 10, 13, 14 | The paginator's frozen `options` is passed to the transport on EVERY exchange — `assert_same` on all three recorded calls, on both engines — and the default is `RequestOptions::EMPTY`, also by identity; a `Pipeline.standard` over a scripted transport receives `EMPTY` and `Cancellation.none` on each page. What 7c cannot assert — that an ADAPTER honours per-call options on pages 2..N — is phase 8a's: its plan's Task 13 carries the per-call-options conformance assertion and Task 20 wires it (`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md`), and its checklist cross-references `PAGE-36`; no `docs/first-release.md` line is filed (`walk_test.rb` "PAGE-36"; `paginator_test.rb` "PAGE-36", "PIPE-26 / PIPE-27"; `async_paginator_test.rb` "PAGE-36 / PAGE-9"; guard 17) |
 
@@ -125,13 +129,15 @@ queued executor whose `#drain` runs the queue on a fresh joined thread, and the 
 concurrently and nothing of 7c's collides with or depends on it); no third scripted transport (6a's
 `ScriptedTransport` and `ScriptedAsyncTransport` as they are, the latter's `settle_later:` and
 `#settle_next!` being exactly `PAGE-25`/`PAGE-26`'s hold-and-release); phase 2's `InlineExecutor` is
-the inline executor. Three existing tests changed, all on the **code** branch as pins the code
-invalidated or gates read: the smoke suite's layer table (`PAGE_LAYER = %i[Page]`) and its new
-`PhaseSevenLayers` class (the eleven public constants under `Page`, the six private names unreachable,
-the fourteen nested names shadowing nothing at the top level or flat under `Dexpace` — Task 17's
-shadowing audit as a standing test), and phase 1's `http/url_test.rb` (a nested `ResolveTest`,
-`Style/OneClassPerFile` being live). The surface manifest was regenerated once, 1 137 → 1 214, and all
-77 rows read against the object model (the `NFR-4` row).
+the inline executor. Two existing tests changed: on the **code** branch, the smoke suite
+(`gems/dexpace-core/test/dexpace_test.rb`, a pin the surface and layer gates read) gains
+`PAGE_LAYER = %i[Page]` and a `PhaseSevenLayers` class (the eleven public constants under `Page`, the
+six private names unreachable, the fourteen nested names shadowing nothing at the top level or flat
+under `Dexpace` — Task 17's shadowing audit as a standing test); on the **tests** branch, phase 1's
+`http/url_test.rb` gains a nested `ResolveTest` for the widened `URL.resolve` (`Style/OneClassPerFile`
+being live) — a new test over a new function, not an invalidated pin, so the layering rule puts it
+there. The surface manifest was regenerated once, 1 137 → 1 214, and all 77 rows read against the
+object model (the `NFR-4` row).
 
 ## Matrix facts, re-run on every interpreter
 
@@ -163,14 +169,15 @@ else) and is cited rather than re-asserted.
 ## Guards run red
 
 Every guard the brief asks to be seen red was seen red, on 4.0.6 and on 3.2.11, and the bytes
-restored after each: **forty-five single-edit mutations of `lib/`** — the reviewer's thirty-nine plus
-six of this build's — one at a time through a harness that applies the edit in a scratch copy of the
-tree, runs the owning suites under `ruby -w`, captures the first failure and restores the file. Two
+restored after each: **forty-seven single-edit mutations of `lib/`** — the reviewer's thirty-nine,
+six of this build's, and two added in review round 1 for the two fixes it made (46, 47) — one at a
+time through a harness that applies the edit in a scratch copy of the tree, runs the owning suites
+under `ruby -w`, captures the first failure and restores the file. Two
 mutations were re-spelled to keep a variable live, because their first spelling crashed the suite on
 an unused-variable warning (`FatalWarnings`, `NFR-6`'s rule firing before any assertion) rather than
 on an assertion: guard 3 (`previous.nil?` in place of the deleted close) and guard 40 (`$! || primary`
-in place of `$!` alone). **Forty-five of forty-five are caught on 4.0.6 and forty-five of forty-five on
-3.2.11; no equivalent mutant.** The plan's guard 4 ("let `Walk#buffer` overwrite a staged page") is
+in place of `$!` alone). **Forty-seven of forty-seven are caught on 4.0.6 and forty-seven of forty-seven
+on 3.2.11; no equivalent mutant.** The plan's guard 4 ("let `Walk#buffer` overwrite a staged page") is
 unreachable through `Pages#more?` as built — the probe reads a staged page before it would ever call
 `#buffer` — so the mutation applied is the reachable one, dropping that early return; `Walk#buffer`'s
 own refusal is `walk_test.rb`'s "never displaced" case. The plan's guard 38 ("close the page both in
@@ -224,6 +231,8 @@ mechanism — so the mutation applied closes the RESPONSE a second time past the
 | 43 | P7-104: the dispatchability screen dropped | `link_strategy_test.rb`, `page_test.rb` | `Expected nil, not #<data Dexpace::Request …mailto:a@b>` (2 failures) |
 | 44 | `PAGE-4`: a raising extractor rescued and read as end-of-stream | `cursor_strategy_test.rb` | `KeyError expected but nothing was raised` (2 failures) |
 | 45 | `PAGE-29`: the consumer invoked inline instead of through the executor | `async_paginator_test.rb` | `Expected #<Set: {#<Thread:… main>}> to be empty` — the consumer ran on the test's thread; the rejection cases (4 failures) |
+| 46 | `PAGE-34` / P7-107 (round 1, R0-1): `Page#initialize` stores `next_link` and `continuation_token` unchecked | `page_test.rb`, `fetchers_test.rb` | `Dexpace::InvalidArgumentError expected but nothing was raised`; `Expected "L" to be frozen?`; `[Dexpace::InvalidArgumentError] exception expected, not … NoMethodError` out of the fetcher walk (3 failures) |
+| 47 | P7-116 (round 1, R0-3): `LinkHeader#next_target` honours ANY `rel` parameter (`params.any?`) | `link_header_test.rb` | `Expected "https://x/1" to be nil` on `rel="prev"; rel="next"` |
 
 ## Audit groups run
 
@@ -253,8 +262,9 @@ confirmed the SSE-under-`PAGE-14` pair (`sse-streaming/5f4803a0`, `b94ce49e`) an
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate. Items
 1–19 are where the built tree overrode the plan's assumptions, in the order the brief's as-built list
-gives them; 20–30 are this build's. The ones that touch public behaviour, the contract a later phase
-cites, or a statement the design makes are also the as-built ledger rows P7-101–P7-115.
+gives them; 20–30 are this build's and 31 is review round 1's. The ones that touch public behaviour,
+the contract a later phase cites, or a statement the design makes are also the as-built ledger rows
+P7-101–P7-116.
 
 1. **Nothing was installed.** All four interpreters were present; the plan's Task 1 Step 1 and the
    design's "the only interpreter installed" were stale. The facts were re-run on every row and live in
@@ -327,7 +337,9 @@ cites, or a statement the design makes are also the as-built ledger rows P7-101�
     corpus corrections and the harvest gap (now notes), 8a's `PAGE-36` conformance tasks; nothing
     re-filed in `docs/first-release.md`, `docs/deviations.md` or the roadmap's inbound list for them.
 20. **`Info` and `Page` validate `next_link` and `continuation_token` as `String` or nil** and copy
-    them frozen; `Info.terminal` is the named factory the design asks for.
+    them frozen; `Info.terminal` is the named factory the design asks for. (`Page`'s half of this
+    sentence was false at review round 0 — only `Info` checked — and is true since round 1's fix,
+    R0-1, guard 46.)
 21. **The extractor's answer shape is checked** (P7-107) — the plan's fences destructured it blindly.
 22. **`Pages#more?` returns `true` on a staged page before touching the walk**, `Walk#buffer` raises
     `PageStateError` rather than the plan's `InvalidArgumentError` on a second staged page, and
@@ -356,6 +368,11 @@ cites, or a statement the design makes are also the as-built ledger rows P7-101�
     beside `version.rb`, nineteen `private_constant` test-mirror exceptions (`page/closing.rb` joins),
     fifteen checklists, `phase7/phase7c/` holding a checklist; the lib-file count was counted by hand
     because the probe does not read it.
+31. **`LinkHeader` reads only the first `rel` parameter of a link-value** (P7-116; review round 0's
+    R0-3): RFC 8288 §3.3 says `rel` MUST NOT appear more than once and occurrences after the first MUST
+    be ignored, and the first build's `params.any?` honoured a later one. `PAGE-18`'s own words ("the
+    first link-value whose `rel` parameter contains the token `next`") do not decide the case; the RFC
+    does, and the strict reading is the one that cannot follow a link the server marked `prev`.
 
 ## Findings routed
 
@@ -385,8 +402,8 @@ cites, or a statement the design makes are also the as-built ledger rows P7-101�
   half stays on the list, which the roadmap's 7c status note says; the three-spellings replayability
   predicate and the two scripted transports' reconciliation (6b's and 6c's), which 7c touches not at
   all.
-- **The design's ledger** gains an "As built" addendum (P7-101–P7-115); the consolidation of P7-1–P7-6
-  and P7-101–P7-115 into design §10 — beside 7a's and 7b's rows, whose P7-1–P7-9 collide with this
+- **The design's ledger** gains an "As built" addendum (P7-101–P7-116); the consolidation of P7-1–P7-6
+  and P7-101–P7-116 into design §10 — beside 7a's and 7b's rows, whose P7-1–P7-9 collide with this
   design's by number, knowingly — and the addition to §12's `PAGE` row are a human's, as for 3a
   through 6c, because `docs/sdk-design-ruby/` is frozen. `docs/deviations.md` is untouched, for phase
   10 to flip.

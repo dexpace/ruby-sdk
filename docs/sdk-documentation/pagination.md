@@ -30,8 +30,9 @@ phase 7b's `gates:serde_boundary` is the gate that will hold the row.
 ## The page value: `Page`
 
 `Dexpace::Page` is one page of a walk and the namespace of the whole subsystem. It is built through
-`.build(response:, items:, next_link:, continuation_token:)` over a real `Dexpace::Response`, with
-`.new` private, and it owns that response: whoever holds the page owns closing it, the close is latched
+`.build(response:, items:, next_link:, continuation_token:)` over a real `Dexpace::Response` — the two
+optional keys nil or a String copied frozen, anything else refused by name — with `.new` private, and it
+owns that response: whoever holds the page owns closing it, the close is latched
 (`Dexpace::Closeable`, so a second `#close` touches nothing), and it forwards to the response exactly once
 (`PAGE-3`, `PAGE-27`). The materialized `#items` (a frozen shallow copy — the collection is the page's,
 the elements stay the caller's), `#status`, `#headers` and `#request` are read off frozen values and
@@ -102,10 +103,12 @@ P::PageNumberStrategy.build(extract_items: ->(_r) { [] }).parse(response(templat
 of the header, joins them, scans them by RFC 8288's grammar — a character-level state machine, not a
 regexp, because a comma inside `<…>` or inside a quoted value must not split link-values and a quoted
 pair must be honoured — and takes the first link-value whose `rel` carries the token `next`, quoted or
-not, in any case. The target is resolved against the originating page's response URL as an RFC 3986
-reference (a query-only `<?page=2>` keeps the whole path), and it is end-of-stream, never an error,
-when the header or the segment is absent, when the target is blank, when it cannot resolve, or when it
-resolves to something this client cannot dispatch — `mailto:`, `javascript:`, a host-less `http:foo`.
+not, in any case; only a link-value's first `rel` parameter is read, as RFC 8288 §3.3 requires, so
+`<u>; rel="prev"; rel="next"` is a prev link. The target is resolved against the originating page's
+response URL as an RFC 3986 reference (a query-only `<?page=2>` keeps the whole path), and it is
+end-of-stream, never an error, when the header or the segment is absent, when the target is blank, when
+it cannot resolve, or when it resolves to something this client cannot dispatch — `mailto:`,
+`javascript:`, a host-less `http:foo`.
 
 ```ruby
 link = P::LinkStrategy.build(extract_items: ->(_r) { [1] })
@@ -176,9 +179,18 @@ per-call `options:` are passed to the transport on **every** page, not only the 
 cancellation the transport receives is always `Cancellation.none` — the blocking engine takes no
 per-walk token in v1. `cap:` counts exchanges, is validated strictly positive at construction
 (`PAGE-9`), and defaults to `Float::INFINITY`; **set a finite cap in production**, because it is the
-only bound the engine has over a server that never advances its cursor (`PAGE-10`).
+only bound the engine has over a server that never advances its cursor (`PAGE-10`). The `strategy`
+every engine example below shares is one cursor strategy that reads the page it is on off the
+**executed** request and answers a three-page walk:
 
 ```ruby
+strategy = P::CursorStrategy.build(extract: lambda { |r|
+  case P::QueryRewriter.get(r.request.url.query, "cursor")
+  when nil  then [[1, 2], "c2"]
+  when "c2" then [[3], "c3"]
+  else           [[4], nil]
+  end
+})
 transport = cursor_server
 paginator = P::Paginator.build(transport: transport, template: template, strategy: strategy)
 paginator.frozen?                                            # => true

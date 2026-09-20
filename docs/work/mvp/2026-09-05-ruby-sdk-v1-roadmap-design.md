@@ -4045,12 +4045,12 @@ fifteen-line `# Phase 7c:` block after 6b's; the surface manifest regenerated on
 with all 77 read against the object model; and two top-level test-support doubles (`PageFixtures`,
 `ProbeExecutor`) beside 6a's `ScriptedTransport` / `ScriptedAsyncTransport`, 3b's `FakeResponseBody`, 4b's
 `RecordingBody` and phase 2's `InlineExecutor`, reused as they are — **no Response double**: every response
-in the suite is a real `Dexpace::Response`. Two existing tests changed on the code branch as pins gates read
-or the code invalidated: the smoke suite's layer table (a `PAGE_LAYER`) with a `PhaseSevenLayers` class
-(the eleven public constants under `Page`, the six private names unreachable, the fourteen nested names
-shadowing nothing — the design's P7-2 audit as a standing test), and phase 1's `http/url_test.rb` (a
-nested `ResolveTest`). **The design's R7, R8, R9 and R10 stand as decided, with R8's prescription
-corrected in execution**: the measurement is right — a bare `ensure` inverts `PAGE-13`/`PAGE-32`'s primary —
+in the suite is a real `Dexpace::Response`. Two existing tests changed: the smoke suite's layer table (a
+`PAGE_LAYER`) with a `PhaseSevenLayers` class (the eleven public constants under `Page`, the six private
+names unreachable, the fourteen nested names shadowing nothing — the design's P7-2 audit as a standing
+test) on the code branch, a pin the gates read; and phase 1's `http/url_test.rb` (a nested `ResolveTest`
+over the widened `URL.resolve`) on the tests branch, a new test rather than an invalidated pin. **The
+design's R7, R8, R9 and R10 stand as decided, with R8's prescription corrected in execution**: the measurement is right — a bare `ensure` inverts `PAGE-13`/`PAGE-32`'s primary —
 but its `primary = $!` is wrong the other way, because `$!` is the CALLER's inside anything called from the
 caller's `rescue` (`pipeline/7ce4431d`, re-measured on every row), so the frame that owns the walk records
 the primary in a `rescue ::Exception => error` arm and hands the local to `Page::Closing.close_walk`, and
@@ -4069,12 +4069,14 @@ walk future settles with the page count (P7-109); the fatal family closes the re
 too (P7-110); the `Walk` is generic over a per-walk drive so `Fetchers` reuses it (P7-111); the executor
 runs the FIRST dispatch too (P7-112); a block-less `Pages#each` claims the latch on obtaining the
 enumerator (P7-113); the page-number screen is ASCII `[0-9]+` (P7-114); and the link grammar's
-malformed-input rule (P7-115). The checklist is at
-`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`: thirty-six own rows, all ✅,
-plus the boundary-5 row (owner 7b) and twelve cross-reference rows; forty-five guards run red on 4.0.6
-and 3.2.11, none surviving; thirty departures from the plan's text itemised; the design's As-built addendum
-adds P7-101–P7-115. Every one of the seventeen gates is green on the docs tip on 4.0.6 (2,919 runs,
-68,942 assertions, 0 skips, line coverage 99.98 % — the one uncovered line is phase 2's
+malformed-input rule (P7-115); and, from review round 0 (2026-09-20), `Page.build` names a `next_link`
+or `continuation_token` that is not a String the way `Info` already did (R0-1, P7-107) and `LinkHeader`
+reads only the first `rel` parameter of a link-value, RFC 8288 §3.3's rule (R0-3, P7-116). The checklist
+is at `docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`: thirty-six own rows,
+all ✅, plus the boundary-5 row (owner 7b) and twelve cross-reference rows; forty-seven guards run red
+on 4.0.6 and 3.2.11, none surviving; thirty-one departures from the plan's text itemised; the design's
+As-built addendum adds P7-101–P7-116. Every one of the seventeen gates is green on the docs tip on 4.0.6
+(2,923 runs, 68,964 assertions, 0 skips, line coverage 99.98 % — the one uncovered line is phase 2's
 `registry.rb:253`, as on `main`; every line under `lib/dexpace/page/` and in `url.rb` is exercised,
 the shape refusals included), the matrix rows on 3.2.11, 3.3.12 and
 3.4.10, and RuboCop by the honest `--ignore-parent-exclusion` command; the code tip alone is green on
@@ -4091,6 +4093,6 @@ list gains four lines. `docs/first-release.md` is untouched — the `PAGE-36` co
 has no ID to file under; `docs/deviations.md` is untouched, for phase 10 to flip;
 `docs/knowledge/notes/pagination.md` gains four Reference entries (the SSE-under-`PAGE-14` pair, the
 `BODY-11` attribution, §12's unharvested serde-agnosticism, and R8's `$!` finding). The consolidation of
-P7-1–P7-6 and P7-101–P7-115 into design §10 — beside 7a's P7-1–P7-9, which collide with 7c's by number,
+P7-1–P7-6 and P7-101–P7-116 into design §10 — beside 7a's P7-1–P7-9, which collide with 7c's by number,
 knowingly — and the `PAGE-15` addition to §12's `PAGE` row are a human's, as for every phase before:
 `docs/sdk-design-ruby/` is frozen.
