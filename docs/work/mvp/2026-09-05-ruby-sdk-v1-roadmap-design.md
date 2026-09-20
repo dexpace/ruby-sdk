@@ -4245,8 +4245,8 @@ layer paragraph, 184 → 195 `lib/` files, fifteen checklists, the gem's `lib/` 
 "Constraints that will bite" lines; `docs/sdk-documentation/serde.md` is the fifteenth page, every
 example run on 4.0.6 and 3.2.11; `docs/knowledge/notes/serde.md` is new with two entries (the UTF-8
 validation the design drafted, and the json 2.19.9 → 3.0 `Coder` option drift the build measured).
-Gates at the docs tip on 4.0.6: all seventeen green, `test:gems` 2 938 runs / 68 933 assertions /
-0 skips at 99.96% line coverage, the honest RuboCop clean, `rbs:validate` and `steep` clean, YARD
+Gates at the docs tip on 4.0.6: all seventeen green, `test:gems` 2 944 runs / 68 966 assertions /
+0 skips at 99.96% line coverage (the counts after review round 2's five added cases), the honest RuboCop clean, `rbs:validate` and `steep` clean, YARD
 100%; the matrix subset green on 3.2.11, 3.3.12 and 3.4.10. The consolidation of P7-1–P7-9 and
 P7-61–P7-72 into design §10 is phase 10's and a human's; `docs/deviations.md` is untouched.
 
@@ -4274,3 +4274,27 @@ assert the override gone; and the sentence above, which called the Steep relaxat
 route (1)" where it is the second route of decision (1) — are corrected in place. No ledger row is
 added: the design's As-built addendum carries a round-1 paragraph saying the round found no behaviour
 the document states that the code fails to honour.
+
+**2026-09-20, review round 2 of the phase-7a stack.** Round 1 returned `changes_requested` with two
+should-fix findings and two nits. Both should-fixes were survivors among the fifty-nine mutations the round
+ran — behaviours the design states and the checklist claimed pinned, where the code was right and the proof
+was not. The first: `DecodingHandler`'s empty-body screen (P7-67) reduced from `raise missing_body if
+source.eof?` to a bare probe left every suite green on both rows, because the one empty-body case asserted
+only that the message names `PetWitness`, which the witness's own shape failure over the drained `""`
+names too; through the real codec an empty 200 then read `malformed JSON: unexpected end of input`, naming
+no target. The case now asserts `no body` beside the target and `composition_test.rb` drives an empty 200
+through `Pipeline.standard` and the real codec (guard 23.5; guard 23's row corrected — its third failure
+was the `eof?`-probe case, not the empty body). The second: P7-7's require-time floor assertion was
+exercised by nothing — every gate row runs the bundle's json 3.0.2 — so deleting the block left all six
+adapter suites and every gate green while stock Ruby 4.0's json 2.18.0, which has a `JSON::Coder`, loaded
+and registered. `json/floor_test.rb` now drives it in a child process with `RUBYOPT`, `RUBYLIB` and the
+`BUNDLE_*`/`BUNDLER_*` keys cleared, pinning the interpreter's default json by exact version with `gem`
+before the require (2.6.3 / 2.7.2 / 2.9.1 / 2.18.0 across the matrix, each refused with the `SeamError`
+naming the floor and the active version) and the running json beside it (loads, registers under `:json`);
+its expectation is computed from the entry file's own comparison, so a future Ruby whose default json clears
+the floor keeps it meaningful (guard 35). The nits: the two handler messages rendered an anonymous witness
+as an empty name ("decode into : the response carried none") and now read `an anonymous witness` through a
+private `#target_name` in each — two `lib/` lines, two `sig/` lines, no public surface, P7-70's row amended
+in place (guard 36); and the gate line above, which still carried round 0's run count. The battery is
+thirty-eight, thirty-six caught on both rows, guard 3 on 3.2.11 alone and guard 21 the one equivalent
+mutant. No ledger row is added.

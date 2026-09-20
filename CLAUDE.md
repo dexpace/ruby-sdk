@@ -993,7 +993,10 @@ Each is one line plus the chapter to read before touching the area.
   materialised under `Dexpace::IO.max_materialized_bytes` (`SERDE-27`'s clause is deviated, 7a's P7-1); a
   body above the ceiling is a `StreamError`, unwrapped, and the handler screens an empty body with
   `BufferedSource#eof?` — never `#content_length` (`-1` when unknown) and never a parser message, which
-  differs between json 2.19.9 and 3.0.
+  differs between json 2.19.9 and 3.0. Both halves of that error's message are pinned — the target AND
+  `no body` — because a witness's own shape failure over the drained `""` names the target too, so a
+  target-only assertion passes with the screen gone (review round 1); an anonymous witness reads
+  `an anonymous witness`, never an empty name.
 - **`JSON::Coder` is constructed with keywords only, `strict: true` and `allow_duplicate_key: false` fixed by
   the codec, and `encoders:` NEVER forwarded** — json 2.19.9 takes a positional options Hash and SWALLOWS an
   unknown key, json 3.0 takes keywords and refuses one, a duplicate key is last-wins on 2.9, a warning on
@@ -1003,8 +1006,13 @@ Each is one line plus the chapter to read before touching the area.
   json 3.0.2, the bundle's version on every row, refuses a duplicate key by default, so a codec that
   dropped the option would stay green on every gate row and regress only at the 2.19.9 floor; a child
   process prepends a recorder onto `::JSON::Coder`'s singleton class and reads what `.new` receives
-  (`codec_test.rb`'s `CoderKeywordsTest`). rbs 4.2.0 declares no `JSON::Coder` and json 3.0.2 ships no
-  `sig/`, so the Steepfile's `:serde_json` target alone downgrades `Ruby::UnknownConstant` to
+  (`codec_test.rb`'s `CoderKeywordsTest`). P7-7's require-time floor is likewise observable only OUTSIDE
+  the bundle — every gate row runs the bundle's json, above the floor — so `json/floor_test.rb` drives it
+  in a child process with `RUBYOPT` and the `BUNDLE_*`/`BUNDLER_*` keys cleared, pinning the
+  interpreter's stock json (2.6.3 / 2.7.2 / 2.9.1 / 2.18.0 across the matrix, every one below the floor)
+  with `gem` before the require; stock 4.0's 2.18.0 HAS a `JSON::Coder` and loads clean without the
+  assertion, which is the silently-unpatched case it exists for. rbs 4.2.0 declares no `JSON::Coder` and
+  json 3.0.2 ships no `sig/`, so the Steepfile's `:serde_json` target alone downgrades `Ruby::UnknownConstant` to
   `:information` and the ivar is typed `untyped` (NFR-11 admits no `::JSON` type in the gem's `sig/`
   either).
 - **An adapter's require-time registration breaks every "starts empty on a bare require" pin in ONE

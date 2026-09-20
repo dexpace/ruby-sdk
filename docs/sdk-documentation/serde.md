@@ -249,7 +249,9 @@ phase 2's six seam methods over one private `::JSON::Coder`, the gemspec declare
 **the only place in the repository that floor may be stated** — and the entry file re-asserts the floor at
 require time as `Dexpace::SeamError` (`7a P7-7`), because `bundler-audit` runs in this repository's CI and
 never in a consumer's process, and an unbundled `require "dexpace/serde/json"` on a stock Ruby 3.3 or
-3.4 activates the interpreter's default json (2.7.2 / 2.9.1), which has no `JSON::Coder` at all. Requiring
+3.4 activates the interpreter's default json (2.7.2 / 2.9.1), which has no `JSON::Coder` at all — and a
+stock Ruby 4.0 activates 2.18.0, which has one and is still below the floor; `json/floor_test.rb` drives
+the assertion against each interpreter's default json in a bundler-stripped child process. Requiring
 the entry file registers the codec under `:json` with `core: "~> 0.0"`, design §2.4's version-skew guard.
 
 `Dexpace::Serde::JSON.default` is a factory — a **fresh** codec on every call (`SERDE-25`) — and
@@ -368,7 +370,8 @@ which matters because `TypedResponse` is lazy.
 **`DecodingHandler.build(serde:, witness:)`** is `SERDE-27`: it hands `#load` the body's own `#source`
 and copies nothing; closes the response in an unguarded `ensure` on **every** path (the handler's subject
 is the response; the codec's, under `SERDE-3`, is the stream — two rules, two subjects); surfaces a
-missing **or empty** body as a `DeserializationError` naming the target, screened before `#load` with
+missing **or empty** body as a `DeserializationError` naming the target (`an anonymous witness` for a
+`Class.new` one, which has no name to carry), screened before `#load` with
 `BufferedSource#eof?`, a non-consuming probe (never `#content_length`, which is `-1` for every
 unknown-length body, and never a parser message, which differs across json versions); and rescues
 nothing, so the codec's chained failures and an unwrapped I/O error both pass through. Which bodies it

@@ -1758,7 +1758,7 @@ by rewriting the text it corrects:**
 | P7-67 | **`DecodingHandler` screens an empty body with `BufferedSource#eof?`**, obtained once with the source it then hands to `#load`; never `#content_length`, never a parser message | `SERDE-27`; open question 3; the plan's Task 10 | `#content_length` is `-1` for every unknown-length body (3b's default), and the "unexpected end of input" text differs between json versions, so both of the plan's routes were wrong on the tree; `eof?` is a non-consuming probe (`fill_once_if_empty` then `buffered.zero?`), and `BufferBody#source` is a fresh view per call, which is why the handle is obtained once |
 | P7-68 | **The `SEAM-2` negative test reads CODE, not comments — Ruby files tokenised with Ripper and their comment tokens dropped — and excludes itself by `File.expand_path(__FILE__)`** | `SEAM-2`; `R12`; the plan's Task 1 | `lib/dexpace/serde.rb` and `lib/dexpace/http/method.rb` already name `Dexpace::Serde::JSON` in a comment explaining the shadowing hazard, so the plan's raw `include?` fails on `main`; and under `ruby path/to/test.rb` `__FILE__` is relative while the glob is absolute, so `path != __FILE__` would flag the test's own comment |
 | P7-69 | **The composition slice runs `Pipeline.standard` over a three-positional recording lambda, never core's `FakeTransport` and never `Pipeline.direct`** | `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`, `PIPE-39`; the plan's Task 18 | Core's `FakeTransport` lives in core's test tree, which another gem's suite does not reach into (styleguide 12.6; phase 8a declined moving the fakes), and `Dexpace::Transport.conforms?` accepts a three-positional lambda; `Pipeline.standard` is the preset a generated SDK gets and the spelling 8a's socket twin uses, so the slice exercises the three pillars rather than the bare runtime |
-| P7-70 | **`DecodeContext.root(target:)` gives an anonymous class no target** — `Module#name` is nil for `Class.new`, and the root then falls back to the shared no-target instance | `SERDE-13`; `R2`'s `.root` paragraph | The design's `witness.name` would render `#<Class:0x…>` into every message for an anonymous witness, which is the object-id noise `SERDE-30` exists to avoid elsewhere; an unnamed class has no name to carry and its message keeps the plain form |
+| P7-70 | **`DecodeContext.root(target:)` gives an anonymous class no target** — `Module#name` is nil for `Class.new`, and the root then falls back to the shared no-target instance | `SERDE-13`; `R2`'s `.root` paragraph | The design's `witness.name` would render `#<Class:0x…>` into every message for an anonymous witness, which is the object-id noise `SERDE-30` exists to avoid elsewhere; an unnamed class has no name to carry and its message keeps the plain form. **Amended after review round 1 (R1-4):** the two handler messages that interpolated this nil target — `DecodingHandler#missing_body` and `StatusAwareHandler#unhandled_message` — read "decode into : …"; each now derives the name through a private `#target_name` falling back to the literal `"an anonymous witness"`, and the rule on the context is unchanged |
 | P7-71 | **`Native` coerces String and Symbol Hash keys to String and refuses every other key class; a Symbol VALUE is not native and raises** | `SERDE-9`, `SERDE-15`; *The object model*, rules 3 and 7 | The design's "keys are coerced to String and a non-String-able key raises" is settled in the loud direction: an Integer or an object key silently stringified is the quiet mistake the walk exists to refuse, and a Symbol value going out as a string would be the one coercion the walk performs — a caller maps it with an `encoders:` entry |
 | P7-72 | **`Codec#load` accepts a raw IO answering `#read` (or `#readpartial`) beside a `Dexpace::IO::BufferedSource`**, wrapping it in a `BufferedSource.wrapping` that is dropped and never closed | `SERDE-3`, `SERDE-12`, `SEAM-21`; `R1` | `SERDE-3`'s subject is "a caller-supplied stream", phase 2's own seam test passes a `StringIO`, and the wrapper gives a raw IO the same `#read_utf8` drain and the same materialisation ceiling; the wrapper takes ownership by `IO-6` and is never closed, so the caller's IO stays open, and a raw IO's own `IOError` propagates unwrapped like a `StreamError` |
 
@@ -1795,6 +1795,31 @@ first row to close. No `lib/` line changed; the round's three nits — five resp
 three serde pins in the child process where one is, and the roadmap note naming the Steep relaxation
 "route (1)" where it is the second route of decision (1) — are the page's, the summary's and the
 roadmap's, not this document's.
+
+**Review round 2, 2026-09-20.** Round 1 of the stack's review ran fifty-nine mutations of its own and
+found two surviving on both rows, each against a behaviour this document states and the checklist claimed
+pinned; it adds no row, because in both the code honoured the statement and the proof did not. The first is
+`R3`'s zero-byte clause, P7-67: `raise missing_body if source.eof?` reduced to a bare `source.eof?` left
+every suite green, because the empty-body case asserted only that the message names `PetWitness`, which the
+witness's own `ctx.object!("")` failure names too — and through the real codec an empty 200 then surfaced
+as `malformed JSON: unexpected end of input`, naming no target. The case now asserts `no body` beside the
+target, and `composition_test.rb` drives an empty 200 through `Pipeline.standard` and the real codec,
+asserting the handler's message and refusing the parser's (the checklist's guard 23.5; guard 23's row is
+corrected, its third failure having been the `eof?`-probe case). The second is P7-7 itself: the
+require-time floor assertion was exercised by no test — every gate row runs the bundle's json 3.0.2, above
+the floor by construction — so deleting the block left all six adapter suites and every gate green, while
+json 2.18.0, stock Ruby 4.0's, HAS a `JSON::Coder` and loads clean without it, the silently-unpatched case
+the row names. `json/floor_test.rb` now drives the raise in a child process with `RUBYOPT` (bundler's
+`-rbundler/setup`), `RUBYLIB` and the `BUNDLE_*`/`BUNDLER_*` keys cleared and `GEM_HOME`/`GEM_PATH` kept,
+pinning a json by exact version with `gem` before the require: the interpreter's default json — 2.6.3,
+2.7.2, 2.9.1 and 2.18.0 across the matrix, every one below the floor — is refused with the `SeamError`
+naming the floor and the active version, and the json the parent runs loads and registers under `:json`;
+the first case's expectation is computed from the same comparison the entry file makes, so a future Ruby
+whose default json clears the floor keeps it meaningful (guard 35). The round's one `lib/` change is the
+nit behind P7-70's amendment above: an anonymous witness rendered as an empty name in the two handler
+messages and now reads `an anonymous witness` (guard 36), a change to two private methods, two `sig/`
+lines and no public surface. The remaining nit — the roadmap's status line still carrying round 0's run
+count — is the roadmap's.
 
 ---
 

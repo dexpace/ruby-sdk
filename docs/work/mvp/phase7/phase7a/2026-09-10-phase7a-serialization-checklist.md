@@ -25,7 +25,7 @@ Deviation Ledger numbers P7-1–P7-9 and whose as-built rows **P7-61–P7-72** a
 the manager fixed the as-built bands so the three lanes never collide: 7a from P7-61, 7b from P7-81,
 7c from P7-101); the charter is `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`. Core
 test files are under `gems/dexpace-core/test/`, adapter test files under `gems/dexpace-serde-json/test/`;
-every `lib/` file has a `test/` mirror one for one (three core suites and four adapter suites carry no
+every `lib/` file has a `test/` mirror one for one (three core suites and five adapter suites carry no
 `lib/` mirror and say so below), and each opens with the IDs it exercises.
 
 ## Requirement rows
@@ -65,8 +65,8 @@ design said the checklist must state rather than tick (`SERDE-6`, `7`, `8`, `11`
 | `SERDE-24` | SHOULD | ✅ (P7-8) | 8, 16 | ISO-8601 strings, never epoch numbers: core's `Instant` renders `#iso8601(6)` and parses through `Time.iso8601` (refusing the lax forms and a non-String, naming `Time (ISO-8601)` at the path), and the adapter's default `encoders:` table wires `::Time`, `::DateTime` and `::Date` to it. The round trip holds exactly over the stated domain — any `Time` whose `subsec` is an exact multiple of one microsecond, proven over whole seconds, an exact-microsecond `Time`, a UTC offset and a 64-sample seeded property test — and P7-8's truncation outside it is asserted, not prose: `Time.new(2026,9,10,12,0,0.123456,"+02:00")` renders `…00.123455+02:00` and does not round-trip (`serde/instant_test.rb`, all eleven cases; `json/defaults_test.rb`, the four `SERDE-24` / `P7-8` cases and the Date/DateTime case; guards 31, 31.5) |
 | `SERDE-25` | SHOULD | ✅ | 13, 14 | `Dexpace::Serde::JSON.default` and `Codec.default` are factories answering a fresh, independent instance on every call, and the registry's factory is `.default` itself; the memoising mutation goes red (`json/codec_test.rb` `ConstructionTest`, "SERDE-25"; `json_test.rb`, "the module's two factories"; guard 28) |
 | `SERDE-26` | MUST | ✅ (P7-4; clause stated) | 14 | Satisfied literally and not through §11.18's fallback: the constructor takes OPTIONS, never a caller's coder — so "built around a caller-supplied codec instance" never happens — and each instance owns a private `::JSON::Coder` built from its own options (json 2.19.9's per-instance, freezable engine), with no reader; two codecs share no engine, and one built with `max_nesting: 4` reads the same five-deep document differently from the default on both the decode and the encode side. **The clause stated:** the antecedent is false by construction (`json/codec_test.rb` `ConstructionTest`, the two `SERDE-26` cases; guard 29) |
-| `SERDE-27` | MUST | ✅ (P7-1; clause stated) | 10 | `Dexpace::Serde::DecodingHandler.build(serde:, witness:)`, a `_ResponseHandler` supplied into 3b's `TypedResponse`: it hands `#load` the body's own `#source` and copies nothing; closes the response in one unguarded `ensure` on EVERY path (a valid body, a missing body, an empty body, a codec failure, a mid-stream I/O error, a failing `eof?` probe) with the count read as exactly 1 off `FakeResponseBody`'s raw counter; surfaces a nil body AND an empty one — screened with `BufferedSource#eof?`, a non-consuming probe — as a `DeserializationError` naming the target; and rescues nothing, so the codec's chained failure and an unwrapped `StreamError` both pass through. **The clause stated:** "without first materializing the whole body" is NOT satisfied (P7-1): the JSON adapter drains to EOF under `Dexpace::IO.max_materialized_bytes` and a body above it raises `Dexpace::StreamError`, unwrapped — the documented limit `docs/sdk-documentation/serde.md` now states, closing the first owed half of the `docs/first-release.md` entry; the second half waits on phase 8. A `BytesBody`-backed response raises `StreamError` naming the class and `Body.buffer` is the readable spelling, asserted as a contract (`serde/decoding_handler_test.rb`, all fourteen cases; guards 22, 23) |
-| `SERDE-28` | MUST | ✅ | 11, 18 | `Dexpace::Serde::StatusAwareHandler.build(serde:, witness:, factory:)`: a 2xx delegates to a `DecodingHandler` (one implementation of `SERDE-27`); 400, 404, 500 and the **non-canonical 599** raise the factory's error — `ProtocolError.for` by default, one frozen lambda, `raise error, cause: nil` — over `Recovery.buffer_error_body`'s bounded copy, readable twice after the live response closed, with NO second close (the raw counter reads 1) and the error payload never reaching the witness; a 304 with `ETag` and `Location`, a malformed `ETag`, a multi-valued `Location`, a 100, a 301 and a 307 close the response (a close failure propagates) and raise a `DeserializationError` leading with the code and carrying the raw header values, parsed by nothing; a factory returning a non-Exception is refused. The composed path — `Operation` → `Pipeline.standard` → `TypedResponse` — asserts the 200, 404, factory and 304 branches end to end (`serde/status_aware_handler_test.rb`, all eighteen cases; `json/composition_test.rb`; guards 24–26) |
+| `SERDE-27` | MUST | ✅ (P7-1; clause stated) | 10 | `Dexpace::Serde::DecodingHandler.build(serde:, witness:)`, a `_ResponseHandler` supplied into 3b's `TypedResponse`: it hands `#load` the body's own `#source` and copies nothing; closes the response in one unguarded `ensure` on EVERY path (a valid body, a missing body, an empty body, a codec failure, a mid-stream I/O error, a failing `eof?` probe) with the count read as exactly 1 off `FakeResponseBody`'s raw counter; surfaces a nil body AND an empty one — screened with `BufferedSource#eof?`, a non-consuming probe — as a `DeserializationError` naming the target (or `an anonymous witness` for a `Class.new` one, which has no name to carry — P7-70, review round 1's R1-4); and rescues nothing, so the codec's chained failure and an unwrapped `StreamError` both pass through. **The clause stated:** "without first materializing the whole body" is NOT satisfied (P7-1): the JSON adapter drains to EOF under `Dexpace::IO.max_materialized_bytes` and a body above it raises `Dexpace::StreamError`, unwrapped — the documented limit `docs/sdk-documentation/serde.md` now states, closing the first owed half of the `docs/first-release.md` entry; the second half waits on phase 8. A `BytesBody`-backed response raises `StreamError` naming the class and `Body.buffer` is the readable spelling, asserted as a contract (`serde/decoding_handler_test.rb`, all fifteen cases — the empty-body case asserting BOTH halves of the message since review round 1, because the witness's own shape failure over a drained `""` names the target too; `json/composition_test.rb`, an empty 200 through the real codec; guards 22, 23, 23.5) |
+| `SERDE-28` | MUST | ✅ | 11, 18 | `Dexpace::Serde::StatusAwareHandler.build(serde:, witness:, factory:)`: a 2xx delegates to a `DecodingHandler` (one implementation of `SERDE-27`); 400, 404, 500 and the **non-canonical 599** raise the factory's error — `ProtocolError.for` by default, one frozen lambda, `raise error, cause: nil` — over `Recovery.buffer_error_body`'s bounded copy, readable twice after the live response closed, with NO second close (the raw counter reads 1) and the error payload never reaching the witness; a 304 with `ETag` and `Location`, a malformed `ETag`, a multi-valued `Location`, a 100, a 301 and a 307 close the response (a close failure propagates) and raise a `DeserializationError` leading with the code and carrying the raw header values, parsed by nothing; a factory returning a non-Exception is refused. The composed path — `Operation` → `Pipeline.standard` → `TypedResponse` — asserts the 200, 404, factory and 304 branches end to end (`serde/status_aware_handler_test.rb`, all nineteen cases — a 304 through an anonymous witness reads `an anonymous witness`, never an empty name, since review round 1; `json/composition_test.rb`; guards 24–26, 36) |
 | `SERDE-29` | SHOULD | ✅ (clause stated) | 14, 17 | A frozen codec is safe to share: eight threads × 200 rounds encoding and decoding distinct values through one instance, every thread joined, no corruption; and through the lift target. **The clause stated:** the cache clause has no subject — the witness is supplied per call and nothing is memoised by type, asserted as no `cache`/`memo` ivar on the codec, which is what a phase-9 `XCUT-12` audit will look for here (`json/codec_test.rb` `ConstructionTest`, both `SERDE-29` cases; `SerdeSeamAssertions#assert_shareable`) |
 | `SERDE-30` | MAY | ✅ (taken) | 4, 7 | `ABSENT`, `NULL` and `OMIT` print as `"Absent"`, `"Null"` and `"Omit"` for both `#to_s` and `#inspect`, asserted as string equality; the three are frozen singletons of classes a caller cannot name (`serde/tristate_test.rb`, "SERDE-30"; `serde/native_test.rb`, "OMIT is a frozen sentinel") |
 
@@ -120,10 +120,12 @@ the top-level floor assertion raising `Dexpace::SeamError`, `.default`, `.build`
 `:json`); the new `lib/dexpace/serde/json/codec.rb` (`Codec` with its private `Options` module,
 `DEFAULT_ENCODERS` and `MEDIA_TYPE`) with its `sig/` mirror and the entry file's `sig/` rewritten; the
 smoke test `json_test.rb` reshaped to snapshot AFTER `require "dexpace"`, `json`, `time` and `date` and
-extended with five cases; four new suites — `json/codec_test.rb` (four nested classes, the fourth
-review round 0's keyword pin),
-`json/codec_load_test.rb` (two), `json/defaults_test.rb`, `json/seam_conformance_test.rb` and
-`json/composition_test.rb` (two) — and three new `test/support/` files, `close_counting_source.rb`,
+extended with five cases; six new suites beside it — `json/codec_test.rb` (the codec's mirror; four nested
+classes, the fourth review round 0's keyword pin),
+`json/codec_load_test.rb` (two), `json/defaults_test.rb`, `json/seam_conformance_test.rb`,
+`json/composition_test.rb` (two) and, since review round 1, `json/floor_test.rb`, which drives P7-7's
+require-time floor assertion in a child process with the bundler environment stripped (R1-2) — and three
+new `test/support/` files, `close_counting_source.rb`,
 `close_counting_sink.rb` and `serde_seam_assertions.rb`, the last the file phase 9 lifts into
 `dexpace-conformance`. The `Steepfile`'s `:serde_json` block gains its one relaxation and its comment;
 `rbs_collection.yaml` is as `main` has it — its stale "json arrives with the codec in phase 7" sentence
@@ -139,7 +141,11 @@ pin the same way, while its two swap pins assert the swapped-in codec is no long
 never `factories`; 8a is making the identical conversion of the same two `seam_surface_test.rb` lines,
 and the reconcile pass keeps one copy. The surface manifests were regenerated once, with all 86 rows
 read against the object model. The dexpace_test.rb `LAYERS` table is untouched: 7a adds no flat
-constant under `Dexpace`.
+constant under `Dexpace`. **Review round 1 changed two `lib/` lines** (R1-4): `DecodingHandler#missing_body`
+and `StatusAwareHandler#unhandled_message` derive the target's name through a private `#target_name`
+that falls back to the literal `"an anonymous witness"` where `DecodeContext.root` gives an anonymous
+class no target (P7-70), declared in both `sig/` mirrors; a named witness's messages are byte-for-byte
+what they were.
 
 ## Matrix facts, re-run on every interpreter
 
@@ -190,7 +196,16 @@ process that records what `::JSON::Coder.new` receives (`codec_test.rb` `CoderKe
 battery is **thirty-five, thirty-three caught on both rows, guard 3 on 3.2.11 alone and guard 21 the
 one equivalent mutant**: guard 34 is the round's, red on 4.0.6 with json 3.0.2 and on 3.4.10 with json
 2.19.9 pinned unbundled, and guard 19, an equivalent mutant behaviourally, is red at the keyword level
-through the same pin (34.5 below is the third thing the pin holds).
+through the same pin (34.5 below is the third thing the pin holds). **Review round 1 (2026-09-20) ran
+fifty-nine of its own and found two more surviving on both rows**, each against a behaviour the design
+states and this document claimed pinned: the `eof?` screen's raise reduced to a bare probe (23.5 below —
+the empty-body case asserted only `/PetWitness/`, which the witness's own shape failure over the drained
+`""` names too, so the case was green with the screen gone and the round found guard 23's third failure
+to be the `eof?`-probe case, not it), and P7-7's require-time floor block deleted outright (35 below —
+no gate row runs a json below the floor, so nothing saw it). Both are pinned on the tests branch, the
+second in a child process with the bundler environment stripped; the round's one nit that reached
+`lib/`, the anonymous-witness fallback, is guard 36. The battery is **thirty-eight, thirty-six caught
+on both rows, guard 3 on 3.2.11 alone and guard 21 the one equivalent mutant**.
 
 | # | Fix reverted | Guard | What it said (4.0.6; identical on 3.2.11 unless stated) |
 |---|---|---|---|
@@ -217,7 +232,8 @@ through the same pin (34.5 below is the third thing the pin holds).
 | 21 | `SERDE-12`: the parse rescue widened to `StandardError` | `codec_load_test.rb`, `seam_conformance_test.rb` | **STAYED GREEN on both rows, and is equivalent**: `parse(text)` wraps `@coder.load(text)` alone, and the I/O error arises in `drain(source)` outside it, so widening that rescue cannot reach the stream — the scope, not only the class, is what keeps `SERDE-12` structural |
 | 21.5 | `SERDE-12`: a `StandardError` rescue around the drain, re-raising as `DeserializationError` | `codec_load_test.rb`, `seam_conformance_test.rb` | `[Dexpace::StreamError] exception expected, not Class: <Dexpace::Serde::DeserializationError>` (6 failures; `[IOError]` on 3.2.11's first line) |
 | 22 | `SERDE-27`: the `ensure response.close` dropped | `decoding_handler_test.rb`, `status_aware_handler_test.rb` | `Expected: 1 Actual: 0` on `body.closes` (8 failures) |
-| 23 | `SERDE-27`: the nil-body and `eof?` screens dropped | `decoding_handler_test.rb`, `status_aware_handler_test.rb` | `[Dexpace::Serde::DeserializationError] exception expected, not Class: <NoMethodError>` on the bodyless case; the empty-body case (3 failures) |
+| 23 | `SERDE-27`: the nil-body and `eof?` screens dropped | `decoding_handler_test.rb`, `status_aware_handler_test.rb` | `[Dexpace::Serde::DeserializationError] exception expected, not Class: <NoMethodError>` on the bodyless case and on the anonymous-witness 204; `[Dexpace::StreamError] exception expected, not Class: <NoMethodError>` on the `eof?`-probe case, whose double has no `#read`; `Expected /no body/ to match "expected … PetWitness (Hash) at /, got String"` on the empty-body case; the status-aware 204 beside them (4 + 1 failures). **As first recorded the third failure was attributed to the empty-body case; review round 1 found that case GREEN under this guard** — the failure was the `eof?`-probe case — and its `/no body/` assertion is the round's repair (23.5) |
+| 23.5 | `SERDE-27`: the `eof?` probe kept and its raise dropped (`raise missing_body if source.eof?` → `source.eof?`; review round 1's 23c) | `decoding_handler_test.rb`, `composition_test.rb` | `Expected /no body/ to match "expected DexpaceSerdeDecodingHandlerTest::PetWitness (Hash) at /, got String"` on the empty-body case, and `Expected /no body to decode into DexpaceSerdeJSONCompositionTest::Pet:/ to match "malformed JSON: unexpected end of input at line 1 column 1"` on the composed empty 200 through the real codec (2 failures). **Survived every suite on both rows before review round 1** |
 | 24 | `SERDE-28`: the 4xx branch delegates to the decoder | `status_aware_handler_test.rb` | `Dexpace::ProtocolError expected but nothing was raised` (9 failures) |
 | 25 | `SERDE-28`: a second `response.close` in the 4xx branch | `status_aware_handler_test.rb` | `Expected: 1 Actual: 2` on `body.closes` — visible only because `FakeResponseBody` counts raw closes (2 failures) |
 | 26 | `SERDE-28`: the third-branch message does not lead with the code | `status_aware_handler_test.rb`, `composition_test.rb` | `Expected /\A304\b/ to match "Not Modified 304: not decoded into …"` (3 failures) |
@@ -234,6 +250,8 @@ through the same pin (34.5 below is the third thing the pin holds).
 | 33d | `-> ::JSON::State` on a public method in `codec.rbs` | `gates:rbs_surface` | `codec.rbs: public signature references JSON::State, which is outside Dexpace:: and the stdlib allowlist` |
 | 34 | `P7-65`: the explicit `allow_duplicate_key: false` default dropped from `Codec#initialize` (review round 0's X7) | `codec_test.rb` `CoderKeywordsTest` | `--- expected ["allow_duplicate_key=false strict=true", …] +++ actual ["strict=true", "allow_duplicate_key=true strict=true", "max_nesting=4 strict=true", …]` on 4.0.6 with json 3.0.2 and on 3.4.10 with json 2.19.9 pinned unbundled — where `ConstructionTest`'s behavioural duplicate-key case goes red too, through `NFR-6`'s fatal `warning: detected duplicate key "a" in JSON object`, the only row it ever could: on 3.0.2 that case stays green under the mutant, because the library refuses a duplicate key by default |
 | 34.5 | `P7-65`: `encoders:` forwarded to the Coder (`table.compact` in place of `table.except(:encoders).compact`) | `codec_test.rb` `CoderKeywordsTest`, `ConstructionTest` | the third recorded line reads `allow_duplicate_key=false encoders={Time => #<Proc…>} max_nesting=4 strict=true`; on 3.0.2 the library refuses the keyword first (`ArgumentError: unknown keyword: encoders`) and the "encoders: replaces the default table" case errors beside it, while on 2.19.9 only the keyword pin sees it |
+| 35 | `P7-7`: the require-time floor block deleted from `json.rb` (review round 1's N1) | `floor_test.rb` | `Expected /\ASEAM_ERROR json=2\.18\.0 / to match "LOADED json=2.18.0 keys=[:json]"` — the interpreter's stock json loads and registers, the silently-unpatched case the deviation exists for (`2.6.3` on 3.2.11, where the same line goes red). **Survived every suite and every gate on every row before review round 1**: no gate row runs a json below the floor, so the child pins the interpreter's default json by exact version with `gem` and requires the entry file with `RUBYOPT`, `RUBYLIB` and the `BUNDLE_*`/`BUNDLER_*` keys cleared |
+| 36 | `P7-70`: the `"an anonymous witness"` fallback dropped from either handler's `#target_name` (review round 1's R1-4) | `decoding_handler_test.rb`, `status_aware_handler_test.rb` | `Expected /no body to decode into an anonymous witness:/ to match "no body to decode into : the response carried none (SERDE-27)"` and `Expected /\A304 Not Modified: not decoded into an anonymous witness,/ to match "304 Not Modified: not decoded into , only a 2xx body is (SERDE-28)"` (1 failure each) |
 
 ## Audit groups run
 
@@ -357,7 +375,11 @@ cites, or a statement the design makes are also the as-built ledger rows P7-61�
     once and routed, and `clean_bundle_check` not edited.
 23. **`DecodeContext.root` names an anonymous class as nothing** — `Module#name` is nil for
     `Class.new`, so the root falls back to the shared no-target instance rather than rendering
-    `#<Class:0x…>` into every message (P7-70).
+    `#<Class:0x…>` into every message (P7-70). Since review round 1 (R1-4) the two handler messages
+    that interpolate that target — `DecodingHandler#missing_body` and
+    `StatusAwareHandler#unhandled_message` — fall back to the literal `"an anonymous witness"` through a
+    private `#target_name`, so a 204 or a 304 through an anonymous witness no longer reads
+    "decode into : the response"; the context's own rule is unchanged.
 24. **`#pointer` is RFC 6901 exact (`""` at the root) and `#error!` renders the root frame as `/`** for
     readability, the design's own message form; a same-named `#present!` target at the root is not
     doubled.
