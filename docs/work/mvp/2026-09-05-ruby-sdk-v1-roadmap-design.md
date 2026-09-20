@@ -2274,7 +2274,14 @@ design.
   and hands forward the question of whether the other four declared files are empty too. A shipped `.rbs`
   that declares nothing passes `rbs validate`, passes `steep check` and tells a consumer's typechecker
   nothing, which is the failure mode `NFR-3` exists to prevent and which nothing reports. **Code half:
-  partial** — `#media_type`'s only. Touches `SERDE-2`, `NFR-3`, `NFR-13`.
+  partial** — `#media_type`'s only. Touches `SERDE-2`, `NFR-3`, `NFR-13`. [2026-09-20, 7a: premise false on
+  the tree — all four phase-2 `sig/` files have carried real bodies since c881f92 (#44):
+  `sig/dexpace/serde.rbs` declared `interface _Codec` at `Dexpace::_Codec` with all six methods typed, and
+  the three error files declare `class Error < ::StandardError; include Dexpace::Error` and its two
+  subclasses; 7a edited `_Codec` in place (`#media_type` to `(Dexpace::MediaType | String)`, `#load` over
+  `Dexpace::Serde::_Witness`, `#dump_to` to `Integer`) rather than writing a second one, so there is no
+  empty declaration to find and the "no gate can see it" hazard has no instance here; no action for
+  phase 10.]
 - **`Dexpace::Protocol.parse` has no alias for `"http/1.0"`, so a real `HTTP/1.0` response makes
   `ResponseMapper` raise.** Handed forward by 8a, measured at its plan `:233` and restated at `:4323`. Only
   `http/1.1`, `http/2` and `http/2.0` fold into a recognised wire form, so `native.http_version` produces
@@ -2542,6 +2549,32 @@ design.
   baseline. Touches `IO-11`, `IO-38`, `SSE-2`, `SSE-39`. Routed by 7b's checklist; referred to by date
   and content, never by ordinal; not in phase 10's design's disposition table, which dispositions it at
   execution.
+- **`gates:clean_bundle` installs into the interpreter's own gem directory, and the first adapter with a
+  third-party dependency makes that a network fetch on two matrix rows.** Found 2026-09-20 by phase 7a's
+  implementation, the first to run the gate against a gem whose gemspec declares a third-party gem
+  (`json >= 2.19.9`). The gate's scratch `Gemfile` holds the adapter and core by `path:` and runs
+  `bundle install --quiet` with no `--local` and no `BUNDLE_PATH`, so Bundler resolves `json` from
+  rubygems.org into the running interpreter's gem directory whenever no installed `json` satisfies the
+  floor — which on 2026-09-20 was true of 3.3.12 (default 2.7.2) and 3.4.10 (default 2.9.1), both of
+  which now hold a downloaded json 3.0.2 they did not before the run, while 3.2.11 and 4.0.6 already
+  held 3.0.2 beside their stock 2.6.3 / 2.18.0. Correct as the phase-0 gate's own behaviour (CI does the
+  same) and permitted for that gate run alone, but a gate that writes into a developer's interpreter and
+  needs the network on some rows and not others is a repair candidate: pin the scratch bundle's
+  `BUNDLE_PATH` under a scratch directory (`Dir.mktmpdir` already holds the Gemfile) so the fetch lands
+  beside the Gemfile and nothing outside the run changes. Phase 8a's Task 23 owns every edit to
+  `clean_bundle_check` this wave and may fix it there, in which case this bullet is simply closed.
+  Touches `NFR-1`, `NFR-2`, `NFR-10`, `NFR-12`. Recorded by 7a on its docs branch; referred to by date
+  and content, never by ordinal.
+- **`rbs_collection.yaml`'s header comment is stale: "json arrives with dexpace-serde-json's codec in
+  phase 7", and phase 7a added no row.** Found 2026-09-20 by phase 7a's implementation and routed here
+  by its review round 0 (R0-1): `json`'s signatures are rbs's own stdlib set — `rbs collection install`
+  already resolves `json` with `source: type: stdlib` — and json 3.0.2 ships no `sig/`, so the codec's
+  one `JSON::Coder` reference is settled in the Steepfile's `:serde_json` target and the collection file
+  needs nothing from 7a. The file is a shared one outside 7a's bounds that phase 8a rewrites with its
+  first row (`net-http`), so 7a's correction of the sentence was dropped rather than merged ahead of
+  that row; whichever lane adds the first row rewrites the sentence and closes this bullet, and if none
+  does before phase 10, the repair is a one-comment edit. No gate reads the comment. Touches nothing
+  normative. Recorded by 7a on its docs branch; referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4142,3 +4175,182 @@ combined tree's counts are `CLAUDE.md`'s: eighteen gates, the test suite at 3,14
 assertions, 0 failures, 0 errors, 0 skips and 99.98 % line coverage on 4.0.6 at the tests tip. Re-proven
 at every rebased tip on 4.0.6 and the matrix rows before the push, `gates:serde_boundary` with the
 pagination rows guarded at every one of the three.
+
+**2026-09-20** — **Phase 7a implemented**, as three stacked branches against issue #26: code, tests,
+documentation, cut from `main` at `c53638b`, which holds every phase through 6b — the first of phase
+7's three sub-phases to be built, in parallel with 7b, 7c and 8a on the same base, and the first phase
+in the roadmap to write into two gems. `dexpace-core` carries the serialization layer beside the
+thirteen layers before it — eleven new `lib/` files under `serde/`: `decode_context.rb`, `witness.rb`
+(reopening phase 2's `Dexpace::Serde` for `WITNESS_METHOD`, `DUMP_METHOD`, `.witness?` and `.witness!`),
+`native.rb` (`Native` and `OMIT`), `scalars.rb` (the private table and the public `BOOLEAN`),
+`tristate.rb` (`ABSENT`, `NULL`, `Present`, the private `Combinator` behind `Tristate.of`), `list.rb`,
+`map.rb`, `nullable.rb`, `instant.rb`, `decoding_handler.rb` and `status_aware_handler.rb` — every one
+with a `sig/` mirror and a `test/` mirror (no new `private_constant` file: the layer's private constants
+all live inside public files), plus `tristate_decode_test.rb`, `body_serialized_test.rb` and
+`no_concrete_codec_test.rb` beside the mirrors; one earlier file widened in place, 3b's `http/body.rb`
+gaining `Body.serialized(value, serde:)`, the ninth factory; phase 2's `sig/dexpace/serde.rbs` edited in
+place — its `interface _Codec` was never empty (the design's headline finding rests on a false premise
+and is withdrawn in the As-built addendum; the phase-10 inbound bullet at the `_Codec` residue carries a
+dated bracketed correction) — with `#media_type` widened to `(Dexpace::MediaType | String)`, `#load`
+narrowed over a new `Dexpace::Serde::_Witness` and `#dump_to` to `Integer`; and the entry file's
+eleven-line `# Phase 7a:` block after 6b's, in dependency order. **`dexpace-serde-json` is the
+workspace's second real gem**: `lib/dexpace/serde/json/codec.rb` (`Codec`, the six seam methods over one
+private `::JSON::Coder` per instance, a five-key option allowlist over one positional Hash, `strict:
+true` and `allow_duplicate_key: false` fixed by the codec, `encoders:` never forwarded), the entry file
+rewritten with `MINIMUM_JSON_VERSION` asserted at require time as `SeamError`, `REQUIRED_CORE = "~> 0.0"`
+on the registration under `:json`, and `.default` / `.build`; the gemspec's `json >= 2.19.9` line — the
+first `NFR-2` third-party half spent, and the first time `gates:gemspec_audit`, `gates:require_allowlist`
+and `gates:clean_bundle` ran against a gem carrying one, all three green on every matrix row; the
+Steepfile's `:serde_json` target alone downgrading `Ruby::UnknownConstant` to `:information` (rbs 4.2.0
+declares no `JSON::Coder` and json 3.0.2 ships no `sig/`, so the second route of the manager's decision
+(1), with the ivar typed `untyped`); the smoke test reshaped to snapshot after `require "dexpace"`; and
+four new suites beside it
+(`codec_test.rb`, `codec_load_test.rb`, `defaults_test.rb`, `seam_conformance_test.rb` over the
+phase-9 lift target `test/support/serde_seam_assertions.rb`, `composition_test.rb` walking
+`Operation` → `Pipeline.standard` → `TypedResponse` over a recording lambda transport), with two new
+close-counting doubles. The surface manifests were regenerated once, core 1 137 → 1 210 and the adapter
+2 → 15, all 86 rows read against the object model and no private constant among them. **Five existing
+core pins changed on the code branch as pins the registration invalidated** — an adapter that
+self-registers at require time makes "starts empty on a bare require" false in `rake test:gems`'s one
+process — `seam_surface_test.rb`'s two seam-iterating pins and `serde_test.rb`'s "starts empty" pin now
+assert in a child process that requires `dexpace` alone (`instrumentation/independence_test.rb`'s
+`IO.popen` shape; 8a is converting the same two `seam_surface_test.rb` lines, and the reconcile pass
+keeps one copy), and `serde_test.rb`'s two swap pins assert the override is gone rather than that
+nothing resolves. **What the plan did not know, and the tree decided** (the checklist's "Deviations from
+the plan", thirty-one items; the design's As-built addendum P7-61–P7-72): the empty-body screen is
+`BufferedSource#eof?`, never `#content_length` or a parser message; `FakeResponseBody` is the counting
+body and no `CountingResponse` double exists; `.build` plus `private_class_method :new, :[]` with
+validation in `#initialize` on every `Data`; `DecodeContext.build` is public; `StatusAwareHandler`'s
+members are its three build keywords; a `#call`-shaped object is not a witness; the composition slice
+runs `Pipeline.standard`, not `.direct`, over a lambda, since core's `FakeTransport` is out of another
+gem's reach; the `SEAM-2` scan reads code through Ripper, because two core comments name the adapter;
+and `JSON::Coder` is strict on its own account, so `strict: true` is documentation and `Native` is the
+observable layer (guard 19 stays green on every row, an equivalent mutant). **Every guard the brief
+lists was run**: thirty-four single-edit mutations on 4.0.6 and 3.2.11, thirty-one caught on both rows,
+guard 3 (`Data#with` in place of `Model#with`) caught on 3.2.11 alone as predicted, and two equivalent
+mutants recorded with their reasons (19, and 21 — the parse rescue's scope is the parse alone, so
+widening it cannot reach the drain; 21.5 widens the drain and is red); plus the four gate mutations
+(a second `add_dependency`, `require "json"` in a core file, a `::JSON::Coder` ivar type, a `::JSON`
+type in a public signature), each red under its gate. **Postponed items that landed:** phase 3b's
+`TypedResponse` has its two handlers; phase 2's `_Codec` clauses are settled; the knowledge-lookup
+skill's thirteenth audit row gained `constraints,conclusions` (the design's narrowness finding, a
+one-cell edit). **What stays where it is:** `SERDE-27`'s no-materialization clause (`7a P7-1`, the
+`docs/first-release.md` entry, whose first owed half — the documented ceiling behaviour — closed with
+`docs/sdk-documentation/serde.md` and whose second waits on phase 8); `dexpace-serde-oj`'s second motive
+(already on its post-v1 entry); the `Present` fourth-state closure on the 3.2 floor is proven by
+`test:gems` on 3.2.11, where the guard alone goes red. One new phase-10 inbound bullet, by date and
+content: `gates:clean_bundle` installs into the interpreter's gem directory and fetched json 3.0.2 from
+rubygems.org into 3.3.12's and 3.4.10's on this run. `CLAUDE.md` gains 7a's built-phase sentence, the
+layer paragraph, 184 → 195 `lib/` files, fifteen checklists, the gem's `lib/` sentence and five
+"Constraints that will bite" lines; `docs/sdk-documentation/serde.md` is the fifteenth page, every
+example run on 4.0.6 and 3.2.11; `docs/knowledge/notes/serde.md` is new with two entries (the UTF-8
+validation the design drafted, and the json 2.19.9 → 3.0 `Coder` option drift the build measured).
+Gates at the docs tip on 4.0.6: all seventeen green, `test:gems` 2 944 runs / 68 966 assertions /
+0 skips at 99.96% line coverage (the counts after review round 2's five added cases), the honest RuboCop clean, `rbs:validate` and `steep` clean, YARD
+100%; the matrix subset green on 3.2.11, 3.3.12 and 3.4.10. The consolidation of P7-1–P7-9 and
+P7-61–P7-72 into design §10 is phase 10's and a human's; `docs/deviations.md` is untouched.
+
+**2026-09-20, review round 1 of the phase-7a stack.** Round 0 returned `changes_requested` with two
+should-fix findings and three nits, nothing touching `lib/`. The first should-fix was a scope breach
+on the code branch: the feat commit had rewritten three lines of `rbs_collection.yaml`'s header comment
+to correct its stale "json arrives with the codec in phase 7" sentence — a shared file the brief lists
+out of bounds for 7a, which phase 8a rewrites with its first row, and which no gate reads — so the
+hunk is dropped in a `fix:` commit, the file is as `main` has it, and the stale sentence is one new
+phase-10 inbound bullet by date and content, for whichever lane adds the first row to close. The second
+was a survivor among the forty-two mutations the round ran: dropping the codec's explicit
+`allow_duplicate_key: false` default left every suite green on 4.0.6 and 3.2.11, because json 3.0.2 —
+the bundle's version on every row — refuses a duplicate key by default, and regressed to a
+warning-plus-last-wins only at the 2.19.9 floor, which no gate row runs. The option is now pinned at
+the keyword level: `codec_test.rb`'s fourth nested class, `CoderKeywordsTest`, runs a child process
+that prepends a recorder onto `::JSON::Coder`'s singleton class (a permanent patch to a library class,
+so never in the suite's own process — `context_store_config_test.rb`'s shape) and asserts every keyword
+`.new` receives across four constructions. The battery is thirty-five, thirty-three caught on both rows,
+guard 3 on 3.2.11 alone and guard 21 the one equivalent mutant: guard 34 is the round's, red on 4.0.6
+with json 3.0.2 and on 3.4.10 with json 2.19.9 pinned unbundled, and guard 19 (`strict: true` dropped),
+equivalent behaviourally, is red at the keyword level through the same pin. The nits — the five
+response fixtures `serde.md`'s last example used without defining, now built in the block; the
+`CLAUDE.md` sentence counting three serde pins in the child process where one is and two swap pins
+assert the override gone; and the sentence above, which called the Steep relaxation "the manager's
+route (1)" where it is the second route of decision (1) — are corrected in place. No ledger row is
+added: the design's As-built addendum carries a round-1 paragraph saying the round found no behaviour
+the document states that the code fails to honour.
+
+**2026-09-20, review round 2 of the phase-7a stack.** Round 1 returned `changes_requested` with two
+should-fix findings and two nits. Both should-fixes were survivors among the fifty-nine mutations the round
+ran — behaviours the design states and the checklist claimed pinned, where the code was right and the proof
+was not. The first: `DecodingHandler`'s empty-body screen (P7-67) reduced from `raise missing_body if
+source.eof?` to a bare probe left every suite green on both rows, because the one empty-body case asserted
+only that the message names `PetWitness`, which the witness's own shape failure over the drained `""`
+names too; through the real codec an empty 200 then read `malformed JSON: unexpected end of input`, naming
+no target. The case now asserts `no body` beside the target and `composition_test.rb` drives an empty 200
+through `Pipeline.standard` and the real codec (guard 23.5; guard 23's row corrected — its third failure
+was the `eof?`-probe case, not the empty body). The second: P7-7's require-time floor assertion was
+exercised by nothing — every gate row runs the bundle's json 3.0.2 — so deleting the block left all six
+adapter suites and every gate green while stock Ruby 4.0's json 2.18.0, which has a `JSON::Coder`, loaded
+and registered. `json/floor_test.rb` now drives it in a child process with `RUBYOPT`, `RUBYLIB` and the
+`BUNDLE_*`/`BUNDLER_*` keys cleared, pinning the interpreter's default json by exact version with `gem`
+before the require (2.6.3 / 2.7.2 / 2.9.1 / 2.18.0 across the matrix, each refused with the `SeamError`
+naming the floor and the active version) and the running json beside it (loads, registers under `:json`);
+its expectation is computed from the entry file's own comparison, so a future Ruby whose default json clears
+the floor keeps it meaningful (guard 35). The nits: the two handler messages rendered an anonymous witness
+as an empty name ("decode into : the response carried none") and now read `an anonymous witness` through a
+private `#target_name` in each — two `lib/` lines, two `sig/` lines, no public surface, P7-70's row amended
+in place (guard 36); and the gate line above, which still carried round 0's run count. The battery is
+thirty-eight, thirty-six caught on both rows, guard 3 on 3.2.11 alone and guard 21 the one equivalent
+mutant. No ledger row is added.
+
+**2026-09-20** — **Phase 7a reconciled onto `main` after phases 7b (server-sent events) and 7c
+(pagination)**, by a rebase-and-reprove pass, which completes phase 7: its three sub-phases were built
+concurrently off `c53638b` and landed 7b, 7c, 7a, so umbrella #25 closes by hand once this stack is
+merged. Phase 7b's stack merged first (#81 `90abdb8` → #82 `eacf165` → #83 `34f52e8`) and 7c's reconciled
+stack after it (`3a1f0a4` → `549e683` → `79877b5`), so 7a's three branches — built off `c53638b` and
+reviewed at `ae15acb` → `04aad28` → `408698e` — were rebased onto 7c's reconciled docs tip `79877b5`,
+whose tree is what `main` holds once those three squashes land, with `git rebase --onto` (rerere
+disabled), every 7a commit preserved and none reordered; the stack is `e5a32ff` → `7a675c4` → this
+paragraph's own commit, the pass's one commit of its own, on the docs branch, carrying what no 7a
+commit could: this paragraph and the dated "Reconciled" note at the head of 7a's checklist. One
+repair to the pass's own work: the conflict stop on the feat commit ran its message through git's
+default comment cleanup, which dropped the three body lines that begin with `#media_type` and
+`#read_utf8`, so that commit was reworded back to its original message verbatim (same tree, same
+author and date) and the stack re-parented over it before any of the tips below were recorded; all
+nine messages now equal the reviewed ones. No test needed a repair and nothing was built. Seven files both sides had changed were reconciled inside
+the rebased 7a commits and nowhere else: `gems/dexpace-core/lib/dexpace.rb` (7b's `# Phase 7b:` block,
+7c's `# Phase 7c:` block, then 7a's `# Phase 7a:` block, each verbatim — 7a's comment still says "after
+6b's block", which stays true with the other two between), `test/fixtures/surface/dexpace-core.txt`
+(the auto-merge was already the regenerated manifest, confirmed by a `surface:regenerate` on the rebased
+code tip that changed nothing: 1,257 rows on the base plus 7a's 73, 1,330 — the same 73 rows 7a's own
+delta added over `c53638b`, all under `Dexpace::Serde` and `Body.serialized`, none removed and no private
+constant among them; `dexpace-serde-json.txt` 2 → 15 as before; the other four manifests unchanged),
+`CLAUDE.md` (re-derived from the combined tree: "… 6c, 7b, 7c and 7a are built" and the whole of phase
+7; two hundred and nineteen `lib/` files beside `version.rb` with two hundred and nineteen `sig/`
+mirrors — 7b's nine, 7c's fifteen and 7a's eleven over phase 6's 184; the same nineteen
+`private_constant` test-mirror exceptions, 7a adding none, every one of its eleven files mirrored on the
+tests branch; seventeen checklists; every merged lane's layer sentence and 7a's in the opening
+paragraph, in merge order; 7b's four, 7c's four and 7a's five "Constraints that will bite" lines;
+eighteen gates everywhere the base says so), `README.md` (both layer sentences and 7a's, the gem table's
+`json >= 2.19.9` row, "the other four are still skeletons"; its built-phases sentence, which 7a's own
+branch had not touched, names 7a beside 7b and 7c), `docs/README.md` (all three layers and all three
+pages, seventeen pages), `docs/sdk-documentation/architecture.md` (the `sse.md` and `serde.md` entries,
+the `write-a-serde.md` placeholder pointing at `serde.md`, and its opening list, which 7a's own branch
+had left at fourteen pages without `serde.md`, re-derived to seventeen), and this roadmap (every status
+note in merge order — 7b's, 7c's, 7c's reconciliation, then 7a's with its two review-round paragraphs;
+the phase-10 inbound list at forty-nine bullets, the base's forty-seven plus 7a's two, each cited by
+date and content). Every file only one lane touched is byte-identical to that lane's tip: 7a's own
+(`docs/first-release.md`, `.claude/skills/knowledge-lookup/SKILL.md`, `docs/knowledge/notes/serde.md`,
+`docs/sdk-documentation/serde.md`, `gems/dexpace-serde-json/README.md`, 7a's checklist before this
+pass's note, its design, the Steepfile's `:serde_json` block, every file under `lib/dexpace/serde/`,
+`gems/dexpace-serde-json/` and the two gems' `sig/` and `test/` trees) to `408698e`, and the merged
+lanes' (`gems/dexpace-core/README.md` among them — 7a's docs branch never touched it, so it names the
+server-sent-events and pagination layers and not the serialization layer, a gap this pass records
+rather than closes) to `79877b5`. 7a's checklist's and status note's count sentences describe its own
+base, `c53638b`, and now say so. Re-proven at every rebased tip: the code tip green on every one of the
+eighteen gates run individually on 4.0.6 (`test:gems` 3,151 runs, 70,100 assertions, 0 failures, 0
+errors, 0 skips, 97.82 % line coverage — above the floor, so no tip in the stack is red) and on the
+3.2.11 matrix row, `gates:serde_boundary` reporting its eight guarded globs clean with `serde/` beside
+them; the tests tip green on the whole default task on 4.0.6 (3,380 runs, 71,339 assertions, 0 skips,
+99.96 % line coverage), on the matrix set on 3.2.11, 3.3.12 and 3.4.10, and on the core suite under a
+second seed on 4.0.6 and 3.2.11 with identical run counts (3,286), the five converted registry pins
+re-run with all three phase-7 layers loaded in one process and `composition_test.rb` by name; the docs
+tip green on the default task, the honest RuboCop run, the probe, the knowledge-structure verifier and
+every `ruby` fence of `serde.md`, `sse.md` and `pagination.md` on 4.0.6 (`serde.md`'s tenth fence run
+with `require "stringio"` prepended, the nit 7a's review recorded).

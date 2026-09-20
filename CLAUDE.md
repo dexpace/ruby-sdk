@@ -13,11 +13,13 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b and 7c are built — the whole of phase 6 and
-two of phase 7's three sub-phases; the domain model, the seam layer, the byte-streaming layer, the body layer,
-the execution context, the recovery layer, the stage pipeline, the configuration layer, the tracing and
-metrics layer, the logging facade with its redaction, the retry layer, the authentication layer, the redirect
-layer, the server-sent-events layer and the pagination layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c and 7a are built — the whole of phase 6
+and the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
+order, 7a last (umbrella #25 closes by hand); the domain model, the seam layer, the byte-streaming layer, the
+body layer, the execution context, the recovery layer, the stage pipeline, the configuration layer, the
+tracing and metrics layer, the logging facade with its redaction, the retry layer, the authentication layer,
+the redirect layer, the server-sent-events layer, the pagination layer and the serialization layer are the
+only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -184,7 +186,24 @@ frozen engines `Paginator` (`#items`, `#pages`, `#each_item`, `#each_page`) and 
 fetcher front-end `Fetchers`; the state error `PageStateError`; the three RBS interfaces `_Strategy`,
 `_Extractor` and `_Executor` in `page.rbs`; and one widening of phase 1, `Dexpace::URL.resolve`, the
 RFC 3986 reference resolution beside `.parse!`
-(`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`);
+(`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`) — and the
+serialization layer, chapter 14, under `Dexpace::Serde` beside phase 2's seam: the witness protocol design
+§10.14 substituted for the reference's reflective type token — `Serde.witness!` / `.witness?` over
+`WITNESS_METHOD` / `DUMP_METHOD`, the frozen `DecodeContext` with its RFC 6901 `#pointer`, its eight `!`
+methods and its one raise site `#error!`, the three container combinators `List`, `Map` and `Nullable`
+with `.of` over the private scalar table `Scalars` and the named witness `BOOLEAN`, and the ISO-8601
+witness `Instant` (`P7-8`'s microsecond domain); the three-state PATCH type `Tristate` with `ABSENT`,
+`NULL`, `Present` and its private `Combinator` behind `Tristate.of` (`#dexpace_load_field` for the
+in-object case); the encode walk `Native.of` and the `OMIT` sentinel that make `SERDE-15`/`19`/`20`
+structural (`P7-9`); the two `_ResponseHandler`s phase 3b's `TypedResponse` was built to take,
+`DecodingHandler` and `StatusAwareHandler` with its `factory:`; the ninth body factory
+`Body.serialized(value, serde:)`; and `interface _Codec` settled in place (`#media_type` a `MediaType` or
+a `String`, `#load` over `_Witness`) — plus the workspace's second real gem, **`dexpace-serde-json`**:
+`Dexpace::Serde::JSON::Codec` over one private `::JSON::Coder` per instance (`P7-4`), `.default` a fresh
+instance per call, `.build` over a five-key option allowlist, `MINIMUM_JSON_VERSION` asserted at require
+time (`P7-7`), `REQUIRED_CORE` on the registration, and the `json >= 2.19.9` line in its gemspec — the
+first `NFR-2` third-party half spent, and the first gate run against it
+(`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-checklist.md`);
 every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -952,6 +971,57 @@ Each is one line plus the chapter to read before touching the area.
   settlement overflows at ~2,600 pages through the real `Completer`; with an `executor:` the FIRST dispatch
   is posted too, so a queued executor fetches nothing until it runs (`PAGE-29`, `PAGE-31`; 7c's P7-109,
   P7-112). `Future#value(deadline:)` is the bounded wait a test uses where "hangs" is the failure mode.
+- **A witness answers `.dexpace_load(parsed, ctx)` and NOTHING ELSE makes one — `Serde.witness?` is a
+  `respond_to?` on that one name, never on `#call`** — a `#call` fallback would make every lambda a witness
+  and `SERDE-5`'s explicit witness and `SERDE-8`'s fail-fast construction both unenforceable; phase 2's
+  `FakeCodec#load` drives its witness through `#call` because it predates the protocol, so a core handler
+  test uses a named class answering BOTH. `ctx` is `Serde::DecodeContext`, never phase 4a's `Context`; the
+  root frame names the decode's TARGET (`expected Pet (Hash) at /, got NilClass`) and `Codec#load` builds it
+  with `DecodeContext.root(target: witness)` and screens nothing for nil, because `Tristate.of` and
+  `Nullable.of` legitimately want a top-level null (`SERDE-13`, `SERDE-20`; 7a's design, `R2`).
+- **The tri-state omission is core's `Native` walk, not each model's `#dexpace_dump`** — `Absent` dumps to
+  the `OMIT` sentinel, a Hash entry that walks to `OMIT` is dropped, an Array element or a top-level value
+  that does is `nil`, and anything non-native raises `SerializationError` naming the class, because
+  `::JSON.generate(Object.new)` returns the object's `#inspect` as a JSON string rather than raising
+  (`SERDE-15`, `SERDE-19`, `SERDE-20`; 7a's P7-9). `Present` validates in `#initialize` with `.new` AND `.[]`
+  private, so `Present[value: nil]` is not a fourth state either, and `Model#with` keeps it closed on 3.2.
+- **`Codec#load` reads UTF-8 unconditionally, validates it, and rescues `::JSON::JSONError` around the
+  parse ALONE** — 3a's `#read_utf8` retags without validating and `::JSON.parse` accepts invalid UTF-8,
+  returning a String whose `#valid_encoding?` is false (7a's P7-6); a `Dexpace::StreamError` is an
+  `::IOError` and structurally outside `JSONError`'s ancestry, so `SERDE-12` holds without a discipline —
+  and a `rescue StandardError` anywhere on that path is a guard the suite runs red. The whole text IS
+  materialised under `Dexpace::IO.max_materialized_bytes` (`SERDE-27`'s clause is deviated, 7a's P7-1); a
+  body above the ceiling is a `StreamError`, unwrapped, and the handler screens an empty body with
+  `BufferedSource#eof?` — never `#content_length` (`-1` when unknown) and never a parser message, which
+  differs between json 2.19.9 and 3.0. Both halves of that error's message are pinned — the target AND
+  `no body` — because a witness's own shape failure over the drained `""` names the target too, so a
+  target-only assertion passes with the screen gone (review round 1); an anonymous witness reads
+  `an anonymous witness`, never an empty name.
+- **`JSON::Coder` is constructed with keywords only, `strict: true` and `allow_duplicate_key: false` fixed by
+  the codec, and `encoders:` NEVER forwarded** — json 2.19.9 takes a positional options Hash and SWALLOWS an
+  unknown key, json 3.0 takes keywords and refuses one, a duplicate key is last-wins on 2.9, a warning on
+  2.19.9 and a `ParserError` on 3.0, and `encoders:` is a keyword error on 3.0; the codec's own allowlist
+  is what makes a typo one `InvalidArgumentError` and a duplicate key one `DeserializationError` across the
+  range. The two fixed options are pinned at the KEYWORD level, never through the engine's behaviour —
+  json 3.0.2, the bundle's version on every row, refuses a duplicate key by default, so a codec that
+  dropped the option would stay green on every gate row and regress only at the 2.19.9 floor; a child
+  process prepends a recorder onto `::JSON::Coder`'s singleton class and reads what `.new` receives
+  (`codec_test.rb`'s `CoderKeywordsTest`). P7-7's require-time floor is likewise observable only OUTSIDE
+  the bundle — every gate row runs the bundle's json, above the floor — so `json/floor_test.rb` drives it
+  in a child process with `RUBYOPT` and the `BUNDLE_*`/`BUNDLER_*` keys cleared, pinning the
+  interpreter's stock json (2.6.3 / 2.7.2 / 2.9.1 / 2.18.0 across the matrix, every one below the floor)
+  with `gem` before the require; stock 4.0's 2.18.0 HAS a `JSON::Coder` and loads clean without the
+  assertion, which is the silently-unpatched case it exists for. rbs 4.2.0 declares no `JSON::Coder` and
+  json 3.0.2 ships no `sig/`, so the Steepfile's `:serde_json` target alone downgrades `Ruby::UnknownConstant` to
+  `:information` and the ivar is typed `untyped` (NFR-11 admits no `::JSON` type in the gem's `sig/`
+  either).
+- **An adapter's require-time registration breaks every "starts empty on a bare require" pin in ONE
+  `rake test:gems` process** — the runner loads every gem's suite together, so `Dexpace::Serde.resolve`
+  answers the JSON codec in core's own suite; the two seam-iterating pins and `serde_test.rb`'s "starts
+  empty" pin are asserted in a CHILD process that requires `dexpace` alone
+  (`instrumentation/independence_test.rb`'s `IO.popen` shape), and `Registry#swap` restores `resolved` but
+  never `factories`, so `serde_test.rb`'s two swap pins assert the override is GONE, never that nothing
+  resolves (five pins the code invalidated, converted on 7a's code branch).
 
 ## Public API surface
 
@@ -1054,30 +1124,34 @@ probe compares each against the live tree, and a count written anywhere else in 
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
   metrics layer, the phase-6a retry layer, the phase-6c authentication layer, the phase-6b redirect
-  layer, the phase-7b server-sent-events layer and the phase-7c pagination layer — two hundred and
-  eight phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b,
-  phase-5c, phase-6a, phase-6b, phase-6c, phase-7b and phase-7c files under `lib/dexpace/` beside
-  phase 0's `version.rb` (7b's nine are `sse.rb` and the eight under `sse/`; 7c's fifteen are `page.rb`
-  and the fourteen under `page/`), every one mirrored in `sig/`, and every one of the two hundred and
-  eight but the nineteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
+  layer, the phase-7b server-sent-events layer, the phase-7c pagination layer and the phase-7a
+  serialization layer — two hundred and nineteen phase-1, phase-2, phase-3a, phase-3b, phase-4a,
+  phase-4b, phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b, phase-6c, phase-7b, phase-7c
+  and phase-7a files under `lib/dexpace/` beside phase 0's `version.rb` (7b's nine are `sse.rb` and the
+  eight under `sse/`; 7c's fifteen are `page.rb` and the fourteen under `page/`; 7a's eleven are all
+  under `serde/`, beside phase 2's three files there), every one mirrored in `sig/`, and every one of
+  the two hundred and nineteen but the nineteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
   `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
   `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`, `instrumentation/render.rb`,
   `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb`,
   `auth/validation.rb`, `redirect/origin.rb`, `redirect/location.rb`, `redirect/chain.rb`,
   `redirect/emitter.rb`, `redirect/reissue.rb` and `page/closing.rb` mirrored
-  in `test/`; every
-  other
-  gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
-  else. Every adapter gemspec declares `dexpace-core` and no third-party gem yet
-  (design P0-9); the third-party half of each `NFR-2` budget arrives with the phase that writes the code
-  needing it.
+  in `test/` (phase 7a's private constants all live inside public files and add none). `dexpace-serde-json`'s
+  `lib/` holds the phase-7a JSON codec — `dexpace/serde/json.rb` and `dexpace/serde/json/codec.rb` beside
+  phase 0's `version.rb`, both mirrored in `sig/`, the entry file mirrored in `test/` (with `floor_test.rb`
+  beside it) and the codec by its five suites there — and its gemspec declares `json >= 2.19.9`, the one
+  place that floor is stated.
+  Every other gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant
+  and nothing else, and its gemspec declares `dexpace-core` and no third-party gem yet (design P0-9); the
+  third-party half of each `NFR-2` budget arrives with the phase that writes the code needing it, as 7a's
+  did.
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  sixteen checklists written so far, each at implementation; `phase4/`
+  seventeen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1098,8 +1172,9 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase7/` carries its segmentation design,
   `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`, and three sub-phase
   directories — `phase7/phase7a/` (serialization), `phase7/phase7b/` (server-sent events) and
-  `phase7/phase7c/` (pagination); each holds a design and a plan, and `phase7b/` and `phase7c/` their
-  checklists too, both written at implementation on 2026-09-20. Phase 7 is 107 IDs
+  `phase7/phase7c/` (pagination); each holds a design, a plan and a checklist, the three checklists all
+  written at implementation on 2026-09-20 — 7b's and 7c's landed first, 7a's last, reconciled onto the
+  tree that holds the other two. Phase 7 is 107 IDs
   (`SERDE-1`–`30`, `SSE-1`–`41`, `PAGE-1`–`36`) and ships the workspace's second real gem,
   `dexpace-serde-json`, inside `7a`. Its three sub-phases are independent — `SSE-37` makes `7b`'s
   serde-independence a mechanised MUST, and §12's chapter intro states the same property for
@@ -1150,7 +1225,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's and
-  phase 7c's is
-  still to be written at execution time.
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
+  phase 7c's and phase 7a's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

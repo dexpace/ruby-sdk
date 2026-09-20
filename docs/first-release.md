@@ -300,12 +300,17 @@ find it in a design document.
   from the other side. **Two things owed before release**, which is why this is an entry and not only a
   ledger row: the documented behaviour of a typed response handler on a body above
   `MAX_MATERIALIZED_BYTES` must be stated in `docs/sdk-documentation/`, so a caller streaming a large
-  JSON response meets a documented limit rather than an `::IOError`; and phase 8's adapters must each
-  be checked for whether their library offers a pull parser that would satisfy the clause — phase 8's
-  segmentation design already records that none of its three does. **Where it is carried.** `7a`'s
-  checklist marks `SERDE-27` with the clause named and cites this entry; the deviation row is
-  `7a P7-1`, consolidated into design §10 and audited by `docs/deviations.md`. Cites `SERDE-27`,
-  `SEAM-21`, `IO-9`, `BODY-32`.
+  JSON response meets a documented limit rather than an `::IOError` — **done 2026-09-20**, when phase 7a
+  was built: `docs/sdk-documentation/serde.md` states it under "`#load` materialises the whole text",
+  and the codec's suite asserts the `StreamError` propagates unwrapped
+  (`gems/dexpace-serde-json/test/dexpace/serde/json/codec_load_test.rb`, the `R1/P7-1` case); and phase
+  8's adapters must each be checked for whether their library offers a pull parser that would satisfy
+  the clause — phase 8's segmentation design already records that none of its three does, and this half
+  stays open until phase 8 lands. **Where it is carried.** `7a`'s checklist marks `SERDE-27` with the
+  clause named and cites this entry; the deviation row is `7a P7-1`, consolidated into design §10 and
+  audited by `docs/deviations.md`; as built, the codec drains through 3a's `#read_utf8` and the ceiling
+  it reads is the configured `Dexpace::IO.max_materialized_bytes`. Cites `SERDE-27`, `SEAM-21`, `IO-9`,
+  `BODY-32`.
 
 ### SHOULD- and MAY-level requirements declined for v1
 
