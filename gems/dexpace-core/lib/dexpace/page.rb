@@ -67,23 +67,31 @@ module Dexpace
     # needs that none of the three built-ins covers, and a caller-written #parse that re-derives
     # this branch by hand gets the two end-of-stream rules quietly wrong (P7-2).
     #
-    # Four routes to nil, in order: a nil, blank or whitespace-only target is end-of-stream
-    # BEFORE resolution is attempted, because `URI::RFC3986_PARSER.join(base, "")` succeeds and
-    # answers the base itself, so `<>; rel=next` would otherwise loop until the page cap (P7-5);
-    # a target that cannot resolve at all is end-of-stream, never an error (PAGE-19's own text);
-    # and a target that resolves to something this client cannot dispatch -- no http or https
-    # scheme, or no host: `mailto:`, `javascript:`, `http:foo`, `http:///p`, every one a
-    # SUCCESSFUL join -- is end-of-stream too, consistent with REDIR-18's screen in the redirect
-    # step (P7-104). Otherwise `template.with(url:)`, which is PAGE-23's "swap only the URL,
-    # preserving the template's method, headers and body": Model#with routes through
-    # Request.build, so the other three members travel unchanged and HTTP-7 is re-validated.
+    # Four routes to nil, in order. A nil target, or a same-document reference -- RFC 3986 §4.4's
+    # two named forms, the empty reference and the fragment-only one, `<>` and `<#…>`, surrounding
+    # whitespace aside -- is end-of-stream BEFORE resolution is attempted: `URI::RFC3986_PARSER
+    # .join(base, "")` succeeds and answers the base itself, `join(base, "#x")` the base plus a
+    # fragment the wire never carries, so either `rel=next` would otherwise re-fetch the current
+    # page until the page cap (P7-5, widened to the fragment form by P7-117). A target that cannot
+    # resolve at all is end-of-stream, never an error (PAGE-19's own text). A target that resolves
+    # to something this client cannot dispatch -- no http or https scheme, or no host: `mailto:`,
+    # `javascript:`, `http:foo`, `http:///p`, every one a SUCCESSFUL join -- is end-of-stream too,
+    # consistent with REDIR-18's screen in the redirect step (P7-104). Otherwise
+    # `template.with(url:)`, which is PAGE-23's "swap only the URL, preserving the template's
+    # method, headers and body": Model#with routes through Request.build, so the other three
+    # members travel unchanged and HTTP-7 is re-validated. What is deliberately NOT screened is
+    # the URL a target resolves to: `<?>`, which empties the query, `<//>`, which uri resolves to
+    # the base itself, or the current URL spelled out are next requests like any other, and a
+    # server that loops through one is bounded by PAGE-9's cap -- a screen on the resolved URL
+    # would silently end a walk against an endpoint that advances server-side state under one
+    # URL, with no knob to turn it off.
     #
     # @param template [Dexpace::Request] the original request template
     # @param response [Dexpace::Response] the page whose URL is the resolution base
     # @param target [String, nil] the raw target, absolute or relative
     # @return [Dexpace::Request, nil] nil is the end-of-stream signal (PAGE-4)
     def self.next_request_from(template, response, target)
-      return nil if target.nil? || target.strip.empty?
+      return nil if target.nil? || same_document?(target)
 
       resolved = Dexpace::URL.resolve(response.request.url, target)
       return nil if resolved.nil? || !dispatchable?(resolved)
@@ -94,6 +102,16 @@ module Dexpace
     # The schemes this client dispatches; the same two the redirect step screens for.
     DISPATCHABLE_SCHEMES = %w[http https].freeze
     private_constant :DISPATCHABLE_SCHEMES
+
+    # RFC 3986 §4.4's two named same-document forms, read off the raw target before any
+    # resolution: empty (P7-5) or fragment-only (P7-117), surrounding whitespace ignored. Syntactic
+    # on purpose -- a browser reloads on a spelled-out link to the current page and only an empty
+    # or fragment-only one navigates nowhere -- so this reads the reference, never its resolution.
+    def self.same_document?(target)
+      stripped = target.strip
+      stripped.empty? || stripped.start_with?("#")
+    end
+    private_class_method :same_document?
 
     # 6b's screen, copied rather than called: Redirect::Location is a private_constant.
     def self.dispatchable?(target)

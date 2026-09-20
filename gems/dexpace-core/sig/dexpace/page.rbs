@@ -48,6 +48,7 @@ module Dexpace
 
     DISPATCHABLE_SCHEMES: Array[String]
 
+    def self.same_document?: (String target) -> bool
     def self.dispatchable?: (URI::Generic target) -> bool
     def optional_string: (String name, untyped value) -> String?
     def release: () -> void
