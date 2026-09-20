@@ -7,17 +7,18 @@ layer on top of it, phase 4a the execution context one in-flight call carries, p
 recovery layer and the error trail, phase 4c the stage pipeline, phase 5a the configuration
 layer and the clock, phase 5c the tracing and metrics layer, phase 5b the logging facade and
 redaction, phase 6a the retry layer — one policy core and its two stacks — phase 6c the
-authentication layer and phase 6b the redirect layer with the two `standard` pipeline
-constructors; the adapters are still to come, so this page is still a stub: it names the
+authentication layer, phase 6b the redirect layer with the two `standard` pipeline
+constructors and phase 7b the server-sent-events layer with the serde-boundary gate; the adapters
+are still to come, so this page is still a stub: it names the
 pages this tree will eventually hold and where each one's content will come from, so the plan for
-the documentation exists before the documentation does. Fourteen pages are real already, because
+the documentation exists before the documentation does. Fifteen pages are real already, because
 their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
 [`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
 [`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
 [`pipelines.md`](./pipelines.md), [`configuration.md`](./configuration.md),
 [`tracing-and-metrics.md`](./tracing-and-metrics.md),
 [`logging-and-redaction.md`](./logging-and-redaction.md), [`retry.md`](./retry.md),
-[`auth.md`](./auth.md) and [`redirect.md`](./redirect.md).
+[`auth.md`](./auth.md), [`redirect.md`](./redirect.md) and [`sse.md`](./sse.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -149,6 +150,18 @@ postponed — `Pipeline.standard` and `AsyncPipeline.standard` with its required
 `redirect: :unsupported`. Written against the layer phase 6b shipped; derives from
 `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` §6.2 and
 `docs/sdk-design-ruby/05-pipeline-architecture.md` §5.3, read together with entry 15 of
+`docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[sse.md](./sse.md) — the server-sent-events layer: the two documented caps and the retry cap beside
+them, the two mapper-outcome sentinels, the WHATWG line machine over `#getbyte` and why it is not
+phase 3a's `#read_line_utf8`, the immutable five-field event, the field machine and the one item of
+state it keeps, the resource-owning single-pass facade with its three factories, its two consumption
+shapes and its termination paths, the quiet-versus-loud release split and the out-of-band report,
+the cross-thread close, the response convenience, the typed adapter's three outcomes and its
+laziness, and what is deliberately not there — no sentinel string, no error envelope, no
+serialization dependency (kept so by `gates:serde_boundary`), no reconnection. Written against the
+layer phase 7b shipped; derives from `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md`
+§7.2 and §7.1, read together with entries 6 and 18 of
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,

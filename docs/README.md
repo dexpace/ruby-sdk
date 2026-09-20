@@ -104,9 +104,10 @@ root `VERSIONS` file, a `sig/` mirror and a smoke suite. `dexpace-core` holds ph
 domain model, phase 2's seam layer, phase 3a's byte-streaming layer, phase 3b's body layer, phase
 4a's execution context, phase 4b's recovery layer, phase 4c's stage pipeline, phase 5a's
 configuration layer, phase 5b's logging facade and redaction, phase 5c's tracing and metrics
-layer, phase 6a's retry layer and phase 6c's authentication layer; the other five are
+layer, phase 6a's retry layer and phase 6c's authentication layer, and phase 7b's server-sent-events
+layer beside them; the other five are
 phase 0's skeletons, a namespace and a `VERSION`. The as-built documentation lands in
-[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the fourteen pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the fifteen pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
@@ -130,7 +131,9 @@ core and its two stacks — is the thing phase 6a built,
 [`sdk-documentation/auth.md`](./sdk-documentation/auth.md), because the authentication layer is
 the thing phase 6c built, and
 [`sdk-documentation/redirect.md`](./sdk-documentation/redirect.md), because the redirect layer and
-the two `standard` constructors are the things phase 6b built.
+the two `standard` constructors are the things phase 6b built, and
+[`sdk-documentation/sse.md`](./sdk-documentation/sse.md), because the server-sent-events layer and
+the serde-boundary gate are the things phase 7b built.
 
 ## Keeping this file true
 

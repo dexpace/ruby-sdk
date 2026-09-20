@@ -185,7 +185,11 @@ a constant nothing takes as a keyword until phase 5 wires configuration) with a
 `Dexpace::StreamError` naming the streaming alternatives, before allocating anything.
 `#read(length)`, `#readpartial(maxlen)` and `#read_line_utf8` are outside the guard: the first two
 take a length the calling code chose, and a line has no length until its terminator arrives, so
-its bound belongs to the caller (phase 7's SSE machine carries its own).
+its bound belongs to the caller. Phase 7b's SSE machine is not that caller: `IO-14` keeps a lone
+`\r` as content where `SSE-2` makes it terminate a line, so `Dexpace::SSE::LineReader` reads bytes
+through `#getbyte` and carries its own documented cap, `Dexpace::SSE::MAX_LINE_BYTES` (`SSE-19`,
+[sse.md](sse.md)), and `#read_line_utf8` ends v1 with no in-repository caller -- a documented sharp
+edge for an SDK author who calls it over a stream a server controls, not a live hazard.
 
 ## Sinks and the tee
 

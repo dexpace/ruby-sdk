@@ -2511,6 +2511,37 @@ design.
   `REDIR-13`, `HTTP-46`, `HTTP-47`, `XCUT-15`. Recorded as 6b's P6-96; added after phase 10's planning
   pass and referred to by date and content, never by ordinal; not yet in phase 10's design's disposition
   table, which dispositions it at execution.
+- **After a mid-stream failure, `BufferedSource.over`'s enumerator restarts `#each` from its first
+  chunk, so a further read re-delivers the body's first bytes rather than nil or a second failure.**
+  Found 2026-09-20 by phase 7b's implementation, re-running its facts on every interpreter against a
+  cross-check note that said the opposite ("the next `#getbyte` returns nil, the enumerator is
+  finished"): on 3.2.11, 3.3.12, 3.4.10 and 4.0.6 alike, once an `Exception` escapes the `#each` an
+  `Enumerator#next` drives, the enumerator's fiber is dead, the next `#next` creates a fresh one and
+  `#each` runs again from its first entry — measured as `"d".ord` off a `ScriptedChunked` whose script
+  was one event then a `StreamError`, and pinned in `gems/dexpace-core/test/dexpace/sse/matrix_facts_test.rb`.
+  The SSE facade never meets it (`SSE-27`'s `closed?` check runs before every pull and the facade closed
+  itself on the failure), a bare `Dexpace::SSE::Reader` driven again after a raise would, and so would
+  any other consumer of a `.over` source that rescues a mid-stream error and reads on. Whether `.over`
+  should latch exhaustion on a failure — `@dexpace_upstream_exhausted = true` in a rescue around
+  `enumerator.next`, so a second read is EOF — or document the restart as `IO-1`'s "the source is not
+  exhausted" read literally, is phase 10's `IO` audit to decide, since it changes what every `.over`
+  consumer sees and not only the SSE reader's. Touches `IO-1`, `IO-16`, `IO-22`, `SSE-27`, `SSE-29`.
+  Routed by 7b's checklist; referred to by date and content, never by ordinal; not in phase 10's design's
+  disposition table, which dispositions it at execution.
+- **The per-byte read path through `BufferedSource#getbyte` costs about 0.9 µs a byte, so the SSE line
+  machine parses at roughly 1 MiB/s on 4.0.6.** Found 2026-09-20 by phase 7b's implementation, timing
+  its at-scale cap battery: every `#getbyte` pays a `Closeable#closed?` mutex acquisition (`IO-38`,
+  3a's P3-6, ~0.5 µs a call through `ensure_readable`) and a one-byte `String` allocation
+  (`store_take(1).getbyte(0)`), and 16 MiB through `Dexpace::SSE::Reader` took 14 s on 4.0.6 and 21 s
+  on 3.2.11 against 4.7 s over a plain duck whose `#getbyte` is three method calls. Phase 7b's design
+  fixes `#getbyte` as the machine's primitive (P7-20, the `_ByteSource` interface) and the build kept it,
+  moving only the two at-scale tests onto the duck. The lift is one of two: a `TypedReads#getbyte` that
+  reads the head chunk in place without a slice, or a bulk path for the line machine (`read_into` into
+  the line buffer, which puts a second accumulator under the source and changes P7-27's interface) —
+  a performance decision across 3a and 7b, for phase 10's `IO` audit, with the numbers above as the
+  baseline. Touches `IO-11`, `IO-38`, `SSE-2`, `SSE-39`. Routed by 7b's checklist; referred to by date
+  and content, never by ordinal; not in phase 10's design's disposition table, which dispositions it at
+  execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -3922,3 +3953,74 @@ sixty, fifty-nine caught on both rows, guard 3 still the one equivalent mutant. 
 `docs/README.md` said "the thirteen pages written so far" while listing fourteen — reads fourteen.
 No ledger row is added: the design's As-built addendum carries a round-3 paragraph saying the round
 found no behaviour the document states that the code fails to honour.
+
+**2026-09-20** — **Phase 7b implemented**, as three stacked branches against issue #27: code, tests,
+documentation, cut from `main` at `c53638b`, which holds every phase through 6b and none of 7a or 7c —
+the three phase-7 lanes were built concurrently off the same base, so nothing here describes a sibling's
+work as landed and the one convergence point the charter names is built in full with the pagination
+layer's globs on a printed `PENDING` list, their move to `GUARDED` being the reconcile pass's after both
+lanes are on `main`. `dexpace-core` carries the server-sent-events layer beside the thirteen layers
+before it — nine new `lib/` files: the namespace file `sse.rb` (the three limits and the two sentinel
+constants) and, under `sse/`, `sentinel.rb`, `limit_exceeded_error.rb`, `stream_state_error.rb`,
+`line_reader.rb`, `event.rb`, `reader.rb`, `stream.rb` and `typed_stream.rb` — every one public, with
+its `sig/` and `test/` mirrors, and three test files with no `lib/` mirror (`sse/matrix_facts_test.rb`,
+`sse/boundaries_test.rb`, `sse/documentation_test.rb`); the entry file's nine-line `# Phase 7b:` block
+after 6b's; 3a's `io/typed_reads.rb` YARD on `#read_line_utf8` corrected in place (`SSE-11` → `SSE-19`,
+and its false premise replaced — Task 12's code half); the surface manifest regenerated once from 1 137
+to 1 180 rows with all 43 read against the object model; three top-level test-support files
+(`SSEFixtures`, `ScriptedChunked`, `FakeByteSource`) beside the tree's own `FakeResponseBody`,
+`FakeChunked`, `RecoveryFixtures` and `RecordingSink`, which answered four of the plan's five doubles
+without a new file; the smoke suite's `SSE_LAYER` and `PhaseSevenLayers` case; and **the eighteenth
+gate**, `gates:serde_boundary` — `tools/serde_boundary.rb`, a PARSED scan (prism for every require
+spelling and every constant read or path, the RBS lexer for every type name) over `lib/dexpace/sse.rb`,
+`lib/dexpace/sse/**` and their `sig/` mirrors, asserting every guarded glob matches a file and printing
+its two pending pagination globs on every run — with `test/gates/serde_boundary_test.rb`, twenty-one
+fixtures and two fixture workspaces, wired into `DEFAULT_GATES` after `gates:require_allowlist`,
+`default_task_test.rb`'s `EXPECTED` and CI's once-per-run `gates` job (not the matrix; a text scan has
+no interpreter dependence), so that "seventeen" reads "eighteen" in `CLAUDE.md`, `README.md` and
+`docs/sdk-documentation/quality-gates.md`. **The four decisions the manager took on the cross-check's
+open questions were applied as given**: the sentinel type is `Sentinel`, not the design's `Signal`,
+because `::Signal` is a core module a bare `Signal` inside `module Dexpace::SSE` would shadow (P7-81);
+7b built the boundary gate alone, with `page/**` pending (P7-84); the three `Stream` factories take
+`logger:` and `SSE-30`'s swallowed release failure is a real `http.instrumentation.close` emission
+through `Dexpace.close_quietly(self, logger:)` — never a second path (P7-83); and
+`docs/knowledge/notes/sse-streaming.md` is filed, two supersessions (`2dba42b0`'s "current retry value,
+last event id"; `8c25db7d`/`e98a0668`'s machine-over-the-primitive) and three references. The design's
+R4, R5, R6 and R11 stand as decided: the two caps are `MAX_LINE_BYTES` (1 MiB) and `MAX_EVENT_BYTES`
+(8 MiB), rejecting and never truncating, per-reader keywords and no configuration key, both strictly
+below 3a's ceiling by assertion, and the line-cap finding phase 3a opened is closed with its three
+corrections — the bound exists at the layer the finding named, the obliging ID is `SSE-19` and not
+`SSE-11`, and `#read_line_utf8` ends v1 unbounded and with no in-repository caller because `IO-14` and
+`SSE-2` disagree about a lone CR (P7-20, P7-21); `SKIP` and `DONE` are two frozen singletons compared by
+identity and `Dexpace::Outcome` gains nothing (P7-23); `SSE-31`'s two shapes are both written and both
+deterministic, the blocked-read one over `BufferedSource.wrapping` of an `IO.pipe` with the wrapping
+source as its own resource, and the mechanism claim inherits `IO-38`'s deferral as the design said it
+would. Execution found four things the design or the cross-check stated that the tree does not bear
+out: `_ByteSource` needs a fourth method, `close`, because the reader closes its peek view (P7-82);
+`Response#body` is typed `Dexpace::Body?`, not `ResponseBody?`; after a mid-stream failure
+`BufferedSource.over`'s enumerator RESTARTS rather than answering nil, on every row (phase 3a's
+residue, on phase 10's inbound list by date and content, with the throughput of the per-byte read path
+— ~0.9 µs a byte, which is why the at-scale cap tests run over the duck source — beside it); and the
+member named `retry` cannot be re-assigned or forwarded by name in Ruby, so `Event#initialize` forwards
+with a bare `super` and validates the hint after it. The typed layer's block form is a plain loop over
+`Stream#each` and its external form drives the raw enumerator taken eagerly at `#values`; the facade's
+one failure path is `Stream#drive`'s `rescue ::Exception` in 6a's and 6b's spelling, and every
+block-form exit — `Enumerable#first(n)` on `#events` and on `#values` alike — closes loudly through the
+owning drive routine's `ensure` (P7-86). The checklist is at
+`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`: forty-one own rows —
+forty ✅, `SSE-41` ⏳ (declined for v1, cited) — plus the cross-reference rows, the matrix facts on every
+interpreter, the guards run red, the audit groups, thirty-seven departures from the plan's text, the
+findings routed and the postponed work; the design's ledger gains an "As built" addendum, P7-81–P7-86,
+whose consolidation into design §10 and the §10.18 amendment for both cap constants are a human's, as
+for every phase since 3a; `docs/sdk-documentation/sse.md` is the as-built page, every example run on
+4.0.6 and 3.2.11; `docs/first-release.md` is untouched, its `SSE-41` entry still true as written.
+`7a` and `7c` remain to land; the reconcile pass moves the boundary gate's `page/**` rows to `GUARDED`
+once 7c's files are on the same base. **Review round 0 (2026-09-20)** found two defects the suites
+could not see and one file the checklist cited that the tree did not hold, all three repaired on the
+owning branch: `Reader#dispatch` returned nil for a fieldless block before resetting it, so a run of
+unknown-field keep-alives, NUL ids or rejected retries accumulated into `SSE-19`'s event cap across the
+blank lines that separate them (a fresh block per blank line is `SSE-1`'s own clause); the typed
+layer's `#values` had `Stream#drive`'s rescue and not its `ensure`, so `values.first(1)` stranded the
+resource where `events.first(1)` released it; and `stream_state_error_test.rb` was written. Guards 51
+and 52 are the round's, red on both rows against the pre-fix `lib/`; no public name, signature or
+manifest row changed.

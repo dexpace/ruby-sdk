@@ -74,7 +74,13 @@ the four credentials `BearerToken`, `KeyCredential`, `NamedKeyCredential` and
 pillar `Step` at `Stages::REDIRECT` with `DEFAULT_ALLOWED_METHODS` and `DEFAULT_MAX_HOPS`, the
 predicate's `ConditionSnapshot`, the `Events` and `Keys` vocabularies, `SchemeDowngradeError`, the
 flat `Dexpace::NotReplayableError`, `Resilience::Resend.replayable_body?` beside 6a's `.eligible?`,
-and the two constructors phase 4c postponed, `Pipeline.standard` and `AsyncPipeline.standard`.
+and the two constructors phase 4c postponed, `Pipeline.standard` and `AsyncPipeline.standard`;
+and the server-sent-events layer under `Dexpace::SSE` (phase 7b): the three limits `MAX_LINE_BYTES`,
+`MAX_EVENT_BYTES` and `MAX_RETRY_MS`, the two `Sentinel` singletons `SKIP` and `DONE`, the byte-level
+`LineReader`, the immutable `Event`, the field machine `Reader`, the resource-owning single-pass
+`Stream` (`.open`, `.owning`, `.borrowing`; `#each`, `#events`, `#typed`), the typed adapter
+`TypedStream`, the two namespaced errors `LimitExceededError` and `StreamStateError`, the RBS interface
+`_ByteSource`, and the eighteenth gate, `gates:serde_boundary`.
 Nothing else yet: every adapter is a later phase's, the three retry drivers are the only emitters
 of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships here, so nothing
 talks to a socket.
@@ -84,7 +90,8 @@ The as-built pages are
 `docs/sdk-documentation/recovery.md`, `docs/sdk-documentation/pipelines.md`,
 `docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
 `docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md`,
-`docs/sdk-documentation/auth.md` and `docs/sdk-documentation/redirect.md`.
+`docs/sdk-documentation/auth.md`, `docs/sdk-documentation/redirect.md` and
+`docs/sdk-documentation/sse.md`.
 
 ## Install
 
@@ -211,6 +218,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   options, the credential hygiene and the cursor-state marker, the "return current" outcomes, the
   303 rebuild and the replayability gate, the scheme downgrade, the predicate's snapshot, the
   records, the second re-sendability predicate, and the two `standard` pipeline constructors.
+- `docs/sdk-documentation/sse.md` -- the server-sent-events layer as built: the limits and the two
+  sentinels, the line machine, the event value, the field machine, the facade's three factories, two
+  shapes and four termination paths, the typed adapter's three outcomes, and what is deliberately
+  not there.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.
