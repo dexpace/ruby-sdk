@@ -10,8 +10,12 @@ require "dexpace/transport/net_http"
 # phase 5a's resolver meets its first consumer here. Every configuration handed to the route is a
 # hermetic from_hash source, never the process environment, because Configuration::EMPTY reads the
 # real ENV; the one test that drives the whole adapter sets the process-wide slot through
-# Dexpace.configure's override tier, which sits above the environment, and resets it in an ensure.
-# ProxyRoute is a private_constant, reached through const_get.
+# Dexpace.configure's override tier, which sits above the environment, overriding EVERY key the
+# resolver reads -- HTTP_PROXY with the fixture, HTTPS_PROXY and NO_PROXY blank, because the
+# resolver prefers HTTPS_PROXY and a host's NO_PROXY could cover the target (review round 1's
+# R1-1: a blank override is an answer to Configuration#string and absent for the preference, so
+# nothing falls through to ENV) -- and resets it in an ensure. ProxyRoute is a private_constant,
+# reached through const_get.
 class DexpaceTransportNetHttpProxyRouteTest < DexpaceTestCase
   include AdapterFixtures
 
@@ -122,13 +126,18 @@ class DexpaceTransportNetHttpProxyRouteTest < DexpaceTestCase
   # the preemptive Basic the SHOULD's fallback stamps, and the 401 it answers draws no second
   # request: this adapter stamps no header in response to any status, because it never reads one.
   # With no proxy configured there was no credential to leak and the assertion held against any
-  # adapter (review round 0's R0-9); the target is TEST-NET-1 because find_proxy exempts loopback.
+  # adapter (review round 0's R0-9). The target is TEST-NET-1 so that the absolute-form request
+  # line names a host that is plainly not the fixture; with the proxy explicit, loopback would
+  # be proxied too (`Net::HTTP.new(h, p, "127.0.0.1", 3128).proxy?` is true), so the reason the
+  # adapter suite's R17 test has for the same address does not apply here.
   test "an origin 401 draws no second, Proxy-Authorization-bearing request out of the adapter" do
     proxy = wire(Dexpace::Conformance::Scripts.vendor_status(401, "denied"))
     target = Dexpace::Request.build(method: "GET", url: "http://192.0.2.1/private",
                                     headers: Dexpace::Headers::EMPTY, body: nil,)
     Dexpace.configure do |builder|
       builder.override(Keys::HTTP_PROXY, "http://u:pw@127.0.0.1:#{proxy.port}")
+      builder.override(Keys::HTTPS_PROXY, "") # blank: absent for the preference, masks ENV's
+      builder.override(Keys::NO_PROXY, "")    # blank: no bypass pattern, masks ENV's
     end
 
     response = settle(NetHTTP.build, target)

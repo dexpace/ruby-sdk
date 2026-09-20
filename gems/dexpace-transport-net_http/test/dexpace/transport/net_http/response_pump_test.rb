@@ -10,8 +10,9 @@ require "dexpace/transport/net_http"
 # 13: never a second fixture hand-rolled beside it), reached through the root Gemfile's path
 # loading and never through this gem's gemspec. No test sleeps to synchronise: every wait is a
 # queue pop, a bounded join or the dribble script's own deliberate delay, which is the thing
-# under test. ResponsePump is a private_constant, reached through const_get. Three nested
-# classes under Metrics/ClassLength (6c's shape): delivery, teardown, and the carried failures.
+# under test. ResponsePump is a private_constant, reached through const_get. Four nested
+# classes under Metrics/ClassLength (6c's shape): delivery, teardown, the carried failures, and
+# a token already cancelled at construction.
 module DexpaceTransportNetHttpResponsePumpTest
   NetHTTP = Dexpace::Transport::NetHTTP
   ResponsePump = NetHTTP.const_get(:ResponsePump)
@@ -172,8 +173,8 @@ module DexpaceTransportNetHttpResponsePumpTest
                               __dir__,)
       source = File.read(path)
 
-      assert_match(/@thread\.join\(JOIN_DEADLINE_SECONDS\)/, source)
-      refute_match(/@thread\.join\b(?!\(JOIN_DEADLINE_SECONDS\))/, source)
+      assert_match(/@thread&\.join\(JOIN_DEADLINE_SECONDS\)/, source)
+      refute_match(/@thread&?\.join\b(?!\(JOIN_DEADLINE_SECONDS\))/, source)
     end
 
     # P8-15: the borrowing construction. The pump must neither start nor finish a client it does
@@ -306,6 +307,50 @@ module DexpaceTransportNetHttpResponsePumpTest
 
       assert_predicate(error, :retryable?)
       assert_operator(took, :<, 2.0)
+      pump.close
+    end
+  end
+
+  # Review round 1, P8-64: Cancellation::Source runs an already-cancelled hook inline, so the
+  # pump's own subscription can close it from inside its constructor.
+  class AlreadyCancelledTest < DexpaceTestCase
+    include Pumping
+
+    # A pump built over a cancelled token comes back closed, opened no connection, holds no
+    # producer thread (the test base counts threads around every test), and classifies its
+    # first read as the cancellation it was. The fixture holds before headers so that a producer
+    # which DID start would be caught twice over: one connection recorded, and a join spent on
+    # the hold that outlives the constructor.
+    test "a token already cancelled at construction yields a closed pump that sent nothing" do
+      server = wire(Scripts.hang_before_headers)
+      source = Dexpace::Cancellation.source
+      source.cancel(:already)
+
+      pump = pump_for(server, cancellation: source.token)
+
+      assert_predicate(pump, :closed?, "the inline hook closed the pump before #new returned")
+      error = assert_raises(Dexpace::CancelledError) { pump.head_or_raise }
+
+      assert_equal(:already, error.reason)
+      assert_equal(0, server.connections, "a pump closed at construction exchanges nothing")
+      pump.close
+    end
+
+    # The same over the borrowing construction: the permit the exchange would have returned
+    # from the producer's ensure comes back from the constructor instead, exactly once, so the
+    # next borrowed call is not held for a producer that never existed.
+    test "a token already cancelled at construction hands the borrowed permit straight back" do
+      server = wire(Scripts.hang_before_headers)
+      source = Dexpace::Cancellation.source
+      source.cancel(:already)
+      permit = ::Thread::SizedQueue.new(1)
+
+      pump = pump_for(server, cancellation: source.token, owns_connection: false, permit: permit)
+
+      assert_predicate(pump, :closed?)
+      assert_equal(1, permit.size, "the permit is back, once")
+      assert_raises(Dexpace::CancelledError) { pump.readpartial(16) }
+      assert_equal(0, server.connections)
       pump.close
     end
   end

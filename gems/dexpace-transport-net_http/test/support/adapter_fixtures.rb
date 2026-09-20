@@ -4,12 +4,17 @@
 require "zlib"
 require "stringio"
 require "dexpace/conformance"
+require_relative "net_http_hermetic_proxy"
 
 # The helpers the adapter's own suites share: a tracked WireServer per test, closed in teardown
 # so nothing leaks past DexpaceTestCase's thread count; a request against that server; the one
 # send primitive; and the scripts, clients and environment swaps the exchange tests need. The
 # fixture is dexpace-conformance's own WireServer (design boundary 13), never a second one.
+# Every including suite also runs under NetHTTPHermeticProxy, so a host's proxy variables never
+# reach an owning adapter built here.
 module AdapterFixtures
+  include NetHTTPHermeticProxy
+
   def teardown
     @servers&.each(&:close)
     super

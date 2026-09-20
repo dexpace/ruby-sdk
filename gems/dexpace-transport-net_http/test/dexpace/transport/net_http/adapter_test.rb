@@ -437,12 +437,15 @@ module DexpaceTransportNetHttpAdapterTest
     # keys, so a lower-case `http_proxy` naming the fixture is exactly what the old shape would
     # have honoured behind the SDK's back. The target is TEST-NET-1: unroutable, never loopback
     # (which find_proxy exempts), so the call times out against it instead of reaching the fixture.
+    # A host's own no_proxy is cleared for the control, which find_proxy honours in either case.
     test "R17: with http_proxy in the environment the per-call client still does not proxy" do
       server = wire(Scripts.fixed("via proxy"))
       target = Dexpace::Request.build(method: "GET", url: "http://192.0.2.1/",
                                       headers: Dexpace::Headers::EMPTY, body: nil,)
       would_have = nil
-      error = with_env("http_proxy" => "http://user:pw@127.0.0.1:#{server.port}") do
+      swapped = { "http_proxy" => "http://user:pw@127.0.0.1:#{server.port}",
+                  "no_proxy" => nil, "NO_PROXY" => nil, }
+      error = with_env(swapped) do
         would_have = ::Net::HTTP.new("192.0.2.1", 80).proxy?
         assert_raises(Dexpace::TransportError) { settle(NetHTTP.build(timeout: 0.3), target) }
       end
@@ -453,13 +456,18 @@ module DexpaceTransportNetHttpAdapterTest
     end
 
     # TRANSPORT-30: the proxy the SDK resolved IS used -- the fixture plays the proxy and sees
-    # the absolute-form request line a proxy is sent.
+    # the absolute-form request line a proxy is sent. The chain is Configuration::EMPTY, whose
+    # environment tier is the real ENV, so every key the resolver reads is overridden: the
+    # resolver prefers HTTPS_PROXY over HTTP_PROXY and a host's NO_PROXY could cover the target,
+    # and a blank override is an answer that masks the environment (review round 1's R1-1).
     test "TRANSPORT-30: a proxy resolved through the configuration chain carries the call" do
       server = wire(Scripts.fixed("via proxy"))
       target = Dexpace::Request.build(method: "GET", url: "http://192.0.2.1/x?y=1",
                                       headers: Dexpace::Headers::EMPTY, body: nil,)
       Dexpace.configure do |builder|
         builder.override(Dexpace::Configuration::Keys::HTTP_PROXY, "http://127.0.0.1:#{server.port}")
+        builder.override(Dexpace::Configuration::Keys::HTTPS_PROXY, "")
+        builder.override(Dexpace::Configuration::Keys::NO_PROXY, "")
       end
 
       response = settle(NetHTTP.build, target)

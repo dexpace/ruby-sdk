@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "../../../test_helper"
+require_relative "../../../support/net_http_hermetic_proxy"
 require "dexpace/transport/net_http"
 require "dexpace/conformance"
 
@@ -11,8 +12,10 @@ require "dexpace/conformance"
 # zero-copy clause has no assertion to suppress. TRANSPORT-18 reports vacuous (a skip in
 # Minitest's vocabulary): with max_retries = 0 no native re-subscription exists to measure.
 # The class inherits DexpaceTestCase so a fixture thread an assertion leaked fails the test that
-# leaked it.
+# leaked it, and includes NetHTTPHermeticProxy so the adapter every assertion builds resolves no
+# proxy from the host's environment.
 class DexpaceTransportNetHttpConformanceTest < DexpaceTestCase
+  include NetHTTPHermeticProxy
   extend Dexpace::Conformance::MinitestDriver
 
   NetHTTP = Dexpace::Transport::NetHTTP

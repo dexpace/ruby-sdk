@@ -97,10 +97,16 @@ class DexpaceTransportNetHttpMatrixFactsTest < DexpaceTestCase
     assert_kind_of(FiberError, error)
   end
 
+  # URI#find_proxy, which :ENV consults, also honours a no_proxy in either case, so a host's
+  # own no_proxy covering TEST-NET-1 is cleared for the control, or it would read as "does not
+  # proxy" for the library's reason rather than the adapter's (review round 1's R1-1).
   test "R17 fact: Net::HTTP.new's p_addr defaults to :ENV and reads a lower-case http_proxy for " \
        "a non-loopback target" do
-    saved = ENV.fetch("http_proxy", nil)
+    names = %w[http_proxy no_proxy NO_PROXY]
+    saved = names.to_h { |name| [name, ENV.fetch(name, nil)] }
     ENV["http_proxy"] = "http://user:pw@127.0.0.1:3128"
+    ENV.delete("no_proxy")
+    ENV.delete("NO_PROXY")
 
     default = ::Net::HTTP.new("192.0.2.1", 80)
     explicit = ::Net::HTTP.new("192.0.2.1", 80, nil, nil, nil, nil)
@@ -109,7 +115,7 @@ class DexpaceTransportNetHttpMatrixFactsTest < DexpaceTestCase
     assert_equal("127.0.0.1", default.proxy_address)
     refute_predicate(explicit, :proxy?)
   ensure
-    ENV["http_proxy"] = saved
+    saved.each { |name, value| ENV[name] = value }
   end
 
   test "version-bound fact: Socket::ResolutionError exists from 3.3, and SocketError covers it " \
