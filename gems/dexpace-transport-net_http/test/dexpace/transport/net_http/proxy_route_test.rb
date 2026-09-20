@@ -7,9 +7,11 @@ require_relative "../../../support/net_http_recording_sink"
 require "dexpace/transport/net_http"
 
 # TRANSPORT-30, including both of its embedded MUSTs, consuming CFG-22 to CFG-28 (8a's R17):
-# phase 5a's resolver meets its first consumer here. Every configuration is a hermetic
-# from_hash source, never the process environment, because Configuration::EMPTY reads the real
-# ENV. ProxyRoute is a private_constant, reached through const_get.
+# phase 5a's resolver meets its first consumer here. Every configuration handed to the route is a
+# hermetic from_hash source, never the process environment, because Configuration::EMPTY reads the
+# real ENV; the one test that drives the whole adapter sets the process-wide slot through
+# Dexpace.configure's override tier, which sits above the environment, and resets it in an ensure.
+# ProxyRoute is a private_constant, reached through const_get.
 class DexpaceTransportNetHttpProxyRouteTest < DexpaceTestCase
   include AdapterFixtures
 
