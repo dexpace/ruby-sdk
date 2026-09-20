@@ -167,6 +167,23 @@ class DexpaceSerdeJSONCompositionTest < DexpaceTestCase
       assert_equal("HTTP 404", error.message)
     end
 
+    # SERDE-27's zero-byte clause through the REAL codec: the handler's eof? screen (P7-67) is what
+    # names the target, because the parser's own end-of-input error ("unexpected end of input" on
+    # json 2.19.9 and 3.0.2, "unexpected token at ''" on 2.7.2 and 2.9.1) names nothing and differs
+    # across versions. With the screen gone an empty 200 reads "malformed JSON: …" and no Pet
+    # (review round 1, R1-1); the composed path is where a generated SDK meets an empty 200.
+    test "an empty 200 raises the handler's target-naming error, never the parser's" do
+      transport = RecordingTransport.new(json_response(status: 200, body: ""))
+      request = show_operation.build_request(base_url: "https://host/v1", inputs: { id: 7 })
+
+      error = assert_raises(Dexpace::Serde::DeserializationError) do
+        typed(pipeline(transport).call(request)).value
+      end
+
+      assert_match(/no body to decode into DexpaceSerdeJSONCompositionTest::Pet:/, error.message)
+      refute_match(/malformed JSON/, error.message)
+    end
+
     # SEAM-27: "a path value containing a slash is encoded, not split into segments" -- phase 2's
     # own words, asserted here THROUGH the composed path because that is where a generator meets it.
     test "a path parameter containing a slash is one segment on the wire" do

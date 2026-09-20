@@ -77,7 +77,10 @@ class DexpaceSerdeDecodingHandlerTest < DexpaceTestCase
     # A zero-length body is treated the same way, because a caller cannot distinguish them and the
     # codec's own end-of-input error names nothing useful. Detected with BufferedSource#eof?, a
     # non-consuming probe, never with #content_length (-1 for every unknown-length body) and never
-    # by matching a parser message (which differs across json versions).
+    # by matching a parser message (which differs across json versions). Both halves of the message
+    # are asserted: with the screen gone, FakeCodec hands PetWitness the drained "" and the
+    # witness's OWN shape failure ("expected PetWitness (Hash) at /, got String") names the target
+    # too, so /PetWitness/ alone would pass either way (review round 1, R1-1).
     test "SERDE-27: an empty body raises the same target-naming error, at any declared length" do
       empty = FakeResponseBody.new(Dexpace::IO::BufferedSource.of_bytes("".b))
       response = build_response(200, body: empty)
@@ -87,7 +90,22 @@ class DexpaceSerdeDecodingHandlerTest < DexpaceTestCase
       end
 
       assert_match(/PetWitness/, error.message)
+      assert_match(/no body/, error.message)
       assert_equal(1, response.body.closes)
+    end
+
+    # The same clause for a witness that has no name to carry: DecodeContext.root gives an
+    # anonymous class no target (P7-70), and the message says so in words rather than
+    # interpolating nothing (review round 1, R1-4).
+    test "SERDE-27: an anonymous witness is named as such, never as an empty name" do
+      anonymous = Class.new { def self.dexpace_load(parsed, ctx) = ctx.object!(parsed) }
+
+      error = assert_raises(Dexpace::Serde::DeserializationError) do
+        handler(witness: anonymous).call(build_response(204, body: nil))
+      end
+
+      assert_match(/no body to decode into an anonymous witness:/, error.message)
+      refute_match(/#<Class/, error.message)
     end
 
     test "SERDE-27: a codec failure surfaces as a serde exception with a NON-NIL cause" do

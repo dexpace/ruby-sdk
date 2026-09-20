@@ -203,6 +203,20 @@ class DexpaceSerdeStatusAwareHandlerTest < DexpaceTestCase
       end
     end
 
+    # An anonymous witness has no name for DecodeContext.root to carry (P7-70); the message names
+    # it in words rather than interpolating nothing (review round 1, R1-4).
+    test "SERDE-28: an anonymous witness is named as such in the third branch's message" do
+      anonymous = Class.new { def self.dexpace_load(parsed, ctx) = ctx.object!(parsed) }
+      built = S::StatusAwareHandler.build(serde: FakeCodec.new, witness: anonymous)
+
+      error = assert_raises(Dexpace::Serde::DeserializationError) do
+        built.call(response_with("", code: 304))
+      end
+
+      assert_match(/\A304 Not Modified: not decoded into an anonymous witness,/, error.message)
+      refute_match(/#<Class/, error.message)
+    end
+
     test "SERDE-28: the branch closes a bodyless response too, and a close failure propagates" do
       assert_raises(Dexpace::Serde::DeserializationError) { handler.call(build_response(304)) }
 
