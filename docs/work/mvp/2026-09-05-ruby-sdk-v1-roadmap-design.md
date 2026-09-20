@@ -4484,7 +4484,7 @@ twenty-nine caught on both and the thirtieth an equivalent mutant with its measu
 an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
 the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
 default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36),
-and round 2's two (the pre-cancelled pump, the proxy keys) with four more (rows 37–40); the gem's suites
+and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41); the gem's suites
 blank the three proxy keys the resolver reads around every owning-adapter test through the override
 tier (`NetHTTPHermeticProxy`), because every `NetHTTP.build` resolves its proxy through the process-wide
 chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it; the design's seventeen facts and the plan's eight

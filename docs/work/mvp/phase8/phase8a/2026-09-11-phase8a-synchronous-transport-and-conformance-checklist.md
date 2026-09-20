@@ -189,20 +189,21 @@ no cause and no connection.
 | 36 | `Allocations.delta` re-enables the collector unconditionally | `conformance/allocations_test.rb` "a collector the host had disabled stays disabled afterwards" (`GC.disable answers true when it was already disabled`) | 4.0.6, 3.2.11 |
 | 37 | The pump as reviewed in round 1: thread first, `on_cancel` after it, `@subscription.detach` unguarded (review round 1's R1-2) | `response_pump_test.rb` `AlreadyCancelledTest`, both cases: `NoMethodError: undefined method 'detach' for nil` out of the constructor, and the producer the inline `#release` joined out against the holding fixture fails the test base's thread count (`Expected: 9, Actual: 10`) | 4.0.6, 3.2.11 |
 | 38 | The nil-safe `#release` alone — no `cancelled?` pre-check, no latch read in `#produce` | The same two cases: `Expected: 0, Actual: 1` (one connection reached the fixture), the thread count again (the producer outlives the 5 s join, blocked on the hold), and `Expected: 1, Actual: 0` (the borrowed permit still with the producer) | 4.0.6, 3.2.11 |
-| 39 | The three-key override reduced to `HTTP_PROXY` alone in the two chain-driven tests, under `HTTPS_PROXY=http://127.0.0.1:9` (resp. `NO_PROXY=192.0.2.1`) in the environment (R1-1) | `proxy_route_test.rb` "an origin 401 draws no second …" and `adapter_test.rb` `ProxyTest` "TRANSPORT-30 …": `Dexpace::TransportError: Failed to open TCP connection to 127.0.0.1:9` (resp. `… to 192.0.2.1:80 (user specified timeout …)`) | 4.0.6 |
+| 39 | The three-key override reduced to `HTTP_PROXY` alone in the two chain-driven tests **with `NetHTTPHermeticProxy`'s `setup` also removed** (row 40's mutation), under `HTTPS_PROXY=http://127.0.0.1:9` (resp. `NO_PROXY=192.0.2.1`) in the environment — review round 1's R1-1 failure itself. Alone, with the module's `setup` in place, the reduction **survives**: `Dexpace.configure` composes over the live slot, so the blanks the module wrote beneath the test's own `HTTP_PROXY` override still mask the environment, and the per-test `HTTPS_PROXY`/`NO_PROXY` lines are an equivalent in that tree — kept so that each test is hermetic read on its own, and recorded rather than made red (the round-2 fix's completion pass measured it, 2026-09-20: 9/9 and 34/34 green with the four lines gone) | `proxy_route_test.rb` "an origin 401 draws no second …" and `adapter_test.rb` `ProxyTest` "TRANSPORT-30 …": `Dexpace::TransportError: Failed to open TCP connection to 127.0.0.1:9` (resp. `… to 192.0.2.1:80 (user specified timeout …)`) | 4.0.6 |
 | 40 | `NetHTTPHermeticProxy`'s `setup` removed, under `HTTPS_PROXY=http://127.0.0.1:9` in the environment | fifteen of `adapter_test.rb`'s thirty-four tests error on the refused connection to port 9 — every owning-adapter case — and the conformance driver's socket assertions with them | 4.0.6 |
 | 41 | `cancellation.check!` removed from `Adapter#perform` (review round 0's mutation B), re-run because `P8-64` made its round-0 guard equivalent: the pump now refuses the token itself, so the socket count alone reads 0 either way | `CancellationTest` "an already-cancelled token is refused before anything is mapped or reaches the wire" — the request now carries a managed `Expect` header through an adapter with a recording sink, and `the request was never mapped: no managed-header drop was logged` fails with the `Expect` drop in the sink | 4.0.6, 3.2.11 |
 
-Rows 37–41 are review round 2's (2026-09-20): 37–40 for the two lines round 2 made load-bearing, each
-run red on 4.0.6 and (37, 38) on 3.2.11 under net-http 0.4.1 and 0.9.1, and 41 for a round-0 guard
-`P8-64` had made equivalent — the one case where a code fix silently widened an earlier mutant's
-survival, caught by re-running the letter mutations near the change; one further mutant of the pump
-survives as an equivalent in practice and is recorded here rather than made red: with the latch read at
-the top of `#produce` kept, dropping the `cancelled?` pre-check (thread first, subscription after, both
-slots nil-safe) passes both `AlreadyCancelledTest` cases on every run, because under the GVL the
-constructor's inline `#release` flips the latch and reaches the join before the new thread is scheduled
-— the pre-check is what makes "no exchange" a property of the code rather than of the scheduler, and no
-deterministic test can tell the two apart.
+Rows 37–41 are review round 2's (2026-09-20): 37, 38 and 40 for the two lines round 2 made load-bearing,
+each run red on 4.0.6 and (37, 38) on 3.2.11 under net-http 0.4.1 and 0.9.1; 39 red only on top of 40,
+as its row says, because the hermetic module's blanks stand beneath the two tests' own overrides; and 41
+for a round-0 guard `P8-64` had made equivalent — the one case where a code fix silently widened an
+earlier mutant's survival, caught by re-running the letter mutations near the change; one further mutant
+of the pump survives as an equivalent in practice and is recorded here rather than made red: with the
+latch read at the top of `#produce` kept, dropping the `cancelled?` pre-check (thread first,
+subscription after, both slots nil-safe) passes both `AlreadyCancelledTest` cases on every run, because
+under the GVL the constructor's inline `#release` flips the latch and reaches the join before the new
+thread is scheduled — the pre-check is what makes "no exchange" a property of the code rather than of
+the scheduler, and no deterministic test can tell the two apart.
 
 Rows 31–36 are review round 1's (2026-09-20): review round 0 ran the thirty above and twenty of its own,
 found three survivors that were real gaps — H, N and E, each a test that could not tell the guarded
