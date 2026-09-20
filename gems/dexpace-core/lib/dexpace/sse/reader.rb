@@ -59,7 +59,8 @@ module Dexpace
       attr_reader :max_line_bytes
 
       # SSE-19's event cap, as this reader was configured: the raw bytes of every line of one
-      # block, comments and unknown fields included, reset at each dispatch.
+      # block, comments and unknown fields included, reset at every blank line -- dispatching
+      # or not -- so the total is one block's and never a run of fieldless blocks'.
       attr_reader :max_event_bytes
 
       # @param source [Dexpace::SSE::_ByteSource] anything answering #getbyte, #peek and #skip --
@@ -137,13 +138,20 @@ module Dexpace
         end
       end
 
-      # SSE-13: an Event when any field was seen, nil otherwise; either way the block resets.
+      # SSE-13: an Event when any field was seen, nil otherwise -- and the block resets EITHER
+      # way, its five accumulators and SSE-19's byte total alike, because a blank line ends a
+      # block whether or not it dispatched (SSE-1). A run of fieldless blocks -- unknown-field
+      # keep-alives, NUL ids, rejected retries -- is a run of blocks and not one block, so their
+      # bytes must not add up across the blank lines that separate them into a spurious event-cap
+      # failure -- which a nil branch that returned before the reset would produce.
       def dispatch
-        return nil unless @seen
-
-        event = Event.build(id: @id, event: @event, data: @data, comment: @comment, retry: @retry)
+        event = build_event if @seen
         reset_block
         event
+      end
+
+      def build_event
+        Event.build(id: @id, event: @event, data: @data, comment: @comment, retry: @retry)
       end
 
       def reset_block

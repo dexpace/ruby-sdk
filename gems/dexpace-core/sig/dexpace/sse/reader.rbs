@@ -42,6 +42,7 @@ module Dexpace
       def consume_bom_once: () -> nil
       def bom_ahead?: () -> bool
       def dispatch: () -> Event?
+      def build_event: () -> Event
       def reset_block: () -> nil
       def apply_line: (String line) -> void
       def apply_field: (String name, String value) -> void

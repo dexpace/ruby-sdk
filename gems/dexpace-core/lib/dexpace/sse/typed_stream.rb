@@ -59,6 +59,8 @@ module Dexpace
 
       # The external form: a lazy single-pass Enumerator of decoded values over the Stream's one
       # view, taken now (SSE-40). An abandoned enumerator releases nothing; #close is the remedy.
+      # An Enumerable method that stops early -- first(n), take, find -- releases loudly on its
+      # way out, exactly as the same call on Stream#events does (SSE-25).
       #
       # @return [Enumerator]
       # @raise [Dexpace::SSE::StreamStateError] as for #each
@@ -104,6 +106,13 @@ module Dexpace
       # A mapper raising here runs on the consumer's side of that enumerator, so the release is
       # this layer's (SSE-36); a raw read failure arrives already released by the Stream (SSE-29)
       # and the quiet close below is then a no-op on the flipped latch.
+      #
+      # The ensure is Stream#drive's, mirrored: an Enumerable method that stops early on #values
+      # -- first(n), take, find, an `each { break }` -- leaves this method through its block and
+      # never reaches the Stream's own ensure, because the raw enumerator it drives is parked
+      # mid-#next (design §7.1). So the block-form exit's LOUD release is this layer's too, while
+      # the clean end, a DONE and both failure paths have already flipped the latch and make the
+      # same #close a no-op (SSE-25, SSE-30).
       def drive_values(raw, &)
         while (event = next_raw(raw))
           break if deliver(event, &) == :done
@@ -112,6 +121,8 @@ module Dexpace
       rescue ::Exception => error # rubocop:disable Lint/RescueException -- release, then re-raise unchanged
         Dexpace.close_quietly(@stream, onto: error)
         raise
+      ensure
+        @stream.close
       end
 
       def next_raw(raw)
