@@ -1,0 +1,18 @@
+module Dexpace
+  class Page
+    # PAGE-21..PAGE-24: the verbatim query splice over the raw query substring.
+    module QueryRewriter
+      def self?.get: (String? query, String name) -> String?
+      def self?.set: (String? query, String name, String? value) -> String?
+      def self?.rewrite_url: (URI::Generic uri, String name, String? value) -> URI::Generic
+
+      private
+
+      def splice: (Array[String] segments, String name, String? replacement) -> [Array[String], bool]
+      def segments: (String? query) -> Array[String]
+      def split_segment: (String segment) -> [String, String?]
+      def decode: (String text) -> String
+      def encode: (String text) -> String
+    end
+  end
+end

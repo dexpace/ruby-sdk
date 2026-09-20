@@ -1,0 +1,32 @@
+# Dexpace::Page::Walk is a private_constant and not public API: this declaration exists because
+# the strict `core` Steep target checks every file under lib/ and needs the class, its ivars and
+# its readers declared to type the two views and the two engines. RBS has no visibility for a
+# constant, so the privacy lives in lib/dexpace/page/walk.rb alone.
+module Dexpace
+  class Page
+    class Walk
+      include Dexpace::Closeable
+
+      @drive: untyped
+      @cap: Numeric
+      @current: Dexpace::Page?
+      @buffered: Dexpace::Page?
+      @exchanges: Integer
+      @exhausted: bool
+
+      attr_reader current: Dexpace::Page?
+      attr_reader buffered: Dexpace::Page?
+
+      def initialize: (untyped drive, cap: Numeric) -> void
+      def fetch_next_page: () -> Dexpace::Page?
+      def hold: (Dexpace::Page page) -> nil
+      def buffer: (Dexpace::Page page) -> nil
+      def take_buffered: () -> Dexpace::Page?
+
+      private
+
+      def latch_exhausted: () -> nil
+      def release: () -> nil
+    end
+  end
+end

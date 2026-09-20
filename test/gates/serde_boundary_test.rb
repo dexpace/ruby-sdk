@@ -5,18 +5,22 @@ require_relative "../support/gate_case"
 require_relative "../../tools/serde_boundary"
 
 # SSE-37's mechanism, and the phase-7 segmentation design's spec-forced boundary 5: core's SSE
-# layer -- and, once 7c lands, its pagination layer -- holds no serialization dependency, checked
-# by a PARSED scan of every require, every constant read and every RBS type name under the
-# guarded paths. The gate that would have caught a `require "json"` or a `Dexpace::Serde`
-# reference the require allowlist cannot see, because the seam is core's own.
+# layer and its pagination layer hold no serialization dependency, checked by a PARSED scan of
+# every require, every constant read and every RBS type name under the guarded paths. The gate
+# that would have caught a `require "json"` or a `Dexpace::Serde` reference the require allowlist
+# cannot see, because the seam is core's own. The pagination rows were PENDING while 7b and 7c
+# were built on one base apart, and GUARDED since the reconcile pass of 2026-09-20.
 class SerdeBoundaryTest < GateCase
   FIXTURES = File.join(ROOT, "test/fixtures/gates/serde_boundary")
 
-  test "the real repository is clean, and its pending rows are the pagination layer's" do
+  test "the real repository is clean, both layers guarded and nothing pending" do
     assert_empty(SerdeBoundary.violations(ROOT))
-    assert_equal(%w[gems/dexpace-core/lib/dexpace/page/**/*.rb
+    assert_empty(SerdeBoundary.pending(ROOT))
+    assert_equal(%w[gems/dexpace-core/lib/dexpace/page.rb
+                    gems/dexpace-core/lib/dexpace/page/**/*.rb
+                    gems/dexpace-core/sig/dexpace/page.rbs
                     gems/dexpace-core/sig/dexpace/page/**/*.rbs],
-                 SerdeBoundary.pending(ROOT).map(&:first),)
+                 SerdeBoundary::GUARDED.map(&:first).grep(%r{/page}),)
   end
 
   test "every GUARDED glob matches at least one real file, so the boundary checks something" do
@@ -71,6 +75,16 @@ class SerdeBoundaryTest < GateCase
     assert_empty(scan("clean.rbs"))
   end
 
+  test "a pagination violation names spec-forced boundary 5, not SSE-37" do
+    page_rows = SerdeBoundary::GUARDED.select { |glob, _| glob.include?("/page") }
+
+    assert_equal(["spec-forced boundary 5"] * 4, page_rows.map(&:last))
+    found = SerdeBoundary.scan_file(File.join(FIXTURES, "files", "requires_json.rb"),
+                                    requirement: page_rows.first.last,)
+
+    assert_includes(found.join("\n"), "(spec-forced boundary 5)")
+  end
+
   test "rejects a serde type name in a guarded signature" do
     assert_includes(scan("names_serde.rbs"), "names the type Serde")
     assert_includes(scan("names_json.rbs"), "names the type JSON")
@@ -91,6 +105,8 @@ class SerdeBoundaryTest < GateCase
     end
   end
 
+  # The fixture holds a file for every other guarded glob, the pagination ones included, so the
+  # one violation is the one empty glob's and nothing else's.
   test "a GUARDED glob matching no file is a violation naming the glob, never a silent pass" do
     found = SerdeBoundary.violations(File.join(FIXTURES, "empty_glob"))
 
@@ -106,12 +122,13 @@ class SerdeBoundaryTest < GateCase
     refute_predicate(status, :success?)
     assert_includes(err, "lib/dexpace/sse/reader.rb:4: require \"json\"")
     assert_includes(err, "SSE-37")
+    refute_includes(err, "matches no file")
 
     out, err, status = rake("gates:serde_boundary")
 
     assert_predicate(status, :success?, err)
-    assert_includes(out, "4 guarded globs clean")
-    assert_includes(out, "PENDING gems/dexpace-core/lib/dexpace/page/**/*.rb")
+    assert_includes(out, "8 guarded globs clean")
+    refute_includes(out, "PENDING")
   end
 
   private

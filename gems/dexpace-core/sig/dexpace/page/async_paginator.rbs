@@ -1,0 +1,66 @@
+module Dexpace
+  class Page
+    # PAGE-25..PAGE-33: the non-blocking engine, a frozen Data of immutable configuration plus an
+    # optional executor. `transport`, `strategy` and `executor` are untyped because a lambda is a
+    # valid transport, a strategy is any object answering #parse and an executor any answering
+    # #post (respond_to? validates all three).
+    class AsyncPaginator < Data
+      include Model
+
+      attr_reader transport: untyped
+      attr_reader template: Dexpace::Request
+      attr_reader strategy: untyped
+      attr_reader cap: Numeric
+      attr_reader options: Dexpace::RequestOptions
+      attr_reader executor: untyped
+
+      private def self.new: (transport: untyped, template: Dexpace::Request, strategy: untyped, cap: Numeric, options: Dexpace::RequestOptions, executor: untyped) -> instance
+      def initialize: (transport: untyped, template: Dexpace::Request, strategy: untyped, cap: Numeric, options: Dexpace::RequestOptions, executor: untyped) -> void
+
+      def self.build: (transport: untyped, template: Dexpace::Request, strategy: untyped, ?cap: Numeric, ?options: Dexpace::RequestOptions, ?executor: untyped) -> AsyncPaginator
+
+      def walk: (untyped consumer, ?cancellation: Dexpace::Cancellation?) -> Dexpace::Async::Future
+      def walk_pages: (untyped consumer, ?cancellation: Dexpace::Cancellation?) -> Dexpace::Async::Future
+
+      # The per-walk trampoline (PAGE-31): a private_constant, declared here because the strict
+      # `core` Steep target types its call sites.
+      class Pump
+        @paginator: AsyncPaginator
+        @consumer: untyped
+        @cancellation: Dexpace::Cancellation
+        @mode: Symbol
+        @completer: Dexpace::Async::Completer
+        @next_request: Dexpace::Request?
+        @exchanges: Integer
+        @pages: Integer
+        @in_flight: Dexpace::Async::Future?
+        @mutex: Thread::Mutex
+        @running: bool
+        @rearm: bool
+
+        def initialize: (AsyncPaginator paginator, untyped consumer, Dexpace::Cancellation cancellation, Symbol mode) -> void
+        def start: () -> Dexpace::Async::Future
+
+        private
+
+        def resume: () -> void
+        def claim: (Symbol step) -> bool
+        def launch: () -> void
+        def deliver: (Dexpace::Async::Settlement settlement) -> void
+        def submit: (untyped response) { () -> void } -> void
+        def settled: (Dexpace::Async::Settlement settlement) -> void
+        def null_success: () -> bool
+        def forward: (Dexpace::Async::Settlement settlement) -> void
+        def build_page: (Dexpace::Response response) -> Dexpace::Page
+        def drain: (Dexpace::Page page) -> void
+        def advance: () -> void
+        def guarded: () { () -> void } -> void
+      end
+
+      private
+
+      def validate_engine!: (untyped transport, untyped template, untyped strategy) -> void
+      def start: (untyped consumer, Dexpace::Cancellation? cancellation, Symbol mode) -> Dexpace::Async::Future
+    end
+  end
+end

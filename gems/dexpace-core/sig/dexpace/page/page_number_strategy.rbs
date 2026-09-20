@@ -1,0 +1,24 @@
+module Dexpace
+  class Page
+    # PAGE-17: the page-number strategy over a caller-supplied `#call(response) -> items` extractor.
+    class PageNumberStrategy < Data
+      include Model
+
+      DIGITS: Regexp
+
+      attr_reader extract_items: untyped
+      attr_reader parameter: String
+      attr_reader start: Integer
+
+      private def self.new: (extract_items: untyped, parameter: String, start: Integer) -> instance
+      def initialize: (extract_items: untyped, parameter: String, start: Integer) -> void
+
+      def self.build: (extract_items: untyped, ?parameter: String, ?start: Integer) -> PageNumberStrategy
+      def parse: (Dexpace::Response response, Dexpace::Request template) -> Info
+
+      private
+
+      def current_page: (Dexpace::Response response) -> Integer
+    end
+  end
+end

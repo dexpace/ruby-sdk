@@ -284,6 +284,29 @@ require_relative "dexpace/sse/reader"
 require_relative "dexpace/sse/stream"
 require_relative "dexpace/sse/typed_stream"
 
+# Phase 7c: the pagination layer, in dependency order -- after 6b's block, though it needs only
+# phase 2's closeable.rb, phase 1's model and the async pivot. The page value first, because it is
+# also the namespace every later file reopens; then the strategy vocabulary (the info value, the
+# query splice, the private link-header grammar, the three built-in strategies), the private
+# lifetime owner and the private close disciplines both views share, the two views, the two
+# engines, and the fetcher front-end last. `uri` is required by url.rb, which page.rb requires; it
+# was on the allowlist before phase 1, and nothing under page/ names a serializer.
+require_relative "dexpace/page"
+require_relative "dexpace/page/page_state_error"
+require_relative "dexpace/page/info"
+require_relative "dexpace/page/query_rewriter"
+require_relative "dexpace/page/link_header"
+require_relative "dexpace/page/cursor_strategy"
+require_relative "dexpace/page/page_number_strategy"
+require_relative "dexpace/page/link_strategy"
+require_relative "dexpace/page/walk"
+require_relative "dexpace/page/closing"
+require_relative "dexpace/page/items"
+require_relative "dexpace/page/pages"
+require_relative "dexpace/page/paginator"
+require_relative "dexpace/page/async_paginator"
+require_relative "dexpace/page/fetchers"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

@@ -1,0 +1,16 @@
+module Dexpace
+  class Page
+    # PAGE-1 / PAGE-8 / PAGE-11: the re-iterable item-level view, one fresh walk per #each, every
+    # page closed before its items are yielded. Enumerable's vocabulary drives #each.
+    class Items
+      include ::Enumerable[untyped]
+
+      @opener: untyped
+
+      def initialize: (untyped opener) -> void
+      def each: () { (untyped) -> void } -> self
+              | () -> ::Enumerator[untyped, self]
+      def close: () -> nil
+    end
+  end
+end

@@ -25,28 +25,32 @@ require_relative "require_scan"
 # file, because a glob with a typo scans nothing and reports clean forever, which is precisely the
 # way a boundary gate stops being a gate. PENDING holds a path whose files do not exist on this
 # base yet; it is not silent -- the task prints every pending row and its reason on every run --
-# and the row moves to GUARDED in the change that lands the files (7c's pagination layer, in the
-# reconcile pass after both lanes are on main).
+# and a row moves to GUARDED in the change that lands the files. The pagination layer's rows made
+# that move on 2026-09-20, in the reconcile pass that put 7c's tree on the same base as 7b's gate,
+# and PENDING has been empty since; it stays as the mechanism for the next layer built beside a
+# gate that predates it.
 module SerdeBoundary
   extend self
 
-  # A guarded glob, relative to the workspace root, and the requirement that guards it.
+  # A guarded glob, relative to the workspace root, and the requirement that guards it. The
+  # pagination rows carry spec-forced boundary 5 (phase-7 segmentation design): §12's pagination
+  # serde-agnosticism carries no requirement ID, so the SSE-37 mechanism is extended one path
+  # wider, and the entry file has a row of its own for the same reason sse.rb has one -- `**`
+  # under a directory cannot match the file beside it.
   GUARDED = [
     ["gems/dexpace-core/lib/dexpace/sse.rb", "SSE-37"],
     ["gems/dexpace-core/lib/dexpace/sse/**/*.rb", "SSE-37"],
     ["gems/dexpace-core/sig/dexpace/sse.rbs", "SSE-37"],
     ["gems/dexpace-core/sig/dexpace/sse/**/*.rbs", "SSE-37"],
+    ["gems/dexpace-core/lib/dexpace/page.rb", "spec-forced boundary 5"],
+    ["gems/dexpace-core/lib/dexpace/page/**/*.rb", "spec-forced boundary 5"],
+    ["gems/dexpace-core/sig/dexpace/page.rbs", "spec-forced boundary 5"],
+    ["gems/dexpace-core/sig/dexpace/page/**/*.rbs", "spec-forced boundary 5"],
   ].freeze
 
-  # Spec-forced boundary 5 (phase-7 segmentation design): §12's pagination serde-agnosticism
-  # carries no requirement ID, so the SSE-37 mechanism is extended one path wider. Moves to
-  # GUARDED when lib/dexpace/page/ exists on the same base.
-  PENDING = [
-    ["gems/dexpace-core/lib/dexpace/page/**/*.rb",
-     "phase-7 segmentation design, spec-forced boundary 5: guarded once 7c's files land",],
-    ["gems/dexpace-core/sig/dexpace/page/**/*.rbs",
-     "phase-7 segmentation design, spec-forced boundary 5: guarded once 7c's files land",],
-  ].freeze
+  # A path whose files do not exist on this base yet, with the reason it is pending: printed on
+  # every run, never silent. Empty since the pagination rows moved to GUARDED on 2026-09-20.
+  PENDING = [].freeze
 
   # The constant names a guarded file may not read, wherever they sit in a path: `Serde`,
   # `Dexpace::Serde`, `Dexpace::Serde::JSON`, `JSON` and `::JSON` -- the last being the spelling

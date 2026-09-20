@@ -1,0 +1,45 @@
+module Dexpace
+  class Page
+    # PAGE-34 / PAGE-35: the fetcher-based front-end, a frozen Data over two caller callables and
+    # the options threaded to them by identity. Both fetchers are untyped because a lambda is the
+    # ordinary value (respond_to? validates them; Registry.callable? reads their arity).
+    class Fetchers < Data
+      include Model
+
+      attr_reader first: untyped
+      attr_reader next_page: untyped
+      attr_reader options: Dexpace::RequestOptions
+
+      private def self.new: (first: untyped, next_page: untyped, options: Dexpace::RequestOptions) -> instance
+      def initialize: (first: untyped, next_page: untyped, options: Dexpace::RequestOptions) -> void
+
+      def self.build: (first: untyped, next_page: untyped, ?options: Dexpace::RequestOptions) -> Fetchers
+
+      def items: () -> Items
+      def pages: () -> Pages
+      def each_item: () { (untyped) -> void } -> nil
+      def each_page: () { (Dexpace::Page) -> void } -> nil
+
+      # The fetcher front-end's private per-walk drive (P7-111): a private_constant, declared here
+      # because the strict `core` Steep target types its call sites.
+      class Drive
+        @fetchers: Fetchers
+        @started: bool
+        @key: String?
+
+        def initialize: (Fetchers fetchers) -> void
+        def call: () -> Dexpace::Page?
+
+        private
+
+        def fetch_first: () -> untyped
+        def fetch_next: () -> untyped
+        def key_of: (Dexpace::Page page) -> String?
+      end
+
+      private
+
+      def open_walk: () -> Dexpace::Page::Walk
+    end
+  end
+end
