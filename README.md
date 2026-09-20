@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c and 7a are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a and 8a are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -84,13 +84,22 @@ handlers phase 3b's `TypedResponse` was built to take (`docs/sdk-documentation/s
 `json >= 2.19.9` floor in its gemspec and asserted at require time, and the seam registration under
 `:json` — the first gem here with a third-party dependency, and the first the three zero-dependency
 gates have run against with one; the operation-lifecycle and transport groups of the HTTP-tracer
-vocabulary are emitted by nothing yet, and nothing talks to a socket yet. The other four are still
+vocabulary are emitted by nothing yet.
+`dexpace-transport-net_http` carries the synchronous transport — the first thing here that talks
+to a socket: two constructions over a fresh-per-call or a borrowed `Net::HTTP`, the header policy
+the wire carries, a per-response producer thread behind every streamed body, one total budget
+across three native knobs, a classifier that asks the cancellation token first and wraps every
+other failure retryable, TLS settings and the proxy over the configuration chain
+(`docs/sdk-documentation/transport-net_http.md`) — and `dexpace-conformance` carries the
+conformance suite: the assertion protocol, the twenty-eight-assertion transport suite with its
+vacuous and waived rows, the plaintext wire fixture, the Minitest and RSpec drivers and the two
+observability doubles (`docs/sdk-documentation/conformance.md`). The other two are still
 skeletons — a namespace, a `VERSION`, a gemspec, a signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |
 |---|---|---|
 | `dexpace-core` | `Dexpace` | none |
-| `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core` |
+| `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core`; `net-http >= 0.4` |
 | `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core` |
 | `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core`; `json >= 2.19.9` |
 | `dexpace-async-thread` | `Dexpace::Async::Thread` | `dexpace-core` |

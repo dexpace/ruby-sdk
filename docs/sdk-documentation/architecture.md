@@ -9,10 +9,12 @@ layer and the clock, phase 5c the tracing and metrics layer, phase 5b the loggin
 redaction, phase 6a the retry layer — one policy core and its two stacks — phase 6c the
 authentication layer, phase 6b the redirect layer with the two `standard` pipeline
 constructors, phase 7b the server-sent-events layer with the serde-boundary gate, phase 7c the
-pagination layer and phase 7a the serialization layer with the JSON codec; the adapters are still to
-come, so this page is still a stub: it names the
+pagination layer, phase 7a the serialization layer with the JSON codec, and phase 8a the first two
+adapter gems beside 7a's — the synchronous transport in `dexpace-transport-net_http` and the
+conformance suite in `dexpace-conformance`; the remaining adapters are still to come, so this page
+is still a stub: it names the
 pages this tree will eventually hold and where each one's content will come from, so the plan for
-the documentation exists before the documentation does. Seventeen pages are real already, because
+the documentation exists before the documentation does. Nineteen pages are real already, because
 their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
 [`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
 [`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
@@ -20,7 +22,8 @@ their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http
 [`tracing-and-metrics.md`](./tracing-and-metrics.md),
 [`logging-and-redaction.md`](./logging-and-redaction.md), [`retry.md`](./retry.md),
 [`auth.md`](./auth.md), [`redirect.md`](./redirect.md), [`sse.md`](./sse.md),
-[`pagination.md`](./pagination.md) and [`serde.md`](./serde.md).
+[`pagination.md`](./pagination.md), [`serde.md`](./serde.md),
+[`transport-net_http.md`](./transport-net_http.md) and [`conformance.md`](./conformance.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -178,13 +181,34 @@ ceiling a large body meets. Written against the layer and the gem phase 7a shipp
 `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md` §7.3, read together with entries 12, 13
 and 14 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
+[transport-net_http.md](./transport-net_http.md) — the synchronous transport: the two
+constructions and what ownership decides at construction, the fresh-per-call `Net::HTTP` and the
+one shared client it refuses to be, the header policy the wire carries and the three auto-stamps it
+deletes, the per-response producer thread behind a streamed body and the bounded release, one
+total budget across three native knobs, the classifier that asks the cancellation token first and
+wraps everything else retryable, the lenient inbound mapping and the one protocol it is not
+lenient about, TLS settings, the proxy over phase 5a's resolver, and what the gem deliberately
+does not do. Written against the adapter phase 8a shipped; derives from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.2, read together with entries 10
+and 15 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
+[conformance.md](./conformance.md) — the conformance suite: what a green run proves and the eight
+`TRANSPORT` IDs it deliberately does not carry, the assertion protocol and its five statuses, the
+runner and its report with vacuous and waived rows that stay visible, the two thin drivers and the
+three keywords that are the asynchronous adapter's contract, the case an assertion receives and
+the guard on its transport, the plaintext wire fixture with its fifteen scripts and bounded waits,
+and the two observability doubles. Written against the gem phase 8a shipped; derives from
+`docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.3.
+
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
 and how to run it locally. Written against the build phase 0 shipped; derives from
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
 
 write-a-transport.md — implementing the `Transport` seam, and proving an implementation against
 `dexpace-conformance`. Derives from `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md`;
-the seam's contract itself is already on [seams.md](./seams.md).
+the seam's contract itself is already on [seams.md](./seams.md), the proving half on
+[conformance.md](./conformance.md), and the reference implementation on
+[transport-net_http.md](./transport-net_http.md).
 
 write-a-serde.md — implementing the `Serde` seam: the serializer/deserializer pair, the
 `Tristate` PATCH convention, and the four encode profiles. Derives from

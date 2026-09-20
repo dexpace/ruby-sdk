@@ -74,6 +74,33 @@ stable key.
   process-globally was rejected for the reason the port refuses `Regexp.timeout`: a library must not
   mutate a host global.
   <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-content-type-warning</sub>
+- **`net-http` 0.9.x, Ruby 4.0's, differs from the 0.4.x and 0.6.x the other supported Rubies ship in two
+  places the adapter meets, and neither changes what the adapter does.** Beside `transport-adapter/0921e946`
+  and this file's content-type entry above, whose measurements were taken on 0.6.0; verified on 2026-09-20 on
+  0.4.1 (3.2.11 and 3.3.12), 0.6.0 (3.4.10) and 0.9.1 (4.0.6, where net-http is no longer a default gem).
+  **One**: `Net::HTTPGenericRequest#supply_default_content_type` is gone from 0.9.1 — a body-bearing request
+  with no `Content-Type` emits no warning under `-w` and reaches the wire with no `Content-Type` at all,
+  while `#set_body_internal` still gives a body-less `POST` `body = ''` and `Content-Length: 0` on every
+  version. So `P8-4`'s first reason (the warnings-fatal build) holds on three of the four rows and its
+  second (a form type as a claim about the bytes) on the same three; `TRANSPORT-10`'s own rule holds on
+  all four, and the adapter's stamp is identical on all four — which is why its `-w` `POST` test reads the
+  wire's `Content-Type` line rather than only the absence of a warning. **Two**: `Net::HTTP#connect` is
+  `Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(...) }` on 0.4.1 and 0.6.0 and
+  `TCPSocket.open(..., open_timeout: @open_timeout)` on 0.9.1, and the first `Timeout.timeout` in a process
+  starts Ruby's process-wide singleton timeout thread, which lives for the rest of the process. A suite
+  that counts threads around every test — phase 0's `DexpaceTestCase` does — charges that thread to the
+  first test that connects on a 3.2, 3.3 or 3.4 row and to no test on a 4.0 row; phase 8a parks it by
+  opening one connection at test-helper load (`test/support/net_http_warmup.rb`), which is a test-support
+  arrangement and not the SDK calling the primitive §8.3 bans. Two facts that did **not** move across the
+  three versions and are worth stating because the design measured them once: `max_retries` defaults to 1
+  with `PUT` and `DELETE` in the retried set, `#read_timeout=` reaches a live socket, `#[]=` on
+  `Accept-Encoding` flips `decode_content` off and `#add_field` does not, a caller `Host` is honoured
+  verbatim, `#to_hash` preserves bytes and multiplicity, and `send_request_with_body_stream` copies into a
+  `Net::BufferedIO` on every one. The gemspec therefore pins `net-http >= 0.4` with no upper bound
+  (phase 8a's `P8-60`), and `gems/dexpace-transport-net_http/test/dexpace/transport/net_http/matrix_facts_test.rb`
+  prints the active version per row and asserts the two version-bound facts as the disjunction the adapter
+  is correct under. Cites `TRANSPORT-10`, `TRANSPORT-26`, `TRANSPORT-2`, `NFR-2`, `NFR-6`.
+  <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md` · high · sha:manual-phase8a-net-http-0-9</sub>
 - **`TRANSPORT-12`'s "stricter wire grammar" is per-protocol, not per-adapter, and on the looser protocol
   wire-boundary re-validation (phase 8a Task 16, phase 8c Task 9) is the only defence.** Annotates
   `transport-adapter/cb7901ef`. Verified 2026-09-11 on

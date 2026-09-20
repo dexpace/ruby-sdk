@@ -13,13 +13,14 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c and 7a are built — the whole of phase 6
-and the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
-order, 7a last (umbrella #25 closes by hand); the domain model, the seam layer, the byte-streaming layer, the
-body layer, the execution context, the recovery layer, the stage pipeline, the configuration layer, the
-tracing and metrics layer, the logging facade with its redaction, the retry layer, the authentication layer,
-the redirect layer, the server-sent-events layer, the pagination layer and the serialization layer are the
-only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a and 8a are built — the whole of
+phase 6, the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
+order, 7a last (umbrella #25 closes by hand), and the first of phase 8's three sub-phases, built off the same
+base as phase 7's and reconciled onto the tree that holds all three; the domain model, the seam layer, the
+byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
+configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry layer,
+the authentication layer, the redirect layer, the server-sent-events layer, the pagination layer, the
+serialization layer, the synchronous transport and the conformance suite are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -203,9 +204,28 @@ a `String`, `#load` over `_Witness`) — plus the workspace's second real gem, *
 instance per call, `.build` over a five-key option allowlist, `MINIMUM_JSON_VERSION` asserted at require
 time (`P7-7`), `REQUIRED_CORE` on the registration, and the `json >= 2.19.9` line in its gemspec — the
 first `NFR-2` third-party half spent, and the first gate run against it
-(`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-checklist.md`);
-every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
-socket yet. The workspace root
+(`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-checklist.md`) — plus
+phase 8a's three additions to core: the flat `Dexpace::TransportError < ::IOError` (`XCUT-4`'s retryable
+transport failure, `#retryable?` unconditionally true, `#phase` one of `:connect` / `:write` / `:read`),
+`Configuration::Keys::REQUEST_TIMEOUT` and `Instrumentation::Events::TRANSPORT_HEADER_DROPPED`, the tenth
+event — **and the workspace's third and fourth real gems**, the first two outside `dexpace-core` after 7a's
+codec: the synchronous transport in
+`dexpace-transport-net_http`, `Dexpace::Transport::NetHTTP` — `.build(timeout:, logger:, tls:)` over a
+fresh-per-call `Net::HTTP` and `.using(client, logger:)` over a caller's own, the `Adapter` behind both with
+`.owning` / `.borrowing`, the eight constants `DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`,
+`JOIN_DEADLINE_SECONDS`, `REGISTRY_KEY`, `TLS_SETTINGS`, `MANAGED_HEADERS`, `DEFAULT_CONTENT_TYPE` and
+`PROXY_LIMITATION_EVENT`, the seven `private_constant`s `Deadline`, `Failures`, `RequestMapper`,
+`ResponseMapper`, `ResponsePump`, `TLSSettings` and `ProxyRoute`, the RBS interface `_MonotonicClock`, and
+the require-time `Transport.register(:net_http, …)` — and the conformance suite in `dexpace-conformance`,
+`Dexpace::Conformance`: the assertion protocol `Failure`, `Vacuous`, `Assertion`, `Result` (with `STATUSES`)
+and `Report`, the twenty-eight-assertion `TransportSuite` with `PREAMBLE` over its five private groups and
+the private `Checks`, `TransportCase` (with `DEFAULT_SETTLE`, `DEFAULT_WIRE` and the private `SettleOnly`
+guard), `BorrowedPair`, the `WireServer` fixture with `RecordedRequest`, `JOIN_DEADLINE_SECONDS` and the
+private `RequestReader`, the fifteen `Scripts`, `MinitestDriver` and the opt-in `RSpecDriver`, and the two
+observability doubles `RecordingSpan` and `Allocations` (with `ATTEMPTS`), over the RBS interface `_Wire`
+(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`);
+every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. The
+synchronous transport is the first thing here that talks to a socket; nothing on the async path does yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the eighteen blocking gates — phase 0's seventeen
 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`) and phase 7b's
@@ -1022,6 +1042,67 @@ Each is one line plus the chapter to read before touching the area.
   (`instrumentation/independence_test.rb`'s `IO.popen` shape), and `Registry#swap` restores `resolved` but
   never `factories`, so `serde_test.rb`'s two swap pins assert the override is GONE, never that nothing
   resolves (five pins the code invalidated, converted on 7a's code branch).
+- **`Net::HTTP` holds one socket and one response state per instance, so the owning transport builds a
+  fresh one for EVERY call and the borrowing one serialises** — `.build` constructs per call with
+  `max_retries = 0`, an explicit nil `p_addr` AND `proxy_from_env = false` (`Net::HTTP.new`'s default is
+  `:ENV`, which reads a lower-case `http_proxy` the SDK never resolved; `find_proxy` exempts loopback
+  targets, so a proxy test names `192.0.2.1`), and applies this call's budget to all three knobs;
+  `.using` asserts `max_retries == 0` and never assigns anything — endpoint, `use_ssl`, a knob — refusing
+  a request that names another origin and a per-call `timeout:` instead (`TRANSPORT-15`, `XCUT-22`;
+  8a's P8-15). The borrowed permit is a one-slot `::Thread::SizedQueue`, never a `Mutex`, because it is
+  released on the producer's thread and `Mutex#unlock` from a non-owner raises; it is returned by the
+  producer's own `ensure`, never by the bounded join, or a producer still holding the caller's socket
+  past `JOIN_DEADLINE_SECONDS` would share it with the next exchange (P8-53).
+- **The response pump adapts the head on the CALLER's thread before the producer reads a byte of body,
+  and the producer never `break`s out of `read_body`** — `ResponsePump#head_or_raise { |head| … }`
+  yields the native head and resumes the producer through a second `Queue` only when the block returns
+  or raises; `ResponseMapper` deletes an unparseable `Content-Length` from the native head inside that
+  block, because `Net::HTTPResponse#content_length` raises `Net::HTTPHeaderSyntaxError` on the producer
+  the moment `read_body` runs (`TRANSPORT-27`; P8-51). A close makes the next push raise through the
+  closed queue, which is what makes `Net::HTTP`'s own `transport_request` rescue close a half-read
+  keep-alive socket; a `break` would leave the remainder to be read as the next response's status line.
+  A pop that finds the queue closed is classified through the token — `CancelledError` when cancelled,
+  `ClosedError` after a close, a retryable `TransportError` before any head — and is end of stream
+  ONLY when the pump itself is open (P8-54). The cancellation subscription belongs to the pump for the
+  life of the response, detached in `#release`, never to `Adapter#call`'s frame (P8-52).
+- **Every failure with no response goes through one classifier, and the token is asked FIRST** — a
+  cancel delivered by closing the socket and a peer reset arrive as the same `IOError` with the same
+  message, so no class or message test can tell them apart; then an SDK error passes unchanged; then a
+  catch-all wrap as a retryable `Dexpace::TransportError` with the original as `#cause`, never a class
+  list — of the families `Net::HTTP` raises only `EOFError` and `IOError` are `::IOError`, and
+  `Socket::ResolutionError` does not exist on 3.2.11 (`TRANSPORT-3`, `TRANSPORT-4`, `TRANSPORT-20`; P6-4).
+  `decode_content` is switched off by `[]=` re-assignment — `add_field` does not flip it — and the three
+  auto-stamps `Accept`, `Accept-Encoding` and `User-Agent` are deleted, because `HTTP-6` makes the
+  four-member `Request` the whole truth about what goes out (P8-2, P8-3).
+- **`net-http`'s connect phase is `Timeout.timeout` below 0.7 and `TCPSocket.open(open_timeout:)` on
+  0.9.1, and the first `Timeout.timeout` in a process starts a thread that lives for the process** — so
+  on the 3.2, 3.3 and 3.4 rows the first test to open a connection was charged with a thread
+  `DexpaceTestCase`'s teardown could not join; `test/support/net_http_warmup.rb` opens one connection at
+  both adapter gems' test-helper load, before any count is taken, and a new gem's test helper that
+  connects must require it too (P8-62). `supply_default_content_type` is absent on 0.9.1 and warns under
+  `-w` on 0.4.1 and 0.6.0, so the adapter stamps `application/octet-stream` itself for a body-permitted
+  method with no header and no media type — never `Net::HTTP`'s `application/x-www-form-urlencoded`
+  (P8-4, P8-61). The gemspec's `net-http >= 0.4` has no upper bound: a default gem's version follows
+  the interpreter, and the suite prints the active `Net::HTTP::VERSION` per row instead (P8-60).
+- **`test:gems` loads every gem's test files into ONE `ruby -w` process, so a top-level test-support
+  constant must be unique across all six gems' `test/support/` directories** — `tools/suite_runner.rb`
+  runs them together so SimpleCov reports one aggregate figure (`NFR-5`), and a second
+  `class RecordingSink` in an adapter gem re-assigns core's `RecordingSink::Entry`, an "already
+  initialized constant" warning `NFR-6` makes fatal at load time; the gem's own `rake test` never sees
+  it. The adapter gem's double is `NetHTTPRecordingSink` for that reason (8a's checklist, departure 35).
+- **A conformance assertion sends through `kase.settle(transport, request, options, cancellation)` and
+  never `transport.call`, names no adapter, and waits with a bound** — what `TransportCase#transport`
+  returns is the `SettleOnly` guard, whose `#call` raises, because the default `settle` IS
+  `transport.call` and an assertion that called it would pass every synchronous run and fail only under
+  an async driver; `borrow:` takes the fixture's PORT and returns a `BorrowedPair`, so the caller's own
+  client is built in the driver and never in this gem; an adapter-specific vacuity is raised by
+  measurement from the assertion, never written into the shared suite ("vacuous here, real there"
+  breaks R16's "unchanged against both"); and `await_closed_connection` always carries a `timeout:`, so
+  an adapter that never releases fails the assertion instead of hanging the run (`TRANSPORT-18`,
+  `TRANSPORT-19`, `TRANSPORT-25`; P8-55, P8-56). `WireServer`'s `TCPServer.new("127.0.0.1", 0)` goes
+  through an `untyped` local: rbs 4.2.0's `tcp_server.rbs` types the constructor
+  `(?String host, Integer port)`, an optional positional before a required one, which Steep 2.1.0
+  refuses for the two-argument call Ruby accepts.
 
 ## Public API surface
 
@@ -1124,34 +1205,43 @@ probe compares each against the live tree, and a count written anywhere else in 
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
   metrics layer, the phase-6a retry layer, the phase-6c authentication layer, the phase-6b redirect
-  layer, the phase-7b server-sent-events layer, the phase-7c pagination layer and the phase-7a
-  serialization layer — two hundred and nineteen phase-1, phase-2, phase-3a, phase-3b, phase-4a,
-  phase-4b, phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b, phase-6c, phase-7b, phase-7c
-  and phase-7a files under `lib/dexpace/` beside phase 0's `version.rb` (7b's nine are `sse.rb` and the
-  eight under `sse/`; 7c's fifteen are `page.rb` and the fourteen under `page/`; 7a's eleven are all
-  under `serde/`, beside phase 2's three files there), every one mirrored in `sig/`, and every one of
-  the two hundred and nineteen but the nineteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
+  layer, the phase-7b server-sent-events layer, the phase-7c pagination layer, the phase-7a
+  serialization layer and phase 8a's transport error — two hundred and twenty phase-1, phase-2,
+  phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b,
+  phase-6c, phase-7b, phase-7c, phase-7a and phase-8a files under `lib/dexpace/` beside phase 0's
+  `version.rb` (7b's nine are `sse.rb` and the eight under `sse/`; 7c's fifteen are `page.rb` and the
+  fourteen under `page/`; 7a's eleven are all under `serde/`, beside phase 2's three files there; 8a's one
+  is `error/transport_error.rb`), every one mirrored in `sig/`, and every one of
+  the two hundred and twenty but the nineteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
   `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
   `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`, `instrumentation/render.rb`,
   `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb`,
   `auth/validation.rb`, `redirect/origin.rb`, `redirect/location.rb`, `redirect/chain.rb`,
   `redirect/emitter.rb`, `redirect/reissue.rb` and `page/closing.rb` mirrored
-  in `test/` (phase 7a's private constants all live inside public files and add none). `dexpace-serde-json`'s
+  in `test/` (phase 7a's private constants all live inside public files and add none, and 8a's one core
+  file is public with a mirror). `dexpace-serde-json`'s
   `lib/` holds the phase-7a JSON codec — `dexpace/serde/json.rb` and `dexpace/serde/json/codec.rb` beside
   phase 0's `version.rb`, both mirrored in `sig/`, the entry file mirrored in `test/` (with `floor_test.rb`
   beside it) and the codec by its five suites there — and its gemspec declares `json >= 2.19.9`, the one
-  place that floor is stated.
-  Every other gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant
-  and nothing else, and its gemspec declares `dexpace-core` and no third-party gem yet (design P0-9); the
-  third-party half of each `NFR-2` budget arrives with the phase that writes the code needing it, as 7a's
-  did.
+  place that floor is stated. `dexpace-transport-net_http`'s `lib/` holds the phase-8a synchronous
+  transport — nine files, the entry file and eight under `net_http/`, seven of them `private_constant`s,
+  every one mirrored in `sig/` and in `test/` — and its gemspec declares `net-http >= 0.4`, a default gem
+  declared as the `NFR-2` third-party half; `dexpace-conformance`'s holds the phase-8a conformance suite —
+  twenty-three files beside phase 0's `version.rb`, seven of them `private_constant`s, every one mirrored
+  in `sig/` and every one but `transport_suite/checks.rb`, `wire_server/recorded_request.rb` and
+  `wire_server/request_reader.rb` mirrored in `test/` — and its gemspec declares `dexpace-core` alone, its
+  `socket` and `tempfile` requires carried by the allowlist's exceptions.
+  Every other gem — `dexpace-async-thread` and `dexpace-transport-async_http` — is a phase-0 skeleton
+  whose `lib/` holds the namespace module and a `VERSION` constant and nothing else, and its gemspec
+  declares `dexpace-core` and no third-party gem yet (design P0-9); the third-party half of each `NFR-2`
+  budget arrives with the phase that writes the code needing it, as 7a's and 8a's did.
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  seventeen checklists written so far, each at implementation; `phase4/`
+  eighteen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1183,7 +1273,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`, and three sub-phase
   directories — `phase8/phase8a/` (synchronous transport and the conformance gem),
   `phase8/phase8b/` (async-runtime adapter) and `phase8/phase8c/` (asynchronous transport);
-  each holds a design and a plan. Phase 8 is 52 IDs (`TRANSPORT-1`–`30`, `ASYNC-1`–`22`) and is
+  each holds a design and a plan, and `phase8/phase8a/` a checklist too, written at implementation on
+  2026-09-20. Phase 8 is 52 IDs (`TRANSPORT-1`–`30`, `ASYNC-1`–`22`) and is
   the phase that ships the most gems in the roadmap — `dexpace-transport-net_http`,
   `dexpace-async-thread`, `dexpace-transport-async_http` and `dexpace-conformance`, whose
   gemspec, version and first release phase 8 owns. Its three sub-phases are independent, so
@@ -1226,5 +1317,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
   phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's and phase 7a's is still to be written at execution time.
+  phase 7c's, phase 7a's and phase 8a's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

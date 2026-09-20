@@ -57,7 +57,11 @@ stated in the release notes rather than discovered at `bundle install`.
       phase 8a and 8c each run it against a real adapter. **With one stated exception**: the 3.2 row runs
       the suite against `dexpace-transport-net_http` only, because `dexpace-transport-async_http` cannot
       be installed there (see the supported-Ruby note above, `P8-36`, and 8c's plan, Task 3). "Passing across 3.2
-      through 4.0" therefore means: every gem on every row it can be installed on
+      through 4.0" therefore means: every gem on every row it can be installed on. **Status 2026-09-20**:
+      the suite exists — twenty-eight assertions over twenty-two `TRANSPORT` IDs, `HTTP-17`/`HTTP-18` and
+      `PAGE-36` — and 8a ran it against `dexpace-transport-net_http` on 3.2.11 (net-http 0.4.1 and 0.9.1),
+      3.3.12, 3.4.10 and 4.0.6, every assertion green and `TRANSPORT-18` vacuous by measurement; the
+      `async-http` half waits for 8c
 - [ ] **Before release, `docs/sdk-documentation/` must state what a green `dexpace-conformance` run does
       and does not prove, and the run's own report preamble must name the same omissions.** Filed
       2026-09-12 by phase 8a's design (`P8-9`). The wire fixture speaks plaintext only and exercises no
@@ -69,7 +73,9 @@ stated in the release notes rather than discovered at `bundle install`.
       passes is entitled to know that TLS verification, connect-timeout classification and any waived ID
       were not among the things it passed — which is the difference between a conformance suite and a
       badge. Cites `TRANSPORT-4`, `TRANSPORT-14`, `TRANSPORT-20`, `NFR-2`; the suite itself is phase
-      8a's Tasks 4–8 and 20 and phase 9's Tasks 2–12a
+      8a's Tasks 4–8 and 20 and phase 9's Tasks 2–12a. **Status 2026-09-20**: `TransportSuite::PREAMBLE`
+      names the two omissions in every report, and `docs/sdk-documentation/conformance.md` states them
+      beside what a green run proves; the box ticks when 8c's waiver is stated beside them
 - [ ] **Before release, `docs/sdk-documentation/` must document the `include Dexpace` constant-shadow
       hazard.** Filed 2026-09-08 by phase 3a's design; recorded here 2026-09-13. Phase 1 measured
       `Dexpace::Method` shadowing `::Method` and concluded "**verified inert outside core**"; the observation
@@ -201,10 +207,15 @@ stated in the release notes rather than discovered at `bundle install`.
       `dexpace-conformance` fixture, or a downstream SDK's `SEAM-26` operation projection asking for one**.
       Until that event, it is a release decision and not a phase's: either the release notes state that
       `HTTP-22`, `HTTP-48`, `HTTP-49` and `HTTP-50` are unbuilt, or the four are built before the tag
-- [ ] **Phase 8's first transport adapter must wrap every stdlib I/O and timeout error it lets
+- [x] **Phase 8's first transport adapter must wrap every stdlib I/O and timeout error it lets
       escape** — `Errno::ETIMEDOUT`, `SocketError`, `Timeout::Error` and their kin — in something
       answering `#retryable?` (`Dexpace::TransportError` or equivalent), defaulting to `true` per
-      `XCUT-4` branch (b). `RETRY-2`'s classification is a capability-only query (`XCUT-6`;
+      `XCUT-4` branch (b). **Ticked 2026-09-20**: `Dexpace::TransportError` landed with 8a's Task 2 in
+      the shape below, and `dexpace-transport-net_http`'s `Failures.wrap` is a catch-all over every
+      `StandardError` that is not already a `Dexpace::Error` — the twelve families the design names each
+      proven wrapped with the original as `#cause`, on net-http 0.4.1, 0.6.0 and 0.9.1
+      (`gems/dexpace-transport-net_http/test/dexpace/transport/net_http/failures_test.rb`). The
+      `async-http` families are 8c's to prove against the same class. `RETRY-2`'s classification is a capability-only query (`XCUT-6`;
       `CFG-35`'s throwable half is phase 6a's Task 3, `Policy.throwable_retryable?`), so a bare
       unwrapped stdlib error classifies as **not retryable**, which is a silent
       retry-eligibility regression for exactly the class of failure `RETRY-4` calls "always
@@ -332,10 +343,11 @@ and the phase whose checklist carries the ⏳ row citing the entry here.
   `dexpace-core` by `SEAM-1`/`NFR-1`. Trigger: core's dependency budget changes — an event, and no phase in
   v1 can produce it. ⏳ row: phase 3b, which owns the ID. Its companion **`BODY-12` clause 2 (SHOULD)** —
   the transport dispatching a true zero-copy kernel path for a `Dexpace::FileBody` — is not a deferral but
-  an **UNSCHEDULED** decision (2026-09-12, phase 8a's design, R5; confirmed at execution by 8a's Task 25)
-  and is stated here so the release notes carry it: `Net::HTTP` streams a body through `::IO.copy_stream`
-  into a `Net::BufferedIO` whose `is_a?(::IO)` is false, so the kernel path is unreachable without
-  rewriting the library's own write path. Clause 1 was discharged by phase 3b (`::IO.copy_stream` with the
+  an **UNSCHEDULED** decision (2026-09-12, phase 8a's design, R5; **confirmed at execution 2026-09-20 on
+  net-http 0.4.1, 0.6.0 and 0.9.1** — the kernel path is still unreachable without bypassing the library's
+  own write path) and is stated here so the release notes carry it: `Net::HTTP` streams a body through
+  `::IO.copy_stream` into a `Net::BufferedIO` whose `is_a?(::IO)` is false, so the kernel path is
+  unreachable without rewriting the library's own write path. Clause 1 was discharged by phase 3b (`::IO.copy_stream` with the
   `(length, offset)` window) and is not owed.
 - **`PIPE-36` (SHOULD), pillar-step stage locking.** Post-MVP per the design's own coverage
   index; nothing in v1 implements any part of it, and 4c's design names `#stage`'s precedence table (its
@@ -359,9 +371,10 @@ and the phase whose checklist carries the ⏳ row citing the entry here.
   ⏳ rows: phase 5c (`OBS-32`) and phase 5b (`OBS-37`).
 - **`TRANSPORT-28`'s zero-copy clause (SHOULD), per-adapter.** The two
   MVP transports do not need it to satisfy the transport contract; `8a`'s R5 finds `TRANSPORT-28`'s
-  reachable half satisfiable on `Net::HTTP` and only its zero-copy clause outstanding. Trigger: a transport
-  adapter beyond the two the MVP ships. ⏳ row: phase 8a — `TRANSPORT-28`'s
-  zero-copy clause. **`TRANSPORT-30` was in this entry and is no longer** *(narrowed 2026-09-13)*:
+  reachable half satisfiable on `Net::HTTP` and only its zero-copy clause outstanding — built and proven
+  2026-09-20: a file body's `offset:` and `count:` window reaches the wire exactly and the body is
+  replayable, on every supported row. Trigger: a transport adapter beyond the two the MVP ships. ⏳ row:
+  phase 8a — `TRANSPORT-28`'s zero-copy clause. **`TRANSPORT-30` was in this entry and is no longer** *(narrowed 2026-09-13)*:
   `8a`'s `R17` found the deferral resting on a premise that was false in both directions — phase 5a
   ships `CFG-22`–`CFG-28`'s proxy resolver and routes proxy *use* to phase 8, and `Net::HTTP.new`'s
   `p_addr` defaults to `:ENV`, so the adapter was already proxying from the environment with a
@@ -592,8 +605,11 @@ the trigger, then the one job to do when it fires.
   `test.rb`, `autorun.rb`, `spec.rb` and `benchmark.rb` all remain. Every assertion name this repository uses
   survives: 22 were checked, from `assert_equal` to `assert_in_delta`, and all 22 are still defined on
   `Minitest::Assertions` in 6.0.0. What disappears is `Minitest::Mock` and `Object#stub` — which **phase 8a's
-  plan uses twice** (`Dexpace::Conformance::TransportSuite.stub(:assertions, assertions)`, in its driver test
+  plan used twice** (`Dexpace::Conformance::TransportSuite.stub(:assertions, assertions)`, in its driver test
   and again in its `test/` fence) and which two corpus rules name (`testing/e27df4c7`, `testing/70473c9d`).
+  *Narrowed 2026-09-20 at 8a's execution*: the built suites use **no** `.stub` anywhere — `TransportSuite.run`
+  takes an `assertions:` keyword and the drivers' tests hand in a plain object answering `#assertions` — so
+  the `stub` half of the pin's first reason is gone; the second reason below stands on its own.
   The pin keeps the same framework major and a working `stub` on every matrix row, at the cost of the 4.0 row
   not exercising the Minitest its interpreter ships; without it that row runs **red**, which would falsify the
   standing blocker above — the `dexpace-conformance` suite passing across 3.2 through 4.0 — and is exactly the
