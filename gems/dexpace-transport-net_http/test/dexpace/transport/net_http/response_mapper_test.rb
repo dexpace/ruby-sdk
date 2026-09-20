@@ -152,6 +152,29 @@ module DexpaceTransportNetHttpResponseMapperTest
       assert_equal([-1, -1, -1, 7], lengths)
     end
 
+    # The length grammar is core's spelling for a pattern a wire value reaches (PacingParsers,
+    # P6-61): a Regexp.new with its own timeout, never a literal, and a bounded digit run, so no
+    # header hands #to_i an unbounded string. Fifteen digits is exact; a sixteenth is the sentinel.
+    test "R4: the length grammar carries a per-pattern timeout and admits at most fifteen digits" do
+      grammar = ResponseMapper.const_get(:LENGTH)
+      fifteen = "9" * 15
+      sixteen = "9" * 16
+
+      refute_nil(grammar.timeout, "a literal carries no per-pattern timeout")
+      assert_in_delta(1.0, grammar.timeout, 0.0)
+      assert_predicate(grammar, :frozen?)
+      assert_equal(fifteen.to_i,
+                   build(ok("Content-Length" => fifteen), pump: pump_of("x")).body.content_length,)
+      native = ok("Content-Length" => sixteen)
+      response = build(native, pump: pump_of("x"))
+
+      assert_equal(-1, response.body.content_length)
+      assert_equal([sixteen], response.headers["Content-Length"],
+                   "the raw header still reaches the caller",)
+      assert_nil(native["Content-Length"],
+                 "deleted from the NATIVE response before read_body, as any refused value is",)
+    end
+
     test "TRANSPORT-27: a malformed Content-Type downgrades to nil rather than raising" do
       response = build(ok("Content-Type" => "not a/;;media type", "Content-Length" => "0"))
 

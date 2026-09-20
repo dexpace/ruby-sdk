@@ -69,9 +69,13 @@ class DexpaceTransportNetHttpTLSSettingsTest < DexpaceTestCase
     assert_match(/bogus/, error.message)
   end
 
-  # The assertion is that a plain-http URL never reaches #apply at all: a bogus ca_file would
-  # have failed a handshake, and the plaintext call succeeds.
-  test "tls: is not applied to a plain-http request" do
+  # What this proves is only that a tls: hash is INERT on a plaintext call: a bogus ca_file and
+  # VERIFY_PEER are configured and the plain-http call still answers "ok". Whether #apply was
+  # reached is not observable from here -- assigning ca_file or verify_mode on a plain-http
+  # Net::HTTP changes nothing on the wire, because there is no handshake either way -- so the
+  # "applied only when the URL is https" branch in Adapter#owned_client_for rests on its source
+  # and on no behavioural assertion (review round 0's mutation X, recorded as unobservable).
+  test "a tls: hash is inert on a plain-http request" do
     server = wire(Dexpace::Conformance::Scripts.fixed("ok"))
     adapter = NetHTTP.build(tls: { ca_file: "/nonexistent/ca.pem",
                                    verify_mode: OpenSSL::SSL::VERIFY_PEER, })

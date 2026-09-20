@@ -55,12 +55,15 @@ class DexpaceTransportNetHttpDeadlineTest < DexpaceTestCase
   end
 
   # TRANSPORT-6: the antecedent is inverted on this adapter (zero means poll-once, not
-  # unbounded), and the clamp ships anyway, for adapters over coarser APIs.
+  # unbounded), and the clamp ships anyway, for adapters over coarser APIs. The deltas below are
+  # an explicit 0.0: Minitest's default delta is 0.001, which is MIN_TIMEOUT_SECONDS exactly, so
+  # the unclamped half-millisecond passed the assertion with the clamp deleted (review round 0's
+  # mutation N -- the same autocorrect hazard 6a's checklist records for its jitter assertions).
   test "#clamped raises a tiny positive remaining up to MIN_TIMEOUT_SECONDS" do
     clock = FakeClock.new(0.0)
     deadline = Deadline.build(clock: clock, budget: NetHTTP::MIN_TIMEOUT_SECONDS / 2)
 
-    assert_in_delta(NetHTTP::MIN_TIMEOUT_SECONDS, deadline.clamped)
+    assert_in_delta(NetHTTP::MIN_TIMEOUT_SECONDS, deadline.clamped, 0.0)
   end
 
   test "#clamped does not raise an already-expired remaining" do
@@ -75,7 +78,7 @@ class DexpaceTransportNetHttpDeadlineTest < DexpaceTestCase
     clock = FakeClock.new(0.0)
     deadline = Deadline.build(clock: clock, budget: 10.0)
 
-    assert_in_delta(10.0, deadline.clamped)
+    assert_in_delta(10.0, deadline.clamped, 0.0)
   end
 
   test "the budget is measured against the clock's monotonic reading, never Time.now" do

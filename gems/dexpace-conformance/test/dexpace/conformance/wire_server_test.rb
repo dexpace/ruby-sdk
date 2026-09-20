@@ -85,6 +85,28 @@ module DexpaceConformanceWireServerTest
       server.close
     end
 
+    # The reader's Content-Length grammar is core's spelling for a pattern a wire value reaches
+    # (PacingParsers, P6-61): a Regexp.new with its own timeout and a bounded run, the same bound
+    # the adapter's own ResponseMapper applies. A raw socket is the one way to send the sixteen
+    # digits Net::HTTP would refuse to frame.
+    test "the request reader's length grammar has a timeout and admits at most fifteen digits" do
+      grammar = WireServer.const_get(:RequestReader).const_get(:LENGTH)
+
+      refute_nil(grammar.timeout, "a literal carries no per-pattern timeout")
+      assert_in_delta(1.0, grammar.timeout, 0.0)
+      assert_match(grammar, "9" * 15)
+      refute_match(grammar, "9" * 16)
+      server = WireServer.start(Scripts.fixed("x"))
+      socket = ::TCPSocket.new("127.0.0.1", server.port)
+      socket.write("POST /long HTTP/1.1\r\nHost: h\r\nContent-Length: #{"9" * 16}\r\n\r\nab")
+      socket.close_write
+      socket.read
+      socket.close
+
+      assert_equal([""], server.requests.map(&:body), "an over-long length frames no body")
+      server.close
+    end
+
     test "records closed_connections apart from connections; #await_closed_connection waits" do
       server = WireServer.start(Scripts.fixed("x"))
 

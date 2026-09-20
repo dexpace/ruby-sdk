@@ -51,4 +51,17 @@ class DexpaceConformanceAllocationsTest < DexpaceTestCase
     refute(::GC.disable, "GC.disable returns false when it was enabled, so the helper restored it")
     ::GC.enable
   end
+
+  # Published library code: a host that had the collector OFF around the call finds it off
+  # afterwards -- the helper restores the state it found, not the state it prefers (review round
+  # 0's R0-10; core's test-only copy re-enables unconditionally and may).
+  test "a collector the host had disabled stays disabled afterwards" do
+    ::GC.disable
+
+    Allocations.delta(iterations: 10) { nil }
+
+    assert(::GC.disable, "GC.disable answers true when it was already disabled")
+  ensure
+    ::GC.enable
+  end
 end

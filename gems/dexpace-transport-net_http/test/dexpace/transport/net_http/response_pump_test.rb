@@ -142,13 +142,23 @@ module DexpaceTransportNetHttpResponsePumpTest
       assert_operator(elapsed { blocked.close }, :<, 1.0)
     end
 
+    # P8-52: the hook is registered on the SOURCE for the response's life and withdrawn by
+    # #release, observed the way core's own cancellation suite observes a bounded registration --
+    # the source's hook list, one longer while the pump is open and back to its size after the
+    # close. A retained hook was unobservable through the closed pump alone: it would only have
+    # closed an already-closed pump again (review round 0's mutation E).
     test "the cancellation subscription is detached when the pump is closed" do
       source = Dexpace::Cancellation.source
+      hooks = -> { source.instance_variable_get(:@hooks).size }
+      before = hooks.call
       pump = pump_for(wire(Scripts.fixed("ok")), cancellation: source.token)
+
+      assert_equal(before + 1, hooks.call, "the pump subscribed for the response's life")
       pump.head_or_raise
       drain(pump)
       pump.close
 
+      assert_equal(before, hooks.call, "#release withdrew the pump's one registration")
       source.cancel(:late) # nothing left to close; a retained hook would close a closed pump twice
 
       assert_predicate(pump, :closed?)

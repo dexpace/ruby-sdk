@@ -115,16 +115,29 @@ class DexpaceTransportNetHttpProxyRouteTest < DexpaceTestCase
   end
 
   # TRANSPORT-30's second embedded MUST: "MUST NOT be answered to an origin-server (401)
-  # challenge." Structural: this adapter stamps no header in response to any status, because it
-  # never reads one.
-  test "an origin 401 draws no Proxy-Authorization out of the adapter" do
-    server = wire(Dexpace::Conformance::Scripts.vendor_status(401, "denied"))
+  # challenge." With a credentialled proxy CONFIGURED through the chain -- the fixture plays the
+  # proxy, on the adapter suite's ProxyTest precedent -- the one request that reaches it carries
+  # the preemptive Basic the SHOULD's fallback stamps, and the 401 it answers draws no second
+  # request: this adapter stamps no header in response to any status, because it never reads one.
+  # With no proxy configured there was no credential to leak and the assertion held against any
+  # adapter (review round 0's R0-9); the target is TEST-NET-1 because find_proxy exempts loopback.
+  test "an origin 401 draws no second, Proxy-Authorization-bearing request out of the adapter" do
+    proxy = wire(Dexpace::Conformance::Scripts.vendor_status(401, "denied"))
+    target = Dexpace::Request.build(method: "GET", url: "http://192.0.2.1/private",
+                                    headers: Dexpace::Headers::EMPTY, body: nil,)
+    Dexpace.configure do |builder|
+      builder.override(Keys::HTTP_PROXY, "http://u:pw@127.0.0.1:#{proxy.port}")
+    end
 
-    response = settle(NetHTTP.build, request_for(server))
+    response = settle(NetHTTP.build, target)
 
     assert_equal(401, response.status.code)
-    assert_equal(1, server.requests.size, "no second, credential-carrying request")
-    assert_nil(server.requests.first.header("proxy-authorization"))
+    assert_equal(1, proxy.requests.size, "no second, credential-carrying request")
+    assert_equal("Basic #{["u:pw"].pack("m0")}", proxy.requests.first.header("proxy-authorization"),
+                 "the Basic fallback goes out preemptively, once, with the first request",)
+    assert_equal("GET http://192.0.2.1/private HTTP/1.1", proxy.requests.first.request_line)
     response.close
+  ensure
+    Dexpace.reset_config!
   end
 end
