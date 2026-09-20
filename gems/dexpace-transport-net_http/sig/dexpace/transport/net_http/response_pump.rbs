@@ -18,8 +18,8 @@ module Dexpace
         @queue: Thread::SizedQueue
         @proceed: Thread::Queue
         @residue: String
-        @thread: Thread
-        @subscription: Dexpace::Cancellation::Subscription
+        @thread: Thread?
+        @subscription: Dexpace::Cancellation::Subscription?
 
         def initialize: (http: untyped, native: untyped, deadline: Deadline?,
                          cancellation: Dexpace::Cancellation, ?owns_connection: bool,
@@ -30,6 +30,7 @@ module Dexpace
 
         private
 
+        def start_producer: (Dexpace::Cancellation cancellation) -> nil
         def resume_producer: () -> nil
         def fill: () -> void
         def closed_failure: () -> Exception

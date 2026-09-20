@@ -40,13 +40,9 @@ module Dexpace
           @proceed = ::Thread::Queue.new
           @residue = (+"").b
           initialize_closeable(owned: true)
-          @thread = ::Thread.new { produce }
-          # The caller's cancellation closes this pump for the whole life of the response, not
-          # only for the head: a cancel under a blocked body read is what finishes the owned
-          # connection and wakes the producer (TRANSPORT-3). Registered AFTER the thread exists,
-          # because an already-cancelled token fires the hook at once; detached in #release, so
-          # a client-lifetime token retains this closure only until the response is closed.
-          @subscription = cancellation.on_cancel { close }
+          @thread = nil
+          @subscription = nil
+          start_producer(cancellation)
         end
 
         # Blocks on the first pop and returns the native head -- or, with a block, yields it and
@@ -104,6 +100,28 @@ module Dexpace
 
         private
 
+        # A token already cancelled when the pump is built gets a closed pump and no exchange:
+        # #close with no producer to join and no subscription to detach, and the permit -- the
+        # producer's to return once it exists -- returned here instead, exactly once (P8-64).
+        # Otherwise the caller's cancellation closes this pump for the whole life of the
+        # response, not only for the head: a cancel under a blocked body read is what finishes
+        # the owned connection and wakes the producer (TRANSPORT-3). Registered AFTER the thread
+        # exists, because Cancellation::Source runs an already-cancelled hook inline -- a cancel
+        # landing between the check and the registration closes the pump from inside this frame,
+        # and that #release joins the thread and finds the still-nil subscription slot. Detached
+        # in #release, so a client-lifetime token retains this closure only until the response
+        # is closed.
+        def start_producer(cancellation)
+          if cancellation.cancelled?
+            close
+            @permit&.push(:permit)
+          else
+            @thread = ::Thread.new { produce }
+            @subscription = cancellation.on_cancel { close }
+          end
+          nil
+        end
+
         def resume_producer
           @proceed.push(true)
           nil
@@ -145,8 +163,14 @@ module Dexpace
 
         # Runs on the PRODUCER's thread. A failure is pushed rather than raised, the queue is
         # closed in the ensure (never in a rescue) so a consumer blocked on pop ends rather than
-        # hangs, and the permit goes back only here, once the client is free.
+        # hangs, and the permit goes back only here, once the client is free. The latch is read
+        # first: a pump closed before its producer was scheduled -- a cancel racing the
+        # construction -- exchanges nothing, so the socket is never opened for a response nobody
+        # can receive and the join in #release is not spent waiting out a server that holds
+        # (P8-64).
         def produce
+          return if closed?
+
           if @owns_connection
             @http.start { |connected| exchange(connected) }
           else
@@ -211,8 +235,8 @@ module Dexpace
           rescue ::StandardError
             nil
           end
-          @thread.join(JOIN_DEADLINE_SECONDS)
-          @subscription.detach
+          @thread&.join(JOIN_DEADLINE_SECONDS) # nil when the token was cancelled at construction
+          @subscription&.detach # nil there too, and under a cancel racing the registration
           nil
         end
       end
