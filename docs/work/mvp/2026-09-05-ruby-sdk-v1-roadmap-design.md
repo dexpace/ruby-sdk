@@ -4298,3 +4298,59 @@ private `#target_name` in each — two `lib/` lines, two `sig/` lines, no public
 in place (guard 36); and the gate line above, which still carried round 0's run count. The battery is
 thirty-eight, thirty-six caught on both rows, guard 3 on 3.2.11 alone and guard 21 the one equivalent
 mutant. No ledger row is added.
+
+**2026-09-20** — **Phase 7a reconciled onto `main` after phases 7b (server-sent events) and 7c
+(pagination)**, by a rebase-and-reprove pass, which completes phase 7: its three sub-phases were built
+concurrently off `c53638b` and landed 7b, 7c, 7a, so umbrella #25 closes by hand once this stack is
+merged. Phase 7b's stack merged first (#81 `90abdb8` → #82 `eacf165` → #83 `34f52e8`) and 7c's reconciled
+stack after it (`3a1f0a4` → `549e683` → `79877b5`), so 7a's three branches — built off `c53638b` and
+reviewed at `ae15acb` → `04aad28` → `408698e` — were rebased onto 7c's reconciled docs tip `79877b5`,
+whose tree is what `main` holds once those three squashes land, with `git rebase --onto` (rerere
+disabled), every 7a commit preserved and none reordered; the stack is `e5a32ff` → `7a675c4` → this
+paragraph's own commit, the pass's one commit of its own, on the docs branch, carrying what no 7a
+commit could: this paragraph and the dated "Reconciled" note at the head of 7a's checklist. One
+repair to the pass's own work: the conflict stop on the feat commit ran its message through git's
+default comment cleanup, which dropped the three body lines that begin with `#media_type` and
+`#read_utf8`, so that commit was reworded back to its original message verbatim (same tree, same
+author and date) and the stack re-parented over it before any of the tips below were recorded; all
+nine messages now equal the reviewed ones. No test needed a repair and nothing was built. Seven files both sides had changed were reconciled inside
+the rebased 7a commits and nowhere else: `gems/dexpace-core/lib/dexpace.rb` (7b's `# Phase 7b:` block,
+7c's `# Phase 7c:` block, then 7a's `# Phase 7a:` block, each verbatim — 7a's comment still says "after
+6b's block", which stays true with the other two between), `test/fixtures/surface/dexpace-core.txt`
+(the auto-merge was already the regenerated manifest, confirmed by a `surface:regenerate` on the rebased
+code tip that changed nothing: 1,257 rows on the base plus 7a's 73, 1,330 — the same 73 rows 7a's own
+delta added over `c53638b`, all under `Dexpace::Serde` and `Body.serialized`, none removed and no private
+constant among them; `dexpace-serde-json.txt` 2 → 15 as before; the other four manifests unchanged),
+`CLAUDE.md` (re-derived from the combined tree: "… 6c, 7b, 7c and 7a are built" and the whole of phase
+7; two hundred and nineteen `lib/` files beside `version.rb` with two hundred and nineteen `sig/`
+mirrors — 7b's nine, 7c's fifteen and 7a's eleven over phase 6's 184; the same nineteen
+`private_constant` test-mirror exceptions, 7a adding none, every one of its eleven files mirrored on the
+tests branch; seventeen checklists; every merged lane's layer sentence and 7a's in the opening
+paragraph, in merge order; 7b's four, 7c's four and 7a's five "Constraints that will bite" lines;
+eighteen gates everywhere the base says so), `README.md` (both layer sentences and 7a's, the gem table's
+`json >= 2.19.9` row, "the other four are still skeletons"; its built-phases sentence, which 7a's own
+branch had not touched, names 7a beside 7b and 7c), `docs/README.md` (all three layers and all three
+pages, seventeen pages), `docs/sdk-documentation/architecture.md` (the `sse.md` and `serde.md` entries,
+the `write-a-serde.md` placeholder pointing at `serde.md`, and its opening list, which 7a's own branch
+had left at fourteen pages without `serde.md`, re-derived to seventeen), and this roadmap (every status
+note in merge order — 7b's, 7c's, 7c's reconciliation, then 7a's with its two review-round paragraphs;
+the phase-10 inbound list at forty-nine bullets, the base's forty-seven plus 7a's two, each cited by
+date and content). Every file only one lane touched is byte-identical to that lane's tip: 7a's own
+(`docs/first-release.md`, `.claude/skills/knowledge-lookup/SKILL.md`, `docs/knowledge/notes/serde.md`,
+`docs/sdk-documentation/serde.md`, `gems/dexpace-serde-json/README.md`, 7a's checklist before this
+pass's note, its design, the Steepfile's `:serde_json` block, every file under `lib/dexpace/serde/`,
+`gems/dexpace-serde-json/` and the two gems' `sig/` and `test/` trees) to `408698e`, and the merged
+lanes' (`gems/dexpace-core/README.md` among them — 7a's docs branch never touched it, so it names the
+server-sent-events and pagination layers and not the serialization layer, a gap this pass records
+rather than closes) to `79877b5`. 7a's checklist's and status note's count sentences describe its own
+base, `c53638b`, and now say so. Re-proven at every rebased tip: the code tip green on every one of the
+eighteen gates run individually on 4.0.6 (`test:gems` 3,151 runs, 70,100 assertions, 0 failures, 0
+errors, 0 skips, 97.82 % line coverage — above the floor, so no tip in the stack is red) and on the
+3.2.11 matrix row, `gates:serde_boundary` reporting its eight guarded globs clean with `serde/` beside
+them; the tests tip green on the whole default task on 4.0.6 (3,380 runs, 71,339 assertions, 0 skips,
+99.96 % line coverage), on the matrix set on 3.2.11, 3.3.12 and 3.4.10, and on the core suite under a
+second seed on 4.0.6 and 3.2.11 with identical run counts (3,286), the five converted registry pins
+re-run with all three phase-7 layers loaded in one process and `composition_test.rb` by name; the docs
+tip green on the default task, the honest RuboCop run, the probe, the knowledge-structure verifier and
+every `ruby` fence of `serde.md`, `sse.md` and `pagination.md` on 4.0.6 (`serde.md`'s tenth fence run
+with `require "stringio"` prepended, the nit 7a's review recorded).

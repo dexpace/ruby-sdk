@@ -13,6 +13,24 @@ is the first phase in the roadmap to write into two gems, and the first to spend
 third-party half; the three zero-dependency gates had never seen a gem carrying one. Where the plan's
 text and the built tree disagree the tree wins and this document records it.
 
+**Reconciled 2026-09-20.** Phase 7b's stack merged first (#81 → #82 → #83, `main` at `34f52e8`) and
+7c's reconciled stack after it, so this phase's three branches were rebased onto the tree that holds
+both by `git rebase --onto` with rerere disabled, every 7a commit preserved and none reordered. The
+sentences below that count the tree describe **this phase's own base**, `c53638b`, and are left as
+written; on the combined tree the figures are: 219 `lib/dexpace/` files beside `version.rb` (7b's
+nine, 7c's fifteen and 7a's eleven over the 184 of phase 6), **nineteen** `private_constant`
+test-mirror exceptions (the base's eighteen and 7c's `page/closing.rb`; 7a still adds none — every one
+of its eleven `lib/` files has a `test/` mirror, re-checked by the mirror walk on the rebased tests
+tip), seventeen checklists, seventeen as-built pages, the core manifest 1 257 → 1 330 (still exactly
+this phase's 73 rows, the adapter's 2 → 15 unchanged), the entry file's `# Phase 7a:` block after 7c's
+rather than directly after 6b's (its own comment still says "after 6b's block", which stays true with
+7b's and 7c's between), and **eighteen** gates — 7b's `gates:serde_boundary`, which this phase's base
+did not have and which scans `sse/**` and `page/**` alone, is green with `serde/` beside them. The
+five converted registry pins were re-run with all three phase-7 layers in one process and in the bare
+child; `composition_test.rb` was run by name. No 7a commit needed a repair and nothing was built by
+the pass. The combined tree's counts are `CLAUDE.md`'s and the roadmap's reconciliation note's; this
+document's are its base's.
+
 Legend, verbatim from the roadmap's cross-cutting constraint 3: ✅ implemented and tested ·
 🚫 not built (permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase,
 task number and path — that will do it, or the `docs/first-release.md` entry that owns it) ·
