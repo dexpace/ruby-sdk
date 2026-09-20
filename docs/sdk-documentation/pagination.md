@@ -106,9 +106,13 @@ pair must be honoured — and takes the first link-value whose `rel` carries the
 not, in any case; only a link-value's first `rel` parameter is read, as RFC 8288 §3.3 requires, so
 `<u>; rel="prev"; rel="next"` is a prev link. The target is resolved against the originating page's
 response URL as an RFC 3986 reference (a query-only `<?page=2>` keeps the whole path), and it is
-end-of-stream, never an error, when the header or the segment is absent, when the target is blank, when
-it cannot resolve, or when it resolves to something this client cannot dispatch — `mailto:`,
-`javascript:`, a host-less `http:foo`.
+end-of-stream, never an error, when the header or the segment is absent, when the target is a
+same-document reference — blank, or fragment-only like `<#top>`, RFC 3986 §4.4's two forms, which would
+otherwise re-fetch the current page until the cap — when it cannot resolve, or when it resolves to
+something this client cannot dispatch — `mailto:`, `javascript:`, a host-less `http:foo`. That
+same-document check reads the raw target, never the resolved URL: `<?>`, `<//>` or the current URL
+spelled out are followed like any other next link, and a server that loops through one is bounded by
+the cap.
 
 ```ruby
 link = P::LinkStrategy.build(extract_items: ->(_r) { [1] })
@@ -129,6 +133,7 @@ answers the template with only its URL swapped — method, headers and body trav
 ```ruby
 P.next_request_from(template, response(template), "?page=2").url.query # => "page=2"
 P.next_request_from(template, response(template), "   ")     # => nil
+P.next_request_from(template, response(template), "#top")    # => nil
 ```
 
 ## The query splice: `QueryRewriter`

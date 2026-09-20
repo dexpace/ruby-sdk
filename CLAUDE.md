@@ -168,9 +168,10 @@ and its `sig/` mirrors for any serialization dependency, the pagination layer's 
 `PENDING` list until 7c lands (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`) — and the
 pagination layer, §7.1's chapter 12, under `Dexpace::Page`, a class that is also the namespace: the page
 value owning one live response behind `Closeable`'s latch, with `.build` and the public resolution branch
-`.next_request_from` (blank, unresolvable and non-dispatchable targets all end-of-stream); `Info`, whose
-nil `next_request` is the one end-of-stream signal, with `.terminal`; the raw-query splice `QueryRewriter`
-(`.get`, `.set`, `.rewrite_url`) over phase 1's `PercentEncoding`, never `Query`; the three frozen `Data`
+`.next_request_from` (same-document — blank or fragment-only — unresolvable and non-dispatchable targets
+all end-of-stream); `Info`, whose nil `next_request` is the one end-of-stream signal, with `.terminal`;
+the raw-query splice `QueryRewriter` (`.get`, `.set`, `.rewrite_url`) over phase 1's `PercentEncoding`,
+never `Query`; the three frozen `Data`
 strategies `CursorStrategy`, `PageNumberStrategy` and `LinkStrategy`, every one over a caller-supplied
 `#call(response)` extractor and never a codec; the private RFC 8288 state machine `LinkHeader`; the
 private lifetime owner `Walk` — the one drive routine, the cap, the exhaustion latch and the two page slots
@@ -938,7 +939,10 @@ Each is one line plus the chapter to read before touching the area.
   second lane to rebase; `page_test.rb` scans the fifteen files for the two tokens until then (7c's P7-6,
   P7-108). The blocking engine passes `Cancellation.none` to the transport, never `nil`, which dies inside
   `Pipeline.standard`'s retry step (P7-102); `Page.next_request_from` screens a resolved target for an
-  http/https scheme and a host, 6b's screen copied because `Redirect::Location` is private (P7-104).
+  http/https scheme and a host, 6b's screen copied because `Redirect::Location` is private (P7-104), and
+  reads RFC 3986 §4.4's two same-document forms — `<>` and `<#…>` — off the RAW target before resolving,
+  never off the resolved URL, so `<//>` and the current URL spelled out are followed and the cap bounds
+  them (P7-5, P7-117).
 - **`AsyncPaginator`'s pump is a re-arm trampoline whose every callback is total, and its future settles
   with the page count, never nil** — a raising `on_settle` block escapes `Completer#fulfil` through
   `Hooks.notify`'s re-raise, so every body runs inside `Pump#guarded`; a pump re-entering itself from the
