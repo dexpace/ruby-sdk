@@ -19,7 +19,10 @@ module Dexpace
     # suite scans for one. The `rel` value is accepted quoted or unquoted, split on space and tab
     # into relation types, and each token compared through the no-argument `downcase`
     # (Dexpace/NoLocaleCaseFold) -- the one fold site in the subsystem. A parameter NAME is folded
-    # too, so `REL=next` is `rel=next` (RFC 8288 §3: parameter names are case-insensitive).
+    # too, so `REL=next` is `rel=next` (RFC 8288 §3: parameter names are case-insensitive), and
+    # only the FIRST `rel` parameter of a link-value is read: RFC 8288 §3.3 says `rel` MUST NOT
+    # appear more than once and occurrences after the first MUST be ignored, so
+    # `<u>; rel="prev"; rel="next"` is a prev link and never a next one (P7-116).
     #
     # It never raises. Malformed input -- a value with no angle brackets, a reference never closed,
     # a quoted string never closed, an escape at the very end -- yields the link-values scanned so
@@ -45,7 +48,8 @@ module Dexpace
         return nil if values.nil? || values.empty?
 
         link_values(values.join(", ")).each do |target, params|
-          return target if params.any? { |name, value| name == "rel" && next_token?(value) }
+          rel = params.find { |name, _value| name == "rel" }
+          return target if !rel.nil? && next_token?(rel[1])
         end
         nil
       end

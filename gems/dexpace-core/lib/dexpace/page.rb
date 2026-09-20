@@ -35,16 +35,20 @@ module Dexpace
     private_class_method :new
 
     # The validating factory every page goes through: a real Dexpace::Response (checked the way
-    # Response#initialize checks its request) and an Array of items, copied shallowly and frozen
+    # Response#initialize checks its request), an Array of items, copied shallowly and frozen
     # -- the collection is the model's, its elements stay the caller's (HTTP-5, XCUT-15; a deep
-    # copy through Model.own would replace and freeze domain objects and raise on a Proc, P7-101).
+    # copy through Model.own would replace and freeze domain objects and raise on a Proc, P7-101)
+    # -- and the two PAGE-34 keys, each nil or a String copied frozen, exactly as Info holds them:
+    # a key of another class is named and refused here rather than discovered by the fetcher
+    # front-end as a NoMethodError when it keys the next page off it (P7-107).
     #
     # @param response [Dexpace::Response] the live response this page owns from now on
     # @param items [Array] the materialized items, possibly empty, never nil (PAGE-2)
     # @param next_link [String, nil] PAGE-34's next link, when the source carried one
     # @param continuation_token [String, nil] PAGE-34's fallback key
     # @return [Dexpace::Page]
-    # @raise [Dexpace::InvalidArgumentError] on a missing response or a non-Array items
+    # @raise [Dexpace::InvalidArgumentError] on a missing response, a non-Array items, or a link
+    #   or token that is neither nil nor a String
     def self.build(response:, items:, next_link: nil, continuation_token: nil)
       unless Model.required!("response", response).is_a?(Dexpace::Response)
         raise InvalidArgumentError, "response must be a Dexpace::Response, got #{response.class}"
@@ -102,8 +106,8 @@ module Dexpace
     def initialize(response, items, next_link, continuation_token)
       @response = response
       @items = items.dup.freeze
-      @next_link = next_link
-      @continuation_token = continuation_token
+      @next_link = optional_string("next_link", next_link)
+      @continuation_token = optional_string("continuation_token", continuation_token)
       initialize_closeable(owned: true)
     end
 
@@ -126,6 +130,15 @@ module Dexpace
     def request = @response.request
 
     private
+
+    # nil, or a frozen copy of the String (XCUT-15); anything else is named and refused -- the same
+    # rule Info applies to the same two members, so a key travels from an Info to a Page unchanged.
+    def optional_string(name, value)
+      return nil if value.nil?
+      return Model.frozen_string(value) if value.is_a?(::String)
+
+      raise InvalidArgumentError, "#{name} must be a String or nil, got #{value.class}"
+    end
 
     # Closeable's one obligation: forward to the response exactly once. A raising close leaves the
     # latch flipped, so no second release is attempted and the failure propagates once (PAGE-3).
