@@ -1,0 +1,18 @@
+module Dexpace
+  module Serde
+    # The nullable combinator (SERDE-6): a witness accepting a wire null where its element would
+    # not. A frozen Data; .new and .[] are private.
+    class Nullable < Data
+      include Model
+
+      attr_reader element: untyped
+
+      private def self.new: (element: untyped) -> instance
+      def initialize: (element: untyped) -> void
+
+      def self.of: (untyped element) -> Nullable
+      def self.build: (element: untyped) -> Nullable
+      def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> untyped
+    end
+  end
+end

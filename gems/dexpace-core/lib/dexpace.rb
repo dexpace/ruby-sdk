@@ -307,6 +307,27 @@ require_relative "dexpace/page/paginator"
 require_relative "dexpace/page/async_paginator"
 require_relative "dexpace/page/fetchers"
 
+# Phase 7a: the serialization layer, in dependency order -- after 6b's block, because the two
+# handlers read 3b's Response and Body and 4b's Recovery and ProtocolError, and the whole layer
+# raises through phase 2's Serde::DeserializationError. The decode context first (every witness
+# raises through it), the witness predicates (every combinator is validated by them), the encode
+# walk and its OMIT sentinel (Tristate's #dexpace_dump returns it), the scalar-witness table, the
+# tri-state type with its combinator, the three container combinators, the ISO-8601 witness, and
+# the two response handlers last. No namespace file: Dexpace::Serde is phase 2's serde.rb, which
+# witness.rb reopens. `time` is required by instant.rb, the file that names it; it has been on
+# the allowlist since phase 5a.
+require_relative "dexpace/serde/decode_context"
+require_relative "dexpace/serde/witness"
+require_relative "dexpace/serde/native"
+require_relative "dexpace/serde/scalars"
+require_relative "dexpace/serde/tristate"
+require_relative "dexpace/serde/list"
+require_relative "dexpace/serde/map"
+require_relative "dexpace/serde/nullable"
+require_relative "dexpace/serde/instant"
+require_relative "dexpace/serde/decoding_handler"
+require_relative "dexpace/serde/status_aware_handler"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

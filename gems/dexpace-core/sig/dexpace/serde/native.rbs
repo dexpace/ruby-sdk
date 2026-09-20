@@ -1,0 +1,31 @@
+module Dexpace
+  module Serde
+    # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+    # target types OMIT's construction. The privacy lives in lib/dexpace/serde/native.rb.
+    class Omit
+      def to_s: () -> String
+      def inspect: () -> String
+    end
+
+    OMIT: Omit
+
+    # The encode walk (P7-9): SERDE-15's key omission, SERDE-20's three degradations and SERDE-9's
+    # loud failure on an unencodable value, in one place a codec adapter calls.
+    module Native
+      # A private_constant with no visibility in RBS; declared so Steep can type .of's default.
+      NO_ENCODERS: Hash[Module, untyped]
+
+      def self?.of: (untyped value, ?encoders: Hash[Module, untyped]) -> untyped
+
+      private
+
+      def encoders!: (untyped encoders) -> Hash[Module, untyped]
+      def walk: (untyped value, Hash[Module, untyped] encoders) -> untyped
+      def native_scalar?: (untyped value) -> bool
+      def walk_hash: (Hash[untyped, untyped] hash, Hash[Module, untyped] encoders) -> Hash[String, untyped]
+      def walk_array: (Array[untyped] array, Hash[Module, untyped] encoders) -> Array[untyped]
+      def walk_encoded: (untyped value, Hash[Module, untyped] encoders) -> untyped
+      def key!: (untyped key) -> String
+    end
+  end
+end

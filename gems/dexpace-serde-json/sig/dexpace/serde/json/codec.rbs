@@ -1,0 +1,44 @@
+module Dexpace
+  module Serde
+    module JSON
+      # The seam's six methods over one private ::JSON::Coder. No ::JSON constant appears in this
+      # signature (NFR-11): the engine is an untyped private ivar with no reader, and rbs's stdlib
+      # json signatures (4.2.0) declare no JSON::Coder to name in any case.
+      class Codec
+        # Three private_constants with no visibility in RBS; declared so Steep can type the
+        # constructor. The privacy lives in lib/dexpace/serde/json/codec.rb.
+        module Options
+          ALLOWED: Array[Symbol]
+
+          def self?.table!: (untyped options) -> Hash[Symbol, untyped]
+          def self?.encoders!: (untyped encoders) -> Hash[Module, untyped]
+        end
+
+        DEFAULT_ENCODERS: Hash[Module, untyped]
+        MEDIA_TYPE: Dexpace::MediaType
+
+        @coder: untyped
+        @encoders: Hash[Module, untyped]
+
+        private def self.new: (Hash[Symbol, untyped]? options) -> instance
+        def initialize: (Hash[Symbol, untyped]? options) -> void
+
+        def self.build: (?Hash[Symbol, untyped]? options) -> Codec
+        def self.default: () -> Codec
+
+        def media_type: () -> Dexpace::MediaType
+        def dump_string: (untyped value) -> String
+        def dump_bytes: (untyped value) -> String
+        def dump_to: (untyped value, untyped sink) -> Integer
+        def dump_into: (untyped value, String buffer, ?offset: Integer) -> Integer
+        def load: (untyped source, untyped witness) -> untyped
+
+        private
+
+        def buffer!: (untyped buffer, untyped offset) -> void
+        def drain: (untyped source) -> String
+        def parse: (String text) -> untyped
+      end
+    end
+  end
+end

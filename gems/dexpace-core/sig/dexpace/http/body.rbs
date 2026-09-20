@@ -58,6 +58,7 @@ module Dexpace
                          ?subtype: String) -> Dexpace::MultipartBody
     def self.buffer: (Dexpace::IO::Buffer buffer, ?media_type: Dexpace::MediaType?)
                    -> Dexpace::BufferBody
+    def self.serialized: (untyped value, serde: untyped) -> Dexpace::BytesBody
     def self.buffer_bounded: (Dexpace::Body body, ?cap: Integer | Float) -> Dexpace::BufferBody
 
     private def self.clamp_cap: (untyped cap) -> Integer

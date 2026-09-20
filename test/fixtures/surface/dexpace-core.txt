@@ -173,6 +173,7 @@ Dexpace::Body.chunked
 Dexpace::Body.file
 Dexpace::Body.form
 Dexpace::Body.multipart
+Dexpace::Body.serialized
 Dexpace::Body.stream
 Dexpace::Body.string
 Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES : Integer
@@ -1187,9 +1188,81 @@ Dexpace::Serde.register
 Dexpace::Serde.registered_keys
 Dexpace::Serde.resolve
 Dexpace::Serde.swap
+Dexpace::Serde.witness!
+Dexpace::Serde.witness?
+Dexpace::Serde::BOOLEAN : Dexpace::Serde::Scalars::Scalar
+Dexpace::Serde::DUMP_METHOD : Symbol
+Dexpace::Serde::DecodeContext
+Dexpace::Serde::DecodeContext#array!
+Dexpace::Serde::DecodeContext#at
+Dexpace::Serde::DecodeContext#boolean!
+Dexpace::Serde::DecodeContext#error!
+Dexpace::Serde::DecodeContext#float!
+Dexpace::Serde::DecodeContext#integer!
+Dexpace::Serde::DecodeContext#object!
+Dexpace::Serde::DecodeContext#path
+Dexpace::Serde::DecodeContext#pointer
+Dexpace::Serde::DecodeContext#present!
+Dexpace::Serde::DecodeContext#string!
+Dexpace::Serde::DecodeContext#target
+Dexpace::Serde::DecodeContext.build
+Dexpace::Serde::DecodeContext.root
+Dexpace::Serde::DecodingHandler
+Dexpace::Serde::DecodingHandler#call
+Dexpace::Serde::DecodingHandler#serde
+Dexpace::Serde::DecodingHandler#witness
+Dexpace::Serde::DecodingHandler.build
 Dexpace::Serde::DeserializationError
 Dexpace::Serde::Error
+Dexpace::Serde::Instant
+Dexpace::Serde::Instant#dexpace_dump
+Dexpace::Serde::Instant#dexpace_load
+Dexpace::Serde::List
+Dexpace::Serde::List#dexpace_load
+Dexpace::Serde::List#element
+Dexpace::Serde::List.build
+Dexpace::Serde::List.of
+Dexpace::Serde::Map
+Dexpace::Serde::Map#dexpace_load
+Dexpace::Serde::Map#key
+Dexpace::Serde::Map#value
+Dexpace::Serde::Map.build
+Dexpace::Serde::Map.of
+Dexpace::Serde::Native
+Dexpace::Serde::Native#of
+Dexpace::Serde::Nullable
+Dexpace::Serde::Nullable#dexpace_load
+Dexpace::Serde::Nullable#element
+Dexpace::Serde::Nullable.build
+Dexpace::Serde::Nullable.of
+Dexpace::Serde::OMIT : Dexpace::Serde::Omit
 Dexpace::Serde::SerializationError
+Dexpace::Serde::StatusAwareHandler
+Dexpace::Serde::StatusAwareHandler#call
+Dexpace::Serde::StatusAwareHandler#factory
+Dexpace::Serde::StatusAwareHandler#serde
+Dexpace::Serde::StatusAwareHandler#witness
+Dexpace::Serde::StatusAwareHandler.build
+Dexpace::Serde::Tristate
+Dexpace::Serde::Tristate#absent?
+Dexpace::Serde::Tristate#fold
+Dexpace::Serde::Tristate#null?
+Dexpace::Serde::Tristate#present?
+Dexpace::Serde::Tristate#value_or_nil
+Dexpace::Serde::Tristate.absent
+Dexpace::Serde::Tristate.from_nullable
+Dexpace::Serde::Tristate.null
+Dexpace::Serde::Tristate.of
+Dexpace::Serde::Tristate.present
+Dexpace::Serde::Tristate::ABSENT : Dexpace::Serde::Tristate::Absent
+Dexpace::Serde::Tristate::NULL : Dexpace::Serde::Tristate::Null
+Dexpace::Serde::Tristate::Present
+Dexpace::Serde::Tristate::Present#dexpace_dump
+Dexpace::Serde::Tristate::Present#present?
+Dexpace::Serde::Tristate::Present#value
+Dexpace::Serde::Tristate::Present#value_or_nil
+Dexpace::Serde::Tristate::Present.build
+Dexpace::Serde::WITNESS_METHOD : Symbol
 Dexpace::Status
 Dexpace::Status#canonical_name
 Dexpace::Status#client_error?

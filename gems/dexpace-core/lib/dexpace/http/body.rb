@@ -5,6 +5,8 @@ require_relative "../io"
 require_relative "../io/buffer"
 require_relative "../error/stream_error"
 require_relative "../error/invalid_argument_error"
+require_relative "../model"
+require_relative "media_type"
 
 module Dexpace
   # The request/response body contract, the factory home, and the two copy routines every variant
@@ -224,6 +226,44 @@ module Dexpace
     # Replayable: a body over a Dexpace::IO::Buffer core owns, read through fresh views.
     def self.buffer(buffer, media_type: nil)
       Dexpace::BufferBody.new(buffer, media_type: media_type)
+    end
+
+    # SERDE-2's factory, the ninth beside phase 3b's eight (phase 7a): a value plus a serde,
+    # with the serde's declared media type as the body's -- "that media type MUST be used as the
+    # default Content-Type when a request body is created from a value plus a Serde". Returns a
+    # replayable BytesBody over `serde.dump_bytes(value)`, so the body knows its exact length and
+    # is retryable with #to_replayable doing nothing (BODY-1, HTTP-38).
+    #
+    # The seam's `#media_type` answers a Dexpace::MediaType or a String (`_Codec`, settled by
+    # phase 7a): a MediaType passes through and a String is parsed through phase 1's
+    # MediaType.parse, which runs the outbound header-value grammar first, so a codec answering
+    # a value a Content-Type header could not carry is refused there, naming the value. A nil or
+    # empty media type raises naming the codec's class: SERDE-2's "MUST NOT be defaulted to a
+    # format-agnostic constant at the SPI level" means there is no fallback to fall back to --
+    # phase 2 enforces the presence at .conforms?, and this is the same rule at the one call site
+    # that consumes the value.
+    #
+    # @param value [Object] anything the serde can encode
+    # @param serde [Dexpace::_Codec] the serde, `#dump_bytes` and `#media_type` at least
+    # @return [Dexpace::BytesBody]
+    # @raise [Dexpace::InvalidArgumentError] on a nil serde ("serde is required"), one answering
+    #   neither seam method, or a nil, empty or unparseable media type
+    # @raise [Dexpace::Serde::SerializationError] from the serde, on an unencodable value
+    def self.serialized(value, serde:)
+      Dexpace::Model.required!("serde", serde)
+      unless serde.respond_to?(:dump_bytes) && serde.respond_to?(:media_type)
+        raise Dexpace::InvalidArgumentError,
+              "serde must answer #dump_bytes and #media_type (the codec seam), got #{serde.class}"
+      end
+
+      declared = serde.media_type
+      # SERDE-2: no format-agnostic default, so a codec that declares nothing is a caller mistake.
+      if declared.nil? || (declared.respond_to?(:empty?) && declared.empty?)
+        raise Dexpace::InvalidArgumentError, "#{serde.class} declared no media type (SERDE-2)"
+      end
+
+      media_type = declared.is_a?(Dexpace::MediaType) ? declared : Dexpace::MediaType.parse(declared)
+      bytes(serde.dump_bytes(value), media_type: media_type)
     end
 
     # ---- BODY-32's cap rules, shared by every capped operation --------------------------

@@ -38,14 +38,27 @@ class DexpaceSerdeTest < DexpaceTestCase
     assert_equal(%i[media_type], Dexpace::Serde.missing_methods(forgetful))
   end
 
+  # A property of a process that required `dexpace` ALONE -- `rake test:gems` runs every gem's
+  # suite in one process and dexpace-serde-json registers itself under :json as its entry file
+  # loads (design §3.6), so this is asserted in a child process, the shape
+  # instrumentation/independence_test.rb uses. Converted by phase 7a as a pin its registration
+  # invalidated; the message assertions are unchanged.
+  BARE_REQUIRE = <<~RUBY
+    require "dexpace"
+    puts Dexpace::Serde.registered_keys.inspect
+    puts(Dexpace::Serde.resolve.then { "RESOLVED" }) rescue puts($!.message)
+  RUBY
+  GEM_ROOT = File.expand_path("../..", __dir__)
+
   test "the registry starts empty and its error names this seam and no gem" do
-    assert_empty(Dexpace::Serde.registered_keys)
+    command = [::RbConfig.ruby, "-w", "-Ilib", "-e", BARE_REQUIRE]
+    out = IO.popen(command, err: %i[child out], chdir: GEM_ROOT, &:read)
+    keys, message = out.lines(chomp: true)
 
-    error = assert_raises(Dexpace::SeamError) { Dexpace::Serde.resolve }
-
-    assert_match(/no codec provider is registered/, error.message)
-    assert_match(/Dexpace::Serde\.install/, error.message)
-    refute_match(/json|oj/i, error.message, "SEAM-2")
+    assert_equal("[]", keys, out)
+    assert_match(/no codec provider is registered/, message)
+    assert_match(/Dexpace::Serde\.install/, message)
+    refute_match(/json|oj/i, message, "SEAM-2")
   end
 
   test "install refuses a codec that does not implement the seam" do
@@ -56,6 +69,18 @@ class DexpaceSerdeTest < DexpaceTestCase
     assert_match(/must implement the seam/, error.message)
   end
 
+  # After the block the OVERRIDE is gone. What resolves then depends on the process: nothing, in
+  # a process that required core alone (a SeamError); the registered adapter's codec, under
+  # `rake test:gems`, where dexpace-serde-json has registered :json. Registry#swap restores
+  # `resolved` and deliberately never `factories` (a registration is a monotonic require-time
+  # fact), so the assertion is that the swapped-in codec is no longer what resolves -- converted by
+  # phase 7a from "nothing resolves", a pin its registration invalidated.
+  def resolved_after_swap
+    Dexpace::Serde.resolve
+  rescue Dexpace::SeamError
+    :unresolved
+  end
+
   test "swap scopes a codec override to its block" do
     codec = FakeCodec.new
 
@@ -63,7 +88,7 @@ class DexpaceSerdeTest < DexpaceTestCase
       assert_same(codec, Dexpace::Serde.resolve)
     end
 
-    assert_raises(Dexpace::SeamError) { Dexpace::Serde.resolve }
+    refute_same(codec, resolved_after_swap)
   end
 
   test "install goes through the module, returns it, and is scoped by an enclosing swap" do
@@ -74,7 +99,7 @@ class DexpaceSerdeTest < DexpaceTestCase
       assert_same(codec, Dexpace::Serde.resolve)
     end
 
-    assert_raises(Dexpace::SeamError) { Dexpace::Serde.resolve }
+    refute_same(codec, resolved_after_swap)
   end
 
   # Scoped inside a swap and cleaned out of the private registry afterwards, for the reason

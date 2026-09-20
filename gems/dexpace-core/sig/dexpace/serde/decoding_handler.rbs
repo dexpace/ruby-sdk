@@ -1,0 +1,24 @@
+module Dexpace
+  module Serde
+    # SERDE-27's response-decoding handler, a Dexpace::_ResponseHandler supplied into
+    # TypedResponse. A frozen Data; .new and .[] are private and .build is the validating factory.
+    class DecodingHandler < Data
+      include Model
+
+      attr_reader serde: untyped
+      attr_reader witness: untyped
+
+      private def self.new: (serde: untyped, witness: untyped) -> instance
+      def initialize: (serde: untyped, witness: untyped) -> void
+
+      def self.build: (serde: untyped, witness: untyped) -> DecodingHandler
+      def call: (Dexpace::Response response) -> untyped
+
+      private
+
+      def decode: (Dexpace::Response response) -> untyped
+      def missing_body: () -> Dexpace::Serde::DeserializationError
+      def target_name: () -> String
+    end
+  end
+end

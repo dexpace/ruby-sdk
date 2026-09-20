@@ -1,2 +1,15 @@
 Dexpace::Serde::JSON
+Dexpace::Serde::JSON.build
+Dexpace::Serde::JSON.default
+Dexpace::Serde::JSON::Codec
+Dexpace::Serde::JSON::Codec#dump_bytes
+Dexpace::Serde::JSON::Codec#dump_into
+Dexpace::Serde::JSON::Codec#dump_string
+Dexpace::Serde::JSON::Codec#dump_to
+Dexpace::Serde::JSON::Codec#load
+Dexpace::Serde::JSON::Codec#media_type
+Dexpace::Serde::JSON::Codec.build
+Dexpace::Serde::JSON::Codec.default
+Dexpace::Serde::JSON::MINIMUM_JSON_VERSION : String
+Dexpace::Serde::JSON::REQUIRED_CORE : String
 Dexpace::Serde::JSON::VERSION : String

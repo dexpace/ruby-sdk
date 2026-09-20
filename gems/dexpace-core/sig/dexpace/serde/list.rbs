@@ -1,0 +1,18 @@
+module Dexpace
+  module Serde
+    # The Array combinator (SERDE-6): a witness for Array[element], built by value. A frozen Data;
+    # .new and .[] are private and .build is the validating factory .of routes through.
+    class List < Data
+      include Model
+
+      attr_reader element: untyped
+
+      private def self.new: (element: untyped) -> instance
+      def initialize: (element: untyped) -> void
+
+      def self.of: (untyped element) -> List
+      def self.build: (element: untyped) -> List
+      def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> Array[untyped]
+    end
+  end
+end

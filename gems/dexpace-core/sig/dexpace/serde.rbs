@@ -1,13 +1,17 @@
 module Dexpace
-  # The static half of the codec seam: the six methods, typed. `value` and the witness are
-  # untyped because the witness protocol is phase 7's (§7.3) and a codec's value space is its own.
+  # The static half of the codec seam: the six methods, typed. `value` is untyped because a
+  # codec's value space is its own. Phase 7a settled the three clauses phase 2 left loose:
+  # #media_type answers a Dexpace::MediaType or a String (Body.serialized coerces the String;
+  # SERDE-2), #load takes a Dexpace::Serde::_Witness (design §7.3's protocol), and #dump_to answers
+  # the byte count written, as the other three encode profiles do. `source` stays untyped because
+  # SERDE-3's subject is "a caller-supplied stream" and phase 2's own test passes a StringIO.
   interface _Codec
-    def media_type: () -> String
+    def media_type: () -> (Dexpace::MediaType | String)
     def dump_string: (untyped value) -> String
     def dump_bytes: (untyped value) -> String
-    def dump_to: (untyped value, untyped sink) -> untyped
+    def dump_to: (untyped value, untyped sink) -> Integer
     def dump_into: (untyped value, String buffer, offset: Integer) -> Integer
-    def load: (untyped source, untyped witness) -> untyped
+    def load: (untyped source, Dexpace::Serde::_Witness witness) -> untyped
   end
 
   module Serde

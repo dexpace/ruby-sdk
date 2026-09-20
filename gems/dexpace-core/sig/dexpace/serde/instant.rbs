@@ -1,0 +1,14 @@
+module Dexpace
+  module Serde
+    # The ISO-8601 instant witness (SERDE-24): the decode half parses, the encode half renders at
+    # microsecond precision (P7-8 states the round-trip domain). ::Time is the one foreign constant
+    # in core's serde signatures and is on NFR-11's stdlib allowlist.
+    module Instant
+      # A private_constant with no visibility in RBS; declared so Steep can type the two raises.
+      EXPECTED: String
+
+      def self?.dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> Time
+      def self?.dexpace_dump: (untyped time) -> String
+    end
+  end
+end
