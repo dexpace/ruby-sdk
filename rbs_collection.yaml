@@ -1,8 +1,6 @@
 # Third-party RBS, resolved from the gems the bundle actually holds. No third-party row exists
-# yet: phase 7a's dexpace-serde-json declares json, but json's signatures are rbs's own stdlib set
-# (`rbs collection install` already resolves `json` with `source: type: stdlib`) and json 3.0.2
-# ships no sig/ of its own, so the codec's one `JSON::Coder` reference is settled in the Steepfile's
-# :serde_json target instead of here; net-http and async-http arrive with the transports in phase 8,
+# in phase 0 because no gemspec declares a third-party dependency yet: json arrives with
+# dexpace-serde-json's codec in phase 7, net-http and async-http with the transports in phase 8,
 # and each adds its own row here then. Core never gets one -- its allowlist is stdlib only, and
 # stdlib signatures ship with rbs itself.
 sources:
