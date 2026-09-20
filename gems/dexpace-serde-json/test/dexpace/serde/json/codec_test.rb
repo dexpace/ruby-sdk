@@ -8,7 +8,8 @@ require "dexpace/serde/json"
 # SEAM-20's four allocation profiles, SERDE-4's buffer contract, SERDE-9/SERDE-10's failure model,
 # SERDE-25's factory, SERDE-26's private engine and SERDE-29's sharing. Every reference to Ruby's
 # JSON is ::JSON -- phase 2's Dexpace/QualifiedCoreConstant, and this is the first code it bites.
-# Split under Metrics/ClassLength: the encode profiles, the failure model, the construction.
+# Split under Metrics/ClassLength: the encode profiles, the failure model, the construction and
+# the keywords the private engine is built with.
 class DexpaceSerdeJSONCodecTest < DexpaceTestCase
   C = Dexpace::Serde::JSON::Codec
 
@@ -320,6 +321,55 @@ class DexpaceSerdeJSONCodecTest < DexpaceTestCase
       codec = C.default
 
       assert_empty(codec.instance_variables.grep(/cache|memo/i))
+    end
+  end
+
+  # The two options the codec fixes and the one it withholds, pinned at the keyword level rather
+  # than by the engine's behaviour: on the bundle's json 3.0.2 a duplicate key is a ParserError
+  # BY DEFAULT, so dropping `allow_duplicate_key: false` from the codec is invisible to every
+  # behavioural case on every gate row and turns into a warning-plus-last-wins only at the 2.19.9
+  # floor, which no gate row runs (review round 0, R0-2). A recorder prepended onto
+  # ::JSON::Coder's singleton class captures what `.new` receives; it is a permanent patch to a
+  # library class, so it lives in a child process (context_store_config_test.rb's shape), which
+  # inherits bundler's RUBYOPT and so sees the bundle's json, as the parent does.
+  class CoderKeywordsTest < DexpaceTestCase
+    GEM_ROOT = File.expand_path("../../../..", __dir__)
+    # The core this process loaded, handed to the child explicitly so the probe reads the same
+    # tree under `bundle exec` and under a bare `ruby -I` run alike; the json is whatever the
+    # child's gem activation picks, which is the parent's under either.
+    CORE_LIB = File.dirname($LOADED_FEATURES.grep(%r{/dexpace\.rb\z}).fetch(0))
+
+    # Every keyword ::JSON::Coder.new receives, one sorted line per construction; the values are
+    # rendered by hand because Hash#inspect changed shape at Ruby 3.4.
+    PROBE = <<~'RUBY'
+      require "dexpace/serde/json"
+      module CoderProbe
+        def new(*args, **options, &block)
+          puts options.sort.map { |key, value| "#{key}=#{value.inspect}" }.join(" ")
+          super
+        end
+      end
+      ::JSON::Coder.singleton_class.prepend(CoderProbe)
+      codec = Dexpace::Serde::JSON::Codec
+      codec.default
+      codec.build(allow_duplicate_key: true)
+      codec.build(encoders: { ::Time => :to_i.to_proc }, max_nesting: 4)
+      Dexpace::Serde::JSON.build(allow_nan: true, script_safe: true, max_nesting: nil)
+    RUBY
+
+    EXPECTED = [
+      "allow_duplicate_key=false strict=true",
+      "allow_duplicate_key=true strict=true",
+      "allow_duplicate_key=false max_nesting=4 strict=true",
+      "allow_duplicate_key=false allow_nan=true script_safe=true strict=true",
+    ].freeze
+
+    test "P7-65: the engine is built with allow_duplicate_key: false and strict: true, and never " \
+         "sees encoders:" do
+      command = [::RbConfig.ruby, "-w", "-I", CORE_LIB, "-Ilib", "-e", PROBE]
+      out = IO.popen(command, err: %i[child out], chdir: GEM_ROOT, &:read)
+
+      assert_equal(EXPECTED, out.lines(chomp: true), out)
     end
   end
 end
