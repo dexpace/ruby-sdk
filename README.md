@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b and 7c are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c and 7a are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -75,17 +75,24 @@ pagination layer: the page value that owns one live response, the strategy contr
 built-in strategies over a caller-supplied extractor and never a codec, the byte-for-byte query
 splice, the eager-closing item view and the single-use, look-ahead page view over one private walk,
 the blocking engine, the non-blocking engine driven through `Future#on_settle` as a re-arm
-trampoline, the fetcher front-end, and `URL.resolve` (`docs/sdk-documentation/pagination.md`); the
-operation-lifecycle and transport groups of the HTTP-tracer vocabulary are emitted by nothing yet,
-and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
-signature mirror and a smoke suite:
+trampoline, the fetcher front-end, and `URL.resolve` (`docs/sdk-documentation/pagination.md`) — and the
+serialization layer: the witness protocol with its decode context, three container combinators, a named
+boolean witness and an ISO-8601 witness, the three-state PATCH type with its decode combinator, the
+native-form encode walk that makes tri-state PATCH structural, `Body.serialized`, and the two response
+handlers phase 3b's `TypedResponse` was built to take (`docs/sdk-documentation/serde.md`).
+`dexpace-serde-json` holds the JSON codec over one private `JSON::Coder` per instance, the
+`json >= 2.19.9` floor in its gemspec and asserted at require time, and the seam registration under
+`:json` — the first gem here with a third-party dependency, and the first the three zero-dependency
+gates have run against with one; the operation-lifecycle and transport groups of the HTTP-tracer
+vocabulary are emitted by nothing yet, and nothing talks to a socket yet. The other four are still
+skeletons — a namespace, a `VERSION`, a gemspec, a signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |
 |---|---|---|
 | `dexpace-core` | `Dexpace` | none |
 | `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core` |
 | `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core` |
-| `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core` |
+| `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core`; `json >= 2.19.9` |
 | `dexpace-async-thread` | `Dexpace::Async::Thread` | `dexpace-core` |
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |
 

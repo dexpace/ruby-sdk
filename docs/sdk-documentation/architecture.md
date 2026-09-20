@@ -8,18 +8,19 @@ recovery layer and the error trail, phase 4c the stage pipeline, phase 5a the co
 layer and the clock, phase 5c the tracing and metrics layer, phase 5b the logging facade and
 redaction, phase 6a the retry layer — one policy core and its two stacks — phase 6c the
 authentication layer, phase 6b the redirect layer with the two `standard` pipeline
-constructors, phase 7b the server-sent-events layer with the serde-boundary gate and phase 7c the
-pagination layer; the adapters are still to come, so this page is still a stub: it names the
+constructors, phase 7b the server-sent-events layer with the serde-boundary gate, phase 7c the
+pagination layer and phase 7a the serialization layer with the JSON codec; the adapters are still to
+come, so this page is still a stub: it names the
 pages this tree will eventually hold and where each one's content will come from, so the plan for
-the documentation exists before the documentation does. Sixteen pages are real already, because
+the documentation exists before the documentation does. Seventeen pages are real already, because
 their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
 [`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
 [`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
 [`pipelines.md`](./pipelines.md), [`configuration.md`](./configuration.md),
 [`tracing-and-metrics.md`](./tracing-and-metrics.md),
 [`logging-and-redaction.md`](./logging-and-redaction.md), [`retry.md`](./retry.md),
-[`auth.md`](./auth.md), [`redirect.md`](./redirect.md), [`sse.md`](./sse.md) and
-[`pagination.md`](./pagination.md).
+[`auth.md`](./auth.md), [`redirect.md`](./redirect.md), [`sse.md`](./sse.md),
+[`pagination.md`](./pagination.md) and [`serde.md`](./serde.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -165,6 +166,18 @@ layer phase 7b shipped; derives from `docs/sdk-design-ruby/07-pagination-sse-and
 §7.2 and §7.1, read together with entries 6 and 18 of
 `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
+[serde.md](./serde.md) — the serialization layer and the JSON codec: the witness protocol — the
+predicate pair, the decode context with its RFC 6901 pointer and one raise site, the three container
+combinators, the named boolean witness and the ISO-8601 witness with its stated precision domain —
+the three-state PATCH type and its decode combinator, the native-form encode walk and the `OMIT`
+sentinel that make tri-state PATCH structural, `Body.serialized`, the two response handlers supplied
+into `TypedResponse`, and `dexpace-serde-json`'s codec — its private engine per instance, its option
+allowlist, its failure model, the four encode profiles, the stream rule, and the materialisation
+ceiling a large body meets. Written against the layer and the gem phase 7a shipped; derives from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.4 and
+`docs/sdk-design-ruby/07-pagination-sse-and-serialization.md` §7.3, read together with entries 12, 13
+and 14 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
+
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
 and how to run it locally. Written against the build phase 0 shipped; derives from
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
@@ -175,7 +188,8 @@ the seam's contract itself is already on [seams.md](./seams.md).
 
 write-a-serde.md — implementing the `Serde` seam: the serializer/deserializer pair, the
 `Tristate` PATCH convention, and the four encode profiles. Derives from
-`docs/sdk-design-ruby/07-pagination-sse-and-serialization.md`.
+`docs/sdk-design-ruby/07-pagination-sse-and-serialization.md`; the as-built reference implementation
+it will walk through is on [serde.md](./serde.md).
 
 [pagination.md](./pagination.md) covers what write-a-paging-strategy.md was planned to hold —
 the strategy contract (`#parse(response, template) -> Info`), the three built-ins over a
