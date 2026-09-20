@@ -77,7 +77,14 @@ stable key.
 - **`net-http` 0.9.x, Ruby 4.0's, differs from the 0.4.x and 0.6.x the other supported Rubies ship in two
   places the adapter meets, and neither changes what the adapter does.** Beside `transport-adapter/0921e946`
   and this file's content-type entry above, whose measurements were taken on 0.6.0; verified on 2026-09-20 on
-  0.4.1 (3.2.11 and 3.3.12), 0.6.0 (3.4.10) and 0.9.1 (4.0.6, where net-http is no longer a default gem).
+  0.4.1 (3.2.11 and 3.3.12), 0.6.0 (3.4.10) and 0.9.1 (4.0.6). On every one of those rows `net-http` is a
+  **default** gem and on none a bundled one: 4.0.6 ships `specifications/default/net-http-0.9.1.gemspec` and
+  `Gem::BUNDLED_GEMS::SINCE` has no `net-http` row, and under Bundler `Gem.loaded_specs["net-http"].default_gem?`
+  answers true. (The development machine also holds an *installed* copy of the same 0.9.1 beside the default
+  one in the 4.0.6 and 3.2.11 gem directories — an artefact of an earlier networked install, which RubyGems
+  prefers outside Bundler and Bundler does not; an earlier wording of this entry read that artefact as the
+  gem having left the default set, corrected 2026-09-20 by review round 2's R2-3. The distinction is the
+  hard rule's load-bearing one: a default gem needs no `Gemfile` entry, a bundled gem does.)
   **One**: `Net::HTTPGenericRequest#supply_default_content_type` is gone from 0.9.1 — a body-bearing request
   with no `Content-Type` emits no warning under `-w` and reaches the wire with no `Content-Type` at all,
   while `#set_body_internal` still gives a body-less `POST` `body = ''` and `Content-Length: 0` on every

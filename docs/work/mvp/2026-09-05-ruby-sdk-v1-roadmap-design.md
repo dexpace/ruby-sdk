@@ -2642,6 +2642,29 @@ design.
   `RETRY-42`, `RECOV-28`, `NFR-6`. Added after phase 10's planning pass by phase 8a and referred to by
   date and content, never by ordinal; not yet in phase 10's design's disposition table, which
   dispositions it at execution.
+- **`Dexpace::Status` guards `100`–`599` while `Net::HTTP` parses any three-digit code, so a `999` or a
+  `600` head raises `Dexpace::InvalidArgumentError` out of the net-http adapter — a phase-1 model question
+  in the shape of the `"http/1.0"` bullet above.** Found 2026-09-20 by phase 8a's review round 2 (R2-2),
+  measured through the real adapter against `WireServer`: `Net::HTTP` reads any `\d\d\d` status line and
+  delivers a `999` or a `600` as an `HTTPUnknownResponse` (`CODE_TO_OBJ['999']` and `CODE_CLASS_TO_OBJ['9']`
+  both nil), phase 1's `Status#initialize` refuses an Integer outside `100..599` (`status.rb`, "the port's
+  reading" of `HTTP-10`, recorded in phase 1's checklist row), and `ResponseMapper` raises that
+  `InvalidArgumentError` after the head with the connection released and no thread left — the same path
+  an `HTTP/1.0` head takes, while `520`, `499` and `599` map and a two-digit `99` is `Net::HTTP`'s own
+  `HTTPBadResponse`, wrapped as a retryable `TransportError`. `TRANSPORT-24` says any code "including
+  vendor/non-standard codes" is surfaced "rather than rejected", and LinkedIn's `999` is the canonical
+  out-of-range vendor code; `HTTP-10` says construction is total over "any code". 8a routed it here rather
+  than fixing it for the same reason as the `"http/1.0"` bullet: widening `Status`'s range is a phase-1
+  surface decision no sub-phase should take alone, and the widening is additive, so `NFR-4` permits it.
+  What is phase 10's: decide whether `100`–`599` is the port's reading of both IDs (then record it where
+  phase 10 records the port's readings of frozen chapters, and the adapter's argument error is the
+  documented outcome) or `Status` admits `000`–`999` (then the mapper needs no change), and in either case whether an
+  adapter should surface an out-of-range head as a retryable `TransportError` rather than an argument
+  error. **Code half: none owed by 8a** — 8a states the bound in its `TRANSPORT-24` checklist row, in
+  `ResponseMapper`'s YARD beside its `HTTP/1.0` sentence, and in the as-built page. Touches `HTTP-10`,
+  `TRANSPORT-24`, `TRANSPORT-22`, `NFR-4`. Added after phase 10's planning pass by phase 8a and referred
+  to by date and content, never by ordinal; not yet in phase 10's design's disposition table, which
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4484,12 +4507,20 @@ twenty-nine caught on both and the thirtieth an equivalent mutant with its measu
 an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
 the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
 default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36),
-and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41); the gem's suites
+and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41), and
+round 3's fixture clients (rows 42–44); the gem's suites
 blank the three proxy keys the resolver reads around every owning-adapter test through the override
 tier (`NetHTTPHermeticProxy`), because every `NetHTTP.build` resolves its proxy through the process-wide
-chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it; the design's seventeen facts and the plan's eight
+chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it — and, from
+review round 3 (2026-09-20, for round 2's R2-1), every raw `Net::HTTP` a suite starts passes an explicit
+nil proxy, because the library's own `:ENV` default reaches uri's `find_proxy`, whose upper-case-`HTTP_PROXY`
+warning the test base makes fatal, so both gems' suites are hermetic under `HTTP_PROXY`, `http_proxy`,
+`HTTPS_PROXY` and `NO_PROXY` alike; the design's seventeen facts and the plan's eight
 re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, twelve of them as `matrix_facts_test.rb` printing the row's
-active `Net::HTTP::VERSION`; thirty-six departures from the plan's text itemised — among them the
+active `Net::HTTP::VERSION` (0.9.1 a default gem on 4.0.6, as on every row — review round 2's R2-3
+corrected the checklist and the knowledge note, which had read this machine's installed copy beside it as
+the gem having left the default set); forty-three departures from the plan's text itemised — thirty-six
+from the build, two from review round 1, four from round 2 and one from round 3 — among them the
 two the whole-repository `test:gems` process found and the gem's own `rake test` never could: the
 adapter's sink double renamed `NetHTTPRecordingSink` because core's `test/support/` already owns the bare
 name and a second `Entry =` is an `NFR-6`-fatal warning at load, and `RawWireTransport`'s `leave_open`
@@ -4510,7 +4541,9 @@ versions; `docs/deviations.md` is untouched, for phase 10 to flip; `docs/knowled
 gains one Reference entry with the two version-bound facts. Three dated bullets join phase 10's inbound
 list above — the Timeout thread as the connect-phase finding's observable, rbs 4.2.0's
 `TCPServer#initialize` signature Steep refuses, and 6b's `REDIR-23` wall-clock bound failing under
-machine load in the whole-repository process — and a fourth from review round 1, 6a's `RETRY-42` /
-`RECOV-28` eight-thread test erring on an interleaving under the same load — each by date and content,
+machine load in the whole-repository process — a fourth from review round 1, 6a's `RETRY-42` /
+`RECOV-28` eight-thread test erring on an interleaving under the same load — and a fifth from review
+round 2, `Status`'s `100`–`599` guard against `Net::HTTP`'s three-digit parse, a phase-1 model question
+in the shape of the `"http/1.0"` one — each by date and content,
 never by ordinal, because the three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-64`
 into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen.

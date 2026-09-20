@@ -2309,6 +2309,22 @@ this document makes.
 | P8-63 | **The inbound `Content-Length` grammar is `Regexp.new('\A[0-9]{1,15}\z', timeout: 1.0).freeze`**, in the adapter's `ResponseMapper` and in the fixture's `RequestReader` alike, and a run longer than fifteen digits is the unknown-length sentinel like any other value the grammar refuses (review round 1, 2026-09-20) | `TRANSPORT-27`; `R4`; this document's cross-cutting constraint "`Regexp` timeouts are per-pattern", which said the literal "carries no `timeout:`" | The constraint argued from the pattern — anchored, character-class-only, linear, so no timeout needed — and the measurement holds (five matches over a 10 MB non-matching value took 1.9 s on 4.0.6, linear). Core's convention argues from the input instead: every pattern a wire value reaches is a `Regexp.new` with its own timeout and a bounded run (`PacingParsers`, `P6-61`), so that the next author's pattern over an inbound header inherits the spelling and not a re-derivation, and so that `#to_i` never receives an unbounded digit string. The literal's own reason was right and the convention is stronger; the sentence above is superseded by this row |
 | P8-64 | **`ResponsePump` asks the token before it starts a producer**: a token already cancelled at construction gets a closed pump — no thread, no socket, the borrowed permit returned by the constructor exactly once — and its first read is the cancellation; otherwise the thread is started and the subscription registered after it as `P8-52` says, with both slots initialised so the inline `#release` a cancel racing the registration triggers joins and detaches nil-safely, and `#produce` reads the latch before it exchanges (review round 1's R1-2, fixed 2026-09-20) | `TRANSPORT-3`; `P8-52`; `P8-53`'s one permit owner | `Cancellation::Source#on_cancel` runs an already-cancelled hook inline, so the reviewed pump's own `on_cancel { close }` ran `#release` from inside the constructor before `@subscription` was assigned: the join ran — against a producer that had already put the request on the wire, and against a holding server for the whole of `JOIN_DEADLINE_SECONDS` — and then `nil.detach` raised `NoMethodError` out of `#new`. Through `Adapter#call` the window is the race between `cancellation.check!` and the registration, and on the borrowing construction the raise reached `dispatch`'s rescue, whose second permit push onto the full one-slot queue would have blocked. A nil-safe detach alone leaves the wasted exchange and the spent join (measured: one connection, a producer outliving the join, the permit held); asking the token first is what makes "nothing reaches the wire for a request nobody can receive" a property of the code, and the latch read at the top of `#produce` extends it to a cancel that lands during construction. `P8-52`'s ordering and its reason stand |
 
+**One bound the object model above never states, stated at review round 2 (2026-09-20, R2-2) and not a
+deviation of this phase's**: `ResponseMapper`'s status mapping is total over `100`–`599`, which is phase
+1's `Status` guard (`HTTP-10`'s reading, recorded in phase 1's checklist), and not over every three-digit
+code `Net::HTTP` parses. The library delivers a `999` or a `600` as an `HTTPUnknownResponse`
+(`CODE_TO_OBJ['999']` and `CODE_CLASS_TO_OBJ['9']` are both nil), and such a head raises
+`Dexpace::InvalidArgumentError` after the head with the connection released — the same path an `HTTP/1.0`
+head takes (`TRANSPORT-22`; measured through the real adapter against `WireServer` with `999`, `600` and
+`099`, the connection closed and no thread left in every case, while `520`, `499` and `599` map and a
+two-digit `99` is `Net::HTTP`'s own `HTTPBadResponse`, wrapped retryable). `TRANSPORT-24` says any code
+"including vendor/non-standard codes" is surfaced "rather than rejected", and LinkedIn's `999` is the
+canonical out-of-range vendor code, so whether `HTTP-10`'s and `TRANSPORT-24`'s "any code" reach
+`600`–`999` — and whether the adapter should then surface such a head as a retryable `TransportError`
+rather than an argument error — is a phase-1 model question on phase 10's inbound list, by date and
+content, beside the `Protocol.parse` / `"http/1.0"` question it mirrors; 8a's checklist row, the mapper's
+YARD and the as-built page state the bound.
+
 ---
 
 ## Work phase 8a postponed, and who owns it now

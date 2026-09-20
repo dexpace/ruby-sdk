@@ -1046,7 +1046,10 @@ Each is one line plus the chapter to read before touching the area.
   fresh one for EVERY call and the borrowing one serialises** — `.build` constructs per call with
   `max_retries = 0`, an explicit nil `p_addr` AND `proxy_from_env = false` (`Net::HTTP.new`'s default is
   `:ENV`, which reads a lower-case `http_proxy` the SDK never resolved; `find_proxy` exempts loopback
-  targets, so a proxy test names `192.0.2.1`), and applies this call's budget to all three knobs;
+  targets, so a proxy test names `192.0.2.1`, and it WARNS on an upper-case `HTTP_PROXY` with no
+  lower-case one before that exemption — a warning the test base makes fatal, so every raw `Net::HTTP` a
+  suite starts passes the same nil and the two R17 controls set `http_proxy` themselves), and applies
+  this call's budget to all three knobs;
   `.using` asserts `max_retries == 0` and never assigns anything — endpoint, `use_ssl`, a knob — refusing
   a request that names another origin and a per-call `timeout:` instead (`TRANSPORT-15`, `XCUT-22`;
   8a's P8-15). The borrowed permit is a one-slot `::Thread::SizedQueue`, never a `Mutex`, because it is

@@ -26,6 +26,11 @@ the one block that shows a close builds its own — and every block that talks t
 `server` and reads its port for `url`. A host that exports `HTTPS_PROXY` or `HTTP_PROXY` will see the
 socket blocks route through that proxy, because that is what the configuration chain says (`CFG-24`,
 the proxy block below); the gem's own suites blank those keys around every test for exactly that reason.
+The borrowed-client blocks build a plain `Net::HTTP.new(host, port)`, whose own `:ENV` default reads the
+environment through `URI#find_proxy` on `#start`: under an upper-case `HTTP_PROXY` with no lower-case
+`http_proxy` that prints uri's "The environment variable HTTP_PROXY is discouraged" warning and, because
+`find_proxy` exempts loopback, routes nowhere. The gem's suites pass an explicit nil proxy to every
+fixture client they start for that reason, exactly as the adapter passes its own (the proxy block below).
 
 **The gem's whole dependency budget is `dexpace-core` and `net-http >= 0.4`** (`NFR-2`): a default gem
 on every supported Ruby, no upper bound, and the adapter is proven on 0.4.1 (Ruby 3.2 and 3.3), 0.6.0
@@ -321,7 +326,11 @@ response = adapter.call(req("http://127.0.0.1:#{server.port}/"), EMPTY, nil)
 **Not lenient, and stated**: `Dexpace::Protocol` admits `HTTP/1.1` and `HTTP/2` only (`HTTP-33`), so a
 server answering `HTTP/1.0` makes the adapter raise `Dexpace::InvalidArgumentError` after the head, with
 the connection released first (`TRANSPORT-22`). Widening `Protocol::WIRE_FORMS` is a phase-1 surface
-decision on phase 10's inbound list, not an adapter's to take.
+decision on phase 10's inbound list, not an adapter's to take. The status has the same shape: `Status`
+is total over `100`–`599` (`HTTP-10`'s reading, phase 1's), while `Net::HTTP` parses any three digits
+and delivers a `999` or a `600` as an `HTTPUnknownResponse` — such a head raises the same
+`InvalidArgumentError` after the head with the connection released, `599` maps, and whether
+`TRANSPORT-24`'s "any code" reaches `600`–`999` is the same kind of phase-1 question, on the same list.
 
 ## TLS and the proxy
 
