@@ -1738,10 +1738,10 @@ by rewriting the text it corrects:**
 - **`strict: true` is documentation, not a switch.** Verified fact 3 and *The object model* say the
   adapter "passes `strict: true`" as a second layer beside `Native`; measured on json 2.19.9 and 3.0.2,
   `JSON::Coder` is strict on its own account — `Coder.new.dump(Object.new)` and `.dump(Time.at(0))` raise
-  `GeneratorError` with no option at all — so removing the option changes nothing a test can see (the
-  checklist's guard 19, an equivalent mutant on every row). It is kept as intent, and `Native` is the
-  observable layer, pinned by the class-naming assertion and by a test that drives the private engine
-  directly.
+  `GeneratorError` with no option at all — so removing the option changes nothing a test can see
+  behaviourally (the checklist's guard 19, an equivalent mutant on every row until review round 0's
+  keyword pin, below). It is kept as intent, and `Native` is the observable layer, pinned by the
+  class-naming assertion and by a test that drives the private engine directly.
 - **Open question 4's premise is version-bound.** "`::JSON::Coder.new` accepts unknown options silently"
   is true at the 2.19.9 floor and false at 3.0, where an unknown keyword is an `ArgumentError` and
   `encoders:` is refused outright; the allowlist the question recommends is what makes the two one
@@ -1769,6 +1769,32 @@ now states the ceiling behaviour, closing the first owed half of the `docs/first
 both ways and by a seeded sample. No mutex, no `Enumerator`, no `close_quietly`, no suppressed trail,
 no URL parse, no regexp and no cause walk were written, as *The spec-forced boundaries, honoured*
 commits.
+
+**Review round 1, 2026-09-20.** Round 0 of the stack's review found no behaviour this document states
+that the code fails to honour, and adds no row: its two should-fix findings were a coverage gap behind
+P7-65 and a scope breach on the code branch. P7-65 says the codec "fixes `allow_duplicate_key: false`
+unless the caller opts in", and `Codec#initialize` does — but the only test of it drove a duplicate key
+through the engine, and the bundle's json 3.0.2 raises `ParserError` on a duplicate key *by default*,
+so dropping the codec's explicit option left every suite green on every gate row and reverted to
+json 2.19.9's warning-plus-last-wins only at the floor, which no gate row runs (the reviewer's X7,
+caught by hand at 2.19.9 alone). The option is now pinned where it lives rather than through the
+engine's behaviour: `codec_test.rb`'s `CoderKeywordsTest` runs a child process that prepends a recorder
+onto `::JSON::Coder`'s singleton class — a permanent patch to a library class, so never in the suite's
+own process, `context_store_config_test.rb`'s shape — and asserts every keyword `.new` receives across
+four constructions: `allow_duplicate_key: false` and `strict: true` on the default, the caller's opt-in,
+`max_nesting` forwarded and `encoders:` withheld, the two booleans. The mutation is the checklist's
+guard 34, red on 4.0.6 with json 3.0.2 and on 3.4.10 with json 2.19.9 pinned unbundled; the same pin
+turns guard 19 (`strict: true` dropped), an equivalent mutant behaviourally, red at the keyword level,
+and holds the "never forwards `encoders:`" clause (34.5). The scope breach: the feat commit had
+rewritten three lines of `rbs_collection.yaml`'s header comment to correct its stale "json arrives with
+the codec in phase 7" sentence, a shared file this phase's brief lists out of bounds and phase 8a
+rewrites with its first row; the hunk is dropped on the code branch, the file is as `main` has it, and
+the stale sentence is routed by date and content to phase 10's inbound list for whichever lane adds the
+first row to close. No `lib/` line changed; the round's three nits — five response fixtures
+`docs/sdk-documentation/serde.md`'s last example used without defining, a `CLAUDE.md` sentence counting
+three serde pins in the child process where one is, and the roadmap note naming the Steep relaxation
+"route (1)" where it is the second route of decision (1) — are the page's, the summary's and the
+roadmap's, not this document's.
 
 ---
 

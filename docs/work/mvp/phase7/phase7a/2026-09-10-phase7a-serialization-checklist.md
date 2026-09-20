@@ -47,7 +47,7 @@ design said the checklist must state rather than tick (`SERDE-6`, `7`, `8`, `11`
 | `SERDE-6` | MUST | ✅ (clause stated) | 5 | Parametric targets are expressible as combinators built BY VALUE from a concrete element witness — `List.of(Pet)`, `Map.of(String, Pet)`, `Nullable.of(Pet)`, nesting freely, decoding to real DTOs, over the scalar spellings `String` / `Integer` / `Float` / `BOOLEAN`. **The clause stated:** the requirement's second half — "a format-agnostic decoder that cannot resolve type arguments MUST fail loudly … rather than silently decoding into the raw type" — is unreachable, not implemented: there is no witness-less overload to fall into and a combinator cannot exist without a concrete element, so no decoder ever holds a partially-resolved carrier (design §10.14) (`serde/list_test.rb`, `map_test.rb`, `nullable_test.rb`, `scalars_test.rb`, all cases) |
 | `SERDE-7` | MUST | ✅ (clause stated) | 3 | Its antecedent is conditional — "(where the host language offers one)" — and Ruby offers no reified generics; the port satisfies it anyway in the strongest form available: the ergonomic route `serde.load(source, Pet)` passes the class object itself, and that route IS the carrier, so there is no raw-class shortcut beside it to forget to route through (`serde/witness_test.rb`, "the ergonomic spelling and the carrier spelling are the same object") |
 | `SERDE-8` | MUST | ✅ (clause stated) | 3, 5, 6 | The no-type-argument half is implemented: `List.of(nil)`, `List.of(Object.new)`, `List.of(::Symbol)`, `Map.of(String, nil)`, `Nullable.of(nil)` and `Tristate.of(Object.new)` all raise `InvalidArgumentError` at CONSTRUCTION with an actionable message naming the missing method and the class — earlier than the reference's binder-resolution failure. **The clause stated:** the "unresolved type variable" half is unreachable, and that is §10.14's strength rather than a gap — a combinator cannot be built without a concrete element witness (`serde/list_test.rb`, "SERDE-8"; `map_test.rb`; `nullable_test.rb`; `tristate_decode_test.rb`; `witness_test.rb`; guard 13) |
-| `SERDE-9` | MUST | ✅ (P7-6) | 14, 15, 17 | The write path raises `Dexpace::Serde::SerializationError` — core's `Native` refusing a non-native value NAMING ITS CLASS before the generator sees it, and the generator's own `GeneratorError` (a `NaN`, a BINARY String holding invalid UTF-8) rescued as `::JSON::JSONError` and re-raised INSIDE the rescue so Ruby chains it as `#cause`; the read path raises `DeserializationError` chaining `ParserError` / `NestingError`; and no `::JSON` type escapes the SPI. P7-6 adds the port's own read-side guard: invalid UTF-8 in the drained text is a `DeserializationError` with no cause, before the parser (`json/codec_test.rb` `FailureModelTest`; `json/codec_load_test.rb`, "SERDE-13/SERDE-9", "SERDE-9: a nesting-depth failure", both `P7-6` cases; `serde/native_test.rb`; guards 20, 30) |
+| `SERDE-9` | MUST | ✅ (P7-6) | 14, 15, 17 | The write path raises `Dexpace::Serde::SerializationError` — core's `Native` refusing a non-native value NAMING ITS CLASS before the generator sees it, and the generator's own `GeneratorError` (a `NaN`, a BINARY String holding invalid UTF-8) rescued as `::JSON::JSONError` and re-raised INSIDE the rescue so Ruby chains it as `#cause`; the read path raises `DeserializationError` chaining `ParserError` / `NestingError`; and no `::JSON` type escapes the SPI. P7-6 adds the port's own read-side guard: invalid UTF-8 in the drained text is a `DeserializationError` with no cause, before the parser. A duplicate key is one `DeserializationError` across json 2.19.9–3.0 because the codec fixes `allow_duplicate_key: false` (P7-65) — proven at the keyword level since review round 0, because json 3.0.2 refuses a duplicate key by default and the behavioural case alone could not tell the codec's option from the library's (`json/codec_test.rb` `FailureModelTest`, `ConstructionTest`'s duplicate-key case, `CoderKeywordsTest`; `json/codec_load_test.rb`, "SERDE-13/SERDE-9", "SERDE-9: a nesting-depth failure", both `P7-6` cases; `serde/native_test.rb`; guards 20, 30, 34, 34.5) |
 | `SERDE-10` | MUST | ✅ | 14, 17 | `SerializationError` and `DeserializationError` are two subtypes under phase 2's `Dexpace::Serde::Error` root, neither a kind of the other, so a caller distinguishes direction while catching one base (`json/codec_test.rb` `FailureModelTest`, "SERDE-10: the write-path subtype is distinct"; `SerdeSeamAssertions#assert_failure_model`) |
 | `SERDE-11` | SHOULD | ✅ (clause stated) | — | Satisfied by the language and needing no code (design §11.15): every serde error is a `::StandardError` descendant and Ruby has no checked exceptions; asserted as ancestry beside the malformed-input case (`json/codec_load_test.rb`, "SERDE-13/SERDE-9", `assert_kind_of(::StandardError, error)`) |
 | `SERDE-12` | MUST | ✅ | 10, 15, 17 | A genuine stream I/O error propagates UNWRAPPED, structurally: `Codec#load` rescues `::JSON::JSONError` around the parse ALONE, whose ancestry is `[ParserError, JSONError, StandardError]` with `IOError` nowhere in it (verified fact 4), so a `Dexpace::StreamError` (an `::IOError`) from the source, a raw IO's own `IOError`, and the over-ceiling `StreamError` all pass through the codec and the handler's `ensure`-close untouched; a raising sink's `IOError` too (`json/codec_load_test.rb` `StreamTest`, three cases; `serde/decoding_handler_test.rb` `MatrixTest`, two cases; `SerdeSeamAssertions#assert_io_error_passthrough`; guard 21.5 red, guard 21 the recorded equivalent) |
@@ -120,13 +120,15 @@ the top-level floor assertion raising `Dexpace::SeamError`, `.default`, `.build`
 `:json`); the new `lib/dexpace/serde/json/codec.rb` (`Codec` with its private `Options` module,
 `DEFAULT_ENCODERS` and `MEDIA_TYPE`) with its `sig/` mirror and the entry file's `sig/` rewritten; the
 smoke test `json_test.rb` reshaped to snapshot AFTER `require "dexpace"`, `json`, `time` and `date` and
-extended with five cases; four new suites — `json/codec_test.rb` (three nested classes),
+extended with five cases; four new suites — `json/codec_test.rb` (four nested classes, the fourth
+review round 0's keyword pin),
 `json/codec_load_test.rb` (two), `json/defaults_test.rb`, `json/seam_conformance_test.rb` and
 `json/composition_test.rb` (two) — and three new `test/support/` files, `close_counting_source.rb`,
 `close_counting_sink.rb` and `serde_seam_assertions.rb`, the last the file phase 9 lifts into
 `dexpace-conformance`. The `Steepfile`'s `:serde_json` block gains its one relaxation and its comment;
-`rbs_collection.yaml`'s stale "json arrives with the codec in phase 7" sentence is corrected
-(`json`'s signatures are rbs's own stdlib set, resolved already, and json 3.0.2 ships none). **Five
+`rbs_collection.yaml` is as `main` has it — its stale "json arrives with the codec in phase 7" sentence
+is routed, not rewritten, because the file is a shared one outside this phase's bounds (review round
+0, R0-1; Findings routed). **Five
 existing core tests changed on the code branch as pins the registration invalidated**:
 `seam_surface_test.rb`'s two seam-iterating pins ("starts empty on a bare require", "no seam's
 zero-candidate error names a concrete gem") now run a child process that requires `dexpace` alone and
@@ -175,11 +177,20 @@ Every guard the brief lists was seen red, on 4.0.6 and on 3.2.11, and the bytes 
 thirty-four single-edit mutations of `lib/` (the brief's thirty-two plus two the build added, 21.5 and
 31.5), one at a time through a scratch harness that applies the edit, runs the owning suites under
 `ruby -w`, captures the first failure and restores the file with `git checkout --`; plus the four gate
-mutations of guard 33 on 4.0.6. **Thirty-one of thirty-four are caught on both rows; guard 3 is caught
-on 3.2.11 alone, as the brief predicted; and two are equivalent mutants, recorded with their reasons
-rather than hidden** — 19, because `JSON::Coder` is strict on its own account, and 21, because the parse
-rescue's scope is the parse alone. Guard 18's assertion is not vacuous: the seam assertion calls
-`#dump_into` from inside a `rescue`, and dropping `cause: nil` turns it red.
+mutations of guard 33 on 4.0.6. On the first pass **thirty-one of thirty-four were caught on both rows;
+guard 3 on 3.2.11 alone, as the brief predicted; and two were equivalent mutants, recorded with their
+reasons rather than hidden** — 19, because `JSON::Coder` is strict on its own account, and 21, because
+the parse rescue's scope is the parse alone. Guard 18's assertion is not vacuous: the seam assertion
+calls `#dump_into` from inside a `rescue`, and dropping `cause: nil` turns it red. **Review round 0
+(2026-09-20) ran forty-two of its own and found one more surviving on both rows** — the explicit
+`allow_duplicate_key: false` default dropped from `Codec#initialize`, invisible on the bundle's json
+3.0.2, where a duplicate key is a `ParserError` by default, and a warning-plus-last-wins only at the
+2.19.9 floor, which no gate row runs — so the option is now pinned at the keyword level, in a child
+process that records what `::JSON::Coder.new` receives (`codec_test.rb` `CoderKeywordsTest`), and the
+battery is **thirty-five, thirty-three caught on both rows, guard 3 on 3.2.11 alone and guard 21 the
+one equivalent mutant**: guard 34 is the round's, red on 4.0.6 with json 3.0.2 and on 3.4.10 with json
+2.19.9 pinned unbundled, and guard 19, an equivalent mutant behaviourally, is red at the keyword level
+through the same pin (34.5 below is the third thing the pin holds).
 
 | # | Fix reverted | Guard | What it said (4.0.6; identical on 3.2.11 unless stated) |
 |---|---|---|---|
@@ -201,7 +212,7 @@ rescue's scope is the parse alone. Guard 18's assertion is not vacuous: the seam
 | 16 | `SERDE-4`: the explicit fit check dropped | `codec_test.rb`, `seam_conformance_test.rb` | `IndexError expected but nothing was raised` — the String silently grew (4 failures) |
 | 17 | `SERDE-4`: `SerializationError` raised for an overflow | `codec_test.rb`, `seam_conformance_test.rb` | `[IndexError] exception expected, not Class: <Dexpace::Serde::SerializationError>` (4 failures) |
 | 18 | `SERDE-4`: `cause: nil` dropped | `codec_test.rb`, `seam_conformance_test.rb` | `Expected #<RuntimeError: in flight> to be nil` — the in-flight error chained (3 failures) |
-| 19 | `SERDE-9`/`10`: `strict: true` dropped from the Coder | `codec_test.rb` | **STAYED GREEN on both rows, and is equivalent**: `JSON::Coder` is strict on its own account on 2.19.9 and 3.0.2 (`Coder.new.dump(Object.new)` raises `GeneratorError` with no option), so `strict: true` is documentation of intent; `Native` is the observable layer and is pinned by the class-naming assertion. Kept, and the YARD says so |
+| 19 | `SERDE-9`/`10`: `strict: true` dropped from the Coder | `codec_test.rb` | **Behaviourally equivalent on both rows**: `JSON::Coder` is strict on its own account on 2.19.9 and 3.0.2 (`Coder.new.dump(Object.new)` raises `GeneratorError` with no option), so `strict: true` is documentation of intent; `Native` is the observable layer and is pinned by the class-naming assertion. Kept, and the YARD says so. **Red since review round 0 through the keyword pin**: `CoderKeywordsTest` — `+++ actual ["allow_duplicate_key=false", "allow_duplicate_key=true", …]`, `strict=true` gone from every line |
 | 20 | `SERDE-9`: `dump_string` re-raises with `cause: nil` | `codec_test.rb`, `seam_conformance_test.rb` | `Expected nil to be a kind of JSON::JSONError, not NilClass` (2 failures) |
 | 21 | `SERDE-12`: the parse rescue widened to `StandardError` | `codec_load_test.rb`, `seam_conformance_test.rb` | **STAYED GREEN on both rows, and is equivalent**: `parse(text)` wraps `@coder.load(text)` alone, and the I/O error arises in `drain(source)` outside it, so widening that rescue cannot reach the stream — the scope, not only the class, is what keeps `SERDE-12` structural |
 | 21.5 | `SERDE-12`: a `StandardError` rescue around the drain, re-raising as `DeserializationError` | `codec_load_test.rb`, `seam_conformance_test.rb` | `[Dexpace::StreamError] exception expected, not Class: <Dexpace::Serde::DeserializationError>` (6 failures; `[IOError]` on 3.2.11's first line) |
@@ -221,6 +232,8 @@ rescue's scope is the parse alone. Guard 18's assertion is not vacuous: the seam
 | 33b | `require "json"` in `serde/instant.rb` | `gates:require_allowlist` | `instant.rb:5: require "json" -- SEAM-2: the wire codec is a seam. It lives in dexpace-serde-json, and the >= 2.19.9 floor lives in that gemspec and nowhere else` |
 | 33c | `@coder: ::JSON::Coder` in the adapter's `codec.rbs` | `rbs:validate` | `codec.rbs:20:16...20:29: Could not find ::JSON::Coder (RBS::NoTypeFoundError)` |
 | 33d | `-> ::JSON::State` on a public method in `codec.rbs` | `gates:rbs_surface` | `codec.rbs: public signature references JSON::State, which is outside Dexpace:: and the stdlib allowlist` |
+| 34 | `P7-65`: the explicit `allow_duplicate_key: false` default dropped from `Codec#initialize` (review round 0's X7) | `codec_test.rb` `CoderKeywordsTest` | `--- expected ["allow_duplicate_key=false strict=true", …] +++ actual ["strict=true", "allow_duplicate_key=true strict=true", "max_nesting=4 strict=true", …]` on 4.0.6 with json 3.0.2 and on 3.4.10 with json 2.19.9 pinned unbundled — where `ConstructionTest`'s behavioural duplicate-key case goes red too, through `NFR-6`'s fatal `warning: detected duplicate key "a" in JSON object`, the only row it ever could: on 3.0.2 that case stays green under the mutant, because the library refuses a duplicate key by default |
+| 34.5 | `P7-65`: `encoders:` forwarded to the Coder (`table.compact` in place of `table.except(:encoders).compact`) | `codec_test.rb` `CoderKeywordsTest`, `ConstructionTest` | the third recorded line reads `allow_duplicate_key=false encoders={Time => #<Proc…>} max_nesting=4 strict=true`; on 3.0.2 the library refuses the keyword first (`ArgumentError: unknown keyword: encoders`) and the "encoders: replaces the default table" case errors beside it, while on 2.19.9 only the keyword pin sees it |
 
 ## Audit groups run
 
@@ -290,7 +303,9 @@ cites, or a statement the design makes are also the as-built ledger rows P7-61�
 8. **Steep on `::JSON::Coder`**: json 3.0.2 ships no `sig/`, so the manager's first route was closed and
    the second taken — the `:serde_json` target alone downgrades `Ruby::UnknownConstant` to
    `:information`, commented, with the ivar typed `untyped` (P7-62); `rbs_collection.yaml` needed no
-   row and its stale comment was corrected.
+   row and is as `main` has it — the feat commit had corrected its stale comment, and review round 0
+   (R0-1) had the hunk dropped as a rewrite of a shared file outside this phase's bounds; the
+   correction is routed (Findings routed).
 9. **The gemspec line landed before the first `require "json"`**, and every one of
    `gates:gemspec_audit`, `gates:require_allowlist` and `gates:clean_bundle` passed on every row;
    `clean_bundle` fetched json 3.0.2 into 3.3.12's and 3.4.10's gem directories (Findings routed).
@@ -327,8 +342,10 @@ cites, or a statement the design makes are also the as-built ledger rows P7-61�
     `witness.rb` reopens `Dexpace::Serde` and `serde.rb`'s body is untouched; the `LAYERS` table is
     untouched.
 19. **`strict: true` is not observable past `Native`** — and, sharper than the brief's point 19,
-    `JSON::Coder` is strict on its own account, so guard 19 is an equivalent mutant on every row; kept
-    as documentation of intent, with a Native-bypassing pin that drives the private engine directly.
+    `JSON::Coder` is strict on its own account, so guard 19 is an equivalent mutant behaviourally on
+    every row; kept as documentation of intent, with a Native-bypassing pin that drives the private
+    engine directly, and — since review round 0 — pinned at the keyword level with
+    `allow_duplicate_key: false` by `CoderKeywordsTest` (guards 19, 34, 34.5).
     `raise ::IndexError, …, cause: nil` is asserted from inside a `rescue` (guard 18 red).
 20. **Ledger numbering** from P7-61 (P7-61–P7-72); no design row renumbered; 7b's and 7c's rows never
     cited.
@@ -381,6 +398,12 @@ cites, or a statement the design makes are also the as-built ledger rows P7-61�
   first adapter with a third-party dependency, fetched json 3.0.2 from rubygems.org into 3.3.12's and
   3.4.10's on this run; the repair is a `BUNDLE_PATH` under the scratch directory. Phase 8a's Task 23
   owns `clean_bundle_check` this wave and may close it there.
+- **New, routed to phase 10's inbound list by date and content, after review round 0 (R0-1)**:
+  `rbs_collection.yaml`'s header comment says "json arrives with dexpace-serde-json's codec in phase 7",
+  and 7a added no row — `json`'s signatures are rbs's own stdlib set, resolved already, and json 3.0.2
+  ships no `sig/` — so the sentence is stale on the tree and stays stale, because the file is a shared
+  one outside 7a's bounds that phase 8a's first row rewrites; whichever lane adds the first row closes
+  it, and the roadmap's bullet says so.
 - **New corpus note**, `docs/knowledge/notes/serde.md`, two `## Reference` entries: the UTF-8 validation
   the design drafted, and the json 2.19.9 → 3.0 `JSON::Coder` option drift the build measured, both
   with the keys they rest on cited in support (`[cited by]`, never overriding).

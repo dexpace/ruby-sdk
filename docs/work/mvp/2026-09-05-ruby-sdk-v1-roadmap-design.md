@@ -2565,6 +2565,16 @@ design.
   `clean_bundle_check` this wave and may fix it there, in which case this bullet is simply closed.
   Touches `NFR-1`, `NFR-2`, `NFR-10`, `NFR-12`. Recorded by 7a on its docs branch; referred to by date
   and content, never by ordinal.
+- **`rbs_collection.yaml`'s header comment is stale: "json arrives with dexpace-serde-json's codec in
+  phase 7", and phase 7a added no row.** Found 2026-09-20 by phase 7a's implementation and routed here
+  by its review round 0 (R0-1): `json`'s signatures are rbs's own stdlib set — `rbs collection install`
+  already resolves `json` with `source: type: stdlib` — and json 3.0.2 ships no `sig/`, so the codec's
+  one `JSON::Coder` reference is settled in the Steepfile's `:serde_json` target and the collection file
+  needs nothing from 7a. The file is a shared one outside 7a's bounds that phase 8a rewrites with its
+  first row (`net-http`), so 7a's correction of the sentence was dropped rather than merged ahead of
+  that row; whichever lane adds the first row rewrites the sentence and closes this bullet, and if none
+  does before phase 10, the repair is a one-comment edit. No gate reads the comment. Touches nothing
+  normative. Recorded by 7a on its docs branch; referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4192,8 +4202,9 @@ on the registration under `:json`, and `.default` / `.build`; the gemspec's `jso
 first `NFR-2` third-party half spent, and the first time `gates:gemspec_audit`, `gates:require_allowlist`
 and `gates:clean_bundle` ran against a gem carrying one, all three green on every matrix row; the
 Steepfile's `:serde_json` target alone downgrading `Ruby::UnknownConstant` to `:information` (rbs 4.2.0
-declares no `JSON::Coder` and json 3.0.2 ships no `sig/`, the manager's route (1), with the ivar typed
-`untyped`); the smoke test reshaped to snapshot after `require "dexpace"`; and four new suites beside it
+declares no `JSON::Coder` and json 3.0.2 ships no `sig/`, so the second route of the manager's decision
+(1), with the ivar typed `untyped`); the smoke test reshaped to snapshot after `require "dexpace"`; and
+four new suites beside it
 (`codec_test.rb`, `codec_load_test.rb`, `defaults_test.rb`, `seam_conformance_test.rb` over the
 phase-9 lift target `test/support/serde_seam_assertions.rb`, `composition_test.rb` walking
 `Operation` → `Pipeline.standard` → `TypedResponse` over a recording lambda transport), with two new
@@ -4238,3 +4249,28 @@ Gates at the docs tip on 4.0.6: all seventeen green, `test:gems` 2 938 runs / 68
 0 skips at 99.96% line coverage, the honest RuboCop clean, `rbs:validate` and `steep` clean, YARD
 100%; the matrix subset green on 3.2.11, 3.3.12 and 3.4.10. The consolidation of P7-1–P7-9 and
 P7-61–P7-72 into design §10 is phase 10's and a human's; `docs/deviations.md` is untouched.
+
+**2026-09-20, review round 1 of the phase-7a stack.** Round 0 returned `changes_requested` with two
+should-fix findings and three nits, nothing touching `lib/`. The first should-fix was a scope breach
+on the code branch: the feat commit had rewritten three lines of `rbs_collection.yaml`'s header comment
+to correct its stale "json arrives with the codec in phase 7" sentence — a shared file the brief lists
+out of bounds for 7a, which phase 8a rewrites with its first row, and which no gate reads — so the
+hunk is dropped in a `fix:` commit, the file is as `main` has it, and the stale sentence is one new
+phase-10 inbound bullet by date and content, for whichever lane adds the first row to close. The second
+was a survivor among the forty-two mutations the round ran: dropping the codec's explicit
+`allow_duplicate_key: false` default left every suite green on 4.0.6 and 3.2.11, because json 3.0.2 —
+the bundle's version on every row — refuses a duplicate key by default, and regressed to a
+warning-plus-last-wins only at the 2.19.9 floor, which no gate row runs. The option is now pinned at
+the keyword level: `codec_test.rb`'s fourth nested class, `CoderKeywordsTest`, runs a child process
+that prepends a recorder onto `::JSON::Coder`'s singleton class (a permanent patch to a library class,
+so never in the suite's own process — `context_store_config_test.rb`'s shape) and asserts every keyword
+`.new` receives across four constructions. The battery is thirty-five, thirty-three caught on both rows,
+guard 3 on 3.2.11 alone and guard 21 the one equivalent mutant: guard 34 is the round's, red on 4.0.6
+with json 3.0.2 and on 3.4.10 with json 2.19.9 pinned unbundled, and guard 19 (`strict: true` dropped),
+equivalent behaviourally, is red at the keyword level through the same pin. The nits — the five
+response fixtures `serde.md`'s last example used without defining, now built in the block; the
+`CLAUDE.md` sentence counting three serde pins in the child process where one is and two swap pins
+assert the override gone; and the sentence above, which called the Steep relaxation "the manager's
+route (1)" where it is the second route of decision (1) — are corrected in place. No ledger row is
+added: the design's As-built addendum carries a round-1 paragraph saying the round found no behaviour
+the document states that the code fails to honour.

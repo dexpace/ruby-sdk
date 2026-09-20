@@ -386,9 +386,25 @@ a `DeserializationError` whose message leads with the status code and carries th
 so a generated SDK substitutes its typed errors — and decodes the buffered error body with its own
 witness — with the hook it already knows.
 
+The five responses the example reads are built over `Body.buffer` — the readable in-memory body — by one
+helper, from the codec's own media type; a real transport's `ResponseBody` reads the same way.
+
 ```ruby
+def response_over(status, text, headers: Dexpace::Headers::EMPTY_INBOUND)
+  buffer = Dexpace::IO::Buffer.new
+  buffer.write(text.b)
+  request = Dexpace::Request.build(method: "GET", url: "https://host/v1/pets/7", headers: Dexpace::Headers::EMPTY)
+  Dexpace::Response.build(request: request, protocol: Dexpace::Protocol::HTTP_1_1, status: status, headers: headers,
+                          body: Dexpace::Body.buffer(buffer, media_type: CODEC.media_type))
+end
+ok_200 = response_over(200, '{"id":7,"name":"Ré","tags":["a"]}')
+not_found_404 = response_over(404, '{"error":"gone"}')
+not_modified_304 = response_over(304, "", headers: Dexpace::Headers.inbound_builder.add("etag", '"v1"').build)
+empty_200 = response_over(200, "")
+empty_list_200 = response_over(200, "[]")
+
 handler = S::StatusAwareHandler.build(serde: CODEC, witness: Pet)
-typed = Dexpace::TypedResponse.new(response: ok_200, handler: handler)   # a 200 over Body.buffer
+typed = Dexpace::TypedResponse.new(response: ok_200, handler: handler)
 typed.status.code                                        # => 200
 typed.value.name                                         # => "Ré"
 typed.value.equal?(typed.value)                          # => true   (HTTP-44: decoded once, memoised)

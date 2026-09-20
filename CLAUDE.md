@@ -999,15 +999,21 @@ Each is one line plus the chapter to read before touching the area.
   unknown key, json 3.0 takes keywords and refuses one, a duplicate key is last-wins on 2.9, a warning on
   2.19.9 and a `ParserError` on 3.0, and `encoders:` is a keyword error on 3.0; the codec's own allowlist
   is what makes a typo one `InvalidArgumentError` and a duplicate key one `DeserializationError` across the
-  range. rbs 4.2.0 declares no `JSON::Coder` and json 3.0.2 ships no `sig/`, so the Steepfile's
-  `:serde_json` target alone downgrades `Ruby::UnknownConstant` to `:information` and the ivar is typed
-  `untyped` (NFR-11 admits no `::JSON` type in the gem's `sig/` either).
+  range. The two fixed options are pinned at the KEYWORD level, never through the engine's behaviour —
+  json 3.0.2, the bundle's version on every row, refuses a duplicate key by default, so a codec that
+  dropped the option would stay green on every gate row and regress only at the 2.19.9 floor; a child
+  process prepends a recorder onto `::JSON::Coder`'s singleton class and reads what `.new` receives
+  (`codec_test.rb`'s `CoderKeywordsTest`). rbs 4.2.0 declares no `JSON::Coder` and json 3.0.2 ships no
+  `sig/`, so the Steepfile's `:serde_json` target alone downgrades `Ruby::UnknownConstant` to
+  `:information` and the ivar is typed `untyped` (NFR-11 admits no `::JSON` type in the gem's `sig/`
+  either).
 - **An adapter's require-time registration breaks every "starts empty on a bare require" pin in ONE
   `rake test:gems` process** — the runner loads every gem's suite together, so `Dexpace::Serde.resolve`
-  answers the JSON codec in core's own suite; the two seam-iterating pins and the three serde pins are
-  asserted in a CHILD process that requires `dexpace` alone (`instrumentation/independence_test.rb`'s
-  `IO.popen` shape), and `Registry#swap` restores `resolved` but never `factories`, so a swap test asserts the
-  override is GONE, never that nothing resolves (five pins the code invalidated, converted on 7a's code branch).
+  answers the JSON codec in core's own suite; the two seam-iterating pins and `serde_test.rb`'s "starts
+  empty" pin are asserted in a CHILD process that requires `dexpace` alone
+  (`instrumentation/independence_test.rb`'s `IO.popen` shape), and `Registry#swap` restores `resolved` but
+  never `factories`, so `serde_test.rb`'s two swap pins assert the override is GONE, never that nothing
+  resolves (five pins the code invalidated, converted on 7a's code branch).
 
 ## Public API surface
 
