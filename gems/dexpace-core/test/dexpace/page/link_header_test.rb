@@ -4,8 +4,8 @@
 require_relative "../../test_helper"
 require "dexpace"
 
-# Exercises: PAGE-18 (the grammar), PAGE-20 -- through the private_constant, reached the way 4c's
-# cursor_test reaches Pipeline::Cursor.
+# Exercises: PAGE-18 (the grammar), PAGE-20, P7-116 -- through the private_constant, reached the
+# way 4c's cursor_test reaches Pipeline::Cursor.
 #
 # A character-level state machine, not a regexp: RFC 8288's link-value grammar is not regular
 # (commas inside <> and inside quoted parameter values must not split link-values, and quoted-pair
@@ -51,6 +51,17 @@ class DexpacePageLinkHeaderTest < DexpaceTestCase
   test "PAGE-18: the FIRST link-value whose rel contains next wins" do
     assert_equal("https://x/1", L.next_target(["<https://x/1>; rel=next, <https://x/2>; rel=next"]))
     assert_equal("https://x/1", L.next_target(['<https://x/1>; rel="first next"; rel="prev"']))
+  end
+
+  test "P7-116: only the FIRST rel parameter of a link-value is read (RFC 8288 §3.3)" do
+    # "The rel parameter MUST NOT appear more than once in a given link-value; occurrences after
+    # the first MUST be ignored by parsers." A second rel neither adds nor removes a relation.
+    assert_nil(L.next_target(['<https://x/1>; rel="prev"; rel="next"']))
+    assert_nil(L.next_target(["<https://x/1>; rel=prev; REL=next"]))
+    assert_equal("https://x/1", L.next_target(['<https://x/1>; rel="next"; rel="prev"']))
+    two = '<https://x/1>; rel="prev"; rel="next", <https://x/2>; rel="next"'
+
+    assert_equal("https://x/2", L.next_target([two]))
   end
 
   test "PAGE-18: no rel=next segment and no header at all both mean end-of-stream" do

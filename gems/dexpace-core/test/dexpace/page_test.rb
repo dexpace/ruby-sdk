@@ -5,8 +5,8 @@ require_relative "../test_helper"
 require "dexpace"
 require_relative "../support/page_fixtures"
 
-# Exercises: PAGE-2, PAGE-3, PAGE-19 (.next_request_from, the reusable branch), PAGE-23; P7-2,
-# P7-5, P7-101, P7-104.
+# Exercises: PAGE-2, PAGE-3, PAGE-19 (.next_request_from, the reusable branch), PAGE-23, PAGE-34
+# (the two keys' shape); P7-2, P7-5, P7-101, P7-104, P7-107.
 #
 # A Page is a plain class including Dexpace::Closeable and NOT a Data, because a Data instance is
 # frozen and cannot hold the latch (phase 3b's finding, applied one layer up). Response#close is a
@@ -104,6 +104,32 @@ class DexpacePageTest < DexpaceTestCase
                                continuation_token: "T",)
 
     assert_equal(%w[L T], [page.next_link, page.continuation_token])
+  end
+
+  test "PAGE-34 / P7-107: a key that is neither nil nor a String is named and refused at .build" do
+    # The same rule Info applies to the same two members: a fetcher's page carrying an Integer link
+    # is the caller's mistake, named here, never a NoMethodError in the front-end's key_of.
+    error = assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::Page.build(response: page_response, items: [], next_link: 42)
+    end
+    token = assert_raises(Dexpace::InvalidArgumentError) do
+      Dexpace::Page.build(response: page_response, items: [], continuation_token: :t)
+    end
+
+    assert_match(/next_link must be a String or nil, got Integer/, error.message)
+    assert_match(/continuation_token must be a String or nil, got Symbol/, token.message)
+  end
+
+  test "XCUT-15: the two keys are copied frozen; the caller's String stays the caller's" do
+    link = +"L"
+    page = Dexpace::Page.build(response: page_response, items: [], next_link: link,
+                               continuation_token: +"T",)
+
+    assert_predicate(page.next_link, :frozen?)
+    assert_predicate(page.continuation_token, :frozen?)
+    refute_same(link, page.next_link)
+    refute_predicate(link, :frozen?)
+    assert_equal("L", page.next_link)
   end
 
   # PAGE-19's reusable branch, public so a caller-written strategy reaches the two end-of-stream

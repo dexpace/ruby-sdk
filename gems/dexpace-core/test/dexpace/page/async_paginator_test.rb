@@ -340,7 +340,6 @@ class DexpacePageAsyncPaginatorTest < DexpaceTestCase
     test "PAGE-31: thousands of synchronously-completed pages, no stack growth, both paths" do
       # Measured through the real Completer: a pump that re-enters itself from inside on_settle
       # overflows at ~2,600 pages on every interpreter; the re-arm loop is flat.
-      Array.new(3_000) { [1] }
       pages = Array.new(3_000) { [1] }
       sampled = [1, 3_000]
       [nil, InlineExecutor.new].each do |executor|

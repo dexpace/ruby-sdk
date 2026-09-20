@@ -85,6 +85,16 @@ class DexpacePageFetchersTest < DexpaceTestCase
     assert_raises(Dexpace::InvalidArgumentError) { wrong.items.to_a }
   end
 
+  test "PAGE-34 / P7-107: a page built with a non-String key fails named, before it is keyed" do
+    # Page.build refuses the Integer inside the fetcher, so the walk sees the caller's mistake by
+    # name; without that check the front-end's key_of would die with NoMethodError (strip).
+    front = Fetchers.build(first: -> { page_with(items: [1], next_link: 42) }, next_page: NEVER)
+
+    error = assert_raises(Dexpace::InvalidArgumentError) { front.items.to_a }
+
+    assert_match(/next_link must be a String or nil, got Integer/, error.message)
+  end
+
   # PAGE-35's vacuity, the views over the fetcher-driven walk, and construction.
   class OptionsAndViewsTest < DexpaceTestCase
     include PageFixtures
