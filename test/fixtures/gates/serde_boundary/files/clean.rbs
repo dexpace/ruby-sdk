@@ -1,0 +1,7 @@
+module Dexpace
+  module SSE
+    class Clean < ::StandardError
+      include Dexpace::Error
+    end
+  end
+end

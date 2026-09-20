@@ -1,0 +1,22 @@
+module Dexpace
+  module SSE
+    MAX_LINE_BYTES: Integer
+    MAX_EVENT_BYTES: Integer
+    MAX_RETRY_MS: Integer
+    SKIP: Sentinel
+    DONE: Sentinel
+
+    # The contract the line machine and the reader hold on their source, AS A TYPE: the four
+    # BufferedSource members phase 7b uses -- #getbyte for the whole read path, #peek and #skip
+    # for SSE-12's non-consuming BOM lookahead, and #close for the peek view the lookahead closes
+    # -- and not the class (P7-27). Naming Dexpace::IO::BufferedSource would make every conforming
+    # duck a type error and would claim a dependency the subsystem does not have; a BufferedSource
+    # satisfies this structurally, its #peek returning a view that satisfies it again.
+    interface _ByteSource
+      def getbyte: () -> Integer?
+      def skip: (Integer count) -> void
+      def peek: () -> _ByteSource
+      def close: () -> void
+    end
+  end
+end

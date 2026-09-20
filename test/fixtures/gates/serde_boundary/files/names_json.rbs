@@ -1,0 +1,7 @@
+module Dexpace
+  module SSE
+    class Decoder
+      def parse: (String text) -> ::JSON
+    end
+  end
+end

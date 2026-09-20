@@ -1059,6 +1059,49 @@ Dexpace::ResponseLoggingBody#write_to
 Dexpace::RetryPredicateError
 Dexpace::Retryability
 Dexpace::Retryability#retryable_status?
+Dexpace::SSE
+Dexpace::SSE::DONE : Dexpace::SSE::Sentinel
+Dexpace::SSE::Event
+Dexpace::SSE::Event#comment
+Dexpace::SSE::Event#data
+Dexpace::SSE::Event#empty?
+Dexpace::SSE::Event#event
+Dexpace::SSE::Event#id
+Dexpace::SSE::Event#retry
+Dexpace::SSE::Event.build
+Dexpace::SSE::LimitExceededError
+Dexpace::SSE::LimitExceededError#kind
+Dexpace::SSE::LimitExceededError#limit
+Dexpace::SSE::LineReader
+Dexpace::SSE::LineReader#max_line_bytes
+Dexpace::SSE::LineReader#next_line
+Dexpace::SSE::MAX_EVENT_BYTES : Integer
+Dexpace::SSE::MAX_LINE_BYTES : Integer
+Dexpace::SSE::MAX_RETRY_MS : Integer
+Dexpace::SSE::Reader
+Dexpace::SSE::Reader#max_event_bytes
+Dexpace::SSE::Reader#max_line_bytes
+Dexpace::SSE::Reader#next_event
+Dexpace::SSE::SKIP : Dexpace::SSE::Sentinel
+Dexpace::SSE::Sentinel
+Dexpace::SSE::Sentinel#inspect
+Dexpace::SSE::Sentinel#name
+Dexpace::SSE::Sentinel#pretty_print
+Dexpace::SSE::Sentinel#to_s
+Dexpace::SSE::Sentinel#with
+Dexpace::SSE::Stream
+Dexpace::SSE::Stream#each
+Dexpace::SSE::Stream#events
+Dexpace::SSE::Stream#typed
+Dexpace::SSE::Stream.borrowing
+Dexpace::SSE::Stream.open
+Dexpace::SSE::Stream.owning
+Dexpace::SSE::StreamStateError
+Dexpace::SSE::TypedStream
+Dexpace::SSE::TypedStream#close
+Dexpace::SSE::TypedStream#closed?
+Dexpace::SSE::TypedStream#each
+Dexpace::SSE::TypedStream#values
 Dexpace::SeamError
 Dexpace::Serde
 Dexpace::Serde.conforms?

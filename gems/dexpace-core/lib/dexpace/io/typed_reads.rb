@@ -176,8 +176,11 @@ module Dexpace
       #
       # Unbounded on purpose (P3-4): the one drain-style read MAX_MATERIALIZED_BYTES does not
       # guard, because a line has no count to check and no end but a terminator that may never
-      # arrive. IO-14 fixes no line length; the caller that reads lines from a hostile stream is
-      # phase 7's SSE machine, whose own documented cap SSE-11 requires (phase 7b's plan, Task 12).
+      # arrive. IO-14 fixes no line length, so the bound is the caller's, and this method has no
+      # caller in this repository: phase 7's SSE machine reads bytes through #getbyte and carries
+      # its own documented line cap, Dexpace::SSE::MAX_LINE_BYTES, the one SSE-19 sanctions --
+      # not SSE-11, which caps the retry field -- because this method keeps a lone "\r" as
+      # content where SSE-2 makes it terminate a line (phase 7b, P7-20 and P7-21).
       def read_line_utf8
         ensure_typed_reads_initialized
         ensure_readable

@@ -1,0 +1,26 @@
+module Dexpace
+  module SSE
+    # SSE-2's line machine over a _ByteSource#getbyte (P7-20), with SSE-19's line cap.
+    class LineReader
+      attr_reader max_line_bytes: Integer
+
+      # `source` is untyped for BufferedSource.wrapping's reason: a duck checked with respond_to?
+      # at runtime, which strict Steep refuses to send to an interface.
+      def initialize: (untyped source, ?max_line_bytes: Integer) -> void
+      def next_line: () -> String?
+
+      private
+
+      LF: Integer
+      CR: Integer
+
+      @source: _ByteSource
+      @max_line_bytes: Integer
+      @buffer: String
+      @pushback: Integer?
+
+      def take_byte: () -> Integer?
+      def terminator?: (Integer byte) -> bool
+    end
+  end
+end

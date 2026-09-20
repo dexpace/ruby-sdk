@@ -46,7 +46,7 @@ class DexpaceTest < DexpaceTestCase
   # appear in no constants(false) list. Phase 5c's tracing and metrics layer and phase 5b's
   # logging layer add no flat constant: everything either ships is under
   # Dexpace::Instrumentation, which the Layers case below pins. Phase 6c adds two flat names,
-  # its namespace and AUTH-6's general resolution error.
+  # its namespace and AUTH-6's general resolution error. Phase 7b adds one, its namespace.
   DOMAIN_MODEL = %i[
     Error InvalidArgumentError Model Builder HeaderSyntax HeaderName Headers Status Method
     Protocol MediaType PercentEncoding Query URL RequestOptions Request Response
@@ -76,9 +76,13 @@ class DexpaceTest < DexpaceTestCase
   # Phase 6b: the namespace and the one flat error REDIR-6 scopes generally (filed beside 6a's
   # RetryPredicateError, P6-56); everything else the layer ships is under Dexpace::Redirect.
   REDIRECT_LAYER = %i[Redirect NotReplayableError].freeze
+  # Phase 7b: the namespace alone; every constant the layer ships is under Dexpace::SSE, which the
+  # PhaseSevenLayers case below pins, and its two errors are namespaced there (SSE-37 makes the
+  # subsystem self-contained, and nothing outside it raises either).
+  SSE_LAYER = %i[SSE].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
-    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER,
+    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER, SSE_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do
@@ -250,6 +254,35 @@ class DexpaceTest < DexpaceTestCase
       assert_raises(::NameError) { Dexpace::Auth::Challenges::Parser }
       assert_raises(::NameError) { Dexpace::Auth::DigestHandler::HASHES }
       assert_raises(::NameError) { Dexpace::Auth::AsyncStep::Exchange }
+    end
+  end
+
+  # The phase-7 layers, in a third nested class, one case per sub-phase as each lands.
+  class PhaseSevenLayers < DexpaceTestCase
+    # A consumer requires "dexpace" and nothing else: the Server-Sent Events layer resolves too
+    # (phase 7b) -- the namespace, its three limits and two sentinels, the five classes and the
+    # two namespaced errors -- and nothing of it is flat under Dexpace or private: the line
+    # machine's byte constants and the reader's field tables are private_constants, as unreachable
+    # as Dexpace::Hooks. The sentinel type is `Sentinel`, not the design's `Signal`, because a bare
+    # `Signal` inside module Dexpace::SSE would shadow Ruby's ::Signal (the phase-7b checklist).
+    test "requiring dexpace alone makes the whole server-sent-events layer resolve" do
+      sse = Dexpace::SSE
+
+      assert_equal(
+        %i[
+          DONE Event LimitExceededError LineReader MAX_EVENT_BYTES MAX_LINE_BYTES MAX_RETRY_MS
+          Reader SKIP Sentinel Stream StreamStateError TypedStream
+        ],
+        sse.constants(false).sort,
+      )
+      assert_equal(1024 * 1024, sse::MAX_LINE_BYTES)
+      assert_same(sse::SKIP, sse::SKIP)
+      assert_instance_of(sse::Sentinel, sse::DONE)
+      assert_equal(::Signal, Class.new { include Dexpace::SSE }.class_eval { Signal })
+      assert_raises(::NameError) { Dexpace::SSE::Signal }
+      assert_raises(::NameError) { Dexpace::SSE::LineReader::LF }
+      assert_raises(::NameError) { Dexpace::SSE::Reader::DIGITS_ONLY }
+      assert_raises(::NameError) { Dexpace::SSE::LimitExceededError::KINDS }
     end
   end
 

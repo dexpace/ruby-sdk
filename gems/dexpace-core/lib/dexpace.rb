@@ -264,6 +264,26 @@ require_relative "dexpace/redirect/emitter"
 require_relative "dexpace/redirect/reissue"
 require_relative "dexpace/redirect/step"
 
+# Phase 7b: the Server-Sent Events layer, in dependency order. Nothing here depends on phases
+# 4c through 6: the namespace file needs only the sentinel type it holds the two instances of;
+# the two errors need the error root; the line machine reads a byte source through #getbyte
+# (3a's BufferedSource satisfies its interface structurally, and it is deliberately NOT built on
+# #read_line_utf8, whose IO-14 grammar keeps a lone CR as content where SSE-2 terminates on it);
+# the event value is a Data including Model; the reader sits on the line machine and the value;
+# the facade includes phase 2's Closeable, reads a phase-3b response body's source, and requires
+# the typed adapter itself; the typed adapter names the two sentinels. The layer requires no
+# stdlib feature at all and names no Dexpace::Serde constant, which `gates:serde_boundary` scans
+# for (SSE-37).
+require_relative "dexpace/sse"
+require_relative "dexpace/sse/sentinel"
+require_relative "dexpace/sse/limit_exceeded_error"
+require_relative "dexpace/sse/stream_state_error"
+require_relative "dexpace/sse/line_reader"
+require_relative "dexpace/sse/event"
+require_relative "dexpace/sse/reader"
+require_relative "dexpace/sse/stream"
+require_relative "dexpace/sse/typed_stream"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

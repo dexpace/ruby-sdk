@@ -1,0 +1,6 @@
+module Dexpace
+  module SSE
+    class Reader
+    end
+  end
+end
