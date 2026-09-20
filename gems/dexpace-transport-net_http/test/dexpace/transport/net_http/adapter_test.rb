@@ -3,6 +3,7 @@
 
 require_relative "../../../test_helper"
 require_relative "../../../support/adapter_fixtures"
+require_relative "../../../support/net_http_recording_sink"
 require "dexpace/transport/net_http"
 
 # TRANSPORT-1 to 6, 15, 16, 20, 22, 29, 30 and the constructions (P8-6, P8-10, P8-15). The
@@ -417,15 +418,27 @@ module DexpaceTransportNetHttpAdapterTest
       assert_equal(:early, error.reason)
     end
 
-    test "an already-cancelled token is refused before anything reaches the wire" do
+    # P8-52: `cancellation.check!` runs before anything is MAPPED, not only before the socket --
+    # since review round 2 the pump refuses a cancelled token on its own (P8-64), so the socket
+    # count alone would no longer tell the adapter's check from the pump's. A managed header the
+    # mapper would drop and log at VERBOSE is the observable: a refused call maps nothing, so the
+    # sink sees nothing.
+    test "an already-cancelled token is refused before anything is mapped or reaches the wire" do
       server = wire(Scripts.fixed("ok"))
       source = Dexpace::Cancellation.source
       source.cancel(:gone)
+      sink = NetHTTPRecordingSink.new
+      adapter = NetHTTP.build(logger: Dexpace::Instrumentation::Logger.build(sink: sink))
+      managed = Dexpace::Headers.builder.add("Expect", "100-continue").build
+      request = Dexpace::Request.build(method: "GET", url: "http://127.0.0.1:#{server.port}/",
+                                       headers: managed, body: nil,)
 
       assert_raises(Dexpace::CancelledError) do
-        NetHTTP.build.call(request_for(server), Dexpace::RequestOptions::EMPTY, source.token)
+        adapter.call(request, Dexpace::RequestOptions::EMPTY, source.token)
       end
       assert_equal(0, server.connections)
+      assert_empty(sink.events(Dexpace::Instrumentation::Events::TRANSPORT_HEADER_DROPPED),
+                   "the request was never mapped: no managed-header drop was logged",)
     end
   end
 
