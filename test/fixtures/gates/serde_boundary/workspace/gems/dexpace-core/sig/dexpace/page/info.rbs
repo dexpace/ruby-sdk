@@ -1,0 +1,6 @@
+module Dexpace
+  class Page
+    class Info
+    end
+  end
+end
