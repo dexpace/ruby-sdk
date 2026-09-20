@@ -4005,14 +4005,22 @@ member named `retry` cannot be re-assigned or forwarded by name in Ruby, so `Eve
 with a bare `super` and validates the hint after it. The typed layer's block form is a plain loop over
 `Stream#each` and its external form drives the raw enumerator taken eagerly at `#values`; the facade's
 one failure path is `Stream#drive`'s `rescue ::Exception` in 6a's and 6b's spelling, and every
-block-form exit — `Enumerable#first(n)` on `#events` included — closes loudly through its `ensure`
-(P7-86). The checklist is at
+block-form exit — `Enumerable#first(n)` on `#events` and on `#values` alike — closes loudly through the
+owning drive routine's `ensure` (P7-86). The checklist is at
 `docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`: forty-one own rows —
 forty ✅, `SSE-41` ⏳ (declined for v1, cited) — plus the cross-reference rows, the matrix facts on every
-interpreter, the guards run red, the audit groups, thirty-six departures from the plan's text, the
+interpreter, the guards run red, the audit groups, thirty-seven departures from the plan's text, the
 findings routed and the postponed work; the design's ledger gains an "As built" addendum, P7-81–P7-86,
 whose consolidation into design §10 and the §10.18 amendment for both cap constants are a human's, as
 for every phase since 3a; `docs/sdk-documentation/sse.md` is the as-built page, every example run on
 4.0.6 and 3.2.11; `docs/first-release.md` is untouched, its `SSE-41` entry still true as written.
 `7a` and `7c` remain to land; the reconcile pass moves the boundary gate's `page/**` rows to `GUARDED`
-once 7c's files are on the same base.
+once 7c's files are on the same base. **Review round 0 (2026-09-20)** found two defects the suites
+could not see and one file the checklist cited that the tree did not hold, all three repaired on the
+owning branch: `Reader#dispatch` returned nil for a fieldless block before resetting it, so a run of
+unknown-field keep-alives, NUL ids or rejected retries accumulated into `SSE-19`'s event cap across the
+blank lines that separate them (a fresh block per blank line is `SSE-1`'s own clause); the typed
+layer's `#values` had `Stream#drive`'s rescue and not its `ensure`, so `values.first(1)` stranded the
+resource where `events.first(1)` released it; and `stream_state_error_test.rb` was written. Guards 51
+and 52 are the round's, red on both rows against the pre-fix `lib/`; no public name, signature or
+manifest row changed.

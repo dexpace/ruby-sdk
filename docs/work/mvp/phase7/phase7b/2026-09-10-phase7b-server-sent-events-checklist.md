@@ -41,7 +41,7 @@ design's *Five rows the checklist must state rather than tick* requires: `SSE-19
 
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
-| `SSE-1` | MUST | ✅ | 7 | `Reader#next_event` loops `LineReader#next_line`; a blank line with any field seen builds one `Event` and `reset_block` clears all five accumulators and the byte total, so `data: 1\n\ndata: 2\n\n` is `[["1"], ["2"]]` and `id: 1\ndata: a\n\ndata: b\n\n` gives a second event with a nil id, event, comment and retry (`reader_test.rb` `DispatchTest`, the three `SSE-1` cases) |
+| `SSE-1` | MUST | ✅ | 7 | `Reader#next_event` loops `LineReader#next_line`; a blank line with any field seen builds one `Event`, and `reset_block` clears all five accumulators and the byte total on EVERY blank line, dispatching or not (since review round 0's R0-1: `dispatch`'s nil branch once returned before the reset, so a run of fieldless blocks accumulated into `SSE-19`'s event cap), so `data: 1\n\ndata: 2\n\n` is `[["1"], ["2"]]`, `id: 1\ndata: a\n\ndata: b\n\n` gives a second event with a nil id, event, comment and retry, and `data: a\n\n` + three `zz: 1\n\n` blocks + `data: b\n\n` under a 12-byte cap is `[["a"], ["b"]]` (`reader_test.rb` `DispatchTest`, the three `SSE-1` cases; `EventCapTest` "resets at every blank line"; guard 51) |
 | `SSE-2` | MUST | ✅ | 3 | `LineReader` recognises LF, CR and CRLF natively over `#getbyte`, CRLF as one terminator, terminators stripped, a lone CR terminating by itself with the following byte held in a one-byte pushback (`a\rb\n` → `["a", "b"]`; `a\r\r\n` → `["a", ""]`; the same five lines under each terminator and under a mix are identical; a 200-sample seeded property test over generated line lists and terminator assignments round-trips, its one unexpressible assignment — an empty line terminated by LF directly after a CR-terminated one, which IS `\r\n` — excluded by construction). Built over `#getbyte` and NOT over 3a's `#read_line_utf8`, which keeps a lone CR as content (P7-20; `line_reader_test.rb` `GrammarTest`; guards 1–3) |
 | `SSE-3` | MUST | ✅ | 5 | `Reader#apply_line` splits at the FIRST `0x3A` on the BINARY line: `data\n\n` and `data:\n\n` both give `[""]`, `data:a:b:c` keeps the later colons as value bytes, and `garbage\n\n` — an unrecognised name with no colon — dispatches nothing (`reader_test.rb` `FieldTest`, four `SSE-3` cases) |
 | `SSE-4` | MUST | ✅ | 5 | A present-but-empty value is `""` and counts as a field seen: `event:\ndata:x\n\n` has `event == ""`, `id:\n\n` dispatches an event whose id is `""`; `Event#empty?` reads `event: ""` and `data: [""]` as not empty (`FieldTest`, two `SSE-4` cases; `event_test.rb`, "a present-but-empty field is not 'unset'") |
@@ -59,13 +59,13 @@ design's *Five rows the checklist must state rather than tick* requires: `SSE-19
 | `SSE-16` | MUST | ✅ | 7 | The ONE item of state that survives a dispatch is `@bom_checked`: `retry: 500\ndata: a\n\ndata: b\n\n` gives `[500, nil]`, `id: 1 … / … / id: 3 …` gives `["1", nil, "3"]`, and the BOM flag DOES persist — a second block's leading BOM bytes are not consumed. The corpus entry saying the opposite (`sse-streaming/2dba42b0`, "current retry value, last event id") is superseded by `docs/knowledge/notes/sse-streaming.md` (`DispatchTest`, three `SSE-16` cases; guard 19) |
 | `SSE-17` | MUST | ✅ | 3, 7 | Neither `LineReader` nor `Reader` answers `#close` or calls its source's: a real `BufferedSource` driven to completion is still open afterwards, in both suites (`ContractTest`; `DispatchTest`, "the reader never closes its source"; guard 20) |
 | `SSE-18` | MUST | ✅ by omission | 7 | The MAY is taken: the reader holds no `Thread::Mutex` and its YARD states the single-threaded contract. There is no behavioural test, because no assertion distinguishes "documented single-threaded" from "accidentally single-threaded" (the design's *Five rows*); the one test pins the omission — no ivar of a `Reader` is a `Mutex` — so a lock is not added without a decision. The one lock in the subsystem is `Closeable`'s, on `Stream`, for `SSE-31` (`DispatchTest`, "the reader holds no lock") |
-| `SSE-19` | MAY | ✅ taken | 2, 3, 7 | **The MAY the port takes, and the row that resolves phase 3a's line-cap finding.** Two documented bounds, both CHOSEN, both rejecting loudly and never truncating, both settable per reader (P7-21): `Dexpace::SSE::MAX_LINE_BYTES = 1024 * 1024` (`LineReader`, checked before each append — a line of exactly the cap passes, one byte more raises `LimitExceededError(kind: :line)`, at most one byte past the cap is ever pulled, bytes not characters) and `Dexpace::SSE::MAX_EVENT_BYTES = 8 * 1024 * 1024` (`Reader`, the raw bytes of every line of one block, comments and unknown fields included, reset at each dispatch — a block of exactly the cap passes, one byte more raises `kind: :event`). Both constants sit strictly below `Dexpace::IO::MAX_MATERIALIZED_BYTES`, asserted; the mutation battery at the real values names the constants and never the literals. **This is not `SSE-11`'s cap**, whose row is separate. The divergence is documented in the constants' YARD (naming `SSE-19`, the reference's absence of a maximum, `MAX_MATERIALIZED_BYTES` and the layer split), in `LimitExceededError`, in P7-21, in `docs/sdk-documentation/sse.md` and in the §10.18 amendment routed below; `documentation_test.rb` pins the sentences (`sse_test.rb`; `line_reader_test.rb` `CapTest`; `reader_test.rb` `EventCapTest`; `limit_exceeded_error_test.rb`; guards 5–7, 46–48) |
+| `SSE-19` | MAY | ✅ taken | 2, 3, 7 | **The MAY the port takes, and the row that resolves phase 3a's line-cap finding.** Two documented bounds, both CHOSEN, both rejecting loudly and never truncating, both settable per reader (P7-21): `Dexpace::SSE::MAX_LINE_BYTES = 1024 * 1024` (`LineReader`, checked before each append — a line of exactly the cap passes, one byte more raises `LimitExceededError(kind: :line)`, at most one byte past the cap is ever pulled, bytes not characters) and `Dexpace::SSE::MAX_EVENT_BYTES = 8 * 1024 * 1024` (`Reader`, the raw bytes of every line of one block, comments and unknown fields included, reset at every blank line whether or not it dispatched — a block of exactly the cap passes, one byte more raises `kind: :event`, and three 5-byte fieldless blocks under a 12-byte cap raise nothing; the reset on a NON-dispatching blank line is review round 0's R0-1, guard 51). Both constants sit strictly below `Dexpace::IO::MAX_MATERIALIZED_BYTES`, asserted; the mutation battery at the real values names the constants and never the literals. **This is not `SSE-11`'s cap**, whose row is separate. The divergence is documented in the constants' YARD (naming `SSE-19`, the reference's absence of a maximum, `MAX_MATERIALIZED_BYTES` and the layer split), in `LimitExceededError`, in P7-21, in `docs/sdk-documentation/sse.md` and in the §10.18 amendment routed below; `documentation_test.rb` pins the sentences (`sse_test.rb`; `line_reader_test.rb` `CapTest`; `reader_test.rb` `EventCapTest`; `limit_exceeded_error_test.rb`; guards 5–7, 46–48) |
 | `SSE-20` | MUST | ✅ | 4 | `Event` is `Data.define(:id, :event, :data, :comment, :retry)` including `Dexpace::Model`, `.new` and `.[]` private, `.build` the factory: the list is deep-copied and frozen once through `Model.own` (`original << "c"; original[0] << "!"` reaches nothing; the list and its elements are frozen; the same reference from every accessor), the scalar Strings are frozen copies, and `#with` is `Model#with` routing through `.build` — no bespoke `#with` — so a derivation re-validates on every row (`with(retry: -1)` raises on 3.2.11, where `Data#with` alone would skip `#initialize`) and shares nothing mutable: the caller's list is never the derived event's. **One thing the design's `SSE-20` sentence overstates**: `Model.own` hands an ALREADY deep-frozen list back as it is (`Ractor.make_shareable(copy: true)` copies only what is not yet shareable), so a derived event may share its parent's frozen list — indistinguishable from a copy, since nothing can mutate either (`event_test.rb`, five `SSE-20` cases; guards 21, 22) |
 | `SSE-21` | SHOULD | ✅ | 4 | `Data`'s equality, `eql?` and hash over all five members, a stable `#inspect` naming the type, `#to_s` the same, `pp` the same (`event_test.rb`, two `SSE-21` cases) |
 | `SSE-22` | SHOULD | ✅ | 4 | `Event#empty?` is `id.nil? && event.nil? && data.empty? && comment.nil? && self.retry.nil?` — true only when all five are UNSET; a comment-only event, a `retry: 0`, an `event: ""` and a `data: [""]` are all not empty (`event_test.rb`, three `SSE-22` cases; guard 23) |
 | `SSE-23` | MUST | ✅ | 8, 9 | `Stream` includes `Closeable`; the ONE resource is `resource:` (the source by default, P7-25), released by a private `#release` exactly once across every path a close-counting `FakeResponseBody` is driven through: clean end (1), three explicit closes (1), an explicit close after the automatic release (1), a block-form `break` (1), an enumerator abandoned then closed (0 then 1), a mid-stream failure (1), a raising block (1), a `LimitExceededError` (1), a typed `DONE` (1), a typed mapper failure (1); an owned resource must answer `#close` at construction, a borrowed one need not; `TypedStream` owns nothing and delegates (`stream_test.rb` `LifecycleTest`, `FailureTest`; `typed_stream_test.rb` `ViewTest`; guards 24, 25) |
 | `SSE-24` | MUST | ✅ | 8 | `Stream#advance` releases through `finish` — `Dexpace.close_quietly(self, logger:)` — on the reader's nil, so a full iteration without `#close` releases once, and the external form releases on the pull that finds the end (three events pulled: 0; the `StopIteration` pull: 1); a fully consumed typed view releases too (`LifecycleTest`, two `SSE-24` cases; `typed_stream_test.rb` `ViewTest`; guard 24) |
-| `SSE-25` | MUST | ✅ | 8 | The block form's `drive` has an `ensure close` in the stream's own scope, so a `break` after one event releases once; the enumerator form asserts BOTH halves of §7.1's rule — abandonment after one `#next` releases NOTHING, two `GC.start`s later, and the explicit `#close` that is the documented remedy releases once — with the enumerator dropped inside a helper so no reference survives into the assertions (`LifecycleTest`, two `SSE-25` cases; `typed_stream_test.rb` `ViewTest`; guard 26) |
+| `SSE-25` | MUST | ✅ | 8, 9 | The block form's `drive` has an `ensure close` in the stream's own scope, so a `break` after one event releases once, and so does an `Enumerable` method that stops early on `#events` — `first(2)` releases once and closes the stream; the enumerator form asserts BOTH halves of §7.1's rule — abandonment after one `#next` releases NOTHING, two `GC.start`s later, and the explicit `#close` that is the documented remedy releases once — with the enumerator dropped inside a helper so no reference survives into the assertions. The typed layer mirrors both: `TypedStream#drive_values` carries an `ensure` of its own (since review round 0's R0-2 — it had `Stream#drive`'s rescue and not its ensure, so `values.first(1)` left the resource at 0 closes where `events.first(1)` released), so `first(1)`, `take(2)`, `find` and an `each { break }` on `#values` each release once and a release failure there propagates as the raw form's does (`LifecycleTest`, three `SSE-25` cases; `typed_stream_test.rb` `ViewTest`, two `SSE-25` cases and the `SSE-30` one; guards 26, 52) |
 | `SSE-26` | MUST | ✅ | 8, 9 | `Stream#take_view!` latches `@viewed` before either shape is built and raises `Dexpace::SSE::StreamStateError` on a second request in either shape, and the typed layer's two shapes compete for the SAME flag through `Stream#each` / `#events`: `typed.values` then `typed.values`, `typed.each`, `stream.events` and `stream.each` all refuse (`stream_test.rb` `ViewTest`; `typed_stream_test.rb` `ViewTest`; `stream_state_error_test.rb`; guard 27) |
 | `SSE-27` | MUST | ✅ | 8 | Requesting a view after `#close` raises `StreamStateError` naming the closed state, in both shapes; `advance` reads `closed?` BEFORE every pull, so a close between pulls ends the enumerator with `StopIteration`, the resource closed once, and the torn-down source — a closed `BufferedSource`, whose read would raise `ClosedError`, a `StandardError` that would otherwise take the failure path — is never read; after a failure released the stream, a further pull is a clean end (`ViewTest`, three `SSE-27` cases; `FailureTest`, one; guard 28) |
 | `SSE-28` | MUST | ✅ | 8 | `Closeable#close`'s latch: three explicit closes release once; an explicit close after the automatic release leaves the count at one, because the automatic path closes `self` and flips the same latch (never `@resource` directly); an explicit close whose release raised still leaves the latch flipped and a second close a no-op (`LifecycleTest`, two `SSE-28` cases; `FailureTest`, the explicit-close case; guard 25) |
@@ -105,7 +105,7 @@ Cross-reference rows, the IDs this phase owns a share of:
 | `NFR-3` | ✅ | Ten new `sig/` mirrors, the strict `core` target green with no relaxation; `_ByteSource` is a recursive four-method interface (P7-82); `source`/`resource` are `untyped` for `BufferedSource.wrapping`'s reason |
 | `NFR-4` | ✅ | Every addition is a widening; the manifest grew by exactly 43 rows, 1 137 → 1 180, read row by row against the object model (P7-85); the RBS baseline diff is vacuous until the first tag |
 | `NFR-11` | ✅ | No constant outside `Dexpace::` and the stdlib allowlist in any of the ten new signatures |
-| `NFR-13` | ✅ for `.rb`; the `.rbs` half is phase 10's | The twenty-nine new `.rb` files — nine under `lib/`, one under `tools/`, one under `test/gates/`, fourteen suites and three doubles under `gems/dexpace-core/test/`, and the twenty-one Ruby fixtures under `test/fixtures/gates/serde_boundary/` (excluded from the cop, header carried anyway) — open with the two headers the `Dexpace/SpdxHeader` cop gates; the new `.rbs` files carry no SPDX line, as no `.rbs` in the repository does |
+| `NFR-13` | ✅ for `.rb`; the `.rbs` half is phase 10's | The forty-six new `.rb` files — nine under `lib/`, one under `tools/`, one under `test/gates/`, twelve suites and three doubles under `gems/dexpace-core/test/`, and the twenty Ruby fixtures under `test/fixtures/gates/serde_boundary/` (seventeen under `files/`, three across the `workspace/` and `empty_glob/` roots; excluded from the cop, header carried anyway) — open with the two headers the `Dexpace/SpdxHeader` cop gates; the seventeen new `.rbs` files (nine `sig/` mirrors, eight fixtures) carry no SPDX line, as no `.rbs` in the repository does. Review round 0's R0-4 corrected the count words here: the first draft said twenty-nine, fourteen suites and twenty-one fixtures |
 | `NFR-17` | ✅ | The eighteenth gate is blocking, in `DEFAULT_GATES` after `gates:require_allowlist`, in `gates:list`, in CI's once-per-run `gates` job, and driven red by `test/gates/serde_boundary_test.rb` against a fixture workspace |
 
 ## What was built
@@ -132,15 +132,16 @@ used in exactly two tests to keep P7-27's claim behavioural and in the two at-sc
 `SSEFixtures` (`FIXTURE`, `byte_source`, `failing_source`, `counting_resource`, `gathered`,
 `consume_one` and the one shared `stream_over(bytes = FIXTURE, resource: nil, **) -> [stream,
 resource]`). The plan's `Dexpace::Test` namespace and its five doubles were never written: the tree's
-own objects answer every assertion (Deviations 3 and 4). Fourteen new suites under
-`test/dexpace/sse/` plus `test/dexpace/sse_test.rb`: one per `lib/` file, and three with no `lib/`
+own objects answer every assertion (Deviations 3 and 4). Twelve new suites — eleven under
+`test/dexpace/sse/` plus `test/dexpace/sse_test.rb`: one per `lib/` file (nine, `stream_state_error_test.rb`
+among them since review round 0's R0-3, which found it cited and not written), and three with no `lib/`
 mirror that say so — `matrix_facts_test.rb` (the design's eight facts and the build's, a standing test
 on every row), `boundaries_test.rb` (`SSE-37`/`SSE-38`'s absences) and `documentation_test.rb` (the
 line-cap closure's prose). The surface manifest was regenerated once, 1 137 → 1 180, all 43 rows read
 against the object model. Documentation: `docs/sdk-documentation/sse.md` (every example run on 4.0.6
 and 3.2.11), `docs/knowledge/notes/sse-streaming.md` (two supersessions, three references), and the
-`io.md`, `quality-gates.md`, `architecture.md`, README, `docs/README.md`, `CLAUDE.md`,
-`docs/first-release.md` and roadmap edits the docs PR carries.
+`io.md`, `quality-gates.md`, `architecture.md`, README, `docs/README.md`, `CLAUDE.md` and roadmap
+edits the docs PR carries; `docs/first-release.md` is untouched, its `SSE-41` entry true as written.
 
 ## Matrix facts, re-run on every interpreter
 
@@ -192,9 +193,19 @@ Model`", the test asserts validation on derivation, and the mutant is caught on 
 on 4.0.6 as an equivalent mutant, where `Data#with` calls `#initialize` itself. **Forty-six of
 forty-six caught on 3.2.11; forty-five of forty-six on 4.0.6**, the one survivor the equivalent
 mutant just described; guard 44 is a deliberately inert control that must stay green on both rows,
-and did.
+and did. **Review round 0 (2026-09-20) ran forty-six of its own plus two controls, and the two
+controls are what found the round's two defects** — each was the PROPOSED fix applied to the
+unmutated tree, and each left its suite green, which is the suite saying it could not tell the fix
+from the defect: `dispatch`'s nil branch returned before `reset_block`, so a run of fieldless blocks
+accumulated into `SSE-19`'s event cap (no test wrote a blank-line-separated run of unknown-field,
+NUL-id or rejected-retry blocks under a small cap); and `TypedStream#drive_values` had `Stream#drive`'s
+rescue and not its ensure, so `values.first(1)` released nothing where `events.first(1)` released once
+(no test called an early-stopping `Enumerable` method on either shape). Both were fixed on the code
+branch and both controls became guards — **51 and 52, each red on both rows** against the pre-fix
+`lib/` and green after it, so the battery is forty-eight, forty-eight caught on 3.2.11 and forty-seven
+on 4.0.6, guard 22 still the one equivalent mutant.
 
-| # | Mutation (the brief's numbering; 44–50 are this build's) | Red on 4.0.6 | Red on 3.2.11 |
+| # | Mutation (the brief's numbering; 44–50 are this build's; 51–52 are review round 0's) | Red on 4.0.6 | Red on 3.2.11 |
 |---|---|---|---|
 | 1 | `SSE-2`: a lone CR is content (`return false unless byte == LF`, so the CR branch is unreachable) | `GrammarTest` "a lone CR terminates a line by itself" and nine more, `ContractTest` "a lone CR at the end of one pull" | 10 failures, `line_reader_test.rb` |
 | 2 | `SSE-2`: CRLF as two terminators (never read the byte after a CR) | 7 failures — "CRLF is a single terminator" (`["one", "", "two"]`), the mixed cases, the property test | 7 failures |
@@ -246,6 +257,8 @@ and did.
 | 48 | `SSE-19`: the block byte total not reset at dispatch (`@block_bytes` never zeroed — an unset ivar) | 55 errors — `NoMethodError` on `nil` | 55 errors |
 | 49 | `SSE-34`: `==` instead of `equal?` on `SKIP` | "the outcome comparison is identity — a value that == a sentinel is yielded" | 1 failure |
 | 50 | `SSE-6`: a comment does not count as a field seen | "a retry-only block and a comment-only block both dispatch", and the comment-only event's `nil` | 1 failure, 2 errors |
+| 51 | `SSE-1`/`SSE-19`: `dispatch` returns nil for a fieldless block BEFORE `reset_block` (the byte total carried across blank lines) — review round 0's R0-1 | `EventCapTest` "the event byte total resets at every blank line, dispatching or not": `LimitExceededError ... 12-byte limit ... kind=event` on `data: a\n\n` + three `zz: 1\n\n` blocks | 1 error |
+| 52 | `SSE-25`: `TypedStream#drive_values` without its `ensure @stream.close` — review round 0's R0-2 | `ViewTest` "an Enumerable method that stops early on #values releases" (`Expected: 1 Actual: 0`) and "a release failure on a typed block-form break propagates" (nothing raised) | 2 failures |
 
 ## Audit groups run
 
@@ -353,8 +366,9 @@ phase cites, or a statement the design makes are also the as-built ledger rows P
     `sse.rb` requires `sse/sentinel` before assigning `SKIP`/`DONE`; the smoke suite's `LAYERS` gains
     `SSE_LAYER = %i[SSE]` and a `PhaseSevenLayers` class; the namespace file's mirror is
     `test/dexpace/sse_test.rb`; `sentinel_test.rb`, `limit_exceeded_error_test.rb` and
-    `stream_state_error_test.rb` each exist. No `private_constant` FILE was added, so `CLAUDE.md`'s
-    eighteen-file list is unchanged.
+    `stream_state_error_test.rb` each exist — the third since review round 0 (R0-3), which found
+    this sentence and the `SSE-26` row citing a file the tests branch did not hold. No
+    `private_constant` FILE was added, so `CLAUDE.md`'s eighteen-file list is unchanged.
 17. **Every constant and attribute carries YARD**; `Sentinel#pretty_print` was added so the
     "identifies itself in a log" claim holds under `pp` (6c's P6-72); YARD is at 100% (215
     constants, 82 attributes, 808 methods, 0 undocumented at the wip tip).
@@ -429,7 +443,20 @@ phase cites, or a statement the design makes are also the as-built ledger rows P
     reads `#body` and calls `#close` on it, so a duck is refused by name rather than failing on `#body`.
 36. **`Enumerable#first(n)` on `Stream#events` closes the stream**: `first` iterates internally and
     breaks, which is a block-form exit and runs `drive`'s `ensure close`; the released resource is the
-    safe direction and `sse.md` says so.
+    safe direction and `sse.md` says so. **And on `TypedStream#values` too, since review round 0's
+    R0-2**: the external typed drive runs the raw enumerator, so an early exit through its block never
+    reached the Stream's ensure, and `values.first(1)` stranded the resource (closes 0 against the
+    raw form's 1) until `#close`; `drive_values` now carries the same `ensure`, a loud release on that
+    exit and a no-op on the clean end, a `DONE` and both failure paths, whose latch has already
+    flipped.
+37. **Review round 0's fixes** (2026-09-20), one per branch: `Reader#dispatch` resets the block on
+    its nil branch too and builds the `Event` through a private `build_event` (code; R0-1);
+    `TypedStream#drive_values` gains its `ensure` (code; R0-2); `reader_test.rb` `EventCapTest`,
+    `typed_stream_test.rb` `ViewTest` and `stream_test.rb` `LifecycleTest` gain the cases guards 51
+    and 52 name, and `stream_state_error_test.rb` is written (tests; R0-1–R0-3); this document's
+    count words, the design's As-built addendum and `sse.md`'s two `rescue`-less blocks are
+    corrected (docs; R0-4, R0-5). No public name, signature or manifest row changed; `reader.rbs`
+    gains one private line.
 
 ## Findings routed
 

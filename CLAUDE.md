@@ -882,7 +882,9 @@ Each is one line plus the chapter to read before touching the area.
   never `@resource`** — the clean end and a typed `DONE` go through `Dexpace.close_quietly(self, logger:)`,
   swallowing a release failure and reporting it as one `http.instrumentation.close` WARNING through the
   factory's `logger:` (nothing under `Logger::NULL`), while an explicit `#close` and every block-form exit
-  (`break`, `Enumerable#first(n)` on `#events`) go through `Closeable#close` and propagate; both flip one
+  (`break`, `Enumerable#first(n)` on `#events` and on the typed `#values` alike — the typed drive carries
+  its own `ensure`, because the raw enumerator it runs is parked mid-`#next` and the Stream's never fires)
+  go through `Closeable#close` and propagate; both flip one
   latch, which is `SSE-28`'s "even after an automatic release". The one failure path is `Stream#drive`'s
   `rescue ::Exception` → `close_quietly(self, onto:)` → bare `raise`; `#advance` reads `closed?` BEFORE
   every pull, which is what keeps a cross-thread close a clean end and the torn-down source unread. The

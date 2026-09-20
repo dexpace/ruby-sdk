@@ -83,10 +83,13 @@ lines.next_line                                      # => "three"
 lines.next_line                                      # => "four"
 lines.next_line                                      # => nil
 lines.max_line_bytes == SSE::MAX_LINE_BYTES          # => true
-SSE::LineReader.new(source("#{"x" * 65}\n"), max_line_bytes: 64).next_line
-# => Dexpace::SSE::LimitExceededError: an SSE line exceeded its 64-byte limit and was rejected,
-#    not truncated (SSE-19)
-e.kind, e.limit                                      # => [:line, 64]
+begin
+  SSE::LineReader.new(source("#{"x" * 65}\n"), max_line_bytes: 64).next_line
+rescue Dexpace::SSE::LimitExceededError => e
+  e.message
+  # => "an SSE line exceeded its 64-byte limit and was rejected, not truncated (SSE-19)"
+  [e.kind, e.limit]                                  # => [:line, 64]
+end
 ```
 
 The line reader owns nothing and closes nothing (`SSE-17`); its source outlives it.
@@ -181,7 +184,8 @@ the enumerator's block: an `Enumerator` abandoned mid-`#next` never runs its `en
 so external iteration gets its release from the clean end or from `#close`, which is the documented
 remedy for an abandoned enumerator, while the block form releases on every exit in the stream's own
 scope. An `Enumerable` method that stops early — `first(n)`, `take`, `find` — leaves the block form's
-`ensure` to close the stream, so the stream is finished after it.
+`ensure` to close the stream, so the stream is finished after it; the same holds on the typed
+adapter's `#values`, whose drive carries an `ensure` of its own.
 
 ```ruby
 body = FakeResponseBody.new(nil)
@@ -219,9 +223,12 @@ failing = Dexpace::IO::BufferedSource.over(ScriptedChunked.new("data: a\n\n", De
 body3 = FakeResponseBody.new(nil, close_error: IOError.new("close failed"))
 enum = SSE::Stream.owning(failing, resource: body3).events
 enum.next.data                                       # => ["a"]
-enum.next
-# => Dexpace::StreamError: boom
-Dexpace.suppressed(e).map(&:message)                 # => ["close failed"]
+begin
+  enum.next
+rescue Dexpace::StreamError => e
+  e.message                                          # => "boom"
+  Dexpace.suppressed(e).map(&:message)               # => ["close failed"]
+end
 body3.closes                                         # => 1
 
 sink = RecordingSink.new
@@ -269,9 +276,11 @@ yielded bare (P7-23). Decoding is lazy and per element (`SSE-35`): the mapper ru
 the adapter pulls only as many raw events as one element needs to drain `SKIP`s. A mapper that raises
 propagates at that pull, with the resource released first and a release failure on its suppressed
 trail (`SSE-36`). The two shapes mirror the stream's, `#each { |value| }` and `#values ->
-Enumerator`, both taking the stream's one view, and `TypedStream` does not include `Enumerable` — one
-view per stream is the single-pass discipline, and `Enumerable` would hand a caller thirty methods that
-each silently take it.
+Enumerator`, both taking the stream's one view — the early exit included: `values.first(n)`, `take`,
+`find` and an `each { break }` release the resource on the way out, loudly, exactly as on `#events`,
+and an abandoned `#values` enumerator releases nothing until `#close`, exactly as an abandoned `#events`
+one — and `TypedStream` does not include `Enumerable`: one view per stream is the single-pass
+discipline, and `Enumerable` would hand a caller thirty methods that each silently take it.
 
 ```ruby
 wire2 = "data: 1\n\n:ping\n\ndata: 2\n\ndata: [DONE]\n\ndata: 3\n\n"
@@ -292,6 +301,11 @@ enum8.next                                           # => "a"
 enum8.next
 # => ArgumentError: bad b
 body8.closes                                         # => 1
+
+body9 = FakeResponseBody.new(nil)
+typed9 = SSE::Stream.owning(source("data: a\n\ndata: b\n\n"), resource: body9).typed { |_n, d| d }
+typed9.values.first(1)                               # => ["a"]
+[body9.closes, typed9.closed?]                       # => [1, true]   (first(1) stopped early: released)
 ```
 
 The `[DONE]` above is the mapper's convention and not the SDK's: to the reader it is an ordinary data
