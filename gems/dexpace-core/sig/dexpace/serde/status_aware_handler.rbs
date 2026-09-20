@@ -26,6 +26,7 @@ module Dexpace
       def raise_mapped: (Dexpace::Response response) -> bot
       def raise_unhandled: (Dexpace::Response response) -> bot
       def unhandled_message: (Dexpace::Response response) -> String
+      def target_name: () -> String
     end
   end
 end

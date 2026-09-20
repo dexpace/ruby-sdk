@@ -18,6 +18,7 @@ module Dexpace
 
       def decode: (Dexpace::Response response) -> untyped
       def missing_body: () -> Dexpace::Serde::DeserializationError
+      def target_name: () -> String
     end
   end
 end

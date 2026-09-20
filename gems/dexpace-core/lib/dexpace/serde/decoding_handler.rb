@@ -118,9 +118,16 @@ module Dexpace
       # SERDE-27's "naming the target type": the name DecodeContext.root derives for the witness.
       def missing_body
         DeserializationError.new(
-          "no body to decode into #{DecodeContext.root(target: witness).target}: the response " \
-          "carried none (SERDE-27)",
+          "no body to decode into #{target_name}: the response carried none (SERDE-27)",
         )
+      end
+
+      # The witness's name as DecodeContext.root derives it, with a literal for the one witness
+      # that has none: an anonymous class gets no target (P7-70, so `#error!` keeps its plain form
+      # and no `#<Class:0x…>` reaches a message), and interpolating that nil here would read
+      # "decode into : the response" (review round 1, R1-4).
+      def target_name
+        DecodeContext.root(target: witness).target || "an anonymous witness"
       end
     end
   end

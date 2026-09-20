@@ -128,9 +128,15 @@ module Dexpace
           values = headers[name]
           "#{name}: #{values.join(", ")}" unless values.nil? || values.empty?
         end
-        target = DecodeContext.root(target: witness).target
         lead = "#{status.code} #{status.canonical_name}".rstrip
-        ["#{lead}: not decoded into #{target}, only a 2xx body is (SERDE-28)", *context].join("; ")
+        ["#{lead}: not decoded into #{target_name}, only a 2xx body is (SERDE-28)", *context]
+          .join("; ")
+      end
+
+      # As DecodingHandler#target_name: the derived name, or a literal for an anonymous witness,
+      # which DecodeContext.root gives no target (P7-70; review round 1, R1-4).
+      def target_name
+        DecodeContext.root(target: witness).target || "an anonymous witness"
       end
     end
   end
