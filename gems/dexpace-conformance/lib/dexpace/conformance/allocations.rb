@@ -54,17 +54,22 @@ module Dexpace
           raise ::Dexpace::InvalidArgumentError, "iterations must be a positive Integer"
         end
 
-        ::GC.disable
-        previous = measure(iterations, &block)
-        ATTEMPTS.times do
-          current = measure(iterations, &block)
-          return current if current == previous
+        # `GC.disable` answers whether the collector was ALREADY disabled, and this is published
+        # library code a host may call with the collector off: the state it found is the state it
+        # leaves, so a host that disabled GC around the call does not find it re-enabled.
+        was_disabled = ::GC.disable
+        begin
+          previous = measure(iterations, &block)
+          ATTEMPTS.times do
+            current = measure(iterations, &block)
+            return current if current == previous
 
-          previous = current
+            previous = current
+          end
+          previous
+        ensure
+          ::GC.enable unless was_disabled
         end
-        previous
-      ensure
-        ::GC.enable
       end
 
       private

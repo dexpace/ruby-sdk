@@ -17,10 +17,13 @@ module Dexpace
       module ResponseMapper
         extend self
 
-        # R4: anchored, character-class-only and linear, so it cannot backtrack and needs no
-        # timeout. `Integer("-4", exception: false)` would answer -4 and collide with the
-        # unknown-length sentinel; this admits one or more digits and nothing else.
-        LENGTH = /\A[0-9]+\z/
+        # R4: anchored and character-class-only, so it cannot backtrack; spelled as core spells
+        # every pattern a wire value reaches (`PacingParsers`, `P6-61`) -- `Regexp.new` with a
+        # per-pattern timeout, never a literal, and a bounded run, so no header can hand `to_i` an
+        # unbounded digit string. `Integer("-4", exception: false)` would answer -4 and collide
+        # with the unknown-length sentinel; this admits one to fifteen digits and nothing else,
+        # and a longer run is the unknown-length sentinel like any other value it refuses.
+        LENGTH = ::Regexp.new('\A[0-9]{1,15}\z', timeout: 1.0).freeze
         private_constant :LENGTH
 
         # @param request [Dexpace::Request] the request the response answers

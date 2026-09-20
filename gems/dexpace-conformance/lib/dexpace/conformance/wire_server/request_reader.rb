@@ -13,6 +13,12 @@ module Dexpace
       module RequestReader
         extend self
 
+        # One run of at most fifteen digits, with a per-pattern timeout: the same spelling core
+        # gives every pattern a wire value reaches, and the same bound the adapter's own
+        # Content-Length parser applies.
+        LENGTH = ::Regexp.new('\A[0-9]{1,15}\z', timeout: 1.0).freeze
+        private_constant :LENGTH
+
         # @param conn [Object] the accepted socket
         # @return [RecordedRequest, nil] nil when the peer sent nothing
         def read(conn)
@@ -30,7 +36,7 @@ module Dexpace
 
         def read_body(conn, head)
           length = header_value(head, "content-length")
-          return read_exactly(conn, length.to_i) if length&.match?(/\A[0-9]+\z/)
+          return read_exactly(conn, length.to_i) if length && LENGTH.match?(length)
 
           encoding = header_value(head, "transfer-encoding")
           return read_chunked(conn) if encoding&.downcase&.include?("chunked")

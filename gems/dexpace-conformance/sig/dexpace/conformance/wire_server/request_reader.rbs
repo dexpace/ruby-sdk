@@ -5,6 +5,8 @@ module Dexpace
   module Conformance
     class WireServer
       module RequestReader
+        LENGTH: Regexp
+
         def self?.read: (untyped conn) -> RecordedRequest?
 
         private

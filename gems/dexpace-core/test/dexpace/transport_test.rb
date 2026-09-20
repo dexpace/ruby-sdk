@@ -44,12 +44,13 @@ class DexpaceTransportTest < DexpaceTestCase
   # and lives in transport_bare_require_test.rb (see the class comment).
   test "swap scopes an override to its block" do
     transport = ->(_request, _options, _cancellation) { :response }
+    keys_before = Dexpace::Transport.registered_keys
     resolved = nil
 
     Dexpace::Transport.swap(transport) { resolved = Dexpace::Transport.resolve }
 
     assert_same(transport, resolved)
-    refute_same(transport, Dexpace::Transport.registered_keys, "the swap registered nothing")
+    assert_equal(keys_before, Dexpace::Transport.registered_keys, "the swap registered nothing")
   end
 
   # An install inside a swap block is part of the override and is restored with it, which is
