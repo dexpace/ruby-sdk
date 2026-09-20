@@ -135,6 +135,8 @@ class DexpacePageWalkTest < DexpaceTestCase
       assert_equal("first", error.message)
       assert_equal(["second"], Dexpace.suppressed(error).map(&:message))
       assert_equal([1, 1], [first.closes, second.closes])
+      assert_nil(walk.current) # both slots cleared BEFORE the raise, so the latch and the slots
+      assert_nil(walk.buffered) # agree: nothing still references a page whose close failed (R1-1)
       walk.close # the latch is flipped; no second release
 
       assert_equal([1, 1], [first.closes, second.closes])

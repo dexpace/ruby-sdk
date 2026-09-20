@@ -5,9 +5,9 @@ require_relative "../../test_helper"
 require "dexpace"
 require_relative "../../support/page_fixtures"
 
-# Exercises: PAGE-18, PAGE-19, PAGE-20, PAGE-23, PAGE-5 (asserted); P7-5, P7-104. The grammar
-# itself is link_header_test.rb's; this suite is the resolution, the configurable header name and
-# the end-of-stream routes, through Dexpace::Page.next_request_from.
+# Exercises: PAGE-18, PAGE-19, PAGE-20, PAGE-23, PAGE-5 (asserted); P7-5, P7-104, P7-117. The
+# grammar itself is link_header_test.rb's; this suite is the resolution, the configurable header
+# name and the end-of-stream routes, through Dexpace::Page.next_request_from.
 class DexpacePageLinkStrategyTest < DexpaceTestCase
   include PageFixtures
 
@@ -52,6 +52,15 @@ class DexpacePageLinkStrategyTest < DexpaceTestCase
     # target would produce a next request identical to the current one and loop until the page cap.
     assert_nil(parse(["<>; rel=next"]).next_request)
     assert_nil(parse(["<   >; rel=next"]).next_request)
+  end
+
+  test "P7-117: a fragment-only rel=next target is end-of-stream too; the check is syntactic" do
+    # Verified: join(base, "#top") is the base plus a fragment the wire never carries -- RFC 3986
+    # §4.4's other same-document form. A target that reaches the current page by another spelling
+    # (<?>, <//>, the URL spelled out) is followed and bounded by the cap, never screened.
+    assert_nil(parse(["<#>; rel=next"]).next_request)
+    assert_nil(parse(["<#top>; rel=next"]).next_request)
+    assert_equal(BASE, url_of(parse(["<#{BASE}>; rel=next"])))
   end
 
   test "PAGE-18: absence of a Link header, or of a rel=next segment, means end-of-stream" do

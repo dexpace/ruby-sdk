@@ -134,6 +134,10 @@ class DexpacePagePagesTest < DexpaceTestCase
       assert_predicate(view, :more?)
       assert_raises(IOError) { view.close }
       assert_predicate(view, :closed?)
+      # The walk cleared its slots BEFORE the raise (R1-1): the closed view neither reports the
+      # page whose close failed nor hands it out; a drive over the closed walk yields nothing.
+      refute_predicate(view, :more?)
+      view.each { |page| flunk("a closed view yielded a page: #{page.items.inspect}") }
     end
   end
 

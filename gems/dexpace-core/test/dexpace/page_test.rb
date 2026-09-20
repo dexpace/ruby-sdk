@@ -6,7 +6,7 @@ require "dexpace"
 require_relative "../support/page_fixtures"
 
 # Exercises: PAGE-2, PAGE-3, PAGE-19 (.next_request_from, the reusable branch), PAGE-23, PAGE-34
-# (the two keys' shape); P7-2, P7-5, P7-101, P7-104, P7-107.
+# (the two keys' shape); P7-2, P7-5, P7-101, P7-104, P7-107, P7-117.
 #
 # A Page is a plain class including Dexpace::Closeable and NOT a Data, because a Data instance is
 # frozen and cannot hold the latch (phase 3b's finding, applied one layer up). Response#close is a
@@ -160,6 +160,20 @@ class DexpacePageTest < DexpaceTestCase
       assert_nil(next_request(""))
       assert_nil(next_request("   "))
       assert_nil(next_request("\t\n"))
+    end
+
+    test "P7-117: a fragment-only target is same-document and end-of-stream, like the empty one" do
+      # RFC 3986 §4.4 names the empty reference and the fragment-only one together: join resolves
+      # "#x" to the base plus a fragment the wire never carries, so without the guard a server
+      # emitting <#>; rel=next would be re-fetched until the page cap (review round 1's R1-2).
+      assert_nil(next_request("#"))
+      assert_nil(next_request("#top"))
+      assert_nil(next_request(" #x "))
+      # Deliberately NOT screened -- the check is syntactic, never on the resolved URL: a target
+      # that reaches the current page by another spelling is a next request PAGE-9's cap bounds.
+      assert_equal("https://x/v1/items?", Dexpace::URL.external_form(next_request("?").url))
+      assert_equal(BASE, Dexpace::URL.external_form(next_request("//").url))
+      assert_equal(BASE, Dexpace::URL.external_form(next_request(BASE).url))
     end
 
     test "P7-104: a target this client cannot dispatch is end-of-stream, as REDIR-18 screens" do
