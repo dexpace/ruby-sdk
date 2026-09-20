@@ -13,11 +13,11 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c and 7b are built — the whole of phase 6 and
-one of phase 7's three sub-phases; the domain model, the seam layer, the byte-streaming layer, the body layer,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b and 7c are built — the whole of phase 6 and
+two of phase 7's three sub-phases; the domain model, the seam layer, the byte-streaming layer, the body layer,
 the execution context, the recovery layer, the stage pipeline, the configuration layer, the tracing and
 metrics layer, the logging facade with its redaction, the retry layer, the authentication layer, the redirect
-layer and the server-sent-events layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+layer, the server-sent-events layer and the pagination layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -165,7 +165,23 @@ through `.open(response)`, `.owning(source, resource:)` and `.borrowing(…)` �
 `StreamStateError`; the RBS interface `_ByteSource`; and, the mechanism spec-forced boundary 5 asked for,
 the eighteenth gate `gates:serde_boundary` over `tools/serde_boundary.rb`, a parsed scan of `lib/dexpace/sse/**`
 and its `sig/` mirrors for any serialization dependency, the pagination layer's globs on its printed
-`PENDING` list until 7c lands (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`);
+`PENDING` list until 7c lands (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`) — and the
+pagination layer, §7.1's chapter 12, under `Dexpace::Page`, a class that is also the namespace: the page
+value owning one live response behind `Closeable`'s latch, with `.build` and the public resolution branch
+`.next_request_from` (blank, unresolvable and non-dispatchable targets all end-of-stream); `Info`, whose
+nil `next_request` is the one end-of-stream signal, with `.terminal`; the raw-query splice `QueryRewriter`
+(`.get`, `.set`, `.rewrite_url`) over phase 1's `PercentEncoding`, never `Query`; the three frozen `Data`
+strategies `CursorStrategy`, `PageNumberStrategy` and `LinkStrategy`, every one over a caller-supplied
+`#call(response)` extractor and never a codec; the private RFC 8288 state machine `LinkHeader`; the
+private lifetime owner `Walk` — the one drive routine, the cap, the exhaustion latch and the two page slots
+— over a private per-walk drive, and the private `Closing` disciplines both views share; the re-iterable,
+eager-closing `Items` and the single-use, look-ahead `Pages` (`#more?`, `#close`), both `Enumerable`; the
+frozen engines `Paginator` (`#items`, `#pages`, `#each_item`, `#each_page`) and `AsyncPaginator` (`#walk`,
+`#walk_pages`, a re-arm trampoline over `Future#on_settle` with an optional `#post` executor); the
+fetcher front-end `Fetchers`; the state error `PageStateError`; the three RBS interfaces `_Strategy`,
+`_Extractor` and `_Executor` in `page.rbs`; and one widening of phase 1, `Dexpace::URL.resolve`, the
+RFC 3986 reference resolution beside `.parse!`
+(`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`);
 every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
@@ -520,7 +536,9 @@ Each is one line plus the chapter to read before touching the area.
   `URI::RFC3986_PARSER.join("https://host/c?sig=1", "/pets")` is `https://host/pets`, dropping the base path
   segment and the query the requirement keeps; `Dexpace::Operation` composes by hand. Reference resolution is
   `REDIR-13`'s, phase 6, and its spelling there is `URI::RFC3986_PARSER.join`, because `URI.join` is cop-banned
-  (phase 2's design, §3 addendum A1, deviation P2-3).
+  (phase 2's design, §3 addendum A1, deviation P2-3); phase 7c's `Dexpace::URL.resolve(base, reference)`
+  wraps the same call for `PAGE-19` and answers `nil` where the reference cannot resolve — reference
+  resolution, never composition, and `Operation` must never call it (7c's P7-3).
 - **`Response#body_string` is the SDK's one decode boundary, and it is three steps, not one** — resolve the
   charset through `MediaType#charset` (already `nil` for absent or unknown), **retag** the BINARY bytes with
   3a's `#read_string(encoding)`, then transcode with the target **named**,
@@ -897,6 +915,36 @@ Each is one line plus the chapter to read before touching the area.
   list). And the per-byte read path costs ~0.9 µs a byte through `BufferedSource#getbyte` — a mutex
   acquisition and a one-byte String per call — against ~0.3 µs through a plain duck, which is why the
   at-scale cap tests run over `FakeByteSource` and why the bulk path is a phase-10 item.
+- **A bare `ensure` that closes a page INVERTS `PAGE-13`/`PAGE-32`'s primary, and `$!` cannot repair it** —
+  a close raised from an `ensure` replaces the in-flight consumer error as the primary (its `#cause`),
+  and `$!` is thread-dynamically scoped, so it is a CALLER's unrelated error inside anything called from
+  the caller's `rescue`; the pagination layer records the primary in a `rescue ::Exception => error` arm
+  that re-raises unchanged and hands the local to `Page::Closing.close_walk`, which surfaces a close
+  failure when nothing is in flight (`PAGE-15`) and attaches it otherwise; `$!` appears nowhere under
+  `lib/dexpace/page/`, and `lifetime_test.rb` drives a walk from inside a caller's rescue (7c's P7-105).
+  `Dexpace.close_quietly` is reached only where a requirement says swallow: `PAGE-26`'s drop, `PAGE-32`'s
+  already-failed drain, `PAGE-30`'s rejected carry.
+- **Every live page a walk holds is an ivar on the private `Page::Walk` — `@current` and the one-slot
+  `@buffered` — never a local of an `Enumerator` block or a `#each` method** — `Items#each` opens a fresh
+  walk per call and closes every page BEFORE yielding its first item (`PAGE-11`), so it is safe under an
+  abandoned `#next`; `Pages` is single-use (a second `#each`, block or none, raises `Page::PageStateError`,
+  a state error and never `InvalidArgumentError` — the roadmap's 2026-09-13 inbound bullet) and holds up to
+  two pages, which `#each_page` or `#close` releases; `Walk#hold` writes the new page into its slot before
+  closing the previous, `Walk#buffer` never displaces a staged page, and the engines' `Data`s hold no
+  per-walk state at all (`PAGE-8`, `PAGE-12`, `PAGE-14`; 7c's P7-103, P7-111).
+- **The built-in strategies take an extractor, `#call(response)`, and the words `Serde` and `JSON` appear
+  NOWHERE under `lib/dexpace/page/` or in `page.rb` — YARD and strings included** — 7b's
+  `tools/serde_boundary.rb` scans without stripping comments and its `page/**` row goes `GUARDED` on the
+  second lane to rebase; `page_test.rb` scans the fifteen files for the two tokens until then (7c's P7-6,
+  P7-108). The blocking engine passes `Cancellation.none` to the transport, never `nil`, which dies inside
+  `Pipeline.standard`'s retry step (P7-102); `Page.next_request_from` screens a resolved target for an
+  http/https scheme and a host, 6b's screen copied because `Redirect::Location` is private (P7-104).
+- **`AsyncPaginator`'s pump is a re-arm trampoline whose every callback is total, and its future settles
+  with the page count, never nil** — a raising `on_settle` block escapes `Completer#fulfil` through
+  `Hooks.notify`'s re-raise, so every body runs inside `Pump#guarded`; a pump re-entering itself from the
+  settlement overflows at ~2,600 pages through the real `Completer`; with an `executor:` the FIRST dispatch
+  is posted too, so a queued executor fetches nothing until it runs (`PAGE-29`, `PAGE-31`; 7c's P7-109,
+  P7-112). `Future#value(deadline:)` is the bounded wait a test uses where "hangs" is the failure mode.
 
 ## Public API surface
 
@@ -999,16 +1047,17 @@ probe compares each against the live tree, and a count written anywhere else in 
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
   metrics layer, the phase-6a retry layer, the phase-6c authentication layer, the phase-6b redirect
-  layer and the phase-7b server-sent-events layer — one hundred and ninety-three phase-1, phase-2,
-  phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b,
-  phase-6c and phase-7b files under `lib/dexpace/`
-  beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one hundred and
-  ninety-three but the eighteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
+  layer, the phase-7b server-sent-events layer and the phase-7c pagination layer — two hundred and
+  eight phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b,
+  phase-5c, phase-6a, phase-6b, phase-6c, phase-7b and phase-7c files under `lib/dexpace/` beside
+  phase 0's `version.rb` (7b's nine are `sse.rb` and the eight under `sse/`; 7c's fifteen are `page.rb`
+  and the fourteen under `page/`), every one mirrored in `sig/`, and every one of the two hundred and
+  eight but the nineteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
   `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
   `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`, `instrumentation/render.rb`,
   `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb`,
   `auth/validation.rb`, `redirect/origin.rb`, `redirect/location.rb`, `redirect/chain.rb`,
-  `redirect/emitter.rb` and `redirect/reissue.rb` mirrored
+  `redirect/emitter.rb`, `redirect/reissue.rb` and `page/closing.rb` mirrored
   in `test/`; every
   other
   gem is a phase-0 skeleton whose `lib/` holds the namespace module and a `VERSION` constant and nothing
@@ -1021,7 +1070,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  fifteen checklists written so far, each at implementation; `phase4/`
+  sixteen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1042,8 +1091,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase7/` carries its segmentation design,
   `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`, and three sub-phase
   directories — `phase7/phase7a/` (serialization), `phase7/phase7b/` (server-sent events) and
-  `phase7/phase7c/` (pagination); each holds a design and a plan, and `phase7b/` its checklist too,
-  written at implementation on 2026-09-20. Phase 7 is 107 IDs
+  `phase7/phase7c/` (pagination); each holds a design and a plan, and `phase7b/` and `phase7c/` their
+  checklists too, both written at implementation on 2026-09-20. Phase 7 is 107 IDs
   (`SERDE-1`–`30`, `SSE-1`–`41`, `PAGE-1`–`36`) and ships the workspace's second real gem,
   `dexpace-serde-json`, inside `7a`. Its three sub-phases are independent — `SSE-37` makes `7b`'s
   serde-independence a mechanised MUST, and §12's chapter intro states the same property for
@@ -1094,6 +1143,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's and phase 7b's is
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's and
+  phase 7c's is
   still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

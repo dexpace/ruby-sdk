@@ -4024,3 +4024,73 @@ layer's `#values` had `Stream#drive`'s rescue and not its `ensure`, so `values.f
 resource where `events.first(1)` released it; and `stream_state_error_test.rb` was written. Guards 51
 and 52 are the round's, red on both rows against the pre-fix `lib/`; no public name, signature or
 manifest row changed.
+
+**2026-09-20** — **Phase 7c implemented**, as three stacked branches against issue #28: code, tests,
+documentation, cut from `main` at `c53638b`, which holds the whole of phase 6, concurrently with 7a and
+7b on the same base — so nothing of theirs is on this tree, and phase 7's one convergence point, spec-forced
+boundary 5's audit, went to 7b's Task 11 by the manager's decision of the same day: 7c builds no
+`gates:serde_isolation`, no `tools/` file and no fixture, and `page_test.rb` scans the fifteen files under
+`lib/dexpace/page/` and `page.rb` for the tokens `Serde` and `JSON` (comments included, because 7b's scan
+reads them) until 7b's `PENDING` row for `page/**` flips to `GUARDED` on the second lane to rebase.
+`dexpace-core` carries the pagination layer beside the thirteen layers before it — fifteen new `lib/`
+files: `page.rb` (the page value, the namespace, `.next_request_from`) and, under `page/`,
+`page_state_error.rb`, `info.rb`, `query_rewriter.rb`, `link_header.rb` (private), `cursor_strategy.rb`,
+`page_number_strategy.rb`, `link_strategy.rb`, `walk.rb` (private), `closing.rb` (private), `items.rb`,
+`pages.rb`, `paginator.rb`, `async_paginator.rb` and `fetchers.rb` — with their `sig/` mirrors (the three
+interfaces `_Strategy`, `_Extractor` and `_Executor` nested in `sig/dexpace/page.rbs`, because a `sig/`-only
+file fails the gem-layout gate), every public one with a `test/` mirror, two suites with no `lib/` mirror
+(`page/matrix_facts_test.rb`, `page/lifetime_test.rb`); one earlier-phase file widened in place, a designed
+widening: phase 1's `http/url.rb` gains `URL.resolve` beside `.parse!` (P7-3); the entry file's
+fifteen-line `# Phase 7c:` block after 6b's; the surface manifest regenerated once from 1 137 to 1 214 rows
+with all 77 read against the object model; and two top-level test-support doubles (`PageFixtures`,
+`ProbeExecutor`) beside 6a's `ScriptedTransport` / `ScriptedAsyncTransport`, 3b's `FakeResponseBody`, 4b's
+`RecordingBody` and phase 2's `InlineExecutor`, reused as they are — **no Response double**: every response
+in the suite is a real `Dexpace::Response`. Two existing tests changed on the code branch as pins gates read
+or the code invalidated: the smoke suite's layer table (a `PAGE_LAYER`) with a `PhaseSevenLayers` class
+(the eleven public constants under `Page`, the six private names unreachable, the fourteen nested names
+shadowing nothing — the design's P7-2 audit as a standing test), and phase 1's `http/url_test.rb` (a
+nested `ResolveTest`). **The design's R7, R8, R9 and R10 stand as decided, with R8's prescription
+corrected in execution**: the measurement is right — a bare `ensure` inverts `PAGE-13`/`PAGE-32`'s primary —
+but its `primary = $!` is wrong the other way, because `$!` is the CALLER's inside anything called from the
+caller's `rescue` (`pipeline/7ce4431d`, re-measured on every row), so the frame that owns the walk records
+the primary in a `rescue ::Exception => error` arm and hands the local to `Page::Closing.close_walk`, and
+`$!` appears nowhere under `page/` (P7-105). **Every one of the 36 `PAGE` IDs is ✅** — 35 outright and
+`PAGE-35` vacuous by construction on design §12's authority — and no ⏳ row is added. The other execution
+findings, each a ledger row or a guard: the items are owned shallowly, never through `Model.own`, which
+deep-copies and raises on a Proc (P7-101); the blocking engine passes `Cancellation.none` to the
+transport and takes no per-walk token — a nil dies inside `Pipeline.standard`'s retry step (P7-102);
+`PAGE-14` raises `Page::PageStateError`, a state error and never `InvalidArgumentError`, so **the
+`PAGE-14`/`SSE-26` inbound bullet of 2026-09-13 above is half closed — the argument-family half — and its
+shared-supertype half stays on this list** for phase 10 (P7-103); `Page.next_request_from` screens a
+resolved target for an http/https scheme and a host, consistent with `REDIR-18` (P7-104); every private
+constant has a `sig/` mirror and 8b's plan Task 9 is told the interface's real file (P7-106); the
+extractors', a strategy's and a fetcher's answers are checked, never read as end-of-stream (P7-107); the
+walk future settles with the page count (P7-109); the fatal family closes the response on a parse failure
+too (P7-110); the `Walk` is generic over a per-walk drive so `Fetchers` reuses it (P7-111); the executor
+runs the FIRST dispatch too (P7-112); a block-less `Pages#each` claims the latch on obtaining the
+enumerator (P7-113); the page-number screen is ASCII `[0-9]+` (P7-114); and the link grammar's
+malformed-input rule (P7-115). The checklist is at
+`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`: thirty-six own rows, all ✅,
+plus the boundary-5 row (owner 7b) and twelve cross-reference rows; forty-five guards run red on 4.0.6
+and 3.2.11, none surviving; thirty departures from the plan's text itemised; the design's As-built addendum
+adds P7-101–P7-115. Every one of the seventeen gates is green on the docs tip on 4.0.6 (2,919 runs,
+68,942 assertions, 0 skips, line coverage 99.98 % — the one uncovered line is phase 2's
+`registry.rb:253`, as on `main`; every line under `lib/dexpace/page/` and in `url.rb` is exercised,
+the shape refusals included), the matrix rows on 3.2.11, 3.3.12 and
+3.4.10, and RuboCop by the honest `--ignore-parent-exclusion` command; the code tip alone is green on
+every one of the seventeen gates run individually on 4.0.6 and on the 3.2.11 matrix row, above the
+coverage floor, so no tip in the stack is red. `docs/sdk-documentation/pagination.md` is the fifteenth
+as-built page, every example run on 4.0.6 and 3.2.11 and identical on both; `architecture.md` retires the
+planned `write-a-paging-strategy.md` into it; the two READMEs and `docs/README.md` point at it (the root
+`README.md`'s built-phases sentence had omitted 6b, and `docs/README.md`'s layer sentence too — both now
+name it beside 7c); `CLAUDE.md`'s built-phases paragraph gains the pagination layer, its counts move to
+one hundred and ninety-nine `lib/dexpace/` files, nineteen `private_constant`s without a `test/` mirror
+and fifteen checklists, its `SEAM-27` constraint line names `URL.resolve`, and its constraints-that-bite
+list gains four lines. `docs/first-release.md` is untouched — the `PAGE-36` conformance test is 8a's Tasks
+13 and 20 already, `C13` already carries `P7-1`, and the blocking engine's missing `cancellation:` keyword
+has no ID to file under; `docs/deviations.md` is untouched, for phase 10 to flip;
+`docs/knowledge/notes/pagination.md` gains four Reference entries (the SSE-under-`PAGE-14` pair, the
+`BODY-11` attribution, §12's unharvested serde-agnosticism, and R8's `$!` finding). The consolidation of
+P7-1–P7-6 and P7-101–P7-115 into design §10 — beside 7a's P7-1–P7-9, which collide with 7c's by number,
+knowingly — and the `PAGE-15` addition to §12's `PAGE` row are a human's, as for every phase before:
+`docs/sdk-design-ruby/` is frozen.

@@ -80,7 +80,12 @@ and the server-sent-events layer under `Dexpace::SSE` (phase 7b): the three limi
 `LineReader`, the immutable `Event`, the field machine `Reader`, the resource-owning single-pass
 `Stream` (`.open`, `.owning`, `.borrowing`; `#each`, `#events`, `#typed`), the typed adapter
 `TypedStream`, the two namespaced errors `LimitExceededError` and `StreamStateError`, the RBS interface
-`_ByteSource`, and the eighteenth gate, `gates:serde_boundary`.
+`_ByteSource`, and the eighteenth gate, `gates:serde_boundary`, which guards the pagination layer
+too; and the pagination layer under `Dexpace::Page` (phase 7c): the page value that is also the
+namespace, `Info`, `QueryRewriter`, the three strategies `CursorStrategy`, `PageNumberStrategy`
+and `LinkStrategy` over a caller-supplied extractor, the views `Items` and `Pages`, the engines
+`Paginator` and `AsyncPaginator`, the front-end `Fetchers`, `PageStateError`, and `URL.resolve`
+beside phase 1's `URL.parse!`.
 Nothing else yet: every adapter is a later phase's, the three retry drivers are the only emitters
 of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships here, so nothing
 talks to a socket.
@@ -90,8 +95,8 @@ The as-built pages are
 `docs/sdk-documentation/recovery.md`, `docs/sdk-documentation/pipelines.md`,
 `docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
 `docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md`,
-`docs/sdk-documentation/auth.md`, `docs/sdk-documentation/redirect.md` and
-`docs/sdk-documentation/sse.md`.
+`docs/sdk-documentation/auth.md`, `docs/sdk-documentation/redirect.md`,
+`docs/sdk-documentation/sse.md` and `docs/sdk-documentation/pagination.md`.
 
 ## Install
 
@@ -222,6 +227,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   sentinels, the line machine, the event value, the field machine, the facade's three factories, two
   shapes and four termination paths, the typed adapter's three outcomes, and what is deliberately
   not there.
+- `docs/sdk-documentation/pagination.md` -- the pagination layer as built: the page value and its
+  latch, the strategy contract and the three built-ins over an extractor, the query splice and
+  `URL.resolve`, the two views over one walk and their close discipline, the blocking engine, the
+  async trampoline with its executor mode and cancellation race, and the fetcher front-end.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

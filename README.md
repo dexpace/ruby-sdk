@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a and 6c are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b and 7c are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -69,8 +69,13 @@ server-sent-events layer: the WHATWG line machine over `BufferedSource#getbyte` 
 documented, rejecting caps, the immutable five-field event, the field machine whose one persistent
 state is the BOM flag, the resource-owning single-pass stream facade with its three factories and
 its two consumption shapes, the typed adapter over a caller-supplied mapper with `SKIP` and `DONE`,
-and the eighteenth gate, `gates:serde_boundary`, a parsed scan that keeps the layer free of any
-serialization dependency (`docs/sdk-documentation/sse.md`); the
+and the eighteenth gate, `gates:serde_boundary`, a parsed scan that keeps the layer and the
+pagination layer free of any serialization dependency (`docs/sdk-documentation/sse.md`) — and the
+pagination layer: the page value that owns one live response, the strategy contract with its three
+built-in strategies over a caller-supplied extractor and never a codec, the byte-for-byte query
+splice, the eager-closing item view and the single-use, look-ahead page view over one private walk,
+the blocking engine, the non-blocking engine driven through `Future#on_settle` as a re-arm
+trampoline, the fetcher front-end, and `URL.resolve` (`docs/sdk-documentation/pagination.md`); the
 operation-lifecycle and transport groups of the HTTP-tracer vocabulary are emitted by nothing yet,
 and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
