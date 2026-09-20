@@ -2537,6 +2537,14 @@ superset."
 **Files:**
 - Test: `gems/dexpace-async-thread/test/dexpace/async/thread/page_executor_test.rb`
 
+*Correction routed here by phase 7c on 2026-09-20 (7c's checklist, Findings routed; its ledger row
+P7-106):* as built, `Dexpace::Page::_Executor` is declared in `gems/dexpace-core/sig/dexpace/page.rbs`,
+nested in `class Page` beside `_Strategy` and `_Extractor`, and no `sig/dexpace/page/strategy.rbs`
+exists — `test/gates/gem_layout_test.rb` forbids a `sig/`-only file. The interface's name and its
+signature, `def post: () { () -> void } -> void`, are exactly as this task states; only the path in
+the header comment below is stale. The real executor mode also posts the FIRST dispatch through the
+executor (7c's P7-112), so a pool that never runs its queue fetches nothing.
+
 - [ ] **Step 1: Write the test**
 
 ```ruby

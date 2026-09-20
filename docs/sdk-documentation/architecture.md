@@ -8,17 +8,18 @@ recovery layer and the error trail, phase 4c the stage pipeline, phase 5a the co
 layer and the clock, phase 5c the tracing and metrics layer, phase 5b the logging facade and
 redaction, phase 6a the retry layer — one policy core and its two stacks — phase 6c the
 authentication layer, phase 6b the redirect layer with the two `standard` pipeline
-constructors and phase 7b the server-sent-events layer with the serde-boundary gate; the adapters
-are still to come, so this page is still a stub: it names the
+constructors, phase 7b the server-sent-events layer with the serde-boundary gate and phase 7c the
+pagination layer; the adapters are still to come, so this page is still a stub: it names the
 pages this tree will eventually hold and where each one's content will come from, so the plan for
-the documentation exists before the documentation does. Fifteen pages are real already, because
+the documentation exists before the documentation does. Sixteen pages are real already, because
 their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
 [`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
 [`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
 [`pipelines.md`](./pipelines.md), [`configuration.md`](./configuration.md),
 [`tracing-and-metrics.md`](./tracing-and-metrics.md),
 [`logging-and-redaction.md`](./logging-and-redaction.md), [`retry.md`](./retry.md),
-[`auth.md`](./auth.md), [`redirect.md`](./redirect.md) and [`sse.md`](./sse.md).
+[`auth.md`](./auth.md), [`redirect.md`](./redirect.md), [`sse.md`](./sse.md) and
+[`pagination.md`](./pagination.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -176,8 +177,11 @@ write-a-serde.md — implementing the `Serde` seam: the serializer/deserializer 
 `Tristate` PATCH convention, and the four encode profiles. Derives from
 `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md`.
 
-write-a-paging-strategy.md — implementing a pagination strategy over a response and a template
-request. Derives from `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md`.
+[pagination.md](./pagination.md) covers what write-a-paging-strategy.md was planned to hold —
+the strategy contract (`#parse(response, template) -> Info`), the three built-ins over a
+caller-supplied extractor, and `Page.next_request_from` as the supported route for a strategy
+written by hand — so that page is retired rather than written twice. Written against the layer
+phase 7c shipped; derives from `docs/sdk-design-ruby/07-pagination-sse-and-serialization.md` §7.1.
 
 write-a-response-handler.md — turning a `Response` into a caller's own model, including the
 memoizing-wrapper pattern for a body read more than once. Derives from

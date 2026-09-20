@@ -362,6 +362,7 @@ phase cites, or a statement the design makes are also the as-built ledger rows P
 15. **7b built the gate alone, with `page/**` PENDING** (the manager's decision (2)): both the `lib/`
     and the `sig/` pagination globs are on the printed list, and their move to `GUARDED` is the
     reconcile pass's after both lanes are on `main`. 7c builds nothing for it.
+    *Reconciled 2026-09-20:* the move happened — 7c's stack was rebased onto `main` `34f52e8` (this phase's docs tip) and its code branch carries the one `chore:` commit that guards `page.rb`, `page/**` and both `sig/` mirrors under "spec-forced boundary 5", leaving `PENDING` empty.
 16. **`lib/dexpace.rb`'s `# Phase 7b:` block is appended after 6b's**, nine lines, nothing reordered;
     `sse.rb` requires `sse/sentinel` before assigning `SKIP`/`DONE`; the smoke suite's `LAYERS` gains
     `SSE_LAYER = %i[SSE]` and a `PhaseSevenLayers` class; the namespace file's mirror is
