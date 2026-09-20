@@ -1064,7 +1064,11 @@ Each is one line plus the chapter to read before touching the area.
   A pop that finds the queue closed is classified through the token — `CancelledError` when cancelled,
   `ClosedError` after a close, a retryable `TransportError` before any head — and is end of stream
   ONLY when the pump itself is open (P8-54). The cancellation subscription belongs to the pump for the
-  life of the response, detached in `#release`, never to `Adapter#call`'s frame (P8-52).
+  life of the response, detached in `#release`, never to `Adapter#call`'s frame (P8-52) — and the pump
+  asks the token BEFORE it starts a producer: `Cancellation::Source` runs an already-cancelled hook
+  inline, so a token cancelled at construction gets a closed pump with no thread, no socket and the
+  borrowed permit straight back, `#release` joins and detaches nil-safely, and `#produce` reads the
+  latch before it exchanges (P8-64).
 - **Every failure with no response goes through one classifier, and the token is asked FIRST** — a
   cancel delivered by closing the socket and a peer reset arrive as the same `IOError` with the same
   message, so no class or message test can tell them apart; then an SDK error passes unchanged; then a

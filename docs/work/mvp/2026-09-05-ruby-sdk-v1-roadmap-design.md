@@ -2623,6 +2623,25 @@ design.
   assertion its `NFR-6` audit finds. Touches `REDIR-23`, `NFR-6`. Added after phase 10's planning pass
   by phase 8a and referred to by date and content, never by ordinal; not yet in phase 10's design's
   disposition table, which dispositions it at execution.
+- **Phase 6a's `RETRY-42` / `RECOV-28` eight-thread budget test is interleaving-dependent, and errors
+  under the whole-repository process on a loaded machine.** Found 2026-09-20 by phase 8a's review round 1,
+  on the same machine and under the same three concurrent lanes as the `REDIR-23` bullet above:
+  `DexpaceResilienceRecoveryRetryTest` "RETRY-42 / RECOV-28: eight concurrent calls through one engine
+  keep their budgets apart" (`recovery_retry_test.rb`) errored with `Dexpace::ProtocolError: HTTP 503` in
+  two of five whole-process 3.2.11 `test:gems` runs pinned to net-http 0.4.1 (once in the code tip's
+  matrix row, once in the docs tip's `SEED=31337` run), reran green with the same seed each time, and
+  passed 70/70 alone and 5/5 in core's own `rake test`; every 4.0.6, 3.3.12, 3.4.10 and 3.2.11/0.9.1
+  run passed. The fixture hands sixteen scripted responses (503 and 200 alternating) to eight threads in
+  call order, so a thread switch landing between one thread's 503 and its retry hands that thread a
+  second 503 and spends `max_retries: 1` — reachable only under the slower one-process coverage run
+  and machine load, and a scheduling outcome rather than a seed's. The file and `RecoveryRetry` are
+  byte-identical to `main`'s; phase 8a changed nothing there, for the same reason it left the
+  `REDIR-23` bound. What is phase 10's: give each thread its own scripted sequence, or assert the
+  budget invariant (sixteen calls, no thread past its cap) without assuming which response each thread
+  draws, and read this together with the `REDIR-23` bullet as the same `NFR-6` class. Touches
+  `RETRY-42`, `RECOV-28`, `NFR-6`. Added after phase 10's planning pass by phase 8a and referred to by
+  date and content, never by ordinal; not yet in phase 10's design's disposition table, which
+  dispositions it at execution.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4435,7 +4454,7 @@ table gained the phase, and core's `transport_test.rb` and `seam_surface_test.rb
 registry-key assertions to a bare-`ruby` subprocess (`test/support/bare_require.rb`), because in one
 `test:gems` process the adapter's require-time registration is visible to every suite. **The design's
 fifteen rows stand; `R1`–`R7`, `R16`, `R17` and `R18` were built as written**, with the As-built addendum
-adding `P8-51`–`P8-63`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
+adding `P8-51`–`P8-64`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
 producer reads a byte of body, because `R4`'s deletion of an unparseable `Content-Length` needs an
 ordering `R1` never stated — the `TRANSPORT-27` assertion was red against the real adapter until the
 handshake existed (P8-51); the pump owns the cancellation subscription for the life of the response
@@ -4452,7 +4471,11 @@ absent on 0.9.1, the connect phase `Timeout.timeout` below 0.7 and `TCPSocket.op
 0.9.1, whose first call starts a process-wide thread the warm-up parks (P8-60–P8-62); and, from review
 round 1 (2026-09-20), the inbound `Content-Length` grammar is a bounded, timed `Regexp.new` in the adapter
 and the fixture alike, core's spelling for a pattern a wire value reaches, superseding the design's
-"carries no `timeout:`" sentence (P8-63). The checklist is at
+"carries no `timeout:`" sentence (P8-63); and, from review round 2 (2026-09-20), the pump asks the
+token before it starts a producer, so a token already cancelled at construction gets a closed pump with
+no thread, no socket and the borrowed permit straight back, where the reviewed pump had raised
+`NoMethodError` on a nil subscription from inside its constructor after the request was on the wire
+(P8-64). The checklist is at
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`:
 twenty-three own rows — twenty-two ✅ and `TRANSPORT-28` ✅ on two clauses with its zero-copy clause ⏳
 under `docs/first-release.md` — plus the phase-level `TransportError` row and sixteen cross-reference
@@ -4460,7 +4483,11 @@ rows; the reviewer's thirty mutations run red on 4.0.6 (net-http 0.9.1) and 3.2.
 twenty-nine caught on both and the thirtieth an equivalent mutant with its measurement (`String#<<` into
 an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
 the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
-default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36); the design's seventeen facts and the plan's eight
+default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36),
+and round 2's two (the pre-cancelled pump, the proxy keys) with four more (rows 37–40); the gem's suites
+blank the three proxy keys the resolver reads around every owning-adapter test through the override
+tier (`NetHTTPHermeticProxy`), because every `NetHTTP.build` resolves its proxy through the process-wide
+chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it; the design's seventeen facts and the plan's eight
 re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, twelve of them as `matrix_facts_test.rb` printing the row's
 active `Net::HTTP::VERSION`; thirty-six departures from the plan's text itemised — among them the
 two the whole-repository `test:gems` process found and the gem's own `rake test` never could: the
@@ -4483,6 +4510,7 @@ versions; `docs/deviations.md` is untouched, for phase 10 to flip; `docs/knowled
 gains one Reference entry with the two version-bound facts. Three dated bullets join phase 10's inbound
 list above — the Timeout thread as the connect-phase finding's observable, rbs 4.2.0's
 `TCPServer#initialize` signature Steep refuses, and 6b's `REDIR-23` wall-clock bound failing under
-machine load in the whole-repository process — each by date and content, never by ordinal, because the
-three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-63`
+machine load in the whole-repository process — and a fourth from review round 1, 6a's `RETRY-42` /
+`RECOV-28` eight-thread test erring on an interleaving under the same load — each by date and content,
+never by ordinal, because the three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-64`
 into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen.

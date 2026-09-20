@@ -16,12 +16,16 @@ example below was run, in the order printed and as one script, against the built
 `Host` line or an error message names, which is the run's own. The examples use `dexpace-conformance`'s
 `WireServer` and `Scripts` as the server — a real `TCPServer` on `127.0.0.1` answering a scripted reply
 and recording what it was sent — because a transport page's examples should touch a socket and nothing
-outside the machine. Four names are the page's shorthand and nothing else is assumed: `NetHTTP` is
-`Dexpace::Transport::NetHTTP`, `req(url, method: "GET", headers: Dexpace::Headers::EMPTY, body: nil)` is
-`Dexpace::Request.build` over those four, `headers(pairs)` is `Dexpace::Headers.builder` with each pair
-added, and `EMPTY` is `Dexpace::RequestOptions::EMPTY`. `adapter` is the owning adapter the first block
-builds, never closed — the one block that shows a close builds its own — and every block that talks to a
-socket starts its own `server` and reads its port for `url`.
+outside the machine. Six names are the page's shorthand and nothing else is assumed: `NetHTTP` is
+`Dexpace::Transport::NetHTTP`; `WireServer` and `Scripts` are `Dexpace::Conformance::WireServer` and
+`Dexpace::Conformance::Scripts`, after `require "dexpace/conformance"`; `req(url, method: "GET",
+headers: Dexpace::Headers::EMPTY, body: nil)` is `Dexpace::Request.build` over those four;
+`headers(pairs)` is `Dexpace::Headers.builder` with each pair added; and `EMPTY` is
+`Dexpace::RequestOptions::EMPTY`. `adapter` is the owning adapter the first block builds, never closed —
+the one block that shows a close builds its own — and every block that talks to a socket starts its own
+`server` and reads its port for `url`. A host that exports `HTTPS_PROXY` or `HTTP_PROXY` will see the
+socket blocks route through that proxy, because that is what the configuration chain says (`CFG-24`,
+the proxy block below); the gem's own suites blank those keys around every test for exactly that reason.
 
 **The gem's whole dependency budget is `dexpace-core` and `net-http >= 0.4`** (`NFR-2`): a default gem
 on every supported Ruby, no upper bound, and the adapter is proven on 0.4.1 (Ruby 3.2 and 3.3), 0.6.0
