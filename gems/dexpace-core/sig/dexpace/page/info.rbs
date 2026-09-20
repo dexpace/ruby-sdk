@@ -1,0 +1,23 @@
+module Dexpace
+  class Page
+    # PAGE-4's PageInfo: items plus the next request, whose nil is the one end-of-stream signal.
+    class Info < Data
+      include Model
+
+      attr_reader items: Array[untyped]
+      attr_reader next_request: Dexpace::Request?
+      attr_reader next_link: String?
+      attr_reader continuation_token: String?
+
+      private def self.new: (items: Array[untyped], next_request: Dexpace::Request?, next_link: String?, continuation_token: String?) -> instance
+      def initialize: (items: Array[untyped], next_request: Dexpace::Request?, next_link: String?, continuation_token: String?) -> void
+
+      def self.build: (items: Array[untyped], next_request: Dexpace::Request?, ?next_link: String?, ?continuation_token: String?) -> Info
+      def self.terminal: (?items: Array[untyped]) -> Info
+
+      private
+
+      def optional_string: (String name, untyped value) -> String?
+    end
+  end
+end

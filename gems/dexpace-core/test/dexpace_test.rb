@@ -80,9 +80,12 @@ class DexpaceTest < DexpaceTestCase
   # PhaseSevenLayers case below pins, and its two errors are namespaced there (SSE-37 makes the
   # subsystem self-contained, and nothing outside it raises either).
   SSE_LAYER = %i[SSE].freeze
+  # Phase 7c: ONE flat constant, the page value that is also the subsystem's namespace (P7-2);
+  # everything else the layer ships is under Dexpace::Page, which the PhaseSevenLayers case pins.
+  PAGE_LAYER = %i[Page].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
-    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER, SSE_LAYER,
+    CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER, SSE_LAYER, PAGE_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do
@@ -283,6 +286,37 @@ class DexpaceTest < DexpaceTestCase
       assert_raises(::NameError) { Dexpace::SSE::LineReader::LF }
       assert_raises(::NameError) { Dexpace::SSE::Reader::DIGITS_ONLY }
       assert_raises(::NameError) { Dexpace::SSE::LimitExceededError::KINDS }
+    end
+
+    # A consumer requires "dexpace" and nothing else: the pagination layer resolves too (phase
+    # 7c), under Dexpace::Page -- the page value is the namespace (P7-2) -- with its three
+    # private_constants and the two engines' private drives as unreachable as Dexpace::Hooks, and
+    # none of the nested names defined at the top level or flat under Dexpace (P3-7's shadowing
+    # audit, run rather than asserted).
+    test "requiring dexpace alone makes the whole pagination layer resolve, its helpers private" do
+      page = Dexpace::Page
+
+      assert_equal(
+        %i[
+          AsyncPaginator CursorStrategy Fetchers Info Items LinkStrategy PageNumberStrategy
+          PageStateError Pages Paginator QueryRewriter
+        ],
+        page.constants(false).sort,
+      )
+      assert_kind_of(Dexpace::Closeable, page.allocate)
+      assert_raises(::NameError) { Dexpace::Page::Walk }
+      assert_raises(::NameError) { Dexpace::Page::Closing }
+      assert_raises(::NameError) { Dexpace::Page::LinkHeader }
+      assert_raises(::NameError) { Dexpace::Page::Paginator::Drive }
+      assert_raises(::NameError) { Dexpace::Page::Fetchers::Drive }
+      assert_raises(::NameError) { Dexpace::Page::AsyncPaginator::Pump }
+      %i[
+        Info QueryRewriter LinkHeader CursorStrategy PageNumberStrategy LinkStrategy Walk Closing
+        Items Pages Paginator AsyncPaginator Fetchers PageStateError
+      ].each do |name|
+        refute(Object.const_defined?(name), "#{name} shadows a top-level constant")
+        refute(Dexpace.const_defined?(name, false), "#{name} shadows a flat Dexpace constant")
+      end
     end
   end
 

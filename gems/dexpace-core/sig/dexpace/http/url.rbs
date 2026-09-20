@@ -2,6 +2,7 @@ module Dexpace
   module URL
     def self?.parse!: (String | URI::Generic input) -> URI::Generic
     def self?.external_form: (URI::Generic uri) -> String
+    def self?.resolve: (String | URI::Generic base, String reference) -> URI::Generic?
 
     private
 

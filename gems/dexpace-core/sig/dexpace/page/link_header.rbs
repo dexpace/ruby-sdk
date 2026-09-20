@@ -1,0 +1,26 @@
+# Dexpace::Page::LinkHeader is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its one function declared to type LinkStrategy's call site. RBS has no visibility for a
+# constant, so the privacy lives in lib/dexpace/page/link_header.rb alone.
+module Dexpace
+  class Page
+    module LinkHeader
+      OWS: Array[String]
+      SEPARATORS: Array[String]
+      TOKEN_END: Array[String]
+
+      def self?.next_target: (Array[String]? values) -> String?
+
+      private
+
+      def next_token?: (String value) -> bool
+      def link_values: (String text) -> Array[[String, Array[[String, String]]]]
+      def skip: (String text, Integer index, Array[String] set) -> Integer
+      def parse_params: (String text, Integer index) -> [Array[[String, String]], Integer]
+      def parse_param: (String text, Integer index) -> [[String, String]?, Integer]
+      def read_value: (String text, Integer index) -> [String?, Integer]
+      def read_token: (String text, Integer index) -> [String, Integer]
+      def read_quoted: (String text, Integer index) -> [String?, Integer]
+    end
+  end
+end

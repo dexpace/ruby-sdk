@@ -1,0 +1,12 @@
+# Dexpace::Page::Closing is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module and
+# its two functions declared to type the views', the engines' and the async pump's call sites.
+# RBS has no visibility for a constant, so the privacy lives in lib/dexpace/page/closing.rb alone.
+module Dexpace
+  class Page
+    module Closing
+      def self?.close_walk: (Dexpace::Page::Walk walk, Exception? primary) -> nil
+      def self?.parse_or_close: (untyped strategy, Dexpace::Response response, Dexpace::Request template) -> Dexpace::Page::Info
+    end
+  end
+end

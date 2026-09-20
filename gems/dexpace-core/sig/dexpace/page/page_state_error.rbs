@@ -1,0 +1,8 @@
+module Dexpace
+  class Page
+    # PAGE-14: a second #each on a single-use page view; a state error, never an ArgumentError.
+    class PageStateError < ::StandardError
+      include Dexpace::Error
+    end
+  end
+end

@@ -1,0 +1,22 @@
+module Dexpace
+  class Page
+    # PAGE-16: the cursor strategy over a caller-supplied `#call(response) -> [items, cursor]`
+    # extractor (R7, P7-6). `extract` is untyped because a lambda is a valid value.
+    class CursorStrategy < Data
+      include Model
+
+      attr_reader extract: untyped
+      attr_reader parameter: String
+
+      private def self.new: (extract: untyped, parameter: String) -> instance
+      def initialize: (extract: untyped, parameter: String) -> void
+
+      def self.build: (extract: untyped, ?parameter: String) -> CursorStrategy
+      def parse: (Dexpace::Response response, Dexpace::Request template) -> Info
+
+      private
+
+      def unpack: (untyped answer) -> [Array[untyped], String?]
+    end
+  end
+end

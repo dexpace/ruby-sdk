@@ -1,0 +1,54 @@
+module Dexpace
+  # PAGE-2 / PAGE-3: one page of a paginated walk, owning exactly one live Response behind
+  # Dexpace::Closeable's latch; also the namespace of the pagination subsystem (P7-2). The three
+  # duck types the subsystem takes are declared here, nested, the way io.rbs holds _Source and
+  # http/body.rbs holds _ResponseHandler: validated at construction with respond_to?, never by a
+  # nominal test.
+  class Page
+    include Dexpace::Closeable
+
+    # PAGE-4 / PAGE-5: a stateless parser from a response and the original template to an Info.
+    interface _Strategy
+      def parse: (Dexpace::Response response, Dexpace::Request template) -> Dexpace::Page::Info
+    end
+
+    # R7 / P7-6: what the built-in strategies are handed instead of a codec. The cursor strategy
+    # expects `[items, cursor_or_nil]`; the page-number and Link strategies expect the items alone.
+    interface _Extractor
+      def call: (Dexpace::Response response) -> untyped
+    end
+
+    # PAGE-29's caller-supplied executor: one fire-and-forget method. Phase 8's
+    # dexpace-async-thread is the first real implementation; core spawns nothing (R9).
+    interface _Executor
+      def post: () { () -> void } -> void
+    end
+
+    @response: Dexpace::Response
+    @items: Array[untyped]
+    @next_link: String?
+    @continuation_token: String?
+
+    attr_reader response: Dexpace::Response
+    attr_reader items: Array[untyped]
+    attr_reader next_link: String?
+    attr_reader continuation_token: String?
+
+    private def self.new: (Dexpace::Response response, Array[untyped] items, String? next_link, String? continuation_token) -> instance
+    def initialize: (Dexpace::Response response, Array[untyped] items, String? next_link, String? continuation_token) -> void
+
+    def self.build: (response: Dexpace::Response, items: Array[untyped], ?next_link: String?, ?continuation_token: String?) -> Dexpace::Page
+    def self.next_request_from: (Dexpace::Request template, Dexpace::Response response, String? target) -> Dexpace::Request?
+
+    def status: () -> Dexpace::Status
+    def headers: () -> Dexpace::Headers
+    def request: () -> Dexpace::Request
+
+    private
+
+    DISPATCHABLE_SCHEMES: Array[String]
+
+    def self.dispatchable?: (URI::Generic target) -> bool
+    def release: () -> void
+  end
+end

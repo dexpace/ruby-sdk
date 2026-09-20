@@ -1,0 +1,18 @@
+module Dexpace
+  class Page
+    # PAGE-18..PAGE-20: the Link-header strategy over a caller-supplied `#call(response) -> items`
+    # extractor; the next request comes from the header through Page.next_request_from.
+    class LinkStrategy < Data
+      include Model
+
+      attr_reader extract_items: untyped
+      attr_reader header: String
+
+      private def self.new: (extract_items: untyped, header: String) -> instance
+      def initialize: (extract_items: untyped, header: String) -> void
+
+      def self.build: (extract_items: untyped, ?header: String) -> LinkStrategy
+      def parse: (Dexpace::Response response, Dexpace::Request template) -> Info
+    end
+  end
+end

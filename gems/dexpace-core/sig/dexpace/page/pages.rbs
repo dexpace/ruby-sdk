@@ -1,0 +1,24 @@
+module Dexpace
+  class Page
+    # PAGE-1 / PAGE-12 / PAGE-14 / PAGE-15: the single-use, auto-closing page-level view over one
+    # walk with a one-slot look-ahead. Enumerable's vocabulary drives #each, the one use.
+    class Pages
+      include ::Enumerable[Dexpace::Page]
+
+      @walk: Dexpace::Page::Walk
+      @viewed: bool
+
+      def initialize: (untyped opener) -> void
+      def each: () { (Dexpace::Page) -> void } -> self
+              | () -> ::Enumerator[Dexpace::Page, self]
+      def more?: () -> bool
+      def close: () -> nil
+      def closed?: () -> bool
+
+      private
+
+      def claim!: () -> void
+      def drive: () { (Dexpace::Page) -> void } -> void
+    end
+  end
+end

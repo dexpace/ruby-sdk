@@ -1,0 +1,41 @@
+module Dexpace
+  class Page
+    # PAGE-6..PAGE-10, PAGE-36: the blocking engine, a frozen Data of immutable configuration.
+    # `transport` and `strategy` are untyped because a lambda is a valid transport and a strategy is
+    # any object answering #parse (respond_to? validates both).
+    class Paginator < Data
+      include Model
+
+      attr_reader transport: untyped
+      attr_reader template: Dexpace::Request
+      attr_reader strategy: untyped
+      attr_reader cap: Numeric
+      attr_reader options: Dexpace::RequestOptions
+
+      private def self.new: (transport: untyped, template: Dexpace::Request, strategy: untyped, cap: Numeric, options: Dexpace::RequestOptions) -> instance
+      def initialize: (transport: untyped, template: Dexpace::Request, strategy: untyped, cap: Numeric, options: Dexpace::RequestOptions) -> void
+
+      def self.build: (transport: untyped, template: Dexpace::Request, strategy: untyped, ?cap: Numeric, ?options: Dexpace::RequestOptions) -> Paginator
+
+      def items: () -> Items
+      def pages: () -> Pages
+      def each_item: () { (untyped) -> void } -> nil
+      def each_page: () { (Dexpace::Page) -> void } -> nil
+
+      # The strategy engine's private per-walk drive (P7-111): a private_constant, declared here
+      # because the strict `core` Steep target types its call sites.
+      class Drive
+        @paginator: Paginator
+        @next_request: Dexpace::Request?
+
+        def initialize: (Paginator paginator) -> void
+        def call: () -> Dexpace::Page?
+      end
+
+      private
+
+      def validate_engine!: (untyped transport, untyped template, untyped strategy) -> void
+      def open_walk: () -> Dexpace::Page::Walk
+    end
+  end
+end

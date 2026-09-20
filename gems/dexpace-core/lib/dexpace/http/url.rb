@@ -54,6 +54,43 @@ module Dexpace
       uri.to_s
     end
 
+    # PAGE-19: RFC 3986 reference resolution of `reference` against `base`, or nil when the
+    # reference cannot resolve into a URI at all -- PAGE-19 treats that as end-of-stream and not
+    # as an error, and phase 7c's Dexpace::Page.next_request_from is the caller that turns the nil
+    # into one. The third function of this module, added by phase 7c (P7-3) beside .parse! so
+    # the parser pin lives in one file: .parse! cannot resolve, because it rejects the relative
+    # reference every `<?page=2>; rel=next` is (HTTP-47), and URI.join is what the
+    # Dexpace/NoUriDefaultParser cop refuses (url-and-query-encoding/08c54234). This is reference
+    # resolution and never SEAM-27's base-URL composition, which Dexpace::Operation does by hand
+    # because the two disagree on a query-bearing base (P2-3).
+    #
+    # Two things it deliberately does not do. It does not screen the result for a scheme this
+    # client can dispatch: `join` hands back a `mailto:`, a host-less `http:foo` and an empty-host
+    # `http:///p` as SUCCESSFUL resolutions (6b's P6-95), and whether such a target is an
+    # end-of-stream or an error is the caller's decision, made once in Dexpace::Page. And it does
+    # not accept a nil reference as "nothing to resolve": `join(base, nil)` raises ArgumentError,
+    # not URI::InvalidURIError, so a nil here is a programming error named as such rather than a
+    # silent end-of-stream.
+    #
+    # @param base [URI::Generic, String] the originating page's absolute URL
+    # @param reference [String] the raw target, absolute or relative
+    # @return [URI::Generic, nil] the resolved URI, its components frozen; nil when malformed
+    # @raise [Dexpace::InvalidArgumentError] when either argument is missing or of the wrong type
+    def resolve(base, reference)
+      Model.required!("base", base)
+      unless base.is_a?(String) || base.is_a?(::URI::Generic)
+        raise InvalidArgumentError, "base must be a String or a URI, got #{base.class}"
+      end
+      unless Model.required!("reference", reference).is_a?(String)
+        raise InvalidArgumentError, "reference must be a String, got #{reference.class}"
+      end
+
+      parser = ::URI::RFC3986_PARSER #: untyped
+      own(parser.join(base.to_s, reference)) #: URI::Generic
+    rescue ::URI::InvalidURIError
+      nil
+    end
+
     private
 
     # Freezes the URI's String components, then the URI. Only Strings: a URI also references
