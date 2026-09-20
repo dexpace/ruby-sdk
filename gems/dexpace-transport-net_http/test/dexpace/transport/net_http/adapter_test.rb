@@ -337,6 +337,34 @@ module DexpaceTransportNetHttpAdapterTest
       assert_equal(Encoding::BINARY, bytes.encoding)
     end
 
+    # Review round 3's R3-1: net-http reads this response under the chunked framing, so the
+    # Content-Length beside it is never the body's length; taken as one, #each, #write_to and
+    # #to_replayable -- which copy exactly `content_length` bytes -- delivered "01234" for a short
+    # header and raised StreamError.short_transfer for a long one, while #body_string read all
+    # ten bytes. Two exchanges, one per direction, because a ResponseBody is single-use.
+    test "TRANSPORT-27 / R3-1: a Content-Length beside a chunked encoding reads the whole body" do
+      chunked_with_length = lambda do |length|
+        lambda do |conn, _head|
+          conn.write("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: #{length}" \
+                     "\r\n\r\n5\r\n01234\r\n5\r\n56789\r\n0\r\n\r\n")
+        end
+      end
+      short = settle(NetHTTP.build, request_for(wire(chunked_with_length.call(5))))
+      long = settle(NetHTTP.build, request_for(wire(chunked_with_length.call(50))))
+      yielded = (+"").b
+      round_trip = (+"").b
+
+      short.body.each { |chunk| yielded << chunk }
+      long.body.to_replayable.each { |chunk| round_trip << chunk }
+
+      assert_equal(-1, short.body.content_length)
+      assert_equal(["5"], short.headers["Content-Length"], "the wire value reaches the caller")
+      assert_equal("0123456789", yielded, "#each yields the whole chunked body, not five bytes")
+      assert_equal("0123456789", round_trip, "#to_replayable round-trips the whole body")
+      short.close
+      long.close
+    end
+
     test "TRANSPORT-25: closing the response releases the connection, seen from the server" do
       server = wire(Scripts.large(5 * 1024 * 1024, hold: true))
 

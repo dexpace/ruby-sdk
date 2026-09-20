@@ -172,8 +172,11 @@ module DexpaceConformanceWireServerTest
 
     # The teardown property every test in every suite relies on: a handler blocked on a socket --
     # hang_after_headers never answers -- is woken by #close closing the accepted socket, so the
-    # thread ends and the test's own thread count is unchanged (DexpaceTestCase#teardown).
+    # thread ends and the test's own thread count is unchanged (DexpaceTestCase#teardown). The
+    # baseline is taken BEFORE the server starts, so the count after #close says both of its
+    # threads are gone and not merely that one is (review round 3's R3-3).
     test "#close wakes a handler blocked on its socket and joins it, promptly" do
+      baseline = ::Thread.list.size
       entered = ::Thread::Queue.new
       server = WireServer.start(Scripts.hang_after_headers(on_headers_written: lambda {
         entered.push(true)
@@ -181,17 +184,33 @@ module DexpaceConformanceWireServerTest
       client = ::TCPSocket.new("127.0.0.1", server.port)
       client.write("GET / HTTP/1.1\r\nHost: x\r\n\r\n")
       entered.pop
-      threads_before_close = ::Thread.list.size
 
+      assert_equal(baseline + 2, ::Thread.list.size, "the accept thread and one handler are alive")
       t0 = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       server.close
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0
       client.close
 
       assert_operator(elapsed, :<, 1.0)
-      assert_operator(::Thread.list.size, :<, threads_before_close,
-                      "the accept and handler threads ended",)
+      assert_equal(baseline, ::Thread.list.size, "the accept AND the handler thread ended")
       assert_equal(1, server.closed_connections)
+    end
+
+    # XCUT-13: both joins in #close are bounded by JOIN_DEADLINE_SECONDS, asserted over the
+    # source as the pump's own join is (net_http/response_pump_test.rb), because the one handler
+    # that can outlive the deadline -- a script that survives its socket's close and blocks on
+    # something else -- would cost the suite the whole deadline to observe. The handler join's
+    # PRESENCE is asserted the same way: on MRI, `IO#close` on the accepted socket waits for the
+    # reader to leave its syscall and the handler finishes before #close returns, so no thread
+    # count taken after #close can tell the join from its absence (review round 3's R3-3).
+    test "#close joins the accept thread and every handler, bounded by JOIN_DEADLINE_SECONDS" do
+      path = File.expand_path("../../../lib/dexpace/conformance/wire_server.rb", __dir__)
+      source = File.read(path)
+
+      assert_match(/@accept_thread\.join\(JOIN_DEADLINE_SECONDS\)/, source)
+      assert_match(/handlers\.each \{ \|handler\| handler\.join\(JOIN_DEADLINE_SECONDS\) \}/,
+                   source,)
+      refute_match(/\.join\b(?!\(JOIN_DEADLINE_SECONDS\))/, source, "every join is bounded")
     end
 
     test "a waiter that outlives the server gets nil from #await_closed_connection, not a hang" do

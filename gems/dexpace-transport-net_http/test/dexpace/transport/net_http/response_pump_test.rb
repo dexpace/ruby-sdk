@@ -131,6 +131,36 @@ module DexpaceTransportNetHttpResponsePumpTest
       assert_raises(Dexpace::ClosedError) { pump.readpartial(1) }
     end
 
+    # Review round 3's R3-2: the guard at the top of #readpartial, not the one in #fill. A small
+    # reader -- BufferedSource.wrapping hands the pump the CALLER's count, so a #getbyte or a
+    # #read_into over a 16 KiB net-http chunk leaves the rest in the residue -- must not be served
+    # buffered residue after the pump is closed; every other test drains with a large maxlen or
+    # through #body_string, where the residue is empty and #fill's own check fires instead.
+    test "a closed pump refuses a small read even with residue buffered, as ClosedError" do
+      pump = pump_for(wire(Scripts.fixed("abcdef")))
+      pump.head_or_raise
+
+      assert_equal("a", pump.readpartial(1), "the residue now holds the rest of the chunk")
+      pump.close
+
+      assert_raises(Dexpace::ClosedError) { pump.readpartial(1) }
+    end
+
+    test "a pump closed by a cancel refuses a small read over residue as the cancellation" do
+      source = Dexpace::Cancellation.source
+      pump = pump_for(wire(Scripts.fixed("abcdef")), cancellation: source.token)
+      pump.head_or_raise
+
+      assert_equal("a", pump.readpartial(1))
+      source.cancel(:mid_body)
+
+      assert_predicate(pump, :closed?, "the subscription closed the pump")
+      error = assert_raises(Dexpace::CancelledError) { pump.readpartial(1) }
+
+      assert_equal(:mid_body, error.reason)
+      pump.close
+    end
+
     test "closing before any read, and with the producer blocked on the queue, both return" do
       early = pump_for(wire(Scripts.fixed("x" * 100_000)))
 

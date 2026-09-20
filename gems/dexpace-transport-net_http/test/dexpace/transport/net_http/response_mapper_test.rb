@@ -175,6 +175,27 @@ module DexpaceTransportNetHttpResponseMapperTest
                  "deleted from the NATIVE response before read_body, as any refused value is",)
     end
 
+    # Review round 3's R3-1: net-http frames a response carrying Transfer-Encoding: chunked under
+    # the chunked framing whatever Content-Length sits beside it (read_body_0 asks #chunked?
+    # first, 0.4.1 through 0.9.1), so a syntactically valid Content-Length there is RFC 9112
+    # section 6.3's overridden one and never the number of bytes the pump delivers; taken as the
+    # length, it made #each, #write_to and #to_replayable copy exactly that many bytes. The raw
+    # header still reaches the caller; only the interpretation is the sentinel.
+    test "R3-1: a Content-Length beside Transfer-Encoding: chunked is the -1 sentinel" do
+      native = ok("Transfer-Encoding" => "chunked", "Content-Length" => "5")
+
+      response = build(native, pump: pump_of("01234", "56789"))
+
+      assert_equal(-1, response.body.content_length)
+      assert_equal(["5"], response.headers["Content-Length"], "the raw header reaches the caller")
+      assert_equal(["chunked"], response.headers["Transfer-Encoding"])
+      assert_equal("0123456789", response.body_string, "the whole chunked body, not five bytes")
+      listed = ok("Transfer-Encoding" => "gzip, chunked", "Content-Length" => "5")
+
+      assert_equal(-1, build(listed, pump: pump_of("x")).body.content_length,
+                   "the predicate is net-http's own #chunked?, which reads a coding list",)
+    end
+
     test "TRANSPORT-27: a malformed Content-Type downgrades to nil rather than raising" do
       response = build(ok("Content-Type" => "not a/;;media type", "Content-Length" => "0"))
 
