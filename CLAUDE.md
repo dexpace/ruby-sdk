@@ -163,9 +163,11 @@ through `.open(response)`, `.owning(source, resource:)` and `.borrowing(…)` �
 `#events` and `#typed`, `Closeable`'s latch, and `logger:` on every factory); the typed adapter `TypedStream`
 (`#each`, `#values`, delegating `#close`); the two namespaced errors `LimitExceededError` and
 `StreamStateError`; the RBS interface `_ByteSource`; and, the mechanism spec-forced boundary 5 asked for,
-the eighteenth gate `gates:serde_boundary` over `tools/serde_boundary.rb`, a parsed scan of `lib/dexpace/sse/**`
-and its `sig/` mirrors for any serialization dependency, the pagination layer's globs on its printed
-`PENDING` list until 7c lands (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`) — and the
+the eighteenth gate `gates:serde_boundary` over `tools/serde_boundary.rb`, a parsed scan of `lib/dexpace/sse/**`,
+`lib/dexpace/page/**` and their `sig/` mirrors for any serialization dependency — the pagination rows sat
+on its printed `PENDING` list while the two lanes were built one base apart and moved to `GUARDED` when
+7c was reconciled onto the same tree on 2026-09-20
+(`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`) — and the
 pagination layer, §7.1's chapter 12, under `Dexpace::Page`, a class that is also the namespace: the page
 value owning one live response behind `Closeable`'s latch, with `.build` and the public resolution branch
 `.next_request_from` (same-document — blank or fragment-only — unresolvable and non-dispatchable targets
@@ -239,7 +241,7 @@ bundle exec rake test:gems                        # gem suites: warnings fatal, 
 bundle exec rake test:gates                       # the repository's gate suites (test/gates/)
 bundle exec rake gates:gemspec_audit              # SEAM-1, NFR-1, NFR-2
 bundle exec rake gates:require_allowlist          # SEAM-1, SEAM-2: the allowlist and the denylist
-bundle exec rake gates:serde_boundary             # SSE-37, spec-forced boundary 5: no serde under lib/dexpace/sse/**
+bundle exec rake gates:serde_boundary             # SSE-37, spec-forced boundary 5: no serde under lib/dexpace/{sse,page}/**
 bundle exec rake gates:clean_bundle               # the scratch-Gemfile isolation run, all six gems
 bundle exec rake gates:rbs_surface                # NFR-11
 bundle exec rake gates:sig_diff                   # NFR-4, RBS half (vacuous until the first v* tag)
@@ -935,9 +937,10 @@ Each is one line plus the chapter to read before touching the area.
   per-walk state at all (`PAGE-8`, `PAGE-12`, `PAGE-14`; 7c's P7-103, P7-111).
 - **The built-in strategies take an extractor, `#call(response)`, and the words `Serde` and `JSON` appear
   NOWHERE under `lib/dexpace/page/` or in `page.rb` — YARD and strings included** — 7b's
-  `tools/serde_boundary.rb` scans without stripping comments and its `page/**` row goes `GUARDED` on the
-  second lane to rebase; `page_test.rb` scans the fifteen files for the two tokens until then (7c's P7-6,
-  P7-108). The blocking engine passes `Cancellation.none` to the transport, never `nil`, which dies inside
+  `tools/serde_boundary.rb` scans without stripping comments and its `page/**` rows went `GUARDED` on
+  2026-09-20, when 7c was reconciled onto the tree that holds the gate — `page.rb`, `page/**` and both
+  `sig/` mirrors, each violation naming "spec-forced boundary 5"; `page_test.rb` scans the fifteen files
+  for the two tokens as 7c's own guard beside it (7c's P7-6, P7-108). The blocking engine passes `Cancellation.none` to the transport, never `nil`, which dies inside
   `Pipeline.standard`'s retry step (P7-102); `Page.next_request_from` screens a resolved target for an
   http/https scheme and a host, 6b's screen copied because `Redirect::Location` is private (P7-104), and
   reads RFC 3986 §4.4's two same-document forms — `<>` and `<#…>` — off the RAW target before resolving,

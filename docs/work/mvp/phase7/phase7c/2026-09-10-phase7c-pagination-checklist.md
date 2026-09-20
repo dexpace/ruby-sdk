@@ -12,6 +12,17 @@ one convergence point the charter names — spec-forced boundary 5's audit — w
 decision of 2026-09-20, so this lane builds no gate and carries a non-ID row for it below. Where the
 plan's text and the built tree disagree the tree wins and this document records it.
 
+**Reconciled 2026-09-20.** Phase 7b's stack merged first (#81 → #82 → #83, `main` at `34f52e8`), so
+this phase's three branches were rebased onto it by `git rebase --onto` with rerere disabled, every
+7c commit preserved. The sentences below that count the tree describe **this phase's own base**,
+`c53638b`, and are left as written; on the combined tree the figures are: 208 `lib/dexpace/` files
+beside `version.rb` (7b's nine and 7c's fifteen over the 184 of phase 6), the same nineteen
+`private_constant` test-mirror exceptions, sixteen checklists, sixteen as-built pages, the core
+manifest 1 180 → 1 257 (still exactly this phase's 77 rows), and **eighteen** gates — 7b's
+`gates:serde_boundary` being the one this phase's base did not have. The boundary-5 row below records
+the one thing the reconcile pass built. The combined tree's counts are `CLAUDE.md`'s and the roadmap's
+reconciliation note's; this document's are its base's.
+
 Legend, verbatim from the roadmap's cross-cutting constraint 3: ✅ implemented and tested ·
 🚫 not built (permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase,
 task number and path — that will do it, or the `docs/first-release.md` entry that owns it) ·
@@ -86,7 +97,7 @@ The non-ID row the charter and the design both require:
 
 | Item | Status | What 7c did, and who owns the rest |
 |---|---|---|
-| Spec-forced boundary 5 / `R11` — the serde-isolation audit over `lib/dexpace/page/**` | owner elsewhere: **7b's Task 11** (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`, `tools/serde_boundary.rb` + `gates:serde_boundary`), by the manager's decision of 2026-09-20 | 7c builds no gate, no `tools/` file, no fixture and no `tasks/gates.rake` edit; 7b's tool ships a `PENDING` row for `gems/dexpace-core/lib/dexpace/page/**/*.rb` that whichever lane rebases second flips to `GUARDED`. Because 7b's constant scan does not strip comments, the tokens `Serde` and `JSON` appear NOWHERE under `lib/dexpace/page/` or in `page.rb` — YARD included; `R7`'s own sentence is spelled "a caller who wants a codec" — and `page_test.rb` "spec-forced boundary 5" scans the fifteen files for them as 7c's own guard until the row flips (P7-108). The plan's Task 1 Steps 2–4 and its resolved question 5 are recorded as a deviation below |
+| Spec-forced boundary 5 / `R11` — the serde-isolation audit over `lib/dexpace/page/**` | owner elsewhere: **7b's Task 11** (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events.md`, `tools/serde_boundary.rb` + `gates:serde_boundary`), by the manager's decision of 2026-09-20 | 7c builds no gate, no `tools/` file, no fixture and no `tasks/gates.rake` edit; 7b's tool ships a `PENDING` row for `gems/dexpace-core/lib/dexpace/page/**/*.rb` that whichever lane rebases second flips to `GUARDED`. Because 7b's constant scan does not strip comments, the tokens `Serde` and `JSON` appear NOWHERE under `lib/dexpace/page/` or in `page.rb` — YARD included; `R7`'s own sentence is spelled "a caller who wants a codec" — and `page_test.rb` "spec-forced boundary 5" scans the fifteen files for them as 7c's own guard until the row flips (P7-108). The plan's Task 1 Steps 2–4 and its resolved question 5 are recorded as a deviation below. **Reconciled 2026-09-20:** the row flipped — on the rebased code branch, one `chore:` commit moves the two `page/**` rows from `PENDING` to `GUARDED` and adds `page.rb` and `page.rbs` rows beside them (the `**` under a directory cannot match the file beside it, the reason `sse.rb` has its own row), each naming "spec-forced boundary 5" in its violation; `PENDING` is empty; the gate's test asserts it and both fixture workspaces gain clean page files; a `Dexpace::Serde` read in `page/info.rb` and a `require "json"` in `page.rb` each ran the gate red before being reverted. `page_test.rb`'s token scan stays as this phase's own guard beside it |
 
 Cross-reference rows, the IDs this phase owns a share of:
 
@@ -378,7 +389,8 @@ as-built ledger rows P7-101–P7-117.
 30. **`CLAUDE.md`'s counts are re-derived from the tree on top of `main`**: 199 `lib/dexpace/` files
     beside `version.rb`, nineteen `private_constant` test-mirror exceptions (`page/closing.rb` joins),
     fifteen checklists, `phase7/phase7c/` holding a checklist; the lib-file count was counted by hand
-    because the probe does not read it.
+    because the probe does not read it. *Reconciled 2026-09-20:* on top of `main` with 7b, the same
+    hand count gives 208, the exceptions stay nineteen, and the checklists are sixteen.
 31. **`LinkHeader` reads only the first `rel` parameter of a link-value** (P7-116; review round 0's
     R0-3): RFC 8288 §3.3 says `rel` MUST NOT appear more than once and occurrences after the first MUST
     be ignored, and the first build's `params.any?` honoured a later one. `PAGE-18`'s own words ("the

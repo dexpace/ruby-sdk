@@ -4101,3 +4101,44 @@ has no ID to file under; `docs/deviations.md` is untouched, for phase 10 to flip
 P7-1–P7-6 and P7-101–P7-117 into design §10 — beside 7a's P7-1–P7-9, which collide with 7c's by number,
 knowingly — and the `PAGE-15` addition to §12's `PAGE` row are a human's, as for every phase before:
 `docs/sdk-design-ruby/` is frozen.
+
+**2026-09-20** — **Phase 7c reconciled onto `main` after phase 7b (server-sent events)**, by a
+rebase-and-reprove pass. Phase 7b's stack merged first (#81 `90abdb8` → #82 `eacf165` → #83 `34f52e8`),
+so 7c's three branches — built off `c53638b` and reviewed at `d319e8a` → `58d45af` → `cd12764` — were
+rebased onto `main` `34f52e8` with `git rebase --onto` (rerere disabled), every 7c commit preserved and
+none reordered, and the stack is `3a1f0a4` → `549e683` → this paragraph's own commit. Two commits are
+the pass's own, one per branch that needed one: on the code branch, `chore: guard page/ in
+gates:serde_boundary now that 7c is on the same tree` — the flip 7b's tool said would happen "in the
+change that lands the files": the two `page/**` rows move from `PENDING` to `GUARDED` and `page.rb` and
+`page.rbs` gain rows beside them (a `**` under a directory cannot match the file beside it, the reason
+`sse.rb` has its own row), each violation naming "spec-forced boundary 5"; `PENDING` is empty and stays
+as the mechanism; the gate's test asserts nothing pending, the four rows and "8 guarded globs clean",
+both fixture workspaces gain clean page files so `empty_glob` still reports exactly one empty glob, and
+the guard was proven to bite by hand — a `Dexpace::Serde` read appended to `page/info.rb` and a
+`require "json"` appended to `page.rb` each ran the gate red before being reverted. On the docs branch,
+this paragraph's commit carries what no 7c commit could: `CLAUDE.md`'s and `quality-gates.md`'s
+`PENDING` sentences now say guarded, 7b's checklist gains one dated line at its item 15, and 7c's
+checklist a dated paragraph, its boundary-5 row's note and one line at its item 30. Eight files both
+lanes had changed were reconciled inside the rebased 7c commits and nowhere else:
+`gems/dexpace-core/lib/dexpace.rb` (7b's `# Phase 7b:` block, then 7c's `# Phase 7c:` block, each
+verbatim — 7c's comment still says "after 6b's block", which stays true with 7b's between),
+`gems/dexpace-core/test/dexpace_test.rb` (both layer pins, `SSE_LAYER` then `PAGE_LAYER`, and the two
+same-named `PhaseSevenLayers` classes merged into one carrying 7b's SSE case then 7c's pagination case),
+`test/fixtures/surface/dexpace-core.txt` (the auto-merge was already the regenerated manifest, confirmed
+by a `surface:regenerate` that changed nothing: 1,180 rows on `main` plus 7c's 77, 1,257 — `URL#resolve`
+and the seventy-six `Page` rows, nothing of `Walk`, `Closing` or `LinkHeader`), `CLAUDE.md` (re-derived
+from the combined tree: "… 6c, 7b and 7c are built", two hundred and eight `lib/` files beside
+`version.rb` with two hundred and eight `sig/` mirrors, nineteen `private_constant` test-mirror
+exceptions — `main`'s eighteen and `page/closing.rb` — sixteen checklists, both layers in the opening
+paragraph, 7b's four and 7c's four "Constraints that will bite" lines), `README.md` (both layer
+sentences; its built-phases sentence, which `main` had left at "… 6a and 6c", names every built phase
+in merge order), `docs/README.md` (both layers, both pages, sixteen pages),
+`docs/sdk-documentation/architecture.md` and `gems/dexpace-core/README.md` (both pages, `sse.md` and
+`pagination.md`), and this roadmap (both status notes in merge order; the phase-10 inbound list is
+`main`'s forty-seven bullets — 7b's two, cited by date and content — and 7c adds none). Every file only
+one lane touched is byte-identical to that lane's reviewed tip, the flip's tool and test excepted. The
+7c checklist's and status note's count sentences describe its own base, `c53638b`, and now say so; the
+combined tree's counts are `CLAUDE.md`'s: eighteen gates, the test suite at 3,146 runs, 70,084
+assertions, 0 failures, 0 errors, 0 skips and 99.98 % line coverage on 4.0.6 at the tests tip. Re-proven
+at every rebased tip on 4.0.6 and the matrix rows before the push, `gates:serde_boundary` with the
+pagination rows guarded at every one of the three.
