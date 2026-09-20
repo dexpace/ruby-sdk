@@ -1,0 +1,40 @@
+module Dexpace
+  module SSE
+    # The resource-owning single-pass streaming facade (SSE-23 through SSE-32, SSE-39, SSE-40).
+    # #close, #closed? and #owned? are Dexpace::Closeable's.
+    class Stream
+      include Dexpace::Closeable
+
+      # `source` and `resource` are untyped for BufferedSource.wrapping's reason: ducks checked
+      # with respond_to? at runtime, which strict Steep refuses to send to an interface.
+      private def self.new: (source: untyped, resource: untyped, owned: bool, max_line_bytes: Integer,
+                             max_event_bytes: Integer, logger: Instrumentation::Logger) -> instance
+      def initialize: (source: untyped, resource: untyped, owned: bool, max_line_bytes: Integer,
+                       max_event_bytes: Integer, logger: Instrumentation::Logger) -> void
+
+      def self.open: (Dexpace::Response response, ?max_line_bytes: Integer, ?max_event_bytes: Integer,
+                      ?logger: Instrumentation::Logger) -> Stream
+      def self.owning: (untyped source, ?resource: untyped, ?max_line_bytes: Integer,
+                        ?max_event_bytes: Integer, ?logger: Instrumentation::Logger) -> Stream
+      def self.borrowing: (untyped source, ?resource: untyped, ?max_line_bytes: Integer,
+                           ?max_event_bytes: Integer, ?logger: Instrumentation::Logger) -> Stream
+
+      def each: () { (Event) -> void } -> nil
+      def events: () -> Enumerator[Event, nil]
+      def typed: (?untyped mapper) ?{ (String?, String) -> untyped } -> TypedStream
+
+      private
+
+      @reader: Reader
+      @resource: untyped
+      @logger: Instrumentation::Logger
+      @viewed: bool
+
+      def take_view!: () -> nil
+      def drive: () { (Event) -> void } -> nil
+      def advance: () -> Event?
+      def finish: () -> nil
+      def release: () -> nil
+    end
+  end
+end

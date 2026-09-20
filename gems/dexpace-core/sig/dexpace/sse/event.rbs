@@ -1,0 +1,29 @@
+module Dexpace
+  module SSE
+    # The immutable five-field event value (SSE-20, SSE-21, SSE-22).
+    class Event < Data
+      include Model
+
+      attr_reader id: String?
+      attr_reader event: String?
+      attr_reader data: Array[String]
+      attr_reader comment: String?
+      attr_reader retry: Integer?
+
+      private def self.new: (id: String?, event: String?, data: Array[String], comment: String?,
+                             retry: Integer?) -> instance
+      def initialize: (id: String?, event: String?, data: Array[String], comment: String?,
+                       retry: Integer?) -> void
+
+      def self.build: (?id: String?, ?event: String?, ?data: Array[String], ?comment: String?,
+                       ?retry: Integer?) -> Event
+      def empty?: () -> bool
+
+      private
+
+      def optional_string!: (String name, untyped value) -> String?
+      def list!: (untyped value) -> Array[String]
+      def duration!: (String name, untyped value) -> void
+    end
+  end
+end

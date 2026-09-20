@@ -313,4 +313,17 @@ namespace :gates do
     puts "gates:single_instance: one resolved path per core file; " \
          "VERSION agrees with the gemspec."
   end
+
+  desc "SSE-37 and spec-forced boundary 5: no serialization dependency under the guarded paths"
+  task :serde_boundary do
+    require_relative "../tools/serde_boundary"
+    root = gate_root
+    found = SerdeBoundary.violations(root)
+    abort(found.join("\n")) unless found.empty?
+
+    SerdeBoundary.pending(root).each do |glob, reason, matched|
+      puts "gates:serde_boundary: PENDING #{glob} (#{matched} file(s) today) -- #{reason}"
+    end
+    puts "gates:serde_boundary: #{SerdeBoundary::GUARDED.size} guarded globs clean."
+  end
 end

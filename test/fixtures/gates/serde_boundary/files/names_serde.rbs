@@ -1,0 +1,7 @@
+module Dexpace
+  module SSE
+    class Decoder
+      def codec: () -> Dexpace::Serde::_Codec
+    end
+  end
+end

@@ -1,0 +1,54 @@
+module Dexpace
+  module SSE
+    # SSE-1's field state machine over LineReader: SSE-3 through SSE-18, SSE-19's event cap.
+    class Reader
+      attr_reader max_line_bytes: Integer
+      attr_reader max_event_bytes: Integer
+
+      # `source` is untyped for BufferedSource.wrapping's reason: a duck checked with respond_to?
+      # at runtime, which strict Steep refuses to send to an interface.
+      def initialize: (untyped source, ?max_line_bytes: Integer, ?max_event_bytes: Integer) -> void
+      def next_event: () -> Event?
+
+      private
+
+      BOM: Array[Integer]
+      COLON: Integer
+      SPACE: Integer
+      COLON_BYTES: String
+      NUL_BYTES: String
+      EMPTY_BYTES: String
+      FIELD_ID: String
+      FIELD_EVENT: String
+      FIELD_DATA: String
+      FIELD_RETRY: String
+      DIGITS_ONLY: Regexp
+      MAX_RETRY_DIGITS: Integer
+
+      @source: _ByteSource
+      @lines: LineReader
+      @max_line_bytes: Integer
+      @max_event_bytes: Integer
+      @bom_checked: bool
+      @ended: bool
+      @seen: bool
+      @id: String?
+      @event: String?
+      @data: Array[String]
+      @comment: String?
+      @retry: Integer?
+      @block_bytes: Integer
+
+      def consume_bom_once: () -> nil
+      def bom_ahead?: () -> bool
+      def dispatch: () -> Event?
+      def reset_block: () -> nil
+      def apply_line: (String line) -> void
+      def apply_field: (String name, String value) -> void
+      def apply_id: (String value) -> void
+      def apply_retry: (String value) -> void
+      def value_after: (String line, Integer after) -> String
+      def decode: (String bytes) -> String
+    end
+  end
+end

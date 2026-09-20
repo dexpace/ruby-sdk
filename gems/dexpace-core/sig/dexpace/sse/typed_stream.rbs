@@ -1,0 +1,26 @@
+module Dexpace
+  module SSE
+    # The typed adapter over a Stream and a caller-supplied mapper (SSE-33 through SSE-36).
+    class TypedStream
+      # Built by Stream#typed alone; a mapper is any callable of two positionals.
+      private def self.new: (stream: Stream, mapper: untyped, logger: Instrumentation::Logger) -> instance
+      def initialize: (stream: Stream, mapper: untyped, logger: Instrumentation::Logger) -> void
+
+      def each: () { (untyped) -> void } -> nil
+      def values: () -> Enumerator[untyped, nil]
+      def close: () -> nil
+      def closed?: () -> bool
+
+      private
+
+      @stream: Stream
+      @mapper: untyped
+      @logger: Instrumentation::Logger
+
+      def map: (Event event) -> untyped
+      def deliver: (Event event) { (untyped) -> void } -> Symbol
+      def drive_values: (Enumerator[Event, nil] raw) { (untyped) -> void } -> nil
+      def next_raw: (Enumerator[Event, nil] raw) -> Event?
+    end
+  end
+end

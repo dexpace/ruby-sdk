@@ -1,0 +1,17 @@
+module Dexpace
+  module SSE
+    # SSE-19: a line or an event block crossed its documented bound and was rejected.
+    class LimitExceededError < ::StandardError
+      include Dexpace::Error
+
+      attr_reader kind: Symbol
+      attr_reader limit: Integer
+
+      def initialize: (kind: Symbol, limit: Integer) -> void
+
+      private
+
+      KINDS: Array[Symbol]
+    end
+  end
+end

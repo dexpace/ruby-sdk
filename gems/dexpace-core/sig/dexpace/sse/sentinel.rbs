@@ -1,0 +1,18 @@
+module Dexpace
+  module SSE
+    # SSE-34's two non-value outcomes, as a closed two-instance type (P7-23).
+    class Sentinel < Data
+      attr_reader name: Symbol
+
+      # .new and .[] are both private: SKIP and DONE are the whole population.
+      private def self.new: (name: Symbol) -> instance
+
+      def to_s: () -> String
+      def inspect: () -> String
+      def pretty_print: (untyped printer) -> void
+
+      # Always raises: the closed set has no derivation.
+      def with: (?untyped _changes) -> bot
+    end
+  end
+end

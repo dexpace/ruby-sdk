@@ -1,0 +1,9 @@
+module Dexpace
+  module SSE
+    # A comment naming Dexpace::Serde and JSON is not a type-level dependency.
+    class Decoder
+      def label: () -> "JSON"
+      def other: () -> "Serde"
+    end
+  end
+end

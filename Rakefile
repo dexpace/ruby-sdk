@@ -23,6 +23,7 @@ DEFAULT_GATES = %w[
   test:gates
   gates:gemspec_audit
   gates:require_allowlist
+  gates:serde_boundary
   gates:clean_bundle
   gates:rbs_surface
   gates:sig_diff
