@@ -1,0 +1,38 @@
+module Dexpace
+  module Serde
+    # The `ctx` a witness receives: the path from the document root, the decode's target type
+    # name, and the one raise site for a shape failure (SERDE-13, SERDE-21, SERDE-22). A frozen
+    # Data in the phase-1 shape; .new and .[] are private and .build is the validating factory.
+    class DecodeContext < Data
+      include Model
+
+      attr_reader path: Array[String | Integer]
+      attr_reader target: String?
+
+      # Two private_constants with no visibility in RBS; declared so Steep can type .root.
+      EMPTY_PATH: Array[String | Integer]
+      ROOT: DecodeContext
+
+      private def self.new: (path: Array[String | Integer], target: String?) -> instance
+      def initialize: (path: Array[String | Integer], target: String?) -> void
+
+      def self.build: (path: Array[String | Integer], target: String?) -> DecodeContext
+      def self.root: (?target: untyped) -> DecodeContext
+
+      def at: (String | Integer segment) -> DecodeContext
+      def pointer: () -> String
+      def object!: (untyped value, ?key: (String | Integer)?) -> Hash[untyped, untyped]
+      def array!: (untyped value, ?key: (String | Integer)?) -> Array[untyped]
+      def string!: (untyped value, ?key: (String | Integer)?) -> String
+      def integer!: (untyped value, ?key: (String | Integer)?) -> Integer
+      def float!: (untyped value, ?key: (String | Integer)?) -> Float
+      def boolean!: (untyped value, ?key: (String | Integer)?) -> bool
+      def present!: (untyped value, String target, ?key: (String | Integer)?) -> untyped
+      def error!: (expected: String, actual: untyped, ?key: (String | Integer)?) -> bot
+
+      private
+
+      def segment?: (untyped segment) -> bool
+    end
+  end
+end

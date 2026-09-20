@@ -1,0 +1,18 @@
+module Dexpace
+  module Serde
+    # The witness protocol (design §7.3, §10.14): any object answering .dexpace_load(parsed, ctx).
+    # An interface and not a class, because a structural duck type is what it is -- a caller's
+    # own model class type-checks against List.of without inheriting anything. `parsed` and the
+    # return are untyped because a witness's target type is the caller's; RBS and Steep are a
+    # gate rather than a guarantee here.
+    interface _Witness
+      def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> untyped
+    end
+
+    WITNESS_METHOD: Symbol
+    DUMP_METHOD: Symbol
+
+    def self.witness?: (untyped object) -> bool
+    def self.witness!: (untyped object) -> untyped
+  end
+end

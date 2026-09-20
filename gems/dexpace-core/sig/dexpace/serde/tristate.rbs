@@ -1,0 +1,75 @@
+module Dexpace
+  module Serde
+    # The three-state PATCH type (SERDE-14–SERDE-20, SERDE-30): a module included by ABSENT, NULL
+    # and Present, so one type test covers the three values.
+    module Tristate
+      def absent?: () -> bool
+      def null?: () -> bool
+      def present?: () -> bool
+      def value_or_nil: () -> untyped
+      def fold: (on_absent: ^() -> untyped, on_null: ^() -> untyped, on_present: ^(untyped) -> untyped) -> untyped
+
+      # Two private_constants with no visibility in RBS; declared because the strict `core` Steep
+      # target types the two sentinels' construction. The privacy lives in
+      # lib/dexpace/serde/tristate.rb.
+      class Absent
+        include Tristate
+
+        def absent?: () -> bool
+        def dexpace_dump: () -> Omit
+        def to_s: () -> String
+        def inspect: () -> String
+      end
+
+      class Null
+        include Tristate
+
+        def null?: () -> bool
+        def dexpace_dump: () -> nil
+        def to_s: () -> String
+        def inspect: () -> String
+      end
+
+      ABSENT: Tristate
+      NULL: Tristate
+
+      # A Present value, bounded to non-null (SERDE-14). A frozen Data; .new and .[] are private
+      # and .build is the validating factory.
+      class Present < Data
+        include Model
+        include Tristate
+
+        attr_reader value: untyped
+
+        private def self.new: (value: untyped) -> instance
+        def initialize: (value: untyped) -> void
+
+        def self.build: (value: untyped) -> Present
+        def present?: () -> bool
+        def value_or_nil: () -> untyped
+        def dexpace_dump: () -> untyped
+      end
+
+      # A private_constant with no visibility in RBS; declared because the strict `core` Steep
+      # target types .of. The privacy lives in lib/dexpace/serde/tristate.rb.
+      class Combinator < Data
+        include Model
+
+        attr_reader element: untyped
+
+        private def self.new: (element: untyped) -> instance
+        def initialize: (element: untyped) -> void
+
+        def self.build: (element: untyped) -> Combinator
+        def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> Tristate
+        def dexpace_load_field: (untyped hash, String key, Dexpace::Serde::DecodeContext ctx) -> Tristate
+      end
+
+      def self.absent: () -> Tristate
+      def self.null: () -> Tristate
+      def self.present: (untyped value) -> Present
+      def self.from_nullable: (untyped value) -> Tristate
+      def self.of: (untyped element) -> Combinator
+    end
+  end
+end

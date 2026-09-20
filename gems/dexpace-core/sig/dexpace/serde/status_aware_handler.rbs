@@ -1,0 +1,31 @@
+module Dexpace
+  module Serde
+    # SERDE-28's status-aware response handler, a Dexpace::_ResponseHandler supplied into
+    # TypedResponse: 2xx decodes, 4xx/5xx raises the mapped error over the buffered body, anything
+    # else closes and raises leading with the code. A frozen Data; .new and .[] are private.
+    class StatusAwareHandler < Data
+      include Model
+
+      # A private_constant with no visibility in RBS; declared so Steep can type .build's default.
+      DEFAULT_FACTORY: ^(Dexpace::Response) -> Exception
+
+      @decoding: DecodingHandler
+
+      attr_reader serde: untyped
+      attr_reader witness: untyped
+      attr_reader factory: untyped
+
+      private def self.new: (serde: untyped, witness: untyped, factory: untyped) -> instance
+      def initialize: (serde: untyped, witness: untyped, factory: untyped) -> void
+
+      def self.build: (serde: untyped, witness: untyped, ?factory: untyped) -> StatusAwareHandler
+      def call: (Dexpace::Response response) -> untyped
+
+      private
+
+      def raise_mapped: (Dexpace::Response response) -> bot
+      def raise_unhandled: (Dexpace::Response response) -> bot
+      def unhandled_message: (Dexpace::Response response) -> String
+    end
+  end
+end

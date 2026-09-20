@@ -12,8 +12,7 @@ Gem::Specification.new do |spec|
   spec.summary = "The reference wire codec for dexpace, over Ruby's json."
   spec.description = <<~TEXT
     The reference wire codec for the dexpace HTTP-client toolkit, implemented over Ruby's json
-    gem. It depends on dexpace-core and, once the codec lands, on json >= 2.19.9 and nothing
-    else.
+    gem. It depends on dexpace-core and on json >= 2.19.9 and nothing else.
   TEXT
   spec.homepage = "https://github.com/dexpace/ruby-sdk"
   spec.license = "MIT"
@@ -32,7 +31,13 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "dexpace-core", DexpaceVersions.core_constraint
 
-  # NFR-2: dexpace-core plus at most one third-party gem. The third-party half of this
-  # adapter's budget is declared by the phase that writes the code needing it (design P0-9);
-  # `rake gates:gemspec_audit` enforces the whole budget either way.
+  # NFR-2: dexpace-core plus at most one third-party gem, and this is the one. The floor is the
+  # first json version with JSON::Coder -- the per-instance, freezable, thread-safe engine
+  # SERDE-26 and SERDE-29 rest on (phase 7a's P7-4) -- and the one carrying the 2026 advisories.
+  # THIS LINE IS THE ONLY PLACE IN THE REPOSITORY THAT FLOOR MAY BE STATED (CLAUDE.md's hard rule,
+  # design §3.4): core's require allowlist denies `json` by name, `rake gates:gemspec_audit`
+  # enforces the budget, and `rake gates:require_allowlist` permits `require "json"` under this
+  # gem's lib/ only because this line declares it. The entry file re-asserts the same number at
+  # require time for an unbundled consumer (P7-7).
+  spec.add_dependency "json", ">= 2.19.9"
 end

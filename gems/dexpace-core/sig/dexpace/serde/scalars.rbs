@@ -1,0 +1,30 @@
+# Dexpace::Serde::Scalars is a private_constant and not public API: this declaration exists
+# because the strict `core` Steep target checks every file under lib/ and needs the module, its
+# table and its witness class declared to type the combinators' constructors. RBS has no
+# visibility for a constant, so the privacy lives in lib/dexpace/serde/scalars.rb alone.
+module Dexpace
+  module Serde
+    module Scalars
+      class Scalar
+        @name: String
+        @check: ^(untyped, Dexpace::Serde::DecodeContext) -> untyped
+
+        def initialize: (String name, ^(untyped, Dexpace::Serde::DecodeContext) -> untyped check) -> void
+        def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> untyped
+        def to_s: () -> String
+        def inspect: () -> String
+      end
+
+      STRING: Scalar
+      INTEGER: Scalar
+      FLOAT: Scalar
+      BOOLEAN: Scalar
+      TABLE: Hash[Module, Scalar]
+
+      def self?.resolve: (untyped witness) -> untyped
+    end
+
+    # The boolean scalar witness: a named witness where the other three scalars are class objects.
+    BOOLEAN: _Witness
+  end
+end

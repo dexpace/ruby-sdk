@@ -39,7 +39,16 @@ target :serde_json do
   check "gems/dexpace-serde-json/lib"
   signature "gems/dexpace-serde-json/sig", "gems/dexpace-core/sig"
   library "json"
-  configure_code_diagnostics(D::Ruby.default)
+  # The one relaxation, on this target alone (phase 7a): rbs 4.2.0's stdlib json signatures
+  # declare JSONError, GeneratorError, ParserError, State, generate and parse -- and no
+  # `JSON::Coder`, the per-instance engine json 2.19.9 added and this adapter is built on -- while
+  # json 3.0.2 ships no sig/ of its own for `rbs collection` to pick up. So the codec's one
+  # `::JSON::Coder.new` is a Ruby::UnknownConstant that steep's default warning severity turns
+  # into a red gate. Downgraded to :information here, never a line-level ignore (no precedent in
+  # lib/) and never on core's strict target; the engine is typed `untyped` in the gem's sig
+  # (NFR-11 admits no `::JSON` type there either). Re-tighten to D::Ruby.default at the first rbs
+  # release that declares JSON::Coder.
+  configure_code_diagnostics(D::Ruby.default.merge({ D::Ruby::UnknownConstant => :information }))
 end
 
 target :async_thread do

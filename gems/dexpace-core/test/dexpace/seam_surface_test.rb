@@ -13,16 +13,36 @@ class DexpaceSeamSurfaceTest < DexpaceTestCase
   # Every concrete implementation SEAM-2 could tempt an error message into naming.
   CONCRETE = %r{net_http|async_http|net/http|async-http|\bjson\b|\boj\b|httpx|excon|typhoeus}i
 
+  # "Starts empty on a bare require" is a property of a process that required `dexpace` ALONE, and
+  # `rake test:gems` is not one: it runs every gem's suite in one process, and an adapter registers
+  # itself against its seam the moment its entry file loads (design §3.6; phase 7a's
+  # dexpace-serde-json is the first). So the two properties below are asserted in a CHILD process --
+  # the shape instrumentation/independence_test.rb uses -- that requires core and nothing else, and
+  # prints one line per seam. Converted by phase 7a as pins its registration invalidated.
+  GEM_ROOT = File.expand_path("../..", __dir__)
+  BARE_REQUIRE = <<~RUBY
+    require "dexpace"
+    [Dexpace::Transport, Dexpace::AsyncTransport, Dexpace::Serde].each do |seam|
+      keys = seam.registered_keys
+      message =
+        begin
+          seam.resolve
+          "RESOLVED"
+        rescue Dexpace::SeamError => error
+          error.message
+        end
+      puts [seam.name, keys.inspect, message].join("\t")
+    end
+  RUBY
+
   test "every seam registry starts empty on a bare require" do
-    SEAMS.each { |seam| assert_empty(seam.registered_keys, "#{seam} is not empty") }
+    bare_require_report.each { |name, keys, _| assert_equal("[]", keys, "#{name} is not empty") }
   end
 
   test "no seam's zero-candidate error names a concrete gem" do
-    SEAMS.each do |seam|
-      error = assert_raises(Dexpace::SeamError) { seam.resolve }
-
-      refute_match(CONCRETE, error.message,
-                   "SEAM-2: #{seam} names a concrete implementation in its error path",)
+    bare_require_report.each do |name, _, message|
+      refute_equal("RESOLVED", message, "#{name} resolved something on a bare require")
+      refute_match(CONCRETE, message, "SEAM-2: #{name} names a concrete implementation")
     end
   end
 
@@ -86,5 +106,18 @@ class DexpaceSeamSurfaceTest < DexpaceTestCase
     assert_equal(3, registries.map(&:object_id).uniq.size)
     registries.each { |registry| assert_instance_of(Dexpace::Registry, registry) }
     assert_equal(["transport", "async transport", "codec"], registries.map(&:seam))
+  end
+
+  private
+
+  # One row per seam from the child: [name, registered keys' inspect, the resolve outcome].
+  def bare_require_report
+    command = [::RbConfig.ruby, "-w", "-Ilib", "-e", BARE_REQUIRE]
+    out = IO.popen(command, err: %i[child out], chdir: GEM_ROOT, &:read)
+    rows = out.lines.map { |line| line.chomp.split("\t", 3) }
+
+    assert_equal(SEAMS.map(&:name), rows.map(&:first),
+                 "the child did not report every seam:\n#{out}",)
+    rows
   end
 end

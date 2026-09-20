@@ -1,0 +1,19 @@
+module Dexpace
+  module Serde
+    # The Hash combinator (SERDE-6): a witness for Hash[key, value], built by value from a key
+    # witness and a value witness. A frozen Data; .new and .[] are private.
+    class Map < Data
+      include Model
+
+      attr_reader key: untyped
+      attr_reader value: untyped
+
+      private def self.new: (key: untyped, value: untyped) -> instance
+      def initialize: (key: untyped, value: untyped) -> void
+
+      def self.of: (untyped key, untyped value) -> Map
+      def self.build: (key: untyped, value: untyped) -> Map
+      def dexpace_load: (untyped parsed, Dexpace::Serde::DecodeContext ctx) -> Hash[untyped, untyped]
+    end
+  end
+end
