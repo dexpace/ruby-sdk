@@ -1294,6 +1294,74 @@ change that files all three.
 | P7-26 | The SSE decode is retag-then-transcode `UTF-8 → UTF-8` with `invalid: :replace, undef: :replace`, both encodings named, applied per extracted field value rather than per chunk | `io-and-byte-streams/6eb5155f`, `/a44b4de6`; design §3.1; phase 10's inbound-list entry on §3.1's decode sentence | `text/event-stream` is UTF-8 by definition, so the declared source encoding is not a guess and no `MediaType#charset` is consulted. `String#b` first because `force_encoding` raises on a frozen chunk even when the target is the string's own encoding; both encodings named because `undef: :replace` with no target follows `Encoding.default_internal`, a process global the host sets. Per field value rather than per chunk so the caps count bytes and a multi-byte character cannot straddle a bound |
 | P7-27 | Public constants and methods design §7.2 does not name: `Dexpace::SSE` itself, `::LineReader`, `::Signal`, `::SKIP`, `::DONE`, `::LimitExceededError`, `::StreamStateError`, `::TypedStream`, `MAX_LINE_BYTES`, `MAX_EVENT_BYTES`, `MAX_RETRY_MS`, and the RBS interface `Dexpace::SSE::_ByteSource`; and the methods `LineReader.new`/`#next_line`/`#max_line_bytes`, `Reader.new`/`#next_event`/`#max_line_bytes`/`#max_event_bytes`, `Signal.build`/`#name`/`#to_s`/`#inspect`, `LimitExceededError#kind`/`#limit`, `Stream.open`/`.owning`/`.borrowing` (each with the `resource:` keyword) and `Stream#each`/`#events`/`#typed`/`#close`/`#closed?`/`#owned?`, `TypedStream#each`/`#values`/`#close`/`#closed?`, `Event.build`/`#empty?` and `Event`'s five generated readers | `NFR-4`; `api-design/b0e18938`; P2-11, P3-14, P4-23 and P4-24 precedent | `NFR-4` locks a public *name* before it locks a signature, and §7.2 names exactly one Ruby constant in the whole subsystem (`Dexpace::SSE::Event`). Each addition is deliberate rather than incidental: `LineReader` is public because `SSE-2`'s grammar has its own conformance clause and the cap lives on it; `Signal` is public because a caller writes `Dexpace::SSE::SKIP` in their own mapper; the three constants are public because `SSE-19` and `SSE-11` require them documented; the two `max_*` readers are public because `SSE-19`'s "configurable" cap is unverifiable from outside without them. **`Stream#close`/`#closed?`/`#owned?` are listed although `Dexpace::Closeable` supplies them**: a method reaching a class through an included module never appears in `public_instance_methods(false)`, so the manifest and the list must agree by hand or the final task stops on a name nobody exported. **`_ByteSource` is an RBS `interface` — `getbyte`, `skip`, `peek` — and not `Dexpace::IO::BufferedSource`**, because `7b`'s contract on its source is exactly those three methods and the test doubles are deliberately not a `BufferedSource`; naming the class in `sig/` would make every conforming duck a type error and would claim a dependency the subsystem does not have. `Event`'s `Data`-generated readers are public API too and are invisible to `rbs validate` — the runtime surface snapshot is what holds them, and the plan's last task regenerates both artifacts |
 
+### As built, 2026-09-20
+
+The seven rows above stand as written, with one reading sharpened: `P7-21`'s "raw bytes accumulated
+into one event block" is, as built, the byte total of **every line of the block** — comment lines
+and unknown-field lines included, since a block padded with either is the same unbounded surface —
+checked before the line is applied and reset at each dispatch. This sub-phase was cut from `main` at
+`c53638b`, which holds the whole of phase 6 and nothing of 7a or 7c; the two were built concurrently
+off the same base, so the one convergence point (`R11`) is built here in full with the pagination
+globs on a printed `PENDING` list, and the row's move to `GUARDED` is the reconcile pass's. Execution
+added the rows below, numbered from **P7-81** as the manager fixed it — 7a's as-built rows start at
+P7-61 and 7c's at P7-101; outside this document a sibling's row is cited as "7a's P7-n" / "7c's
+P7-n", and `P7-28` (the `retry_ms` fallback this document named in advance) is never used, because
+RBS accepts the member on every row. The checklist's "Deviations from the plan" is the itemised list
+against the plan's text; the rows here are the ones that touch public behaviour, the contract a later
+phase cites, or a statement this document makes.
+
+Five statements above read differently against the source, and the difference is recorded here
+rather than by rewriting the text it corrects:
+
+- **The sentinel type is `Dexpace::SSE::Sentinel`, not `Signal`, and it has no public factory.**
+  `R5`'s "`Signal` shadows nothing Ruby-owned" is false on every row: `::Signal` is a core module, so
+  a bare `Signal` inside `module Dexpace::SSE` would have resolved to the sentinel type once defined —
+  a third documented shadow beside `Method` and `IO`, and one `NFR-4` would have locked. The
+  constants keep their names (`SKIP`, `DONE`), `.new` and `.[]` are private in `Pipeline::Stage`'s
+  shape, `#with` refuses, and the `#pretty_print` 6c's P6-72 requires of a `Data` with an `#inspect`
+  override is added, so a sentinel identifies itself under `pp` too (P7-81).
+- **`_ByteSource` has four methods.** The reader closes its `#peek` view in an `ensure` (this
+  document's own `SSE-12` sentence), and under the strict `core` target `view.close` on a
+  three-method interface is a `NoMethodError`; `close` joins `getbyte`, `skip` and `peek` (P7-82).
+- **`SSE-30`'s "reported out of band" is a real emission with a real keyword.** The three factories
+  take `logger: Instrumentation::Logger::NULL`, validated in 6b's shape, and both automatic release
+  sites — the clean end and the typed `DONE` — go through `Dexpace.close_quietly(self, logger:)`, whose
+  `onto:`-absent route emits one `http.instrumentation.close` WARNING through 5b's containment; under
+  the default it emits nothing, which is what this document's "5b's diagnostic" would have meant
+  silently (P7-83). No second emission path, no event name added, no data byte in the record.
+- **`Stream.open` is typed against `Dexpace::Body?`.** *From phase 3b* says `Response#body` returns
+  `Dexpace::ResponseBody?`; 3b's P3-15 narrowed it to the `Body` contract, whose `#source` and
+  `#close` are the two members the factory reads, and the sig says so.
+- **`Model#with` re-validates on derivation, but `Model.own` does not re-copy a list that is already
+  deep-frozen.** `Ractor.make_shareable(list, copy: true)` copies only what is not yet shareable and
+  hands a frozen, shareable list back as it is, so a derived `Event` may share its parent's frozen
+  list — the *data-modeling/83610619* sentence "re-owns its data list on every `#with`" holds in
+  effect (nothing mutable is ever shared) and not in identity. What `Model#with` buys over `Data#with`
+  on the 3.2 floor is the validation: `event.with(retry: -1)` raises through `.build`, where
+  `Data#with` skips `#initialize` there. The guard is "drop `include Model`", red on 3.2.11 and an
+  equivalent mutant on 4.0.6, and the checklist's `SSE-20` row says so.
+
+Two things this document did not say and the build decided:
+
+- **The gate's shape and wiring** (P7-84): a parsed scan over Ruby AND `sig/`, in the `tools/` shape,
+  on the once-per-run `gates` CI job and not the matrix; the plan's regexes would have failed the
+  gate on the YARD `SSE-19` asks for.
+- **The typed layer's two drive shapes** (P7-86): the block form is a plain loop over `Stream#each`
+  and pays no fiber hop; the external form drives the raw `Enumerator` taken eagerly at `#values`.
+  The facade's one failure path is `Stream#drive`'s `rescue ::Exception` — 6a's and 6b's
+  close-then-re-raise spelling, so an `Interrupt` inside a caller's block releases the resource too
+  — and a block-form exit, `Enumerable#first(n)` on `#events` included, closes loudly through the
+  drive routine's `ensure`.
+
+| # | Deviation | Touches | Why |
+|---|---|---|---|
+| P7-81 | `SSE-34`'s sentinel type is `Dexpace::SSE::Sentinel` — `Data.define(:name)`, `.new` and `.[]` private, no `.build`, `#with` refusing, `#to_s`/`#inspect`/`#pretty_print` printing the constant's name — not the `Signal` named under `R5`, `P7-23` and `P7-27` | `SSE-34`; `NFR-4`; `R5`; `P7-23`, `P7-27`; the `Dexpace/QualifiedCoreConstant` cop's standing rule | `::Signal` is a Ruby core module on every supported row, so a bare `Signal` inside `module Dexpace::SSE` would shadow it — the design's "shadows nothing Ruby-owned" is false — and `NFR-4` locks whichever name ships; a public `.build` on a closed two-instance set is a locked name for nothing, and the identity dispatch (`equal?`) reads anything a `send(:new)` mints as an ordinary value. The manager's decision (1) |
+| P7-82 | The RBS interface `Dexpace::SSE::_ByteSource` has four methods: `getbyte`, `skip`, `peek` and `close` | `SSE-12`; `NFR-3`; `P7-27` | The reader closes its `#peek` view in an `ensure`, and the strict `core` target refuses `view.close` on a three-method interface; a `BufferedSource` and its views satisfy the four structurally, and the test duck `FakeByteSource` answers exactly them |
+| P7-83 | `Stream.open`, `.owning` and `.borrowing` take `logger: Instrumentation::Logger::NULL`, validated `is_a?(Instrumentation::Logger)`; the clean end and the typed `DONE` release through `Dexpace.close_quietly(self, logger:)`, so `SSE-30`'s swallowed release failure is emitted as one `http.instrumentation.close` WARNING carrying the cause | `SSE-30`, `SSE-34`; `OBS-20`; 5b's second disposal route; 6b's `Step.build(logger:)` | Under the default `Logger::NULL` the route emits nothing, so "reported out of band" was a sentence and not a behaviour; one existing helper gains one existing keyword at two call sites, no second emission path exists, no event name is added, and the record never carries the event payload or a data byte. The manager's decision (3) |
+| P7-84 | `gates:serde_boundary` is the eighteenth blocking gate: `tools/serde_boundary.rb` scans `lib/dexpace/sse.rb`, `lib/dexpace/sse/**/*.rb` AND their `sig/` mirrors with a parsed scan (prism through `RequireScan` for requires, a prism walk for constant reads and paths, the RBS lexer for type names), asserts every `GUARDED` glob matches a file, prints its `PENDING` rows (`lib/dexpace/page/**/*.rb`, `sig/dexpace/page/**/*.rbs`), and runs in CI's once-per-run `gates` job, not the matrix | `SSE-37`; spec-forced boundary 5; `R11`; `NFR-17` | A text regex fails the gate on the YARD `SSE-19` requires (`sse.rb` must say "names no Dexpace::Serde constant"); an RBS naming `Dexpace::Serde` is a type-level dependency the require allowlist cannot see; the matrix set is pinned to the three zero-dependency checks plus `single_instance` and a text scan has no interpreter dependence. 7b built it alone with `page/**` pending, per the manager's decision (2); the rows move to `GUARDED` in the reconcile pass |
+| P7-85 | New public names, `NFR-4`-locked from this phase, as the manifest records them — forty-three rows, 1 137 → 1 180: `Dexpace::SSE` with `MAX_LINE_BYTES`, `MAX_EVENT_BYTES`, `MAX_RETRY_MS`, `SKIP`, `DONE`; `Sentinel` (`#name`, `#to_s`, `#inspect`, `#pretty_print`, `#with`); `LimitExceededError` (`#kind`, `#limit`); `StreamStateError`; `LineReader` (`#next_line`, `#max_line_bytes`); `Event` (`.build`, `#empty?`, the five readers); `Reader` (`#next_event`, `#max_line_bytes`, `#max_event_bytes`); `Stream` (`.open`, `.owning`, `.borrowing`, `#each`, `#events`, `#typed`); `TypedStream` (`#each`, `#values`, `#close`, `#closed?`) — plus `Stream#close`/`#closed?`/`#owned?` and `Event#with`, reached through included modules and so absent from the manifest by construction | `NFR-4`; `P7-27` | `P7-27`'s list, amended by P7-81 (`Sentinel` for `Signal`, no `.build`, `#with` and `#pretty_print` added) and P7-83 (the `logger:` keyword on the three factories); every other name is as listed. `TypedStream.new` is private and reached from `Stream#typed` alone, `Logger#event` → `Event.send(:new)`'s precedent, so it is not a public constructor |
+| P7-86 | `TypedStream#each` is a plain loop over `Stream#each` (no fiber) and `TypedStream#values` drives the raw `Enumerator` taken eagerly at `#values`; the facade's one failure path is `Stream#drive`'s `rescue ::Exception` → `close_quietly(self, onto:)` → bare `raise`, `#advance` has none, and every block-form exit — `break`, a `return`, `Enumerable#first(n)` on `#events` — closes LOUDLY through `drive`'s `ensure close`, while the clean end and `DONE` close quietly first so the same `ensure` is a no-op there | `SSE-25`, `SSE-29`, `SSE-30`, `SSE-35`, `SSE-36`; §7.1; the plan's `#advance` fence | One rescue site for both shapes and both layers keeps "release before propagate" a property of one method; `::Exception` is 6a's and 6b's spelling, so an `Interrupt` releases the resource too; an early-stopping `Enumerable` method is a partial consume whose caller ended the iteration, so its release is an explicit close's and propagates a failure the way one does |
+
 ---
 
 ## Work `7b` postpones, and who owns it now

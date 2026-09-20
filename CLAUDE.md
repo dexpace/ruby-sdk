@@ -13,10 +13,11 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b and 6c are built — the whole of phase 6; the domain
-model, the seam layer, the byte-streaming layer, the body layer, the execution context, the recovery layer,
-the stage pipeline, the configuration layer, the tracing and metrics layer, the logging facade with its
-redaction, the retry layer, the authentication layer and the redirect layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c and 7b are built — the whole of phase 6 and
+one of phase 7's three sub-phases; the domain model, the seam layer, the byte-streaming layer, the body layer,
+the execution context, the recovery layer, the stage pipeline, the configuration layer, the tracing and
+metrics layer, the logging facade with its redaction, the retry layer, the authentication layer, the redirect
+layer and the server-sent-events layer are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -152,11 +153,25 @@ predicate's read-only `ConditionSnapshot`; the `Events` (five) and `Keys` (four)
 `Reissue`; the flat `Dexpace::NotReplayableError`; `Resilience::Resend.replayable_body?` beside 6a's
 `.eligible?`; and — the phase-level work phase 4c postponed — `Pipeline.standard` and
 `AsyncPipeline.standard` over `Builder#install_preset`, the async one taking a required
-`redirect: :unsupported` (`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-checklist.md`);
+`redirect: :unsupported` (`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-checklist.md`) — and the
+server-sent-events layer, chapter 13, under `Dexpace::SSE`: the three limits `MAX_LINE_BYTES` (1 MiB),
+`MAX_EVENT_BYTES` (8 MiB) and `MAX_RETRY_MS` (2^31 − 1) beside the two frozen `Sentinel` singletons `SKIP` and
+`DONE`; the byte-level `LineReader` over `BufferedSource#getbyte` (never `#read_line_utf8`) with its one-byte
+pushback; the immutable five-field `Event` (`Data` plus `Model`, `.build`, `#empty?`); the field machine
+`Reader` whose one persistent state is the BOM flag; the resource-owning single-pass facade `Stream` (built
+through `.open(response)`, `.owning(source, resource:)` and `.borrowing(…)` — never `.over` — with `#each`,
+`#events` and `#typed`, `Closeable`'s latch, and `logger:` on every factory); the typed adapter `TypedStream`
+(`#each`, `#values`, delegating `#close`); the two namespaced errors `LimitExceededError` and
+`StreamStateError`; the RBS interface `_ByteSource`; and, the mechanism spec-forced boundary 5 asked for,
+the eighteenth gate `gates:serde_boundary` over `tools/serde_boundary.rb`, a parsed scan of `lib/dexpace/sse/**`
+and its `sig/` mirrors for any serialization dependency, the pagination layer's globs on its printed
+`PENDING` list until 7c lands (`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`);
 every other gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. Nothing talks to a
 socket yet. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
-the seventeen blocking gates (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
+the eighteen blocking gates — phase 0's seventeen
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`) and phase 7b's
+`gates:serde_boundary`.
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
 `docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec, asserted by
 `gates:versions`); CI runs a 3.2 / 3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against
@@ -197,8 +212,8 @@ makes an older Bundler try to install Bundler 4.
 
 ```bash
 bundle install
-bundle exec rake                                  # the default task: all seventeen gates, in order (NFR-17)
-bundle exec rake gates:list                       # the seventeen names, in the order CI and `rake` both use
+bundle exec rake                                  # the default task: all eighteen gates, in order (NFR-17)
+bundle exec rake gates:list                       # the eighteen names, in the order CI and `rake` both use
 bundle exec rake rubocop                          # NFR-7, findings fatal, no autocorrection
 bundle exec rake rubocop:fix                      # safe autocorrections only, never the gate
 bundle exec rake cops:test                        # the custom cops' own suite (.rubocop/test/)
@@ -207,6 +222,7 @@ bundle exec rake test:gems                        # gem suites: warnings fatal, 
 bundle exec rake test:gates                       # the repository's gate suites (test/gates/)
 bundle exec rake gates:gemspec_audit              # SEAM-1, NFR-1, NFR-2
 bundle exec rake gates:require_allowlist          # SEAM-1, SEAM-2: the allowlist and the denylist
+bundle exec rake gates:serde_boundary             # SSE-37, spec-forced boundary 5: no serde under lib/dexpace/sse/**
 bundle exec rake gates:clean_bundle               # the scratch-Gemfile isolation run, all six gems
 bundle exec rake gates:rbs_surface                # NFR-11
 bundle exec rake gates:sig_diff                   # NFR-4, RBS half (vacuous until the first v* tag)
@@ -846,6 +862,39 @@ Each is one line plus the chapter to read before touching the area.
   `preview_bytes:` to the instrumentation step, and the async preset installs `Instrumentation::AsyncStep`,
   never the sync `Step`, whose `#call` would treat the future as a response (`PIPE-32`, `PIPE-39`,
   `REDIR-25`; 4c's R14).
+- **The SSE line machine reads `BufferedSource#getbyte` and never `#read_line_utf8`, and `_ByteSource` is
+  four methods** — `IO-14` keeps a lone `\r` as content where `SSE-2` makes it terminate a line, so
+  `Dexpace::SSE::LineReader` recognises LF, CR and CRLF itself with a one-byte pushback (a lone CR cannot be
+  handed back until the next byte says it was not CRLF), and `#read_line_utf8` ends v1 with no in-repository
+  caller; `SSE-19`'s two caps are `MAX_LINE_BYTES` (1 MiB, checked before each append) and `MAX_EVENT_BYTES`
+  (8 MiB of a block's raw lines, comments and unknown fields included), both REJECTING with
+  `LimitExceededError` and never truncating, both per-reader keywords and no configuration key, and
+  neither is `SSE-11`'s `MAX_RETRY_MS` — two caps, two constants, two checklist rows, because the line-cap
+  finding conflated them once (P7-20, P7-21). The reader's source contract is the RBS interface
+  `_ByteSource` (`getbyte`, `skip`, `peek`, `close`), never the class.
+- **Inside `module Dexpace::SSE` the sentinel type is `Sentinel`, never `Signal`** — `::Signal` is a core
+  module on every row and a bare `Signal` there would shadow it; `SKIP` and `DONE` are the two instances,
+  `.new`/`.[]` private, `#with` refusing, `#pretty_print` overridden, and every outcome comparison is
+  `equal?`, so a decoded model that `==` a sentinel is a value (P7-81, P7-23). `Event`'s member is `retry`:
+  Ruby parses `retry = …` as the `retry` statement and refuses `super(retry: retry)`, so `Event#initialize`
+  forwards with a bare `super` and validates the hint AFTER it through its own reader.
+- **`Stream` owns exactly one `resource:` (the source by default) and its automatic release closes `self`,
+  never `@resource`** — the clean end and a typed `DONE` go through `Dexpace.close_quietly(self, logger:)`,
+  swallowing a release failure and reporting it as one `http.instrumentation.close` WARNING through the
+  factory's `logger:` (nothing under `Logger::NULL`), while an explicit `#close` and every block-form exit
+  (`break`, `Enumerable#first(n)` on `#events`) go through `Closeable#close` and propagate; both flip one
+  latch, which is `SSE-28`'s "even after an automatic release". The one failure path is `Stream#drive`'s
+  `rescue ::Exception` → `close_quietly(self, onto:)` → bare `raise`; `#advance` reads `closed?` BEFORE
+  every pull, which is what keeps a cross-thread close a clean end and the torn-down source unread. The
+  facade is `.open`/`.owning`/`.borrowing` and deliberately not `.over`, whose polarity in
+  `Dexpace::IO::BufferedSource` is the opposite (P7-25, P7-83, P7-86).
+- **After a mid-stream failure, `BufferedSource.over`'s enumerator RESTARTS `#each`** — `Enumerator#next` on
+  a fiber that died by exception starts over, so a second `#getbyte` re-delivers the body's first byte
+  rather than nil or a second raise, on every row; the SSE facade never gets there because it closed itself
+  first, and a bare `Reader` driven again after a raise would (phase 3a's residue, on phase 10's inbound
+  list). And the per-byte read path costs ~0.9 µs a byte through `BufferedSource#getbyte` — a mutex
+  acquisition and a one-byte String per call — against ~0.3 µs through a plain duck, which is why the
+  at-scale cap tests run over `FakeByteSource` and why the bulk path is a phase-10 item.
 
 ## Public API surface
 
@@ -947,11 +996,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   the phase-1 HTTP domain model, the phase-2 seam layer, the phase-3a byte-streaming layer, the phase-3b
   body layer, the phase-4a execution context, the phase-4b recovery layer, the phase-4c stage pipeline,
   the phase-5a configuration layer, the phase-5b logging facade and redaction, the phase-5c tracing and
-  metrics layer, the phase-6a retry layer, the phase-6c authentication layer and the phase-6b redirect
-  layer — one hundred and eighty-four phase-1, phase-2, phase-3a, phase-3b, phase-4a, phase-4b,
-  phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b and phase-6c files under `lib/dexpace/`
+  metrics layer, the phase-6a retry layer, the phase-6c authentication layer, the phase-6b redirect
+  layer and the phase-7b server-sent-events layer — one hundred and ninety-three phase-1, phase-2,
+  phase-3a, phase-3b, phase-4a, phase-4b, phase-4c, phase-5a, phase-5b, phase-5c, phase-6a, phase-6b,
+  phase-6c and phase-7b files under `lib/dexpace/`
   beside phase 0's `version.rb`, every one mirrored in `sig/`, and every one of the one hundred and
-  eighty-four but the eighteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
+  ninety-three but the eighteen `private_constant`s `hooks.rb`, `context/call_key.rb`,
   `recovery/ownership.rb`, `pipeline/sync_driver.rb`, `pipeline/async_driver.rb`,
   `configuration/parsers.rb`, `deep_value.rb`, `proxy/resolution.rb`, `instrumentation/render.rb`,
   `instrumentation/emitter.rb`, `resilience/pacing_parsers.rb`, `resilience/retry_step_helpers.rb`,
@@ -969,7 +1019,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  fourteen checklists written so far, each at implementation; `phase4/`
+  fifteen checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -990,7 +1040,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase7/` carries its segmentation design,
   `docs/work/mvp/phase7/2026-09-10-phase7-segmentation-design.md`, and three sub-phase
   directories — `phase7/phase7a/` (serialization), `phase7/phase7b/` (server-sent events) and
-  `phase7/phase7c/` (pagination); each holds a design and a plan. Phase 7 is 107 IDs
+  `phase7/phase7c/` (pagination); each holds a design and a plan, and `phase7b/` its checklist too,
+  written at implementation on 2026-09-20. Phase 7 is 107 IDs
   (`SERDE-1`–`30`, `SSE-1`–`41`, `PAGE-1`–`36`) and ships the workspace's second real gem,
   `dexpace-serde-json`, inside `7a`. Its three sub-phases are independent — `SSE-37` makes `7b`'s
   serde-independence a mechanised MUST, and §12's chapter intro states the same property for
@@ -1041,6 +1092,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's and phase 6c's is still to be
-  written at execution time.
+  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's and phase 7b's is
+  still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

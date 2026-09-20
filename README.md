@@ -64,7 +64,13 @@ redirect pillar step that forks per hop with the cross-origin marker as cursor s
 read-only condition snapshot a predicate receives, the layer's event and key vocabulary, the
 scheme-downgrade and not-replayable errors, the second re-sendability predicate, and the two
 `standard` constructors phase 4c postponed — `Pipeline.standard` and `AsyncPipeline.standard` with
-its required `redirect: :unsupported` (`docs/sdk-documentation/redirect.md`); the
+its required `redirect: :unsupported` (`docs/sdk-documentation/redirect.md`) — and the
+server-sent-events layer: the WHATWG line machine over `BufferedSource#getbyte` with its two
+documented, rejecting caps, the immutable five-field event, the field machine whose one persistent
+state is the BOM flag, the resource-owning single-pass stream facade with its three factories and
+its two consumption shapes, the typed adapter over a caller-supplied mapper with `SKIP` and `DONE`,
+and the eighteenth gate, `gates:serde_boundary`, a parsed scan that keeps the layer free of any
+serialization dependency (`docs/sdk-documentation/sse.md`); the
 operation-lifecycle and transport groups of the HTTP-tracer vocabulary are emitted by nothing yet,
 and nothing talks to a socket yet. The other five are still skeletons — a namespace, a `VERSION`, a gemspec, a
 signature mirror and a smoke suite:
@@ -79,9 +85,9 @@ signature mirror and a smoke suite:
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |
 
 What phase 0 does ship is the gate set every later phase is written under: seventeen blocking
-checks in one `bundle exec rake`, each proven by a deliberately failing input, and a CI matrix
-that runs the real suite on Ruby 3.2, 3.3, 3.4 and 4.0
-(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
+checks in one `bundle exec rake` — eighteen since phase 7b added `gates:serde_boundary` — each proven
+by a deliberately failing input, and a CI matrix that runs the real suite on Ruby 3.2, 3.3, 3.4 and
+4.0 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
 
 ## Working in the repository
 
