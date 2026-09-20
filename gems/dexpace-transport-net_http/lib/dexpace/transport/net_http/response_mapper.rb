@@ -70,13 +70,21 @@ module Dexpace
                                       content_length: content_length,)
         end
 
-        # R4: the raw header, or -1 for absent, non-numeric, negative or multi-valued -- and in
-        # the -1 case the header is deleted from the NATIVE response so read_body finds no length
-        # and no chunked encoding and falls through to connection-close framing. The wire value
-        # has already been copied into Dexpace::Headers, so only the INTERPRETATION becomes -1.
+        # R4: the raw header, or -1 for absent, non-numeric, negative, multi-valued -- or beside a
+        # chunked Transfer-Encoding, which is the one case a syntactically valid value is still
+        # not the body's length: read_body_0 asks `#chunked?` BEFORE `#content_length` (0.4.1
+        # through 0.9.1 alike) and reads the chunked framing, so a Content-Length such a message
+        # carries is RFC 9112 section 6.3's overridden, ought-to-be-an-error one; taking it as the
+        # length made ResponseBody#each, #write_to and #to_replayable -- which copy exactly
+        # `content_length` bytes -- truncate the chunked body or raise StreamError.short_transfer
+        # while #body_string read all of it (review round 3's R3-1). In the -1 case the header is
+        # deleted from the NATIVE response so read_body finds no length and no chunked encoding
+        # and falls through to connection-close framing; under a chunked encoding the deletion
+        # changes nothing read_body consults. The wire value has already been copied into
+        # Dexpace::Headers, so only the INTERPRETATION becomes -1.
         def parse_length!(native)
           raw = native.to_hash["content-length"]
-          return raw.first.to_i if raw&.size == 1 && LENGTH.match?(raw.first)
+          return raw.first.to_i if !native.chunked? && raw&.size == 1 && LENGTH.match?(raw.first)
 
           native.delete("content-length")
           -1
