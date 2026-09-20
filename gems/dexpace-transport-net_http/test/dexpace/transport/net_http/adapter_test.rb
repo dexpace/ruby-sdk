@@ -468,6 +468,24 @@ module DexpaceTransportNetHttpAdapterTest
       assert_equal(0, server.connections, "nothing reached the environment's proxy")
     end
 
+    # R2-1: the fixture client (AdapterFixtures#client_for) passes an explicit nil proxy, so an
+    # UPPER-CASE HTTP_PROXY on the host is inert. Net::HTTP's `:ENV` default would reach
+    # URI#find_proxy on `#start`, which warns about that spelling BEFORE its loopback exemption,
+    # and the test base makes the warning fatal -- the R17 control above sets the lower-case
+    # name, which find_proxy accepts silently; this one sets the upper-case name alone, the
+    # spelling review round 2 found aborting both gems' suites. Through the borrowed adapter,
+    # which is how every other test starts this client.
+    test "R2-1: a fixture client is inert to an upper-case HTTP_PROXY and reaches the fixture" do
+      server = wire(Scripts.fixed("direct"))
+      swapped = { "HTTP_PROXY" => "http://127.0.0.1:9", "http_proxy" => nil }
+      body = with_env(swapped) do
+        settle(NetHTTP.using(client_for(server.port)), request_for(server)).body_string
+      end
+
+      assert_equal("direct", body)
+      assert_equal(1, server.connections)
+    end
+
     # TRANSPORT-30: the proxy the SDK resolved IS used -- the fixture plays the proxy and sees
     # the absolute-form request line a proxy is sent. The chain is Configuration::EMPTY, whose
     # environment tier is the real ENV, so every key the resolver reads is overridden: the

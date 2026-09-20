@@ -9,16 +9,17 @@ require "net/http"
 # #connections is never order-dependent across tests (testing/4ef070df). Every wait is a blocking
 # Queue#pop or a bounded join, never a sleep-poll; and #close closes every accepted socket and joins
 # every handler thread, so a test that started a server leaks nothing DexpaceTestCase's teardown
-# counts. Two nested classes under Metrics/ClassLength (6c's shape): what the server records, and
-# how it closes.
+# counts. Three nested classes under Metrics/ClassLength (6c's shape): what the server records,
+# how it closes, and the plain client the suites drive it with.
 module DexpaceConformanceWireServerTest
   WireServer = Dexpace::Conformance::WireServer
   Scripts = Dexpace::Conformance::Scripts
 
-  # One GET through a plain client.
+  # One GET through a plain client, built with an explicit nil proxy: Net::HTTP's `:ENV` default
+  # reaches URI#find_proxy, whose upper-case-HTTP_PROXY warning the test base makes fatal (R2-1).
   module Fetch
     def get(port, path = "/")
-      ::Net::HTTP.start("127.0.0.1", port) do |c|
+      ::Net::HTTP.start("127.0.0.1", port, nil, nil, nil, nil) do |c|
         c.max_retries = 0
         c.request(::Net::HTTP::Get.new(path))
       end
@@ -56,14 +57,14 @@ module DexpaceConformanceWireServerTest
 
     test "records a Content-Length request body and a chunked one, so an upload is observable" do
       server = WireServer.start(Scripts.fixed("x"))
-      ::Net::HTTP.start("127.0.0.1", server.port) do |c|
+      ::Net::HTTP.start("127.0.0.1", server.port, nil, nil, nil, nil) do |c|
         c.max_retries = 0
         fixed = ::Net::HTTP::Post.new("/fixed")
         fixed["Content-Type"] = "application/octet-stream"
         fixed.body = "caf\xE9".b
         c.request(fixed)
       end
-      ::Net::HTTP.start("127.0.0.1", server.port) do |c|
+      ::Net::HTTP.start("127.0.0.1", server.port, nil, nil, nil, nil) do |c|
         c.max_retries = 0
         chunked = ::Net::HTTP::Post.new("/chunked")
         chunked["Content-Type"] = "application/octet-stream"
@@ -201,6 +202,29 @@ module DexpaceConformanceWireServerTest
 
       refute_nil(waiter.join(2), "the waiter did not wake within two seconds")
       assert_nil(waiter.value)
+    end
+  end
+
+  # The plain client every suite of this gem drives the server with.
+  class PlainClientTest < DexpaceTestCase
+    include Fetch
+
+    # R2-1: Fetch#get passes an explicit nil proxy, so an upper-case HTTP_PROXY on the host is
+    # inert; with Net::HTTP's `:ENV` default, URI#find_proxy would warn about that spelling before
+    # its loopback exemption, and DexpaceTestCase makes the warning fatal. The lower-case name is
+    # cleared because find_proxy prefers it and warns only in its absence.
+    test "R2-1: the plain client is inert to an upper-case HTTP_PROXY and reaches the server" do
+      server = WireServer.start(Scripts.fixed("direct"))
+      saved = { "HTTP_PROXY" => ENV.fetch("HTTP_PROXY", nil),
+                "http_proxy" => ENV.fetch("http_proxy", nil), }
+      ENV["HTTP_PROXY"] = "http://127.0.0.1:9"
+      ENV["http_proxy"] = nil
+
+      assert_equal("direct", get(server.port).body)
+      assert_equal(1, server.connections)
+    ensure
+      saved&.each { |name, value| ENV[name] = value }
+      server&.close
     end
   end
 end

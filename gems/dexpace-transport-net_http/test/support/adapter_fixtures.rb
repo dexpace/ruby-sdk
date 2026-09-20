@@ -26,8 +26,12 @@ module AdapterFixtures
     server
   end
 
+  # An explicit nil proxy, as the adapter's own ProxyRoute passes: Net::HTTP.new's `:ENV`
+  # default reaches URI#find_proxy on `#start`, whose upper-case-HTTP_PROXY warning the test
+  # base makes fatal (R2-1; test/support/net_http_warmup.rb has the mechanism). The two R17
+  # controls that want `:ENV` build their own client and set http_proxy themselves.
   def client_for(port)
-    client = ::Net::HTTP.new("127.0.0.1", port)
+    client = ::Net::HTTP.new("127.0.0.1", port, nil, nil, nil, nil)
     client.max_retries = 0
     client
   end

@@ -14,11 +14,13 @@ module DexpaceConformanceScriptsTest
   WireServer = Dexpace::Conformance::WireServer
   Scripts = Dexpace::Conformance::Scripts
 
-  # One GET through a plain client, with no transparent decompression.
+  # One GET through a plain client, with no transparent decompression, and an explicit nil proxy:
+  # Net::HTTP's `:ENV` default reaches URI#find_proxy, whose upper-case-HTTP_PROXY warning the
+  # test base makes fatal (R2-1).
   module Fetch
     def fetch(script, path: "/", &block)
       WireServer.start(script) do |server|
-        ::Net::HTTP.start("127.0.0.1", server.port) do |c|
+        ::Net::HTTP.start("127.0.0.1", server.port, nil, nil, nil, nil) do |c|
           c.max_retries = 0
           c.read_timeout = 5
           req = ::Net::HTTP::Get.new(path)
@@ -29,7 +31,7 @@ module DexpaceConformanceScriptsTest
     end
 
     def get(server, path = "/")
-      ::Net::HTTP.start("127.0.0.1", server.port) do |c|
+      ::Net::HTTP.start("127.0.0.1", server.port, nil, nil, nil, nil) do |c|
         c.max_retries = 0
         c.request(::Net::HTTP::Get.new(path))
       end
@@ -128,7 +130,7 @@ module DexpaceConformanceScriptsTest
     def timing_out(script, read_timeout: 0.2)
       WireServer.start(script) do |server|
         assert_raises(::Net::ReadTimeout) do
-          ::Net::HTTP.start("127.0.0.1", server.port) do |c|
+          ::Net::HTTP.start("127.0.0.1", server.port, nil, nil, nil, nil) do |c|
             c.max_retries = 0
             c.read_timeout = read_timeout
             c.request(::Net::HTTP::Get.new("/before"))

@@ -28,9 +28,10 @@ class DexpaceTransportNetHttpConformanceTest < DexpaceTestCase
     # port because a borrowing transport refuses any other origin (P8-15), and max_retries is set
     # by the CALLER, never by `.using`, which refuses a client that lacks it (P8-10). The probe is
     # a real round trip through the client itself: the only thing that proves the transport's
-    # close did not touch it.
+    # close did not touch it. The explicit nil proxy keeps the client off Net::HTTP's `:ENV`
+    # default, whose HTTP_PROXY warning the test base makes fatal (R2-1).
     borrow: lambda do |port|
-      client = ::Net::HTTP.new("127.0.0.1", port)
+      client = ::Net::HTTP.new("127.0.0.1", port, nil, nil, nil, nil)
       client.max_retries = 0
       Dexpace::Conformance::BorrowedPair.build(
         transport: NetHTTP.using(client),
