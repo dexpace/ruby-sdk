@@ -45,7 +45,12 @@ def clean_bundle_check(name, path, entry, constant, core_path: nil)
       gem #{name.inspect}, path: #{path.inspect}
       #{core_line}
     GEMFILE
-    env = { "BUNDLE_GEMFILE" => File.join(dir, "Gemfile") }
+    # BUNDLE_PATH keeps every install inside the scratch directory: the first gem declaring a
+    # third-party dependency (dexpace-transport-net_http's `net-http >= 0.4`, resolved against
+    # rubygems.org) is where this `bundle install` could otherwise write a newer release into the
+    # running interpreter's own gem directory. Bundler's refusal -- the whole gate -- is unchanged.
+    env = { "BUNDLE_GEMFILE" => File.join(dir, "Gemfile"),
+            "BUNDLE_PATH" => File.join(dir, "vendor"), }
 
     Bundler.with_unbundled_env do
       bundle = Interpreter.executable("bundle")

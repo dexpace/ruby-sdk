@@ -20,7 +20,7 @@ module Dexpace
       INSTRUMENT_REQUEST_DURATION: String
     end
 
-    # OBS-39 and OBS-20: the emitted event-name vocabulary, eight frozen Strings.
+    # OBS-39 and OBS-20: the emitted event-name vocabulary, ten frozen Strings.
     module Events
       HTTP_REQUEST: String
       HTTP_RESPONSE: String
@@ -31,6 +31,7 @@ module Dexpace
       INSTRUMENTATION_SHUTDOWN: String
       INSTRUMENTATION_CONFIG: String
       AUTH_REFRESH: String
+      TRANSPORT_HEADER_DROPPED: String
     end
   end
 end

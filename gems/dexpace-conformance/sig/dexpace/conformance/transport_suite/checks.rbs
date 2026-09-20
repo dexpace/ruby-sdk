@@ -1,0 +1,33 @@
+# Dexpace::Conformance::TransportSuite::Checks is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/ and needs
+# the helpers declared to type the five assertion groups. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/conformance/transport_suite/checks.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Checks
+        CLOSE_WAIT_SECONDS: Float
+
+        def self?.check: (untyped condition, String message, ids: Array[String], expected: untyped,
+                          actual: untyped) -> nil
+        def self?.expect: (untyped seen, untyped expected, String message, ids: Array[String]) -> nil
+        def self?.retryable_failure?: (untyped error) -> bool
+        def self?.registry: (Module group, Array[[untyped, String, Symbol]] rows) -> Array[Assertion]
+        def self?.headers: (Hash[String, String] pairs) -> Dexpace::Headers
+        def self?.json: () -> Dexpace::MediaType
+        def self?.bytes_body: (String string, ?media_type: Dexpace::MediaType?) -> Dexpace::BytesBody
+        def self?.single_use_body: (String payload) -> [Dexpace::Body, ^() -> Integer]
+        def self?.options: (?timeout: Numeric?, ?max_retries: Integer?) -> Dexpace::RequestOptions
+        def self?.last_request: (TransportCase kase, ids: Array[String]) -> untyped
+        def self?.check_connection_released: (TransportCase kase, ids: Array[String], message: String) -> nil
+        def self?.error_from: () { () -> untyped } -> StandardError?
+        def self?.within_bands?: (Array[Float] timings, Array[Range[Float]] bands) -> bool
+        def self?.timed_error: () { () -> untyped } -> [StandardError?, Float]
+        def self?.cancel_when_blocked: (TransportCase kase, Dexpace::Cancellation::Source source) -> Thread
+        def self?.dropped_first_attempt: (TransportCase kase) -> Hash[Symbol, untyped]
+        def self?.elapsed: () { () -> untyped } -> Float
+        def self?.monotonic: () -> Float
+      end
+    end
+  end
+end

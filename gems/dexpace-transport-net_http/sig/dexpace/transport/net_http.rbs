@@ -1,6 +1,21 @@
 module Dexpace
   module Transport
+    # The reference synchronous transport over net/http (phase 8a). Nothing from net/http names
+    # a public signature here (NFR-11): `.using`'s client and `.build`'s `tls:` are untyped, with
+    # their YARD blocks saying what each accepts.
     module NetHTTP
+      DEFAULT_TIMEOUT_SECONDS: Float
+      MIN_TIMEOUT_SECONDS: Float
+      JOIN_DEADLINE_SECONDS: Float
+      REGISTRY_KEY: Symbol
+      TLS_SETTINGS: Array[Symbol]
+      MANAGED_HEADERS: Array[String]
+      DEFAULT_CONTENT_TYPE: String
+      PROXY_LIMITATION_EVENT: String
+
+      def self?.build: (?timeout: Numeric?, ?logger: Instrumentation::Logger, ?tls: untyped) -> Adapter
+      def self?.using: (untyped client, ?logger: Instrumentation::Logger) -> Adapter
+      def self?.default: () -> Adapter
     end
   end
 end

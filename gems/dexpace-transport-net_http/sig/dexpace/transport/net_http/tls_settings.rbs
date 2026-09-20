@@ -1,0 +1,15 @@
+# Dexpace::Transport::NetHTTP::TLSSettings is a private_constant and not public API: this
+# declaration exists because the `net_http` Steep target checks every file under lib/ and needs
+# the module and its two functions declared to type NetHTTP.build's and Adapter's call sites.
+# RBS has no visibility for a constant, so the privacy lives in
+# lib/dexpace/transport/net_http/tls_settings.rb alone.
+module Dexpace
+  module Transport
+    module NetHTTP
+      module TLSSettings
+        def self?.validate!: (untyped settings) -> Hash[Symbol, untyped]
+        def self?.apply: (untyped http, Hash[Symbol, untyped] settings) -> nil
+      end
+    end
+  end
+end

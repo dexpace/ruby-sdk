@@ -1,0 +1,21 @@
+module Dexpace
+  module Conformance
+    # The transport suite's runner (8a's R7, R16). `build:` and `borrow:` are untyped callables:
+    # a factory is whatever the driver hands in, and naming a type would be `Proc` or a shape the
+    # runtime check does not have.
+    module TransportSuite
+      PREAMBLE: String
+      # A private_constant with no visibility in RBS; the five groups, concatenated.
+      ASSERTIONS: Array[Assertion]
+
+      def self?.assertions: () -> Array[Assertion]
+      def self?.run: (build: untyped, ?borrow: untyped, ?waive: Array[String], ?around: untyped,
+                      ?settle: untyped, ?wire: untyped, ?assertions: Array[Assertion]) -> Report
+
+      private
+
+      def run_one: (Assertion assertion, build: untyped, borrow: untyped, around: untyped,
+                    settle: untyped, wire: untyped) -> Result
+    end
+  end
+end

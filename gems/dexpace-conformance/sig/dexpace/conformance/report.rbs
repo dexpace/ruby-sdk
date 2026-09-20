@@ -1,0 +1,29 @@
+module Dexpace
+  module Conformance
+    # A frozen list of Results with the one renderer this phase ships; the waived IDs and the
+    # suite's preamble print on every run (design §9.3, P8-9).
+    class Report
+      @results: Array[Result]
+      @preamble: String?
+
+      attr_reader results: Array[Result]
+      attr_reader preamble: String?
+
+      def initialize: (untyped results, ?preamble: String?) -> void
+      def passed?: () -> bool
+      def failures: () -> Array[Result]
+      def vacuous: () -> Array[Result]
+      def waived: () -> Array[Result]
+      def errors: () -> Array[Result]
+      def to_s: () -> String
+
+      private
+
+      def by_status: (Symbol status) -> Array[Result]
+      def counts_line: () -> String
+      def waived_lines: () -> Array[String]
+      def detail_lines: () -> Array[String]
+      def ids: (Result result) -> String
+    end
+  end
+end

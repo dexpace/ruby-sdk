@@ -5,7 +5,8 @@ module Dexpace
   class Configuration
     # The well-known configuration key names (CFG-14): stable constants a caller passes to the
     # chain rather than restating the string. Five are CFG-14's own; two are the names phase
-    # 5a's own wirings read, and one is the name phase 5b's body-logging wiring reads. Nested
+    # 5a's own wirings read, one is the name phase 5b's body-logging wiring reads, and one is the
+    # name phase 8's transport adapters read. Nested
     # under Configuration because a key is a name the chain understands and reads wrongly as a
     # top-level Dexpace:: constant.
     #
@@ -43,6 +44,14 @@ module Dexpace
       # `preview_bytes:` (`configuration.integer(LOG_PREVIEW_BYTES, default: 8 * 1024)`, OBS-36's
       # reference default being the caller's choice); nothing in core reads it on its own.
       LOG_PREVIEW_BYTES = "LOG_PREVIEW_BYTES"
+
+      # The per-call timeout budget a transport adapter reads for its CONFIGURED tier, added by
+      # phase 8a in the change that reads it (its R3) and shared with phase 8c's adapter, so one
+      # caller setting governs both transports. Read with `#duration`, whose grammar (CFG-7)
+      # treats a bare number as MILLISECONDS: `REQUEST_TIMEOUT=30` is thirty milliseconds, and a
+      # caller who means thirty seconds writes `30s` or `PT30S`. The precedent for a
+      # transport-facing key nothing in core reads is HTTP_PROXY/HTTPS_PROXY/NO_PROXY above.
+      REQUEST_TIMEOUT = "REQUEST_TIMEOUT"
     end
   end
 end

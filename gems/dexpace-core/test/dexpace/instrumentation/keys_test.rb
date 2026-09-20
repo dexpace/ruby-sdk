@@ -43,6 +43,9 @@ class DexpaceInstrumentationKeysTest < DexpaceTestCase
     INSTRUMENTATION_CONFIG: "http.instrumentation.config",
     # Phase 6c's, AUTH-37's log-and-continue: an auth-layer diagnostic, outside the prefix.
     AUTH_REFRESH: "http.auth.refresh",
+    # Phase 8a's, TRANSPORT-11/TRANSPORT-13's header-drop record: one name for both transport
+    # adapters (the phase-8 charter's shared transport contract 2), outside the prefix.
+    TRANSPORT_HEADER_DROPPED: "http.transport.header_dropped",
   }.freeze
 
   # Sixteen: OBS-39's named minimum plus the reserved `event` key (OBS-4), the `cause` the
@@ -59,7 +62,7 @@ class DexpaceInstrumentationKeysTest < DexpaceTestCase
     end
   end
 
-  test "OBS-39, OBS-20: Events holds exactly these nine, six under the instrumentation prefix" do
+  test "OBS-39, OBS-20: Events holds exactly these ten, six under the instrumentation prefix" do
     assert_equal(EXPECTED_EVENTS.keys.sort, Events.constants.sort)
     EXPECTED_EVENTS.each do |name, value|
       constant = Events.const_get(name)

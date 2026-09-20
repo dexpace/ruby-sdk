@@ -1,0 +1,28 @@
+# Dexpace::Conformance::TransportSuite::Outbound is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in outbound.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Outbound
+        FORM: String
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.explicit_content_type_wins: (TransportCase kase) -> nil
+        def self?.body_media_type_when_caller_set_none: (TransportCase kase) -> nil
+        def self?.no_type_is_never_invented_as_a_form: (TransportCase kase) -> nil
+        def self?.body_less_post_is_a_zero_length_body: (TransportCase kase) -> nil
+        def self?.framing_recomputed_and_pass_through_kept: (TransportCase kase) -> nil
+        def self?.forged_header_name_is_rejected_before_dispatch: (TransportCase kase) -> nil
+        def self?.forged_header_value_is_rejected_before_dispatch: (TransportCase kase) -> nil
+
+        private
+
+        def refuses_forged_header: (TransportCase kase, String name, String value,
+                                    ids: Array[String]) -> nil
+        def forged_request: (Dexpace::Request template, String name, String value) -> untyped
+      end
+    end
+  end
+end

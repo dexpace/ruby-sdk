@@ -1,0 +1,41 @@
+module Dexpace
+  module Conformance
+    # Design §9.3's plaintext TCPServer fixture. The listener, the sockets and the accepted
+    # connections are `untyped`: TCPServer and TCPSocket are constants outside Dexpace:: and the
+    # stdlib allowlist NFR-11's scan admits, and nothing public needs their type.
+    class WireServer
+      JOIN_DEADLINE_SECONDS: Float
+
+      @tcp: untyped
+      @port: Integer
+      @script: ^(untyped, Array[String]) -> void
+      @requests: Array[RecordedRequest]
+      @connections: Integer
+      @closed_connections: Integer
+      @sockets: Array[untyped]
+      @handlers: Array[Thread]
+      @closed_queue: Thread::Queue
+      @mutex: Thread::Mutex
+      @closed: bool
+      @accept_thread: Thread
+
+      private def self.new: (untyped script) -> instance
+      def initialize: (untyped script) -> void
+
+      def self.start: (untyped script) -> WireServer
+                    | [T] (untyped script) { (WireServer) -> T } -> T
+
+      attr_reader port: Integer
+      def requests: () -> Array[RecordedRequest]
+      def connections: () -> Integer
+      def closed_connections: () -> Integer
+      def await_closed_connection: (?Integer count, ?timeout: (Integer | Float)?) -> Integer?
+      def close: () -> nil
+
+      private
+
+      def accept_loop: () -> void
+      def handle: (untyped conn) -> void
+    end
+  end
+end

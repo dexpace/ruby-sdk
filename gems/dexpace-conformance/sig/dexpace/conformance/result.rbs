@@ -1,0 +1,19 @@
+module Dexpace
+  module Conformance
+    # One assertion's outcome, in exactly five statuses (design §12).
+    class Result < Data
+      include Dexpace::Model
+
+      STATUSES: Array[Symbol]
+
+      attr_reader assertion: Assertion
+      attr_reader status: Symbol
+      attr_reader detail: String?
+
+      private def self.new: (assertion: Assertion, status: Symbol, detail: String?) -> instance
+      def initialize: (assertion: Assertion, status: Symbol, ?detail: String?) -> void
+
+      def self.build: (assertion: Assertion, status: Symbol, ?detail: String?) -> Result
+    end
+  end
+end

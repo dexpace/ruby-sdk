@@ -1,0 +1,10 @@
+module Dexpace
+  module Conformance
+    # Raised from inside an assertion whose antecedent is absent on the subject (design §12).
+    class Vacuous < ::StandardError
+      attr_reader reason: String
+
+      def initialize: (String reason) -> void
+    end
+  end
+end

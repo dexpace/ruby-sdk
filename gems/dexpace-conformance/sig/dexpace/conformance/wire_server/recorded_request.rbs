@@ -1,0 +1,22 @@
+module Dexpace
+  module Conformance
+    class WireServer
+      # One request as it reached the wire: raw head lines and the de-framed body.
+      class RecordedRequest < Data
+        include Dexpace::Model
+
+        attr_reader head: Array[String]
+        attr_reader body: String
+
+        private def self.new: (head: Array[String], body: String) -> instance
+        def initialize: (head: Array[String], body: String) -> void
+
+        def self.build: (head: Array[String], body: String) -> RecordedRequest
+
+        def request_line: () -> String
+        def path: () -> String
+        def header: (String name) -> String?
+      end
+    end
+  end
+end

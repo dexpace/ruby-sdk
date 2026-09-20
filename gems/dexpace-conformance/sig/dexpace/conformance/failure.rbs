@@ -1,0 +1,13 @@
+module Dexpace
+  module Conformance
+    # Design §9.3's assertion failure: a test result, never a Dexpace::Error (P8-8).
+    class Failure < ::StandardError
+      attr_reader expected: untyped
+      attr_reader actual: untyped
+      attr_reader requirement_ids: Array[String]
+
+      def initialize: (String message, expected: untyped, actual: untyped,
+                       requirement_ids: Array[String]) -> void
+    end
+  end
+end

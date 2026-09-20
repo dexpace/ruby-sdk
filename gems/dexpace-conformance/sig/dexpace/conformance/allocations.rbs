@@ -1,0 +1,16 @@
+module Dexpace
+  module Conformance
+    # OBS-25's per-call allocation measurement, two loops agreeing twice (5b's R8).
+    module Allocations
+      ATTEMPTS: Integer
+      # A private_constant with no visibility in RBS.
+      WARMUP_ITERATIONS: Integer
+
+      def self?.delta: (iterations: Integer) { () -> untyped } -> Float
+
+      private
+
+      def measure: (Integer iterations) { () -> untyped } -> Float
+    end
+  end
+end

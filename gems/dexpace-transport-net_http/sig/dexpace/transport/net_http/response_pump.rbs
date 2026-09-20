@@ -1,0 +1,44 @@
+# Dexpace::Transport::NetHTTP::ResponsePump is a private_constant and not public API: this
+# declaration exists because the `net_http` Steep target checks every file under lib/ and needs
+# the class declared to type Adapter's and ResponseMapper's call sites. RBS has no visibility for
+# a constant, so the privacy lives in lib/dexpace/transport/net_http/response_pump.rb alone. The
+# Net::HTTP ivars are untyped: nothing from net/http may name a signature (NFR-11).
+module Dexpace
+  module Transport
+    module NetHTTP
+      class ResponsePump
+        include Dexpace::Closeable
+
+        @http: untyped
+        @native: untyped
+        @deadline: Deadline?
+        @cancellation: Dexpace::Cancellation
+        @owns_connection: bool
+        @permit: Thread::SizedQueue?
+        @queue: Thread::SizedQueue
+        @proceed: Thread::Queue
+        @residue: String
+        @thread: Thread
+        @subscription: Dexpace::Cancellation::Subscription
+
+        def initialize: (http: untyped, native: untyped, deadline: Deadline?,
+                         cancellation: Dexpace::Cancellation, ?owns_connection: bool,
+                         ?permit: Thread::SizedQueue?) -> void
+        def head_or_raise: () -> untyped
+                         | [T] () { (untyped) -> T } -> T
+        def readpartial: (Integer maxlen, ?String? outbuf) -> String
+
+        private
+
+        def resume_producer: () -> nil
+        def fill: () -> void
+        def closed_failure: () -> Exception
+        def carry: (Exception payload, phase: Symbol) -> bot
+        def produce: () -> void
+        def exchange: (untyped connected) -> void
+        def refresh_read_timeout: () -> void
+        def release: () -> nil
+      end
+    end
+  end
+end

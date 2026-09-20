@@ -1,0 +1,20 @@
+# Dexpace::Conformance::TransportSuite::Inbound is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in inbound.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Inbound
+        LENIENT: Hash[Symbol, untyped]
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.vendor_status_surfaces_faithfully: (TransportCase kase) -> nil
+        def self?.malformed_headers_are_dropped_one_at_a_time: (TransportCase kase) -> nil
+        def self?.multi_valued_header_survives: (TransportCase kase) -> nil
+        def self?.malformed_type_and_length_downgrade: (TransportCase kase) -> nil
+        def self?.leniency_of: (Dexpace::Response response) -> Hash[Symbol, untyped]
+      end
+    end
+  end
+end

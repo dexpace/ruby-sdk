@@ -1,0 +1,13 @@
+module Dexpace
+  module Conformance
+    # The thin RSpec driver, opted into by requiring its file; `::RSpec` is resolved at call time
+    # and named in no signature (NFR-11).
+    module RSpecDriver
+      def self.conformance: (untyped suite, build: untyped, ?borrow: untyped,
+                             ?waive: Array[String], ?settle: untyped, ?around: untyped,
+                             ?wire: untyped) -> void
+      def self.drive: (Assertion assertion, untyped example, waive: Array[String], build: untyped,
+                       borrow: untyped, settle: untyped, around: untyped, wire: untyped) -> void
+    end
+  end
+end

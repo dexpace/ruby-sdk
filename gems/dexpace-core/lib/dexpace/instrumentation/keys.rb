@@ -57,7 +57,7 @@ module Dexpace
     # surface manifest for the reason Keys gives. Two are the request cycle's; the five
     # instrumentation diagnostics share OBS-20's `http.instrumentation.` prefix, derived from
     # one constant so a test can assert every one of them starts with it; the ninth is phase
-    # 6c's auth-layer diagnostic.
+    # 6c's auth-layer diagnostic and the tenth phase 8a's transport-layer one.
     module Events
       # The request event (OBS-39).
       HTTP_REQUEST = "http.request"
@@ -86,6 +86,12 @@ module Dexpace
       # request cycle and the instrumentation family: an auth-layer diagnostic, named for the
       # layer that emits it.
       AUTH_REFRESH = "http.auth.refresh"
+      # TRANSPORT-11 and TRANSPORT-13: the header-drop record every transport adapter emits when
+      # it drops a caller-set header, at VERBOSE with a "header" and a "reason" field. ONE name for
+      # both adapters (the phase-8 charter's shared transport contract 2), added by phase 8a and
+      # confirmed by 8c, so one conformance assertion reads a drop from either. The tenth event,
+      # and the second outside the request cycle and the instrumentation family.
+      TRANSPORT_HEADER_DROPPED = "http.transport.header_dropped"
     end
   end
 end

@@ -1,0 +1,52 @@
+module Dexpace
+  module Transport
+    module NetHTTP
+      # The transport (SEAM-11): private .new, two construction entry points reached through
+      # NetHTTP.build and NetHTTP.using, and Closeable's latch as the only state written after
+      # construction (TRANSPORT-29). The Net::HTTP ivars are untyped: nothing from net/http may
+      # name a signature (NFR-11).
+      class Adapter
+        include Dexpace::Closeable
+
+        @client: untyped
+        @timeout: Numeric?
+        @logger: Instrumentation::Logger
+        @tls: Hash[Symbol, untyped]?
+        @clock: Dexpace::Clock
+        @permit: Thread::SizedQueue?
+
+        def self.owning: (timeout: Numeric?, logger: Instrumentation::Logger,
+                          tls: Hash[Symbol, untyped]) -> Adapter
+        def self.borrowing: (untyped client, logger: Instrumentation::Logger) -> Adapter
+        private def self.timeout!: (untyped timeout) -> void
+        private def self.new: (client: untyped, timeout: Numeric?, logger: Instrumentation::Logger,
+                               tls: Hash[Symbol, untyped]?, owned: bool) -> instance
+        def initialize: (client: untyped, timeout: Numeric?, logger: Instrumentation::Logger,
+                         tls: Hash[Symbol, untyped]?, owned: bool) -> void
+
+        def call: (Dexpace::Request request, Dexpace::RequestOptions options,
+                   Dexpace::Cancellation? cancellation) -> Dexpace::Response
+
+        private
+
+        def perform: (Dexpace::Request request, Dexpace::RequestOptions options,
+                      Dexpace::Cancellation cancellation) -> Dexpace::Response
+        def owned_call: (Dexpace::Request request, Dexpace::RequestOptions options,
+                         Dexpace::Cancellation cancellation) -> Dexpace::Response
+        def resolve_timeout: (Dexpace::RequestOptions options) -> Numeric
+        def configured_timeout: () -> Float
+        def owned_client_for: (URI::Generic url, Deadline deadline) -> untyped
+        def borrowed_call: (Dexpace::Request request, Dexpace::RequestOptions options,
+                            Dexpace::Cancellation cancellation) -> Dexpace::Response
+        def check_endpoint!: (URI::Generic url) -> void
+        def routed_client: (URI::Generic url) -> untyped
+        def apply_budget: (untyped http, Deadline deadline) -> untyped
+        def bound_to?: (URI::Generic url) -> bool
+        def dispatch: (Dexpace::Request request, native: untyped, http: untyped,
+                       deadline: Deadline?, cancellation: Dexpace::Cancellation,
+                       owns_connection: bool, permit: Thread::SizedQueue?) -> Dexpace::Response
+        def release: () -> nil
+      end
+    end
+  end
+end

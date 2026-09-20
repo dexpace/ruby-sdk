@@ -1,0 +1,20 @@
+module Dexpace
+  module Conformance
+    # One conformance check as a value; the body is typed against no named interface because a
+    # subject is whatever suite the assertion belongs to.
+    class Assertion < Data
+      include Dexpace::Model
+
+      attr_reader ids: Array[String]
+      attr_reader name: String
+      attr_reader body: ^(untyped) -> void
+
+      private def self.new: (ids: untyped, name: String, body: untyped) -> instance
+      def initialize: (ids: untyped, name: String, body: untyped) -> void
+
+      def self.build: (ids: untyped, name: String, body: untyped) -> Assertion
+
+      def call: (untyped subject) -> untyped
+    end
+  end
+end

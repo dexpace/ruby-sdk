@@ -1,0 +1,25 @@
+# Dexpace::Transport::NetHTTP::ProxyRoute is a private_constant and not public API: this
+# declaration exists because the `net_http` Steep target checks every file under lib/ and needs
+# the snapshot declared to type Adapter's call site. RBS has no visibility for a constant, so the
+# privacy lives in lib/dexpace/transport/net_http/proxy_route.rb alone.
+module Dexpace
+  module Transport
+    module NetHTTP
+      class ProxyRoute < Data
+        attr_reader address: String?
+        attr_reader port: Integer?
+        attr_reader username: String?
+        attr_reader password: String?
+
+        def self.new: (address: String?, port: Integer?, username: String?,
+                       password: String?) -> instance
+        def self.none: () -> ProxyRoute
+        def self.for: (URI::Generic url, ?configuration: Dexpace::Configuration,
+                       ?logger: Instrumentation::Logger) -> ProxyRoute
+        def self.from: (Dexpace::Proxy proxy, URI::Generic url,
+                        ?logger: Instrumentation::Logger) -> ProxyRoute
+        def self.warn_unhonoured: (Dexpace::Proxy proxy, Instrumentation::Logger logger) -> nil
+      end
+    end
+  end
+end

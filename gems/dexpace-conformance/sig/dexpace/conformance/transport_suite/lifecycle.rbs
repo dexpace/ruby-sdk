@@ -1,0 +1,28 @@
+# Dexpace::Conformance::TransportSuite::Lifecycle is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in lifecycle.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Lifecycle
+        BUDGETS: Hash[Float, Range[Float]]
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.concurrent_per_call_timeouts_bound_their_own_calls: (TransportCase kase) -> nil
+        def self?.a_near_zero_timeout_never_becomes_unbounded: (TransportCase kase) -> nil
+        def self?.borrowed_client_survives_the_transports_close: (TransportCase kase) -> nil
+        def self?.owned_transport_refuses_a_send_after_close: (TransportCase kase) -> nil
+        def self?.concurrent_calls_each_get_their_own_response: (TransportCase kase) -> nil
+        def self?.sequential_calls_honour_each_calls_options: (TransportCase kase) -> nil
+
+        private
+
+        def timed_settle: (TransportCase kase, untyped transport, Dexpace::Request request,
+                           Float seconds) -> Float
+        def echo_round_trips: (TransportCase kase, untyped transport, Integer thread_index,
+                               Thread::Queue mismatches) -> void
+      end
+    end
+  end
+end
