@@ -4435,7 +4435,7 @@ table gained the phase, and core's `transport_test.rb` and `seam_surface_test.rb
 registry-key assertions to a bare-`ruby` subprocess (`test/support/bare_require.rb`), because in one
 `test:gems` process the adapter's require-time registration is visible to every suite. **The design's
 fifteen rows stand; `R1`–`R7`, `R16`, `R17` and `R18` were built as written**, with the As-built addendum
-adding `P8-51`–`P8-62`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
+adding `P8-51`–`P8-63`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
 producer reads a byte of body, because `R4`'s deletion of an unparseable `Content-Length` needs an
 ordering `R1` never stated — the `TRANSPORT-27` assertion was red against the real adapter until the
 handshake existed (P8-51); the pump owns the cancellation subscription for the life of the response
@@ -4449,13 +4449,18 @@ plan's four (P8-55); `await_closed_connection(count = 1, timeout:)` is bounded a
 `timeout:` (P8-57); `ResponseMapper` logs a `TRANSPORT-14` drop by name (P8-58); the public-surface
 additions are listed (P8-59); and the two version-bound `net-http` facts — `supply_default_content_type`
 absent on 0.9.1, the connect phase `Timeout.timeout` below 0.7 and `TCPSocket.open(open_timeout:)` on
-0.9.1, whose first call starts a process-wide thread the warm-up parks (P8-60–P8-62). The checklist is at
+0.9.1, whose first call starts a process-wide thread the warm-up parks (P8-60–P8-62); and, from review
+round 1 (2026-09-20), the inbound `Content-Length` grammar is a bounded, timed `Regexp.new` in the adapter
+and the fixture alike, core's spelling for a pattern a wire value reaches, superseding the design's
+"carries no `timeout:`" sentence (P8-63). The checklist is at
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`:
 twenty-three own rows — twenty-two ✅ and `TRANSPORT-28` ✅ on two clauses with its zero-copy clause ⏳
 under `docs/first-release.md` — plus the phase-level `TransportError` row and sixteen cross-reference
 rows; the reviewer's thirty mutations run red on 4.0.6 (net-http 0.9.1) and 3.2.11 (pinned to 0.4.1),
 twenty-nine caught on both and the thirtieth an equivalent mutant with its measurement (`String#<<` into
-an emptied UTF-8 buffer adopts BINARY on every row); the design's seventeen facts and the plan's eight
+an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
+the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
+default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36); the design's seventeen facts and the plan's eight
 re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, twelve of them as `matrix_facts_test.rb` printing the row's
 active `Net::HTTP::VERSION`; thirty-six departures from the plan's text itemised — among them the
 two the whole-repository `test:gems` process found and the gem's own `rake test` never could: the
@@ -4479,5 +4484,5 @@ gains one Reference entry with the two version-bound facts. Three dated bullets 
 list above — the Timeout thread as the connect-phase finding's observable, rbs 4.2.0's
 `TCPServer#initialize` signature Steep refuses, and 6b's `REDIR-23` wall-clock bound failing under
 machine load in the whole-repository process — each by date and content, never by ordinal, because the
-three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-62`
+three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-63`
 into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen.

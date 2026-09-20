@@ -91,7 +91,7 @@ stable key.
   that counts threads around every test — phase 0's `DexpaceTestCase` does — charges that thread to the
   first test that connects on a 3.2, 3.3 or 3.4 row and to no test on a 4.0 row; phase 8a parks it by
   opening one connection at test-helper load (`test/support/net_http_warmup.rb`), which is a test-support
-  arrangement and not the SDK calling the primitive §8.3 bans. Two facts that did **not** move across the
+  arrangement and not the SDK calling the primitive §8.3 bans. The facts that did **not** move across the
   three versions and are worth stating because the design measured them once: `max_retries` defaults to 1
   with `PUT` and `DELETE` in the retried set, `#read_timeout=` reaches a live socket, `#[]=` on
   `Accept-Encoding` flips `decode_content` off and `#add_field` does not, a caller `Host` is honoured

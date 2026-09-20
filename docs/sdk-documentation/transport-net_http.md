@@ -11,12 +11,17 @@ adapter's); how the design maps it to Ruby is `docs/sdk-design-ruby/03-seam-by-s
 entries 10 and 15 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`; the
 per-requirement proof is `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`.
 Signatures live in `gems/dexpace-transport-net_http/sig/`, and this page does not restate them. Every
-example below was run against the built code on 4.0.6 (net-http 0.9.1) and 3.2.11 (net-http 0.4.1) and
-printed the same on both. The examples use `dexpace-conformance`'s `WireServer` and `Scripts` as the
-server — a real `TCPServer` on `127.0.0.1` answering a scripted reply and recording what it was sent —
-because a transport page's examples should touch a socket and nothing outside the machine; `NetHTTP` is
-`Dexpace::Transport::NetHTTP`, `req(url, method:, headers:, body:)` builds a `Dexpace::Request`,
-`headers(pairs)` a `Dexpace::Headers`, and `EMPTY` is `Dexpace::RequestOptions::EMPTY` throughout.
+example below was run, in the order printed and as one script, against the built code on 4.0.6
+(net-http 0.9.1) and 3.2.11 (net-http 0.4.1) and printed the same on both, except for the ephemeral port a
+`Host` line or an error message names, which is the run's own. The examples use `dexpace-conformance`'s
+`WireServer` and `Scripts` as the server — a real `TCPServer` on `127.0.0.1` answering a scripted reply
+and recording what it was sent — because a transport page's examples should touch a socket and nothing
+outside the machine. Four names are the page's shorthand and nothing else is assumed: `NetHTTP` is
+`Dexpace::Transport::NetHTTP`, `req(url, method: "GET", headers: Dexpace::Headers::EMPTY, body: nil)` is
+`Dexpace::Request.build` over those four, `headers(pairs)` is `Dexpace::Headers.builder` with each pair
+added, and `EMPTY` is `Dexpace::RequestOptions::EMPTY`. `adapter` is the owning adapter the first block
+builds, never closed — the one block that shows a close builds its own — and every block that talks to a
+socket starts its own `server` and reads its port for `url`.
 
 **The gem's whole dependency budget is `dexpace-core` and `net-http >= 0.4`** (`NFR-2`): a default gem
 on every supported Ruby, no upper bound, and the adapter is proven on 0.4.1 (Ruby 3.2 and 3.3), 0.6.0
@@ -77,6 +82,15 @@ Against a keep-alive server the borrowed client's one connection serves two exch
 close touches nothing of the caller's:
 
 ```ruby
+# Two responses on ONE connection: the fixture reads the first request, the script reads the second.
+keep_alive = lambda do |conn, _head|
+  Scripts.write_response(conn, body: "one")
+  head = (+"").b
+  head << conn.readpartial(4096) until head.include?("\r\n\r\n")
+  Scripts.write_response(conn, body: "two")
+end
+server = WireServer.start(keep_alive)
+url = "http://127.0.0.1:#{server.port}/"
 client = Net::HTTP.new("127.0.0.1", server.port)
 client.max_retries = 0
 client.start
@@ -89,8 +103,9 @@ borrowed.call(req("http://127.0.0.1:1/"), EMPTY, nil)
 # => Dexpace::InvalidArgumentError: a borrowed Net::HTTP is bound to 127.0.0.1:38955 (use_ssl=false)
 #    and this request names 127.0.0.1:1 (use_ssl=false); the adapter may not re-point a client it does
 #    not own (TRANSPORT-15, XCUT-22): use NetHTTP.build, or a client bound to this origin
-adapter.close
-adapter.call(req(url), EMPTY, nil)
+owning = NetHTTP.build
+owning.close
+owning.call(req(url), EMPTY, nil)
 # => Dexpace::ClosedError: this transport is closed
 ```
 
@@ -127,16 +142,22 @@ once (`TRANSPORT-17`). `proxy-authorization` is deliberately **not** managed: th
 proxy credential of its own, so a caller's passes through.
 
 ```ruby
+server = WireServer.start(Scripts.fixed("ok"))
+url = "http://127.0.0.1:#{server.port}/"
+json = Dexpace::MediaType.parse("application/json")
 request = req(url, method: "POST",
               headers: headers("Host" => "bogus.example", "Content-Length" => "99", "Connection" => "keep-alive",
                                "X-Trace" => "t2", "Content-Type" => "text/plain"),
-              body: Dexpace::Body.bytes("{}".b, media_type: Dexpace::MediaType.parse("application/json")))
+              body: Dexpace::Body.bytes("{}".b, media_type: json))
 adapter.call(request, EMPTY, nil).close
 server.requests[0].head
 # => ["POST / HTTP/1.1\r\n", "X-Trace: t2\r\n", "Content-Type: text/plain\r\n", "Content-Length: 2\r\n",
 #     "Host: 127.0.0.1:37825\r\n", "\r\n"]
-server.requests[1].head.grep(/Content-Type/)                 # => ["Content-Type: application/json\r\n"]   (no explicit header)
+adapter.call(req(url, method: "POST", body: Dexpace::Body.bytes("{}".b, media_type: json)), EMPTY, nil).close
+server.requests[1].head.grep(/Content-Type/)                 # => ["Content-Type: application/json\r\n"]   (the body's, no explicit header)
+adapter.call(req(url, method: "POST"), EMPTY, nil).close
 server.requests[2].head.grep(/Content-/)                     # => ["Content-Type: application/octet-stream\r\n", "Content-Length: 0\r\n"]  (no body)
+adapter.call(req(url, method: "POST", body: Dexpace::Body.chunked(%w[ab cd])), EMPTY, nil).close
 server.requests[3].head.grep(/Transfer|Content-Length/)      # => ["Transfer-Encoding: chunked\r\n"]   (Body.chunked)
 server.requests[3].body                                      # => "abcd"
 ```
@@ -202,18 +223,29 @@ up to it (`TRANSPORT-6`), never down to the zero `Net::HTTP` reads as "poll once
 
 ```ruby
 server = WireServer.start(Scripts.hang_before_headers)       # accepts, reads the request, never answers
+url = "http://127.0.0.1:#{server.port}/"
 options = Dexpace::RequestOptions.build(timeout: 0.2, max_retries: nil, tags: {})
-NetHTTP.build(timeout: 30).call(req(url), options, nil)      # the call's 0.2 s wins over the transport's 30
-# => Dexpace::TransportError: Net::ReadTimeout with #<TCPSocket:(closed)>
-[e.retryable?, e.phase, e.cause.class]                       # => [true, :connect, Net::ReadTimeout]
-Dexpace::Resilience::Policy.throwable_retryable?(e)          # => true
+begin
+  NetHTTP.build(timeout: 30).call(req(url), options, nil)    # the call's 0.2 s wins over the transport's 30
+rescue Dexpace::TransportError => error
+  error.message                                              # => "Net::ReadTimeout with #<TCPSocket:(closed)>"
+  [error.retryable?, error.phase, error.cause.class]         # => [true, :connect, Net::ReadTimeout]
+  Dexpace::Resilience::Policy.throwable_retryable?(error)    # => true
+end
 
-borrowed.call(req(url), options, nil)
+client = Net::HTTP.new("127.0.0.1", server.port)
+client.max_retries = 0
+NetHTTP.using(client).call(req(url), options, nil)
 # => Dexpace::InvalidArgumentError: a per-call timeout cannot apply to a borrowed Net::HTTP without
 #    mutating it (TRANSPORT-5 against XCUT-22); use NetHTTP.build for a call that needs one
 
 Dexpace.configure { |b| b.override(Dexpace::Configuration::Keys::REQUEST_TIMEOUT, "150ms") }
-NetHTTP.build.call(req(url), EMPTY, nil)                     # raises the same way, in under a second
+begin
+  NetHTTP.build.call(req(url), EMPTY, nil)                   # the configured tier: 150 ms, in under a second
+rescue Dexpace::TransportError => error
+  error.cause.class                                          # => Net::ReadTimeout
+end
+Dexpace.reset_config!
 ```
 
 ## Failures: the token first, then a retryable wrap
@@ -233,15 +265,27 @@ cancellation token is subscribed for the whole life of the response, so a cancel
 read closes the pump and the read raises the cancellation.
 
 ```ruby
+flushed = Thread::Queue.new
+server = WireServer.start(Scripts.hang_after_headers(on_headers_written: -> { flushed.push(true) }))
+url = "http://127.0.0.1:#{server.port}/"
 source = Dexpace::Cancellation.source
-# ... a thread cancels the source once the server has flushed the head and gone silent ...
-adapter.call(req(url), EMPTY, source.token).body_bytes
-# => Dexpace::CancelledError: the operation was cancelled: user_navigated_away
-e.reason                                                     # => :user_navigated_away
+canceller = Thread.new { flushed.pop; source.cancel(:user_navigated_away) }   # once the head has gone out
+begin
+  adapter.call(req(url), EMPTY, source.token).body_bytes
+rescue Dexpace::CancelledError => error
+  error.message                                              # => "the operation was cancelled: user_navigated_away"
+  error.reason                                               # => :user_navigated_away
+end
+canceller.join
 
-adapter.call(req("http://127.0.0.1:35077/"), EMPTY, nil)    # nothing listening
-# => Dexpace::TransportError: Failed to open TCP connection to 127.0.0.1:35077 (Connection refused ...)
-[e.phase, e.cause.class.ancestors.include?(SystemCallError)] # => [:connect, true]
+closed = WireServer.start(Scripts.fixed("x"))
+closed.close                                                 # the port is now one nothing listens on
+begin
+  adapter.call(req("http://127.0.0.1:#{closed.port}/"), EMPTY, nil)
+rescue Dexpace::TransportError => error
+  error.message                                              # => "Failed to open TCP connection to 127.0.0.1:35077 (Connection refused - connect(2) for \"127.0.0.1\" port 35077)"
+  [error.phase, error.cause.class.ancestors.include?(SystemCallError)]   # => [:connect, true]
+end
 ```
 
 ## Lenient inbound mapping
@@ -250,20 +294,23 @@ A status code maps totally (`Status.of` over the three-digit codes `Net::HTTP` p
 `TRANSPORT-24`); headers come from `Net::HTTPResponse#to_hash` and nothing else, so a multi-valued
 `Set-Cookie` arrives as two values and bytes are preserved, and a header whose name or value the SDK's
 inbound grammar refuses is **dropped, logged at VERBOSE by name, and never fails the response**
-(`TRANSPORT-14`; obs-text is kept). A `Content-Length` that is not one run of digits — `abc`, `-4`, two
-values — maps to the unknown-length sentinel `-1` with the raw header still in `response.headers`, and a
+(`TRANSPORT-14`; obs-text is kept). A `Content-Length` that is not one run of at most fifteen digits —
+`abc`, `-4`, two values, a sixteen-digit run — maps to the unknown-length sentinel `-1` with the raw
+header still in `response.headers` (the grammar is a `Regexp.new` with its own timeout, as every pattern a
+wire value reaches in this SDK is), and a
 malformed `Content-Type` downgrades to a nil media type (`TRANSPORT-27`); the body reads either way,
 because the adapter never lets `Net::HTTP` parse the length itself.
 
 ```ruby
 server = WireServer.start(Scripts.malformed_content_length)  # Content-Length: abc, Content-Type: not a/;;media type
-response = adapter.call(req(url), EMPTY, nil)
+response = adapter.call(req("http://127.0.0.1:#{server.port}/"), EMPTY, nil)
 response.headers["Content-Length"]                           # => ["abc"]
 response.body.content_length                                 # => -1
 response.body.media_type                                     # => nil
 response.body_string                                         # => "hi"
 
 server = WireServer.start(Scripts.vendor_status(520, "origin error"))
+response = adapter.call(req("http://127.0.0.1:#{server.port}/"), EMPTY, nil)
 [response.status.code, response.body_string]                 # => [520, "origin error"]
 ```
 
@@ -305,6 +352,7 @@ proxy = WireServer.start(Scripts.fixed("via the proxy"))
 Dexpace.configure { |b| b.override(Dexpace::Configuration::Keys::HTTP_PROXY, "http://127.0.0.1:#{proxy.port}") }
 adapter.call(req("http://192.0.2.1/v1/pets?limit=2"), EMPTY, nil).body_string   # => "via the proxy"
 proxy.requests.first.request_line                            # => "GET http://192.0.2.1/v1/pets?limit=2 HTTP/1.1"
+Dexpace.reset_config!
 ```
 
 ## What is deliberately not here
