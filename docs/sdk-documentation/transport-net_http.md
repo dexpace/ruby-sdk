@@ -306,7 +306,11 @@ inbound grammar refuses is **dropped, logged at VERBOSE by name, and never fails
 (`TRANSPORT-14`; obs-text is kept). A `Content-Length` that is not one run of at most fifteen digits —
 `abc`, `-4`, two values, a sixteen-digit run — maps to the unknown-length sentinel `-1` with the raw
 header still in `response.headers` (the grammar is a `Regexp.new` with its own timeout, as every pattern a
-wire value reaches in this SDK is), and a
+wire value reaches in this SDK is), and so does a well-formed one beside `Transfer-Encoding: chunked`:
+`Net::HTTP` reads such a response by the chunked coding whatever the header says (RFC 9112 §6.3), so the
+value is never the number of bytes the body delivers, and a body that believed it would hand `#each`,
+`#write_to` and `#to_replayable` exactly that many bytes — a truncation, or a `StreamError` on a valid
+transfer — while `#body_string` read all of them. A
 malformed `Content-Type` downgrades to a nil media type (`TRANSPORT-27`); the body reads either way,
 because the adapter never lets `Net::HTTP` parse the length itself.
 
@@ -321,6 +325,17 @@ response.body_string                                         # => "hi"
 server = WireServer.start(Scripts.vendor_status(520, "origin error"))
 response = adapter.call(req("http://127.0.0.1:#{server.port}/"), EMPTY, nil)
 [response.status.code, response.body_string]                 # => [520, "origin error"]
+
+both = lambda do |conn, _head|                               # chunked, with a Content-Length beside it
+  conn.write("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 5\r\n\r\n" \
+             "5\r\n01234\r\n5\r\n56789\r\n0\r\n\r\n")
+end
+server = WireServer.start(both)
+response = adapter.call(req("http://127.0.0.1:#{server.port}/"), EMPTY, nil)
+[response.headers["Content-Length"], response.body.content_length]   # => [["5"], -1]
+chunks = []
+response.body.each { |chunk| chunks << chunk }
+chunks.join                                                  # => "0123456789"  (all of it, never "01234")
 ```
 
 **Not lenient, and stated**: `Dexpace::Protocol` admits `HTTP/1.1` and `HTTP/2` only (`HTTP-33`), so a

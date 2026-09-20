@@ -4477,7 +4477,7 @@ table gained the phase, and core's `transport_test.rb` and `seam_surface_test.rb
 registry-key assertions to a bare-`ruby` subprocess (`test/support/bare_require.rb`), because in one
 `test:gems` process the adapter's require-time registration is visible to every suite. **The design's
 fifteen rows stand; `R1`–`R7`, `R16`, `R17` and `R18` were built as written**, with the As-built addendum
-adding `P8-51`–`P8-64`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
+adding `P8-51`–`P8-65`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
 producer reads a byte of body, because `R4`'s deletion of an unparseable `Content-Length` needs an
 ordering `R1` never stated — the `TRANSPORT-27` assertion was red against the real adapter until the
 handshake existed (P8-51); the pump owns the cancellation subscription for the life of the response
@@ -4498,7 +4498,11 @@ and the fixture alike, core's spelling for a pattern a wire value reaches, super
 token before it starts a producer, so a token already cancelled at construction gets a closed pump with
 no thread, no socket and the borrowed permit straight back, where the reviewed pump had raised
 `NoMethodError` on a nil subscription from inside its constructor after the request was on the wire
-(P8-64). The checklist is at
+(P8-64); and, from review round 4 (2026-09-20, the manager-sanctioned targeted round after round 3), a
+`Content-Length` beside `Transfer-Encoding: chunked` is the unknown-length sentinel, because `net-http`
+frames such a response by the chunked coding and the header was never the number of bytes the pump
+delivers — taken as one it truncated `#each`, `#write_to` and `#to_replayable` while `#body_string` read
+the whole body (P8-65). The checklist is at
 `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`:
 twenty-three own rows — twenty-two ✅ and `TRANSPORT-28` ✅ on two clauses with its zero-copy clause ⏳
 under `docs/first-release.md` — plus the phase-level `TransportError` row and sixteen cross-reference
@@ -4507,8 +4511,9 @@ twenty-nine caught on both and the thirtieth an equivalent mutant with its measu
 an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
 the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
 default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36),
-and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41), and
-round 3's fixture clients (rows 42–44); the gem's suites
+and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41),
+round 3's fixture clients (rows 42–44) and round 4's three — the chunked-length guard, the closed-pump
+read round 3 found untested and the handler join it found unguarded (rows 45–47); the gem's suites
 blank the three proxy keys the resolver reads around every owning-adapter test through the override
 tier (`NetHTTPHermeticProxy`), because every `NetHTTP.build` resolves its proxy through the process-wide
 chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it — and, from
@@ -4519,13 +4524,13 @@ warning the test base makes fatal, so both gems' suites are hermetic under `HTTP
 re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, twelve of them as `matrix_facts_test.rb` printing the row's
 active `Net::HTTP::VERSION` (0.9.1 a default gem on 4.0.6, as on every row — review round 2's R2-3
 corrected the checklist and the knowledge note, which had read this machine's installed copy beside it as
-the gem having left the default set); forty-three departures from the plan's text itemised — thirty-six
-from the build, two from review round 1, four from round 2 and one from round 3 — among them the
-two the whole-repository `test:gems` process found and the gem's own `rake test` never could: the
-adapter's sink double renamed `NetHTTPRecordingSink` because core's `test/support/` already owns the bare
-name and a second `Entry =` is an `NFR-6`-fatal warning at load, and `RawWireTransport`'s `leave_open`
-defect keeping its socket referenced, since an unreferenced `TCPSocket` is closed by GC inside the release
-assertion's wait. One guarded test: the generator slice's codec half skips with `skip "phase 7a's
+the gem having left the default set); forty-four departures from the plan's text itemised — thirty-six
+from the build, two from review round 1, four from round 2, one from round 3 and one from round 4 —
+among them the two the whole-repository `test:gems` process found and the gem's own `rake test` never
+could: the adapter's sink double renamed `NetHTTPRecordingSink` because core's `test/support/` already
+owns the bare name and a second `Entry =` is an `NFR-6`-fatal warning at load, and `RawWireTransport`'s
+`leave_open` defect keeping its socket referenced, since an unreferenced `TCPSocket` is closed by GC inside
+the release assertion's wait. One guarded test: the generator slice's codec half skips with `skip "phase 7a's
 Dexpace::Serde::JSON::Codec is not on this base; 7a un-guards"`, so `test:gems` carries two skips until 7a
 lands — that one and `TRANSPORT-18`'s measured vacuity. `docs/sdk-documentation/transport-net_http.md`
 and `conformance.md` are the fifteenth and sixteenth as-built pages, every example run on 4.0.6 (0.9.1)
