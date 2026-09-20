@@ -443,6 +443,23 @@ class DexpaceSSEReaderTest < DexpaceTestCase
       assert_equal(2, parsed.size)
     end
 
+    test "SSE-19/SSE-1: the event byte total resets at every blank line, dispatching or not" do
+      # A blank line ends a block whether or not a field was seen (SSE-1), so a run of fieldless
+      # blocks -- unknown-field keep-alives (SSE-7), NUL ids (SSE-9), rejected retries (SSE-11)
+      # -- is a run of blocks and never one block: three 5-byte `zz: 1` blocks under a 12-byte
+      # cap must not add up to a spurious LimitExceededError before `data: b` arrives. Review
+      # round 0's R0-1: dispatch's nil branch returned before the reset.
+      wire = "data: a\n\n#{"zz: 1\n\n" * 3}data: b\n\n"
+
+      assert_equal([["a"], ["b"]], events(wire, max_event_bytes: 12).map(&:data))
+      assert_equal(1, events("#{"id: a\0b\n\n" * 6}data: b\n\n", max_event_bytes: 32).size)
+      assert_equal(1, events("#{"retry: -1\n\n" * 6}data: b\n\n", max_event_bytes: 32).size)
+      # The same lines in ONE block still trip the cap: the reset is per blank line, not per line.
+      assert_raises(Dexpace::SSE::LimitExceededError) do
+        events("#{"zz: 1\n" * 3}data: b\n\n", max_event_bytes: 12)
+      end
+    end
+
     test "SSE-19: the event total counts every line of the block, comments and unknowns included" do
       # 2^20 one-byte data lines is the surface appendix C names; the count is the block's raw
       # line bytes, so a block padded with comments or unknown fields cannot slip under it.

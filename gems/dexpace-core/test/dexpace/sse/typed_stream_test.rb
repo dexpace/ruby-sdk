@@ -309,6 +309,40 @@ class DexpaceSSETypedStreamTest < DexpaceTestCase
       assert_equal(1, resource.closes)
     end
 
+    test "SSE-25: an Enumerable method that stops early on #values releases, as on #events" do
+      # first(n), take, find and an `each { break }` leave the external form through its block
+      # and never reach the Stream's own ensure -- the raw enumerator is parked mid-#next -- so
+      # the typed drive carries an ensure of its own, the mirror the design promises (review
+      # round 0's R0-2: it had the rescue and not the ensure, closes 0 against the raw form's 1).
+      resource = counting_resource
+      stream, = stream_over(resource: resource)
+
+      assert_equal(["a"], stream.typed { |_n, d| d }.values.first(1))
+      assert_equal(1, resource.closes)
+      assert_predicate(stream, :closed?)
+      taken, taker = stream_over
+      taken.typed { |_n, d| d }.values.take(2)
+
+      assert_equal(1, taker.closes)
+      found, finder = stream_over
+
+      assert_equal("b", found.typed { |_n, d| d }.values.find { |value| value == "b" })
+      assert_equal(1, finder.closes)
+      broken, breaker = stream_over
+
+      assert_equal("a", consume_one(broken.typed { |_n, d| d }.values))
+      assert_equal(1, breaker.closes)
+    end
+
+    test "SSE-30: a release failure on a typed block-form break propagates, as the raw form's" do
+      resource = counting_resource(close_error: ::IOError.new("close failed"))
+      stream, = stream_over(resource: resource)
+
+      assert_raises(::IOError) { stream.typed { |_n, d| d }.values.first(1) }
+      assert_equal(1, resource.closes)
+      assert_predicate(stream, :closed?)
+    end
+
     test "the typed view cannot be constructed by a caller; Stream#typed is the one way in" do
       assert_raises(::NoMethodError) { Dexpace::SSE::TypedStream.new(stream: nil, mapper: nil, logger: nil) }
     end

@@ -128,6 +128,16 @@ class DexpaceSSEStreamTest < DexpaceTestCase
       assert_predicate(stream, :closed?)
     end
 
+    test "SSE-25: an Enumerable method that stops early on #events is a block-form exit" do
+      # first(n), take and find drive #events with a block that breaks, so drive's ensure closes
+      # -- the behaviour sse.md documents and typed_stream_test.rb mirrors through #values.
+      stream, resource = stream_over
+
+      assert_equal([["a"], ["b"]], stream.events.first(2).map(&:data))
+      assert_equal(1, resource.closes)
+      assert_predicate(stream, :closed?)
+    end
+
     test "SSE-25: a partial consume through the enumerator releases on explicit close" do
       # verified fact 6: an Enumerator abandoned mid-#next never runs its ensure and GC is not a
       # cleanup hook. This asserts BOTH halves -- the absence of a release after abandonment and
