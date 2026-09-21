@@ -1142,9 +1142,15 @@ Each is one line plus the chapter to read before touching the area.
   is what makes `ASYNC-2`'s "saturated executor" a case this adapter has at all and lets a worker re-post
   to its own pool without parking (P8-23); `Completer#fulfil(nil)` raises SEAM-16's refusal, so a
   `#delay` future settles with `ELAPSED = true` as 5a's `Async.delay` does, and a zero delay settles
-  inline with no timer touched (P8-71). Phase 2's `Bridge::AsyncOver` checks the token BEFORE dispatch as
-  well as after, so a task cancelled while queued never reaches the transport — every "window" test gates
-  on the double's `entered` queue before cancelling, or it is red three runs in twelve.
+  inline with no timer touched (P8-71). `#delay` and `.build` refuse a NaN, an infinite and a `Complex`
+  duration or `shutdown_timeout:` with `InvalidArgumentError` — `real?` before `negative?`, `finite?` after
+  it, `Numeric`'s own protocol — because a NaN answers false to both `negative?` and `zero?`, and one that
+  reached the timer's deadline-ordered list killed its thread and turned every later `#delay` into a bare
+  `ArgumentError`, while a NaN budget raised one out of `#close` with the latch flipped (P8-77; core's
+  `Async.validate_delay` and `Clock::Guard.duration` share the hole and are phase 10's). Phase 2's
+  `Bridge::AsyncOver` checks the token BEFORE dispatch as well as after, so a task cancelled while queued
+  never reaches the transport — every "window" test gates on the double's `entered` queue before
+  cancelling, or it is red three runs in twelve.
 - **Both threads the pool owns rescue `::Exception` and never die, and `#close` is one bounded budget
   for the timer stop and the worker drain** — a worker's `SystemExit`, `Interrupt` or `ScriptError` is
   reported as an ERROR `http.instrumentation.hook` diagnostic inside `Instrumentation.contain` and the

@@ -63,7 +63,7 @@ changes has a capacity a caller cannot reason about. `size:` has no default for 
 refuses a default executor: the right number is a function of the caller's service and its connection
 budget, and a wrong guess is starvation. `queue_limit:` is a depth per worker, derived after `size` is
 validated so `Pool.build(size: nil)` names the keyword rather than raising from the default;
-`shutdown_timeout:` (a non-negative `Numeric`), `name:` (a non-empty `String`), `logger:` (anything
+`shutdown_timeout:` (a finite, non-negative `Numeric` — a budget is a bound), `name:` (a non-empty `String`), `logger:` (anything
 answering `#event`; `Dexpace::Instrumentation::Logger::NULL` by default) and `clock:` (anything answering
 `#monotonic`; `Dexpace::Clock::SYSTEM`) validate the same way, each naming its keyword.
 
@@ -191,21 +191,26 @@ pool.delay(0.05).value(deadline: Dexpace::Clock.deadline_in(5))       # => true
 Process.clock_gettime(Process::CLOCK_MONOTONIC) - t0 >= 0.05          # => true
 Thread.list.map(&:name).grep(/docs/).sort  # => ["docs timer", "docs worker 0", "docs worker 1"]
 pool.delay(-1)           # raises Dexpace::InvalidArgumentError: "duration must not be negative, got -1"
+pool.delay(Float::NAN)   # raises Dexpace::InvalidArgumentError: "duration must be finite, got NaN"
+pool.delay(Complex(1, 1)) # raises Dexpace::InvalidArgumentError: "duration must be a real number, got (1+1i)"
 late = pool.delay(60)
 late.cancel(:no_longer_needed)
 late.cancelled?          # => true
 ```
 
-`ASYNC-18`'s four clauses, each with its mechanism: a negative or non-`Numeric` duration raises before
-any thread exists; zero settles the future inline and spawns nothing; a positive delay is one entry on a
-deadline-ordered list served by one lazily created `"<name> timer"` thread, parked against the nearest
-deadline and re-parked after every wake; cancelling the future removes its entry at once and wakes the
-timer, so no scheduler thread is held for a delay nobody wants. The future settles with `true`, as phase
-5a's `Dexpace::Async.delay` does, so the two are interchangeable — and that one is the zero-thread
-alternative for a caller under a `Fiber.scheduler`; it is unavailable to a pool worker, whose
-`Fiber.scheduler` is always `nil`. "Without blocking a thread" therefore holds for the caller's thread
-and every worker and not absolutely: one named timer thread per pool is parked for the interval
-(`P8-25`). A `#on_settle` on a delay future runs on that timer thread, not on a worker.
+`ASYNC-18`'s four clauses, each with its mechanism: a negative, non-finite (`NaN`, an infinity), non-real (a
+`Complex`) or non-`Numeric` duration raises before any thread exists — a `NaN` answers false to both
+`negative?` and `zero?`, and one that reached the timer's deadline-ordered list killed its thread and made
+every later `#delay` raise a bare `ArgumentError` (`P8-77`); zero settles the future inline and spawns
+nothing; a positive delay is one entry on a deadline-ordered list served by one lazily created
+`"<name> timer"` thread, parked against the nearest deadline and re-parked after every wake; cancelling
+the future removes its entry at once and wakes the timer, so no scheduler thread is held for a delay
+nobody wants. The future settles with `true`, as phase 5a's `Dexpace::Async.delay` does, so the two are
+interchangeable — and that one is the zero-thread alternative for a caller under a `Fiber.scheduler`; it
+is unavailable to a pool worker, whose `Fiber.scheduler` is always `nil`. "Without blocking a thread"
+therefore holds for the caller's thread and every worker and not absolutely: one named timer thread per
+pool is parked for the interval (`P8-25`). A `#on_settle` on a delay future runs on that timer thread,
+not on a worker.
 
 ## `#close`: idempotent, bounded, one event
 

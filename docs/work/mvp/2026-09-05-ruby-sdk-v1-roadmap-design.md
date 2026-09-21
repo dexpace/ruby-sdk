@@ -2707,6 +2707,20 @@ design.
   threads. Touches `OBS-23`, `OBS-24` and the 5c-owned `dexpace.current_span` carrier, and nothing
   normative in the code. Recorded by phase 8b on its docs branch; referred to by date and content,
   never by ordinal.
+- **Core's two duration guards, `Dexpace::Async.validate_delay` and `Dexpace::Clock::Guard.duration`,
+  admit a `NaN` and a `Complex`.** Found 2026-09-21 by phase 8b's review round 1 (R1-1), which found the
+  same shape — `is_a?(::Numeric)` and `negative?` — in `Pool#delay`, where a `NaN` duration killed the
+  pool's timer thread and turned every later `#delay` into a bare `ArgumentError`, and repaired it there
+  (`P8-77`: `real?` before `negative?`, `finite?` after). 5a's guards are the precedent 8b's design cited
+  and they share the hole: a `NaN` is a `Numeric` that answers false to both `negative?` and `zero?`, so
+  `Clock#sleep(Float::NAN)` reaches `Thread::Queue#pop(timeout: Float::NAN)`, which parks indefinitely on
+  every supported row (measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6) — a sleep no elapsed time ends and
+  only the token can wake — and `Async.delay(Float::NAN)` schedules the same pop on the scheduler; a
+  `Complex` is a bare `NoMethodError` from either. What is phase 10's: widen both guards the way `P8-77`
+  did, with the same three tests, and decide whether `Future#value(deadline:)` and `Completer#await`'s
+  deadline arithmetic want the same screen. Touches `CFG-15`, `CFG-17`, `CFG-18` and `XCUT-11`, and
+  nothing normative beyond the messages. Recorded by phase 8b's review round 1 on its docs branch;
+  referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4723,12 +4737,17 @@ through `Diagnostics.capture` and its ensure-clear proof writes a never-held key
 (`P8-75`); and, from review round 0 the same day, a `#close` issued from the pool's own threads — a
 `#delay` future's `#on_settle` handler on the timer thread, or a task on a worker — completes instead of
 self-joining (`P8-76`: the first cut raised `ThreadError` past `#close` with the latch flipped, no event
-and every other delay stranded, or burned the whole budget). Every fact the design measured on 3.4.10
+and every other delay stranded, or burned the whole budget); and, from review round 1 the same day, a
+`NaN`, an infinite or a `Complex` duration or `shutdown_timeout:` is refused with `InvalidArgumentError`
+(`P8-77`: a `NaN` answers false to both `negative?` and `zero?`, reached the timer's deadline-ordered
+list, killed its thread and turned every later `#delay` into a bare `ArgumentError`, and a `NaN` budget
+raised one out of `#close` with the latch flipped — core's two duration guards share the shape and are
+the second of this phase's bullets on phase 10's inbound list). Every fact the design measured on 3.4.10
 alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, the pool-specific dozen as a standing test.
-Thirty-two guards run red (two recorded as equivalent mutants with their measurement; the plan's
+Thirty-five guards run red (two recorded as equivalent mutants with their measurement; the plan's
 timer-mutex mutation among the red ones, by a cross-thread deadlock at `#close` that hangs the delay
 suite and by two reported failures on the lock-scope test the round added — the first cut of this note
-called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,809 runs with exactly
+called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,813 runs with exactly
 one skip (8a's `TRANSPORT-18` vacuity), the six manifests regenerated with only
 `dexpace-async-thread.txt` changing (2 → 14 rows, no private constant among them), and the gate set
 green on 4.0.6 with the four matrix gates green on 3.2.11, 3.3.12 and 3.4.10.
@@ -4740,15 +4759,17 @@ checklist count moves to nineteen and its constraints list gains four lines. `do
 changes in one existing entry only — the unsatisfied-MUST entry gains a dated status sentence — and the
 gem table's row stays "no — 0.0.0"; `docs/knowledge/notes/observability.md`'s 8b entry is amended in
 place under its own marker with the as-built facts; `docs/deviations.md` is untouched, for phase 10 to
-flip. One dated bullet joins phase 10's inbound list below by date and content, never by ordinal: under
+flip. Two dated bullets join phase 10's inbound list by date and content, never by ordinal: under
 the one-process `rake test:gems` the main fiber's storage held 5c's no-op span when this gem's
 diagnostics suite ran — a residue of another gem's suite the per-file run cannot see, filtered here and
-audit work on phase 5c's tests. A second bullet the first cut of this note filed — that the plan's Task
+audit work on phase 5c's tests — and, from review round 1, core's two duration guards admitting a `NaN`
+and a `Complex` (`Clock#sleep(Float::NAN)` parks on a `Queue#pop` no elapsed time ends), audit work on
+phase 5a's. A further bullet the first cut of this note filed — that the plan's Task
 7 Step 8 mutation stays green and the timer's lock scope rests on the source alone — was removed before
 the stack merged: the premise was a false measurement (review round 0's R0-1), the mutation is red, and
 the scope is asserted by a test. The design's fourth finding — §10.5's mitigation sentence names
 `Completer#on_cancel` as something "an adapter" does, and on the thread path only the transport can —
 stays a sentence here and in the checklist, never a row in `docs/deviations.md`. The consolidation of
-`P8-20`–`P8-25` and `P8-71`–`P8-76` into design §10 is a human's:
+`P8-20`–`P8-25` and `P8-71`–`P8-77` into design §10 is a human's:
 `docs/sdk-design-ruby/` is frozen. `main` is `a7cfeb6` before and after; the stack is not on it, 8c is
 being built beside it, and umbrella #29 stays open for both.
