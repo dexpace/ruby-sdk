@@ -9,8 +9,9 @@ require "dexpace/conformance"
 # assertion 8a wrote and the six 8c added, run unchanged against the real asynchronous adapter
 # through MinitestDriver, with the three mechanisms the suite contract added for exactly this
 # driver -- `settle:` awaits the future, `around:` opens the reactor an assertion's body runs
-# inside, and `borrow:` builds the caller's own client -- and two NAMED WAIVERS, both this
-# adapter's alone (§9.3's mechanism, the id listed so the gap stays visible):
+# inside and bounds it (see `.bounded`), and `borrow:` builds the caller's own client -- and two
+# NAMED WAIVERS, both this adapter's alone (§9.3's mechanism, the id listed so the gap stays
+# visible):
 #
 # - TRANSPORT-14's malformed-inbound-NAME clause: protocol-http1 raises BadHeader out of the read
 #   before a response exists to adapt (P8-38). The suite carries TWO assertions under that id,
@@ -50,10 +51,49 @@ class DexpaceTransportAsyncHTTPConformanceTest < DexpaceTestCase
 
   AsyncHTTP = Dexpace::Transport::AsyncHTTP
   WAIVED = %w[TRANSPORT-14 TRANSPORT-27].freeze
+  # Seconds an assertion's body may take before the driver fails it: generous against a loaded
+  # CI row, an order of magnitude above the slowest legitimate assertion here (TRANSPORT-29's
+  # eight settles, each in a reactor of its own, well under a second), and far below what a run
+  # that hangs costs.
+  AROUND_BOUND = 30.0
+
+  # Raised into the driver's OWN waiting fiber when the bound expires -- never into the
+  # assertion's, which is the point of `.bounded`.
+  class BoundExpired < ::StandardError; end
 
   # Runs the block inside the calling fiber's reactor, or a fresh one when the thread has none.
   def self.in_reactor(&)
     ::Async::Task.current? ? yield : Sync(&)
+  end
+
+  # Clause 9's wrapper: the reactor the adapter needs (P8-39), with the assertion's body run as
+  # a CHILD task and the bound kept on the parent's wait. The bound cannot be raised into the
+  # assertion's own fiber: it would land inside a native read, where the adapter's token-first
+  # classifier turns any StandardError under a cancelled token into the very CancelledError the
+  # cancellation rows expect -- an adapter that never released a delivered body would PASS the
+  # mid-body row thirty seconds late instead of failing it (measured with the watcher's close
+  # deleted, review round 1's mutation 37: a `with_timeout` around `block.call` passed in 30 s).
+  # Cancelling the child instead raises the runtime's own Async::Cancel, which no classifier
+  # converts, Response#body_string's ensure releases the connection so the reactor can drain,
+  # and the assertion fails by name through the driver's own Failure path. `finished: false`
+  # is what `Sync` passes for its own root task: a child that fails before its first
+  # suspension would otherwise be logged by Console as an unhandled failure, and the parent's
+  # wait is what handles it.
+  def self.bounded(&)
+    Sync do |task|
+      child = task.async(finished: false, &)
+      begin
+        task.with_timeout(AROUND_BOUND, BoundExpired) { child.wait }
+      rescue BoundExpired
+        child.cancel
+        raise Dexpace::Conformance::Failure.new(
+          "the assertion's body did not finish within #{AROUND_BOUND} s: an adapter that never " \
+          "releases what it holds would hang the run, and the driver's bound reports it instead",
+          expected: "completion within #{AROUND_BOUND} s", actual: "still blocked",
+          requirement_ids: [],
+        )
+      end
+    end
   end
 
   # The settle for a thread with no reactor of its own: a fresh reactor, closed before this
@@ -105,8 +145,8 @@ class DexpaceTransportAsyncHTTPConformanceTest < DexpaceTestCase
       end
     end,
     # Clause 9: the runner INVOKES each assertion, so this driver wraps it in the reactor the
-    # adapter needs (P8-39) and a streamed body is read inside.
-    around: ->(&block) { Sync { block.call } },
+    # adapter needs (P8-39), bounded, and a streamed body is read inside.
+    around: method(:bounded),
     waive: WAIVED,
   )
 

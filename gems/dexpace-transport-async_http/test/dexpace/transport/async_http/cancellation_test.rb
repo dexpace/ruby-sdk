@@ -188,7 +188,8 @@ module DexpaceTransportAsyncHTTPCancellationTests
         server.wait_for_accept
         chunks = []
         # Bounded: a watcher that never closed the delivered response would leave the read blocked
-        # for good, and Async::TimeoutError is a StandardError the assertion below refuses.
+        # for good. The bound's Async::TimeoutError is a StandardError the token-first classifier
+        # turns into the SAME CancelledError, so the cause is what tells the two wakes apart.
         error = assert_raises(Dexpace::CancelledError) do
           task.with_timeout(BOUND) do
             response.body.each do |chunk|
@@ -199,6 +200,14 @@ module DexpaceTransportAsyncHTTPCancellationTests
         end
 
         assert_equal(:reader_cancelled, error.reason)
+        # The wake must be the WATCHER's close and never this test's own bound: with the watcher's
+        # close of the delivered response deleted (the reviewer's mutation 37), the bound fires
+        # inside the native read five seconds later and the classifier still answers
+        # CancelledError(:reader_cancelled) with the body closed -- every assertion around this
+        # one passes. A close under a blocked read surfaces from the library as a bare IOError,
+        # which the classifier saw and Ruby attached; the bound would have attached its own.
+        refute_kind_of(::Async::TimeoutError, error.cause,
+                       "the reader was woken by the test's bound, not by the watcher's close",)
         assert_equal(["first"], chunks)
         assert_predicate(response.body, :closed?)
       end
