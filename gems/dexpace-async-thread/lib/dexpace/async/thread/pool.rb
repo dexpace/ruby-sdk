@@ -332,10 +332,22 @@ module Dexpace
         # what reaches here is a defect IN the block, emitted as a diagnostic rather than demoted
         # into any caller's result. Interrupt is the case worth naming: Ctrl-C is delivered to
         # the main thread, so swallowing it here discards nothing.
+        #
+        # The net is INSIDE Diagnostics.with, not around it (review round 3's R3-1): the
+        # diagnostic is the one log event this gem emits on the caller's behalf after the hop,
+        # and ASYNC-8's purpose is that such events keep the caller's correlation, so it is
+        # emitted while the task's snapshot is still installed -- `trace.id` on the diagnostic is
+        # the id of the caller whose block raised. A net around `.with` reported after the
+        # restore, on a worker whose own context is empty by construction (measured: payload keys
+        # exactly [cause, event], trace.id nil, on every row). Nothing outside the net can raise:
+        # `.with`'s install and restore are `Fiber[]=` over the Symbol keys `.capture` read off a
+        # fiber's storage, so the worker's survival is still structural.
         def run(job)
-          Dexpace::Instrumentation::Diagnostics.with(job.snapshot) { job.block.call }
-        rescue ::Exception => error # rubocop:disable Lint/RescueException -- P8-22: the worker never dies; see the method comment
-          report_failure(error)
+          Dexpace::Instrumentation::Diagnostics.with(job.snapshot) do
+            job.block.call
+          rescue ::Exception => error # rubocop:disable Lint/RescueException -- P8-22: the worker never dies; see the method comment
+            report_failure(error)
+          end
         ensure
           # R8/R9, boundary 2 of 2, not redundant with the thread-start clear: Diagnostics.with
           # restores only (prior.keys | snapshot.keys), so a key the BLOCK itself writes -- an
@@ -362,7 +374,9 @@ module Dexpace
         # §3.7's second disposal route for a failure with no primary to attach to: one ERROR
         # diagnostic under INSTRUMENTATION_HOOK, inside Instrumentation.contain, so a raising
         # sink cannot kill the thread reporting through it (OBS-20). Shared by the worker net
-        # and the timer's, which is why the timer takes it as `on_error:`.
+        # and the timer's, which is why the timer takes it as `on_error:`; both call it with the
+        # failing task's or delay's snapshot still installed, so the event's fold reads the caller's
+        # `trace.id` off this fiber (ASYNC-8; review round 3's R3-1).
         def report_failure(error)
           contained do
             @logger.event(Dexpace::Instrumentation::Severity::ERROR)

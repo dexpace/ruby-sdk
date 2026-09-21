@@ -160,7 +160,9 @@ module Dexpace
 
         # P8-22 for the timer thread: a callback that raises -- a Hooks.notify re-raise out of a
         # caller's #on_settle handler on a delay future is the reachable case -- is reported and
-        # the thread lives. `on_error` is the pool's contained diagnostic, total by construction.
+        # the thread lives. `on_error` is the pool's contained diagnostic, total by construction,
+        # and #fire and #shut_down call it with the entry's snapshot still installed, so the
+        # diagnostic carries the delay caller's correlation.
         def guarded
           yield
         rescue ::Exception => error # rubocop:disable Lint/RescueException -- the timer thread never dies; see the class comment
@@ -183,15 +185,20 @@ module Dexpace
 
         # The timer thread's hop (ASYNC-8): the entry's captured context installed for the
         # callback's duration and the thread's prior context restored after it, through 5b's
-        # Diagnostics.with exactly as Pool#run does it, inside the net. Then P8-20's boundary 2
-        # of 2, not redundant with the thread-start clear: `.with` restores only
-        # (prior.keys | snapshot.keys), so a key the HANDLER itself writes is in neither set and
-        # would be visible to every later handler on this thread (measured: {written_by_handler:
-        # "LEAK"} on the next delay's callback). After the thread-start clear the prior map is
-        # provably empty, so re-running the clear IS "restore prior".
+        # Diagnostics.with exactly as Pool#run does it, with the net INSIDE the install (review
+        # round 3's R3-1): `on_error` is the pool's defect diagnostic, the one log event emitted
+        # on the delay caller's behalf after the hop, and it folds the caller's `trace.id` only
+        # while the snapshot is still installed -- a net around `.with` reported after the
+        # restore, on a thread whose own context is empty by construction. `.with`'s own frame
+        # cannot raise over a `.capture` snapshot, so the thread's survival is still the body's
+        # net. Then P8-20's boundary 2 of 2, not redundant with the thread-start clear: `.with`
+        # restores only (prior.keys | snapshot.keys), so a key the HANDLER itself writes is in
+        # neither set and would be visible to every later handler on this thread (measured:
+        # {written_by_handler: "LEAK"} on the next delay's callback). After the thread-start clear
+        # the prior map is provably empty, so re-running the clear IS "restore prior".
         def fire(entry)
-          guarded do
-            Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) { entry.on_fire.call }
+          Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) do
+            guarded { entry.on_fire.call }
           end
         ensure
           clear_fiber_storage
@@ -200,12 +207,13 @@ module Dexpace
         # The shutdown outcome, on whichever thread stopped the timer -- the closer's, a worker's
         # whose task closed its own pool, the timer's own when a delay handler did (P8-76), or
         # the scheduling caller's for an entry refused after #stop -- under the same install and
-        # restore (ASYNC-9: that thread's prior context is saved and put back), and with no clear
-        # after: a caller's thread is not this timer's to empty, and a worker's or the timer's own
-        # is cleared by its own boundary-2 ensure once the enclosing task or callback returns.
+        # restore (ASYNC-9: that thread's prior context is saved and put back), the net inside it
+        # for the same reason as #fire's, and with no clear after: a caller's thread is not this
+        # timer's to empty, and a worker's or the timer's own is cleared by its own boundary-2
+        # ensure once the enclosing task or callback returns.
         def shut_down(entry)
-          guarded do
-            Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) { entry.on_shutdown.call }
+          Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) do
+            guarded { entry.on_shutdown.call }
           end
         end
 
