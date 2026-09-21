@@ -66,6 +66,50 @@ class PoolDelayTest < DexpaceTestCase
       assert_match(/got NilClass/, error.message)
     end
 
+    # Review round 1's R1-1. A NaN answers false to negative? AND zero?, so the design's two checks
+    # let it through to the timer, whose list is ordered by deadline: the NaN entry made next_wait
+    # raise inside the timer thread's net (one diagnostic, the thread gone for good with its slot
+    # still set, the future never settled) and every later #delay on the pool raised a bare
+    # ArgumentError from the sort. Refused before anything is scheduled, and the pool stays usable.
+    test "P8-77: a NaN duration is refused before any timer exists; a later delay still fires" do
+      pool = build
+      before = ::Thread.list.size
+
+      error = assert_raises(Dexpace::InvalidArgumentError) { pool.delay(Float::NAN) }
+
+      assert_match(/\Aduration must be finite, got NaN\z/, error.message)
+      assert_equal(before, ::Thread.list.size)
+      assert_empty(timer_entries(pool))
+      assert_equal(true, pool.delay(0.01).value(deadline: within(5))) # rubocop:disable Minitest/AssertTruthy -- the settled VALUE
+    end
+
+    # finite? is Numeric's own protocol and covers NaN and both infinities in one call, so an
+    # infinite duration is refused with NaN rather than admitted as an entry that never fires;
+    # the negative one is caught by the negative check first, whichever the caller meant.
+    test "P8-77: an infinite duration is refused as non-finite; a negative infinity as negative" do
+      pool = build
+
+      error = assert_raises(Dexpace::InvalidArgumentError) { pool.delay(Float::INFINITY) }
+
+      assert_match(/\Aduration must be finite, got Infinity\z/, error.message)
+      error = assert_raises(Dexpace::InvalidArgumentError) { pool.delay(-Float::INFINITY) }
+
+      assert_match(/\Aduration must not be negative, got -Infinity\z/, error.message)
+      assert_empty(timer_threads)
+      assert_empty(timer_entries(pool))
+    end
+
+    # A Complex is a Numeric with no order and no #negative?: the design's check raised a bare
+    # NoMethodError from a method whose contract is InvalidArgumentError.
+    test "P8-77: a Complex duration raises InvalidArgumentError, never NoMethodError" do
+      pool = build
+
+      error = assert_raises(Dexpace::InvalidArgumentError) { pool.delay(Complex(1, 1)) }
+
+      assert_match(/\Aduration must be a real number, got \(1\+1i\)\z/, error.message)
+      assert_empty(timer_threads)
+    end
+
     test "a zero delay settles with true before #delay returns and spawns no timer thread" do
       pool = build
 

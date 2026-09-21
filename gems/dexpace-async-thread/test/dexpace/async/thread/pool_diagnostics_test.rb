@@ -42,11 +42,19 @@ class PoolDiagnosticsTest < DexpaceTestCase
     ::Fiber[:tenant] = nil
   end
 
+  # The restore is asserted, not assumed (the design's testing strategy, group 4: "a teardown-order
+  # assertion proves the restoration itself"): after the per-key restore the main fiber's
+  # compacted storage must read exactly as it did before setup wrote the build-time keys, core's
+  # reserved slots included. It lives in teardown because the restore does -- the base's own
+  # thread count is the precedent for an assertion there.
   def teardown
     @pool.close
     (@prior_storage.keys | Diagnostics.capture.keys | %i[trace.id tenant]).each do |key|
       ::Fiber[key] = @prior_storage[key]
     end
+
+    assert_equal(@prior_storage, Diagnostics.capture, # rubocop:disable Minitest/AssertionInLifecycleHook -- the teardown-order assertion the design's testing strategy names; the restore it proves runs here
+                 "teardown did not restore the main fiber's storage",)
     super
   end
 

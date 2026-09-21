@@ -71,6 +71,22 @@ class PoolTest < DexpaceTestCase
       assert_match(/\Aname must be a non-empty String/, error.message)
     end
 
+    # P8-77 (review round 1's R1-1, the same validation shape one keyword over): a budget is a
+    # bound. A NaN passed "Numeric and not negative" and made #release's deadline arithmetic raise
+    # a bare ArgumentError out of #close with the latch already flipped; an infinity is the
+    # unbounded close XCUT-13 forbids for this gem; a Complex has no #negative? at all.
+    test "P8-77: shutdown_timeout refuses NaN, either infinity and a Complex, naming the keyword" do
+      [Float::NAN, Float::INFINITY, -Float::INFINITY, Complex(1, 1)].each do |bad|
+        error = assert_raises(Dexpace::InvalidArgumentError) do
+          Pool.build(size: 1, shutdown_timeout: bad)
+        end
+
+        assert_match(/\Ashutdown_timeout must be a finite, non-negative Numeric/, error.message,
+                     bad.inspect,)
+      end
+      refute_predicate(build(size: 1, shutdown_timeout: Rational(1, 2)), :closed?)
+    end
+
     test "name, shutdown_timeout, logger and clock default; size and queue_limit read back" do
       pool = build(size: 1, queue_limit: 3)
 
