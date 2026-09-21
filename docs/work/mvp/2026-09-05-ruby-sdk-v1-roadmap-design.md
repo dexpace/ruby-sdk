@@ -2742,6 +2742,25 @@ design.
   report rather than an SDK change. Touches `TRANSPORT-8`, `ASYNC-6` and nothing normative in the
   code. Recorded by phase 8c on its docs branch; referred to by date and content, never by ordinal,
   because 8b's lane is writing to the same list.
+- **The portable `TRANSPORT-7` row proves its delivered-body clause by chance against a streaming
+  adapter.** Found 2026-09-21 by phase 8c's review round 1 (R1-1), measured by the fix round: the row
+  cancels the token on a second thread the moment the server has written the head, and against a
+  streaming adapter that cancel lands either before the adapter has checked its token on the
+  delivered head (the send surfaces the cancellation — the in-flight path) or after the consumer's
+  body read has blocked (the read does), a race the contract's primitives cannot settle without a
+  bound inside the assertion, because an eager adapter's send never returns under the script and only
+  the server can signal it. Against a mutant of `Dexpace::Transport::AsyncHTTP` with the watcher's
+  close of a delivered response deleted, half the runs on 4.0.6 and two thirds on 3.3.12 passed through
+  the send path and the rest hung in the read until the async driver bounded `around:` from a parent
+  task; the adapter's own
+  `cancellation_test.rb` pins the body path deterministically (the consumer signals from inside the
+  read, and the test refutes its own bound as the wake's cause), and the row's comment in
+  `transport_suite/asynchronous.rb` states the race. A deterministic portable form — the script
+  writing head and first chunk, the consumer signalling after it, an eager adapter measured vacuous
+  through a short transport timeout — changes what the row asserts on 8a's driver and 8a's own
+  `RawWireTransport` proof, so it is conformance-gem work for the phase that next touches the suite,
+  not a fix round's. Touches `TRANSPORT-7` and nothing normative in the code. Recorded by phase 8c's
+  review round 1 on its docs branch; referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4831,7 +4850,7 @@ carries `Connection: close`, with every 8a count unchanged. **The repository** g
 `VERSIONS`' `floor:<gem>` row, `DexpaceVersions.ruby_floor(gem)` and `.gem_supported?`, the two gates
 and the three loaders (`Gemfile`, `test:gems`, `gates:clean_bundle`) reading it, and two gate fixtures;
 the `Steepfile`'s `:async_http` target relaxed exactly as `:serde_json`'s; `test/support/async_http_warmup.rb`;
-and two surface manifests regenerated once — core 1 335 → 1 336, `async_http` 2 → 24, `conformance`
+and two surface manifests regenerated once — core 1 335 → 1 336, `async_http` 2 → 25, `conformance`
 unchanged. Four earlier-phase test files changed on the code branch as pins the code moved
 (`keys_test.rb`, `downstream_wirings_test.rb`, 8a's driver's size pin, `lifecycle_test.rb`'s) plus
 8a's `keep_alive_twice` fixture passing `close: false`, and core's `async_transport_test.rb` moved its
@@ -4863,18 +4882,19 @@ reactor-exit drain, `P8-37` as built, the h2 double release and the 4.0 warning;
 this phase and phase 10's inbound list carries the pointer, by date and content. The checklist is at
 `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md`: ten own rows —
 nine ✅ and `ASYNC-21` N/A with its one honourable property asserted — plus eleven cross-reference rows;
-the reviewer's thirty mutations run as thirty-three rows on 4.0.6 and 3.3.12 (the gem's floor row;
-3.2.11 has no bundle for it), thirty red on both and three equivalent mutants recorded with their
+the reviewer's thirty mutations run as thirty-six rows on 4.0.6 and 3.3.12 (the gem's floor row;
+3.2.11 has no bundle for it), thirty-three red on both and three equivalent mutants recorded with their
 measurement (`Kernel#Async` is the current task's child; core's `Completer#fulfil` closes what a settled
 pivot is handed, so check-after-resume is a shortcut; a raise inside `#dispatch`'s fence is still a
-settlement) — thirty-five rows after review round 0, whose two surviving extra mutants (the `BINARY`
-retag unobserved by a BINARY-only fixture; `Exchange#net`'s settle with no fixture reaching it) were
-each given the guard that runs them red on 2026-09-21, thirty-two red in all — after five guards the
+settlement) — thirty-nine rows after review rounds 0 and 1, whose three surviving extra mutants (the
+`BINARY` retag unobserved by a BINARY-only fixture; `Exchange#net`'s settle with no fixture reaching it;
+the watcher's close of a delivered response indistinguishable from the body-path test's own bound) were
+each given the guard that runs them red on 2026-09-21, thirty-six red in all — after five guards the
 first pass found missing were added — the mutex scan reaching
 `build_client`, `assert_exchange_released` over the watcher's annotation, `reactor_over` closing a
 holding fixture inside the reactor so a blocked exchange fails instead of hanging, every wait bounded,
 and `TRANSPORT-3`'s list carrying the SDK's own errors; the design's facts re-run on 3.3.12, 3.4.10 and
-4.0.6, eight of them as `matrix_facts_test.rb` printing the row's versions; forty-one departures from
+4.0.6, eight of them as `matrix_facts_test.rb` printing the row's versions; forty-two departures from
 the plan's text itemised, among them the nine suites wrapped into modules of nested classes and the
 conformance groups split in two under the metric cops, and the two found only by the whole-repository
 `test:gems` process. The driver reports **four** skips, not the plan's three — two assertions carry
@@ -4885,11 +4905,11 @@ eighteen gates run individually on 4.0.6 (`test:gems` 3,713 runs, 72,711 asserti
 0 errors, 3 skips — 8a's — and 97.55 % line coverage, above the floor, so no tip in the stack is red; the
 honest RuboCop run over 683 files clean; `gates:clean_bundle` loading all six gems) and on the 3.2.11
 matrix row (3,704 runs, 72,677 assertions, 3 skips, `gates:clean_bundle` five gems — this gem absent by
-its floor); the tests tip green on the whole default task on 4.0.6 (3,897 runs, 73,482 assertions,
+its floor); the tests tip green on the whole default task on 4.0.6 (3,898 runs, 73,490 assertions,
 0 failures, 0 errors, **7 skips** — 8a's three and this driver's four — 99.88 % line coverage; the honest
-RuboCop run over 707 files clean; `steep check` over six targets clean), on the matrix set on 3.2.11
-(3,712 runs, 72,726 assertions, 3 skips, five gems), 3.3.12 (3,897 runs, 73,482 assertions, 7 skips, six
-gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (3,897 runs, 7 skips), with
+RuboCop run over 708 files clean; `steep check` over six targets clean), on the matrix set on 3.2.11
+(3,712 runs, 72,726 assertions, 3 skips, five gems), 3.3.12 (3,898 runs, 73,490 assertions, 7 skips, six
+gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (3,898 runs, 7 skips), with
 `matrix_facts_test.rb` printing `async-http 0.105.0, async 2.46.0, protocol-http 0.72.0` on the two rows
 that carry the gem; the docs tip green on the default task, the honest RuboCop run, the probe, the
 knowledge-structure verifier, the housekeeping and knowledge test suites, and every `ruby` fence of
@@ -4910,3 +4930,26 @@ bullet joins phase 10's inbound list above — the design's facts 8 and 10 stale
 ordinal, because 8b's lane is writing to the same list. The consolidation of `P8-36`–`P8-40` and
 `P8-91`–`P8-102` into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is
 frozen.
+
+**2026-09-21, review rounds 0 and 1 of the phase-8c stack.** Round 0 returned `changes_requested` with
+one blocking finding and six others, every one repaired in place in the note above on the branch that
+owns the file — the hermetic configuration double behind every default pin, the collection's
+`async/2.12` row with its measured reason, guards 34 and 35, the page's forged-request and post-close
+examples — and one deferred to the manager (the merge-order sentences). Round 1 returned
+`changes_requested` with one should-fix and two nits. Should-fix, on the tests branch: the body-path
+cancellation test passed with the watcher's close of a delivered response deleted, because its own
+five-second `with_timeout` fired inside the native read and the adapter's token-first classifier
+turned that `Async::TimeoutError` into the `CancelledError` the test expected, body closed — the test
+now refutes `Async::TimeoutError` as the cancellation's cause (guard 37, red on 4.0.6 and 3.3.12); and
+the same mutant hung the portable `TRANSPORT-7` row under the async driver whenever its race fell
+on the body path (half the runs on 4.0.6, a third on 3.3.12), so the driver's `around:` now runs
+each assertion as a child task and bounds the parent's wait at thirty seconds, cancelling the child
+and flunking by name on expiry — a bound raised into the assertion's own fiber meets the same
+classifier and was measured PASSING the row thirty seconds late, which is why the child-task shape and
+not the reviewer's one-liner (deviation 42). The row's comment on the code branch now states that its
+delivered-body clause is proven by chance against a streaming adapter, and the deterministic portable
+form is a dated bullet on phase 10's inbound list above. The nits: the counts in this note were round
+0's (the tests tip is 3,898 runs and 73,490 assertions on every six-gem row after guards 35 and 37,
+and the `async_http` manifest is 25 rows, a gain of twenty-three), and the gemspec's comment
+understated `~> 0.104`, which admits every 0.x release from 0.104 on. Nothing in `lib/` changed but
+two comments; every gate re-run green at every tip.

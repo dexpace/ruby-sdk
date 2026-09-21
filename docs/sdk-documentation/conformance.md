@@ -213,7 +213,10 @@ inside; and `wire:` (clause 11) is the fixture factory, whatever answers `_Wire`
 `#connections`, `#closed_connections`, `#await_closed_connection`, `#close` — so an HTTP/2 server can
 stand in for `WireServer` without this gem naming an async constant. `dexpace-transport-async_http`'s
 driver is the second one built to it (`gems/dexpace-transport-async_http/test/dexpace/transport/async_http/conformance_test.rb`):
-`settle:` awaits the future inside `around:`'s reactor, and on a thread of an assertion's own —
+`settle:` awaits the future inside `around:`'s reactor — which runs the assertion as a child task and
+bounds the parent's wait at thirty seconds, cancelling the child and flunking the row on expiry, so an
+adapter that never releases what it holds fails the run instead of hanging it — and on a thread of
+an assertion's own —
 `TRANSPORT-5`'s pair and `TRANSPORT-29`'s eight — opens a reactor per settle and reads the body inside
 it before handing the response out, because under `async-http` a response cannot outlive the reactor
 that produced it (`docs/sdk-documentation/transport-async_http.md`). Its run is four skips — the three
