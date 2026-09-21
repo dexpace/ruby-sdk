@@ -82,8 +82,8 @@ class ComposedTransportTest < DexpaceTestCase
                                      Dexpace::Cancellation.none,)
       response = future.value(deadline: within(10))
 
-      assert_match(/\Acomposed worker [01]\z/, seen.pop)
-      assert_same(response, seen.pop,
+      assert_match(/\Acomposed worker [01]\z/, seen.pop(timeout: 5))
+      assert_same(response, seen.pop(timeout: 5),
                   "the object the adapter built is the object the future delivered",)
       assert_kind_of(Dexpace::Response, response)
       assert_equal(200, response.status.code)
@@ -144,7 +144,7 @@ class ComposedTransportTest < DexpaceTestCase
       async(recording).call(request, options,
                             Dexpace::Cancellation.none,).value(deadline: within(10)).close
 
-      assert_same(options, recorded.pop)
+      assert_same(options, recorded.pop(timeout: 5))
     end
   end
 
@@ -217,14 +217,14 @@ class ComposedTransportTest < DexpaceTestCase
       source = Dexpace::Cancellation.source
       sync = Dexpace::AsyncTransport.sync_over(async)
       canceller = ::Thread.new do
-        blocked.pop
+        blocked.pop(timeout: 5)
         source.cancel(:interrupted)
       end
 
       error = assert_raises(Dexpace::CancelledError) do
         sync.call(request, Dexpace::RequestOptions::EMPTY, source.token)
       end
-      canceller.join
+      refute_nil(canceller.join(5), "the canceller never returned")
 
       assert_equal(:interrupted, error.reason)
       refute_kind_of(::IOError, error)

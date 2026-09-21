@@ -90,7 +90,7 @@ class PoolConcurrencyTest < DexpaceTestCase
         end
       end
       # Close only once the poster is provably in its loop -- a condition, not a sleep.
-      posting.pop
+      refute_nil(posting.pop(timeout: 5), "the poster never entered its loop")
       @pool.close
       poster.join(5)
 

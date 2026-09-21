@@ -120,7 +120,7 @@ class PoolTest < DexpaceTestCase
           gate.pop
         end
       end
-      seen = Array.new(3) { names.pop }
+      seen = Array.new(3) { names.pop(timeout: 5) }
       3.times { gate << :go }
 
       assert_equal(before + 3, ::Thread.list.size)
@@ -209,7 +209,8 @@ class PoolTest < DexpaceTestCase
         entered << :in
         gate.pop
       end
-      entered.pop # the one worker is provably occupied
+
+      refute_nil(entered.pop(timeout: 5), "the occupying task never ran") # the worker is occupied
       pool.post { nil } # fills the one-slot queue
 
       submitter = ::Thread.new do
@@ -232,7 +233,8 @@ class PoolTest < DexpaceTestCase
         entered << :in
         gate.pop
       end
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the occupying task never ran")
       pool.post { nil }
 
       error = assert_raises(Dexpace::Async::Thread::RejectedError) { pool.post { nil } }
@@ -242,12 +244,19 @@ class PoolTest < DexpaceTestCase
       gate << :go
     end
 
+    # The diagnostic is emitted UNDER the posting caller's context (review round 3's R3-1): it is
+    # the one log event the pool emits on a caller's behalf after the hop, and ASYNC-8's purpose is
+    # that such events keep the caller's correlation. Logger.build's default diagnostic keys fold
+    # `trace.id` off the emitting fiber at emit time, so the id on the payload is the id installed
+    # on the worker when the net ran -- nil when the net sat outside Diagnostics.with's restore.
     test "P8-22: a task that raises a ScriptError does not shrink the pool; the next task runs" do
       sink = PoolRecordingSink.new
       pool = build(size: 1, logger: Dexpace::Instrumentation::Logger.build(sink: sink))
       ran = ::Thread::Queue.new
 
-      pool.post { raise ::NotImplementedError, "a defect in the block" }
+      Dexpace::Instrumentation::Diagnostics.with({ "trace.id": "DEFECT-7" }) do
+        pool.post { raise ::NotImplementedError, "a defect in the block" }
+      end
       pool.post { ran << ::Thread.current.name }
 
       assert_equal("#{pool.name} worker 0", ran.pop(timeout: 5), "the worker died")
@@ -257,6 +266,8 @@ class PoolTest < DexpaceTestCase
       assert_equal(1, hook.size)
       assert_equal(:error, hook.first.severity)
       assert_includes(hook.first.payload.to_s, "a defect in the block")
+      assert_equal("DEFECT-7", hook.first.payload["trace.id"],
+                   "ASYNC-8: the defect diagnostic must carry the posting caller's trace id",)
     end
 
     test "P8-22: the worker survives exit, Interrupt and NoMemoryError from a block, silently" do
@@ -326,13 +337,15 @@ class PoolTest < DexpaceTestCase
         ran << :first
       end
       pool.post { ran << :second }
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the first task never ran")
 
       closer = ::Thread.new { pool.close }
       gate << :go
-      closer.join
 
-      assert_equal(%i[first second], [ran.pop, ran.pop])
+      refute_nil(closer.join(5), "close never returned")
+
+      assert_equal(%i[first second], Array.new(2) { ran.pop(timeout: 5) })
       assert_predicate(pool, :closed?)
     end
 
@@ -401,7 +414,8 @@ class PoolTest < DexpaceTestCase
         entered << :in
         gate.pop
       end
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the stuck task never ran")
 
       closer = ::Thread.new { pool.close }
 
@@ -435,7 +449,8 @@ class PoolTest < DexpaceTestCase
         gate.pop
         outcome << [::Thread.current.name, pool.close]
       end
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the closing task never ran")
       pool.post { ran << :queued_behind_the_closer }
       gate << :go
 

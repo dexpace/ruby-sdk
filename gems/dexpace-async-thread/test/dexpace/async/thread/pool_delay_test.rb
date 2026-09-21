@@ -363,15 +363,22 @@ class PoolDelayTest < DexpaceTestCase
     end
   end
 
-  # P8-22 extended to the timer thread.
+  # P8-22 extended to the timer thread. Both diagnostics are emitted UNDER the delay caller's
+  # context (review round 3's R3-1): the timer's on_error runs inside Diagnostics.with on the
+  # timer thread and on the closing thread alike, so the `trace.id` Logger.build folds by default
+  # is the scheduling caller's -- nil when the net sat outside the restore.
   class ContainmentTest < PoolDelayTest
+    Diagnostics = Dexpace::Instrumentation::Diagnostics
+
     # Hooks.notify RE-RAISES a raising #on_settle handler out of Completer#fulfil, on the timer
     # thread; without the timer's own net one caller's handler would kill it, strand every later
     # delay and turn the next #close into a raise through the join.
     test "P8-22: a raising on_settle handler on a delay future is reported; the timer survives" do
       sink = PoolRecordingSink.new
       pool = build(logger: Dexpace::Instrumentation::Logger.build(sink: sink))
-      pool.delay(0.01).on_settle { raise "handler boom" }
+      Diagnostics.with({ "trace.id": "DEFECT-8" }) do
+        pool.delay(0.01).on_settle { raise "handler boom" }
+      end
       later = pool.delay(0.03)
 
       assert_equal(true, later.value(deadline: within(5))) # rubocop:disable Minitest/AssertTruthy -- the settled VALUE
@@ -379,19 +386,27 @@ class PoolDelayTest < DexpaceTestCase
 
       assert_equal(1, hook.size)
       assert_includes(hook.first.payload.to_s, "handler boom")
+      assert_equal("DEFECT-8", hook.first.payload["trace.id"],
+                   "ASYNC-8: the timer's defect diagnostic must carry the delay caller's trace id",)
       assert_nil(pool.close)
     end
 
+    # The shutdown path runs on the CLOSING thread under the delay caller's snapshot, so the
+    # diagnostic carries that caller's id and not the closer's.
     test "P8-22: a raising on_shutdown settlement handler is reported and #close still returns" do
       sink = PoolRecordingSink.new
       pool = build(logger: Dexpace::Instrumentation::Logger.build(sink: sink))
-      pool.delay(10.0).on_settle { raise "shutdown handler boom" }
+      Diagnostics.with({ "trace.id": "DEFECT-9" }) do
+        pool.delay(10.0).on_settle { raise "shutdown handler boom" }
+      end
 
-      assert_nil(pool.close)
+      Diagnostics.with({ "trace.id": "CLOSER" }) { assert_nil(pool.close) }
       hook = sink.events_named(Dexpace::Instrumentation::Events::INSTRUMENTATION_HOOK)
 
       assert_equal(1, hook.size)
       assert_includes(hook.first.payload.to_s, "shutdown handler boom")
+      assert_equal("DEFECT-9", hook.first.payload["trace.id"],
+                   "ASYNC-8: the shutdown diagnostic must carry the delay caller's id, not CLOSER",)
     end
   end
 

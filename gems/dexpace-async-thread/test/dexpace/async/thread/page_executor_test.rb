@@ -79,7 +79,9 @@ class PageExecutorTest < DexpaceTestCase
 
     assert(workers.all? { |name| name.to_s.start_with?("paging worker ") },
            "the consumer ran off the pool: #{workers.inspect}",)
-    assert(Array.new(2) { calls.pop }.all? { |name| name.to_s.start_with?("paging worker ") },
+    posters = Array.new(2) { calls.pop(timeout: 1) }
+
+    assert(posters.all? { |name| name.to_s.start_with?("paging worker ") },
            "the bridged transport ran on the executor's worker, which posted the dispatch",)
   end
 

@@ -59,7 +59,7 @@ class BridgeTest < DexpaceTestCase
 
       async.call(request, nil, nil).value(deadline: within(5))
 
-      assert_equal("#{pool.name} worker 0", seen.pop)
+      assert_equal("#{pool.name} worker 0", seen.pop(timeout: 5))
     end
 
     test "ASYNC-2/ASYNC-13: a raised failure arrives as the identical exception object" do
@@ -99,7 +99,8 @@ class BridgeTest < DexpaceTestCase
         entered << :in
         gate.pop
       end
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the occupying task never ran")
       pool_limited.post { nil } # the one slot
       async = Dexpace::Transport.async_over(PoolFakeTransport.new(response: :ok),
                                             executor: pool_limited,)
@@ -143,7 +144,9 @@ class BridgeTest < DexpaceTestCase
       async = Dexpace::Transport.async_over(transport, executor: pool)
 
       future = async.call(request, nil, source.token)
-      entered.pop # the worker is provably inside #call, past the pre-dispatch check
+
+      # The worker is provably inside #call, past the pre-dispatch check.
+      refute_nil(entered.pop(timeout: 5), "the worker never entered #call")
       source.cancel(:too_late) # cancel BEFORE the worker's #call returns
       gate << :go # now let the transport return the response
 
@@ -183,7 +186,8 @@ class BridgeTest < DexpaceTestCase
         occupied << :in
         occupy_gate.pop # occupy the one worker so the second unit stays queued
       end
-      occupied.pop
+
+      refute_nil(occupied.pop(timeout: 5), "the occupying task never ran")
 
       response = CountingResponse.new
       source = Dexpace::Cancellation.source
@@ -220,7 +224,8 @@ class BridgeTest < DexpaceTestCase
       source = Dexpace::Cancellation.source
 
       future = async.call(request, nil, source.token)
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the worker never entered #call")
       source.cancel(:abandoned)
 
       refute_predicate(future, :settled?,
@@ -258,11 +263,11 @@ class BridgeTest < DexpaceTestCase
       # The canceller waits on the double's `entered` queue, not on a clock: it fires once the
       # worker is provably inside #call and blocked on the gate.
       canceller = ::Thread.new do
-        entered.pop
-        source.cancel(:interrupted)
+        entered.pop(timeout: 5).tap { source.cancel(:interrupted) }
       end
       error = assert_raises(Dexpace::CancelledError) { sync.call(request, nil, source.token) }
-      canceller.join
+      refute_nil(canceller.join(5), "the canceller never returned")
+      refute_nil(canceller.value, "the worker never entered #call")
       gate << :go # release the worker so it does not linger past the test
 
       assert_equal(:interrupted, error.reason)
@@ -315,10 +320,12 @@ class BridgeTest < DexpaceTestCase
       async = Dexpace::Transport.async_over(transport, executor: pool)
 
       future = async.call(request, nil, nil)
-      entered.pop
+
+      refute_nil(entered.pop(timeout: 5), "the worker never entered #call")
       closer = ::Thread.new { pool.close }
       gate << :go
-      closer.join
+
+      refute_nil(closer.join(5), "close never returned")
 
       assert_equal(:finished, future.value(deadline: within(5)))
     end
