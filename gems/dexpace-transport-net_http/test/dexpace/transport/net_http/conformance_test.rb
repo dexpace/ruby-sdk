@@ -9,8 +9,12 @@ require "dexpace/conformance"
 # The shared conformance suite run against the real adapter (8a's R16, the suite contract):
 # one generated test per assertion, driven through MinitestDriver with no `settle:`, `around:`
 # or `wire:` -- the defaults ARE this adapter's shape -- and `waive: []`, because TRANSPORT-28's
-# zero-copy clause has no assertion to suppress. TRANSPORT-18 reports vacuous (a skip in
-# Minitest's vocabulary): with max_retries = 0 no native re-subscription exists to measure.
+# zero-copy clause has no assertion to suppress. Three report vacuous BY MEASUREMENT (a skip in
+# Minitest's vocabulary): TRANSPORT-18, because with max_retries = 0 no native re-subscription
+# exists; and, since phase 8c appended its six portable assertions, TRANSPORT-12 and TRANSPORT-13,
+# because net-http sends a model-valid non-token name rather than rejecting it -- the same
+# antecedent this file's own cross-reference test measures absent. 8c's other four (TRANSPORT-7,
+# 9, 21, 23) pass against this adapter as real properties of it.
 # The class inherits DexpaceTestCase so a fixture thread an assertion leaked fails the test that
 # leaked it, and includes NetHTTPHermeticProxy so the adapter every assertion builds resolves no
 # proxy from the host's environment.
@@ -46,16 +50,18 @@ class DexpaceTransportNetHttpConformanceTest < DexpaceTestCase
   )
 
   # The driver's own contract, checked rather than assumed: every assertion in the suite became
-  # a test method here, and the suite still carries no TRANSPORT-12 or TRANSPORT-13 row.
-  test "one generated test per assertion, and none for the two IDs the suite does not carry" do
+  # a test method here. The suite carries TRANSPORT-12 and TRANSPORT-13 since phase 8c, whose
+  # rows they are; against this adapter each resolves vacuous by measurement (the skips above).
+  test "one generated test per assertion, 8c's six included" do
     generated = public_methods(false).grep(/\Atest_/).reject do |name|
       name.to_s.start_with?("test_: ")
     end
     ids = Dexpace::Conformance::TransportSuite.assertions.flat_map(&:ids).uniq
 
     assert_equal(Dexpace::Conformance::TransportSuite.assertions.size, generated.size)
-    refute_includes(ids, "TRANSPORT-12")
-    refute_includes(ids, "TRANSPORT-13")
+    assert_equal(34, generated.size)
+    assert_includes(ids, "TRANSPORT-12")
+    assert_includes(ids, "TRANSPORT-13")
   end
 
   # What a real third-party adapter author would write: the borrow lambda sets max_retries = 0

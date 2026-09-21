@@ -9,9 +9,10 @@ require_relative "../../../support/non_conforming_transport"
 require "dexpace/conformance"
 
 # Group 5 (8a plan Task 13): TRANSPORT-5, 6, 15, 16, 29 and phase 7c's PAGE-36, each proven in
-# both directions. This is also the file that closes the registry: the whole suite is 28
-# assertions, one of them vacuous by measurement, none of them TRANSPORT-12's or TRANSPORT-13's
-# (phase 8c's rows, asserted by 8c's driver).
+# both directions. This is also the file that pins the registry's size: the whole suite was 28
+# assertions in five groups, one of them vacuous by measurement, until phase 8c appended its two
+# (asynchronous_test.rb, header_drops_test.rb) -- 34 in seven, TRANSPORT-8 still absent by
+# decision.
 class DexpaceConformanceLifecycleAssertionsTest < DexpaceTestCase
   include AssertionProbe
 
@@ -22,15 +23,19 @@ class DexpaceConformanceLifecycleAssertionsTest < DexpaceTestCase
     end
   end
 
-  test "the suite is exactly 28 assertions in five groups, with no TRANSPORT-12 or TRANSPORT-13" do
-    assert_equal(28, Suite.assertions.size)
+  # Twenty-eight in five groups until phase 8c added its six assertions in two groups after this
+  # one (TRANSPORT-7, 9, 21, 23, then 12 and 13 -- and not TRANSPORT-8, which PREAMBLE names as
+  # the third thing a green run does not prove): 34 in seven.
+  test "the suite is exactly 34 assertions in seven groups, this one fifth" do
+    assert_equal(34, Suite.assertions.size)
     assert_equal([%w[TRANSPORT-5], %w[TRANSPORT-6], %w[TRANSPORT-15], %w[TRANSPORT-15 TRANSPORT-16],
                   %w[TRANSPORT-29], %w[PAGE-36],], Suite.assertions[22, 6].map(&:ids),)
     ids = Suite.assertions.flat_map(&:ids).uniq
 
-    assert_empty(ids & %w[TRANSPORT-12 TRANSPORT-13])
-    assert_equal(22, ids.grep(/\ATRANSPORT-/).size,
-                 "the 23 own IDs minus TRANSPORT-30, whose proxy assertions are the adapter's own",)
+    assert_equal(28, ids.grep(/\ATRANSPORT-/).size,
+                 "8a's 23 own IDs minus TRANSPORT-30, whose proxy assertions are the adapter's " \
+                 "own, plus 8c's six portable ones",)
+    refute_includes(ids, "TRANSPORT-8")
   end
 
   test "TRANSPORT-5: two concurrent calls each bounded by its own timeout pass; sticky fails" do
