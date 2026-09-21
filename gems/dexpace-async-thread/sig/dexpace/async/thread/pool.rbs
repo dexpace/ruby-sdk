@@ -75,6 +75,7 @@ module Dexpace
         def release: () -> nil
         def stop_timer: (Float deadline) -> nil
         def drain_workers: (Float deadline) -> bool
+        def other_workers: () -> Array[::Thread]
         def emit_shutdown: (bool drained) -> nil
         def contained: () { () -> void } -> nil
       end

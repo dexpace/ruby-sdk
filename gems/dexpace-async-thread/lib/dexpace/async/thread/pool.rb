@@ -212,7 +212,10 @@ module Dexpace
         # Dexpace::Async.delay -- unavailable to a pool worker regardless, since Fiber.scheduler
         # is per thread (design, verified fact 15). A caller's #on_settle on the returned future
         # runs on the TIMER thread, not on a pool worker: a handler that blocks is blocking every
-        # later delay.
+        # later delay. A handler that closes the pool completes the close there -- the timer
+        # thread is not joined by itself, the other outstanding delays are failed and the
+        # shutdown event is emitted (P8-76) -- as a task that closes its own pool does on its
+        # worker.
         #
         # A CLOSED pool fails the future and does not raise: #delay is a method that promised a
         # future, and ASYNC-2 forbids delivering a detectable construction failure synchronously
@@ -350,6 +353,8 @@ module Dexpace
         # once -- the event phase 2 postponed, given its first real subject here. The drain's
         # outcome rides on the event, not the return value: #close is Closeable's method and
         # phase 2 fixes it at nil for every closeable (P8-24 for the absent cancellation:).
+        # It completes from any thread, the pool's own two kinds included: neither the timer's
+        # stop nor the drain ever joins the thread it is running on (P8-76).
         def release
           deadline = @clock.monotonic + @shutdown_timeout
           @queue.close
@@ -372,8 +377,15 @@ module Dexpace
         # The workers are then joined within what is left of the budget, so a drained pool has
         # no thread in Thread.list by the time #close returns, not merely no thread about to
         # exit.
+        #
+        # A #close issued from INSIDE a task counts the worker running it as exited and never
+        # joins it (P8-76): its sentinel cannot arrive until #release returns, so waiting for it
+        # burned the whole budget and reported the drain as failed on every such close, and a
+        # self-join raises ThreadError. That worker exits by itself once the task returns,
+        # running whatever the closed queue still holds first, exactly as after any other close.
         def drain_workers(deadline) # rubocop:disable Naming/PredicateMethod -- a command reporting whether the drain completed inside the budget, on the event's own field
-          remaining = @size
+          others = other_workers
+          remaining = others.size
           while remaining.positive?
             budget = deadline - @clock.monotonic
             return false if budget <= 0
@@ -383,8 +395,14 @@ module Dexpace
 
             remaining -= 1 if exited
           end
-          @workers.each { |worker| worker.join([deadline - @clock.monotonic, 0.0].max) }
+          others.each { |worker| worker.join([deadline - @clock.monotonic, 0.0].max) }
           true
+        end
+
+        # Every worker but the one #close is running on, if it is running on one.
+        def other_workers
+          closer = ::Thread.current
+          @workers.reject { |worker| worker.equal?(closer) }
         end
 
         # SEAM-25's lifecycle event: INFO, the worker count and whether the drain completed

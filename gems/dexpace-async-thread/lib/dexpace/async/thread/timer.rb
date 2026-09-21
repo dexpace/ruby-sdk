@@ -93,6 +93,14 @@ module Dexpace
         # re-raises a dead thread's exception past #close. The entries are failed whether or not
         # the join completed: a caller blocked in #value on a delay that will never fire is the
         # one outcome worse than a slow close.
+        #
+        # A #stop issued FROM the timer thread -- a caller's #on_settle handler on a delay future
+        # that closes the pool, the README's grace-period idiom -- skips the join: Thread#join on
+        # the current thread raises ThreadError, which would escape #close with the latch already
+        # flipped, no event emitted and every other outstanding delay stranded (P8-76). The thread
+        # needs no join to stop: the wake queue is closed here, the next pop answers nil at once,
+        # and #run exits as soon as the handler returns. The leftovers are failed on this thread
+        # as on any other.
         def stop(timeout)
           thread, leftover = @mutex.synchronize do
             @stopped = true
@@ -101,7 +109,7 @@ module Dexpace
             [@thread, taken]
           end
           @wake.close
-          thread&.join(timeout)
+          thread&.join(timeout) unless thread.equal?(::Thread.current)
           leftover.each { |entry| guarded { entry.on_shutdown.call } }
           nil
         end
