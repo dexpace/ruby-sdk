@@ -1,0 +1,45 @@
+# Dexpace::Async::Thread::Timer is a private_constant and not public API: this declaration exists
+# because the `async_thread` Steep target checks every file under lib/ and needs the class
+# declared to type Pool#delay's and #release's call sites. RBS has no visibility for a constant,
+# so the privacy lives in lib/dexpace/async/thread/timer.rb alone. Ruby's Thread is written
+# `::Thread` throughout: inside this namespace the bare name is the gem's module, in RBS as in
+# Ruby.
+module Dexpace
+  module Async
+    module Thread
+      class Timer
+        # A private_constant snapshot; declared so Steep can type the list.
+        class Entry < Data
+          attr_reader deadline: Float
+          attr_reader on_fire: ^() -> void
+          attr_reader on_shutdown: ^() -> void
+
+          def self.new: (deadline: Float, on_fire: ^() -> void, on_shutdown: ^() -> void) -> instance
+        end
+
+        @name: String
+        @on_error: ^(Exception) -> void
+        @clock: Dexpace::_Clock
+        @mutex: ::Thread::Mutex
+        @entries: Array[Entry]
+        @wake: ::Thread::Queue
+        @thread: ::Thread?
+        @stopped: bool
+
+        def initialize: (name: String, on_error: ^(Exception) -> void, clock: Dexpace::_Clock) -> void
+        def schedule: (Numeric delay, on_fire: ^() -> void, on_shutdown: ^() -> void) -> Entry
+        def cancel: (Entry entry) -> nil
+        def stop: (Float timeout) -> nil
+
+        private
+
+        def spawn_thread: () -> ::Thread
+        def wake: () -> void
+        def guarded: () { () -> void } -> void
+        def run: () -> void
+        def next_wait: () -> Float?
+        def take_due: () -> Array[Entry]
+      end
+    end
+  end
+end

@@ -1,0 +1,83 @@
+module Dexpace
+  module Async
+    module Thread
+      class Pool
+        include Dexpace::Closeable
+
+        QUEUE_DEPTH_PER_WORKER: Integer
+        DEFAULT_SHUTDOWN_TIMEOUT: Float
+        DEFAULT_NAME: String
+
+        # The private_constants, declared so the target can type their call sites; the privacy
+        # lives in pool.rb alone. Ruby's Thread is written `::Thread` throughout: inside this
+        # namespace the bare name is the gem's module, in RBS as in Ruby.
+        WORKER_COUNT_FIELD: String
+        DRAINED_FIELD: String
+        WORKER_EXITED: Symbol
+        ELAPSED: bool
+
+        # Crosses the thread boundary: a frozen Data over the captured snapshot and the block.
+        class Job < Data
+          attr_reader snapshot: Hash[Symbol, untyped]
+          attr_reader block: ^() -> void
+
+          def self.new: (snapshot: Hash[Symbol, untyped], block: ^() -> void) -> instance
+        end
+
+        @size: Integer
+        @queue_limit: Integer
+        @shutdown_timeout: Numeric
+        @name: String
+        @logger: Dexpace::Instrumentation::Logger
+        @clock: Dexpace::_Clock
+        @queue: ::Thread::SizedQueue
+        @exits: ::Thread::Queue
+        @timer: Timer
+        @workers: Array[::Thread]
+
+        # ?queue_limit is Integer? and not Integer because the derived default is a nil sentinel:
+        # `queue_limit: size * QUEUE_DEPTH_PER_WORKER` in the parameter list would evaluate
+        # against an UNVALIDATED size, so `Pool.build(size: nil)` would raise NoMethodError from
+        # the default instead of Dexpace::InvalidArgumentError naming the keyword.
+        def self.build: (size: Integer, ?queue_limit: Integer?, ?shutdown_timeout: Numeric,
+                         ?name: String, ?logger: Dexpace::Instrumentation::Logger,
+                         ?clock: Dexpace::_Clock) -> Pool
+
+        private def self.positive_integer!: (Symbol keyword, untyped value) -> Integer
+        private def self.non_negative_numeric!: (Symbol keyword, untyped value) -> Numeric
+        private def self.non_empty_string!: (Symbol keyword, untyped value) -> String
+        private def self.responding!: (Symbol keyword, untyped value, Symbol method_name) -> untyped
+
+        attr_reader size: Integer
+        attr_reader queue_limit: Integer
+        attr_reader name: String
+
+        private def self.new: (size: Integer, queue_limit: Integer, shutdown_timeout: Numeric,
+                               name: String, logger: Dexpace::Instrumentation::Logger,
+                               clock: Dexpace::_Clock) -> instance
+        def initialize: (size: Integer, queue_limit: Integer, shutdown_timeout: Numeric,
+                         name: String, logger: Dexpace::Instrumentation::Logger,
+                         clock: Dexpace::_Clock) -> void
+
+        # Dexpace::Page::_Executor's signature verbatim (7c): a zero-arity block, void.
+        def post: () { () -> void } -> void
+        def delay: (Numeric duration) -> Dexpace::Async::Future
+
+        private
+
+        def validate_duration!: (untyped duration) -> void
+        def closed_error: () -> Dexpace::ClosedError
+        def schedule: (Dexpace::Async::Completer completer, Numeric duration) -> nil
+        def spawn_worker: (Integer index) -> ::Thread
+        def run: (Job job) -> void
+        def clear_fiber_storage: () -> nil
+        def report_failure: (Exception error) -> nil
+        def release: () -> nil
+        def stop_timer: (Float deadline) -> nil
+        def drain_workers: (Float deadline) -> bool
+        def emit_shutdown: (bool drained) -> nil
+        def contained: () { () -> void } -> nil
+      end
+    end
+  end
+end

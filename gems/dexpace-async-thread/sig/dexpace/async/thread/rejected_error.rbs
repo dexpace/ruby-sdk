@@ -1,0 +1,9 @@
+module Dexpace
+  module Async
+    module Thread
+      class RejectedError < ::StandardError
+        include Dexpace::Error
+      end
+    end
+  end
+end
