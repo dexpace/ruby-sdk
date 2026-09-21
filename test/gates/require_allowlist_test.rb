@@ -109,6 +109,11 @@ class RequireAllowlistTest < GateCase
     assert_empty(scan("internal_relative.rb"))
   end
 
+  # The fixture's third require is `tempfile`, phase 8a's one-line growth of the allowlist
+  # (TRANSPORT-28): a default gem on every supported Ruby that no row of Gem::BUNDLED_GEMS::SINCE
+  # names -- the bundled-table case below is what keeps that true on every CI row -- so
+  # dexpace-conformance may create the file its file-body assertion uploads a window of, and
+  # core is no wider for it (nothing in core requires it).
   test "accepts an allowlisted name and a dexpace/ path" do
     assert_empty(scan("allowed.rb"))
   end
