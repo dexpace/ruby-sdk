@@ -38,8 +38,9 @@ Gem::Specification.new do |spec|
   spec.add_dependency "dexpace-core", DexpaceVersions.core_constraint
 
   # NFR-2: dexpace-core plus at most one third-party gem, and this is the one (phase 8c). The
-  # `~>` admits every 0.104.x and 0.105.x release; the adapter is proven on 0.105.0, whose closure
-  # is fifteen further gems including io-event's C extension and, below Ruby 3.4's default
-  # openssl 3.3, an installed openssl gem -- both stated in docs/first-release.md.
+  # `~>` on a two-segment version admits every 0.x release from 0.104 on (`>= 0.104, < 1`), so
+  # 0.105.0 and a future 0.200.0 alike; the adapter is proven on 0.105.0, whose closure is fifteen
+  # further gems including io-event's C extension and, below Ruby 3.4's default openssl 3.3, an
+  # installed openssl gem -- both stated in docs/first-release.md.
   spec.add_dependency "async-http", "~> 0.104"
 end
