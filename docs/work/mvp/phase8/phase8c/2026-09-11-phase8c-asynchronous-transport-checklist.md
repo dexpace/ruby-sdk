@@ -50,7 +50,7 @@ structural through a client map keyed by reactor.
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
 | `TRANSPORT-7` | MUST | ✅ | 11, 12, 16, 19 | Cancelling the token or the future reaches the in-flight exchange through the queue-marshalled watcher (`Exchange#watch` cancels the exchange task with `cause: Dexpace::CancelledError.new(reason)` while it is in flight, closes the delivered response afterwards), the connection is released and the future settles a terminal, non-retryable `Dexpace::CancelledError` with the token's reason (`async_http/cancellation_test.rb`, "TRANSPORT-7/ASYNC-6: cancelling the token aborts a blocked native call…", "a token cancelled from a foreign OS thread still reaches the exchange, promptly", "TRANSPORT-7 on the body path: a token cancelled under a blocked body read wakes the reader…"; the portable assertion `conformance/transport_suite/asynchronous_test.rb` "TRANSPORT-7", passing against `RawWireTransport` and failing against its `misclassify_cancel` defect, and green against this adapter through the driver, `async_http/conformance_test.rb`). Guards 15, 16 and 17. |
-| `TRANSPORT-8` | MUST | ✅ | 13, 19 | **Satisfied on this adapter, where §12 records it vacuous** (`R14`): a cancellation the host runtime originates — a parent task cancelled while the exchange is its live child — arrives as `Async::Cancel`, leaves `Exchange#run` through its `rescue ::Exception` arm after settling the pivot with `request_cancel(:async_cancelled)`, and surfaces as a terminal, non-retryable `CancelledError` with the future reading `cancelled?`; a `with_timeout` expiry on the **same** withheld-head path settles a retryable `TransportError` carrying `Async::TimeoutError`, discriminated by class and never by message (`async_http/parent_cancellation_test.rb`, "TRANSPORT-8: cancelling a PARENT task…" and "TRANSPORT-8's pair…"; `async_http/adapter_test.rb` `TimeoutTest` "TRANSPORT-4/TRANSPORT-8's pair"). Not a portable assertion: its antecedent is a cancellation only an adapter's own suite can originate, and `TransportSuite::PREAMBLE` says so in every report (`conformance/transport_suite/lifecycle_test.rb` and `asynchronous_test.rb` assert the absence and the sentence). Guards 14 (equivalent, measured) and 19. |
+| `TRANSPORT-8` | MUST | ✅ | 13, 19 | **Satisfied on this adapter, where §12 records it vacuous** (`R14`): a cancellation the host runtime originates — a parent task cancelled while the exchange is its live child — arrives as `Async::Cancel`, leaves `Exchange#run` through its `rescue ::Exception` arm after settling the pivot with `request_cancel(:async_cancelled)`, and surfaces as a terminal, non-retryable `CancelledError` with the future reading `cancelled?`; a `with_timeout` expiry on the **same** withheld-head path settles a retryable `TransportError` carrying `Async::TimeoutError`, discriminated by class and never by message (`async_http/parent_cancellation_test.rb`, "TRANSPORT-8: cancelling a PARENT task…" and "TRANSPORT-8's pair…"; `async_http/adapter_test.rb` `TimeoutTest` "TRANSPORT-4/TRANSPORT-8's pair"). Not a portable assertion: its antecedent is a cancellation only an adapter's own suite can originate, and `TransportSuite::PREAMBLE` says so in every report (`conformance/transport_suite/lifecycle_test.rb` and `asynchronous_test.rb` assert the absence and the sentence). Guards 14 (equivalent, measured), 19 and 35 (a runtime cancellation landing inside an exit arm — the native close of an undelivered body suspending, the parent cancelled there — is settled by `#run`'s `ensure` net, `parent_cancellation_test.rb` "a runtime cancellation landing inside an exit arm's native close still settles the pivot cancelled, through the ensure's net", review round 0's R0-4). |
 | `TRANSPORT-9` | MUST | ✅ | 11, 12 | A native response obtained after the token was cancelled mid-flight is closed exactly once and never delivered: the exchange re-checks the token after `Client#call` returns (`Exchange#perform`'s `check!`), and independently core's `Completer#fulfil` closes a response handed to an already-settled pivot — so the close holds even without the check, which guard 18 measures (`async_http/cancellation_test.rb`, "TRANSPORT-9: a native response obtained after the token was cancelled mid-flight is closed exactly once"; the portable assertion `asynchronous_test.rb` "TRANSPORT-9", failing against the `ignore_cancel` defect; `async_http/parent_cancellation_test.rb` "R13" for the two paths that reach the undelivered close). |
 | `TRANSPORT-12` | MUST | ✅ | 9, 15, 19 | The RFC 7230 token predicate (`HeaderSyntax.token?`) is applied **before dispatch on both protocols** (`P8-40`): a name the SDK model admits and the grammar refuses is dropped, reported through `DropPolicy`, and the rest of the headers and the body dispatch — measured over HTTP/1.1, plaintext HTTP/2 and TLS HTTP/2 against the in-process `async-http` server (`async_http/wire_grammar_test.rb` `TokenPredicateTest`, one test per protocol shape), with the antecedent measured on `protocol-http1` 0.41.0 (a `RefusedError` wrapping `BadHeader`, **after** the request line is on the wire) and on `protocol-http2` 0.28.0 (the name transmitted lowercased and unvalidated). The seventeen bytes `HTTP-17` admits and the grammar refuses — `"(),/:;<=>?@[\]{}` — are asserted one by one (`async_http/request_mapper_test.rb` `HeaderGatesTest` "TRANSPORT-12: the seventeen bytes…"). The portable assertion `conformance/transport_suite/header_drops_test.rb` "TRANSPORT-12" passes against `RawWireTransport`'s drop mode, fails against its `refuse_non_token` defect, resolves **vacuous by measurement** against the plain double (and against `Net::HTTP` through 8a's driver, which now carries the row as a skip), and is real here. Guards 1, 2, 6. |
 | `TRANSPORT-13` | SHOULD | ✅ | 7, 9, 15, 19 | `DropPolicy` with the closed three-mode set `EVERY`, `ONCE_PER_NAME` (the default) and `QUIET`, `DropPolicy.build(mode:)` refusing anything else; the per-name latch is keyed on the **folded** name (`HTTP-13`), warns once and is quiet (verbose) afterwards, and is bounded at `MAX_TRACKED_NAMES` (64) distinct names, beyond which every drop is quiet — one frozen `Snapshot` replaced under the policy's own mutex, never a growing map (`async_http/drop_policy_test.rb`, nine cases); a real dispatch through the default policy warns once per distinct bad name across three requests (`async_http/wire_grammar_test.rb` "TRANSPORT-13: a real dispatch through the default policy…"); the framing set is reported at verbose on a **separate** path and never through the policy (`request_mapper_test.rb` "TRANSPORT-11"). This is the header-drop policy phase 5b postponed to phase 8 as `OBS-19`, landed. The portable assertion `header_drops_test.rb` "TRANSPORT-13" is proven in both directions and vacuous by measurement against a client that sends the name. Guards 3, 4a, 4b, 5. |
@@ -96,13 +96,15 @@ eight `private_constant`s `clients.rb`, `endpoints.rb`, `errors.rb`, `exchange.r
 `request_mapper.rb`, `response_body.rb`, `response_mapper.rb` — every one mirrored in `sig/` (with the
 `_Release` interface for the body's release hook) and every one but `exchange.rb` in `test/`; the
 gemspec declares `async-http ~> 0.104` and `required_ruby_version >= 3.3` read from `VERSIONS`'
-per-gem row. Its `test/support/` holds seven doubles and fixtures, every top-level name prefixed
+per-gem row. Its `test/support/` holds eight doubles and fixtures, every top-level name prefixed
 `AsyncHTTP` because `test:gems` loads every gem's suite into one process: `AsyncHTTPRecordingSink`,
 `AsyncHTTPRecordingBody`, `AsyncHTTPHoldingServer`, `AsyncHTTPSilentServer`, `AsyncHTTPServerFixture`
 (an in-process `async-http` server over HTTP/1.1, plaintext prior-knowledge HTTP/2 and TLS HTTP/2 by
 real ALPN over a per-run self-signed certificate, wrapping the library's server in a `QuietServer`
 that swallows a peer's mid-head EOF), `AsyncHTTPReactor` (`reactor_over(server)` and
-`assert_exchange_released(task)`) and the repository-level `test/support/async_http_warmup.rb`.
+`assert_exchange_released(task)`), `AsyncHTTPHermeticConfiguration` (`hermetic_configuration(overrides)`,
+a chain whose environment tier answers nothing — review round 0's R0-1) and the repository-level
+`test/support/async_http_warmup.rb`.
 Sixteen suites: the smoke suite, `matrix_facts_test.rb`, the ten unit suites, and the four behavioural
 ones — `cancellation_test.rb`, `parent_cancellation_test.rb`, `dispatch_conformance_test.rb`,
 `wire_grammar_test.rb` — plus the second driver, `conformance_test.rb`.
@@ -170,7 +172,9 @@ closes a holding fixture *inside* the reactor so an exchange a defect left block
 failed assertion surfaces instead of the reactor waiting forever; every wait in a cancellation or
 timeout test is bounded (`value_within`, `with_timeout`) so a missing timeout or a lost cancel is a
 failed assertion, not a hang; and `TRANSPORT-3`'s test feeds the classifier the SDK's own errors under
-a cancelled token.
+a cancelled token. Review round 0 ran six mutations of its own beyond the thirty; two survived and
+are rows 34 and 35 below, each made red on 2026-09-21 by the guard its row names — **thirty-two of
+thirty-five rows red**, the same three equivalent.
 
 | # | Mutation | Caught by (first failure) | Rows |
 |---|---|---|---|
@@ -210,6 +214,8 @@ a cancelled token.
 | 29 | the post-close guard raises inside `#dispatch` | **Equivalent by construction**: `Adapter#dispatch`'s one `rescue ::StandardError` fence settles the raise through the future, so the guard's channel is structural (`TRANSPORT-21`); measured green | measured on 4.0.6, 3.3.12 |
 | 29b | the post-close guard raises from `#call`, outside the fence | "a send after close settles ClosedError through the future on an owning adapter" (a synchronous `ClosedError`) | 4.0.6, 3.3.12 |
 | 30 | `Endpoints.screen!` admits every scheme | `endpoints_test.rb` "a scheme other than http or https is refused as InvalidArgumentError, not dialled"; `adapter_test.rb` "TRANSPORT-21: a URL the endpoint cannot dispatch settles InvalidArgumentError" (a `TransportError` from dialling port 21 instead) | 4.0.6, 3.3.12 |
+| 34 | `ResponseBody#each` yields the chunk without the `String#b` retag (review round 0's R0-3) | `response_body_test.rb` "#each yields one native #read per chunk, retagged BINARY, and stops at nil" — the first chunk the double hands over is now a UTF-8 literal, so the yielded encodings `[UTF-8, BINARY]` fail the `[BINARY, BINARY]` pin; the round-0 fixture fed BINARY chunks alone and the mutant survived it | 4.0.6, 3.3.12 |
+| 35 | `Exchange#net`'s `request_cancel(:async_cancelled) unless settled?` removed (review round 0's R0-4) | `parent_cancellation_test.rb` `CloseDisciplineTest` "a runtime cancellation landing inside an exit arm's native close still settles the pivot cancelled, through the ensure's net" — the adaptation-failure arm is parked inside a native `#close` that waits on a queue, the parent is cancelled there, and with the net gone the future stays pending until the bounded wait expires (`:deadline_expired` where `:async_cancelled` is pinned, 5.2 s); no fixture reached the path before this case, and no sleep is involved | 4.0.6, 3.3.12 |
 
 Beside the thirty: `async_http_test.rb`'s two source scans (every `Async`, `Protocol`, `OpenSSL` and
 `Console` reference under `lib/` `::`-qualified, and the require set exactly `dexpace`, `async/http`
@@ -235,7 +241,7 @@ appendix-B roll-ups, so both were read from chapter 18 itself.
 | Minitest conventions | Every suite subclasses `DexpaceTestCase`; nine suites split into nested classes under `Metrics/ClassLength` (8a's shape); no `.stub`; every wait bounded — a queue pop, a `with_timeout`, a `value(deadline:)` — and no `sleep` outside `matrix_facts_test.rb`'s scheduler facts; every thread a test starts is joined before it returns |
 | Fiber scheduler, thread safety | The adapter is frozen in effect; the one mutable per-call object is the `Exchange`, whose cross-thread state is one `Thread::Queue`; `Clients`' mutex guards a `Hash` read and insert and nothing else (the client is built outside it, asserted by scan); the pool's own gardener is the one transient task that outlives an exchange, by the library's design |
 | Transport and async-runtime adapters | Every `TRANSPORT` rule in the group restates a clause proven above; `transport-adapter/cb7901ef`'s per-protocol grammar entry is the note the design filed and stands; the two new note entries record what 2.46.0 and 0.105.0 measured that the design did not (the cancel-across-threads facts; the reactor-exit drain and the h2 double release) |
-| Observability, configuration and redaction | Every emission inside `Instrumentation.contain`; the drop record carries the header name and the reason under `TRANSPORT_HEADER_DROPPED`; `REQUEST_TIMEOUT` through `#duration`, `TRANSPORT_CONNECTION_LIMIT` through `#integer`, both read at construction |
+| Observability, configuration and redaction | Every emission inside `Instrumentation.contain`; the drop record carries the header name and the reason under `TRANSPORT_HEADER_DROPPED`; `REQUEST_TIMEOUT` through `#duration`, `TRANSPORT_CONNECTION_LIMIT` through `#integer`, both read at construction — and every test that pins a value the chain resolves builds its chain through `AsyncHTTPHermeticConfiguration` (`Sources::NONE` on the environment tier), because `Configuration.build`'s default reads the real process environment and the two default pins and the `ASYNC-22` pool bound moved under an exported `TRANSPORT_CONNECTION_LIMIT` / `REQUEST_TIMEOUT` until review round 0's R0-1 (measured: 3 where 8 was pinned, 5.0 where 60.0, 16 connections where at most 8); a `.build` with no `configuration:` still reads `Dexpace.configuration`, as `dexpace-transport-net_http`'s does, and no test pins a default through it |
 
 ## Deviations from the plan
 
@@ -260,9 +266,16 @@ behaviour or a statement the design makes are also the as-built ledger rows `P8-
 7. **The cancellation bridge is queue-marshalled** (`P8-91`), not the design's direct `#cancel`.
 8. **`TRANSPORT_CONNECTION_LIMIT` is the one core widening.**
 9. **The `:async_http` Steep target relaxes `UnknownConstant` to `:information`** with `library
-   "openssl", "uri"`; no `rbs_collection.yaml` row was needed, because no gem in the closure ships a
-   `sig/` and the collection carries none (the plan's `- name: async / ignore: true` would ignore
-   nothing) (`P8-99`).
+   "openssl", "uri"`, and `rbs_collection.yaml` carries the plan's `- name: async / ignore: true`
+   row (`P8-99`). The first cut of this record said the row was unnecessary because "the collection
+   carries none"; review round 0's R0-2 measured otherwise: `ruby/gem_rbs_collection` carries
+   `gems/async/2.12` — a `Task` with `#stop` and neither `#cancel` nor `.current?` — and `rbs
+   collection install` installed it the moment the workspace gem's own `ignore: true` was lifted,
+   turning `steep` red; rbs 4.2.0 cuts its dependency walk at an ignored gem, which is the only
+   reason the walk never reached `async` on the committed tree. The row keeps the stale signatures
+   out however the walk is reached (measured on 2026-09-21: with the workspace gem un-ignored the
+   walk reaches 38 gems and installs no `async`; with it ignored the lock is unchanged and `steep`
+   green), and nothing else in the closure has a collection entry or ships a `sig/`.
 10. **Every top-level test double is prefixed `AsyncHTTP`** (`test:gems` loads six gems' `test/support/`
     into one process).
 11. **`ResponseMapper` hands the native body, never the response.**
@@ -311,7 +324,11 @@ behaviour or a statement the design makes are also the as-built ledger rows `P8-
 30. **`Exchange::WATCHER_ANNOTATION`** names the watcher in the task tree, for the suite's release
     assertion and for anyone reading a reactor's hierarchy.
 31. **`AsyncHTTPReactor`** — `reactor_over(server)` and `assert_exchange_released(task)` — was added
-    after the first mutation pass, for the reasons the *Guards* section gives.
+    after the first mutation pass, for the reasons the *Guards* section gives; and
+    **`AsyncHTTPHermeticConfiguration`** after review round 0, because the plan's tests built every
+    chain through `Dexpace::Configuration.build`'s defaults and the two default pins and the
+    `ASYNC-22` pool bound read the host's environment (R0-1; the *Audit groups* row has the
+    measurement).
 32. **The three cancellation tests and both timeout pairs assert the exchange and its watcher are
     gone** within ten reactor turns (measured: two on a cancellation, one on a timeout).
 33. **The driver's foreign-thread settle materialises the body inside its reactor** through

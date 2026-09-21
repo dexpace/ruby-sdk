@@ -4847,8 +4847,10 @@ the body inside its reactor, found by `TRANSPORT-29`'s eight threads hanging (P8
 is one `VERSIONS` row read everywhere (P8-95); `Connection: close` in `Scripts`, because a keep-alive
 client re-used a connection the fixture had closed one time in two (P8-96); no `Content-Type` is
 invented, since `async-http` stamps none and neither of 8a's `P8-4` reasons exists here (P8-97); the
-4.0-only `IO::Buffer` warning parked at test-helper load (P8-98); the Steep relaxation with no
-`rbs_collection.yaml` row, because nothing in the closure ships a `sig/` (P8-99); `P8-37` as built
+4.0-only `IO::Buffer` warning parked at test-helper load (P8-98); the Steep relaxation beside an
+`rbs_collection.yaml` row ignoring the collection's stale `async/2.12` by name — the first cut said the
+collection carried none, and review round 0 measured it installing the moment the workspace gem's own
+ignore was lifted (P8-99); `P8-37` as built
 retires every pooled resource before `pool.close`, which alone would drain and wait exactly as
 `Client#close` does (P8-100); the native HTTP/2 body closed through `close_quietly`, because
 `async-http` writes `RST_STREAM` before it transitions the stream and an `END_STREAM` in that window
@@ -4865,7 +4867,10 @@ the reviewer's thirty mutations run as thirty-three rows on 4.0.6 and 3.3.12 (th
 3.2.11 has no bundle for it), thirty red on both and three equivalent mutants recorded with their
 measurement (`Kernel#Async` is the current task's child; core's `Completer#fulfil` closes what a settled
 pivot is handed, so check-after-resume is a shortcut; a raise inside `#dispatch`'s fence is still a
-settlement), after five guards the first pass found missing were added — the mutex scan reaching
+settlement) — thirty-five rows after review round 0, whose two surviving extra mutants (the `BINARY`
+retag unobserved by a BINARY-only fixture; `Exchange#net`'s settle with no fixture reaching it) were
+each given the guard that runs them red on 2026-09-21, thirty-two red in all — after five guards the
+first pass found missing were added — the mutex scan reaching
 `build_client`, `assert_exchange_released` over the watcher's annotation, `reactor_over` closing a
 holding fixture inside the reactor so a blocked exchange fails instead of hanging, every wait bounded,
 and `TRANSPORT-3`'s list carrying the SDK's own errors; the design's facts re-run on 3.3.12, 3.4.10 and

@@ -40,7 +40,10 @@ phase 8c verified against (built and proven on 0.105.0, 2026-09-21, with the flo
 `VERSIONS` row — `ruby floor:dexpace-transport-async_http 3.3` — by the gemspec, the gates, the
 `Gemfile` and the two rake tasks that load the gem, so the 3.2 row installs, tests and clean-bundles
 five gems and is green; on the 3.3 row the bundle compiles `openssl` 4.0.2, because the
-interpreter's own 3.2.4 is older than `io-stream` requires). **A consumer on Ruby 3.2 composes `dexpace-core`,
+interpreter's own 3.2.4 is older than `io-stream` requires — and a *networked* resolve, the
+clean-bundle gate's scratch install included, picks the newest `openssl` gem on the 3.4 and 4.0 rows
+too, as it picked `net-http` 0.9.1 over the default for 8a (`P8-60`), so the second extension's
+toolchain need is confined to 3.3 only for an install that resolves the interpreter's own). **A consumer on Ruby 3.2 composes `dexpace-core`,
 `dexpace-transport-net_http`, `dexpace-serde-json`, `dexpace-async-thread` and `dexpace-conformance`, and
 loses only the reactor transport** — which is `NFR-2`'s separability paying for itself, and it should be
 stated in the release notes rather than discovered at `bundle install`.

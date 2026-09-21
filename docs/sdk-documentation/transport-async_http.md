@@ -20,12 +20,15 @@ Every example below was run, in the order printed and as one script, against the
 for the ephemeral port a `Host` line names, which is the run's own. The examples use
 `dexpace-conformance`'s `WireServer` and `Scripts` as the server — a real `TCPServer` on `127.0.0.1`
 answering a scripted reply and recording what it was sent — because a transport page's examples
-should touch a socket and nothing outside the machine. Six names are the page's shorthand and
+should touch a socket and nothing outside the machine. Eight names are the page's shorthand and
 nothing else is assumed: `AsyncHTTP` is `Dexpace::Transport::AsyncHTTP`; `WireServer` and
 `Scripts` are `Dexpace::Conformance::WireServer` and `Dexpace::Conformance::Scripts`, after
 `require "dexpace/conformance"`; `req(url, method: "GET", headers: Dexpace::Headers::EMPTY,
 body: nil)` is `Dexpace::Request.build` over those four; `headers(pairs)` is
-`Dexpace::Headers.builder` with each pair added; and `EMPTY` is `Dexpace::RequestOptions::EMPTY`.
+`Dexpace::Headers.builder` with each pair added; `EMPTY` is `Dexpace::RequestOptions::EMPTY`;
+`sink` is a recording sink — any object answering the facade's `#debug`/`#info`/`#warn`/`#error`
+and their four predicates and keeping every `(severity, payload)` it is handed; and `drops` is the
+pairs that sink recorded whose payload's `"event"` is `Events::TRANSPORT_HEADER_DROPPED`, in order.
 `adapter` is the owning adapter the first block builds and the last block closes, and every block
 that talks to a socket starts its own `server` and reads its port for `url`.
 
@@ -120,7 +123,14 @@ the reactor it was built inside. `Adapter.new` is private behind the two factori
 either construction is reactor-free — it retires every pooled connection and closes each pool
 without waiting for a busy one (`P8-37`), which is what `XCUT-13`'s non-blocking shutdown asks — and
 it is `Dexpace::Closeable`'s idempotent latch, the only state written after construction: nothing
-per call lives on the adapter (`TRANSPORT-29`, `ASYNC-22`).
+per call lives on the adapter (`TRANSPORT-29`, `ASYNC-22`). The residual is the caller's: a
+streaming response still open when the adapter closes has had its connection retired under it, so
+the next read that reaches the native body (one the source's own buffer cannot serve) fails as a
+`Dexpace::StreamError` — non-retryable, a body that failed after its head (`P3-3`), the body closed
+— whose `#cause` and message are the library's own artefact of a retired connection
+(`the response body failed mid-stream: NoMethodError: undefined method 'read' for nil`, measured on
+4.0.6 and 3.3.12), not a description of the close; read or close the response before closing the
+adapter.
 
 ## A call, and what the wire carries
 
@@ -349,8 +359,22 @@ rescue Dexpace::TransportError => error
 end
 Sync { adapter.call(req("ftp://example.test/"), EMPTY, nil).value }
 # raises Dexpace::InvalidArgumentError (the async transport dispatches http and https only)
-Sync { adapter.call(req(url, headers: headers("X-Inject" => "a\r\nEvil: 1")), EMPTY, nil).value }
-# raises Dexpace::InvalidArgumentError (HTTP-18, before anything is mapped)
+headers("X-Inject" => "a\r\nEvil: 1")
+# raises Dexpace::InvalidArgumentError (HTTP-18): the MODEL's own builder refuses the value, so a
+#   request built through it never reaches the adapter with one. The adapter re-validates
+#   regardless, for a request-shaped object that met no builder (design §10.10's admitted hole):
+server = WireServer.start(Scripts.fixed("ok"))
+forged = Object.new
+forged.define_singleton_method(:method) { Dexpace::Method::GET }
+forged.define_singleton_method(:url) { Dexpace::URL.parse!("http://127.0.0.1:#{server.port}/") }
+forged.define_singleton_method(:headers) do
+  Object.new.tap { |h| h.define_singleton_method(:each_entry) { |&b| b.call("X-Inject", "a\r\nEvil: 1") } }
+end
+forged.define_singleton_method(:body) { nil }
+Sync { adapter.call(forged, EMPTY, nil).value }
+# raises Dexpace::InvalidArgumentError (HTTP-18: the adapter's own re-validation, before anything is
+#   mapped and before a byte reaches the socket)
+server.requests                                              # => []
 ```
 
 ## Lenient inbound mapping, and the two clauses it waives
