@@ -4742,12 +4742,17 @@ and every other delay stranded, or burned the whole budget); and, from review ro
 (`P8-77`: a `NaN` answers false to both `negative?` and `zero?`, reached the timer's deadline-ordered
 list, killed its thread and turned every later `#delay` into a bare `ArgumentError`, and a `NaN` budget
 raised one out of `#close` with the latch flipped — core's two duration guards share the shape and are
-the second of this phase's bullets on phase 10's inbound list). Every fact the design measured on 3.4.10
+the second of this phase's bullets on phase 10's inbound list); and, from review round 2 the same day, the
+timer thread behind `#delay` — the gem's second `::Thread.new` carrier, spawned lazily from the first
+delay caller's fiber — carries each delay's diagnostic context the way a worker carries a task's (`P8-78`:
+as first cut it inherited the first caller's storage and got neither of `P8-20`'s clears and no per-delay
+snapshot, so every later delay's `#on_settle` and `#then` ran under a stale, foreign context — the design's
+own finding 1 at the gem's own door). Every fact the design measured on 3.4.10
 alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, the pool-specific dozen as a standing test.
-Thirty-five guards run red (two recorded as equivalent mutants with their measurement; the plan's
+Forty guards run red (two recorded as equivalent mutants with their measurement; the plan's
 timer-mutex mutation among the red ones, by a cross-thread deadlock at `#close` that hangs the delay
 suite and by two reported failures on the lock-scope test the round added — the first cut of this note
-called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,813 runs with exactly
+called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,818 runs with exactly
 one skip (8a's `TRANSPORT-18` vacuity), the six manifests regenerated with only
 `dexpace-async-thread.txt` changing (2 → 14 rows, no private constant among them), and the gate set
 green on 4.0.6 with the four matrix gates green on 3.2.11, 3.3.12 and 3.4.10.
@@ -4770,6 +4775,6 @@ the stack merged: the premise was a false measurement (review round 0's R0-1), t
 the scope is asserted by a test. The design's fourth finding — §10.5's mitigation sentence names
 `Completer#on_cancel` as something "an adapter" does, and on the thread path only the transport can —
 stays a sentence here and in the checklist, never a row in `docs/deviations.md`. The consolidation of
-`P8-20`–`P8-25` and `P8-71`–`P8-77` into design §10 is a human's:
+`P8-20`–`P8-25` and `P8-71`–`P8-78` into design §10 is a human's:
 `docs/sdk-design-ruby/` is frozen. `main` is `a7cfeb6` before and after; the stack is not on it, 8c is
 being built beside it, and umbrella #29 stays open for both.

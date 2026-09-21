@@ -1135,6 +1135,13 @@ Each is one line plus the chapter to read before touching the area.
   (`ASYNC-9`, `ASYNC-10`; 8b's P8-20, P8-74). `.capture` carries core's `dexpace.current_span` slot with
   the diagnostic keys, so a span active on the caller is current on the worker — `ASYNC-8`'s purpose —
   and under the one-process `rake test:gems` another suite can leave a no-op span on the main fiber.
+  **The floor is EVERY `::Thread.new` a gem keeps, the lazily spawned ones included**: the pool's timer
+  thread is spawned by the first positive `#delay` from THAT caller's fiber, so without the same two
+  clears and a per-delay `Diagnostics.capture` on the `Timer::Entry` every later delay's `#on_settle` and
+  `#then` ran under the first caller's context — the design's own finding 1 at the gem's own door
+  (`ASYNC-8` names callbacks beside work; 8b's P8-78, review round 2). A callback the timer runs on
+  another thread's behalf — the shutdown handler on the closing thread — is installed and restored
+  through `Diagnostics.with` and never cleared, because that thread's storage is not the timer's.
 - **`Pool#post` never blocks and never lets a bare stdlib error escape, and `#delay` settles with `true`**
   — the submission queue is a `::Thread::SizedQueue` used with the NON-blocking push, so a full queue is
   `RejectedError` (backpressure) and a closed pool `Dexpace::ClosedError` (a lifecycle bug), both

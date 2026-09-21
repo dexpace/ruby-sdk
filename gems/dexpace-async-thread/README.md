@@ -79,6 +79,13 @@ storage whatever the fiber that built the pool held, and is returned to empty af
 including one that raised, so nothing leaks from the pool's builder or from one caller's task into
 the next caller's log lines.
 
+The same discipline holds on the pool's second thread, the timer behind `#delay`: each `#delay`
+captures its caller's context, and a `#on_settle` or `#then` on that delay's future runs under it —
+the context of the caller who asked for *that* delay, never the first caller's, whose context the
+timer thread inherited when it was spawned, and never a key an earlier handler wrote. An entry
+`#close` fails settles on the closing thread under the delay caller's context too, and the closing
+thread's own context is put back afterwards.
+
 **A mutable object you put into fiber storage is shared with the worker.** The snapshot is captured,
 not deep-copied: its keys are frozen, but an `Array` or a `Hash` value is the same object on both
 sides of the hop. Keep the values you push into `Fiber[]` immutable, or synchronise your own access
@@ -88,7 +95,8 @@ to them.
 
 `Future#on_settle` runs on the settling thread. For a future from `Transport.async_over` over this
 pool that is a **pool worker**; for a future from `#delay` it is the **timer thread**, or the closing
-thread when `#close` fails it. A handler that blocks is blocking that thread: every later delay
+thread when `#close` fails it — in every case under the diagnostic context of the caller who posted
+the task or asked for the delay. A handler that blocks is blocking that thread: every later delay
 behind a stuck timer handler, or one worker's slot behind a stuck settlement handler. A handler that
 raises is reported as an `http.instrumentation.hook` diagnostic through the pool's `logger:` and the
 thread lives; a block posted to the pool that raises anything at all — a `NotImplementedError`, an

@@ -181,6 +181,29 @@ never sits underneath the next caller's snapshot (`P8-20`). An absent context ca
 installs as a clear (`ASYNC-11`). The snapshot's values are the caller's own objects, shared and not
 copied: keep what you put into `Fiber[]` immutable, or synchronise your own access to it.
 
+The same floor holds on the pool's second thread, the timer behind `#delay` — `ASYNC-8` names
+*callbacks* beside work, and a delay's callbacks run on a thread the caller never sees:
+
+```ruby
+Fiber[:"trace.id"] = "first"
+pool.delay(0.01).on_settle { seen << Dexpace::Instrumentation::Diagnostics.capture }
+seen.pop(timeout: 5)   # => {"trace.id": "first"}
+Fiber[:"trace.id"] = "second"
+pool.delay(0.01).on_settle { seen << Dexpace::Instrumentation::Diagnostics.capture }
+seen.pop(timeout: 5)   # => {"trace.id": "second"}
+Fiber[:"trace.id"] = nil
+pool.delay(0.01).then { |_| seen << Dexpace::Instrumentation::Diagnostics.capture }
+seen.pop(timeout: 5)   # => {}
+```
+
+Each `#delay` captures its caller's context per entry, the timer thread clears what it inherited from
+the first caller who spawned it and clears again after every callback, and a `#on_settle` or `#then`
+on a delay future runs under the context of the caller who asked for *that* delay (`P8-78`, extending
+`P8-20` to the second carrier). The first delay above spawned the timer under `"first"`; without the
+floor the second and the third callbacks would both have read `{"trace.id": "first"}`. An entry
+`#close` fails settles on the closing thread under the delay caller's context, and the closing thread's
+own context is put back afterwards.
+
 ## `#delay`: a scheduled delay on one timer thread
 
 ```ruby
@@ -210,7 +233,7 @@ interchangeable — and that one is the zero-thread alternative for a caller und
 is unavailable to a pool worker, whose `Fiber.scheduler` is always `nil`. "Without blocking a thread"
 therefore holds for the caller's thread and every worker and not absolutely: one named timer thread per
 pool is parked for the interval (`P8-25`). A `#on_settle` on a delay future runs on that timer thread,
-not on a worker.
+not on a worker, under the diagnostic context of the caller who asked for the delay (`P8-78`, above).
 
 ## `#close`: idempotent, bounded, one event
 

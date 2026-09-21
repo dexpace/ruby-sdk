@@ -130,6 +130,18 @@ stable key.
   diagnostic keys, so the span active on the caller is current on the worker, which is `ASYNC-8`'s
   purpose; a test comparing what the worker sees drops the reserved prefix, because under the
   one-process `rake test:gems` another suite can leave a no-op span on the main fiber.
+  **Amended after review round 2, 2026-09-21.** The rule's first casualty was the gem's own SECOND
+  carrier: the timer thread behind `Pool#delay`, spawned lazily by the first positive delay from *that
+  caller's* fiber, inherited that caller's storage and was given neither clear and no per-delay snapshot,
+  so every later delay's `#on_settle` and `#then` callback ran under the first caller's context and a key
+  one handler wrote was visible to every later one (measured on 3.2.11 and 4.0.6; `ASYNC-8` names
+  callbacks beside work). A carrier spawned lazily from a caller's fiber is the worse case: what it
+  inherits is an arbitrary request's context, not the assembler's, and the leak is invisible in any test
+  whose first delay is the one it reads. 8b's `P8-78` gives the timer the worker's shape — a per-entry
+  `Diagnostics.capture` at the scheduling call, `Diagnostics.with` around every callback, the two clears
+  on the thread the gem owns, and restore-never-clear for a callback run on some other thread's behalf.
+  The rule, restated: EVERY `::Thread.new` a library keeps, whichever fiber spawned it and however lazily,
+  starts empty, and every callback it runs on a caller's behalf runs under that caller's captured context.
   <sub>review · `docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md` · high · sha:manual-phase8b-pooled-worker-context-floor</sub>
 - **`Fiber#storage=` is the only whole-map write side `ASYNC-9`/`ASYNC-11` can use, it warns on every
   call on every supported Ruby, and it does not behave the same on the floor — so prefer per-key
