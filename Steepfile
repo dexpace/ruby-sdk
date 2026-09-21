@@ -36,14 +36,16 @@ target :async_http do
   # allowlist: `openssl` for the default TLS context and `uri` for the request URL.
   library "openssl", "uri"
   # The second relaxation, on this target alone (phase 8c), for the same reason as
-  # :serde_json's: none of async, async-http, protocol-http or async-pool ships a sig/ and the
-  # collection carries none, so every `::Async::HTTP::Client.new`, `::Protocol::HTTP::Request.new`
-  # and the `< ::Protocol::HTTP::Body::Readable` superclass is a Ruby::UnknownConstant that
-  # steep's default warning severity turns into a red gate. Downgraded to :information here,
-  # never a line-level ignore and never on core's strict target; every handle on the runtime is
-  # typed `untyped` in the gem's sig (NFR-11 admits no async-family type there either).
-  # Re-tighten to D::Ruby.default at the first release of those gems, or of the collection, that
-  # declares them.
+  # :serde_json's: none of async, async-http, protocol-http or async-pool ships a sig/, and the
+  # one entry the collection carries for the closure -- `async/2.12`, whose Task declares `#stop`
+  # and neither `#cancel` nor `.current?` -- is ignored by name in rbs_collection.yaml because it
+  # would type the primitives this gem calls as missing, so every `::Async::HTTP::Client.new`,
+  # `::Protocol::HTTP::Request.new` and the `< ::Protocol::HTTP::Body::Readable` superclass is a
+  # Ruby::UnknownConstant that steep's default warning severity turns into a red gate. Downgraded
+  # to :information here, never a line-level ignore and never on core's strict target; every
+  # handle on the runtime is typed `untyped` in the gem's sig (NFR-11 admits no async-family type
+  # there either). Re-tighten to D::Ruby.default at the first release of those gems, or of the
+  # collection, that declares what this gem calls.
   configure_code_diagnostics(D::Ruby.default.merge({ D::Ruby::UnknownConstant => :information }))
 end
 

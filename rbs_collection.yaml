@@ -29,3 +29,12 @@ gems:
     ignore: true
   - name: dexpace-conformance
     ignore: true
+  # Phase 8c. The collection's one entry for dexpace-transport-async_http's closure is
+  # `async/2.12`, which predates the primitives the adapter calls -- its Task declares `#stop` and
+  # neither `#cancel` nor `.current?` -- so installing it would type those calls as NoMethod and
+  # turn `steep` red. The walk does not reach it today only because the workspace gem above is
+  # ignored (rbs cuts the dependency walk at an ignored gem); this row keeps the stale signatures
+  # out however the walk is reached. async-http, protocol-*, async-pool, io-* and console have no
+  # collection entry and ship no sig/, so nothing else in the closure needs a row.
+  - name: async
+    ignore: true
