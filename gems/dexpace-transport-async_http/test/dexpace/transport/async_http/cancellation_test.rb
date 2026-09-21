@@ -112,6 +112,59 @@ module DexpaceTransportAsyncHTTPCancellationTests
       adapter&.close
       server&.close
     end
+
+    # Review round 2's R2-1. `Cancellation::Source#cancel` steals its hooks under its mutex, flips
+    # the flag and runs them OUTSIDE it, on the canceller's thread -- so the exchange can end
+    # between the flip and the adapter's hook: check-after-resume sees the flag, the pivot
+    # settles cancelled and the exchange closes its queue before the hook pushes onto it, and a
+    # push onto a closed queue raises `ClosedQueueError`, which `Hooks.notify` would hand back to
+    # the caller's `Source#cancel`. Deterministic through an ordinary caller's hook registered
+    # FIRST, which parks the canceller across exactly that window; the same ordering needs no
+    # slow hook when the canceller is merely descheduled there. A cancel that lost the race
+    # against the exchange's own end is not the caller's failure.
+    test "a token cancel in flight while the exchange finishes never raises out of " \
+         "Source#cancel on the canceller's thread, and the future is cancelled" do
+      source = Dexpace::Cancellation.source
+      flagged = ::Thread::Queue.new  # the canceller has flipped the flag and is in its hooks
+      finished = ::Thread::Queue.new # the exchange has ended: let the adapter's hook run now
+      outcome = ::Thread::Queue.new
+      source.token.on_cancel do |_reason|
+        flagged.push(true)
+        finished.pop
+      end
+      client = Object.new
+      client.define_singleton_method(:retries) { 0 }
+      client.define_singleton_method(:pool) { Object.new.tap { |pool| def pool.close = nil } }
+      client.define_singleton_method(:call) do |_native|
+        flagged.pop # scheduler-aware: the reactor keeps turning until the cancel is in flight
+        ::Protocol::HTTP::Response.new("HTTP/1.1", 204, ::Protocol::HTTP::Headers.new, nil)
+      end
+      adapter = AsyncHTTP.using(client)
+      canceller = nil
+
+      Sync do |task|
+        future = adapter.call(request("http://example.test/"), nil, source.token)
+        canceller = ::Thread.new do
+          outcome.push(begin
+            source.cancel(:racing)
+          rescue ::StandardError => error
+            error
+          end)
+        end
+
+        error = assert_raises(Dexpace::CancelledError) { value_within(future) }
+
+        assert_equal(:racing, error.reason)
+        assert_predicate(future, :cancelled?)
+        assert_exchange_released(task) # the exchange ended and closed its queue...
+      ensure
+        finished.push(true) # ...and only now does the adapter's hook run (on every path)
+      end
+      canceller.join
+      result = outcome.pop
+
+      assert_same(true, result, "Source#cancel raised #{result.inspect} out of the adapter's hook")
+    end
   end
 
   # A cancel racing the delivery (TRANSPORT-9), landing after it (ASYNC-20), or reaching a blocked
@@ -146,12 +199,18 @@ module DexpaceTransportAsyncHTTPCancellationTests
     end
 
     # The negative twin (ASYNC-20): a response already delivered to the caller must not be closed
-    # by a late cancellation of the future -- a cancel on a settled pivot is a no-op.
-    test "ASYNC-20: cancelling the future after delivery does not close the delivered response" do
+    # by a late cancellation of the future -- a cancel on a settled pivot is a no-op. The watcher
+    # that would close it on a TOKEN cancel stays for the life of the delivered response, and
+    # transient: a body a caller never closes must not hold the caller's `Sync` block open --
+    # without `transient: true` that property fails as a hang and never by name (review round
+    # 2's R2-3), so it is asserted here before the body is released and its release is asserted
+    # to end the watcher.
+    test "ASYNC-20: cancelling the future after delivery does not close the delivered response; " \
+         "its watcher stays, transient, until the body is released" do
       server = AsyncHTTPHoldingServer.new(hold: :head)
       adapter = AsyncHTTP.build
 
-      reactor_over(server) do
+      reactor_over(server) do |task|
         future = adapter.call(request("http://127.0.0.1:#{server.port}/"), nil, nil)
         server.wait_for_accept
         server.release("ok")
@@ -161,7 +220,13 @@ module DexpaceTransportAsyncHTTPCancellationTests
 
         refute_predicate(response.body, :closed?)
         refute_predicate(future, :cancelled?)
+        # Read while the body is open and asserted only after its release: a non-transient
+        # watcher under a still-open body would hold the reactor open on the failing assertion.
+        transient = watcher_tasks(task).map(&:transient?)
+
         assert_equal("ok", response.body_string)
+        assert_equal([true], transient, "one watcher per delivered response, and transient")
+        assert_exchange_released(task) # the body's release is what ends the watcher
       end
     ensure
       adapter&.close

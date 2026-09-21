@@ -44,13 +44,14 @@ module DexpaceTransportAsyncHTTPRequestMapperTest
     def names(native) = native.headers.to_a.map { |name, _| name.downcase }
 
     # A request-shaped object answering the four readers the seam contract types nothing about,
-    # carrying headers no Dexpace validation has seen -- design §10.10's admitted hole.
+    # carrying headers no Dexpace validation has seen -- design §10.10's admitted hole -- and,
+    # with `body:`, a body on a method the builder's HTTP-7 would have refused it on.
     def forged_request(name, value)
       forged_request_with([name, value])
     end
 
-    def forged_request_with(*pairs)
-      template = request
+    def forged_request_with(*pairs, method: "GET", body: nil)
+      template = request(method: method)
       headers = Object.new
       headers.define_singleton_method(:each_entry) do |&block|
         pairs.each do |pair|
@@ -61,7 +62,7 @@ module DexpaceTransportAsyncHTTPRequestMapperTest
       forged.define_singleton_method(:method) { template.method }
       forged.define_singleton_method(:url) { template.url }
       forged.define_singleton_method(:headers) { headers }
-      forged.define_singleton_method(:body) { nil }
+      forged.define_singleton_method(:body) { body }
       forged
     end
   end
@@ -169,10 +170,28 @@ module DexpaceTransportAsyncHTTPRequestMapperTest
       refute_includes(names(native), "content-type")
     end
 
-    test "a body-less request maps to a nil native body, and a body-forbidden method attaches " \
-         "none" do
+    test "a body-less request maps to a nil native body" do
       assert_nil(map(request(method: "POST")).body)
       assert_nil(map(request(method: "GET")).body)
+    end
+
+    # Dispatch step 8: a body-forbidden method gets no body attached. Through the model the guard
+    # is unreachable -- HTTP-7 already makes a GET's body nil at the builder -- so it is asserted
+    # over the forged shape that met no builder (design §10.10's hole), where a body on a GET or
+    # a HEAD would otherwise go out chunked; the forged POST is the control that shows the
+    # fixture carries its body through (review round 2's R2-2).
+    test "a body-forbidden method attaches none, even on a forged request carrying one" do
+      smuggled = Dexpace::Body.bytes("smuggled".b)
+
+      %w[GET HEAD].each do |method|
+        forged = forged_request_with(%w[X-Ok 1], method: method, body: smuggled)
+
+        assert_predicate(forged.method, :body_forbidden?, method)
+        assert_nil(map(forged).body, method)
+      end
+      control = map(forged_request_with(%w[X-Ok 1], method: "POST", body: smuggled))
+
+      assert_kind_of(RequestBody, control.body)
     end
 
     test "a body maps to a RequestBody the library pulls; framing is never copied from a header" do

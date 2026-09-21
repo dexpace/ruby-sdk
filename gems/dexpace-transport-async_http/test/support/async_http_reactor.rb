@@ -28,20 +28,29 @@ module AsyncHTTPReactor
     end
   end
 
-  # After a settlement that delivered no response, the exchange task and its transient watcher
-  # are both gone from the reactor: a turn or two for them to finish, then no non-transient child
-  # remains and no child is a watcher. The pool's own transient gardener is the one child that
-  # legitimately stays for the client's life, which is why the watcher is found by its
-  # annotation rather than by counting. The watcher's release is what keeps a long-lived reactor
-  # from accumulating one parked task per failed exchange, and this is what turns its absence red.
+  # The watcher tasks alive under `task`, found by the adapter's own annotation: one per exchange
+  # whose queue is still open -- in flight, or delivered with its body not yet released.
+  #
+  # @param task [Async::Task] the task the exchange was spawned under
+  # @return [Array<Async::Task>]
+  def watcher_tasks(task)
+    watcher = Dexpace::Transport::AsyncHTTP.const_get(:Exchange, false)::WATCHER_ANNOTATION
+    Array(task.children).select { |child| child.annotation == watcher }
+  end
+
+  # After a settlement that delivered no response, or after a delivered body's release, the
+  # exchange task and its transient watcher are both gone from the reactor: a turn or two for
+  # them to finish, then no non-transient child remains and no child is a watcher. The pool's own
+  # transient gardener is the one child that legitimately stays for the client's life, which is
+  # why the watcher is found by its annotation rather than by counting. The watcher's release is
+  # what keeps a long-lived reactor from accumulating one parked task per failed exchange, and
+  # this is what turns its absence red.
   #
   # @param task [Async::Task] the task the exchange was spawned under
   def assert_exchange_released(task)
-    watcher = Dexpace::Transport::AsyncHTTP.const_get(:Exchange, false)::WATCHER_ANNOTATION
     RELEASE_TURNS.times do
       task.yield
-      children = Array(task.children)
-      return if children.all?(&:transient?) && children.none? { |c| c.annotation == watcher }
+      return if Array(task.children).all?(&:transient?) && watcher_tasks(task).empty?
     end
 
     flunk("the exchange task or its watcher outlived the settlement by #{RELEASE_TURNS} turns")
