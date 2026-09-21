@@ -41,8 +41,19 @@ class VersionsGateTest < GateCase
     assert_equal(["dexpace-core.gemspec did not load."], found)
   end
 
+  # Phase 8c's P8-36: a `floor:<gem>` row in VERSIONS is the floor THAT gem must declare, so a
+  # gemspec left on the global floor is a violation naming the gem -- which a gate reading only
+  # the global row would report as agreeing.
+  test "rejects a per-gem floor ahead of what the gemspec declares" do
+    found = VersionsGate.violations(File.join(FIXTURES, "per_gem_floor_ahead"))
+
+    assert_includes(found.join("\n"), "dexpace-transport-async_http")
+    assert_includes(found.join("\n"), "expected >= 3.3")
+  end
+
   test "each fixture is wrong in exactly one place" do
-    %w[stale_pin dropped_matrix_row ahead_literal gemspec_does_not_load].each do |fixture|
+    %w[stale_pin dropped_matrix_row ahead_literal gemspec_does_not_load per_gem_floor_ahead]
+      .each do |fixture|
       found = nil
       capture_io { found = VersionsGate.violations(File.join(FIXTURES, fixture)) }
 

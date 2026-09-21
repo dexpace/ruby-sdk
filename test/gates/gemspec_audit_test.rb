@@ -37,6 +37,16 @@ class GemspecAuditTest < GateCase
     assert_includes(found.join("\n"), "expected >= 3.2 (NFR-10)")
   end
 
+  # Phase 8c's P8-36: the floor is per gem when VERSIONS carries a `floor:<gem>` row, so a
+  # gemspec on the global 3.2 where its own row says 3.3 is refused against 3.3, by name.
+  test "rejects a gemspec below its own per-gem Ruby floor" do
+    found = GemspecAudit.violations(File.join(FIXTURES, "per_gem_floor_ahead"))
+
+    assert_equal(1, found.length, found.inspect)
+    assert_includes(found.first, "dexpace-transport-async_http")
+    assert_includes(found.first, "expected >= 3.3 (NFR-10)")
+  end
+
   # NFR-12's ordering half, which the design lists among the audit's assertions. RubyGems sorts
   # spec.files in its own reader, so the unsorted fixture is the positive control: what the audit
   # refuses is the list that depends on git.
