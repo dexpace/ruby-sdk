@@ -35,6 +35,7 @@ module Dexpace
         def run: (untyped task) -> untyped
         def perform: () -> bool
         def subscribe: () -> Dexpace::Async::Completer
+        def signal: (untyped reason) -> nil
         def net: () -> nil
         def finish: () { () -> untyped } -> untyped
         def watch: () -> untyped

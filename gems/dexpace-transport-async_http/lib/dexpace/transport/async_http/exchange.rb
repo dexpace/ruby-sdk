@@ -24,7 +24,9 @@ module Dexpace
       # thread` out of the reactor itself). The queue is closed when the exchange ends undelivered
       # or when the delivered body is released, so the watcher wakes with nil and exits;
       # `transient: true` keeps a body a caller never closes from holding the caller's `Sync`
-      # block open.
+      # block open. A hook can still run after that close -- the source and the completer both
+      # steal their hooks before they notify -- so the push is total over it (#signal) and a cancel
+      # that lost the race against the exchange's own end never raises back into the canceller.
       #
       # `Async::Cancel` is not a StandardError and leaves this task through the
       # `rescue ::Exception` arm below, which re-raises it unchanged after settling the pivot
@@ -127,13 +129,32 @@ module Dexpace
         # The token drives the pivot AND the queue -- after delivery the pivot is settled and
         # `request_cancel` is a no-op, so the queue is what still reaches a body read -- and the
         # pivot drives the queue, for `Future#cancel`. Both hooks run inline when their subject is
-        # already cancelled.
+        # already cancelled, and both may run AFTER the exchange has ended (#signal).
         def subscribe
           @subscription = @cancellation.on_cancel do |reason|
             @completer.request_cancel(reason)
-            @queue.push(reason)
+            signal(reason)
           end
-          @completer.on_cancel { |reason| @queue.push(reason) }
+          @completer.on_cancel { |reason| signal(reason) }
+        end
+
+        # A hook's push, total over the exchange's end. `Cancellation::Source#cancel` and
+        # `Completer#settle` each steal their hook list under their own mutex and run it outside,
+        # on the CANCELLER's thread; an exchange that finished in between -- check-after-resume
+        # saw the flag the cancel had already flipped, settled the pivot cancelled and closed this
+        # queue through #release_watch, whose detach reached a list the source no longer held; or
+        # a delivered body released in that same window -- has nothing left for the hook to do,
+        # and `Thread::Queue#push` on the closed queue raises `ClosedQueueError`, which
+        # `Hooks.notify` would hand back to the caller's own `Source#cancel` or `Future#cancel`.
+        # A cancel that lost that race is not the caller's failure: the pivot is settled --
+        # cancelled, or with a response whose body is already released -- and the token reads
+        # cancelled, so the raise is swallowed here and nowhere else. A `closed?` check first
+        # would be the same race one instruction later.
+        def signal(reason)
+          @queue.push(reason)
+          nil
+        rescue ::ClosedQueueError
+          nil
         end
 
         # R13: the undelivered response is closed on EVERY exit, before the pivot is settled, so
@@ -149,12 +170,20 @@ module Dexpace
         # The watcher, on the reactor's thread: a reason means the pivot was cancelled -- from
         # the token, from Future#cancel, or from a pre-dispatch cancellation -- and nil means the
         # exchange ended or the delivered body was released. While the exchange is in flight the
-        # task is cancelled with the reason as its cause (a non-Exception cause would be dropped),
-        # which is what reaches a native call blocked in a read or in the pool's acquire
-        # (TRANSPORT-7); once the response is delivered the response itself is closed, which is
-        # what reaches a consumer blocked in a body read, and never a delivered response whose
-        # pivot was not cancelled (ASYNC-20). An exchange already in its exit path is left to it:
-        # a cancel landing inside a close would leave the pivot to the ensure's net.
+        # task is cancelled, which is what reaches a native call blocked in a read or in the
+        # pool's acquire (TRANSPORT-7); once the response is delivered the response itself is
+        # closed, which is what reaches a consumer blocked in a body read, and never a delivered
+        # response whose pivot was not cancelled (ASYNC-20). An exchange already in its exit path
+        # is left to it: a cancel landing inside a close would leave the pivot to the ensure's net.
+        #
+        # The `cause:` is the SDK's own reason as an exception so the task's `Async::Cancel`
+        # names it for whoever reads the task -- a debugger, the reactor's task tree -- rather
+        # than the runtime's generic "Cancelling task!", which is what a non-Exception cause is
+        # replaced with. Nothing in this adapter reads it back: by the time the watcher acts the
+        # pivot is already settled cancelled with the reason (the token's hook settles it before
+        # it pushes; Future#cancel settled it to run its hook at all), so #run's exit arm has
+        # nothing left to settle and the reason a caller sees travelled through the token and the
+        # completer, never through the Cancel.
         def watch
           reason = @queue.pop
           return if reason.nil?
