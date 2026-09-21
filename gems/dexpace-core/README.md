@@ -5,8 +5,9 @@ This gem is the core: the domain model, the pipeline and every seam's contract.
 
 **Status: `0.0.0`, unpublished; the HTTP domain model, the seam layer, the byte-streaming layer,
 the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
-layer, the tracing, metrics and logging layers, the retry layer and the authentication layer
-are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+layer, the tracing, metrics and logging layers, the retry layer, the authentication layer, the
+redirect layer, the server-sent-events layer, the pagination layer, the serialization layer and
+phase 8a's transport error are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -85,10 +86,21 @@ too; and the pagination layer under `Dexpace::Page` (phase 7c): the page value t
 namespace, `Info`, `QueryRewriter`, the three strategies `CursorStrategy`, `PageNumberStrategy`
 and `LinkStrategy` over a caller-supplied extractor, the views `Items` and `Pages`, the engines
 `Paginator` and `AsyncPaginator`, the front-end `Fetchers`, `PageStateError`, and `URL.resolve`
-beside phase 1's `URL.parse!`.
-Nothing else yet: every adapter is a later phase's, the three retry drivers are the only emitters
-of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships here, so nothing
-talks to a socket.
+beside phase 1's `URL.parse!`; and the serialization layer under `Dexpace::Serde` (phase 7a), beside
+phase 2's seam: the witness protocol `Serde.witness!` / `.witness?`, the frozen `DecodeContext` with
+its RFC 6901 `#pointer` and its one raise site `#error!`, the three container combinators `List`,
+`Map` and `Nullable`, the named witness `BOOLEAN`, the ISO-8601 witness `Instant`, the three-state
+PATCH type `Tristate` (`ABSENT`, `NULL`, `Present`, `Tristate.of`), the encode walk `Native.of` with
+its `OMIT` sentinel, the two response handlers `DecodingHandler` and `StatusAwareHandler`, the ninth
+body factory `Body.serialized(value, serde:)`, and `interface _Codec` settled in place -- the codec
+itself lives in `dexpace-serde-json`. Phase 8a adds three things to this gem for the transport
+adapters: the flat `Dexpace::TransportError < ::IOError` (`#retryable?` unconditionally true,
+`#phase` one of `:connect` / `:write` / `:read`), `Configuration::Keys::REQUEST_TIMEOUT` and
+`Instrumentation::Events::TRANSPORT_HEADER_DROPPED`.
+Nothing else: every adapter is another gem's -- the JSON codec is `dexpace-serde-json`'s (phase 7a)
+and the synchronous transport `dexpace-transport-net_http`'s (phase 8a) -- the three retry drivers
+are the only emitters of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships
+here, so nothing in this gem talks to a socket.
 The as-built pages are
 `docs/sdk-documentation/http.md`, `docs/sdk-documentation/seams.md`, `docs/sdk-documentation/io.md`,
 `docs/sdk-documentation/body.md`, `docs/sdk-documentation/execution-context.md`,
@@ -96,7 +108,8 @@ The as-built pages are
 `docs/sdk-documentation/configuration.md`, `docs/sdk-documentation/tracing-and-metrics.md`,
 `docs/sdk-documentation/logging-and-redaction.md`, `docs/sdk-documentation/retry.md`,
 `docs/sdk-documentation/auth.md`, `docs/sdk-documentation/redirect.md`,
-`docs/sdk-documentation/sse.md` and `docs/sdk-documentation/pagination.md`.
+`docs/sdk-documentation/sse.md`, `docs/sdk-documentation/pagination.md` and
+`docs/sdk-documentation/serde.md`.
 
 ## Install
 
@@ -231,6 +244,10 @@ it stays that way (`SEAM-1`, `NFR-1`).
   latch, the strategy contract and the three built-ins over an extractor, the query splice and
   `URL.resolve`, the two views over one walk and their close discipline, the blocking engine, the
   async trampoline with its executor mode and cancellation race, and the fetcher front-end.
+- `docs/sdk-documentation/serde.md` -- the serialization layer as built: the witness protocol and
+  the decode context, the container combinators and the two named witnesses, the three-state PATCH
+  type and its decode combinator, the encode walk and `OMIT`, `Body.serialized`, the two response
+  handlers, and the JSON codec `dexpace-serde-json` ships over them.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
 - `docs/sdk-design-ruby/02-gem-and-workspace-layout.md` -- the gem layout and the
   zero-dependency invariant every gem here is built under.

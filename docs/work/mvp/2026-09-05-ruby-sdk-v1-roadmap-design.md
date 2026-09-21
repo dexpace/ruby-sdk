@@ -2564,7 +2564,10 @@ design.
   beside the Gemfile and nothing outside the run changes. Phase 8a's Task 23 owns every edit to
   `clean_bundle_check` this wave and may fix it there, in which case this bullet is simply closed.
   Touches `NFR-1`, `NFR-2`, `NFR-10`, `NFR-12`. Recorded by 7a on its docs branch; referred to by date
-  and content, never by ordinal.
+  and content, never by ordinal. [closed by 8a's Task 23 on this tree, 2026-09-21: `clean_bundle_check`
+  sets `BUNDLE_PATH` to a `vendor/` directory beside the scratch `Gemfile`, so the fetch lands inside the
+  run's own `Dir.mktmpdir` and nothing outside it changes — run green for all six gems on 3.2.11, 3.3.12,
+  3.4.10 and 4.0.6 by the reconciliation that landed 8a after phase 7]
 - **`rbs_collection.yaml`'s header comment is stale: "json arrives with dexpace-serde-json's codec in
   phase 7", and phase 7a added no row.** Found 2026-09-20 by phase 7a's implementation and routed here
   by its review round 0 (R0-1): `json`'s signatures are rbs's own stdlib set — `rbs collection install`
@@ -2575,6 +2578,119 @@ design.
   that row; whichever lane adds the first row rewrites the sentence and closes this bullet, and if none
   does before phase 10, the repair is a one-comment edit. No gate reads the comment. Touches nothing
   normative. Recorded by 7a on its docs branch; referred to by date and content, never by ordinal.
+- **`net-http`'s connect-phase `Timeout.timeout` has an observable: the first connection in a process
+  starts Ruby's process-wide `Timeout` thread, on the 3.2, 3.3 and 3.4 rows and not on 4.0.** Found
+  2026-09-20 by phase 8a's implementation, running its adapter suite on every interpreter: below
+  net-http 0.7 the connect is `Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(…) }`
+  (the 2026-09-11 bullet above), and the first `Timeout.timeout` call anywhere in a process starts a
+  singleton thread that lives for the process; on 0.9.1, the version 4.0.6 resolves, the connect is
+  `TCPSocket.open(conn_addr, conn_port, open_timeout:)` and no thread starts. `DexpaceTestCase`'s
+  teardown counts threads around every test, so the first test to connect on a 3.2, 3.3 or 3.4 row was
+  charged with a thread it did not start and could not join — a red row the development interpreter never
+  showed. Phase 8a parks it: `test/support/net_http_warmup.rb` opens one connection against a local
+  `TCPServer` when either adapter gem's test helper loads, before any count is taken (8a's `P8-62`); the
+  8c and 8b lanes' helpers, if they connect through `net-http`, must require it too. What is phase
+  10's: the 2026-09-11 bullet's "**Code half:** none is owed" is still right about the ban and the cop,
+  and its correct statement for §8.3 gains one clause — the dependency's primitive leaves a process-wide
+  thread behind, which a host that counts threads will see once and never again. Touches `NFR-6`,
+  `XCUT-11`, `XCUT-13`. Added after phase 10's planning pass by phase 8a and referred to by date and
+  content, never by ordinal, because phases 7a, 7b and 7c are adding bullets to this list at the same
+  time; not yet in phase 10's design's disposition table, which dispositions it at execution.
+- **rbs 4.2.0 types `TCPServer#initialize` as `(?String host, Integer port)` — an optional positional
+  before a required one — and Steep 2.1.0 refuses the two-argument call Ruby accepts.** Found 2026-09-20
+  by phase 8a's implementation, running `steep check` over the conformance target for the first time:
+  `TCPServer.new("127.0.0.1", 0)`, the one construction design §9.3's fixture needs, is reported as an
+  arity error by the checker and by nothing at runtime, on every interpreter. `WireServer#initialize`
+  routes the call through an `untyped` local (`server_class = ::TCPServer #: untyped`) with the reason
+  in a comment, which is a relaxation inside one method rather than a named target relaxation in the
+  `Steepfile`, so the target stays at `D::Ruby.default`. What is phase 10's: the `NFR-3` audit checks
+  whether the rbs release the `rbs_collection.yaml` then resolves has corrected `stdlib/socket/0/
+  tcp_server.rbs`, and removes the local when it has, or records the workaround in `docs/knowledge/notes/type-system.md`
+  when it has not. Touches `NFR-3`. Added after phase 10's planning pass by phase 8a and referred to by
+  date and content, never by ordinal; not yet in phase 10's design's disposition table, which
+  dispositions it at execution.
+- **Phase 6b's `REDIR-23` proof carries a ten-second wall-clock bound over 5,000 hops, and the bound
+  fails under machine load while the stack-flatness half still passes.** Found 2026-09-20 by phase 8a's
+  implementation, running `test:gems` on 4.0.6 while three other lanes ran their own gates on the same
+  machine (load average above 10): `DexpaceRedirectStepTest::LifecycleTest` "a chain of 5,000 hops is
+  followed iteratively -- flat on the stack, in under a few seconds" (`step_test.rb`) measured 10.6 s and
+  12.6 s against its `assert_operator(elapsed, :<, 10.0)` in the 3,016-test process, and 8.8 s run alone
+  under the same load; the same run on the same tree passed in 47 s total an hour earlier. The
+  requirement's clause is "iteratively, without unbounded recursion", which the assertion's
+  `depths.first == depths.last` comparison proves on its own and which phase 6a's `RETRY-30` test proves
+  with `caller.size` and no clock; the clock bound is the "in under a few seconds" gloss and is the only
+  load-sensitive assertion in the repository's suites. Phase 8a changed nothing in that file: it is
+  6b's, and a bound loosened by the lane that happened to hit it would be a number with no reason.
+  What is phase 10's: decide whether the bound goes — the flatness comparison is the proof — or becomes
+  a per-hop budget measured against a warm-up drive, and apply the same reading to any wall-clock
+  assertion its `NFR-6` audit finds. Touches `REDIR-23`, `NFR-6`. Added after phase 10's planning pass
+  by phase 8a and referred to by date and content, never by ordinal; not yet in phase 10's design's
+  disposition table, which dispositions it at execution.
+- **Phase 6a's `RETRY-42` / `RECOV-28` eight-thread budget test is interleaving-dependent, and errors
+  under the whole-repository process on a loaded machine.** Found 2026-09-20 by phase 8a's review round 1,
+  on the same machine and under the same three concurrent lanes as the `REDIR-23` bullet above:
+  `DexpaceResilienceRecoveryRetryTest` "RETRY-42 / RECOV-28: eight concurrent calls through one engine
+  keep their budgets apart" (`recovery_retry_test.rb`) errored with `Dexpace::ProtocolError: HTTP 503` in
+  two of five whole-process 3.2.11 `test:gems` runs pinned to net-http 0.4.1 (once in the code tip's
+  matrix row, once in the docs tip's `SEED=31337` run), reran green with the same seed each time, and
+  passed 70/70 alone and 5/5 in core's own `rake test`; every 4.0.6, 3.3.12, 3.4.10 and 3.2.11/0.9.1
+  run passed. The fixture hands sixteen scripted responses (503 and 200 alternating) to eight threads in
+  call order, so a thread switch landing between one thread's 503 and its retry hands that thread a
+  second 503 and spends `max_retries: 1` — reachable only under the slower one-process coverage run
+  and machine load, and a scheduling outcome rather than a seed's. The file and `RecoveryRetry` are
+  byte-identical to `main`'s; phase 8a changed nothing there, for the same reason it left the
+  `REDIR-23` bound. What is phase 10's: give each thread its own scripted sequence, or assert the
+  budget invariant (sixteen calls, no thread past its cap) without assuming which response each thread
+  draws, and read this together with the `REDIR-23` bullet as the same `NFR-6` class. Touches
+  `RETRY-42`, `RECOV-28`, `NFR-6`. Added after phase 10's planning pass by phase 8a and referred to by
+  date and content, never by ordinal; not yet in phase 10's design's disposition table, which
+  dispositions it at execution.
+- **`Dexpace::Status` guards `100`–`599` while `Net::HTTP` parses any three-digit code, so a `999` or a
+  `600` head raises `Dexpace::InvalidArgumentError` out of the net-http adapter — a phase-1 model question
+  in the shape of the `"http/1.0"` bullet above.** Found 2026-09-20 by phase 8a's review round 2 (R2-2),
+  measured through the real adapter against `WireServer`: `Net::HTTP` reads any `\d\d\d` status line and
+  delivers a `999` or a `600` as an `HTTPUnknownResponse` (`CODE_TO_OBJ['999']` and `CODE_CLASS_TO_OBJ['9']`
+  both nil), phase 1's `Status#initialize` refuses an Integer outside `100..599` (`status.rb`, "the port's
+  reading" of `HTTP-10`, recorded in phase 1's checklist row), and `ResponseMapper` raises that
+  `InvalidArgumentError` after the head with the connection released and no thread left — the same path
+  an `HTTP/1.0` head takes, while `520`, `499` and `599` map and a two-digit `99` is `Net::HTTP`'s own
+  `HTTPBadResponse`, wrapped as a retryable `TransportError`. `TRANSPORT-24` says any code "including
+  vendor/non-standard codes" is surfaced "rather than rejected", and LinkedIn's `999` is the canonical
+  out-of-range vendor code; `HTTP-10` says construction is total over "any code". 8a routed it here rather
+  than fixing it for the same reason as the `"http/1.0"` bullet: widening `Status`'s range is a phase-1
+  surface decision no sub-phase should take alone, and the widening is additive, so `NFR-4` permits it.
+  What is phase 10's: decide whether `100`–`599` is the port's reading of both IDs (then record it where
+  phase 10 records the port's readings of frozen chapters, and the adapter's argument error is the
+  documented outcome) or `Status` admits `000`–`999` (then the mapper needs no change), and in either case whether an
+  adapter should surface an out-of-range head as a retryable `TransportError` rather than an argument
+  error. **Code half: none owed by 8a** — 8a states the bound in its `TRANSPORT-24` checklist row, in
+  `ResponseMapper`'s YARD beside its `HTTP/1.0` sentence, and in the as-built page. Touches `HTTP-10`,
+  `TRANSPORT-24`, `TRANSPORT-22`, `NFR-4`. Added after phase 10's planning pass by phase 8a and referred
+  to by date and content, never by ordinal; not yet in phase 10's design's disposition table, which
+  dispositions it at execution.
+- **Two child-process idioms prove one property — `seam_surface_test.rb`'s private
+  `bare_require_report` and `test/support/bare_require.rb`'s `BareRequire#bare_require` each spawn a
+  `ruby` that requires `dexpace` alone and read a seam registry back — and the tree should carry one.**
+  Found 2026-09-21 by the pass that reconciled phase 8a's stack onto `main` after the whole of phase 7:
+  7a converted `gems/dexpace-core/test/dexpace/seam_surface_test.rb`'s two seam-iterating pins ("every
+  seam registry starts empty on a bare require", "no seam's zero-candidate error names a concrete gem")
+  through a private helper inside the file — `IO.popen` over `RbConfig.ruby -w -Ilib -e` with a
+  `BARE_REQUIRE` program printing one row per seam — and `serde_test.rb`'s three pins the same way,
+  merged as #88; 8a, built one base apart, converted the same two `seam_surface_test.rb` lines through a
+  new shared module, `gems/dexpace-core/test/support/bare_require.rb` (`Open3.capture3` over
+  `RbConfig.ruby -w -W:deprecated -I <core lib> -e`, with `RUBYOPT` cleared, asserting a silent child),
+  and moved `transport_test.rb`'s registry pins onto it in `transport_bare_require_test.rb`, which the
+  adapter gems' smoke suites reuse. The reconciliation resolved `seam_surface_test.rb` to `main`'s
+  content byte for byte — 7a's conversion, already merged and reviewed — dropped 8a's hunk to that
+  file, and kept 8a's module and `transport_bare_require_test.rb` because 8a's own suites require
+  them; so `main` now carries both spellings of one idiom, both green. What is phase 10's: unify
+  `seam_surface_test.rb`'s private helper (and `serde_test.rb`'s copy of it) onto `BareRequire`, the
+  more general of the two — it clears `RUBYOPT`, asserts the child exits 0 and writes nothing to
+  stderr under `-w`, and takes an arbitrary program — so the "starts empty on a bare require"
+  property has one spelling in `test/support/` and the next adapter's pins (8b's and 8c's, on
+  `AsyncTransport`) inherit it. Touches `SEAM-1`, `SEAM-2`, `SEAM-6` (the IDs both spellings
+  assert) and nothing normative in the code. Recorded by the 8a reconciliation on its docs branch;
+  referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4354,3 +4470,205 @@ re-run with all three phase-7 layers loaded in one process and `composition_test
 tip green on the default task, the honest RuboCop run, the probe, the knowledge-structure verifier and
 every `ruby` fence of `serde.md`, `sse.md` and `pagination.md` on 4.0.6 (`serde.md`'s tenth fence run
 with `require "stringio"` prepended, the nit 7a's review recorded).
+
+**2026-09-20** — **Phase 8a implemented**, as three stacked branches against issue #30: code, tests,
+documentation, cut from `main` at `c53638b`, which holds every phase through 6 — concurrently with 7a, 7b
+and 7c off the same base, so this is the phase-8 lane that landed **first** and the first code outside
+`dexpace-core`. Three things the charter left to "whichever lands first" are this lane's:
+`Dexpace::TransportError < ::IOError` in `lib/dexpace/error/transport_error.rb` (`#retryable?`
+unconditionally true, `#phase` for the record and never a decision — `XCUT-4`'s retryable transport
+failure and the answer to 6a's P6-4 blind spot), `Instrumentation::Events::TRANSPORT_HEADER_DROPPED` (the
+tenth event) beside `Configuration::Keys::REQUEST_TIMEOUT`, and the require-allowlist's `tempfile` line;
+`Transport.async_over` over a real socket stays 8b's. **`dexpace-transport-net_http`** carries
+`Dexpace::Transport::NetHTTP`: the entry file's eight constants, `.build(timeout:, logger:, tls:)`,
+`.using(client, logger:)`, `.default` and the require-time `Transport.register(:net_http, …)` — the
+version-skew guard's first real registration — and eight files under `net_http/`, `adapter.rb` public
+and the seven `private_constant`s `deadline.rb`, `failures.rb`, `request_mapper.rb`,
+`response_mapper.rb`, `response_pump.rb`, `tls_settings.rb` and `proxy_route.rb`, every one mirrored in
+`sig/` and in `test/`; its gemspec declares `net-http >= 0.4` with no upper bound, the first third-party
+half of an `NFR-2` budget in the repository. **`dexpace-conformance`** carries `Dexpace::Conformance`:
+the assertion protocol phase 0 postponed (`Failure`, `Vacuous`, `Assertion`, `Result`, `Report`), the
+twenty-eight-assertion `TransportSuite` over its five private groups and `Checks`, `TransportCase` with
+its `SettleOnly` guard, `BorrowedPair`, the `WireServer` fixture with `RecordedRequest` and the private
+`RequestReader`, the fifteen `Scripts`, `MinitestDriver`, the opt-in `RSpecDriver` and the two doubles
+5c and 5b assigned here, `RecordingSpan` and `Allocations` — twenty-two new files, every one mirrored in
+`sig/`, the three with no test file of their own (`checks.rb`, `recorded_request.rb`,
+`request_reader.rb`) proven through their owners' suites. The repository gains
+`test/support/net_http_warmup.rb`, a `BUNDLE_PATH`-scoped `clean_bundle_check`, `library "socket",
+"tempfile"` on the `Steepfile`'s `:conformance` target, and three surface manifests regenerated once —
+core 1 137 → 1 142, net_http 2 → 17, conformance 2 → 100 — with every added row read against the object
+model. Three earlier-phase test files changed on the code branch as pins the two new constants moved
+(`keys_test.rb`, `instrumentation/keys_test.rb`, `downstream_wirings_test.rb`), the smoke suite's layer
+table gained the phase, and core's `transport_test.rb` and `seam_surface_test.rb` moved their
+registry-key assertions to a bare-`ruby` subprocess (`test/support/bare_require.rb`), because in one
+`test:gems` process the adapter's require-time registration is visible to every suite. **The design's
+fifteen rows stand; `R1`–`R7`, `R16`, `R17` and `R18` were built as written**, with the As-built addendum
+adding `P8-51`–`P8-65`: the head is adapted on the caller's thread inside `head_or_raise { … }` before the
+producer reads a byte of body, because `R4`'s deletion of an unparseable `Content-Length` needs an
+ordering `R1` never stated — the `TRANSPORT-27` assertion was red against the real adapter until the
+handshake existed (P8-51); the pump owns the cancellation subscription for the life of the response
+(P8-52); on the borrowing construction the one permit is returned by the producer's own `ensure` and a
+push through the closed queue, never a `break`, is what makes `Net::HTTP` close a half-read keep-alive
+socket (P8-53); a closed-queue pop is classified through the token and is end of stream only when the
+pump is open (P8-54); the shared suite carries no `TRANSPORT-12` or `TRANSPORT-13` row and `TRANSPORT-18`
+is vacuous by measurement, so the Minitest driver reports one skip against the real adapter, not the
+plan's four (P8-55); `await_closed_connection(count = 1, timeout:)` is bounded and `Scripts.fixed` /
+`.large` take `hold:` (P8-56); a nil cancellation is the never-cancelled token and `.build` validates
+`timeout:` (P8-57); `ResponseMapper` logs a `TRANSPORT-14` drop by name (P8-58); the public-surface
+additions are listed (P8-59); and the two version-bound `net-http` facts — `supply_default_content_type`
+absent on 0.9.1, the connect phase `Timeout.timeout` below 0.7 and `TCPSocket.open(open_timeout:)` on
+0.9.1, whose first call starts a process-wide thread the warm-up parks (P8-60–P8-62); and, from review
+round 1 (2026-09-20), the inbound `Content-Length` grammar is a bounded, timed `Regexp.new` in the adapter
+and the fixture alike, core's spelling for a pattern a wire value reaches, superseding the design's
+"carries no `timeout:`" sentence (P8-63); and, from review round 2 (2026-09-20), the pump asks the
+token before it starts a producer, so a token already cancelled at construction gets a closed pump with
+no thread, no socket and the borrowed permit straight back, where the reviewed pump had raised
+`NoMethodError` on a nil subscription from inside its constructor after the request was on the wire
+(P8-64); and, from review round 4 (2026-09-20, the manager-sanctioned targeted round after round 3), a
+`Content-Length` beside `Transfer-Encoding: chunked` is the unknown-length sentinel, because `net-http`
+frames such a response by the chunked coding and the header was never the number of bytes the pump
+delivers — taken as one it truncated `#each`, `#write_to` and `#to_replayable` while `#body_string` read
+the whole body (P8-65). The checklist is at
+`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`:
+twenty-three own rows — twenty-two ✅ and `TRANSPORT-28` ✅ on two clauses with its zero-copy clause ⏳
+under `docs/first-release.md` — plus the phase-level `TransportError` row and sixteen cross-reference
+rows; the reviewer's thirty mutations run red on 4.0.6 (net-http 0.9.1) and 3.2.11 (pinned to 0.4.1),
+twenty-nine caught on both and the thirtieth an equivalent mutant with its measurement (`String#<<` into
+an emptied UTF-8 buffer adopts BINARY on every row), and review round 0's three surviving mutations —
+the `TRANSPORT-22` guard over a body that drained itself, the `TRANSPORT-6` clamp under `assert_in_delta`'s
+default 0.001, and `P8-52`'s detach — made red in round 1 with three guards beside them (rows 31–36),
+and round 2's two (the pre-cancelled pump, the proxy keys) with three more beside them (rows 37–41),
+round 3's fixture clients (rows 42–44) and round 4's three — the chunked-length guard, the closed-pump
+read round 3 found untested and the handler join it found unguarded (rows 45–47); the gem's suites
+blank the three proxy keys the resolver reads around every owning-adapter test through the override
+tier (`NetHTTPHermeticProxy`), because every `NetHTTP.build` resolves its proxy through the process-wide
+chain and a host's `HTTPS_PROXY` routed fifteen of the adapter suite's thirty-four tests to it — and, from
+review round 3 (2026-09-20, for round 2's R2-1), every raw `Net::HTTP` a suite starts passes an explicit
+nil proxy, because the library's own `:ENV` default reaches uri's `find_proxy`, whose upper-case-`HTTP_PROXY`
+warning the test base makes fatal, so both gems' suites are hermetic under `HTTP_PROXY`, `http_proxy`,
+`HTTPS_PROXY` and `NO_PROXY` alike; the design's seventeen facts and the plan's eight
+re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, twelve of them as `matrix_facts_test.rb` printing the row's
+active `Net::HTTP::VERSION` (0.9.1 a default gem on 4.0.6, as on every row — review round 2's R2-3
+corrected the checklist and the knowledge note, which had read this machine's installed copy beside it as
+the gem having left the default set); forty-four departures from the plan's text itemised — thirty-six
+from the build, two from review round 1, four from round 2, one from round 3 and one from round 4 —
+among them the two the whole-repository `test:gems` process found and the gem's own `rake test` never
+could: the adapter's sink double renamed `NetHTTPRecordingSink` because core's `test/support/` already
+owns the bare name and a second `Entry =` is an `NFR-6`-fatal warning at load, and `RawWireTransport`'s
+`leave_open` defect keeping its socket referenced, since an unreferenced `TCPSocket` is closed by GC inside
+the release assertion's wait. One guarded test: the generator slice's codec half skips with `skip "phase 7a's
+Dexpace::Serde::JSON::Codec is not on this base; 7a un-guards"`, so `test:gems` carries two skips until 7a
+lands — that one and `TRANSPORT-18`'s measured vacuity. `docs/sdk-documentation/transport-net_http.md`
+and `conformance.md` are the fifteenth and sixteenth as-built pages, every example run on 4.0.6 (0.9.1)
+and 3.2.11 (0.4.1) and identical on both but for `Hash#inspect` and the Timeout thread's count;
+`architecture.md`, both gem READMEs, `README.md` and `docs/README.md` point at them; `CLAUDE.md`'s
+built-phases paragraph gains the two gems and core's three additions, its counts move to one hundred and
+eighty-five `lib/dexpace/` files and fifteen checklists, its gem sentences say what each adapter gem's
+`lib/` now holds, "Nothing talks to a socket yet" is gone, and its constraints-that-bite list gains six
+lines. `docs/first-release.md` changes in existing entries only — the `P6-4` blocker ticked, the
+conformance-suite and `P8-9` documentation blockers each gaining a dated status sentence, the Minitest 6
+entry narrowed, the `BODY-12` clause-2 and `TRANSPORT-28` entries confirmed on all three `net-http`
+versions; `docs/deviations.md` is untouched, for phase 10 to flip; `docs/knowledge/notes/transport-adapter.md`
+gains one Reference entry with the two version-bound facts. Three dated bullets join phase 10's inbound
+list above — the Timeout thread as the connect-phase finding's observable, rbs 4.2.0's
+`TCPServer#initialize` signature Steep refuses, and 6b's `REDIR-23` wall-clock bound failing under
+machine load in the whole-repository process — a fourth from review round 1, 6a's `RETRY-42` /
+`RECOV-28` eight-thread test erring on an interleaving under the same load — and a fifth from review
+round 2, `Status`'s `100`–`599` guard against `Net::HTTP`'s three-digit parse, a phase-1 model question
+in the shape of the `"http/1.0"` one — each by date and content,
+never by ordinal, because the three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-64`
+into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen.
+
+**2026-09-21** — **Phase 8a reconciled onto `main` after the whole of phase 7 — 7b (server-sent events),
+7c (pagination) and 7a (serialization)**, by a rebase-and-reprove pass. Phase 7 merged first — 7b (#81
+`90abdb8` → #82 `eacf165` → #83 `34f52e8`), 7c (#84 → #85 → #86) and 7a (#87 `4fa99d8` → #88 `1b38b25` → #89
+`734e6b3`), `main` at `734e6b3` — so 8a's three branches, built off `c53638b` concurrently with the three
+phase-7 lanes and reviewed at `20c00d0` → `4776940` → `6908c86`, were rebased onto `main` with `git rebase
+--onto` (rerere disabled), every 8a commit preserved and none reordered or reworded: the stack is `bb909ba`
+(code, six commits) → `a36a9d2` (tests, eight) plus `705d864`, the one test commit the pass added → `b458899`
+(docs, six) plus this paragraph's own commit, the pass's one commit of its own on the docs branch, carrying
+what no 8a commit could: this paragraph, the dated "Reconciled" note at the head of 8a's checklist, the
+phase-10 bullet below it, the closure of 7a's `gates:clean_bundle` bullet, and the paragraph
+`gems/dexpace-core/README.md` owed 7a. **Three decisions.** (1)
+`gems/dexpace-core/test/dexpace/seam_surface_test.rb` was resolved to `main`'s content byte for byte:
+7a converted its two seam-iterating pins through a private `bare_require_report` helper (merged as #88),
+8a converted the same two lines through a new shared `test/support/bare_require.rb`, and the reviewed,
+merged conversion wins; 8a's hunk to that file is dropped, its `BareRequire` module and
+`transport_bare_require_test.rb` stay because 8a's own suites and both adapter gems' smoke suites use them,
+and the two-spellings-of-one-idiom debt is a dated bullet on phase 10's inbound list above. (2) The
+generator slice's codec half (8a's Task 19c) is un-guarded on the tests branch as `705d864`: with 7a's
+`Dexpace::Serde::JSON::Codec` on the tree the `skip` is dead, and the case needed two repairs by the
+minimum, both to the test alone — an explicit `require "dexpace/serde/json"`, and the three lines that
+read the mapped error through 4b's design names (`error.headers`, `error.body.source.read_fully`) now
+read `error.response.headers` and `error.response.body_string`, the as-built `ProtocolError` carrying the
+buffered response; it runs green against the real codec (a 200 decodes to the witness, a 404's buffered
+body reads twice after the socket is gone, an `ABSENT` field is omitted and a `NULL` one kept), and the
+whole suite's skip count is **one**, `TRANSPORT-18`'s measured vacuity. (3) 7a's inbound bullet on
+`gates:clean_bundle` installing into the interpreter's gem directory is closed by 8a's Task 23 on this
+tree — the scratch bundle's `BUNDLE_PATH` sits under the gate's own scratch directory — and the bullet
+says so in a dated bracket, deleted from nothing. **Reconciled inside the rebased 8a commits and nowhere
+else**: `gems/dexpace-core/lib/dexpace.rb` (7b's, 7c's and 7a's blocks as `main` has them, then 8a's
+`# Phase 8a:` block, each verbatim), `gems/dexpace-core/test/dexpace_test.rb` (`SSE_LAYER`, `PAGE_LAYER`,
+then `TRANSPORT_LAYER` in the `LAYERS` table; the merged `PhaseSevenLayers` class untouched),
+`test/fixtures/surface/dexpace-core.txt` (the auto-merge was already the regenerated manifest, confirmed by
+a `surface:regenerate` on the rebased code tip that changed nothing: `main`'s 1,330 rows plus 8a's 5 —
+`TransportError` and its two readers, `Keys::REQUEST_TIMEOUT`, `Events::TRANSPORT_HEADER_DROPPED` — 1,335,
+none removed and no private constant among them; `dexpace-transport-net_http.txt` 2 → 17 and
+`dexpace-conformance.txt` 2 → 100 as before; 7a's `dexpace-serde-json.txt` 15 and the other two at 2
+unchanged), the `Steepfile` and `tasks/gates.rake` (auto-merged; each diff against `main` is exactly 8a's
+own hunk — `library "socket", "tempfile"` on `:conformance` beside 7a's `:serde_json` block, and the
+`BUNDLE_PATH` scoping beside 7b's `gates:serde_boundary` task), `CLAUDE.md` (re-derived from the combined
+tree: "… 7b, 7c, 7a and 8a are built", the whole of phase 7 and the first of phase 8's sub-phases; **220**
+`lib/dexpace/` files beside `version.rb` with 220 `sig/` mirrors — phase 7's thirty-five and 8a's one over
+phase 6's 184 — and the same nineteen `private_constant` test-mirror exceptions, 8a adding none, the
+mirror walk over all three gems it touched finding exactly the three named under `dexpace-conformance`;
+eighteen checklists; every merged lane's layer sentence and 8a's in the opening paragraph, in merge order,
+with "Nothing talks to a socket yet" replaced by 8a's sentence and 8a's two gems stated as the third and
+fourth real ones, after 7a's codec; 7b's, 7c's, 7a's and 8a's "Constraints that will bite" lines; the
+skeleton clause naming the two remaining skeletons; eighteen gates everywhere `main` says so, and the
+`gates:serde_boundary` command line kept), `README.md` (every layer sentence and 8a's two gem sentences,
+the gem table's `net-http >= 0.4` row beside 7a's `json >= 2.19.9`, "the other two are still skeletons";
+its built-phases sentence names 8a beside 7b, 7c and 7a), `docs/README.md` (all four gems' contents,
+**nineteen** pages), `docs/sdk-documentation/architecture.md` (the `transport-net_http.md` and
+`conformance.md` entries after `serde.md`'s, the `write-a-transport.md` placeholder pointing at both, its
+opening list re-derived to nineteen pages), `docs/first-release.md` (auto-merged: 8a's seven hunks in
+existing entries beside 7a's `SERDE-27` half-closure, each verified to survive), and this roadmap (every
+status note in merge order — 7b's, 7c's, 7c's reconciliation, 7a's with its two review-round paragraphs,
+7a's reconciliation, then 8a's — and the phase-10 inbound list at **fifty-five** bullets: `main`'s
+forty-nine, 8a's five and this pass's one, each cited by date and content). 8a's status note above says
+this lane was "the first code outside `dexpace-core`" — true on `c53638b`, not on `main`, where 7a's
+`dexpace-serde-json` landed first (#87) and holds the version-skew guard's first real registration; the
+note is left as written and 8a's checklist note says so. Every file only one lane touched is byte-identical
+to that lane's tip: 8a's own (the two adapter gems' `lib/`, `sig/`, `test/`, READMEs and gemspecs,
+`lib/dexpace/error/transport_error.rb` with its `sig/` and `test/` mirrors, the two `keys.rb` widenings and
+their moved pins, `test/support/bare_require.rb`, `transport_bare_require_test.rb`,
+`test/support/net_http_warmup.rb`, `tools/require_allowlist.rb` and its fixture, the two surface manifests,
+`docs/sdk-documentation/transport-net_http.md` and `conformance.md`, `docs/knowledge/notes/transport-adapter.md`,
+8a's design, and its checklist before this pass's note — 84 code-branch files, 40 tests-branch files but
+`generator_slice_test.rb`, and 8a's docs files but the six reconciled ones) to `6908c86`, and the merged
+lanes' (206 files `main` changed since `c53638b` that 8a did not, `.claude/skills/knowledge-lookup/SKILL.md`
+among them — its transport audit row has been there since the roadmap brainstorm, and 8a's docs branch
+adds nothing to it) to `734e6b3`. `gems/dexpace-core/README.md` gains, in this paragraph's commit, the
+serialization-layer paragraph 7a's reconciliation recorded as owed, a sentence for 8a's three core
+additions, and `serde.md` in both of its page lists. Re-proven at every rebased tip: the code tip green on
+every one of the eighteen gates run individually on 4.0.6 (`test:gems` 3,381 runs, 71,349 assertions,
+0 failures, 0 errors, 0 skips, 93.02 % line coverage — above the floor, so no tip in the stack is red;
+the honest RuboCop run over 630 files clean; `gates:clean_bundle` loading all six gems with three
+declared third-party or default gems under the scoped `BUNDLE_PATH`) and on the 3.2.11 matrix row
+(3,381 runs, 71,351 assertions); the tests tip green on the whole default task on 4.0.6 (3,698 runs,
+72,656 assertions, 0 failures, 0 errors, **1 skip**, 99.88 % line coverage; the honest RuboCop run over
+669 files clean), on the matrix set on 3.2.11 (net-http 0.9.1, 72,658 assertions), 3.3.12 (0.4.1) and
+3.4.10 (0.6.0) at 3,698 runs and one skip each, and on the core suite under seed 31337 on 4.0.6 and
+3.2.11 with identical run counts (3,295) — 8a's `transport_bare_require_test.rb` and both adapter gems'
+smoke-suite registration proofs green with three registering adapter gems in one `test:gems` process,
+and 6b's `REDIR-23` ten-second bound green in every whole-process run of this pass; the docs tip green
+on the default task, the honest RuboCop run, the probe, the knowledge-structure verifier, the
+housekeeping and knowledge test suites, and every `ruby` fence of `transport-net_http.md` and
+`conformance.md` (with `require "dexpace/conformance"` and the lead's `NetHTTP`, `WireServer`, `Scripts`,
+`EMPTY`, `req` and `headers` shorthand defined, the proxy keys blanked as the lead says the suites do) and
+of `serde.md`, `sse.md` and `pagination.md` once more, on 4.0.6 — every `# =>` matching (`serde.md` 69,
+`sse.md` 55, `pagination.md` 62, `conformance.md` 27) but the ephemeral port four of
+`transport-net_http.md`'s fifty-five name, which its lead excepts, and with `conformance.md`'s fifth
+fence, the consumer template over a fictional `MyAdapter` with `...` placeholders, not run, as it
+cannot be. `main` is `734e6b3` before and after; 8b and 8c are not on it, and umbrella #29 stays open
+for them.
