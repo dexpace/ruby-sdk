@@ -24,6 +24,10 @@ class PoolTest < DexpaceTestCase
     @pool = Pool.build(size: size, **)
   end
 
+  def shutdown_events(sink)
+    sink.events_named(Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN)
+  end
+
   # .build's validation, the defaults and the worker threads it creates (R12).
   class ConstructionTest < PoolTest
     test "size is a required keyword with no default" do
@@ -106,8 +110,10 @@ class PoolTest < DexpaceTestCase
       assert_equal(before + 3, ::Thread.list.size)
       assert_equal(["named-pool worker 0", "named-pool worker 1", "named-pool worker 2"], seen.sort)
       pool.close
+      alive = pool.instance_variable_get(:@workers).select(&:alive?)
 
       assert_equal(before, ::Thread.list.size)
+      assert_empty(alive, "a worker outlived the close")
     end
   end
 
@@ -269,10 +275,6 @@ class PoolTest < DexpaceTestCase
 
   # #close: ASYNC-15's idempotent latch, ASYNC-16's drain and SEAM-25's one event.
   class CloseTest < PoolTest
-    def shutdown_events(sink)
-      sink.events_named(Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN)
-    end
-
     # Phase 2 fixes Closeable#close's return value at nil for every closeable, and this pins it.
     test "close is idempotent: both calls return nil, only the first releases, the latch flips" do
       pool = build(size: 2)
@@ -342,6 +344,31 @@ class PoolTest < DexpaceTestCase
       refute_kind_of(::ClosedQueueError, error)
     end
 
+    test "ASYNC-15/OBS-20: a sink that raises on the shutdown event does not fail #close" do
+      raising = Object.new
+      %i[debug info warn error].each do |m|
+        raising.define_singleton_method(m) do |*|
+          raise "sink boom"
+        end
+      end
+      %i[debug? info? warn? error?].each { |m| raising.define_singleton_method(m) { true } }
+      pool = build(size: 1, logger: Dexpace::Instrumentation::Logger.build(sink: raising))
+
+      assert_nil(pool.close)
+      assert_predicate(pool, :closed?)
+    end
+
+    test "Dexpace.close_quietly closes a pool through the same latch" do
+      pool = build(size: 1)
+
+      assert_nil(Dexpace.close_quietly(pool))
+      assert_predicate(pool, :closed?)
+    end
+  end
+
+  # The drain inside #close: the budget, a close issued from the pool's own worker (P8-76), and the
+  # join after the sentinels (P8-75).
+  class DrainTest < PoolTest
     test "close reports not-drained when the budget is spent, off a stub clock, with no waiting" do
       stub_clock = PoolStubClock.new
       sink = PoolRecordingSink.new
@@ -373,25 +400,71 @@ class PoolTest < DexpaceTestCase
       pool.instance_variable_get(:@workers).each { |w| w.join(2) }
     end
 
-    test "ASYNC-15/OBS-20: a sink that raises on the shutdown event does not fail #close" do
-      raising = Object.new
-      %i[debug info warn error].each do |m|
-        raising.define_singleton_method(m) do |*|
-          raise "sink boom"
-        end
+    # P8-76's second half: a task that closes its own pool. The closing worker's exit sentinel
+    # cannot arrive until #release returns, so a drain that waited for it burned the whole budget
+    # and reported drained: false on every such close (review round 0's R0-8); the drain counts
+    # that worker as exited instead, and it exits by itself once the task returns -- running what
+    # the closed queue still held first, which the job queued behind the closer proves. The
+    # outcome pop's bound is a quarter of the budget: under the old drain the close took all of it.
+    test "P8-76: close from inside a task returns before the budget, drained; the worker exits" do
+      sink = PoolRecordingSink.new
+      pool = build(size: 1, queue_limit: 4, shutdown_timeout: 4.0,
+                   logger: Dexpace::Instrumentation::Logger.build(sink: sink),)
+      gate = ::Thread::Queue.new
+      entered = ::Thread::Queue.new
+      outcome = ::Thread::Queue.new
+      ran = ::Thread::Queue.new
+      pool.post do
+        entered << :in
+        gate.pop
+        outcome << [::Thread.current.name, pool.close]
       end
-      %i[debug? info? warn? error?].each { |m| raising.define_singleton_method(m) { true } }
-      pool = build(size: 1, logger: Dexpace::Instrumentation::Logger.build(sink: raising))
+      entered.pop
+      pool.post { ran << :queued_behind_the_closer }
+      gate << :go
 
-      assert_nil(pool.close)
+      assert_equal(["#{pool.name} worker 0", nil], outcome.pop(timeout: 1),
+                   "close from a task did not return inside a quarter of its budget",)
       assert_predicate(pool, :closed?)
+      events = shutdown_events(sink)
+
+      assert_equal(1, events.size)
+      assert_equal(true, events.first.payload["dexpace.executor.drained"]) # rubocop:disable Minitest/AssertTruthy -- the field's VALUE is the boolean true
+      assert_equal(:queued_behind_the_closer, ran.pop(timeout: 5))
+      pool.instance_variable_get(:@workers).each { |w| w.join(2) }
+
+      assert_empty(pool.instance_variable_get(:@workers).select(&:alive?))
     end
 
-    test "Dexpace.close_quietly closes a pool through the same latch" do
-      pool = build(size: 1)
+    # The join after the sentinel drain (P8-75's last clause), made observable. The sentinel is
+    # pushed inside the worker's ensure and the thread exits a moment later -- a gap the GVL makes
+    # unobservable in practice, because the worker holds it from the push to its own exit, so
+    # deleting the join survived every plain thread count (review round 0's R0-3). The gap is
+    # widened here deterministically: the exit queue is replaced by one whose push parks the
+    # worker AFTER its sentinel is visible to the drain, and the park is released from another
+    # thread a quarter-second later. With the join, #close returns only once every worker is dead;
+    # without it, #close returns at once with both workers provably alive.
+    test "P8-75: close joins the workers after their sentinels, so none is alive when it returns" do
+      pool = build(size: 2, shutdown_timeout: 5.0)
+      release = ::Thread::Queue.new
+      holding = Class.new(::Thread::Queue) do
+        define_method(:<<) do |item|
+          super(item)
+          release.pop # parks the worker after its sentinel is visible to the drain
+        end
+      end.new
+      pool.instance_variable_set(:@exits, holding)
+      releaser = ::Thread.new do
+        ::Thread::Queue.new.pop(timeout: 0.25) # a bounded wait with nothing to wait on
+        2.times { release << :go }
+      end
 
-      assert_nil(Dexpace.close_quietly(pool))
-      assert_predicate(pool, :closed?)
+      pool.close
+      alive = pool.instance_variable_get(:@workers).select(&:alive?).map(&:name)
+      releaser.join(2)
+      pool.instance_variable_get(:@workers).each { |w| w.join(2) }
+
+      assert_empty(alive, "workers alive when #close returned: the join after the drain is gone")
     end
   end
 end

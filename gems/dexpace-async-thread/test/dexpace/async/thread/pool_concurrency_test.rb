@@ -141,6 +141,9 @@ class PoolConcurrencyTest < DexpaceTestCase
         pool.post { nil }
         pool.delay(0.001).value(deadline: Dexpace::Clock.deadline_in(5))
         pool.close
+        alive = pool.instance_variable_get(:@workers).select(&:alive?)
+
+        assert_empty(alive, "a worker outlived the close")
       end
 
       assert_equal(before, ::Thread.list.size)

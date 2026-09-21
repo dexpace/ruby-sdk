@@ -257,6 +257,66 @@ class PoolDelayTest < DexpaceTestCase
       assert_equal(:refused, failed.pop(timeout: 1))
       assert_empty(timer_threads)
     end
+
+    # The README's grace-period idiom -- a delay whose handler closes the pool -- runs #close ON
+    # the timer thread. Thread#join on the current thread raises ThreadError, so a stop that joined
+    # unconditionally escaped #close with the latch already flipped, no event emitted and every
+    # other outstanding delay stranded (review round 0's R0-2); the stop skips the self-join and
+    # the thread exits by itself once the handler returns (P8-76). The rescue is what turns the
+    # ThreadError into a reported value rather than a diagnostic swallowed by the timer's net.
+    test "P8-76: close from a delay's on_settle handler returns nil, emits once, fails the rest" do
+      sink = PoolRecordingSink.new
+      pool = build(name: "grace", logger: Dexpace::Instrumentation::Logger.build(sink: sink))
+      other = pool.delay(10.0)
+      outcome = ::Thread::Queue.new
+      pool.delay(0.01).on_settle do
+        outcome << [::Thread.current.name, pool.close]
+      rescue ::StandardError => error
+        outcome << [::Thread.current.name, error]
+      end
+
+      assert_equal(["grace timer", nil], outcome.pop(timeout: 5))
+      assert_predicate(pool, :closed?)
+      error = assert_raises(Dexpace::ClosedError) { other.value(deadline: within(2)) }
+
+      assert_equal("grace is closed", error.message)
+      assert_equal(1, sink.events_named(Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN).size)
+      timer_threads.each { |t| t.join(2) }
+
+      assert_empty(timer_threads)
+    end
+  end
+
+  # The timer's lock scope, asserted rather than argued: its mutex is held across a list mutation
+  # and never across its queue wait (design, "Thread-safety proof obligations").
+  class LockScopeTest < PoolDelayTest
+    # The timer thread is provably parked in its wait (status "sleep", on a bounded condition)
+    # before a cancel and then a close are issued from helper threads with bounded joins. A mutex
+    # held across that wait -- the plan's Task 7 Step 8 mutation -- blocks both until the parked
+    # pop times out, and both joins answer nil in 2 s: red by two reported failures and a leaked
+    # thread count, where every other test in this file is red by a hang under the same mutant
+    # (teardown's close parks on the mutex). The close goes through a helper for that reason:
+    # Closeable's latch flips before #release runs, so teardown's own close is a no-op either way.
+    test "a cancel and a close issued while the timer is parked return: the wait holds no mutex" do
+      pool = build
+      future = pool.delay(10.0)
+      timer = await_timer_thread.first
+      deadline = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) + 5.0
+      ::Thread.pass until timer.status == "sleep" ||
+                          ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) > deadline
+
+      assert_equal("sleep", timer.status, "the timer thread never parked")
+      canceller = ::Thread.new { future.cancel(:no_longer_needed) }
+      cancel_returned = canceller.join(2)
+      closer = ::Thread.new { pool.close }
+      close_returned = closer.join(2)
+
+      refute_nil(cancel_returned, "the cancel blocked on the timer's mutex while it was parked")
+      refute_nil(close_returned, "close blocked on the timer's mutex while it was parked")
+      assert_predicate(future, :cancelled?)
+      assert_empty(timer_entries(pool))
+      assert_empty(timer_threads)
+    end
   end
 
   # P8-22 extended to the timer thread.
@@ -294,11 +354,12 @@ class PoolDelayTest < DexpaceTestCase
   # Liveness under a registered Fiber.scheduler.
   class SchedulerTest < PoolDelayTest
     # A liveness check under a registered Fiber.scheduler: two fibers of one thread, one awaiting
-    # a delay and one cancelling another, both settle and no ThreadError surfaces. The timer's
-    # mutex is held across list mutations only and never across its queue wait -- but the wait
-    # runs on the TIMER thread, which has no scheduler, so this test is not the proof of that
-    # scope (a widened critical section stays green here; the plan's claim otherwise was
-    # measured false). The scope rests on the source and the design's thread-safety table.
+    # a delay and one cancelling another, both settle and no ThreadError surfaces. It is NOT the
+    # proof of the timer's lock scope the plan wrote it as: the wait runs on the TIMER thread,
+    # which has no scheduler, so a mutex held across it never raises the per-fiber ThreadError the
+    # plan predicted -- it deadlocks instead, cross-thread, when #close's stop parks on the mutex
+    # the parked timer holds (the checklist's guard 29 has the thread dump), and this test is red
+    # by that hang through teardown's close. LockScopeTest below is the guard that fails instead.
     test "two fibers of one thread call #delay and #cancel under a probe scheduler; both settle" do
       pool = build
       scheduler = PoolProbeScheduler.new
