@@ -4889,12 +4889,16 @@ pivot is handed, so check-after-resume is a shortcut; a raise inside `#dispatch`
 settlement) — thirty-nine rows after review rounds 0 and 1, whose three surviving extra mutants (the
 `BINARY` retag unobserved by a BINARY-only fixture; `Exchange#net`'s settle with no fixture reaching it;
 the watcher's close of a delivered response indistinguishable from the body-path test's own bound) were
-each given the guard that runs them red on 2026-09-21, thirty-six red in all — after five guards the
+each given the guard that runs them red on 2026-09-21, and forty-three rows after review round 2, whose
+three surviving extras (a cancel hook's push racing the exchange's own end; the body-forbidden guard
+no test reached; the watcher's transience provable only by a hang) were each given theirs the same day
+and whose fourth extra is the fourth equivalent mutant (the `cause:` wrap the adapter never reads) —
+thirty-nine red in all — after five guards the
 first pass found missing were added — the mutex scan reaching
 `build_client`, `assert_exchange_released` over the watcher's annotation, `reactor_over` closing a
 holding fixture inside the reactor so a blocked exchange fails instead of hanging, every wait bounded,
 and `TRANSPORT-3`'s list carrying the SDK's own errors; the design's facts re-run on 3.3.12, 3.4.10 and
-4.0.6, eight of them as `matrix_facts_test.rb` printing the row's versions; forty-two departures from
+4.0.6, eight of them as `matrix_facts_test.rb` printing the row's versions; forty-three departures from
 the plan's text itemised, among them the nine suites wrapped into modules of nested classes and the
 conformance groups split in two under the metric cops, and the two found only by the whole-repository
 `test:gems` process. The driver reports **four** skips, not the plan's three — two assertions carry
@@ -4905,11 +4909,11 @@ eighteen gates run individually on 4.0.6 (`test:gems` 3,713 runs, 72,711 asserti
 0 errors, 3 skips — 8a's — and 97.55 % line coverage, above the floor, so no tip in the stack is red; the
 honest RuboCop run over 683 files clean; `gates:clean_bundle` loading all six gems) and on the 3.2.11
 matrix row (3,704 runs, 72,677 assertions, 3 skips, `gates:clean_bundle` five gems — this gem absent by
-its floor); the tests tip green on the whole default task on 4.0.6 (3,898 runs, 73,490 assertions,
+its floor); the tests tip green on the whole default task on 4.0.6 (3,900 runs, 73,502 assertions,
 0 failures, 0 errors, **7 skips** — 8a's three and this driver's four — 99.88 % line coverage; the honest
 RuboCop run over 708 files clean; `steep check` over six targets clean), on the matrix set on 3.2.11
-(3,712 runs, 72,726 assertions, 3 skips, five gems), 3.3.12 (3,898 runs, 73,490 assertions, 7 skips, six
-gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (3,898 runs, 7 skips), with
+(3,712 runs, 72,726 assertions, 3 skips, five gems), 3.3.12 (3,900 runs, 73,502 assertions, 7 skips, six
+gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (3,900 runs, 7 skips), with
 `matrix_facts_test.rb` printing `async-http 0.105.0, async 2.46.0, protocol-http 0.72.0` on the two rows
 that carry the gem; the docs tip green on the default task, the honest RuboCop run, the probe, the
 knowledge-structure verifier, the housekeeping and knowledge test suites, and every `ruby` fence of
@@ -4949,7 +4953,26 @@ classifier and was measured PASSING the row thirty seconds late, which is why th
 not the reviewer's one-liner (deviation 42). The row's comment on the code branch now states that its
 delivered-body clause is proven by chance against a streaming adapter, and the deterministic portable
 form is a dated bullet on phase 10's inbound list above. The nits: the counts in this note were round
-0's (the tests tip is 3,898 runs and 73,490 assertions on every six-gem row after guards 35 and 37,
+0's (the tests tip was 3,898 runs and 73,490 assertions on every six-gem row after guards 35 and 37,
 and the `async_http` manifest is 25 rows, a gain of twenty-three), and the gemspec's comment
 understated `~> 0.104`, which admits every 0.x release from 0.104 on. Nothing in `lib/` changed but
 two comments; every gate re-run green at every tip.
+
+**2026-09-21, review round 2 of the phase-8c stack.** `changes_requested` with two should-fixes and
+two nits, every round-0 and round-1 finding verified fixed. The one change to `lib/`: a token cancel
+in flight while the exchange finished on its own raised `ClosedQueueError` out of
+`Cancellation::Source#cancel` on the canceller's thread — the source steals its hooks under its
+mutex and runs them outside, so the adapter's hook could run after check-after-resume had settled
+the pivot cancelled and closed the exchange's queue, and `Hooks.notify` handed the push's raise back
+to the caller (reproduced deterministically on 4.0.6 and 3.3.12 with an ordinary caller hook
+registered first). Both hooks now push through `Exchange#signal`, which rescues that one error
+(deviation 43, guard 51, `P8-91` amended). On the tests branch: the body-forbidden clause of dispatch
+step 8 is asserted over a forged GET and HEAD carrying a body, the only shape that reaches the guard
+(guard 47v); and the delivered response's watcher is asserted present and transient before the body
+is released, so a watcher spawned without `transient: true` fails by name in milliseconds instead of
+holding a reactor open until the run is killed (guard 44). The other nit is the record's: the
+`CancelledError` wrapped into `Task#cancel(cause:)` was described as load-bearing and is read back
+by nothing — the pivot is settled with the reason before the watcher acts — so the checklist,
+`P8-91`, the knowledge note and `CLAUDE.md` now say it names the reason on the task's own
+`Async::Cancel` for whoever reads the task (guard 46, equivalent). The tests tip is 3,900 runs and
+73,502 assertions on every six-gem row; every gate re-run green at every tip.

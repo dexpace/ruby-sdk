@@ -1136,8 +1136,11 @@ Each is one line plus the chapter to read before touching the area.
   `SeamError` through the future and creates no reactor (`P8-39`); `Async::Task#cancel` from a foreign
   thread raises `NoMethodError` and cancels nothing, so the token's hook pushes onto a `Thread::Queue`
   that a transient watcher task under the caller's task pops and acts on from the reactor's thread
-  (`P8-91`), with the reason wrapped in `CancelledError` because `cause:` drops anything but an
-  `Exception`; the owning adapter's clients are keyed by `(Fiber.scheduler, origin)` because one
+  (`P8-91`) — the push total over the queue's close, because the source and the completer both run
+  their hooks after stealing them and an exchange that finished in between has closed the queue,
+  and the reason wrapped in `CancelledError` for the task's own `Async::Cancel` alone (`cause:`
+  drops anything but an `Exception`; the adapter reads none back, the pivot being settled before
+  the watcher acts); the owning adapter's clients are keyed by `(Fiber.scheduler, origin)` because one
   `Async::HTTP::Client` cannot serve two reactors on two threads (`P8-92`); `Adapter#close` retires every
   pooled resource **before** `pool.close`, which alone would drain and wait exactly as `Client#close`
   does (`P8-100`); and a native HTTP/2 body is closed through `close_quietly`, because `async-http`

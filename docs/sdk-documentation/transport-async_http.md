@@ -302,7 +302,11 @@ inside the reactor pops it and acts on the reactor's own thread — cancelling t
 it is in flight, or closing the delivered response afterwards, which is what wakes a consumer
 blocked in a body read. The queue is the bridge because `Async::Task#cancel` cannot be called from
 another OS thread (it raises there and cancels nothing), and the conformance suite cancels its token
-from a `Thread.new` exactly as a host with a reactor per thread would. What surfaces is
+from a `Thread.new` exactly as a host with a reactor per thread would. A cancel that arrives as the
+exchange is finishing on its own is a no-op on the canceller's side: `Source#cancel` and
+`Future#cancel` return normally whatever the exchange's state, because the adapter's hook is total
+over the queue it pushes onto — the token still reads cancelled, and the future settles either the
+cancellation or the response, never both. What surfaces is
 `Dexpace::CancelledError` with the token's reason, the future reads `cancelled?`, it answers no
 `retryable?` — a cancellation is terminal, and phase 6a's retry layer treats it so — and the
 connection is released (`TRANSPORT-7`). A native response obtained after the pivot was cancelled is
