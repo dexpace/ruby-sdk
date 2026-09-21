@@ -101,6 +101,9 @@ behind a stuck timer handler, or one worker's slot behind a stuck settlement han
 raises is reported as an `http.instrumentation.hook` diagnostic through the pool's `logger:` and the
 thread lives; a block posted to the pool that raises anything at all — a `NotImplementedError`, an
 `exit`, an `Interrupt` — is reported the same way, and the pool is never one worker smaller for it.
+That diagnostic is emitted under the diagnostic context of the caller who posted the block or asked
+for the delay — its `trace.id` is theirs, on the worker, the timer thread and the closing thread alike
+— so a defect in a task is attributable to the request it belonged to.
 
 A handler or a task that **closes the pool** completes the close where it runs. From a delay's
 settlement handler — the grace-period idiom, `pool.delay(5).on_settle { pool.close }` — the timer

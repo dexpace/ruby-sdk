@@ -142,6 +142,16 @@ stable key.
   on the thread the gem owns, and restore-never-clear for a callback run on some other thread's behalf.
   The rule, restated: EVERY `::Thread.new` a library keeps, whichever fiber spawned it and however lazily,
   starts empty, and every callback it runs on a caller's behalf runs under that caller's captured context.
+  **Amended after review round 3, 2026-09-21.** The corollary for the carrier's OWN emissions: a net
+  that reports a failing task or callback must sit INSIDE the install, not around it. Both of 8b's nets
+  sat around `Diagnostics.with`, so the gem's defect diagnostic — the one log event it emits on a
+  caller's behalf after the hop — was folded after the restore: no `trace.id` on the worker and the timer
+  thread, and the CLOSER's id on the closing thread, where the restore had put the closer's context back
+  first (measured on 3.2.11 and 4.0.6; `OBS-10`'s fold reads the emitting fiber at emit time, so an
+  emission's correlation is whatever is installed when `#emit` runs, never when the failure happened).
+  8b's `P8-22` extension moves both nets inside the `with`; the test that pins it posts under one id
+  and closes under another, because a diagnostic tagged with the closer's id is a wrong answer, not
+  a missing one.
   <sub>review · `docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md` · high · sha:manual-phase8b-pooled-worker-context-floor</sub>
 - **`Fiber#storage=` is the only whole-map write side `ASYNC-9`/`ASYNC-11` can use, it warns on every
   call on every supported Ruby, and it does not behave the same on the floor — so prefer per-key

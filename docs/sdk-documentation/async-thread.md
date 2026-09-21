@@ -202,7 +202,10 @@ on a delay future runs under the context of the caller who asked for *that* dela
 `P8-20` to the second carrier). The first delay above spawned the timer under `"first"`; without the
 floor the second and the third callbacks would both have read `{"trace.id": "first"}`. An entry
 `#close` fails settles on the closing thread under the delay caller's context, and the closing thread's
-own context is put back afterwards.
+own context is put back afterwards. The one log event the pool emits on a caller's behalf after the
+hop — the ERROR `http.instrumentation.hook` for a block or a handler that raised (`P8-22`) — is emitted
+under that same installed context, so its `trace.id` is the posting or scheduling caller's on every
+carrier, never empty and never the closer's.
 
 ## `#delay`: a scheduled delay on one timer thread
 

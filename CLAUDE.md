@@ -1164,7 +1164,11 @@ Each is one line plus the chapter to read before touching the area.
   pool is never one worker smaller (P8-22, which departs from `RECOV-2`'s re-raise because on a worker
   "re-raise" means a silent death `report_on_exception` prints past every gate); the timer runs every
   callback under the same net, because `Hooks.notify` re-raises a caller's raising `#on_settle` out of
-  `Completer#fulfil` on the timer thread; `Timer#schedule` after `#stop` refuses the entry through
+  `Completer#fulfil` on the timer thread; **both nets sit INSIDE `Diagnostics.with`, never around it**,
+  so the diagnostic is folded with the caller's snapshot still installed and carries the caller's
+  `trace.id` — a net around the `with` reports after the restore, with no id on the worker and the
+  timer and the CLOSER's id on the closing thread (review round 3's R3-1); `Timer#schedule` after
+  `#stop` refuses the entry through
   `on_shutdown` so a close racing a delay spawns no thread; the drain carries a non-nil exit sentinel and
   re-reads the clock because `Queue#pop` answers nil for a timeout, a close and a pushed nil alike; and
   `#close` takes no `cancellation:` because `Dexpace.close_quietly` calls it with none (P8-24, P8-25,

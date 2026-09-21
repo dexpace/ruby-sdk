@@ -4747,9 +4747,14 @@ timer thread behind `#delay` — the gem's second `::Thread.new` carrier, spawne
 delay caller's fiber — carries each delay's diagnostic context the way a worker carries a task's (`P8-78`:
 as first cut it inherited the first caller's storage and got neither of `P8-20`'s clears and no per-delay
 snapshot, so every later delay's `#on_settle` and `#then` ran under a stale, foreign context — the design's
-own finding 1 at the gem's own door). Every fact the design measured on 3.4.10
+own finding 1 at the gem's own door); and, from review round 3 the same day, the `P8-22` defect
+diagnostic — the one log event the gem emits on a caller's behalf after the hop — is emitted with the
+caller's snapshot still installed on every carrier, so it carries the caller's `trace.id` (as first cut
+both nets sat outside `Diagnostics.with` and the diagnostic was folded after the restore: no id on the
+worker and the timer, the closer's id on the closing thread — `ASYNC-8`'s purpose clause, applied to
+the gem's own event; `P8-22` extended a second time, no new row). Every fact the design measured on 3.4.10
 alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, the pool-specific dozen as a standing test.
-Forty guards run red (two recorded as equivalent mutants with their measurement; the plan's
+Forty-three guards run red (two recorded as equivalent mutants with their measurement; the plan's
 timer-mutex mutation among the red ones, by a cross-thread deadlock at `#close` that hangs the delay
 suite and by two reported failures on the lock-scope test the round added — the first cut of this note
 called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,818 runs with exactly

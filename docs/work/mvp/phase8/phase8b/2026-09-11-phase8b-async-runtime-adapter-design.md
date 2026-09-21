@@ -1986,7 +1986,8 @@ socket — is this lane's. Execution added the rows below, numbered from **P8-71
 rather than numbering a second row for the same trade; review round 0's repair, the same day, added
 `P8-76` and corrected the closing paragraph, review round 1's, also the same day, added `P8-77`, and review
 round 2's, the same day again, added `P8-78` — this document's own finding 1 reaching the gem's own second
-carrier. The checklist's "Deviations from the plan" is the
+carrier — and review round 3's, the same day, extended `P8-22` a second time (the defect diagnostic's
+correlation) and added no row. The checklist's "Deviations from the plan" is the
 itemised list against the plan's text; the rows here are the ones that touch public behaviour, the
 contract a later phase cites, or a statement this document makes.
 
@@ -2012,7 +2013,19 @@ renumbered") and the manager's decision of 2026-09-21 direct:
   re-raise a dead thread's exception past `#close`. The reachable case is `Hooks.notify` re-raising a
   caller's raising `#on_settle` handler out of `Completer#fulfil` on the timer thread: measured, one such
   handler killed the plan's timer, stranded every later delay and turned the next `#close` into a raise
-  through `Thread#join`. Two tests drive it.
+  through `Thread#join`. Two tests drive it. **And the diagnostic is emitted under the caller's context,
+  on every carrier** (review round 3's R3-1): as first cut the worker's net sat around `Diagnostics.with`
+  and the timer's `guarded` around it too, so the one log event this gem emits on a caller's behalf after
+  the hop was folded off a thread the restore had already emptied — `trace.id` nil on the worker and on
+  the timer thread (payload keys exactly `[cause, event]` on 4.0.6 and 3.2.11), and the **closer's** id on
+  the closing thread, where the shutdown path had put the closer's own context back before reporting —
+  while a line the block itself logged inside the hop carried the id. `ASYNC-8`'s purpose clause is that
+  events emitted after the hop retain correlation, and the defect diagnostic is exactly such an event.
+  `Pool#run` rescues inside the `with` block now (the `ensure` clear stays at method level), and
+  `Timer#fire` and `Timer#shut_down` nest `guarded` inside `Diagnostics.with`; nothing outside either net
+  can raise over a `.capture` snapshot — the install and the restore are `Fiber[]=` over Symbol keys read
+  off a fiber's storage — so the "never dies" half of this row is unchanged. The three `P8-22` tests post
+  or schedule under a trace id and read it off the payload (checklist guards 41–43).
 - **`P8-25` names where a delay's callbacks run.** A `#on_settle` on a `#delay` future runs on the
   **timer** thread, not on a pool worker; when `#close` fails an outstanding delay the handler runs on
   the **closing** thread. Both are stated in the README's "Where callbacks run" and in `#delay`'s YARD.
