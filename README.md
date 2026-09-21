@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a and 8a are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a and 8b are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -93,8 +93,14 @@ other failure retryable, TLS settings and the proxy over the configuration chain
 (`docs/sdk-documentation/transport-net_http.md`) — and `dexpace-conformance` carries the
 conformance suite: the assertion protocol, the twenty-eight-assertion transport suite with its
 vacuous and waived rows, the plaintext wire fixture, the Minitest and RSpec drivers and the two
-observability doubles (`docs/sdk-documentation/conformance.md`). The other two are still
-skeletons — a namespace, a `VERSION`, a gemspec, a signature mirror and a smoke suite:
+observability doubles (`docs/sdk-documentation/conformance.md`). `dexpace-async-thread` carries the
+async-runtime adapter — the first executor on the async path: a fixed-size thread pool over a
+bounded queue whose `#post` never blocks, the bridge that makes a blocking transport asynchronous
+on a worker and closes an orphaned result exactly once, the diagnostic context carried across the
+hop with the two clears that keep it the caller's, a scheduled delay on one timer thread, and the
+idempotent bounded close that emits the lifecycle event phase 2 postponed
+(`docs/sdk-documentation/async-thread.md`). The other one is still a
+skeleton — a namespace, a `VERSION`, a gemspec, a signature mirror and a smoke suite:
 
 | Gem | Namespace | Runtime dependencies today |
 |---|---|---|

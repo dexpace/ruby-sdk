@@ -109,9 +109,11 @@ layer, phase 6a's retry layer, phase 6c's authentication layer, phase 6b's redir
 phase 8a's transport error; `dexpace-serde-json` holds phase 7a's JSON codec and declares
 `json >= 2.19.9`; `dexpace-transport-net_http` holds phase 8a's synchronous transport and declares
 `net-http >= 0.4`, and `dexpace-conformance` phase 8a's assertion protocol, transport suite, wire
-fixture, two drivers and two doubles; the other two are phase 0's skeletons, a namespace and a
+fixture, two drivers and two doubles; `dexpace-async-thread` holds phase 8b's thread pool, its
+rejection error and the version-skew guard, and declares `dexpace-core` alone; the other one is
+phase 0's skeleton, a namespace and a
 `VERSION`. The as-built documentation lands in
-[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the nineteen pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
+[`sdk-documentation/`](./sdk-documentation/) as each gem gains code; the twenty pages written so far are [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md), because the
 gate set is the thing phase 0 built, [`sdk-documentation/http.md`](./sdk-documentation/http.md),
 because the domain model is the thing phase 1 built,
 [`sdk-documentation/seams.md`](./sdk-documentation/seams.md), because the seam layer is the thing
@@ -146,7 +148,9 @@ JSON codec are the things phase 7a built, and
 [`sdk-documentation/transport-net_http.md`](./sdk-documentation/transport-net_http.md) and
 [`sdk-documentation/conformance.md`](./sdk-documentation/conformance.md), because the synchronous
 transport and the conformance suite are what phase 8a built — the first code outside
-`dexpace-core` after 7a's codec.
+`dexpace-core` after 7a's codec — and
+[`sdk-documentation/async-thread.md`](./sdk-documentation/async-thread.md), because the thread pool
+that is the async path's first executor is what phase 8b built.
 
 ## Keeping this file true
 

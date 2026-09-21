@@ -113,7 +113,23 @@ stable key.
   empty. **The rule generalises to any long-lived carrier this repository creates with `::Thread.new`**: a
   background exporter, a second executor adapter, or a caller's own worker wrapped in `Diagnostics.with`.
   Neither `Diagnostics.with` nor design §8.1 needs changing; what needed stating is that the carrier must
-  start empty.
+  start empty. **As built, 2026-09-21 (phase 8b, measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6).** The
+  clear runs at TWO boundaries, not one: the thread-start line above fixes the construction floor, and the
+  same line in the worker's per-task `ensure` fixes the reuse floor, because `Diagnostics.with` restores
+  only `(prior.keys | snapshot.keys)` and a key the WORK itself writes — an `#on_settle` handler, an
+  interceptor, a sink — is in neither set and survives onto the next caller's task (measured:
+  `{tenant: "A-LEAK", "trace.id": "CALLER-B"}` on the next task with the ensure clear gone; 8b's `P8-20`).
+  "Returns the worker to empty" is true at every reader that skips nulls and not at the raw map: on the
+  3.2 floor `Fiber[:k] = nil` retains the key with a nil value (the entry above, `P5-72`), so a cleared
+  worker's `Fiber.current.storage` reads `{tenant: nil, …}` there and `{}` on 3.3+, while `Fiber[]`,
+  `OBS-10`'s fold and `Diagnostics.capture` (which compacts, `P5-97`) read the same on every row — which is
+  why a test of a worker's context reads through `.capture`, and why a proof that the ensure clear is
+  present must write a key the worker has NEVER held (a build-time key sits in the floor's prior map as a
+  retained nil, and the union restore resets it, hiding the missing clear on 3.2 alone; 8b's `P8-74`).
+  And `.capture` carries core's own `dexpace.`-prefixed slots — 5c's current-span carrier — with the
+  diagnostic keys, so the span active on the caller is current on the worker, which is `ASYNC-8`'s
+  purpose; a test comparing what the worker sees drops the reserved prefix, because under the
+  one-process `rake test:gems` another suite can leave a no-op span on the main fiber.
   <sub>review · `docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md` · high · sha:manual-phase8b-pooled-worker-context-floor</sub>
 - **`Fiber#storage=` is the only whole-map write side `ASYNC-9`/`ASYNC-11` can use, it warns on every
   call on every supported Ruby, and it does not behave the same on the floor — so prefer per-key

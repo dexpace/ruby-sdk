@@ -9,12 +9,13 @@ layer and the clock, phase 5c the tracing and metrics layer, phase 5b the loggin
 redaction, phase 6a the retry layer — one policy core and its two stacks — phase 6c the
 authentication layer, phase 6b the redirect layer with the two `standard` pipeline
 constructors, phase 7b the server-sent-events layer with the serde-boundary gate, phase 7c the
-pagination layer, phase 7a the serialization layer with the JSON codec, and phase 8a the first two
+pagination layer, phase 7a the serialization layer with the JSON codec, phase 8a the first two
 adapter gems beside 7a's — the synchronous transport in `dexpace-transport-net_http` and the
-conformance suite in `dexpace-conformance`; the remaining adapters are still to come, so this page
+conformance suite in `dexpace-conformance` — and phase 8b the async-runtime adapter in
+`dexpace-async-thread`; the asynchronous transport is still to come, so this page
 is still a stub: it names the
 pages this tree will eventually hold and where each one's content will come from, so the plan for
-the documentation exists before the documentation does. Nineteen pages are real already, because
+the documentation exists before the documentation does. Twenty pages are real already, because
 their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http.md),
 [`seams.md`](./seams.md), [`io.md`](./io.md), [`body.md`](./body.md),
 [`execution-context.md`](./execution-context.md), [`recovery.md`](./recovery.md),
@@ -23,7 +24,8 @@ their subjects are: [`quality-gates.md`](./quality-gates.md), [`http.md`](./http
 [`logging-and-redaction.md`](./logging-and-redaction.md), [`retry.md`](./retry.md),
 [`auth.md`](./auth.md), [`redirect.md`](./redirect.md), [`sse.md`](./sse.md),
 [`pagination.md`](./pagination.md), [`serde.md`](./serde.md),
-[`transport-net_http.md`](./transport-net_http.md) and [`conformance.md`](./conformance.md).
+[`transport-net_http.md`](./transport-net_http.md), [`conformance.md`](./conformance.md) and
+[`async-thread.md`](./async-thread.md).
 Once `dexpace-core` and the first adapters ship, this page becomes the same kind of front door the
 sibling Node SDK's `docs/sdk-documentation/architecture.md` is — package by package, seam by seam
 — and the entries below turn from plain text into real links, one at a time, as each page is
@@ -199,6 +201,17 @@ three keywords that are the asynchronous adapter's contract, the case an asserti
 the guard on its transport, the plaintext wire fixture with its fifteen scripts and bounded waits,
 and the two observability doubles. Written against the gem phase 8a shipped; derives from
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.3.
+
+[async-thread.md](./async-thread.md) — the async-runtime adapter: the fixed-size thread pool
+over a bounded queue and the one required keyword, `#post` as the executor duck type that never
+blocks and the two errors a saturated or closed pool raises, the bridge that makes a blocking
+transport asynchronous on a worker, what a cancel does to a send already running and to one still
+queued, the diagnostic context that crosses the hop and the two clears that keep it the caller's,
+the scheduled delay on one timer thread, the idempotent bounded close with its one lifecycle event,
+the same pool over a real socket and as a paginator's executor, and what the gem deliberately does
+not do. Written against the adapter phase 8b shipped; derives from
+`docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.3 and §3.7, read together with
+entries 3, 4 and 5 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
 and how to run it locally. Written against the build phase 0 shipped; derives from
