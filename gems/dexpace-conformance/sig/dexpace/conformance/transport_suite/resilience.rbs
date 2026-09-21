@@ -1,0 +1,22 @@
+# Dexpace::Conformance::TransportSuite::Resilience is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in resilience.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Resilience
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.redirect_is_returned_never_followed: (TransportCase kase) -> nil
+        def self?.first_attempt_failure_is_not_silently_resent: (TransportCase kase) -> nil
+        def self?.cancellation_surfaces_as_the_interrupt: (TransportCase kase) -> nil
+        def self?.read_timeout_is_retryable_and_sets_no_cancellation: (TransportCase kase) -> nil
+        def self?.single_use_body_is_written_once: (TransportCase kase) -> nil
+        def self?.no_native_resubscription_measured: (TransportCase kase) -> bot
+        def self?.connection_refused_is_the_retryable_failure: (TransportCase kase) -> nil
+        def self?.caller_failure_after_head_releases_the_connection: (TransportCase kase) -> nil
+      end
+    end
+  end
+end

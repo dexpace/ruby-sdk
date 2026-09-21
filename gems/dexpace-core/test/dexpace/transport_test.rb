@@ -11,6 +11,11 @@ require "dexpace"
 # #call(request, options, cancellation) and returning a Dexpace::Response. #call is the convergence
 # point of Ruby's own middleware ecosystems (porting-method/bf484e8e, P14), so a bare lambda is a
 # valid transport and phase 4's Dexpace::Pipeline can stand in wherever one is expected (PIPE-26).
+#
+# The properties of a BARE `require "dexpace"` -- an empty registry, the zero-candidate SeamError
+# and nothing resolved after a swap -- live in transport_bare_require_test.rb since phase 8a, whose
+# adapter registers a factory the moment it is required: in one `rake test:gems` process the
+# registry is not empty, and the in-process assertions were the pin that registration invalidated.
 class DexpaceTransportTest < DexpaceTestCase
   CORE = "~> 0.0"
 
@@ -29,24 +34,23 @@ class DexpaceTransportTest < DexpaceTestCase
     refute(Dexpace::Transport.conforms?(nil))
   end
 
-  test "the registry starts empty, so SEAM-1 holds on a bare require" do
-    assert_empty(Dexpace::Transport.registered_keys)
-  end
-
   test "install refuses an object that does not implement the seam" do
     error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Transport.install(Object.new) }
 
     assert_match(/must implement the seam/, error.message)
   end
 
+  # The override itself; "and afterwards nothing is resolved" is a property of the bare require
+  # and lives in transport_bare_require_test.rb (see the class comment).
   test "swap scopes an override to its block" do
     transport = ->(_request, _options, _cancellation) { :response }
+    keys_before = Dexpace::Transport.registered_keys
+    resolved = nil
 
-    Dexpace::Transport.swap(transport) do
-      assert_same(transport, Dexpace::Transport.resolve)
-    end
+    Dexpace::Transport.swap(transport) { resolved = Dexpace::Transport.resolve }
 
-    assert_raises(Dexpace::SeamError) { Dexpace::Transport.resolve }
+    assert_same(transport, resolved)
+    assert_equal(keys_before, Dexpace::Transport.registered_keys, "the swap registered nothing")
   end
 
   # An install inside a swap block is part of the override and is restored with it, which is
@@ -58,15 +62,6 @@ class DexpaceTransportTest < DexpaceTestCase
       assert_same(Dexpace::Transport, Dexpace::Transport.install(installed))
       assert_same(installed, Dexpace::Transport.resolve)
     end
-
-    assert_raises(Dexpace::SeamError) { Dexpace::Transport.resolve }
-  end
-
-  test "register and resolve go through one registry, and the error names no gem" do
-    error = assert_raises(Dexpace::SeamError) { Dexpace::Transport.resolve }
-
-    assert_match(/no transport provider is registered/, error.message)
-    refute_match(%r{net_http|async_http|net/http}i, error.message, "SEAM-2")
   end
 
   # The module-level registry is process-global, so the registration is scoped inside a swap and

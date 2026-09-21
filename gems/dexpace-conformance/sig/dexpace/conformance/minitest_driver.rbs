@@ -1,0 +1,15 @@
+module Dexpace
+  module Conformance
+    # The thin Minitest driver: extended into a consumer's test class, whose `define_method`,
+    # `skip` and `flunk` it reaches as an extension -- so the receiver is typed as the Module.
+    module MinitestDriver : Module
+      def conformance: (untyped suite, build: untyped, ?borrow: untyped, ?waive: Array[String],
+                        ?settle: untyped, ?around: untyped, ?wire: untyped) -> void
+
+      def self.method_name_for: (Assertion assertion) -> String
+      def self.drive: (untyped test, Assertion assertion, untyped around,
+                       Hash[Symbol, untyped] case_options, waive: Array[String]) -> void
+      def self.build_case: (Hash[Symbol, untyped] case_options) -> TransportCase
+    end
+  end
+end

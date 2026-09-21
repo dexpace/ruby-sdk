@@ -1,0 +1,61 @@
+module Dexpace
+  module Conformance
+    # Suite contract 11: a fixture is whatever answers this -- WireServer's own surface -- so 8c's
+    # HTTP/2 server can stand in for it without this gem naming an async constant (NFR-11).
+    interface _Wire
+      def port: () -> Integer
+      def requests: () -> Array[untyped]
+      def connections: () -> Integer
+      def closed_connections: () -> Integer
+      def await_closed_connection: (?Integer count, ?timeout: (Integer | Float)?) -> Integer?
+      def close: () -> nil
+    end
+
+    # What an assertion receives. No `_Transport` is declared here: phase 2's `Dexpace::_Transport`
+    # in core's sig/ is the seam's one named shape. #transport is `untyped` because it returns the
+    # clause-8 guard and because clause 1 admits a transport whose #call returns a Future; the
+    # `-> Dexpace::Response` lives on #settle, where the suite depends on it.
+    class TransportCase
+      DEFAULT_SETTLE: ^(untyped, Dexpace::Request, Dexpace::RequestOptions, Dexpace::Cancellation)
+                      -> Dexpace::Response
+      DEFAULT_WIRE: ^(untyped) -> _Wire
+
+      @build: untyped
+      @borrow: untyped
+      @settle: untyped
+      @wire_factory: untyped
+      @transports: Array[untyped]
+      @wire: untyped
+
+      def initialize: (build: untyped, ?borrow: untyped, ?settle: untyped, ?wire: untyped) -> void
+      def transport: (?timeout: Numeric?, ?logger: untyped) -> untyped
+      def settle: (untyped transport, Dexpace::Request request, ?Dexpace::RequestOptions options,
+                   ?Dexpace::Cancellation cancellation) -> Dexpace::Response
+      def borrowed_transport: () -> BorrowedPair
+      def wire: (?script: untyped) -> untyped
+      def request: (?path: String, ?method: String, ?headers: Dexpace::Headers,
+                    ?body: Dexpace::Body?) -> Dexpace::Request
+      def teardown: () -> nil
+
+      private
+
+      def track: (untyped built) -> untyped
+
+      # A private_constant, declared because the conformance Steep target checks lib/; RBS has no
+      # visibility for a constant, so the privacy lives in transport_case.rb alone.
+      class SettleOnly
+        @subject: untyped
+
+        def self.unwrap: (untyped object) -> untyped
+        def initialize: (untyped subject) -> void
+        def __subject__: () -> untyped
+        def call: (*untyped) -> bot
+        def respond_to_missing?: (Symbol name, ?bool include_private) -> bool
+
+        private
+
+        def method_missing: (Symbol name, *untyped args, **untyped kwargs) { (*untyped) -> untyped } -> untyped
+      end
+    end
+  end
+end

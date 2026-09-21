@@ -9,6 +9,7 @@ module Dexpace
       MAX_MATERIALIZED_BYTES: String
       MAX_TRACKED_CONTEXTS: String
       LOG_PREVIEW_BYTES: String
+      REQUEST_TIMEOUT: String
     end
   end
 end

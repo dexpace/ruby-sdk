@@ -1,0 +1,23 @@
+module Dexpace
+  module Conformance
+    # OBS-21's recording span double, over phase 5c's _Span protocol.
+    class RecordingSpan
+      @recording: bool
+
+      attr_reader attributes: Hash[String, untyped]
+      attr_reader events: Array[Hash[Symbol, untyped]]
+      attr_reader errors: Array[Hash[Symbol, untyped]]
+      attr_reader status: untyped
+      attr_reader finished_at: Array[Time]
+      attr_reader context: untyped
+
+      def initialize: (?recording: bool, ?context: untyped) -> void
+      def recording?: () -> bool
+      def set_attribute: (String key, untyped value) -> self
+      def add_event: (String name, ?attributes: Hash[String, untyped]?) -> self
+      def record_error: (Exception error, ?attributes: Hash[String, untyped]?) -> self
+      def status=: (untyped status) -> untyped
+      def finish: (?end_timestamp: Time?) -> nil
+    end
+  end
+end

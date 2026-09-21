@@ -83,9 +83,13 @@ class DexpaceTest < DexpaceTestCase
   # Phase 7c: ONE flat constant, the page value that is also the subsystem's namespace (P7-2);
   # everything else the layer ships is under Dexpace::Page, which the PhaseSevenLayers case pins.
   PAGE_LAYER = %i[Page].freeze
+  # Phase 8a: the one core constant phase 8 adds -- the phase-level TransportError (TRANSPORT-20,
+  # XCUT-4 branch (b)), filed beside StreamError; the adapters themselves are other gems.
+  TRANSPORT_LAYER = %i[TransportError].freeze
   LAYERS = [
     DOMAIN_MODEL, SEAM_LAYER, IO_LAYER, BODY_LAYER, CONTEXT_LAYER, RECOVERY_LAYER, PIPELINE_LAYER,
     CONFIGURATION_LAYER, RESILIENCE_LAYER, AUTH_LAYER, REDIRECT_LAYER, SSE_LAYER, PAGE_LAYER,
+    TRANSPORT_LAYER,
   ].flatten.freeze
 
   test "defines nothing outside the Dexpace namespace" do

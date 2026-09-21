@@ -1,0 +1,26 @@
+# Dexpace::Transport::NetHTTP::Deadline is a private_constant and not public API: this declaration
+# exists because the `net_http` Steep target checks every file under lib/ and needs the class
+# declared to type Adapter's and ResponsePump's call sites. RBS has no visibility for a constant,
+# so the privacy lives in lib/dexpace/transport/net_http/deadline.rb alone.
+module Dexpace
+  module Transport
+    module NetHTTP
+      # The one clock method Deadline reads: Dexpace::Clock and any monotonic fake answer it.
+      interface _MonotonicClock
+        def monotonic: () -> Float
+      end
+
+      class Deadline
+        @clock: _MonotonicClock
+        @instant: Float
+
+        private def self.new: (_MonotonicClock clock, Float instant) -> instance
+        def self.build: (clock: _MonotonicClock, budget: Numeric) -> Deadline
+        def initialize: (_MonotonicClock clock, Float instant) -> void
+        def remaining: () -> Float
+        def expired?: () -> bool
+        def clamped: () -> Float
+      end
+    end
+  end
+end

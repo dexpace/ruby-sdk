@@ -1,0 +1,25 @@
+# Dexpace::Transport::NetHTTP::ResponseMapper is a private_constant and not public API: this
+# declaration exists because the `net_http` Steep target checks every file under lib/ and needs
+# the module and its one function declared to type Adapter's call site. RBS has no visibility for
+# a constant, so the privacy lives in lib/dexpace/transport/net_http/response_mapper.rb alone. The
+# native response is untyped: nothing from net/http may name a signature (NFR-11).
+module Dexpace
+  module Transport
+    module NetHTTP
+      module ResponseMapper
+        LENGTH: Regexp
+
+        def self?.build: (request: Dexpace::Request, native: untyped, pump: untyped,
+                          ?logger: Instrumentation::Logger, ?head: bool) -> Dexpace::Response
+
+        private
+
+        def body_for: (untyped native, untyped pump, bool head) -> Dexpace::ResponseBody?
+        def parse_length!: (untyped native) -> Integer
+        def parse_media_type: (untyped native) -> Dexpace::MediaType?
+        def filter_headers: (untyped native, Instrumentation::Logger logger) -> Dexpace::Headers
+        def log_drop: (Instrumentation::Logger logger, String name) -> nil
+      end
+    end
+  end
+end

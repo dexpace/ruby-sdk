@@ -277,6 +277,7 @@ Dexpace::Configuration::Keys::MAX_MATERIALIZED_BYTES : String
 Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS : String
 Dexpace::Configuration::Keys::MAX_TRACKED_CONTEXTS : String
 Dexpace::Configuration::Keys::NO_PROXY : String
+Dexpace::Configuration::Keys::REQUEST_TIMEOUT : String
 Dexpace::Configuration::Sources
 Dexpace::Configuration::Sources.from_hash
 Dexpace::Configuration::Sources::ENVIRONMENT : Proc
@@ -483,6 +484,7 @@ Dexpace::Instrumentation::Events::INSTRUMENTATION_HOOK : String
 Dexpace::Instrumentation::Events::INSTRUMENTATION_LOG : String
 Dexpace::Instrumentation::Events::INSTRUMENTATION_PREFIX : String
 Dexpace::Instrumentation::Events::INSTRUMENTATION_SHUTDOWN : String
+Dexpace::Instrumentation::Events::TRANSPORT_HEADER_DROPPED : String
 Dexpace::Instrumentation::HTTPLogging
 Dexpace::Instrumentation::HTTPLogging#at_least?
 Dexpace::Instrumentation::HTTPLogging#name
@@ -1313,6 +1315,9 @@ Dexpace::Transport.register
 Dexpace::Transport.registered_keys
 Dexpace::Transport.resolve
 Dexpace::Transport.swap
+Dexpace::TransportError
+Dexpace::TransportError#phase
+Dexpace::TransportError#retryable?
 Dexpace::TypedResponse
 Dexpace::TypedResponse#headers
 Dexpace::TypedResponse#protocol

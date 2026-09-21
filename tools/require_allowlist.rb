@@ -23,6 +23,13 @@ module RequireAllowlist
   # Deliberately narrower than "everything stable". The category is not the constraint; what core
   # actually needs is. Growing this list is a reviewed one-line diff naming the requirement that
   # motivated it. Every name was verified to require cleanly on 3.2.11, 3.4.10 and 4.0.6.
+  #
+  # `tempfile` (phase 8a, TRANSPORT-28): dexpace-conformance's file-body assertion needs a file
+  # with known bytes to upload a window of, and creating it inside the assertion is what keeps
+  # the burden off every consumer's harness. A default gem on every supported Ruby and on no row
+  # of Gem::BUNDLED_GEMS::SINCE (the "no allowlisted name is bundled" case in
+  # test/gates/require_allowlist_test.rb re-derives that on every CI row), so it is inside the
+  # rule's letter; nothing in core reads it. Added on 2026-09-20, the day the manager decided it.
   ALLOWED = %w[
     date
     digest
@@ -34,6 +41,7 @@ module RequireAllowlist
     singleton
     stringio
     strscan
+    tempfile
     time
     uri
   ].freeze

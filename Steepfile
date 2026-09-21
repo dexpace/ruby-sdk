@@ -60,5 +60,8 @@ end
 target :conformance do
   check "gems/dexpace-conformance/lib"
   signature "gems/dexpace-conformance/sig", "gems/dexpace-core/sig"
+  # rbs's own stdlib signature sets for the two features this gem's lib/ requires beyond core's
+  # allowlist: `socket` for the wire fixture (P8-14) and `tempfile` for TRANSPORT-28's file body.
+  library "socket", "tempfile"
   configure_code_diagnostics(D::Ruby.default)
 end

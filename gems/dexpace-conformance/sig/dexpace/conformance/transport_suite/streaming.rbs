@@ -1,0 +1,22 @@
+# Dexpace::Conformance::TransportSuite::Streaming is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in streaming.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Streaming
+        LARGE_BYTES: Integer
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.multi_megabyte_body_round_trips_and_close_releases: (TransportCase kase) -> nil
+        def self?.closing_an_undrained_response_is_prompt_and_idempotent: (TransportCase kase) -> nil
+        def self?.file_body_window_reaches_the_wire: (TransportCase kase) -> nil
+
+        private
+
+        def window_file: (String content) -> String
+      end
+    end
+  end
+end

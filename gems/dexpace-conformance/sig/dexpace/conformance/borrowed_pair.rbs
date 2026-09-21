@@ -1,0 +1,18 @@
+module Dexpace
+  module Conformance
+    # Suite contract 4a: the borrowing transport and the adapter's own "still usable?" probe.
+    class BorrowedPair < Data
+      include Dexpace::Model
+
+      attr_reader transport: untyped
+      attr_reader probe: untyped
+
+      private def self.new: (transport: untyped, probe: untyped) -> instance
+      def initialize: (transport: untyped, probe: untyped) -> void
+
+      def self.build: (transport: untyped, probe: untyped) -> BorrowedPair
+
+      def still_usable?: () -> bool
+    end
+  end
+end

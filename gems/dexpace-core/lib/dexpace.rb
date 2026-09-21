@@ -328,6 +328,14 @@ require_relative "dexpace/serde/instant"
 require_relative "dexpace/serde/decoding_handler"
 require_relative "dexpace/serde/status_aware_handler"
 
+# Phase 8a: the one core file phase 8 adds -- the phase-level task the charter owns to no
+# sub-phase. Dexpace::TransportError is the always-retryable failure both transport adapters wrap
+# a bare stdlib I/O or timeout error into (TRANSPORT-20, XCUT-4 branch (b), P6-4), filed under
+# error/ beside its sibling StreamError. Configuration::Keys::REQUEST_TIMEOUT and
+# Instrumentation::Events::TRANSPORT_HEADER_DROPPED land in the files already loaded above; neither
+# is a new file.
+require_relative "dexpace/error/transport_error"
+
 # The dexpace Ruby SDK: an HTTP-client toolkit, not an HTTP client.
 #
 # This file issues explicit `require_relative`s for the whole tree rather than using an

@@ -1,0 +1,34 @@
+module Dexpace
+  module Conformance
+    # The named response scripts a WireServer runs; each returns a callable taking the accepted
+    # socket (untyped: a TCPSocket, which NFR-11 keeps out of a public signature) and the head.
+    module Scripts
+      def self?.fixed: (String body, ?status: String, ?headers: Hash[String, String], ?hold: bool)
+                     -> ^(untyped, Array[String]) -> void
+      def self?.large: (Integer byte_count, ?hold: bool) -> ^(untyped, Array[String]) -> void
+      def self?.large_body: (Integer byte_count) -> String
+      def self?.dribble: (String first, String second, Numeric delay_seconds)
+                       -> ^(untyped, Array[String]) -> void
+      def self?.redirect: (String to) -> ^(untyped, Array[String]) -> void
+      def self?.vendor_status: (Integer code, String body) -> ^(untyped, Array[String]) -> void
+      def self?.malformed_headers: () -> ^(untyped, Array[String]) -> void
+      def self?.malformed_content_length: () -> ^(untyped, Array[String]) -> void
+      def self?.hang_before_headers: (?on_request_read: (^() -> void)?)
+                                   -> ^(untyped, Array[String]) -> void
+      def self?.hang_after_headers: (?on_headers_written: (^() -> void)?)
+                                  -> ^(untyped, Array[String]) -> void
+      def self?.fail_first_connection_then_succeed: (String body) -> ^(untyped, Array[String]) -> void
+      def self?.truncated: (declared_length: Integer, actual_body: String)
+                         -> ^(untyped, Array[String]) -> void
+      def self?.sequenced: (*String bodies) -> ^(untyped, Array[String]) -> void
+      def self?.echo_path: () -> ^(untyped, Array[String]) -> void
+      def self?.write_response: (untyped conn, ?status: String, ?headers: Hash[String, String],
+                                 ?body: String) -> nil
+
+      private
+
+      def chunk: (String bytes) -> String
+      def drain_until_closed: (untyped conn) -> nil
+    end
+  end
+end

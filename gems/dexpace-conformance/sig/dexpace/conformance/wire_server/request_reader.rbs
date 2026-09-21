@@ -1,0 +1,21 @@
+# Dexpace::Conformance::WireServer::RequestReader is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in request_reader.rb alone.
+module Dexpace
+  module Conformance
+    class WireServer
+      module RequestReader
+        LENGTH: Regexp
+
+        def self?.read: (untyped conn) -> RecordedRequest?
+
+        private
+
+        def read_body: (untyped conn, Array[String] head) -> String
+        def header_value: (Array[String] head, String folded) -> String?
+        def read_exactly: (untyped conn, Integer count) -> String
+        def read_chunked: (untyped conn) -> String
+      end
+    end
+  end
+end

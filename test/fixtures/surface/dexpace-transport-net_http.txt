@@ -1,2 +1,17 @@
 Dexpace::Transport::NetHTTP
+Dexpace::Transport::NetHTTP#build
+Dexpace::Transport::NetHTTP#default
+Dexpace::Transport::NetHTTP#using
+Dexpace::Transport::NetHTTP::Adapter
+Dexpace::Transport::NetHTTP::Adapter#call
+Dexpace::Transport::NetHTTP::Adapter.borrowing
+Dexpace::Transport::NetHTTP::Adapter.owning
+Dexpace::Transport::NetHTTP::DEFAULT_CONTENT_TYPE : String
+Dexpace::Transport::NetHTTP::DEFAULT_TIMEOUT_SECONDS : Float
+Dexpace::Transport::NetHTTP::JOIN_DEADLINE_SECONDS : Float
+Dexpace::Transport::NetHTTP::MANAGED_HEADERS : Array
+Dexpace::Transport::NetHTTP::MIN_TIMEOUT_SECONDS : Float
+Dexpace::Transport::NetHTTP::PROXY_LIMITATION_EVENT : String
+Dexpace::Transport::NetHTTP::REGISTRY_KEY : Symbol
+Dexpace::Transport::NetHTTP::TLS_SETTINGS : Array
 Dexpace::Transport::NetHTTP::VERSION : String
