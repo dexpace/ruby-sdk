@@ -3,6 +3,7 @@
 
 require_relative "../../../test_helper"
 require_relative "../../../support/async_http_holding_server"
+require_relative "../../../support/async_http_hermetic_configuration"
 require_relative "../../../support/async_http_reactor"
 require "dexpace/transport/async_http"
 
@@ -12,12 +13,15 @@ require "dexpace/transport/async_http"
 # loads the default certificate store from disk. Async::HTTP::Client.new opens no socket, so a
 # client discarded by a lost insert race costs nothing. XCUT-14: the map is bounded at
 # MAX_ORIGINS and drains back under it in a loop after each insert, retiring what it evicts.
-# P8-37, as built: #close retires every pooled connection and never waits. Two nested classes
-# under Metrics/ClassLength: what #fetch builds, and what #close and the cap release.
+# P8-37, as built: #close retires every pooled connection and never waits. Every configuration a
+# case builds is hermetic -- the environment tier answers nothing -- so the default the limit case
+# pins is the default and not the host's TRANSPORT_CONNECTION_LIMIT. Two nested classes under
+# Metrics/ClassLength: what #fetch builds, and what #close and the cap release.
 module DexpaceTransportAsyncHTTPClientsTest
   # The stand-in reactor and the two builders both classes share.
   module ClientsTestSupport
     include AsyncHTTPReactor
+    include AsyncHTTPHermeticConfiguration
 
     Clients = Dexpace::Transport::AsyncHTTP.const_get(:Clients, false)
     AsyncHTTP = Dexpace::Transport::AsyncHTTP
@@ -28,7 +32,7 @@ module DexpaceTransportAsyncHTTPClientsTest
     def url(string) = Dexpace::URL.parse!(string)
 
     def clients(**)
-      Clients.build(configuration: Dexpace::Configuration.build, **)
+      Clients.build(configuration: hermetic_configuration, **)
     end
   end
 
@@ -90,7 +94,7 @@ module DexpaceTransportAsyncHTTPClientsTest
     test "a configured connection limit overrides the default, and an explicit keyword " \
          "overrides both" do
       key = Dexpace::Configuration::Keys::TRANSPORT_CONNECTION_LIMIT
-      configuration = Dexpace::Configuration.build(overrides: { key => "3" })
+      configuration = hermetic_configuration({ key => "3" })
       configured = Clients.build(configuration: configuration)
       explicit = Clients.build(configuration: configuration, connection_limit: 2)
 

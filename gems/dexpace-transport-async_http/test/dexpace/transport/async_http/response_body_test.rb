@@ -27,12 +27,18 @@ module DexpaceTransportAsyncHTTPResponseBodyTest
   class PullAndCloseTest < DexpaceTestCase
     include ResponseBodyTestSupport
 
+    # The first chunk arrives tagged UTF-8, as a library that trusted a charset would hand it,
+    # and the second BINARY: the retag is asserted on the one the native body did NOT already
+    # tag, because a double handing over BINARY chunks alone cannot see `String#b` go missing
+    # (review round 0's R0-3, a surviving mutant).
     test "#each yields one native #read per chunk, retagged BINARY, and stops at nil" do
-      native = AsyncHTTPRecordingBody.new(["a".b, "b".b])
+      utf8 = +"a" # a source literal: UTF-8, and unfrozen as a native chunk is
+      native = AsyncHTTPRecordingBody.new([utf8, "b".b])
       chunks = body(native).each.map { |chunk| chunk }
 
+      assert_equal(::Encoding::UTF_8, utf8.encoding, "the fixture hands over a UTF-8 chunk")
       assert_equal(%w[a b], chunks)
-      assert(chunks.all? { |chunk| chunk.encoding == ::Encoding::BINARY })
+      assert_equal([::Encoding::BINARY, ::Encoding::BINARY], chunks.map(&:encoding))
       assert_equal(3, native.reads, "two chunks plus one read for end of stream")
     end
 

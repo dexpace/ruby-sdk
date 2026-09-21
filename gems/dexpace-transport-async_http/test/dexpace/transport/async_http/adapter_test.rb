@@ -5,6 +5,7 @@ require_relative "../../../test_helper"
 require_relative "../../../support/async_http_recording_body"
 require_relative "../../../support/async_http_recording_sink"
 require_relative "../../../support/async_http_holding_server"
+require_relative "../../../support/async_http_hermetic_configuration"
 require_relative "../../../support/async_http_reactor"
 require "dexpace/transport/async_http"
 
@@ -12,12 +13,14 @@ require "dexpace/transport/async_http"
 # is minted and returned before anything fallible runs, every pre-dispatch failure is delivered
 # through it, ownership is a construction-time fact, and nothing per-call lives on the adapter.
 # Three nested classes under Metrics/ClassLength (8a's shape): the constructions, the
-# pre-dispatch settlements, and the deadline's tiers.
+# pre-dispatch settlements, and the deadline's tiers -- the last over a hermetic configuration,
+# so the 60-second default it pins is the default and not the host's REQUEST_TIMEOUT.
 module DexpaceTransportAsyncHTTPAdapterTest
   # The request builder and the three doubles every class here shares: a client answering
   # inline, a forged request that met no builder, and a native response.
   module AdapterTestSupport
     include AsyncHTTPReactor
+    include AsyncHTTPHermeticConfiguration
 
     AsyncHTTP = Dexpace::Transport::AsyncHTTP
     Adapter = Dexpace::Transport::AsyncHTTP::Adapter
@@ -254,11 +257,12 @@ module DexpaceTransportAsyncHTTPAdapterTest
 
     # The three tiers: the call, the transport, the configuration chain (a bare number is
     # milliseconds, CFG-7), then the default -- read through the adapter's own private resolver
-    # because the deadline is applied inside the exchange task.
+    # because the deadline is applied inside the exchange task. Both chains are hermetic: the
+    # default tier is reached only when the environment tier answered nothing.
     test "the deadline's three tiers resolve highest first, and the configured tier reads " \
          "REQUEST_TIMEOUT through #duration" do
       key = Dexpace::Configuration::Keys::REQUEST_TIMEOUT
-      configuration = Dexpace::Configuration.build(overrides: { key => "250ms" })
+      configuration = hermetic_configuration({ key => "250ms" })
       adapter = AsyncHTTP.build(timeout: 2.5, configuration: configuration)
       per_call = Dexpace::RequestOptions.builder.tap { |b| b.timeout = 0.75 }.build
 
@@ -267,7 +271,7 @@ module DexpaceTransportAsyncHTTPAdapterTest
       configured = AsyncHTTP.build(configuration: configuration)
 
       assert_in_delta(0.25, configured.send(:resolve_timeout, Dexpace::RequestOptions::EMPTY))
-      assert_in_delta(60.0, AsyncHTTP.build(configuration: Dexpace::Configuration.build)
+      assert_in_delta(60.0, AsyncHTTP.build(configuration: hermetic_configuration)
                                      .send(:resolve_timeout, nil),)
       assert_in_delta(60.0, AsyncHTTP::DEFAULT_TIMEOUT_SECONDS)
     ensure

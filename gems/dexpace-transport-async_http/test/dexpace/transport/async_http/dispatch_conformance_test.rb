@@ -6,6 +6,7 @@ require_relative "../../../test_helper"
 require_relative "../../../support/async_http_server_fixture"
 require_relative "../../../support/async_http_holding_server"
 require_relative "../../../support/async_http_recording_sink"
+require_relative "../../../support/async_http_hermetic_configuration"
 require_relative "../../../support/async_http_reactor"
 require "dexpace/transport/async_http"
 
@@ -26,6 +27,7 @@ module DexpaceTransportAsyncHTTPDispatchConformanceTest
   # classes share.
   module DispatchTestSupport
     include AsyncHTTPReactor
+    include AsyncHTTPHermeticConfiguration
 
     AsyncHTTP = Dexpace::Transport::AsyncHTTP
     BOUND = 5.0
@@ -41,11 +43,15 @@ module DexpaceTransportAsyncHTTPDispatchConformanceTest
       future.value(deadline: Dexpace::Clock.deadline_in(BOUND))
     end
 
-    # The adapter a caller builds for each fixture flavour.
+    # The adapter a caller builds for each fixture flavour. An owning one reads its connection
+    # limit off a hermetic chain, so the pool bound the ASYNC-22 case pins is the default and
+    # not the host's TRANSPORT_CONNECTION_LIMIT.
     def adapter_for(server, variant)
       case variant
-      when :http1 then AsyncHTTP.build
-      when :tls then AsyncHTTP.build(ssl_context: server.client_endpoint.ssl_context)
+      when :http1 then AsyncHTTP.build(configuration: hermetic_configuration)
+      when :tls
+        AsyncHTTP.build(ssl_context: server.client_endpoint.ssl_context,
+                        configuration: hermetic_configuration,)
       else AsyncHTTP.using(::Async::HTTP::Client.new(server.client_endpoint, retries: 0))
       end
     end

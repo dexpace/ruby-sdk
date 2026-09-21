@@ -170,5 +170,42 @@ module DexpaceTransportAsyncHTTPParentCancellationTest
 
       assert_equal(1, native.close_count)
     end
+
+    # The net under #run's ensure, reached only when a runtime cancellation lands INSIDE an exit
+    # arm: the adaptation failure above, with the undelivered native body's close suspending at a
+    # checkpoint (a native close that waits on the peer's stream reset would) and the parent
+    # cancelled there. Async::Cancel leaves the rescue arm before Errors.settle ran, so the
+    # ensure's net is the only thing left to settle the pivot -- cancelled, never left pending
+    # (review round 0's R0-4, a surviving mutant). No sleep: the body parks on a queue the test
+    # never pushes to, and the cancellation is what wakes it.
+    test "a runtime cancellation landing inside an exit arm's native close still settles the " \
+         "pivot cancelled, through the ensure's net" do
+      gate = ::Thread::Queue.new
+      native = AsyncHTTPRecordingBody.new(["late".b], length: 4)
+      native.define_singleton_method(:close) { |error = nil| gate.pop && super(error) }
+      client = Object.new
+      client.define_singleton_method(:retries) { 0 }
+      client.define_singleton_method(:pool) { Object.new.tap { |pool| def pool.close = nil } }
+      client.define_singleton_method(:call) do |_native|
+        ::Protocol::HTTP::Response.new("HTTP/1.1", 999, ::Protocol::HTTP::Headers.new, native)
+      end
+      adapter = AsyncHTTP.using(client)
+
+      Sync do |root|
+        supervisor, future, park = supervise(root, adapter, request("http://example.test/"))
+
+        refute_predicate(future, :settled?, "the exit arm is parked inside the native close")
+        supervisor.cancel
+
+        error = assert_raises(Dexpace::CancelledError) { value_within(future) }
+        assert_equal(:async_cancelled, error.reason)
+        assert_predicate(future, :cancelled?)
+        assert_exchange_released(root)
+        park.close
+        gate.close
+      end
+
+      assert_equal(0, native.close_count, "the native close was interrupted, never completed")
+    end
   end
 end
