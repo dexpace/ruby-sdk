@@ -19,15 +19,28 @@ module Dexpace
       # owns): a dead timer strands every later delay and turns the next #stop into a raise
       # through the join, and Thread#report_on_exception writes to $stderr past every gate.
       #
+      # It is the gem's second carrier of a caller's diagnostic context, and it carries it the
+      # way the worker does (P8-20, extended to this thread by P8-78): #schedule captures the
+      # scheduling fiber's context per entry (ASYNC-10's per-submission point), every callback
+      # runs under Diagnostics.with over that snapshot (ASYNC-8, ASYNC-9), and the timer thread
+      # clears its own storage once at start and again after every callback, so a #on_settle or
+      # #then on a delay future sees the context of the caller who asked for THAT delay -- never
+      # the first caller's, which ::Thread.new copied into this thread when it was spawned, and
+      # never a key an earlier handler wrote. The shutdown callback runs on whichever thread
+      # stopped the timer under the same install-and-restore, and that thread's storage is not
+      # this timer's to clear.
+      #
       # The mutex is held across a list insert, a list delete, a `first` read, the stop flag
       # and the lazy thread creation -- never across #pop(timeout:), a callback or a Completer
       # settle (design, "Thread-safety proof obligations"): Thread::Mutex ownership is per fiber
       # and non-reentrant, so a lock held across a suspension point deadlocks two fibers of one
       # thread. The wait is computed inside the lock and performed outside it.
-      class Timer
-        # One scheduled deadline and its two outcomes. Crosses the timer thread's boundary:
-        # frozen Data, every member immutable by construction (concurrency-and-async/2c743901).
-        Entry = ::Data.define(:deadline, :on_fire, :on_shutdown)
+      class Timer # rubocop:disable Metrics/ClassLength -- one thread, its deadline list and its two context boundaries; the boundaries belong to the thread they clear (P8-78) and a split would invent a second private constant for half a thread
+        # One scheduled deadline, the scheduling caller's captured diagnostic context and the
+        # two outcomes. Crosses the timer thread's boundary: frozen Data, every member immutable
+        # by construction (concurrency-and-async/2c743901); the snapshot is Diagnostics.capture's
+        # frozen Hash, whose VALUES are the caller's own objects, shared as Pool::Job shares them.
+        Entry = ::Data.define(:deadline, :snapshot, :on_fire, :on_shutdown)
         private_constant :Entry
 
         # @param name [String] the pool's name; the thread is "<name> timer" in a thread dump
@@ -49,10 +62,15 @@ module Dexpace
         # thread is spawned -- the backstop for a #delay that read the pool's latch open a moment
         # before #close ran.
         #
+        # The calling fiber's diagnostic context is captured HERE, per entry (ASYNC-10): this
+        # runs synchronously inside Pool#delay on the caller's own thread, so what it reads is
+        # the context of the caller who asked for this delay, and the callbacks reinstate it.
+        #
         # @return [Object] an opaque handle for #cancel
         def schedule(delay, on_fire:, on_shutdown:)
-          entry = Entry.new(deadline: @clock.monotonic + delay, on_fire: on_fire,
-                            on_shutdown: on_shutdown,)
+          entry = Entry.new(deadline: @clock.monotonic + delay,
+                            snapshot: Dexpace::Instrumentation::Diagnostics.capture,
+                            on_fire: on_fire, on_shutdown: on_shutdown,)
           refused = @mutex.synchronize do
             if @stopped
               true
@@ -64,7 +82,7 @@ module Dexpace
             end
           end
           if refused
-            guarded { entry.on_shutdown.call }
+            shut_down(entry)
           else
             wake
           end
@@ -110,7 +128,7 @@ module Dexpace
           end
           @wake.close
           thread&.join(timeout) unless thread.equal?(::Thread.current)
-          leftover.each { |entry| guarded { entry.on_shutdown.call } }
+          leftover.each { |entry| shut_down(entry) }
           nil
         end
 
@@ -124,6 +142,12 @@ module Dexpace
           ::Thread.new do
             ::Thread.current.name = "#{@name} timer"
             ::Thread.current.report_on_exception = false
+            # P8-20's boundary 1 of 2, for this thread: ::Thread.new copied the FIRST scheduling
+            # caller's fiber storage into this thread at creation (design, verified fact 7), and
+            # without this clear every later caller's handler ran underneath it -- caller B's
+            # #on_settle tagged with caller A's trace id (review round 2's R2-1). The construction
+            # floor; boundary 2 is #fire's ensure.
+            clear_fiber_storage
             guarded { run }
           end
         end
@@ -153,8 +177,46 @@ module Dexpace
             @wake.pop(timeout: remaining)
             break if @wake.closed?
 
-            take_due.each { |entry| guarded { entry.on_fire.call } }
+            take_due.each { |entry| fire(entry) }
           end
+        end
+
+        # The timer thread's hop (ASYNC-8): the entry's captured context installed for the
+        # callback's duration and the thread's prior context restored after it, through 5b's
+        # Diagnostics.with exactly as Pool#run does it, inside the net. Then P8-20's boundary 2
+        # of 2, not redundant with the thread-start clear: `.with` restores only
+        # (prior.keys | snapshot.keys), so a key the HANDLER itself writes is in neither set and
+        # would be visible to every later handler on this thread (measured: {written_by_handler:
+        # "LEAK"} on the next delay's callback). After the thread-start clear the prior map is
+        # provably empty, so re-running the clear IS "restore prior".
+        def fire(entry)
+          guarded do
+            Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) { entry.on_fire.call }
+          end
+        ensure
+          clear_fiber_storage
+        end
+
+        # The shutdown outcome, on whichever thread stopped the timer -- the closer's, a worker's
+        # whose task closed its own pool, the timer's own when a delay handler did (P8-76), or
+        # the scheduling caller's for an entry refused after #stop -- under the same install and
+        # restore (ASYNC-9: that thread's prior context is saved and put back), and with no clear
+        # after: a caller's thread is not this timer's to empty, and a worker's or the timer's own
+        # is cleared by its own boundary-2 ensure once the enclosing task or callback returns.
+        def shut_down(entry)
+          guarded do
+            Dexpace::Instrumentation::Diagnostics.with(entry.snapshot) { entry.on_shutdown.call }
+          end
+        end
+
+        # Per key, through Fiber[]= alone, never Fiber#storage= (which warns on every call on
+        # every supported Ruby); Pool#clear_fiber_storage's spelling, for the same reasons. On the
+        # 3.2 floor the write retains the key with a nil value (P5-72), which Fiber[] and
+        # Diagnostics.capture both read as absent.
+        def clear_fiber_storage
+          storage = ::Fiber.current.storage #: untyped
+          storage&.each_key { |key| ::Fiber[key] = nil }
+          nil
         end
 
         # Under the mutex: seconds until the nearest deadline, floored at zero, or nil.

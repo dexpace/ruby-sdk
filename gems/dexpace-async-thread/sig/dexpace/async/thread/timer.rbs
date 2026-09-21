@@ -8,13 +8,16 @@ module Dexpace
   module Async
     module Thread
       class Timer
-        # A private_constant snapshot; declared so Steep can type the list.
+        # A private_constant snapshot; declared so Steep can type the list. `snapshot` is the
+        # scheduling caller's diagnostic context, Diagnostics.capture's frozen Hash.
         class Entry < Data
           attr_reader deadline: Float
+          attr_reader snapshot: Hash[Symbol, untyped]
           attr_reader on_fire: ^() -> void
           attr_reader on_shutdown: ^() -> void
 
-          def self.new: (deadline: Float, on_fire: ^() -> void, on_shutdown: ^() -> void) -> instance
+          def self.new: (deadline: Float, snapshot: Hash[Symbol, untyped], on_fire: ^() -> void,
+                         on_shutdown: ^() -> void) -> instance
         end
 
         @name: String
@@ -37,6 +40,9 @@ module Dexpace
         def wake: () -> void
         def guarded: () { () -> void } -> void
         def run: () -> void
+        def fire: (Entry entry) -> void
+        def shut_down: (Entry entry) -> void
+        def clear_fiber_storage: () -> nil
         def next_wait: () -> Float?
         def take_due: () -> Array[Entry]
       end
