@@ -78,8 +78,9 @@ class ComposedTransportTest < DexpaceTestCase
         real.call(req, opts, tok).tap { |response| seen << response }
       end
 
-      response = async(recording).call(request, Dexpace::RequestOptions::EMPTY, Dexpace::Cancellation.none) # rubocop:disable Layout/LineLength
-        .value(deadline: within(10))
+      future = async(recording).call(request, Dexpace::RequestOptions::EMPTY,
+                                     Dexpace::Cancellation.none,)
+      response = future.value(deadline: within(10))
 
       assert_match(/\Acomposed worker [01]\z/, seen.pop)
       assert_same(response, seen.pop,
