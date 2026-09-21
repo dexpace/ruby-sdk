@@ -92,7 +92,8 @@ module Dexpace
         #
         # @param size [Integer] the number of worker threads, positive; created now, never grown
         # @param queue_limit [Integer, nil] the bounded queue's depth; nil derives it
-        # @param shutdown_timeout [Numeric] #close's whole budget in seconds, non-negative
+        # @param shutdown_timeout [Numeric] #close's whole budget in seconds: real, finite and
+        #   non-negative, because a budget is a bound
         # @param name [String] the thread-name prefix and the name error messages carry
         # @param logger [Dexpace::Instrumentation::Logger] where the shutdown event and a task
         #   defect's diagnostic go; Logger::NULL emits nothing
@@ -106,7 +107,7 @@ module Dexpace
           queue_limit = positive_integer!(:queue_limit,
                                           queue_limit || (size * QUEUE_DEPTH_PER_WORKER),)
           new(size: size, queue_limit: queue_limit,
-              shutdown_timeout: non_negative_numeric!(:shutdown_timeout, shutdown_timeout),
+              shutdown_timeout: finite_non_negative!(:shutdown_timeout, shutdown_timeout),
               name: non_empty_string!(:name, name),
               logger: responding!(:logger, logger, :event),
               clock: responding!(:clock, clock, :monotonic),)
@@ -120,13 +121,19 @@ module Dexpace
         end
         private_class_method :positive_integer!
 
-        def self.non_negative_numeric!(keyword, value)
-          return value if value.is_a?(::Numeric) && !value.negative?
+        # A budget is a bound, so `shutdown_timeout` is real (a Complex has no order and no
+        # `#negative?`), non-negative AND finite (P8-77): a NaN budget passed the design's two
+        # checks and made `#release`'s deadline arithmetic raise a bare ArgumentError out of
+        # `#close` with the latch already flipped, and an infinite one is the unbounded close
+        # XCUT-13 forbids for this gem by name. `real?` is asked first so `negative?` is never
+        # sent to a Complex.
+        def self.finite_non_negative!(keyword, value)
+          return value if value.is_a?(::Numeric) && value.real? && !value.negative? && value.finite?
 
           raise Dexpace::InvalidArgumentError,
-                "#{keyword} must be a non-negative Numeric, got #{value.inspect}"
+                "#{keyword} must be a finite, non-negative Numeric, got #{value.inspect}"
         end
-        private_class_method :non_negative_numeric!
+        private_class_method :finite_non_negative!
 
         def self.non_empty_string!(keyword, value)
           return value if value.is_a?(::String) && !value.empty?
@@ -221,16 +228,16 @@ module Dexpace
         # future, and ASYNC-2 forbids delivering a detectable construction failure synchronously
         # from one, naming "worker-pool rejection (a saturated/shut-down executor)" as this case.
         # #post escapes that rule because phase 2's bridge routes its raise to Completer#fail;
-        # #delay has no router and does the routing itself. The two argument raises stay raises:
-        # a negative or non-Numeric duration is a programming error in the call, and ASYNC-18's
-        # own wording is "MUST reject a negative delay" (R11's fifth clause).
+        # #delay has no router and does the routing itself. The argument raises stay raises: a
+        # negative, non-finite, non-real or non-Numeric duration is a programming error in the
+        # call, and ASYNC-18's own wording is "MUST reject a negative delay" (R11's fifth clause).
         #
-        # @param duration [Numeric] seconds, non-negative; zero settles before this returns and
-        #   spawns nothing
+        # @param duration [Numeric] seconds, real, finite and non-negative; zero settles before
+        #   this returns and spawns nothing
         # @return [Dexpace::Async::Future] settled with true after the delay, or already failed
         #   with Dexpace::ClosedError on a closed pool
-        # @raise [Dexpace::InvalidArgumentError] for a negative or non-Numeric duration, before
-        #   any timer thread exists
+        # @raise [Dexpace::InvalidArgumentError] for a negative, non-finite (NaN, Infinity),
+        #   non-real (Complex) or non-Numeric duration, before any timer thread exists
         def delay(duration)
           validate_duration!(duration)
           completer = Dexpace::Async::Completer.new
@@ -246,13 +253,33 @@ module Dexpace
 
         private
 
+        # ASYNC-18's "MUST reject", over every duration the timer could not serve and not only a
+        # negative one (P8-77, review round 1's R1-1). A NaN is a Numeric that answers false to
+        # `negative?` AND `zero?`, so the design's two checks let it through to the timer, whose
+        # list is ordered by deadline: the entry's NaN deadline made `next_wait`'s `max` raise
+        # inside the thread's net -- one diagnostic, the thread gone for good with @thread still
+        # set, the future never settled -- and every later #delay on the pool raised a bare
+        # ArgumentError synchronously from `sort_by!`, on every row. `finite?` is Numeric's own
+        # protocol (Integer and Rational answer true, a Float or a BigDecimal NaN or infinity
+        # false), which is why Infinity goes with it: an entry that never fires is not a delay,
+        # and one total method covers both. A Complex is a Numeric with no order and no
+        # `#negative?`, a bare NoMethodError; `real?` is the check Numeric provides for it.
+        # An Integer beyond Float's range is finite and admitted; its deadline saturates to
+        # Infinity in the clock's Float arithmetic, an entry that never fires and #close fails.
         def validate_duration!(duration)
           unless duration.is_a?(::Numeric)
             raise Dexpace::InvalidArgumentError, "duration must be Numeric, got #{duration.class}"
           end
-          return unless duration.negative?
+          unless duration.real?
+            raise Dexpace::InvalidArgumentError,
+                  "duration must be a real number, got #{duration.inspect}"
+          end
+          if duration.negative?
+            raise Dexpace::InvalidArgumentError, "duration must not be negative, got #{duration}"
+          end
+          return if duration.finite?
 
-          raise Dexpace::InvalidArgumentError, "duration must not be negative, got #{duration}"
+          raise Dexpace::InvalidArgumentError, "duration must be finite, got #{duration}"
         end
 
         def closed_error = Dexpace::ClosedError.new("#{@name} is closed")

@@ -44,7 +44,7 @@ module Dexpace
                          ?clock: Dexpace::_Clock) -> Pool
 
         private def self.positive_integer!: (Symbol keyword, untyped value) -> Integer
-        private def self.non_negative_numeric!: (Symbol keyword, untyped value) -> Numeric
+        private def self.finite_non_negative!: (Symbol keyword, untyped value) -> Numeric
         private def self.non_empty_string!: (Symbol keyword, untyped value) -> String
         private def self.responding!: (Symbol keyword, untyped value, Symbol method_name) -> untyped
 
