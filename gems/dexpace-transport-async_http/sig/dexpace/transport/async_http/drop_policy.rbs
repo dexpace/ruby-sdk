@@ -1,0 +1,41 @@
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      # TRANSPORT-13's once-per-name, bounded drop reporting, as a policy value an adapter is
+      # built with. Private .new; one frozen snapshot replaced under the mutex.
+      class DropPolicy
+        # The names warned about so far, as one frozen Data replaced whole under the mutex. A
+        # private_constant snapshot (phase 2's P2-9 exemption), so no Model and no .build.
+        class Snapshot < Data
+          attr_reader seen: Hash[String, bool]
+
+          def self.new: (seen: Hash[String, bool]) -> instance
+        end
+
+        MAX_TRACKED_NAMES: Integer
+        EVERY: Symbol
+        ONCE_PER_NAME: Symbol
+        QUIET: Symbol
+        MODES: Array[Symbol]
+
+        @mode: Symbol
+        @mutex: Thread::Mutex
+        @snapshot: Snapshot
+
+        attr_reader mode: Symbol
+
+        def self.build: (?mode: Symbol) -> DropPolicy
+        private def self.new: (mode: Symbol) -> instance
+        def initialize: (mode: Symbol) -> void
+
+        def report: (Instrumentation::Logger logger, String name, String reason) -> nil
+
+        private
+
+        def severity_for: (String name) -> Instrumentation::Severity
+        def once_per_name_severity: (String name) -> Instrumentation::Severity
+        def first_sighting?: (String folded) -> bool
+      end
+    end
+  end
+end

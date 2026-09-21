@@ -10,6 +10,7 @@ module Dexpace
       MAX_TRACKED_CONTEXTS: String
       LOG_PREVIEW_BYTES: String
       REQUEST_TIMEOUT: String
+      TRANSPORT_CONNECTION_LIMIT: String
     end
   end
 end

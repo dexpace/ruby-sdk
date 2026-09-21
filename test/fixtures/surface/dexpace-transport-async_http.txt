@@ -1,2 +1,25 @@
 Dexpace::Transport::AsyncHTTP
+Dexpace::Transport::AsyncHTTP#build
+Dexpace::Transport::AsyncHTTP#default
+Dexpace::Transport::AsyncHTTP#using
+Dexpace::Transport::AsyncHTTP::ALPN_PROTOCOLS : Array
+Dexpace::Transport::AsyncHTTP::Adapter
+Dexpace::Transport::AsyncHTTP::Adapter#call
+Dexpace::Transport::AsyncHTTP::Adapter.borrowing
+Dexpace::Transport::AsyncHTTP::Adapter.owning
+Dexpace::Transport::AsyncHTTP::Adapter::REACTOR_MESSAGE : String
+Dexpace::Transport::AsyncHTTP::DEFAULT_CONNECTION_LIMIT : Integer
+Dexpace::Transport::AsyncHTTP::DEFAULT_TIMEOUT_SECONDS : Float
+Dexpace::Transport::AsyncHTTP::DropPolicy
+Dexpace::Transport::AsyncHTTP::DropPolicy#mode
+Dexpace::Transport::AsyncHTTP::DropPolicy#report
+Dexpace::Transport::AsyncHTTP::DropPolicy.build
+Dexpace::Transport::AsyncHTTP::DropPolicy::EVERY : Symbol
+Dexpace::Transport::AsyncHTTP::DropPolicy::MAX_TRACKED_NAMES : Integer
+Dexpace::Transport::AsyncHTTP::DropPolicy::MODES : Array
+Dexpace::Transport::AsyncHTTP::DropPolicy::ONCE_PER_NAME : Symbol
+Dexpace::Transport::AsyncHTTP::DropPolicy::QUIET : Symbol
+Dexpace::Transport::AsyncHTTP::FRAMING_HEADERS : Array
+Dexpace::Transport::AsyncHTTP::MAX_ORIGINS : Integer
+Dexpace::Transport::AsyncHTTP::REGISTRY_KEY : Symbol
 Dexpace::Transport::AsyncHTTP::VERSION : String

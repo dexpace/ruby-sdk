@@ -1,0 +1,51 @@
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      # The transport (SEAM-12): private .new, two construction entry points reached through
+      # AsyncHTTP.build and AsyncHTTP.using, and Closeable's latch as the only state written
+      # after construction (TRANSPORT-29). The async-http client and the reactor are untyped:
+      # nothing from async-http may name a signature (NFR-11).
+      class Adapter
+        include Dexpace::Closeable
+
+        REACTOR_MESSAGE: String
+
+        @clients: Clients?
+        @client: untyped
+        @timeout: Numeric?
+        @logger: Instrumentation::Logger
+        @drop_policy: DropPolicy
+        @configuration: Dexpace::Configuration
+
+        def self.owning: (timeout: Numeric?, logger: Instrumentation::Logger,
+                          drop_policy: DropPolicy?, connection_limit: Integer?,
+                          ssl_context: untyped, configuration: Dexpace::Configuration?) -> Adapter
+        def self.borrowing: (untyped client, logger: Instrumentation::Logger,
+                             drop_policy: DropPolicy?) -> Adapter
+        private def self.timeout!: (untyped timeout) -> void
+        private def self.new: (clients: Clients?, client: untyped, timeout: Numeric?,
+                               logger: Instrumentation::Logger, drop_policy: DropPolicy?,
+                               configuration: Dexpace::Configuration, owned: bool) -> instance
+        def initialize: (clients: Clients?, client: untyped, timeout: Numeric?,
+                         logger: Instrumentation::Logger, drop_policy: DropPolicy?,
+                         configuration: Dexpace::Configuration, owned: bool) -> void
+
+        def call: (Dexpace::Request request, Dexpace::RequestOptions? options,
+                   Dexpace::Cancellation? cancellation) -> Dexpace::Async::Future
+
+        private
+
+        def dispatch: (Dexpace::Async::Completer completer, Dexpace::Request request,
+                       Dexpace::RequestOptions? options, Dexpace::Cancellation cancellation)
+                    -> untyped
+        def exchange_for: (Dexpace::Async::Completer completer, Dexpace::Request request,
+                           Dexpace::RequestOptions? options, Dexpace::Cancellation cancellation)
+                        -> Exchange
+        def resolve_timeout: (Dexpace::RequestOptions? options) -> Numeric
+        def configured_timeout: () -> Numeric
+        def client_for: (URI::Generic url, untyped reactor) -> untyped
+        def release: () -> nil
+      end
+    end
+  end
+end

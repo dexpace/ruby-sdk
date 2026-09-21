@@ -11,6 +11,12 @@ require "dexpace"
 # would merge two concerns the requirement separates. The name is not Dexpace::Transport::Async,
 # because that constant would sit beside the adapter namespaces Dexpace::Transport::NetHTTP and
 # ::AsyncHTTP -- a seam beside its own implementations.
+#
+# The properties of a BARE `require "dexpace"` -- an empty registry that is not the sync seam's,
+# the zero-candidate SeamError and nothing resolved after a swap -- live in
+# async_transport_bare_require_test.rb since phase 8c, whose adapter registers a factory the
+# moment it is required: in one `rake test:gems` process the registry is not empty, and the
+# in-process assertions were the pin that registration invalidated (8a's shape, applied here).
 class DexpaceAsyncTransportTest < DexpaceTestCase
   CORE = "~> 0.0"
 
@@ -24,32 +30,37 @@ class DexpaceAsyncTransportTest < DexpaceTestCase
     assert(Dexpace::Transport.conforms?(FakeAsyncTransport.new))
   end
 
-  test "the registry starts empty and is not the sync seam's" do
-    assert_empty(Dexpace::AsyncTransport.registered_keys)
+  # The two seams are two registries: a sync override resolves nothing here. Whether this one
+  # starts empty is a property of the bare require (see the class comment).
+  test "the registry is not the sync seam's" do
+    keys_before = Dexpace::AsyncTransport.registered_keys
 
     Dexpace::Transport.swap(->(_r, _o, _c) { :sync }) do
-      assert_raises(Dexpace::SeamError) { Dexpace::AsyncTransport.resolve }
+      assert_equal(keys_before, Dexpace::AsyncTransport.registered_keys)
+      resolved = begin
+        Dexpace::AsyncTransport.resolve
+      rescue Dexpace::SeamError
+        :none
+      end
+
+      refute_equal(:sync, resolved, "the sync override reached the async seam")
     end
   end
 
-  test "the zero-candidate error names this seam and no gem" do
-    error = assert_raises(Dexpace::SeamError) { Dexpace::AsyncTransport.resolve }
-
-    assert_match(/no async transport provider is registered/, error.message)
-    assert_match(/Dexpace::AsyncTransport\.install/, error.message)
-    refute_match(/async_http|net_http/i, error.message, "SEAM-2")
-  end
-
+  # The override itself; "and afterwards nothing is resolved" is a property of the bare require
+  # and lives in async_transport_bare_require_test.rb.
   test "install refuses a non-conforming object and swap scopes an override" do
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::AsyncTransport.install(Object.new) }
 
     transport = FakeAsyncTransport.new
+    keys_before = Dexpace::AsyncTransport.registered_keys
 
     Dexpace::AsyncTransport.swap(transport) do
       assert_same(transport, Dexpace::AsyncTransport.resolve)
     end
 
-    assert_raises(Dexpace::SeamError) { Dexpace::AsyncTransport.resolve }
+    assert_equal(keys_before, Dexpace::AsyncTransport.registered_keys,
+                 "the swap registered nothing",)
   end
 
   test "install goes through the module, returns it, and is scoped by an enclosing swap" do
@@ -59,8 +70,6 @@ class DexpaceAsyncTransportTest < DexpaceTestCase
       assert_same(Dexpace::AsyncTransport, Dexpace::AsyncTransport.install(transport))
       assert_same(transport, Dexpace::AsyncTransport.resolve)
     end
-
-    assert_raises(Dexpace::SeamError) { Dexpace::AsyncTransport.resolve }
   end
 
   # The registration is scoped inside a swap and cleaned out of the private registry afterwards,

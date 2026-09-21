@@ -1,0 +1,45 @@
+# Dexpace::Transport::AsyncHTTP::ResponseBody is a private_constant and not public API: this
+# declaration exists because the `async_http` Steep target checks every file under lib/ and needs
+# the class declared to type ResponseMapper's call site. RBS has no visibility for a constant, so
+# the privacy lives in lib/dexpace/transport/async_http/response_body.rb alone. The native body
+# is untyped: nothing from protocol-http may name a signature (NFR-11).
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      # What the mapper hands a body to run when the body releases its native resource: the
+      # exchange's own watcher release, as a lambda.
+      interface _Release
+        def call: () -> untyped
+      end
+
+      class ResponseBody
+        include Dexpace::Body
+        include Dexpace::Closeable
+
+        @native: untyped
+        @media_type: Dexpace::MediaType?
+        @content_length: Integer
+        @cancellation: Dexpace::Cancellation
+        @logger: Instrumentation::Logger
+        @on_release: _Release?
+        @source: Dexpace::IO::BufferedSource?
+
+        attr_reader media_type: Dexpace::MediaType?
+        attr_reader content_length: Integer
+
+        def initialize: (native: untyped, media_type: Dexpace::MediaType?, content_length: Integer,
+                         cancellation: Dexpace::Cancellation, ?logger: Instrumentation::Logger,
+                         ?on_release: _Release?) -> void
+        def each: () { (String) -> void } -> nil
+                | () -> Enumerator[String, nil]
+        def write_to: (Dexpace::IO::_Sink sink) -> Integer
+        def source: () -> Dexpace::IO::BufferedSource
+
+        private
+
+        def pull: () -> String?
+        def release: () -> untyped
+      end
+    end
+  end
+end

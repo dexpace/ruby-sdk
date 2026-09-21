@@ -221,12 +221,13 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
       assert_empty(sink.entries)
     end
 
-    # Nine keys since phase 8a added REQUEST_TIMEOUT (its R3); this pin was eight until then.
+    # Nine keys since phase 8a added REQUEST_TIMEOUT (its R3), ten since phase 8c added
+    # TRANSPORT_CONNECTION_LIMIT; this pin was eight before either.
     test "the body-logging caps' key: LOG_PREVIEW_BYTES is the eighth key, LOG_LEVEL is 5a's" do
       assert_equal("LOG_PREVIEW_BYTES", ConfigKeys::LOG_PREVIEW_BYTES)
       assert_equal("LOG_LEVEL", ConfigKeys::LOG_LEVEL)
       assert_predicate(ConfigKeys::LOG_PREVIEW_BYTES, :frozen?)
-      assert_equal(9, ConfigKeys.constants.size)
+      assert_equal(10, ConfigKeys.constants.size)
       # The reference default is the CALLER's, resolved through 5a's typed accessor and never
       # baked into a 5b signature (the plan's open question 5).
       assert_equal(8192, configuration.integer(ConfigKeys::LOG_PREVIEW_BYTES, default: 8 * 1024))
