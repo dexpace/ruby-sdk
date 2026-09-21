@@ -14,6 +14,49 @@ contract's one event, Task 2) and the require-allowlist's `tempfile` line (Task 
 over a real socket is 8b's, which lands second. Where the plan's text and the built tree disagree the tree
 wins and this document records it.
 
+**Reconciled 2026-09-21.** The whole of phase 7 merged first — 7b (#81 → #82 → #83), 7c (#84 → #85 →
+#86) and 7a (#87 → #88 → #89), `main` at `734e6b3` — so this phase's three branches were rebased onto
+the tree that holds all three by `git rebase --onto` with rerere disabled, every 8a commit preserved
+and none reordered. The sentences below that count the tree or say what landed first describe **this
+phase's own base**, `c53638b`, and are left as written; on the combined tree the figures are: 220
+`lib/dexpace/` files beside `version.rb` (phase 7's thirty-five and this phase's one,
+`error/transport_error.rb`, over the 184 of phase 6), the same **nineteen** `private_constant`
+test-mirror exceptions (7c's `page/closing.rb` among them; this phase adds none to core, and the mirror
+walk over all three gems it touched finds exactly the three named under `dexpace-conformance` —
+`transport_suite/checks.rb`, `wire_server/recorded_request.rb`, `wire_server/request_reader.rb`),
+eighteen checklists, nineteen as-built pages beside `architecture.md`, the core manifest 1 330 → 1 335
+(still exactly this phase's 5 rows, `net_http` 2 → 17 and `conformance` 2 → 100 as before, 7a's
+`serde-json` 15 untouched, confirmed by a `surface:regenerate` on the rebased code tip that changed
+nothing), the entry file's `# Phase 8a:` block after 7b's, 7c's and 7a's rather than directly after
+6b's, and eighteen gates — 7b's `gates:serde_boundary`, which this phase's base did not have, scans
+`sse/**` and `page/**` alone and is green with the two adapter gems beside them. Three things this
+pass changed, none of them what was built: **(1)** `gems/dexpace-core/test/dexpace/seam_surface_test.rb`
+was resolved to `main`'s content byte for byte — phase 7a converted the same two seam-iterating pins
+through a private `bare_require_report` helper, merged and reviewed as #88 — and this phase's hunk to
+that file was dropped, while its shared `test/support/bare_require.rb` and `transport_bare_require_test.rb`
+stay, because its own suites and the adapter gems' smoke suites use them; the "What was built"
+paragraph below still names the `seam_surface_test.rb` conversion, which is what this lane built on
+its base and not what `main` carries, and the two-spellings-of-one-idiom debt is a dated bullet on
+phase 10's inbound list. **(2)** The `SEAM-27` / `SERDE-28` / `RECOV-15` / `BODY-30` / `HTTP-52` row's
+guard is gone: with 7a on the tree the generator slice's codec half runs against the real
+`Dexpace::Serde::JSON::Codec`, and two repairs by the minimum were needed on the tests branch, both
+to the test alone — an explicit `require "dexpace/serde/json"` (nothing else on the adapter's load
+path defines the codec), and the three lines reading the mapped error's headers and body, written
+against 4b's design names (`error.headers`, `error.body.source.read_fully`), now read
+`error.response.headers` and `error.response.body_string` — the as-built `ProtocolError` carries the
+buffered response and `body_string` over `BODY-30`'s `BufferBody` is what makes "readable twice after
+the socket is gone" a real assertion. The row is ✅ on the combined tree, the case decodes a 200 to the
+witness, surfaces a 404 with its body readable twice and omits an `ABSENT` field while keeping a `NULL`
+one, and the whole suite's skip count is **one**, `TRANSPORT-18`'s measured vacuity. **(3)** The
+`docs/first-release.md` and roadmap sentences this lane wrote stand; the roadmap's status note says
+this lane landed "first" among phase 8's and was "the first code outside `dexpace-core`" — the former
+is still true, the latter was true on `c53638b` and is not on `main`, where 7a's `dexpace-serde-json`
+is the first gem outside core and the version-skew guard's first real registration, so this phase's
+two gems are the second and third; `CLAUDE.md`, `README.md` and `docs/README.md` say so on the
+combined tree. The phase-10 bullet 7a filed about `gates:clean_bundle` writing into the interpreter's
+gem directory is closed by this phase's Task 23, and says so. The combined tree's counts are
+`CLAUDE.md`'s and the roadmap's reconciliation note's; this document's are its base's.
+
 Legend, verbatim from the roadmap's cross-cutting constraint 3: ✅ implemented and tested ·
 🚫 not built (permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase,
 task number and path — that will do it, or the `docs/first-release.md` entry that owns it) ·
@@ -88,7 +131,7 @@ execution added:
 | `OBS-21`, `OBS-25` | ✅ shipped | `Dexpace::Conformance::RecordingSpan` (5c's obligation) and `Allocations.delta` (5b's), published in the conformance gem |
 | `PAGE-36` | ✅ | The conformance assertion "two pages under two different options" drives one transport twice in sequence with different `RequestOptions` and fails against a transport that reuses the first response (`conformance/transport_suite/lifecycle_test.rb`) |
 | `SEAM-26`, `PIPE-39` | ✅ over a socket | The generator slice's two socket-only halves run: a path parameter containing `/` reaches the wire as one escaped segment through `Operation#build_request`, and an AUTH-stage step handed to `Pipeline.standard` through a `Pipeline::Builder` stamps the wire request (`net_http/generator_slice_test.rb`) |
-| `SEAM-27`, `SERDE-28`, `RECOV-15`, `BODY-30`, `HTTP-52` | ⏳ guarded | The codec half of the slice is written against 7a's `Serde::JSON::Codec`, `StatusAwareHandler` and `Tristate` and **skips** with `skip "phase 7a's Dexpace::Serde::JSON::Codec is not on this base; 7a un-guards"` until 7a lands — the one skip the manager asked for at the tests tip (the `TRANSPORT-18` vacuity is the other, see the row) |
+| `SEAM-27`, `SERDE-28`, `RECOV-15`, `BODY-30`, `HTTP-52` | ⏳ guarded | The codec half of the slice is written against 7a's `Serde::JSON::Codec`, `StatusAwareHandler` and `Tristate` and **skips** with `skip "phase 7a's Dexpace::Serde::JSON::Codec is not on this base; 7a un-guards"` until 7a lands — the one skip the manager asked for at the tests tip (the `TRANSPORT-18` vacuity is the other, see the row). **Un-guarded 2026-09-21** by the reconciliation that landed this phase after 7a (`705d864` on the tests branch): ✅ against the real codec, with the two test-only repairs the note at the head of this document itemises |
 | `TRANSPORT-12`, `TRANSPORT-13` | cross-reference, antecedent measured absent | 8c's rows. `net-http` rejects no header the SDK model admits — every byte the outbound value grammar admits and every token byte a name admits passes `add_field` — so there is no per-header drop to make and no drop-logging policy to expose; the shared suite carries **no** assertion for either (`net_http/conformance_test.rb`, "TRANSPORT-12/13 cross-reference"). Owner: 8c's Tasks 7, 9 and 15 |
 | `NFR-2` | ✅ | `dexpace-transport-net_http.gemspec` declares `dexpace-core` and `net-http >= 0.4` and nothing else — the first third-party half of an `NFR-2` budget in the repository, a default gem on every row and an installed one when a networked resolution picks a newer release (`P8-60`); `dexpace-conformance` declares `dexpace-core` alone |
 | `NFR-3`, `NFR-11` | ✅ | Every new `lib/` file mirrored in `sig/`; `steep check` green over both targets, the conformance one gaining `library "socket", "tempfile"`; `gates:rbs_surface` clean — `Net::HTTP`, `Net::HTTPResponse`, `Net::HTTPGenericRequest`, `TCPServer` and `OpenSSL` name no signature (`.using`'s client and `.build`'s `tls:` are `untyped`) |

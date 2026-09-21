@@ -2564,7 +2564,10 @@ design.
   beside the Gemfile and nothing outside the run changes. Phase 8a's Task 23 owns every edit to
   `clean_bundle_check` this wave and may fix it there, in which case this bullet is simply closed.
   Touches `NFR-1`, `NFR-2`, `NFR-10`, `NFR-12`. Recorded by 7a on its docs branch; referred to by date
-  and content, never by ordinal.
+  and content, never by ordinal. [closed by 8a's Task 23 on this tree, 2026-09-21: `clean_bundle_check`
+  sets `BUNDLE_PATH` to a `vendor/` directory beside the scratch `Gemfile`, so the fetch lands inside the
+  run's own `Dir.mktmpdir` and nothing outside it changes — run green for all six gems on 3.2.11, 3.3.12,
+  3.4.10 and 4.0.6 by the reconciliation that landed 8a after phase 7]
 - **`rbs_collection.yaml`'s header comment is stale: "json arrives with dexpace-serde-json's codec in
   phase 7", and phase 7a added no row.** Found 2026-09-20 by phase 7a's implementation and routed here
   by its review round 0 (R0-1): `json`'s signatures are rbs's own stdlib set — `rbs collection install`
@@ -2665,6 +2668,29 @@ design.
   `TRANSPORT-24`, `TRANSPORT-22`, `NFR-4`. Added after phase 10's planning pass by phase 8a and referred
   to by date and content, never by ordinal; not yet in phase 10's design's disposition table, which
   dispositions it at execution.
+- **Two child-process idioms prove one property — `seam_surface_test.rb`'s private
+  `bare_require_report` and `test/support/bare_require.rb`'s `BareRequire#bare_require` each spawn a
+  `ruby` that requires `dexpace` alone and read a seam registry back — and the tree should carry one.**
+  Found 2026-09-21 by the pass that reconciled phase 8a's stack onto `main` after the whole of phase 7:
+  7a converted `gems/dexpace-core/test/dexpace/seam_surface_test.rb`'s two seam-iterating pins ("every
+  seam registry starts empty on a bare require", "no seam's zero-candidate error names a concrete gem")
+  through a private helper inside the file — `IO.popen` over `RbConfig.ruby -w -Ilib -e` with a
+  `BARE_REQUIRE` program printing one row per seam — and `serde_test.rb`'s three pins the same way,
+  merged as #88; 8a, built one base apart, converted the same two `seam_surface_test.rb` lines through a
+  new shared module, `gems/dexpace-core/test/support/bare_require.rb` (`Open3.capture3` over
+  `RbConfig.ruby -w -W:deprecated -I <core lib> -e`, with `RUBYOPT` cleared, asserting a silent child),
+  and moved `transport_test.rb`'s registry pins onto it in `transport_bare_require_test.rb`, which the
+  adapter gems' smoke suites reuse. The reconciliation resolved `seam_surface_test.rb` to `main`'s
+  content byte for byte — 7a's conversion, already merged and reviewed — dropped 8a's hunk to that
+  file, and kept 8a's module and `transport_bare_require_test.rb` because 8a's own suites require
+  them; so `main` now carries both spellings of one idiom, both green. What is phase 10's: unify
+  `seam_surface_test.rb`'s private helper (and `serde_test.rb`'s copy of it) onto `BareRequire`, the
+  more general of the two — it clears `RUBYOPT`, asserts the child exits 0 and writes nothing to
+  stderr under `-w`, and takes an arbitrary program — so the "starts empty on a bare require"
+  property has one spelling in `test/support/` and the next adapter's pins (8b's and 8c's, on
+  `AsyncTransport`) inherit it. Touches `SEAM-1`, `SEAM-2`, `SEAM-6` (the IDs both spellings
+  assert) and nothing normative in the code. Recorded by the 8a reconciliation on its docs branch;
+  referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4552,3 +4578,97 @@ round 2, `Status`'s `100`–`599` guard against `Net::HTTP`'s three-digit parse,
 in the shape of the `"http/1.0"` one — each by date and content,
 never by ordinal, because the three phase-7 lanes are writing to the same list. The consolidation of `P8-1`–`P8-15` and `P8-51`–`P8-64`
 into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is frozen.
+
+**2026-09-21** — **Phase 8a reconciled onto `main` after the whole of phase 7 — 7b (server-sent events),
+7c (pagination) and 7a (serialization)**, by a rebase-and-reprove pass. Phase 7 merged first — 7b (#81
+`90abdb8` → #82 `eacf165` → #83 `34f52e8`), 7c (#84 → #85 → #86) and 7a (#87 `4fa99d8` → #88 `1b38b25` → #89
+`734e6b3`), `main` at `734e6b3` — so 8a's three branches, built off `c53638b` concurrently with the three
+phase-7 lanes and reviewed at `20c00d0` → `4776940` → `6908c86`, were rebased onto `main` with `git rebase
+--onto` (rerere disabled), every 8a commit preserved and none reordered or reworded: the stack is `bb909ba`
+(code, six commits) → `a36a9d2` (tests, eight) plus `705d864`, the one test commit the pass added → `b458899`
+(docs, six) plus this paragraph's own commit, the pass's one commit of its own on the docs branch, carrying
+what no 8a commit could: this paragraph, the dated "Reconciled" note at the head of 8a's checklist, the
+phase-10 bullet below it, the closure of 7a's `gates:clean_bundle` bullet, and the paragraph
+`gems/dexpace-core/README.md` owed 7a. **Three decisions.** (1)
+`gems/dexpace-core/test/dexpace/seam_surface_test.rb` was resolved to `main`'s content byte for byte:
+7a converted its two seam-iterating pins through a private `bare_require_report` helper (merged as #88),
+8a converted the same two lines through a new shared `test/support/bare_require.rb`, and the reviewed,
+merged conversion wins; 8a's hunk to that file is dropped, its `BareRequire` module and
+`transport_bare_require_test.rb` stay because 8a's own suites and both adapter gems' smoke suites use them,
+and the two-spellings-of-one-idiom debt is a dated bullet on phase 10's inbound list above. (2) The
+generator slice's codec half (8a's Task 19c) is un-guarded on the tests branch as `705d864`: with 7a's
+`Dexpace::Serde::JSON::Codec` on the tree the `skip` is dead, and the case needed two repairs by the
+minimum, both to the test alone — an explicit `require "dexpace/serde/json"`, and the three lines that
+read the mapped error through 4b's design names (`error.headers`, `error.body.source.read_fully`) now
+read `error.response.headers` and `error.response.body_string`, the as-built `ProtocolError` carrying the
+buffered response; it runs green against the real codec (a 200 decodes to the witness, a 404's buffered
+body reads twice after the socket is gone, an `ABSENT` field is omitted and a `NULL` one kept), and the
+whole suite's skip count is **one**, `TRANSPORT-18`'s measured vacuity. (3) 7a's inbound bullet on
+`gates:clean_bundle` installing into the interpreter's gem directory is closed by 8a's Task 23 on this
+tree — the scratch bundle's `BUNDLE_PATH` sits under the gate's own scratch directory — and the bullet
+says so in a dated bracket, deleted from nothing. **Reconciled inside the rebased 8a commits and nowhere
+else**: `gems/dexpace-core/lib/dexpace.rb` (7b's, 7c's and 7a's blocks as `main` has them, then 8a's
+`# Phase 8a:` block, each verbatim), `gems/dexpace-core/test/dexpace_test.rb` (`SSE_LAYER`, `PAGE_LAYER`,
+then `TRANSPORT_LAYER` in the `LAYERS` table; the merged `PhaseSevenLayers` class untouched),
+`test/fixtures/surface/dexpace-core.txt` (the auto-merge was already the regenerated manifest, confirmed by
+a `surface:regenerate` on the rebased code tip that changed nothing: `main`'s 1,330 rows plus 8a's 5 —
+`TransportError` and its two readers, `Keys::REQUEST_TIMEOUT`, `Events::TRANSPORT_HEADER_DROPPED` — 1,335,
+none removed and no private constant among them; `dexpace-transport-net_http.txt` 2 → 17 and
+`dexpace-conformance.txt` 2 → 100 as before; 7a's `dexpace-serde-json.txt` 15 and the other two at 2
+unchanged), the `Steepfile` and `tasks/gates.rake` (auto-merged; each diff against `main` is exactly 8a's
+own hunk — `library "socket", "tempfile"` on `:conformance` beside 7a's `:serde_json` block, and the
+`BUNDLE_PATH` scoping beside 7b's `gates:serde_boundary` task), `CLAUDE.md` (re-derived from the combined
+tree: "… 7b, 7c, 7a and 8a are built", the whole of phase 7 and the first of phase 8's sub-phases; **220**
+`lib/dexpace/` files beside `version.rb` with 220 `sig/` mirrors — phase 7's thirty-five and 8a's one over
+phase 6's 184 — and the same nineteen `private_constant` test-mirror exceptions, 8a adding none, the
+mirror walk over all three gems it touched finding exactly the three named under `dexpace-conformance`;
+eighteen checklists; every merged lane's layer sentence and 8a's in the opening paragraph, in merge order,
+with "Nothing talks to a socket yet" replaced by 8a's sentence and 8a's two gems stated as the third and
+fourth real ones, after 7a's codec; 7b's, 7c's, 7a's and 8a's "Constraints that will bite" lines; the
+skeleton clause naming the two remaining skeletons; eighteen gates everywhere `main` says so, and the
+`gates:serde_boundary` command line kept), `README.md` (every layer sentence and 8a's two gem sentences,
+the gem table's `net-http >= 0.4` row beside 7a's `json >= 2.19.9`, "the other two are still skeletons";
+its built-phases sentence names 8a beside 7b, 7c and 7a), `docs/README.md` (all four gems' contents,
+**nineteen** pages), `docs/sdk-documentation/architecture.md` (the `transport-net_http.md` and
+`conformance.md` entries after `serde.md`'s, the `write-a-transport.md` placeholder pointing at both, its
+opening list re-derived to nineteen pages), `docs/first-release.md` (auto-merged: 8a's seven hunks in
+existing entries beside 7a's `SERDE-27` half-closure, each verified to survive), and this roadmap (every
+status note in merge order — 7b's, 7c's, 7c's reconciliation, 7a's with its two review-round paragraphs,
+7a's reconciliation, then 8a's — and the phase-10 inbound list at **fifty-five** bullets: `main`'s
+forty-nine, 8a's five and this pass's one, each cited by date and content). 8a's status note above says
+this lane was "the first code outside `dexpace-core`" — true on `c53638b`, not on `main`, where 7a's
+`dexpace-serde-json` landed first (#87) and holds the version-skew guard's first real registration; the
+note is left as written and 8a's checklist note says so. Every file only one lane touched is byte-identical
+to that lane's tip: 8a's own (the two adapter gems' `lib/`, `sig/`, `test/`, READMEs and gemspecs,
+`lib/dexpace/error/transport_error.rb` with its `sig/` and `test/` mirrors, the two `keys.rb` widenings and
+their moved pins, `test/support/bare_require.rb`, `transport_bare_require_test.rb`,
+`test/support/net_http_warmup.rb`, `tools/require_allowlist.rb` and its fixture, the two surface manifests,
+`docs/sdk-documentation/transport-net_http.md` and `conformance.md`, `docs/knowledge/notes/transport-adapter.md`,
+8a's design, and its checklist before this pass's note — 84 code-branch files, 40 tests-branch files but
+`generator_slice_test.rb`, and 8a's docs files but the six reconciled ones) to `6908c86`, and the merged
+lanes' (206 files `main` changed since `c53638b` that 8a did not, `.claude/skills/knowledge-lookup/SKILL.md`
+among them — its transport audit row has been there since the roadmap brainstorm, and 8a's docs branch
+adds nothing to it) to `734e6b3`. `gems/dexpace-core/README.md` gains, in this paragraph's commit, the
+serialization-layer paragraph 7a's reconciliation recorded as owed, a sentence for 8a's three core
+additions, and `serde.md` in both of its page lists. Re-proven at every rebased tip: the code tip green on
+every one of the eighteen gates run individually on 4.0.6 (`test:gems` 3,381 runs, 71,349 assertions,
+0 failures, 0 errors, 0 skips, 93.02 % line coverage — above the floor, so no tip in the stack is red;
+the honest RuboCop run over 630 files clean; `gates:clean_bundle` loading all six gems with three
+declared third-party or default gems under the scoped `BUNDLE_PATH`) and on the 3.2.11 matrix row
+(3,381 runs, 71,351 assertions); the tests tip green on the whole default task on 4.0.6 (3,698 runs,
+72,656 assertions, 0 failures, 0 errors, **1 skip**, 99.88 % line coverage; the honest RuboCop run over
+669 files clean), on the matrix set on 3.2.11 (net-http 0.9.1, 72,658 assertions), 3.3.12 (0.4.1) and
+3.4.10 (0.6.0) at 3,698 runs and one skip each, and on the core suite under seed 31337 on 4.0.6 and
+3.2.11 with identical run counts (3,295) — 8a's `transport_bare_require_test.rb` and both adapter gems'
+smoke-suite registration proofs green with three registering adapter gems in one `test:gems` process,
+and 6b's `REDIR-23` ten-second bound green in every whole-process run of this pass; the docs tip green
+on the default task, the honest RuboCop run, the probe, the knowledge-structure verifier, the
+housekeeping and knowledge test suites, and every `ruby` fence of `transport-net_http.md` and
+`conformance.md` (with `require "dexpace/conformance"` and the lead's `NetHTTP`, `WireServer`, `Scripts`,
+`EMPTY`, `req` and `headers` shorthand defined, the proxy keys blanked as the lead says the suites do) and
+of `serde.md`, `sse.md` and `pagination.md` once more, on 4.0.6 — every `# =>` matching (`serde.md` 69,
+`sse.md` 55, `pagination.md` 62, `conformance.md` 27) but the ephemeral port four of
+`transport-net_http.md`'s fifty-five name, which its lead excepts, and with `conformance.md`'s fifth
+fence, the consumer template over a fictional `MyAdapter` with `...` placeholders, not run, as it
+cannot be. `main` is `734e6b3` before and after; 8b and 8c are not on it, and umbrella #29 stays open
+for them.
