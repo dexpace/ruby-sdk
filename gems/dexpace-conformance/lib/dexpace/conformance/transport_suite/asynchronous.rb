@@ -28,6 +28,16 @@ module Dexpace
         # cancellation surfaces terminal -- from the send when the adapter reads eagerly, from the
         # body read when it streams -- with the server observing the connection released.
         #
+        # Which of the two a STREAMING adapter takes is a race the contract cannot settle: the
+        # server's signal fires as the head leaves its socket, and the cancel lands either before
+        # the adapter has checked its token on the delivered head (the send surfaces it) or after
+        # the consumer's body read has blocked (the read does). Measured one in two against the
+        # async-http adapter with its delivered-response close deleted (2026-09-21): half the runs
+        # passed through the send path and half hung in the read. So this row proves the
+        # in-flight clause on every adapter and the delivered-body clause only when the race
+        # falls that way; an adapter's own suite pins the body path deterministically, with the
+        # consumer signalling from inside the read, and its driver bounds `around:`.
+        #
         # @param kase [TransportCase]
         # @return [nil]
         def cancelling_the_token_mid_body_releases_the_exchange(kase)
