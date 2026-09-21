@@ -5,14 +5,16 @@ require_relative "../../../test_helper"
 require_relative "../../../support/adapter_fixtures"
 require "dexpace/transport/net_http"
 require "dexpace/conformance"
+require "dexpace/serde/json"
 
 # The generator slice, end to end over the first real socket in the repository: SEAM-26 (the
 # operation descriptor), SEAM-27 (the typed response), SERDE-28 (the status-aware handler),
 # RECOV-15 (the error carrying a buffered body), PIPE-39 (the standard pipeline over a builder),
 # HTTP-52/BODY-30 (Tristate omission; the snapshot error body). None is 8a's row: this is the
 # composition test, and it adds no implementation. The codec half names phase 7a's
-# Dexpace::Serde::JSON::Codec, which this base does not carry, so that one test is GUARDED and
-# 7a un-guards it; the two socket-only halves run here.
+# Dexpace::Serde::JSON::Codec: it was guarded with a skip while 8a was built one base apart from
+# 7a, and it runs against the real codec since the stack was reconciled onto the tree that holds
+# it (2026-09-21); the two socket-only halves never needed the guard.
 class DexpaceTransportNetHttpGeneratorSliceTest < DexpaceTestCase
   include AdapterFixtures
 
@@ -85,13 +87,10 @@ class DexpaceTransportNetHttpGeneratorSliceTest < DexpaceTestCase
     assert_equal("GET /pets/7 HTTP/1.1", server.requests.first.request_line)
   end
 
-  # SEAM-27, SERDE-28, RECOV-15, BODY-30 and HTTP-52 in one guarded test: a 200 decodes to the
+  # SEAM-27, SERDE-28, RECOV-15, BODY-30 and HTTP-52 in one test: a 200 decodes to the
   # witness's type; a 404 raises an error whose buffered body is still readable after the socket
   # is gone; an ABSENT field is omitted from a PATCH body and a NULL one is not.
   test "SEAM-27/SERDE-28/RECOV-15/BODY-30/HTTP-52: the codec half of the slice" do
-    skip "phase 7a's Dexpace::Serde::JSON::Codec is not on this base; 7a un-guards" \
-      unless defined?(Dexpace::Serde::JSON::Codec)
-
     serde = Dexpace::Serde
     codec = serde::JSON::Codec.default
     handler = serde::StatusAwareHandler.build(serde: codec, witness: Pet)
@@ -112,9 +111,9 @@ class DexpaceTransportNetHttpGeneratorSliceTest < DexpaceTestCase
     end
 
     assert_equal(404, error.status.code)
-    refute_nil(error.headers)
-    assert_match(/no such pet/, error.body.source.read_fully)
-    assert_match(/no such pet/, error.body.source.read_fully) # twice, after the socket is gone
+    refute_nil(error.response.headers)
+    assert_match(/no such pet/, error.response.body_string)
+    assert_match(/no such pet/, error.response.body_string) # twice, after the socket is gone
 
     patch = Dexpace::Operation.build(method: "PATCH", template: "/pets/{id}",
                                      projections: { id: [:path, "id"], body: [:body, "body"] },)
