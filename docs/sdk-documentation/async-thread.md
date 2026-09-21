@@ -17,10 +17,17 @@ below was run, in the order printed and as one script, against the built code on
 printed the same on both, except for `Hash#inspect`'s spelling, the wording of a `NoMethodError` and the
 last line's thread count (the socket block's one connection starts net-http 0.4.1's process-wide Timeout
 thread on the 3.2 row, and nothing on 4.0.6; `docs/sdk-documentation/transport-net_http.md` has the fact).
-Four names are the page's shorthand and nothing else is assumed: `Pool` is `Dexpace::Async::Thread::Pool`;
-`EMPTY` is `Dexpace::RequestOptions::EMPTY`; `NONE` is `Dexpace::Cancellation.none`; and `req(url)` is
-`Dexpace::Request.build(method: :get, url: url, headers: Dexpace::Headers::EMPTY)`. `pool` is the
-two-worker pool the first block builds and the last block closes.
+Seven names are the page's shorthand and nothing else is assumed: `Pool` is `Dexpace::Async::Thread::Pool`;
+`EMPTY` is `Dexpace::RequestOptions::EMPTY`; `NONE` is `Dexpace::Cancellation.none`; `req(url)` is
+`Dexpace::Request.build(method: :get, url: url, headers: Dexpace::Headers::EMPTY)`; `e` is the
+`RejectedError` the line before it raised, rescued; `sink` is an in-memory `_Sink` — the eight duck-typed
+methods, `#debug`/`#info`/`#warn`/`#error` taking stdlib `Logger`'s block form and appending the rendered
+`Hash` the block yields to `#events`, and the four predicates answering `true` (the gem's
+`PoolRecordingSink` is one); `fake` is a lambda answering a plain 200 `Response` for any
+request; and `strategy` is a `Dexpace::Page::_Strategy` whose `#parse(response, template)` answers two
+pages — `[1, 2]` with the template as the next request, then a terminal `[3]` — the gem's
+`page_executor_test.rb` has both in full. `pool` is the two-worker pool the first block builds and the
+last block closes.
 
 **The gem's whole dependency budget is `dexpace-core`** (`NFR-2`), by design: a thread is the runtime
 every Ruby already has, so the gem spends none of its third-party half. Requiring it registers nothing:
@@ -83,6 +90,7 @@ entered.pop
 tiny.post { nil }                        # fills the one queue slot
 tiny.post { nil }                        # raises Dexpace::Async::Thread::RejectedError:
                                          #   "tiny: queue full (limit 1, 1 workers)"
+# rescued into `e`:
 e.is_a?(Dexpace::Error)        # => true
 e.is_a?(IOError)               # => false
 e.respond_to?(:retryable?)     # => false
@@ -211,6 +219,12 @@ pending.value      # raises Dexpace::ClosedError: "logged is closed"
 sink.events.size   # => 1
 sink.events.first.slice("event", "dexpace.executor.worker_count", "dexpace.executor.drained")
 # => {"event" => "http.instrumentation.shutdown", "dexpace.executor.worker_count" => 2, "dexpace.executor.drained" => true}
+
+grace = Pool.build(size: 1, name: "grace")
+done = Thread::Queue.new
+grace.delay(0.01).on_settle { grace.close; done << :closed }   # a close issued ON the timer thread
+done.pop(timeout: 5)   # => :closed
+grace.closed?          # => true
 ```
 
 `#close` is `Dexpace::Closeable`'s latch — a boolean flipped under a mutex held across the flip only —
@@ -223,7 +237,11 @@ event phase 2 postponed until something owned an executor (`SEAM-25`). `#close` 
 closeable in this SDK, so whether the drain completed rides on the event's `dexpace.executor.drained`
 field; a spent budget reports `false` and leaves the stuck worker to finish on its own. There is no
 `cancellation:` keyword on `#close` (`P8-24`): `Dexpace.close_quietly` calls `#close` with no arguments,
-and the bounded budget is what keeps a caller closing inside a cancelled scope from being parked.
+and the bounded budget is what keeps a caller closing inside a cancelled scope from being parked. A
+close issued from the pool's own threads completes too (`P8-76`): from a delay's settlement handler, as
+above, the timer thread is not joined by itself and exits once the handler returns; from inside a posted
+task, the worker running it counts as drained and finishes its task — and whatever the closed queue
+still held — after `#close` has returned. Neither waits out the budget or raises.
 
 ## Over a real socket
 

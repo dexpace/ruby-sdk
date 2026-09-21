@@ -47,15 +47,16 @@ process-wide default pool.
 | `Pool.build(size:, queue_limit: nil, shutdown_timeout: 30.0, name:, logger:, clock:)` | Creates exactly `size` worker threads now, named `"<name> worker N"`; never grows or shrinks. `queue_limit` defaults to `size * QUEUE_DEPTH_PER_WORKER` (8). Every bad argument is `Dexpace::InvalidArgumentError` naming the keyword. |
 | `#post { … }` | `Dexpace::Page::_Executor` exactly. **Never blocks**: a full queue raises `RejectedError` (backpressure to retry or shed), a closed pool raises `Dexpace::ClosedError` (a lifecycle bug). Through `Transport.async_over` either arrives as a failed future, never a synchronous raise (`ASYNC-2`). Returns `nil`. |
 | `#delay(seconds)` | `ASYNC-18`'s scheduled delay: a `Dexpace::Async::Future` settled with `true` after the interval, on one lazily created `"<name> timer"` thread shared by every outstanding delay. Zero settles before the call returns; a negative or non-`Numeric` duration raises; cancelling the future removes the entry at once; a closed pool answers a future failed with `Dexpace::ClosedError`. |
-| `#close` | Idempotent, `Dexpace::Closeable`'s latch. Stops accepting work, lets the in-flight and the already-queued tasks finish, fails every outstanding delay with `Dexpace::ClosedError`, waits for the workers and the timer within one `shutdown_timeout` budget, then emits `http.instrumentation.shutdown` once (`SEAM-25`). Returns `nil`; whether the drain completed rides on the event's `dexpace.executor.drained` field. |
+| `#close` | Idempotent, `Dexpace::Closeable`'s latch. Stops accepting work, lets the in-flight and the already-queued tasks finish, fails every outstanding delay with `Dexpace::ClosedError`, waits for the workers and the timer within one `shutdown_timeout` budget, then emits `http.instrumentation.shutdown` once (`SEAM-25`). Returns `nil`; whether the drain completed rides on the event's `dexpace.executor.drained` field. Safe from any thread, the pool's own included: a close issued from inside a task, or from a delay's settlement handler, completes without waiting for the thread it is running on (below). |
 
 A caller-supplied executor passed to `Transport.async_over` is never closed by the bridge: closing the
 bridge leaves the pool open and usable (`ASYNC-15`, `XCUT-22`).
 
 ## Cancellation and in-flight work
 
-`dexpace-async-thread` lets an in-flight blocking read finish; reactor-backed adapters
-(`dexpace-transport-async_http`) abort at the next scheduler checkpoint instead (`ASYNC-7`).
+`dexpace-async-thread` lets an in-flight blocking read finish; a reactor-backed adapter is designed to
+abort at the next scheduler checkpoint instead (`ASYNC-7`; design §3.3's contrast, the behaviour
+`dexpace-transport-async_http` is specified to carry).
 Cancelling a future whose send is already running on a worker does not interrupt that worker —
 `Thread#raise` and `Thread#kill` are forbidden throughout this SDK (design §8.3), because an
 asynchronous interrupt can land inside an `ensure` releasing a pooled connection. The worker's
@@ -92,6 +93,14 @@ behind a stuck timer handler, or one worker's slot behind a stuck settlement han
 raises is reported as an `http.instrumentation.hook` diagnostic through the pool's `logger:` and the
 thread lives; a block posted to the pool that raises anything at all — a `NotImplementedError`, an
 `exit`, an `Interrupt` — is reported the same way, and the pool is never one worker smaller for it.
+
+A handler or a task that **closes the pool** completes the close where it runs. From a delay's
+settlement handler — the grace-period idiom, `pool.delay(5).on_settle { pool.close }` — the timer
+thread is not joined by itself: the other outstanding delays are failed, the workers are drained and
+the shutdown event is emitted, and the timer thread exits as soon as the handler returns. From inside
+a posted task, the worker running it counts as drained and is not waited for: `#close` returns as soon
+as the other workers have exited, that worker finishes its task, runs whatever the closed queue still
+held, and exits. Neither path waits out the shutdown budget or raises.
 
 ## Depends on
 

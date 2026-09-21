@@ -1156,7 +1156,15 @@ Each is one line plus the chapter to read before touching the area.
   re-reads the clock because `Queue#pop` answers nil for a timeout, a close and a pushed nil alike; and
   `#close` takes no `cancellation:` because `Dexpace.close_quietly` calls it with none (P8-24, P8-25,
   P8-75). An `#on_settle` on a delay future runs on the TIMER thread, or on the closing thread when
-  `#close` fails it.
+  `#close` fails it — and a `#close` issued THERE, or from inside a posted task, completes: neither
+  `Timer#stop` nor the drain ever joins the thread it is running on (`Thread#join` on the current
+  thread raises `ThreadError`, which as first cut escaped `#close` with the latch flipped, no event and
+  every other delay stranded; and a worker waiting for its own exit sentinel burned the whole budget),
+  so the timer thread exits once the handler returns and the closing worker counts as drained and
+  finishes its task afterwards (P8-76). The timer's mutex is never held across its `Queue#pop` wait, and
+  the hazard is NOT the per-fiber one the plan named — the wait runs on the timer thread, which has no
+  scheduler — but a cross-thread deadlock: `Timer#stop` parks on the mutex the parked thread holds and
+  `#close` hangs, which `pool_delay_test.rb`'s `LockScopeTest` turns into two bounded-join failures.
 - **`test:gems`' one process makes every top-level test CLASS name unique across the six gems too, not
   only the doubles** — core's `matrix_facts_test.rb` owns the bare `MatrixFactsTest` as a module, and a
   second `class MatrixFactsTest` in an adapter gem aborts the whole run at load with "is not a module";

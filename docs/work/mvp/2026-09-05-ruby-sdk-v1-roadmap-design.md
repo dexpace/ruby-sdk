@@ -2707,20 +2707,6 @@ design.
   threads. Touches `OBS-23`, `OBS-24` and the 5c-owned `dexpace.current_span` carrier, and nothing
   normative in the code. Recorded by phase 8b on its docs branch; referred to by date and content,
   never by ordinal.
-- **The 8b plan's Task 7 Step 8 — that a timer holding its mutex across `Queue#pop(timeout:)`
-  "deadlocks two fibers of one thread under a probe scheduler" — is false, and the design's
-  two-fibers-on-one-thread test cannot see the timer's lock scope.** Found 2026-09-21 by the cross-check
-  that read the plan against `main` and confirmed at execution: the pop runs on the TIMER thread, which
-  has no `Fiber.scheduler` and never routes through the caller's `#block` hook, so the widened critical
-  section stays green three runs in three; per-fiber mutex ownership is a same-thread hazard and the
-  timer is another thread. 8b keeps the test as a liveness check with a deadlined `Future#value`, rests
-  the lock scope on the source and the design's *Thread-safety proof obligations* table, and records
-  the plan's mutation as not among the guards run red. What is phase 10's: whether `XCUT-11`'s audit
-  wants a structural guard for that scope (a source scan asserting the wait sits outside
-  `synchronize`, as 8a's bounded-join scan does) or accepts the table, and whether the design's
-  sentence that a single-threaded test "passes under the bug this one catches" should be corrected in
-  the phase document itself. Touches `XCUT-11` and `ASYNC-18`, and nothing normative in the code.
-  Recorded by phase 8b on its docs branch; referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4734,12 +4720,18 @@ raises, so `#delay` settles with `true` (`P8-71`); the plan's `CORE_REQUIREMENT`
 (`P8-72`); on the 3.2 floor a cleared worker's raw storage is a map of nil-valued keys, so the suite reads
 through `Diagnostics.capture` and its ensure-clear proof writes a never-held key (`P8-74`); and
 `Timer#schedule` after `#stop` refuses the entry rather than spawning a thread `#close` never joins
-(`P8-75`). Every fact the design measured on 3.4.10 alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6,
-the pool-specific dozen as a standing test. Twenty-eight guards run red (two recorded as equivalent
-mutants with their measurement, one — the plan's timer-mutex deadlock proof — measured false and dropped),
-`test:gems` at 3,804 runs with exactly one skip (8a's `TRANSPORT-18` vacuity), the six manifests
-regenerated with only `dexpace-async-thread.txt` changing (2 → 14 rows, no private constant among them),
-and the gate set green on 4.0.6 with the four matrix gates green on 3.2.11, 3.3.12 and 3.4.10.
+(`P8-75`); and, from review round 0 the same day, a `#close` issued from the pool's own threads — a
+`#delay` future's `#on_settle` handler on the timer thread, or a task on a worker — completes instead of
+self-joining (`P8-76`: the first cut raised `ThreadError` past `#close` with the latch flipped, no event
+and every other delay stranded, or burned the whole budget). Every fact the design measured on 3.4.10
+alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, the pool-specific dozen as a standing test.
+Thirty-two guards run red (two recorded as equivalent mutants with their measurement; the plan's
+timer-mutex mutation among the red ones, by a cross-thread deadlock at `#close` that hangs the delay
+suite and by two reported failures on the lock-scope test the round added — the first cut of this note
+called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,809 runs with exactly
+one skip (8a's `TRANSPORT-18` vacuity), the six manifests regenerated with only
+`dexpace-async-thread.txt` changing (2 → 14 rows, no private constant among them), and the gate set
+green on 4.0.6 with the four matrix gates green on 3.2.11, 3.3.12 and 3.4.10.
 `docs/sdk-documentation/async-thread.md` is the twentieth as-built page, every example run on 4.0.6 and
 3.2.11 as one script and identical but for `Hash#inspect`, a `NoMethodError`'s wording and the socket
 block's Timeout thread on the floor; `architecture.md`, the gem README, `README.md` and `docs/README.md`
@@ -4748,14 +4740,15 @@ checklist count moves to nineteen and its constraints list gains four lines. `do
 changes in one existing entry only — the unsatisfied-MUST entry gains a dated status sentence — and the
 gem table's row stays "no — 0.0.0"; `docs/knowledge/notes/observability.md`'s 8b entry is amended in
 place under its own marker with the as-built facts; `docs/deviations.md` is untouched, for phase 10 to
-flip. Two dated bullets join phase 10's inbound list below by date and content, never by ordinal: under
+flip. One dated bullet joins phase 10's inbound list below by date and content, never by ordinal: under
 the one-process `rake test:gems` the main fiber's storage held 5c's no-op span when this gem's
 diagnostics suite ran — a residue of another gem's suite the per-file run cannot see, filtered here and
-audit work on phase 5c's tests — and the plan's Task 7 Step 8 premise (a timer holding its mutex across
-its queue wait deadlocks two fibers of one thread) is false because the wait runs on the timer thread,
-so the timer's lock scope rests on the source and the design's thread-safety table. The design's fourth
-finding — §10.5's mitigation sentence names `Completer#on_cancel` as something "an adapter" does, and on
-the thread path only the transport can — stays a sentence here and in the checklist, never a row in
-`docs/deviations.md`. The consolidation of `P8-20`–`P8-25` and `P8-71`–`P8-75` into design §10 is a human's:
+audit work on phase 5c's tests. A second bullet the first cut of this note filed — that the plan's Task
+7 Step 8 mutation stays green and the timer's lock scope rests on the source alone — was removed before
+the stack merged: the premise was a false measurement (review round 0's R0-1), the mutation is red, and
+the scope is asserted by a test. The design's fourth finding — §10.5's mitigation sentence names
+`Completer#on_cancel` as something "an adapter" does, and on the thread path only the transport can —
+stays a sentence here and in the checklist, never a row in `docs/deviations.md`. The consolidation of
+`P8-20`–`P8-25` and `P8-71`–`P8-76` into design §10 is a human's:
 `docs/sdk-design-ruby/` is frozen. `main` is `a7cfeb6` before and after; the stack is not on it, 8c is
 being built beside it, and umbrella #29 stays open for both.
