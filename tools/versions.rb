@@ -39,7 +39,25 @@ module DexpaceVersions
 
   def gem_version(name) = value("gem", name)
   def gem_names = records.select { |kind, _, _| kind == "gem" }.map { |_, name, _| name }
-  def ruby_floor = value("ruby", "floor")
+
+  # A gem's own floor when VERSIONS carries a `floor:<gem>` row, else the global floor (phase
+  # 8c's R15, P8-36). The per-gem row is colon-joined into the three-token `name` column so
+  # `records` and every existing `value` call site read it unchanged; a gem with no row is on the
+  # global floor, which is every gem but dexpace-transport-async_http.
+  def ruby_floor(gem_name = nil, path = PATH)
+    return value("ruby", "floor", path) if gem_name.nil?
+
+    value("ruby", "floor:#{gem_name}", path)
+  rescue KeyError
+    value("ruby", "floor", path)
+  end
+
+  # Whether the running interpreter satisfies a gem's own floor: the one question the root
+  # Gemfile, test:gems and gates:clean_bundle each ask before touching a gem on a matrix row.
+  def gem_supported?(gem_name, ruby_version = RUBY_VERSION, path = PATH)
+    Gem::Version.new(ruby_version) >= Gem::Version.new(ruby_floor(gem_name, path))
+  end
+
   def ruby_dev = value("ruby", "dev")
   def ruby_matrix = value("ruby", "matrix").split
 

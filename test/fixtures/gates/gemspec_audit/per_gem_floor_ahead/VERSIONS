@@ -1,0 +1,5 @@
+# Fixture: a miniature VERSIONS with one per-gem floor row (phase 8c's P8-36).
+gem  dexpace-core                 0.0.0
+gem  dexpace-transport-async_http 0.0.0
+ruby floor                        3.2
+ruby floor:dexpace-transport-async_http 3.3

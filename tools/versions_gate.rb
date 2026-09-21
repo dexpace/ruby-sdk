@@ -36,12 +36,14 @@ module VersionsGate
      "#{expected.join(" ")}` (NFR-14, NFR-10)."]
   end
 
+  # The floor each gemspec must declare is the gem's OWN when VERSIONS carries a `floor:<gem>`
+  # row and the global one otherwise (phase 8c's P8-36); the gemspec reads the same row, so a
+  # disagreement is a gemspec that stopped reading VERSIONS.
   def gem_violations(root, versions)
-    floor = ">= #{DexpaceVersions.value("ruby", "floor", versions)}"
-
     Dir.glob(File.join(root, "gems/*")).flat_map do |dir|
       name = File.basename(dir)
       declared = DexpaceVersions.value("gem", name, versions)
+      floor = ">= #{DexpaceVersions.ruby_floor(name, versions)}"
       spec = Gem::Specification.load(File.join(dir, "#{name}.gemspec"))
       next ["#{name}.gemspec did not load."] if spec.nil?
 
