@@ -15,7 +15,7 @@ not compete with `faraday` or `httpx` on the easiest way to fetch a JSON endpoin
 
 ## Status
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a and 8b are built.** Nothing is published. The repository holds six gems under
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b and 8c are built.** Nothing is published. The repository holds six gems under
 `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — the frozen,
 validated wire types every later phase stands on (`docs/sdk-documentation/http.md`) — the seam
 layer: the provider registry, the transport and codec seams, the core-owned async pivot,
@@ -90,23 +90,31 @@ to a socket: two constructions over a fresh-per-call or a borrowed `Net::HTTP`, 
 the wire carries, a per-response producer thread behind every streamed body, one total budget
 across three native knobs, a classifier that asks the cancellation token first and wraps every
 other failure retryable, TLS settings and the proxy over the configuration chain
-(`docs/sdk-documentation/transport-net_http.md`) — and `dexpace-conformance` carries the
-conformance suite: the assertion protocol, the twenty-eight-assertion transport suite with its
+(`docs/sdk-documentation/transport-net_http.md`) — `dexpace-transport-async_http` carries the
+asynchronous transport, the first thing on the async path that talks to a socket: two
+constructions over a reactor-keyed client map or a borrowed `Async::HTTP::Client`, one exchange task
+per call under the caller's own reactor task with one total budget, the queue-marshalled
+cancellation bridge that lets a token cancelled from any thread reach the exchange, the RFC 7230
+token predicate applied on both protocols with once-per-name drop reporting, the lazy pull-shaped
+response body, HTTP/2 by ALPN over TLS, and a Ruby floor of 3.3 that this gem alone declares
+(`docs/sdk-documentation/transport-async_http.md`) — and `dexpace-conformance` carries the
+conformance suite: the assertion protocol, the thirty-four-assertion transport suite with its
 vacuous and waived rows, the plaintext wire fixture, the Minitest and RSpec drivers and the two
-observability doubles (`docs/sdk-documentation/conformance.md`). `dexpace-async-thread` carries the
+observability doubles, proven by both transports as its two drivers
+(`docs/sdk-documentation/conformance.md`). `dexpace-async-thread` carries the
 async-runtime adapter — the first executor on the async path: a fixed-size thread pool over a
 bounded queue whose `#post` never blocks, the bridge that makes a blocking transport asynchronous
 on a worker and closes an orphaned result exactly once, the diagnostic context carried across the
 hop with the two clears that keep it the caller's, a scheduled delay on one timer thread, and the
 idempotent bounded close that emits the lifecycle event phase 2 postponed
-(`docs/sdk-documentation/async-thread.md`). The other one is still a
-skeleton — a namespace, a `VERSION`, a gemspec, a signature mirror and a smoke suite:
+(`docs/sdk-documentation/async-thread.md`) — and with that no skeleton remains: all six gems under
+`gems/` carry their phase's code.
 
 | Gem | Namespace | Runtime dependencies today |
 |---|---|---|
 | `dexpace-core` | `Dexpace` | none |
 | `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core`; `net-http >= 0.4` |
-| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core` |
+| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core`; `async-http ~> 0.104` (Ruby >= 3.3) |
 | `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core`; `json >= 2.19.9` |
 | `dexpace-async-thread` | `Dexpace::Async::Thread` | `dexpace-core` |
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |

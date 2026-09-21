@@ -2721,6 +2721,27 @@ design.
   deadline arithmetic want the same screen. Touches `CFG-15`, `CFG-17`, `CFG-18` and `XCUT-11`, and
   nothing normative beyond the messages. Recorded by phase 8b's review round 1 on its docs branch;
   referred to by date and content, never by ordinal.
+- **Two of phase 8c's design facts are stale on `async` 2.46.0, and `async-http`'s server lets a
+  peer's mid-head `EOFError` reach Console.** Found 2026-09-21 by phase 8c's implementation against
+  the bundle's `async` 2.46.0 / `async-http` 0.105.0, where the design measured 0.104.0. Verified fact 8
+  passes `cause: :sym` to `Task#cancel` and reads it back from the task's `$!.cause`: on 2.46.0 a
+  non-`Exception` cause is replaced by the runtime's own `Async::Cancel::Cause` ("Cancelling task!"),
+  so a reason travels only as an exception (the adapter wraps it in `Dexpace::CancelledError`; `P8-91`).
+  Verified fact 10 says "`Async { }` inside a reactor is not a child of the caller": `Kernel#Async`
+  inside a running task delegates to `Task.current.async`, `inner.parent.equal?(task)` measured true
+  on 3.3.12, 3.4.10 and 4.0.6, so the reviewer's mutation 14 (the exchange spawned with `Async { }`)
+  is an equivalent mutant and `caller_task.async` is the honest spelling rather than a distinction
+  the runtime draws. Both are corrected in `docs/knowledge/notes/concurrency-and-async.md`'s new entry
+  and the design's As-built addendum, and the design document itself — frozen to its phase — still
+  states them; the `docs/deviations.md` flip should read the addendum, not the fact list. Separately,
+  `Async::HTTP::Server#accept` rescues `Protocol::HTTP::BadRequest` and nothing else, so a peer that
+  closes between the request line and the end of the headers — an exchange cancelled mid-send, which
+  8c's suites do on purpose — raises `EOFError` out of the per-connection task, which Console reports
+  to stderr as a task failure; seen once in a hundred-odd whole-suite runs on 4.0.6 under load and
+  worked around in the test fixture (`AsyncHTTPServerFixture::QuietServer`), and worth an upstream
+  report rather than an SDK change. Touches `TRANSPORT-8`, `ASYNC-6` and nothing normative in the
+  code. Recorded by phase 8c on its docs branch; referred to by date and content, never by ordinal,
+  because 8b's lane is writing to the same list.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4783,3 +4804,104 @@ stays a sentence here and in the checklist, never a row in `docs/deviations.md`.
 `P8-20`–`P8-25` and `P8-71`–`P8-78` into design §10 is a human's:
 `docs/sdk-design-ruby/` is frozen. `main` is `a7cfeb6` before and after; the stack is not on it, 8c is
 being built beside it, and umbrella #29 stays open for both.
+
+**2026-09-21** — **Phase 8c implemented**, as three stacked branches against issue #32: code, tests,
+documentation, cut from `main` at `a7cfeb6`, which holds every phase through 7 and phase 8a —
+concurrently with 8b off the same base, so this is the phase-8 lane that lands **second of the two**,
+and the one that makes the wire-boundary re-validation phase 1 postponed complete in both adapters
+(8a's Task 16 and this lane's Task 9; phase 9's Task 7 adds the portable assertion), and the one that
+lands the header-drop policy phase 5b postponed to phase 8 as `OBS-19` (`DropPolicy`, the predicate at
+dispatch, the both-protocols test, the antecedent confirmed on `protocol-http1` 0.41.0). The one core
+widening is `Configuration::Keys::TRANSPORT_CONNECTION_LIMIT`; `Dexpace::TransportError`,
+`Events::TRANSPORT_HEADER_DROPPED` and `Keys::REQUEST_TIMEOUT` were 8a's and on the base.
+**`dexpace-transport-async_http`** carries `Dexpace::Transport::AsyncHTTP`: the entry file's six
+constants, `.build(timeout:, logger:, drop_policy:, connection_limit:, ssl_context:, configuration:)`
+over a client map the adapter owns — one `Async::HTTP::Client` per **(reactor, origin)**, bounded at
+`MAX_ORIGINS` and drained after every insert — `.using(client, logger:, drop_policy:)` over a caller's
+own client with `retries` already zero, `.default` and the require-time `AsyncTransport.register(:async_http, …)`,
+and ten files under `async_http/`: `adapter.rb` and `drop_policy.rb` public and the eight
+`private_constant`s `clients.rb`, `endpoints.rb`, `errors.rb`, `exchange.rb`, `request_body.rb`,
+`request_mapper.rb`, `response_body.rb` and `response_mapper.rb`, every one mirrored in `sig/` and
+every one but `exchange.rb` in `test/`; its gemspec declares `async-http ~> 0.104` and a Ruby floor of
+3.3 read from `VERSIONS`' per-gem row (`P8-36`). **`dexpace-conformance`** gains two private groups,
+`Asynchronous` (`TRANSPORT-7`, `-9`, `-21`, `-23`) and `HeaderDrops` (`TRANSPORT-12`, `-13`), so the
+suite is thirty-four assertions in seven groups with `PREAMBLE` naming `TRANSPORT-8` as the third thing
+a green run does not prove; `Scripts.write_response` takes `close:` and every head a script writes
+carries `Connection: close`, with every 8a count unchanged. **The repository** gains the per-gem floor:
+`VERSIONS`' `floor:<gem>` row, `DexpaceVersions.ruby_floor(gem)` and `.gem_supported?`, the two gates
+and the three loaders (`Gemfile`, `test:gems`, `gates:clean_bundle`) reading it, and two gate fixtures;
+the `Steepfile`'s `:async_http` target relaxed exactly as `:serde_json`'s; `test/support/async_http_warmup.rb`;
+and two surface manifests regenerated once — core 1 335 → 1 336, `async_http` 2 → 24, `conformance`
+unchanged. Four earlier-phase test files changed on the code branch as pins the code moved
+(`keys_test.rb`, `downstream_wirings_test.rb`, 8a's driver's size pin, `lifecycle_test.rb`'s) plus
+8a's `keep_alive_twice` fixture passing `close: false`, and core's `async_transport_test.rb` moved its
+four in-process bare-require pins to `async_transport_bare_require_test.rb` (8a's shape on the other
+seam). **The design's five rows stand; `R13`–`R16` were built as written**, with the As-built addendum
+adding `P8-91`–`P8-102`: the cancellation bridge is queue-marshalled in both directions, because
+`Async::Task#cancel` from a foreign OS thread raises and cancels nothing and `cause:` drops a Symbol
+(P8-91); the client map is keyed by reactor, the manager's decision on the cross-check's open question
+1 (P8-92); `TRANSPORT-8` stays an adapter's own row and the portable groups carry six assertions plus
+the preamble sentence (P8-93); a response does not outlive the reactor that produced it — `Sync`'s exit
+drains the pool and waits on every busy connection — so the driver's foreign-thread settle materialises
+the body inside its reactor, found by `TRANSPORT-29`'s eight threads hanging (P8-94); the per-gem floor
+is one `VERSIONS` row read everywhere (P8-95); `Connection: close` in `Scripts`, because a keep-alive
+client re-used a connection the fixture had closed one time in two (P8-96); no `Content-Type` is
+invented, since `async-http` stamps none and neither of 8a's `P8-4` reasons exists here (P8-97); the
+4.0-only `IO::Buffer` warning parked at test-helper load (P8-98); the Steep relaxation with no
+`rbs_collection.yaml` row, because nothing in the closure ships a `sig/` (P8-99); `P8-37` as built
+retires every pooled resource before `pool.close`, which alone would drain and wait exactly as
+`Client#close` does (P8-100); the native HTTP/2 body closed through `close_quietly`, because
+`async-http` writes `RST_STREAM` before it transitions the stream and an `END_STREAM` in that window
+releases the pooled connection twice, five of five (P8-101); and the public surface as built against
+the design's object model — `.build`/`.using` over `.owning`/`.borrowing`, `DropPolicy` public, no
+`_Client` interface (P8-102). Two of the design's thirteen facts do not hold on `async` 2.46.0 —
+`cause: :sym` and "`Async { }` inside a reactor is not a child of the caller" — corrected in a new
+`docs/knowledge/notes/concurrency-and-async.md` entry beside a new `transport-adapter.md` entry for the
+reactor-exit drain, `P8-37` as built, the h2 double release and the 4.0 warning; the design is frozen to
+this phase and phase 10's inbound list carries the pointer, by date and content. The checklist is at
+`docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md`: ten own rows —
+nine ✅ and `ASYNC-21` N/A with its one honourable property asserted — plus eleven cross-reference rows;
+the reviewer's thirty mutations run as thirty-three rows on 4.0.6 and 3.3.12 (the gem's floor row;
+3.2.11 has no bundle for it), thirty red on both and three equivalent mutants recorded with their
+measurement (`Kernel#Async` is the current task's child; core's `Completer#fulfil` closes what a settled
+pivot is handed, so check-after-resume is a shortcut; a raise inside `#dispatch`'s fence is still a
+settlement), after five guards the first pass found missing were added — the mutex scan reaching
+`build_client`, `assert_exchange_released` over the watcher's annotation, `reactor_over` closing a
+holding fixture inside the reactor so a blocked exchange fails instead of hanging, every wait bounded,
+and `TRANSPORT-3`'s list carrying the SDK's own errors; the design's facts re-run on 3.3.12, 3.4.10 and
+4.0.6, eight of them as `matrix_facts_test.rb` printing the row's versions; forty-one departures from
+the plan's text itemised, among them the nine suites wrapped into modules of nested classes and the
+conformance groups split in two under the metric cops, and the two found only by the whole-repository
+`test:gems` process. The driver reports **four** skips, not the plan's three — two assertions carry
+`TRANSPORT-14` and a waiver is by id — beside `TRANSPORT-27`'s waiver and `TRANSPORT-18`'s measured
+vacuity; on the 3.2 row the gem is absent, five gems install, test and clean-bundle, and every gate is
+green. Re-proven at every tip: the code tip green on every one of the
+eighteen gates run individually on 4.0.6 (`test:gems` 3,713 runs, 72,711 assertions, 0 failures,
+0 errors, 3 skips — 8a's — and 97.55 % line coverage, above the floor, so no tip in the stack is red; the
+honest RuboCop run over 683 files clean; `gates:clean_bundle` loading all six gems) and on the 3.2.11
+matrix row (3,704 runs, 72,677 assertions, 3 skips, `gates:clean_bundle` five gems — this gem absent by
+its floor); the tests tip green on the whole default task on 4.0.6 (3,897 runs, 73,482 assertions,
+0 failures, 0 errors, **7 skips** — 8a's three and this driver's four — 99.88 % line coverage; the honest
+RuboCop run over 707 files clean; `steep check` over six targets clean), on the matrix set on 3.2.11
+(3,712 runs, 72,726 assertions, 3 skips, five gems), 3.3.12 (3,897 runs, 73,482 assertions, 7 skips, six
+gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (3,897 runs, 7 skips), with
+`matrix_facts_test.rb` printing `async-http 0.105.0, async 2.46.0, protocol-http 0.72.0` on the two rows
+that carry the gem; the docs tip green on the default task, the honest RuboCop run, the probe, the
+knowledge-structure verifier, the housekeeping and knowledge test suites, and every `ruby` fence of
+`transport-async_http.md` (as one script, on 4.0.6 and 3.3.12) and the changed fences of
+`conformance.md`. `docs/sdk-documentation/transport-async_http.md` is the
+twentieth as-built page, every example run on 4.0.6 and 3.3.12 and identical on both but for the
+ephemeral port one `Host` line names; `conformance.md`'s counts, preamble and report examples re-run
+on both; `architecture.md`, the gem README (with its `ASYNC-7` section, the reactor rule, the
+`sync_over` caveat, the `async_over` hazard, `content-length: 0`, the timeout unit and the 4.0 warning
+line), `README.md` and `docs/README.md` point at the page; `CLAUDE.md`'s built-phases paragraph gains
+the gem and core's key, its floor sentence names this gem's 3.3, its counts move to nineteen checklists
+and the two adapter gems' file counts, and its constraints-that-bite list gains one line;
+`docs/first-release.md` changes in existing entries only — the conformance-suite line's second-driver
+status, the `P8-9` documentation box ticked, the `gates:bounded_map` blocker's status and the
+supported-Ruby note's 0.105.0; `docs/deviations.md` is untouched, for phase 10 to flip. One dated
+bullet joins phase 10's inbound list above — the design's facts 8 and 10 stale on `async` 2.46.0, and
+`async-http`'s server letting a mid-head `EOFError` reach Console — by date and content, never by
+ordinal, because 8b's lane is writing to the same list. The consolidation of `P8-36`–`P8-40` and
+`P8-91`–`P8-102` into design §10 is a human's, as for every phase before: `docs/sdk-design-ruby/` is
+frozen.

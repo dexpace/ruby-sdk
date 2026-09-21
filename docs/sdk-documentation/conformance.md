@@ -1,8 +1,9 @@
 # The conformance suite: `dexpace-conformance`
 
-**As built by phase 8a, written against source on 2026-09-20.** This page says what the conformance gem
+**As built by phase 8a, written against source on 2026-09-20; the counts, the preamble and the two
+groups phase 8c appended re-run against source on 2026-09-21.** This page says what the conformance gem
 gives a transport-adapter author today: the assertion protocol phase 0 postponed — `Failure`, `Vacuous`,
-`Assertion`, `Result` and `Report` — the twenty-eight-assertion `TransportSuite` every adapter is proven
+`Assertion`, `Result` and `Report` — the thirty-four-assertion `TransportSuite` every adapter is proven
 against, the `TransportCase` an assertion receives and the eleven-clause contract that keeps the suite
 free of any adapter's name, the plaintext `WireServer` fixture and its fifteen `Scripts`, the two thin
 drivers for Minitest and RSpec, and the two observability doubles phases 5b and 5c assigned here,
@@ -12,7 +13,8 @@ maps it to Ruby is `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.
 proof is `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`.
 Signatures live in `gems/dexpace-conformance/sig/`, and this page does not restate them. Every example
 below was run against the built code on 4.0.6 and 3.2.11 and printed the same on both (the one
-difference is Ruby 3.4's `Hash#inspect` spelling, so the examples print arrays and strings). The
+difference is Ruby 3.4's `Hash#inspect` spelling, so the examples print arrays and strings), and the
+ones whose printed values phase 8c's groups changed were re-run on 4.0.6 and 3.3.12. The
 examples drive the suite against the reference adapter, `Dexpace::Transport::NetHTTP`, because a
 conformance page's examples should run the real thing; `C` is `Dexpace::Conformance` and `NetHTTP` is
 `Dexpace::Transport::NetHTTP` throughout.
@@ -26,48 +28,69 @@ gem alone.
 
 ## What a green run proves, and what it does not
 
-Read this before the numbers. The suite is **twenty-eight assertions over twenty-six requirement IDs**:
-twenty-two `TRANSPORT` IDs, `HTTP-17` and `HTTP-18` with `XCUT-18` (the wire-boundary re-validation), and
+Read this before the numbers. The suite is **thirty-four assertions over thirty-two requirement IDs**:
+twenty-eight `TRANSPORT` IDs, `HTTP-17` and `HTTP-18` with `XCUT-18` (the wire-boundary re-validation), and
 `PAGE-36` (a closed transport is a `ClosedError`, never a hang). It is deliberately **not** all thirty
-`TRANSPORT` IDs, and the eight it does not carry are stated rather than left to be discovered:
+`TRANSPORT` IDs, and the two it does not carry — and the three things it cannot prove — are stated
+rather than left to be discovered:
 
-- **`TRANSPORT-7`, `-8`, `-9`, `-21` and `-23`** are the async path's — a cancelled future, a native
-  cancellation, the adaptation race, a pre-dispatch failure and a nil-response success — and there is
-  no future on the synchronous seam. They are 8c's, in the async transport's own rows.
-- **`TRANSPORT-12` and `TRANSPORT-13`** have no assertion, because the per-header drop they describe — a
-  header the SDK model admits and the native client's stricter wire grammar rejects — has no instance on
-  `net-http`, which was measured to accept every byte the outbound grammars admit, and a portable
-  assertion cannot say "vacuous here, real there" (P8-55). They are 8c's rows too.
+- **`TRANSPORT-8`** has no assertion: its antecedent is a cancellation the *native client* originates
+  while the SDK future is live, which only an adapter's own suite can raise by naming its runtime — a
+  parent `Async` task cancelled, for `dexpace-transport-async_http` — so it is that gem's row, proven
+  in its own suite, and `PREAMBLE` names it as the third thing a green run does not prove.
 - **`TRANSPORT-30`**, the proxy limitation, is the reference adapter's own and lives in
   `gems/dexpace-transport-net_http/test/`, because the fixture reads no configuration and is no proxy.
-- **`TRANSPORT-4`'s connect-timeout half and TLS verification** are the two things `PREAMBLE` names at
-  the head of every report (P8-9): the fixture accepts every connection at once, so the open timeout is
-  never exercised, and it has no certificate. An adapter that passes this suite has proven neither, and a
-  third-party author who reads the report is told so.
+- **`TRANSPORT-4`'s connect-timeout half and TLS verification** are the two things `PREAMBLE` has
+  named at the head of every report since 8a (P8-9): the fixture accepts every connection at once, so the
+  open timeout is never exercised, and it has no certificate. An adapter that passes this suite has
+  proven neither, and a third-party author who reads the report is told so.
+- **`TRANSPORT-12` and `TRANSPORT-13`** resolve **vacuous by measurement** on an adapter whose native
+  client accepts every model-valid header name — the bad name is sent and the wire is read, which is
+  what `net-http` does — and are real on one whose wire grammar is stricter than the SDK model's, which
+  is `async-http`'s (P8-55 is why they could not be a shared assertion declaring itself vacuous).
+- **`TRANSPORT-14`'s malformed-inbound-name clause and `TRANSPORT-27`'s invalid-`Content-Length`
+  clause** are **waived by id** in `dexpace-transport-async_http`'s driver and by nothing in
+  `dexpace-transport-net_http`'s: `protocol-http1` refuses both heads out of the read before a response
+  exists to adapt (P8-38), `Net::HTTP` delivers both. A waiver is reported on every run, and the two
+  assertions under `TRANSPORT-14` are both skipped by the one id.
 
 ```ruby
 require "dexpace/conformance"
 
-C::TransportSuite.assertions.size                            # => 28
-C::TransportSuite.assertions.flat_map(&:ids).uniq.size       # => 26
-C::TransportSuite.assertions.flat_map(&:ids).grep(/TRANSPORT/).uniq.size   # => 22
+C::TransportSuite.assertions.size                            # => 34
+C::TransportSuite.assertions.flat_map(&:ids).uniq.size       # => 32
+C::TransportSuite.assertions.flat_map(&:ids).grep(/TRANSPORT/).uniq.size   # => 28
 C::TransportSuite.assertions.first(3).map(&:name)
 # => ["the caller's explicit Content-Type wins over the body's",
 #     "a body-derived Content-Type is used only when the caller set none",
 #     "no explicit header and no body media type is never a form type"]
+C::TransportSuite.assertions.last(6).map(&:ids)
+# => [["TRANSPORT-7"], ["TRANSPORT-9"], ["TRANSPORT-21"], ["TRANSPORT-23"], ["TRANSPORT-12"], ["TRANSPORT-13"]]
 puts C::TransportSuite::PREAMBLE
 # dexpace-conformance transport suite: the wire fixture speaks plaintext only and exercises no
 # connect timeout, so TLS verification and TRANSPORT-4's open-timeout classification are NOT among
-# the things a green run proves (P8-9); assert both in the adapter's own suite.
+# the things a green run proves (P8-9); assert both in the adapter's own suite. Nor is TRANSPORT-8:
+# a cancellation the native client originates while the SDK future is live can only be raised by
+# naming the adapter's own runtime, so that pair -- terminal on the cancellation, retryable on a
+# timeout of the same path -- is the adapter's own suite's too.
 ```
 
-The twenty-eight are five groups in the order a reader meets chapter 17: **outbound** (seven —
+The thirty-four are seven groups in the order a reader meets chapter 17: **outbound** (seven —
 `TRANSPORT-10`'s `Content-Type` precedence, `TRANSPORT-26`'s body-less `POST`, `TRANSPORT-11`'s managed
 headers, the two forged-header refusals), **inbound** (four — `TRANSPORT-24`'s vendor status,
 `TRANSPORT-14`'s malformed header drop, `TRANSPORT-27`'s malformed `Content-Length`), **streaming** (three
 — `TRANSPORT-25`'s large body, `TRANSPORT-19`'s prompt release, `TRANSPORT-28`'s file window),
-**resilience** (eight — `TRANSPORT-1` through `-4`, `-17`, `-18`, `-20`, `-22`) and **lifecycle** (six —
-`TRANSPORT-5`'s budget, `TRANSPORT-6`'s clamp, `TRANSPORT-15`/`-16`'s close, `TRANSPORT-29`, `PAGE-36`).
+**resilience** (eight — `TRANSPORT-1` through `-4`, `-17`, `-18`, `-20`, `-22`), **lifecycle** (six —
+`TRANSPORT-5`'s budget, `TRANSPORT-6`'s clamp, `TRANSPORT-15`/`-16`'s close, `TRANSPORT-29`, `PAGE-36`),
+and phase 8c's two — **asynchronous** (four — `TRANSPORT-7`'s mid-body cancel through the token with
+the connection released, `TRANSPORT-9`'s response arriving after the cancel and never delivered,
+`TRANSPORT-21`'s adaptation failure classified through the send primitive's failure channel,
+`TRANSPORT-23`'s success always a `Dexpace::Response`) and **header drops** (two — `TRANSPORT-12`'s
+model-valid non-token name dropped with the rest dispatched, `TRANSPORT-13`'s once-per-name, bounded
+drop reporting read off the transport's own `logger:`). Every one of the six is written against the
+suite contract's primitives — `kase.settle`, `kase.wire`, `kase.transport(logger:)` and
+`Dexpace::Cancellation` — and names no reactor, no task and no native class, which is what lets 8a's
+synchronous driver run them unchanged.
 
 ## Running it, and reading a report
 
@@ -91,16 +114,23 @@ borrow = lambda do |port|
 end
 report = C::TransportSuite.run(build: ->(**settings) { NetHTTP.build(**settings) }, borrow: borrow)
 report.passed?                                               # => true
-report.results.map(&:status).tally.to_a                      # => [[:passed, 27], [:vacuous, 1]]
-report.vacuous.map { |r| r.assertion.ids }                   # => [["TRANSPORT-18"]]
+report.results.map(&:status).tally.to_a                      # => [[:passed, 31], [:vacuous, 3]]
+report.vacuous.map { |r| r.assertion.ids }                   # => [["TRANSPORT-18"], ["TRANSPORT-12"], ["TRANSPORT-13"]]
 puts report
 # dexpace-conformance transport suite: the wire fixture speaks plaintext only and exercises no
 # connect timeout, so TLS verification and TRANSPORT-4's open-timeout classification are NOT among
-# the things a green run proves (P8-9); assert both in the adapter's own suite.
-# 27 passed, 0 failed, 1 vacuous, 0 waived, 0 errored
+# the things a green run proves (P8-9); assert both in the adapter's own suite. Nor is TRANSPORT-8:
+# a cancellation the native client originates while the SDK future is live can only be raised by
+# naming the adapter's own runtime, so that pair -- terminal on the cancellation, retryable on a
+# timeout of the same path -- is the adapter's own suite's too.
+# 31 passed, 0 failed, 3 vacuous, 0 waived, 0 errored
 #   vacuous: TRANSPORT-18: the native client opened one connection and pulled the single-use body
 #   once across a dropped first attempt, so no re-subscribable producer is in play on this adapter
 #   (TRANSPORT-18's antecedent is absent)
+#   vacuous: TRANSPORT-12: the native client accepted the model-valid name X-Bad:Name and sent it, so
+#   it rejects no header the SDK model admits (TRANSPORT-12's antecedent is absent)
+#   vacuous: TRANSPORT-13: the native client accepted the model-valid names and sent them, so there
+#   is no drop to log (TRANSPORT-13's antecedent is absent)
 ```
 
 **Vacuous is a status, not a pass.** `TRANSPORT-18` says a native retry must not re-subscribe a
@@ -116,7 +146,7 @@ every run — design §9.3's "the gap stays visible", for a port that has consci
 waived = C::TransportSuite.run(build: ->(**s) { NetHTTP.build(**s) }, borrow: borrow, waive: ["TRANSPORT-28"])
 waived.waived.map { |r| r.assertion.ids }                    # => [["TRANSPORT-28"]]
 waived.to_s.lines.grep(/waived/)
-# => ["26 passed, 0 failed, 1 vacuous, 1 waived, 0 errored\n",
+# => ["30 passed, 0 failed, 3 vacuous, 1 waived, 0 errored\n",
 #     "  waived: TRANSPORT-28 (a file body with a non-zero position and partial count sends exactly that range)\n"]
 ```
 
@@ -175,13 +205,19 @@ calls `Dexpace::Conformance::RSpecDriver.conformance(...)`, so a Minitest-only c
 file that names the other framework. Neither driver names its framework in a signature (`NFR-11`).
 
 The three keywords a synchronous adapter never passes are the **suite contract** for an asynchronous
-one, and the reason the same twenty-eight assertions will run unchanged against 8c's adapter: `settle:`
+one, and the reason the same thirty-four assertions run unchanged against 8c's adapter: `settle:`
 (clause 8) is the one send primitive, `(transport, request, options, cancellation) -> Response`, which an
 async driver replaces with "call, then await the future"; `around:` (clause 9) wraps each assertion's
 whole invocation, which is where an async driver opens the reactor the body reads a streamed response
 inside; and `wire:` (clause 11) is the fixture factory, whatever answers `_Wire` — `#port`, `#requests`,
 `#connections`, `#closed_connections`, `#await_closed_connection`, `#close` — so an HTTP/2 server can
-stand in for `WireServer` without this gem naming an async constant.
+stand in for `WireServer` without this gem naming an async constant. `dexpace-transport-async_http`'s
+driver is the second one built to it (`gems/dexpace-transport-async_http/test/dexpace/transport/async_http/conformance_test.rb`):
+`settle:` awaits the future inside `around:`'s reactor, and on a thread of an assertion's own —
+`TRANSPORT-5`'s pair and `TRANSPORT-29`'s eight — opens a reactor per settle and reads the body inside
+it before handing the response out, because under `async-http` a response cannot outlive the reactor
+that produced it (`docs/sdk-documentation/transport-async_http.md`). Its run is four skips — the three
+waived assertions and `TRANSPORT-18` — and every other assertion green.
 
 ## The case an assertion receives
 

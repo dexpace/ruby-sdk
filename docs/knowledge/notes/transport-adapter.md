@@ -146,3 +146,36 @@ stable key.
   the first user to benchmark this SDK against `faraday` will find the handshake and should find it
   already written down. Cites `TRANSPORT-5`, `TRANSPORT-29`, `SEAM-12`, `NFR-2`, `XCUT-11`.
   <sub>review · `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-design.md` · high · sha:manual-phase8a-connection-per-request</sub>
+- **Under `async-http`, a response does not outlive the reactor that produced it, and the adapter's two
+  as-built closes are shaped by what the library does at a reactor's exit and at an HTTP/2 body's release.**
+  Beside `transport-adapter/82a365d4` (`TRANSPORT-15`'s ownership-aware close) and this file's `cb7901ef`
+  entry, which stand; what is added are three facts execution measured on `async` 2.46.0, `async-http`
+  0.105.0 and `async-pool` 0.12.0 under Ruby 3.3.12, 3.4.10 and 4.0.6 that the design's thirteen facts do
+  not carry. **One.** `Sync { }` returns only when the reactor has no non-transient work left, and on its
+  way out it cancels the transient tasks — among them the connection pool's gardener, whose `ensure` calls
+  `Async::Pool::Controller#close`, which is `drain` and `drain` is "acquire every existing resource with
+  zero usage, waiting on the condition while any is busy". A connection whose response body is unread is
+  busy, so a `Sync` that hands a streaming response out past its own end **never returns**: found by
+  `TRANSPORT-29`'s conformance assertion, whose eight OS threads each opened a reactor per settle and read
+  the body afterwards. The adapter cannot change it and should not — it is the library's ownership model —
+  so the rule is a caller's: read or close the response inside the block that made the call, and a driver
+  that settles on a thread of its own materialises the body inside its reactor before handing the response
+  out (the 8c conformance driver does, through `Response#body_bytes` into a `BufferBody`). **Two.**
+  `Adapter#close` retires every pooled connection through `Async::Pool::Controller#retire` **before**
+  `pool.close` (`P8-37` as built): `retire` deletes the resource and closes it without waiting, so a close
+  under an open response returns at once and the open read fails, whereas `pool.close` alone would sit in
+  the same drain as fact one, and `Client#close` would wait too and write a Console warning to stderr.
+  **Three.** Closing an HTTP/2 response body that has not been read — `Protocol::HTTP2::Input#close` —
+  releases the pooled connection twice inside the library on every row (`RuntimeError: Trying to reuse
+  unacquired resource` out of `async-pool`'s `decrement_usage`): `async-http` 0.105.0 writes the
+  `RST_STREAM` frame before it transitions the stream's state, so a peer's `END_STREAM` landing during
+  that write closes the stream a second time — five of five through a response obtained in a child task
+  and closed unread by its parent — so the adapter's `ResponseBody#release` closes the native body through
+  `Dexpace.close_quietly` with the factory's `logger:` rather than letting the library's raise escape a
+  caller's `#close`: the connection is retired either way and the client stays sound, measured by a
+  sixteen-request round trip through the same client afterwards. And a row-bound fact beside them: on
+  Ruby 4.0.6 alone, the first `IO::Buffer` the scheduler allocates under a fiber scheduler prints Ruby's
+  once-per-process "IO::Buffer is experimental" warning to stderr, which a warnings-fatal suite must spend
+  before its first test (`test/support/async_http_warmup.rb`), as 8a parks net-http's Timeout thread.
+  Cites `TRANSPORT-15`, `TRANSPORT-16`, `TRANSPORT-19`, `TRANSPORT-25`, `TRANSPORT-29`, `XCUT-13`.
+  <sub>review · `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md` · high · sha:manual-phase8c-reactor-exit-and-h2-release</sub>
