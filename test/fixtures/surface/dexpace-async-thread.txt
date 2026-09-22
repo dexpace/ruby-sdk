@@ -1,2 +1,14 @@
 Dexpace::Async::Thread
+Dexpace::Async::Thread::Pool
+Dexpace::Async::Thread::Pool#delay
+Dexpace::Async::Thread::Pool#name
+Dexpace::Async::Thread::Pool#post
+Dexpace::Async::Thread::Pool#queue_limit
+Dexpace::Async::Thread::Pool#size
+Dexpace::Async::Thread::Pool.build
+Dexpace::Async::Thread::Pool::DEFAULT_NAME : String
+Dexpace::Async::Thread::Pool::DEFAULT_SHUTDOWN_TIMEOUT : Float
+Dexpace::Async::Thread::Pool::QUEUE_DEPTH_PER_WORKER : Integer
+Dexpace::Async::Thread::REQUIRED_CORE : String
+Dexpace::Async::Thread::RejectedError
 Dexpace::Async::Thread::VERSION : String

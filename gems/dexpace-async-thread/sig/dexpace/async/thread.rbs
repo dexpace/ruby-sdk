@@ -1,6 +1,9 @@
 module Dexpace
   module Async
     module Thread
+      REQUIRED_CORE: String
+
+      private def self.assert_core_version!: (String core_version) -> nil
     end
   end
 end
