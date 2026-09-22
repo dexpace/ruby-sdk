@@ -11,13 +11,18 @@ require "dexpace"
 # item 6: "a deliberately non-conforming fake transport ... proving the suite detects rather than
 # merely runs"). The gem's own double, never a lift of dexpace-core's (design, "Work phase 8a
 # postponed"). It is not an adapter: no pump, no proxy, no TLS, bodies read eagerly.
-class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with twenty switchable defects; splitting it would hide which defect lives where
+class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with twenty-six switchable defects; splitting it would hide which defect lives where
   DEFECTS = %i[
     form_type override_type ignore_body_type no_zero_length forward_host drop_pass_through
     skip_validation retry_once send_twice misclassify_cancel cancel_on_timeout non_retryable_timeout
     sticky_timeout ignore_window pretend_followed send_after_close cached_response leave_open
-    short_read bare_errno
+    short_read bare_errno ignore_cancel refuse_non_token drop_non_token_silently
+    drop_non_token_loudly null_success bare_adaptation
   ].freeze
+
+  # TRANSPORT-13's bound, as the drop mode below applies it: the first drop per folded name warns,
+  # the rest are verbose, and after this many distinct names every drop is verbose.
+  DROP_TRACKED_NAMES = 64
 
   # The framing headers this client always recomputes and never copies (TRANSPORT-11).
   FRAMING = %w[content-length transfer-encoding].freeze
@@ -30,13 +35,21 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
 
   attr_reader :calls
 
-  def initialize(*defects, default_timeout: 1.5, owned: true)
+  # `drop_non_token:` switches on the CORRECT TRANSPORT-12/13 behaviour -- a non-token name is
+  # dropped before the wire and logged through `logger:` once per folded name, then quietly, over a
+  # bounded latch -- which the plain double does not have: it copies every model-valid name, as
+  # Net::HTTP does, and phase 8c's two assertions must read that as vacuous by measurement.
+  def initialize(*defects, default_timeout: 1.5, owned: true, drop_non_token: false,
+                 logger: Dexpace::Instrumentation::Logger::NULL)
     unknown = defects - DEFECTS
     raise ArgumentError, "unknown defects: #{unknown.inspect}" unless unknown.empty?
 
     @defects = defects
     @default_timeout = default_timeout
     @owned = owned
+    @drop_non_token = drop_non_token
+    @logger = logger
+    @warned = {}
     @timeout_for = nil
     @cached = nil
     @closed = false
@@ -70,7 +83,7 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
     return build_response(request, @cached) if defect?(:cached_response) && @cached
 
     validate!(request) unless defect?(:skip_validation)
-    bytes = wire_bytes(request)
+    bytes = adapt(request)
     response = exchange(request, bytes, timeout_for(options), cancellation)
     response = exchange(request, bytes, timeout_for(options), cancellation) if defect?(:send_twice)
     response
@@ -90,6 +103,17 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
       Dexpace::HeaderSyntax.validate_name!(name)
       Dexpace::HeaderSyntax.validate_outbound_value!(value, name: name)
     end
+  end
+
+  # TRANSPORT-21: a failure raised while the request is adapted -- a body that raises -- is
+  # classified as the retryable transport failure (P6-4's "wrap, and default to retryable"),
+  # unless the defect lets the raw exception escape.
+  def adapt(request)
+    wire_bytes(request)
+  rescue StandardError => error
+    raise error if defect?(:bare_adaptation)
+
+    raise Dexpace::TransportError.new("adaptation failed: #{error.message}", phase: :connect)
   end
 
   # The request head and body as bytes, under this double's header policy.
@@ -113,7 +137,7 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
     explicit_type = nil
     request.headers.each_entry do |name, value|
       folded = name.downcase
-      next unless copied?(folded)
+      next unless copied?(name, folded)
 
       explicit_type = value if folded == "content-type"
       lines << "#{name}: #{value}" unless folded == "content-type" && defect?(:override_type)
@@ -124,13 +148,47 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
   end
 
   # Whether a caller's header is copied onto the wire: framing is recomputed, Host is this
-  # client's own unless the defect forwards it, and everything else is pass-through unless the
-  # defect drops it.
-  def copied?(folded)
+  # client's own unless the defect forwards it, a non-token name is the drop mode's business, and
+  # everything else is pass-through unless the defect drops it.
+  def copied?(name, folded)
     return false if FRAMING.include?(folded)
     return defect?(:forward_host) if folded == "host"
+    return false if non_token_dropped?(name)
 
     folded == "content-type" || !defect?(:drop_pass_through)
+  end
+
+  # TRANSPORT-12/13's three shapes: the plain double copies a non-token name like any other (so
+  # the assertions measure the antecedent absent); the `refuse_non_token` defect lets a native
+  # refusal escape; `drop_non_token:` drops it and logs through the policy; the two loud/silent
+  # defects drop it and log wrongly or not at all.
+  def non_token_dropped?(name)
+    return false if Dexpace::HeaderSyntax.token?(name)
+    raise "native client refused the header name #{name}" if defect?(:refuse_non_token)
+    return false unless @drop_non_token || defect?(:drop_non_token_silently) ||
+                        defect?(:drop_non_token_loudly)
+
+    log_drop(name) unless defect?(:drop_non_token_silently)
+    true
+  end
+
+  def log_drop(name)
+    severity = drop_severity(name.downcase)
+    event = Dexpace::Instrumentation::Events::TRANSPORT_HEADER_DROPPED
+    Dexpace::Instrumentation.contain(@logger, event: event) do
+      @logger.event(severity).event(event).field("header", name).field("reason", "not a token")
+        .emit
+    end
+  end
+
+  def drop_severity(folded)
+    return Dexpace::Instrumentation::Severity::WARNING if defect?(:drop_non_token_loudly)
+    if @warned.key?(folded) || @warned.size >= DROP_TRACKED_NAMES
+      return Dexpace::Instrumentation::Severity::VERBOSE
+    end
+
+    @warned[folded] = true
+    Dexpace::Instrumentation::Severity::WARNING
   end
 
   def content_type(request, body, explicit_type)
@@ -172,7 +230,7 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
 
   def attempt(request, bytes, timeout, cancellation)
     socket = connect(request)
-    subscription = cancellation.on_cancel { socket.close }
+    subscription = subscribe(cancellation, socket)
     begin
       socket.write(bytes)
       read_response(request, socket, timeout, cancellation)
@@ -193,6 +251,14 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
     end
   end
 
+  # The ignore_cancel defect subscribes nothing and classifies nothing by the token: a cancelled
+  # send blocks until the server answers, and the answer is DELIVERED (TRANSPORT-9's failure).
+  def subscribe(cancellation, socket)
+    return Dexpace::Cancellation.none.on_cancel { nil } if defect?(:ignore_cancel)
+
+    cancellation.on_cancel { socket.close }
+  end
+
   def connect(request)
     TCPSocket.new(request.url.hostname, request.url.port)
   rescue SystemCallError => error
@@ -202,7 +268,7 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
   end
 
   def classify(error, cancellation)
-    if cancellation.cancelled?
+    if cancellation.cancelled? && !defect?(:ignore_cancel)
       return Dexpace::TransportError.new("cancelled", phase: :read) if defect?(:misclassify_cancel)
 
       return Dexpace::CancelledError.new(cancellation.reason)
@@ -260,12 +326,17 @@ class RawWireTransport # rubocop:disable Metrics/ClassLength -- one client with 
   end
 
   def build_response(request, head)
+    return nil if defect?(:null_success) && head.body.empty?
+
     body = Dexpace::ResponseBody.new(source: Dexpace::IO::BufferedSource.of_bytes(head.body),
                                      media_type: media_type(head.headers),
                                      content_length: head.body.bytesize,)
     Dexpace::Response.build(request: request, protocol: "HTTP/1.1", status: head.code,
-                            reason: head.status_line.split(" ", 3)[2]&.strip,
-                            headers: head.headers, body: body,)
+                            reason: reason_for(head), headers: head.headers, body: body,)
+  end
+
+  def reason_for(head)
+    head.status_line.split(" ", 3)[2]&.strip
   end
 
   def media_type(headers)
