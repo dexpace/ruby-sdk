@@ -58,3 +58,32 @@ entry's stable key.
   SDK two answers to one question, and `close_quietly`'s contract is phase 2's. Cites `SEAM-30`, `ASYNC-5`,
   `ASYNC-6`, `TRANSPORT-7`, `TRANSPORT-9`, `TRANSPORT-22`, `CFG-21`, `XCUT-13`.
   <sub>review · `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md` · high · sha:manual-phase8-async-cancel-not-standarderror</sub>
+- **`Async::Task#cancel` cannot be called from another OS thread, keeps only an `Exception` as its
+  `cause:`, and on `async` 2.46 `Kernel#Async` inside a task is that task's child.** Beside this file's
+  `## Superseded` entry on `#cancel`, which stands, and beside `concurrency-and-async/f4beb429`
+  (`ASYNC-22`'s "safe for concurrent calls from multiple threads"); three facts execution measured on
+  `async` 2.46.0 under Ruby 3.3.12, 3.4.10 and 4.0.6 that phase 8c's design stated otherwise or not at all.
+  **One.** `Task#cancel` on a task whose fiber is not the current one calls `Fiber.scheduler.raise`, and
+  `Fiber.scheduler` is nil on every OS thread but the reactor's, so a cancellation hook that reaches the
+  task directly from the canceller's thread raises `NoMethodError: private method 'raise' called for nil`
+  on that thread and leaves the task running (`:running` afterwards, measured). A cancellation that may
+  originate on any thread — a `Dexpace::Cancellation::Source#cancel`, which the conformance suite fires
+  from a `Thread.new` — therefore has to be marshalled into the reactor: phase 8c pushes the reason onto a
+  `Thread::Queue` that a transient watcher task inside the reactor pops (a scheduler-aware wait, wakeable
+  from any thread) and the watcher cancels the exchange on the reactor's own thread. **Two.**
+  `Task#cancel(cause:)` keeps the cause only when it is an `Exception`; anything else — the design's
+  fact 8 passed a Symbol — is replaced by the runtime's own `Async::Cancel::Cause` ("Cancelling task!"),
+  so a reason travels as an exception (`Dexpace::CancelledError.new(reason)`) if the cancelled task's
+  own `$!.cause` is to name it for whoever reads the task; phase 8c's adapter reads no cause back —
+  its pivot is settled with the reason before the watcher cancels the task — so the wrap is for the
+  task tree and a debugger, not a channel the SDK relies on. And both of the adapter's hooks may run
+  AFTER the exchange has ended: `Cancellation::Source#cancel` and `Async::Completer#settle` each
+  steal their hook list under their mutex and run it outside, so a push onto the exchange's queue
+  has to be total over the queue's close (`ClosedQueueError` rescued at the push), or the raise
+  travels back through `Hooks.notify` into the caller's `Source#cancel` on the cancelling thread —
+  reproduced deterministically with an ordinary caller hook registered first. **Three.** `Kernel#Async`
+  inside a running task delegates to `Task.current.async`, so the spawned task **is** the current
+  task's child (`inner.parent.equal?(task)` measured true); the design's fact 10 ("`Async { }` inside a
+  reactor is not a child of the caller") does not hold on 2.46.0, and the adapter's `caller_task.async`
+  spelling is the honest one rather than a distinction the runtime still draws. Cites `ASYNC-6`, `ASYNC-22`, `TRANSPORT-7`, `TRANSPORT-8`.
+  <sub>review · `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md` · high · sha:manual-phase8c-cancel-across-threads</sub>

@@ -36,7 +36,14 @@ them at `0.0.0` until the first release:
 repository floor of 3.2 (phase 8c's deviation `P8-36`, whose per-gem Ruby floor gate edit is 8c's plan,
 Task 3): `async-http` 0.104.0 and its whole
 dependency closure require 3.3, and the last release allowing 3.2 is eleven minor versions behind the one
-phase 8c verified against. **A consumer on Ruby 3.2 composes `dexpace-core`,
+phase 8c verified against (built and proven on 0.105.0, 2026-09-21, with the floor read from one
+`VERSIONS` row — `ruby floor:dexpace-transport-async_http 3.3` — by the gemspec, the gates, the
+`Gemfile` and the two rake tasks that load the gem, so the 3.2 row installs, tests and clean-bundles
+five gems and is green; on the 3.3 row the bundle compiles `openssl` 4.0.2, because the
+interpreter's own 3.2.4 is older than `io-stream` requires — and a *networked* resolve, the
+clean-bundle gate's scratch install included, picks the newest `openssl` gem on the 3.4 and 4.0 rows
+too, as it picked `net-http` 0.9.1 over the default for 8a (`P8-60`), so the second extension's
+toolchain need is confined to 3.3 only for an install that resolves the interpreter's own). **A consumer on Ruby 3.2 composes `dexpace-core`,
 `dexpace-transport-net_http`, `dexpace-serde-json`, `dexpace-async-thread` and `dexpace-conformance`, and
 loses only the reactor transport** — which is `NFR-2`'s separability paying for itself, and it should be
 stated in the release notes rather than discovered at `bundle install`.
@@ -61,8 +68,14 @@ stated in the release notes rather than discovered at `bundle install`.
       the suite exists — twenty-eight assertions over twenty-two `TRANSPORT` IDs, `HTTP-17`/`HTTP-18` and
       `PAGE-36` — and 8a ran it against `dexpace-transport-net_http` on 3.2.11 (net-http 0.4.1 and 0.9.1),
       3.3.12, 3.4.10 and 4.0.6, every assertion green and `TRANSPORT-18` vacuous by measurement; the
-      `async-http` half waits for 8c
-- [ ] **Before release, `docs/sdk-documentation/` must state what a green `dexpace-conformance` run does
+      `async-http` half waits for 8c. **Status 2026-09-21**: 8c ran it against
+      `dexpace-transport-async_http` on 3.3.12, 3.4.10 and 4.0.6 — thirty-four assertions now, phase
+      8c's two groups appended — with every assertion green and four skips accounted for by name: the
+      two assertions under `TRANSPORT-14` and the one under `TRANSPORT-27` waived by id (`P8-38`,
+      `protocol-http1` refuses both heads out of the read) and `TRANSPORT-18` vacuous by measurement
+      as on 8a's adapter; on the 3.2 row the async half is not installable and the sync half is what
+      runs, as this line already says
+- [x] **Before release, `docs/sdk-documentation/` must state what a green `dexpace-conformance` run does
       and does not prove, and the run's own report preamble must name the same omissions.** Filed
       2026-09-12 by phase 8a's design (`P8-9`). The wire fixture speaks plaintext only and exercises no
       connect timeout, so `TRANSPORT-4`'s open-timeout half and every TLS property are asserted in
@@ -75,7 +88,10 @@ stated in the release notes rather than discovered at `bundle install`.
       badge. Cites `TRANSPORT-4`, `TRANSPORT-14`, `TRANSPORT-20`, `NFR-2`; the suite itself is phase
       8a's Tasks 4–8 and 20 and phase 9's Tasks 2–12a. **Status 2026-09-20**: `TransportSuite::PREAMBLE`
       names the two omissions in every report, and `docs/sdk-documentation/conformance.md` states them
-      beside what a green run proves; the box ticks when 8c's waiver is stated beside them
+      beside what a green run proves; the box ticks when 8c's waiver is stated beside them. **Ticked
+      2026-09-21**: the preamble names a third omission, `TRANSPORT-8`, whose antecedent only an
+      adapter's own suite can originate, and `conformance.md` states 8c's two waivers (`TRANSPORT-14`
+      and `TRANSPORT-27`, both by id, both this adapter's alone) beside the three omissions
 - [ ] **Before release, `docs/sdk-documentation/` must document the `include Dexpace` constant-shadow
       hazard.** Filed 2026-09-08 by phase 3a's design; recorded here 2026-09-13. Phase 1 measured
       `Dexpace::Method` shadowing `::Method` and concluded "**verified inert outside core**"; the observation
@@ -130,7 +146,13 @@ stated in the release notes rather than discovered at `bundle install`.
       time** — `Clients::MAX_ORIGINS`, drained back to the cap in a loop after each insert, with each
       evicted client's pool closed — so the map is expected to be bounded the moment `8c` lands and
       this blocker to close then, without a phase-10 repair. Phase 9's routing assumed `8c` had
-      already run; it had not. This line stays open until a green `gates:bounded_map` run confirms it
+      already run; it had not. This line stays open until a green `gates:bounded_map` run confirms it.
+      **Status 2026-09-21**: 8c landed the bound — `Clients::MAX_ORIGINS` (32) over a key of
+      (reactor, origin), drained back to the cap in a loop after every insert with closed reactors
+      evicted first, every evicted client's pool retired and closed — proven by the three `XCUT-14`
+      cases in `gems/dexpace-transport-async_http/test/dexpace/transport/async_http/clients_test.rb`;
+      the gate itself does not exist yet, so the line stays open for phase 9's `gates:bounded_map` run
+      and nothing else
 - [ ] **Before release, `docs/sdk-documentation/` carries one worked end-to-end example** — a
       generated-style client over `dexpace-core` + `dexpace-transport-net_http` + `dexpace-serde-json`:
       operation descriptor, request assembly, pipeline with an AUTH step, decode, typed error, one

@@ -13,16 +13,16 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a and 8b are built — the whole of
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b and 8c are built — the whole of
 phase 6, the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
-order, 7a last (umbrella #25 closes by hand), the first of phase 8's three sub-phases, built off the same
-base as phase 7's and reconciled onto the tree that holds all three, and the second, built off the tree that
-holds 8a concurrently with 8c; the domain model, the seam layer, the
+order, 7a last (umbrella #25 closes by hand), and the whole of phase 8, whose three sub-phases were built
+8a first, off the same base as phase 7's and reconciled onto the tree that holds all three, then 8b and 8c
+concurrently off the tree that holds 8a, 8c landing second; the domain model, the seam layer, the
 byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
 configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry layer,
 the authentication layer, the redirect layer, the server-sent-events layer, the pagination layer, the
-serialization layer, the synchronous transport, the conformance suite and the thread-pool executor are the
-only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
+serialization layer, the synchronous transport, the conformance suite, the thread-pool executor and the
+asynchronous transport are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
 `Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
 `Dexpace::Builder` under one error root, `Dexpace::Error`
@@ -236,17 +236,32 @@ and `DEFAULT_NAME`, and `Dexpace::Closeable`'s latched `#close` that drains with
 `Events::INSTRUMENTATION_SHUTDOWN` once — the `private_constant` `Timer` with its `Entry`, `Pool::Job`,
 the two private field keys, `RejectedError`, `REQUIRED_CORE` and the require-time version-skew assertion
 made directly because there is no executor registry
-(`docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-checklist.md`);
-the remaining gem's `lib/` still holds its namespace module and a `VERSION` constant and nothing else. The
-synchronous transport is the first thing here that talks to a socket, and the pool is the first executor on
-the async path — the two meet in `dexpace-async-thread`'s composed suite over a real socket. The workspace root
+(`docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-checklist.md`); plus phase 8c's one
+addition to core, `Configuration::Keys::TRANSPORT_CONNECTION_LIMIT`, the tenth key, **and the workspace's
+sixth real gem**, the asynchronous transport in `dexpace-transport-async_http`,
+`Dexpace::Transport::AsyncHTTP` — `.build(timeout:, logger:, drop_policy:, connection_limit:, ssl_context:,
+configuration:)` over a client map the adapter owns, one `Async::HTTP::Client` per (reactor, origin) bounded at
+`MAX_ORIGINS`, and `.using(client, logger:, drop_policy:)` over a caller's own, the `Adapter` behind both with
+`.owning` / `.borrowing` and `REACTOR_MESSAGE`, the public `DropPolicy` with `MAX_TRACKED_NAMES`, `EVERY`,
+`ONCE_PER_NAME`, `QUIET` and `MODES`, the six constants `DEFAULT_TIMEOUT_SECONDS`, `DEFAULT_CONNECTION_LIMIT`,
+`MAX_ORIGINS`, `REGISTRY_KEY`, `FRAMING_HEADERS` and `ALPN_PROTOCOLS`, the eight `private_constant`s `Clients`,
+`Endpoints`, `Errors`, `Exchange`, `RequestBody`, `RequestMapper`, `ResponseBody` and `ResponseMapper`, the RBS
+interface `_Release`, and the require-time `AsyncTransport.register(:async_http, …)` — and, in
+`dexpace-conformance`, the two private groups `Asynchronous` and `HeaderDrops` that make the suite thirty-four
+assertions in seven, with `PREAMBLE` naming `TRANSPORT-8` and `Scripts.write_response` taking `close:`
+(`docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md`);
+the synchronous transport is the first thing here that talks to a socket, and the pool is the first executor
+on the async path — the two meet in `dexpace-async-thread`'s composed suite over a real socket. Both
+transports talk to a socket; the async one needs a running reactor on the calling thread and creates none. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the eighteen blocking gates — phase 0's seventeen
 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`) and phase 7b's
 `gates:serde_boundary`.
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
-`docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec, asserted by
-`gates:versions`); CI runs a 3.2 / 3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against
+`docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec but one, asserted by
+`gates:versions`; `dexpace-transport-async_http` alone declares **>= 3.3**, read from `VERSIONS`' per-gem
+`floor:` row, because `async-http`'s whole closure does — phase 8c's `P8-36` — and the 3.2 row installs, tests
+and clean-bundles the other five); CI runs a 3.2 / 3.3 / 3.4 / 4.0 matrix; every Ruby fact in the design was verified against
 3.4.10 and the ones the gates and the domain model rest on were re-verified against 3.2.11, 3.4.10 and 4.0.6.
 
 Top-level namespace is `Dexpace`. Gem names are hyphenated and map segment-for-segment onto the constant path:
@@ -258,7 +273,7 @@ MVP gems (`docs/sdk-design-ruby/02-gem-and-workspace-layout.md` §2.1):
 |---|---|---|
 | `dexpace-core` | `Dexpace` | **none** |
 | `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core`; `net-http` (a default gem) |
-| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core`; `async-http` |
+| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core`; `async-http ~> 0.104` |
 | `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core`; `json >= 2.19.9` |
 | `dexpace-async-thread` | `Dexpace::Async::Thread` | `dexpace-core` |
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |
@@ -1111,6 +1126,29 @@ Each is one line plus the chapter to read before touching the area.
   `class RecordingSink` in an adapter gem re-assigns core's `RecordingSink::Entry`, an "already
   initialized constant" warning `NFR-6` makes fatal at load time; the gem's own `rake test` never sees
   it. The adapter gem's double is `NetHTTPRecordingSink` for that reason (8a's checklist, departure 35).
+- **Under `async-http` a response does not outlive the reactor that produced it, every call needs a
+  reactor on the calling thread, and a cancellation from another OS thread is marshalled through a queue**
+  — `Sync { }` returns only when the reactor has no non-transient work left, and on its way out it stops
+  the pool's transient gardener, whose `ensure` drains the pool and waits on every busy connection; the
+  connection behind an unread body is busy, so a `Sync` that hands a streaming response out past its own
+  end never returns (`TRANSPORT-29`'s eight-thread assertion found it; the 8c driver materialises the body
+  inside its per-thread reactor, `P8-94`). `Adapter#call` outside `Async::Task.current?` settles
+  `SeamError` through the future and creates no reactor (`P8-39`); `Async::Task#cancel` from a foreign
+  thread raises `NoMethodError` and cancels nothing, so the token's hook pushes onto a `Thread::Queue`
+  that a transient watcher task under the caller's task pops and acts on from the reactor's thread
+  (`P8-91`) — the push total over the queue's close, because the source and the completer both run
+  their hooks after stealing them and an exchange that finished in between has closed the queue,
+  and the reason wrapped in `CancelledError` for the task's own `Async::Cancel` alone (`cause:`
+  drops anything but an `Exception`; the adapter reads none back, the pivot being settled before
+  the watcher acts); the owning adapter's clients are keyed by `(Fiber.scheduler, origin)` because one
+  `Async::HTTP::Client` cannot serve two reactors on two threads (`P8-92`); `Adapter#close` retires every
+  pooled resource **before** `pool.close`, which alone would drain and wait exactly as `Client#close`
+  does (`P8-100`); and a native HTTP/2 body is closed through `close_quietly`, because `async-http`
+  writes `RST_STREAM` before it transitions the stream and an `END_STREAM` in that window releases the
+  pooled connection twice (`P8-101`). `Kernel#Async` inside a task IS that task's child on async 2.46
+  (the design's fact 10 is stale), and on Ruby 4.0 alone the first `IO::Buffer` under a scheduler prints
+  a once-per-process experimental warning that `test/support/async_http_warmup.rb` spends before the
+  fatal hook can see it (`P8-98`).
 - **A conformance assertion sends through `kase.settle(transport, request, options, cancellation)` and
   never `transport.call`, names no adapter, and waits with a bound** — what `TransportCase#transport`
   returns is the `SettleOnly` guard, whose `#call` raises, because the default `settle` IS
@@ -1310,27 +1348,30 @@ probe compares each against the live tree, and a count written anywhere else in 
   place that floor is stated. `dexpace-transport-net_http`'s `lib/` holds the phase-8a synchronous
   transport — nine files, the entry file and eight under `net_http/`, seven of them `private_constant`s,
   every one mirrored in `sig/` and in `test/` — and its gemspec declares `net-http >= 0.4`, a default gem
-  declared as the `NFR-2` third-party half; `dexpace-conformance`'s holds the phase-8a conformance suite —
-  twenty-three files beside phase 0's `version.rb`, seven of them `private_constant`s, every one mirrored
-  in `sig/` and every one but `transport_suite/checks.rb`, `wire_server/recorded_request.rb` and
+  declared as the `NFR-2` third-party half; `dexpace-transport-async_http`'s `lib/` holds the phase-8c
+  asynchronous transport — eleven files, the entry file and ten under `async_http/` beside phase 0's
+  `version.rb`, eight of them `private_constant`s, every one mirrored in `sig/` and every one but
+  `async_http/exchange.rb` mirrored in `test/` (the per-call exchange is proven through the three
+  behavioural suites that drive it) — and its gemspec declares `async-http ~> 0.104` as the `NFR-2`
+  third-party half and a Ruby floor of 3.3 read from `VERSIONS`; `dexpace-async-thread`'s `lib/` holds the
+  phase-8b async-runtime adapter — the entry file and three files under `thread/`, `rejected_error.rb`,
+  `pool.rb` and `timer.rb`, the last a `private_constant`, every one mirrored in `sig/` and the two public
+  ones in `test/` (`timer.rb` is proven through `pool_delay_test.rb` and `pool_test.rb`'s source scans) —
+  and its gemspec declares `dexpace-core` alone, by design: the gem spends none of its `NFR-2` budget;
+  `dexpace-conformance`'s holds the phase-8a conformance suite with phase 8c's two groups — twenty-five
+  files beside phase 0's `version.rb`, nine of them `private_constant`s, every one mirrored in `sig/` and
+  every one but `transport_suite/checks.rb`, `wire_server/recorded_request.rb` and
   `wire_server/request_reader.rb` mirrored in `test/` — and its gemspec declares `dexpace-core` alone, its
-  `socket` and `tempfile` requires carried by the allowlist's exceptions.
-  `dexpace-async-thread`'s `lib/` holds the phase-8b async-runtime adapter — the entry file and three
-  files under `thread/`, `rejected_error.rb`, `pool.rb` and `timer.rb`, the last a `private_constant`,
-  every one mirrored in `sig/` and the two public ones in `test/` (`timer.rb` is proven through
-  `pool_delay_test.rb` and `pool_test.rb`'s source scans) — and its gemspec declares `dexpace-core`
-  alone, by design: the gem spends none of its `NFR-2` budget.
-  The other gem — `dexpace-transport-async_http` — is a phase-0 skeleton
-  whose `lib/` holds the namespace module and a `VERSION` constant and nothing else, and its gemspec
-  declares `dexpace-core` and no third-party gem yet (design P0-9); the third-party half of its `NFR-2`
-  budget arrives with the phase that writes the code needing it, as 7a's and 8a's did.
+  `socket` and `tempfile` requires carried by the allowlist's exceptions. Every gem under `gems/` is real:
+  no phase-0 skeleton remains, and the third-party half of each `NFR-2` budget arrived with the phase that
+  wrote the code needing it — 7a's, 8a's and 8c's (8b's spends none).
 - There are eleven phase directories under `docs/work/*/`; `mvp/` is the only delivery, and it holds
   the v1 roadmap, `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`, plus `phase0/`,
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  nineteen checklists written so far, each at implementation; `phase4/`
+  twenty checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1362,8 +1403,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `docs/work/mvp/phase8/2026-09-11-phase8-segmentation-design.md`, and three sub-phase
   directories — `phase8/phase8a/` (synchronous transport and the conformance gem),
   `phase8/phase8b/` (async-runtime adapter) and `phase8/phase8c/` (asynchronous transport);
-  each holds a design and a plan, and `phase8/phase8a/` and `phase8/phase8b/` a checklist too, written at
-  implementation on 2026-09-20 and 2026-09-21. Phase 8 is 52 IDs (`TRANSPORT-1`–`30`, `ASYNC-1`–`22`) and is
+  each holds a design and a plan, and `phase8/phase8a/`, `phase8/phase8b/` and `phase8/phase8c/` checklists
+  too, written at implementation on 2026-09-20, 2026-09-21 and 2026-09-21. Phase 8 is 52 IDs (`TRANSPORT-1`–`30`, `ASYNC-1`–`22`) and is
   the phase that ships the most gems in the roadmap — `dexpace-transport-net_http`,
   `dexpace-async-thread`, `dexpace-transport-async_http` and `dexpace-conformance`, whose
   gemspec, version and first release phase 8 owns. Its three sub-phases are independent, so
@@ -1406,5 +1447,5 @@ probe compares each against the live tree, and a count written anywhere else in 
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
   phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's, phase 7a's, phase 8a's and phase 8b's is still to be written at execution time.
+  phase 7c's, phase 7a's, phase 8a's, phase 8b's and phase 8c's is still to be written at execution time.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
