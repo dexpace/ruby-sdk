@@ -2691,6 +2691,36 @@ design.
   `AsyncTransport`) inherit it. Touches `SEAM-1`, `SEAM-2`, `SEAM-6` (the IDs both spellings
   assert) and nothing normative in the code. Recorded by the 8a reconciliation on its docs branch;
   referred to by date and content, never by ordinal.
+- **Under the one-process `rake test:gems` the main fiber's storage carries 5c's no-op span
+  (`dexpace.current_span => Instrumentation::NO_SPAN`) into suites that never activated one, and the
+  shared test case asserts nothing about fiber storage at `teardown`.** Found 2026-09-21 by phase 8b's
+  first whole-repository run: the pool gem's diagnostics suite, green in its own process and on every
+  interpreter alone, failed five of seven under `test:gems` because `Diagnostics.capture` on the main
+  fiber — the caller's snapshot every `#post` takes — carried the reserved slot another gem's suite had
+  left set, and the worker faithfully installed it (which is `ASYNC-8`'s purpose and not a defect of the
+  pool). 8b's suite drops the reserved prefix before comparing, so it is green either way, and the
+  residue is left where it lies. What is phase 10's: find which suite leaves the slot set — the
+  candidates are core's `tracing_test.rb`, `scope_test.rb` and `diagnostics_test.rb`, whose `teardown`s
+  reset it, and the suites that reach `Tracing.activate` through the instrumentation step without one —
+  and decide whether `DexpaceTestCase` should assert the main fiber's storage unchanged at `teardown`
+  beside its thread count, which is the same class of cross-suite leak `NFR-6` already guards for
+  threads. Touches `OBS-23`, `OBS-24` and the 5c-owned `dexpace.current_span` carrier, and nothing
+  normative in the code. Recorded by phase 8b on its docs branch; referred to by date and content,
+  never by ordinal.
+- **Core's two duration guards, `Dexpace::Async.validate_delay` and `Dexpace::Clock::Guard.duration`,
+  admit a `NaN` and a `Complex`.** Found 2026-09-21 by phase 8b's review round 1 (R1-1), which found the
+  same shape — `is_a?(::Numeric)` and `negative?` — in `Pool#delay`, where a `NaN` duration killed the
+  pool's timer thread and turned every later `#delay` into a bare `ArgumentError`, and repaired it there
+  (`P8-77`: `real?` before `negative?`, `finite?` after). 5a's guards are the precedent 8b's design cited
+  and they share the hole: a `NaN` is a `Numeric` that answers false to both `negative?` and `zero?`, so
+  `Clock#sleep(Float::NAN)` reaches `Thread::Queue#pop(timeout: Float::NAN)`, which parks indefinitely on
+  every supported row (measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6) — a sleep no elapsed time ends and
+  only the token can wake — and `Async.delay(Float::NAN)` schedules the same pop on the scheduler; a
+  `Complex` is a bare `NoMethodError` from either. What is phase 10's: widen both guards the way `P8-77`
+  did, with the same three tests, and decide whether `Future#value(deadline:)` and `Completer#await`'s
+  deadline arithmetic want the same screen. Touches `CFG-15`, `CFG-17`, `CFG-18` and `XCUT-11`, and
+  nothing normative beyond the messages. Recorded by phase 8b's review round 1 on its docs branch;
+  referred to by date and content, never by ordinal.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -4672,3 +4702,84 @@ of `serde.md`, `sse.md` and `pagination.md` once more, on 4.0.6 — every `# =>`
 fence, the consumer template over a fictional `MyAdapter` with `...` placeholders, not run, as it
 cannot be. `main` is `734e6b3` before and after; 8b and 8c are not on it, and umbrella #29 stays open
 for them.
+
+**2026-09-21** — **Phase 8b implemented**, off `main` at `a7cfeb6` (the whole of phase 7 and 8a), concurrently
+with 8c off the same base, as three local branches — `31-phase-8b-async-runtime-adapter` (code),
+`-tests` and `-docs` — each cut from `main` and each green under every gate on its own tree, the code tip
+above the coverage floor as well. `dexpace-async-thread` is the workspace's fifth real gem:
+`Dexpace::Async::Thread::Pool` — `.build(size:, queue_limit:, shutdown_timeout:, name:, logger:, clock:)`
+with `size:` required and no default, `#post` as `Dexpace::Page::_Executor` exactly and never blocking
+(`RejectedError` on a full queue, `Dexpace::ClosedError` on a closed pool, both translated from the queue's
+own errors at the one call site and routed to the failure channel by phase 2's bridge), `#delay` on one
+lazily created timer thread settling with `true`, and `Dexpace::Closeable`'s latched `#close` draining
+the workers and stopping the timer within one budget before emitting `Events::INSTRUMENTATION_SHUTDOWN`
+once — the lifecycle event phase 2 postponed on 2026-09-07, **landed**; the harness half stays phase 9's
+Task 11. The pooled worker clears its fiber storage at two boundaries (thread start and after every
+task, `P8-20`) so 5b's `Diagnostics.with` installs the caller's snapshot rather than merging it onto
+the pool builder's or the previous task's; `REQUIRED_CORE` and a direct require-time version-skew
+assertion stand in for a registry the seam deliberately has none of (`P8-21`); the timer thread carries
+the worker's `rescue ::Exception` net (`P8-22` extended). Nineteen rows: **seventeen ✅, `ASYNC-3` ⏳**
+citing `docs/first-release.md`'s unsatisfied-MUST entry, **`ASYNC-4` N/A** on §10.5 alone, and the two
+cross-reference rows the charter names — `PIPE-33`'s four met clauses re-asserted through a real pool
+(a two-step pipeline posts exactly once) with clause 5 staying phase 4c's ⏳, and `ASYNC-6`'s thread-pool
+half stated. The charter's convergence point 2 is this lane's, because 8a landed first:
+`gems/dexpace-async-thread/test/dexpace/async/thread/composed_transport_test.rb` drives 8a's
+`Dexpace::Transport::NetHTTP` through `Transport.async_over(adapter, executor: pool)` against
+`dexpace-conformance`'s `WireServer` — the first time the async path touches a socket — and nothing under
+the gem's `lib/` names either sibling (`P8-73`). **What the cross-check found and the build confirmed**:
+phase 2's `Bridge::AsyncOver` checks the token before dispatch (#44), so the design's finding 2 was closed
+before this phase began and a task cancelled while queued never reaches the transport; phase 0's
+`DexpaceTestCase` already counts threads at `teardown` (#36), closing finding 3; `Completer#fulfil(nil)`
+raises, so `#delay` settles with `true` (`P8-71`); the plan's `CORE_REQUIREMENT` is 7a's `REQUIRED_CORE`
+(`P8-72`); on the 3.2 floor a cleared worker's raw storage is a map of nil-valued keys, so the suite reads
+through `Diagnostics.capture` and its ensure-clear proof writes a never-held key (`P8-74`); and
+`Timer#schedule` after `#stop` refuses the entry rather than spawning a thread `#close` never joins
+(`P8-75`); and, from review round 0 the same day, a `#close` issued from the pool's own threads — a
+`#delay` future's `#on_settle` handler on the timer thread, or a task on a worker — completes instead of
+self-joining (`P8-76`: the first cut raised `ThreadError` past `#close` with the latch flipped, no event
+and every other delay stranded, or burned the whole budget); and, from review round 1 the same day, a
+`NaN`, an infinite or a `Complex` duration or `shutdown_timeout:` is refused with `InvalidArgumentError`
+(`P8-77`: a `NaN` answers false to both `negative?` and `zero?`, reached the timer's deadline-ordered
+list, killed its thread and turned every later `#delay` into a bare `ArgumentError`, and a `NaN` budget
+raised one out of `#close` with the latch flipped — core's two duration guards share the shape and are
+the second of this phase's bullets on phase 10's inbound list); and, from review round 2 the same day, the
+timer thread behind `#delay` — the gem's second `::Thread.new` carrier, spawned lazily from the first
+delay caller's fiber — carries each delay's diagnostic context the way a worker carries a task's (`P8-78`:
+as first cut it inherited the first caller's storage and got neither of `P8-20`'s clears and no per-delay
+snapshot, so every later delay's `#on_settle` and `#then` ran under a stale, foreign context — the design's
+own finding 1 at the gem's own door); and, from review round 3 the same day, the `P8-22` defect
+diagnostic — the one log event the gem emits on a caller's behalf after the hop — is emitted with the
+caller's snapshot still installed on every carrier, so it carries the caller's `trace.id` (as first cut
+both nets sat outside `Diagnostics.with` and the diagnostic was folded after the restore: no id on the
+worker and the timer, the closer's id on the closing thread — `ASYNC-8`'s purpose clause, applied to
+the gem's own event; `P8-22` extended a second time, no new row). Every fact the design measured on 3.4.10
+alone was re-run on 3.2.11, 3.3.12, 3.4.10 and 4.0.6, the pool-specific dozen as a standing test.
+Forty-three guards run red (two recorded as equivalent mutants with their measurement; the plan's
+timer-mutex mutation among the red ones, by a cross-thread deadlock at `#close` that hangs the delay
+suite and by two reported failures on the lock-scope test the round added — the first cut of this note
+called it "measured false and dropped", review round 0's R0-1), `test:gems` at 3,818 runs with exactly
+one skip (8a's `TRANSPORT-18` vacuity), the six manifests regenerated with only
+`dexpace-async-thread.txt` changing (2 → 14 rows, no private constant among them), and the gate set
+green on 4.0.6 with the four matrix gates green on 3.2.11, 3.3.12 and 3.4.10.
+`docs/sdk-documentation/async-thread.md` is the twentieth as-built page, every example run on 4.0.6 and
+3.2.11 as one script and identical but for `Hash#inspect`, a `NoMethodError`'s wording and the socket
+block's Timeout thread on the floor; `architecture.md`, the gem README, `README.md` and `docs/README.md`
+point at it; `CLAUDE.md`'s built-phases paragraph gains the gem, its skeleton clause loses it, the
+checklist count moves to nineteen and its constraints list gains four lines. `docs/first-release.md`
+changes in one existing entry only — the unsatisfied-MUST entry gains a dated status sentence — and the
+gem table's row stays "no — 0.0.0"; `docs/knowledge/notes/observability.md`'s 8b entry is amended in
+place under its own marker with the as-built facts; `docs/deviations.md` is untouched, for phase 10 to
+flip. Two dated bullets join phase 10's inbound list by date and content, never by ordinal: under
+the one-process `rake test:gems` the main fiber's storage held 5c's no-op span when this gem's
+diagnostics suite ran — a residue of another gem's suite the per-file run cannot see, filtered here and
+audit work on phase 5c's tests — and, from review round 1, core's two duration guards admitting a `NaN`
+and a `Complex` (`Clock#sleep(Float::NAN)` parks on a `Queue#pop` no elapsed time ends), audit work on
+phase 5a's. A further bullet the first cut of this note filed — that the plan's Task
+7 Step 8 mutation stays green and the timer's lock scope rests on the source alone — was removed before
+the stack merged: the premise was a false measurement (review round 0's R0-1), the mutation is red, and
+the scope is asserted by a test. The design's fourth finding — §10.5's mitigation sentence names
+`Completer#on_cancel` as something "an adapter" does, and on the thread path only the transport can —
+stays a sentence here and in the checklist, never a row in `docs/deviations.md`. The consolidation of
+`P8-20`–`P8-25` and `P8-71`–`P8-78` into design §10 is a human's:
+`docs/sdk-design-ruby/` is frozen. `main` is `a7cfeb6` before and after; the stack is not on it, 8c is
+being built beside it, and umbrella #29 stays open for both.

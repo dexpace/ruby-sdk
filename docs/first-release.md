@@ -269,7 +269,10 @@ find it in a design document.
   `PIPE-33` is inside phase 4c's own ID range, and its row names the four clauses that **are** met so it is not
   read as a wholly unbuilt requirement; `8b`'s checklist marks `ASYNC-3` ⏳ and `PIPE-33`'s
   cross-reference row ⏳, both citing this entry, which is a re-assertion at the point the requirement's
-  antecedent becomes real rather than a second decision; phase 9's `ExecutorSuite` asserts `ASYNC-3` so that it
+  antecedent becomes real rather than a second decision (built 2026-09-21: both rows cite this entry as
+  forecast, `ASYNC-4` is N/A on §10.5 alone, and the pool's own suite demonstrates the mitigation — a
+  task cancelled while queued never reaches the transport, a send already running completes and its
+  result is closed rather than delivered, and nothing is ever interrupted); phase 9's `ExecutorSuite` asserts `ASYNC-3` so that it
   **genuinely fails**
   and the thread driver waives it by ID (phase 9, Task 11 and Task 16 Step 4) — a waived failing assertion,
   never a green one; phase 10 audits the §10.5 ledger and may not re-open the trade (roadmap cross-cutting

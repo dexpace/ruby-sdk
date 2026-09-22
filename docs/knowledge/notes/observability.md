@@ -113,7 +113,45 @@ stable key.
   empty. **The rule generalises to any long-lived carrier this repository creates with `::Thread.new`**: a
   background exporter, a second executor adapter, or a caller's own worker wrapped in `Diagnostics.with`.
   Neither `Diagnostics.with` nor design §8.1 needs changing; what needed stating is that the carrier must
-  start empty.
+  start empty. **As built, 2026-09-21 (phase 8b, measured on 3.2.11, 3.3.12, 3.4.10 and 4.0.6).** The
+  clear runs at TWO boundaries, not one: the thread-start line above fixes the construction floor, and the
+  same line in the worker's per-task `ensure` fixes the reuse floor, because `Diagnostics.with` restores
+  only `(prior.keys | snapshot.keys)` and a key the WORK itself writes — an `#on_settle` handler, an
+  interceptor, a sink — is in neither set and survives onto the next caller's task (measured:
+  `{tenant: "A-LEAK", "trace.id": "CALLER-B"}` on the next task with the ensure clear gone; 8b's `P8-20`).
+  "Returns the worker to empty" is true at every reader that skips nulls and not at the raw map: on the
+  3.2 floor `Fiber[:k] = nil` retains the key with a nil value (the entry above, `P5-72`), so a cleared
+  worker's `Fiber.current.storage` reads `{tenant: nil, …}` there and `{}` on 3.3+, while `Fiber[]`,
+  `OBS-10`'s fold and `Diagnostics.capture` (which compacts, `P5-97`) read the same on every row — which is
+  why a test of a worker's context reads through `.capture`, and why a proof that the ensure clear is
+  present must write a key the worker has NEVER held (a build-time key sits in the floor's prior map as a
+  retained nil, and the union restore resets it, hiding the missing clear on 3.2 alone; 8b's `P8-74`).
+  And `.capture` carries core's own `dexpace.`-prefixed slots — 5c's current-span carrier — with the
+  diagnostic keys, so the span active on the caller is current on the worker, which is `ASYNC-8`'s
+  purpose; a test comparing what the worker sees drops the reserved prefix, because under the
+  one-process `rake test:gems` another suite can leave a no-op span on the main fiber.
+  **Amended after review round 2, 2026-09-21.** The rule's first casualty was the gem's own SECOND
+  carrier: the timer thread behind `Pool#delay`, spawned lazily by the first positive delay from *that
+  caller's* fiber, inherited that caller's storage and was given neither clear and no per-delay snapshot,
+  so every later delay's `#on_settle` and `#then` callback ran under the first caller's context and a key
+  one handler wrote was visible to every later one (measured on 3.2.11 and 4.0.6; `ASYNC-8` names
+  callbacks beside work). A carrier spawned lazily from a caller's fiber is the worse case: what it
+  inherits is an arbitrary request's context, not the assembler's, and the leak is invisible in any test
+  whose first delay is the one it reads. 8b's `P8-78` gives the timer the worker's shape — a per-entry
+  `Diagnostics.capture` at the scheduling call, `Diagnostics.with` around every callback, the two clears
+  on the thread the gem owns, and restore-never-clear for a callback run on some other thread's behalf.
+  The rule, restated: EVERY `::Thread.new` a library keeps, whichever fiber spawned it and however lazily,
+  starts empty, and every callback it runs on a caller's behalf runs under that caller's captured context.
+  **Amended after review round 3, 2026-09-21.** The corollary for the carrier's OWN emissions: a net
+  that reports a failing task or callback must sit INSIDE the install, not around it. Both of 8b's nets
+  sat around `Diagnostics.with`, so the gem's defect diagnostic — the one log event it emits on a
+  caller's behalf after the hop — was folded after the restore: no `trace.id` on the worker and the timer
+  thread, and the CLOSER's id on the closing thread, where the restore had put the closer's context back
+  first (measured on 3.2.11 and 4.0.6; `OBS-10`'s fold reads the emitting fiber at emit time, so an
+  emission's correlation is whatever is installed when `#emit` runs, never when the failure happened).
+  8b's `P8-22` extension moves both nets inside the `with`; the test that pins it posts under one id
+  and closes under another, because a diagnostic tagged with the closer's id is a wrong answer, not
+  a missing one.
   <sub>review · `docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-design.md` · high · sha:manual-phase8b-pooled-worker-context-floor</sub>
 - **`Fiber#storage=` is the only whole-map write side `ASYNC-9`/`ASYNC-11` can use, it warns on every
   call on every supported Ruby, and it does not behave the same on the floor — so prefer per-key
