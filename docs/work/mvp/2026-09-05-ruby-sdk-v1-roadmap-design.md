@@ -4883,17 +4883,17 @@ this phase and phase 10's inbound list carries the pointer, by date and content.
 `docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md`: ten own rows —
 nine ✅ and `ASYNC-21` N/A with its one honourable property asserted — plus eleven cross-reference rows;
 the reviewer's thirty mutations run as thirty-six rows on 4.0.6 and 3.3.12 (the gem's floor row;
-3.2.11 has no bundle for it), thirty-three red on both and three equivalent mutants recorded with their
-measurement (`Kernel#Async` is the current task's child; core's `Completer#fulfil` closes what a settled
-pivot is handed, so check-after-resume is a shortcut; a raise inside `#dispatch`'s fence is still a
-settlement) — thirty-nine rows after review rounds 0 and 1, whose three surviving extra mutants (the
+3.2.11 has no bundle for it), thirty-four red on both and two equivalent mutants recorded with their
+measurement (`Kernel#Async` is the current task's child; a raise inside `#dispatch`'s fence is still a
+settlement), while check-after-resume — recorded equivalent when only its close count was measured — is
+caught by the round-2 hook-race case and counted among the red rows below — thirty-nine rows after review rounds 0 and 1, whose three surviving extra mutants (the
 `BINARY` retag unobserved by a BINARY-only fixture; `Exchange#net`'s settle with no fixture reaching it;
 the watcher's close of a delivered response indistinguishable from the body-path test's own bound) were
 each given the guard that runs them red on 2026-09-21, and forty-three rows after review round 2, whose
 three surviving extras (a cancel hook's push racing the exchange's own end; the body-forbidden guard
 no test reached; the watcher's transience provable only by a hang) were each given theirs the same day
-and whose fourth extra is the fourth equivalent mutant (the `cause:` wrap the adapter never reads) —
-thirty-nine red in all — after five guards the
+and whose fourth extra is the third equivalent mutant (the `cause:` wrap the adapter never reads) —
+forty red in all — after five guards the
 first pass found missing were added — the mutex scan reaching
 `build_client`, `assert_exchange_released` over the watcher's annotation, `reactor_over` closing a
 holding fixture inside the reactor so a blocked exchange fails instead of hanging, every wait bounded,
@@ -4906,7 +4906,7 @@ conformance groups split in two under the metric cops, and the two found only by
 vacuity; on the 3.2 row the gem is absent, five gems install, test and clean-bundle, and every gate is
 green. Re-proven at every tip: the code tip green on every one of the
 eighteen gates run individually on 4.0.6 (`test:gems` 3,713 runs, 72,711 assertions, 0 failures,
-0 errors, 3 skips — 8a's — and 97.55 % line coverage, above the floor, so no tip in the stack is red; the
+0 errors, 3 skips — 8a's — and 97.52 % line coverage, above the floor, so no tip in the stack is red; the
 honest RuboCop run over 683 files clean; `gates:clean_bundle` loading all six gems) and on the 3.2.11
 matrix row (3,704 runs, 72,677 assertions, 3 skips, `gates:clean_bundle` five gems — this gem absent by
 its floor); the tests tip green on the whole default task on 4.0.6 (3,900 runs, 73,502 assertions,
@@ -4976,3 +4976,71 @@ by nothing — the pivot is settled with the reason before the watcher acts — 
 `P8-91`, the knowledge note and `CLAUDE.md` now say it names the reason on the task's own
 `Async::Cancel` for whoever reads the task (guard 46, equivalent). The tests tip is 3,900 runs and
 73,502 assertions on every six-gem row; every gate re-run green at every tip.
+
+**2026-09-22** — **Phase 8c reconciled onto `main` after phase 8b (the async-runtime adapter)** — 8b is the
+lane that lands first, and `main` is still `a7cfeb6` while its three squashes are in flight, so the base
+this pass rebased onto is 8b's reconciled docs tip `5755267`, whose tree they land byte for byte. 8c's
+three branches, built off `a7cfeb6` concurrently with 8b and reviewed at `c830725` → `2449b6c` →
+`13873e5`, were rebased onto that tree with `git rebase --onto` (rerere disabled), every 8c commit
+preserved and none reordered or reworded: the stack is `c05ada2` (code, seven commits) → `a56336e`
+(tests, four) → `6cc9d52` (docs, four) plus this paragraph's own commit, the pass's one commit of its own
+on the docs branch, carrying what no 8c commit could: this paragraph, the dated "Reconciled" note at the
+head of 8c's checklist, the checklist count in `CLAUDE.md` re-derived to twenty (the replay had kept one
+lane's nineteen), and the three documentation nits review round 3 left — guard row 18 rewritten as
+red-by-name through the round-2 hook-race case with its close-count measurement kept as its own sentence
+and the guards arithmetic in the checklist and this note moved from thirty-nine of forty-three / four
+equivalent to forty of forty-three / three, guard rows 8 and 17's stale second citations dropped or
+replaced (`dispatch_conformance_test.rb`'s tls variant builds its adapter from a caller `ssl_context` the
+default context's ALPN line never reaches; row 17 now names `adapter_test.rb`'s already-cancelled-token
+case), and the code tip's coverage written as the measured 97.52 %.
+**Six files both lanes rewrote were reconciled inside the replayed 8c commits and nowhere else.**
+`CLAUDE.md`: the built-phases sentence names 8a, 8b and 8c and now says the whole of phase 8 is built —
+8a first, then 8b and 8c concurrently off the tree that holds 8a, 8c landing second; the opening
+paragraph carries the fifth real gem (`dexpace-async-thread`) and the sixth
+(`dexpace-transport-async_http`) in merge order, the two skeleton clauses become one statement that no
+phase-0 skeleton remains, the socket sentence carries both the pool and the asynchronous transport, the
+gem table and the claim paragraph carry both lanes' clauses, the floor paragraph is 8c's, the constraints
+list carries 8c's async-http line at its own anchor before the conformance bullet and 8b's four lines
+after it, and every count is re-derived: "twenty checklists written so
+far", `phase8/` checklists for 8a, 8b and 8c, and "Every checklist but …" naming all three. `README.md`,
+`docs/README.md` and `docs/sdk-documentation/architecture.md`: both gems' paragraphs and both new pages
+linked in merge order, no skeleton sentence left, "the twenty-one pages written so far" and
+architecture's opening count twenty-one. `docs/first-release.md` auto-merged and verified hunk by hunk:
+8b's one dated sentence in the unsatisfied-MUST entry beside every 8c hunk — the 3.2 supported-Ruby
+lines, the openssl-on-3.3 clause, the conformance line's async-http status, the `P8-9` box ticked and the
+`gates:bounded_map` blocker's status. And this roadmap: 8b's status note then 8c's with its
+review-round paragraphs, and the phase-10 inbound list's four new bullets, 8b's two before 8c's two,
+each by date and content. **Counted from the rebased tree, never copied from either side's prose**: 220
+`lib/dexpace/` files beside `version.rb` with 220 `sig/` mirrors and the same nineteen
+`private_constant` test-mirror exceptions, each verified to have no `test/` mirror while every other core
+lib file has one; twenty `*-checklist.md`; twenty-two pages under `docs/sdk-documentation/` with
+twenty-one written beside the front-door `architecture.md`; eighteen gates; this gem's eleven `lib/`
+files beside `version.rb` (eight private), `dexpace-conformance`'s twenty-five beside `version.rb` (nine
+private), `dexpace-async-thread`'s four (one private), `dexpace-transport-net_http`'s nine (seven
+private) and `dexpace-serde-json`'s two; and the six manifests — core 1 335 → 1 336, this gem's 2 → 25,
+`dexpace-async-thread`'s 14 (8b's rows, the base's), `conformance` 100, `net_http` 17, `serde-json` 15 —
+with `surface:regenerate` on the rebased tests tip a no-op. Every file only one lane touched is
+byte-identical to that lane's tip — each 8b-only file to `5755267`, and each 8c-only file to `13873e5`,
+its checklist excepted for this pass's note and three nit fixes — and the only files differing from both
+are the six above. **Re-proven at every rebased tip.** The code tip is green on every one of the eighteen
+gates run individually on 4.0.6 (`test:gems` 3,833 runs, 73,334 assertions, 0 failures, 0 errors, 3 skips
+— the `net_http` driver's `TRANSPORT-18` vacuity and the two new groups' rows measured vacuous there —
+and 97.57 % line coverage, above the floor, so no tip in the stack is red; the honest RuboCop run over
+700 files clean; `gates:clean_bundle` loading all six gems) and on the 3.2.11 matrix row (3,824 runs,
+73,300 assertions, 3 skips, 95.62 %, five gems, the lock naming neither this gem nor `async-http`). The
+tests tip is green on the whole default task on 4.0.6 (4,020 runs, 74,125 assertions, 0 failures,
+0 errors, **7 skips** — the `net_http` driver's three and the async driver's four, each named by its
+driver — and 99.88 % line coverage; the honest RuboCop run over 725 files clean), on the matrix set on
+3.2.11 (3,832 runs, 73,349 assertions, 3 skips, five gems), 3.3.12 (4,020 runs, 74,125 assertions,
+7 skips, six gems, `openssl` 4.0.2 the bundle's on that row and on 3.4.10) and 3.4.10 (4,020 runs,
+74,125 assertions, 7 skips), with the whole-process 3.2.11 error the known interleaving-dependent
+`RETRY-42` / `RECOV-28` eight-thread case took under this pass's first seed (54433) rerunning green under
+the same seed and twice more (3,832 runs and 3 skips every time; the case is on phase 10's inbound list
+above), with 8b's composed suite run by name — ten cases, 45 assertions, green against the
+`Connection: close` fixture 8c gave `WireServer` — and with `surface:regenerate` on the tests tip
+changing nothing. The docs tip is green on the default task, the honest RuboCop run, the probe, the
+knowledge-structure verifier and both process-tooling suites, with every `ruby` fence of
+`transport-async_http.md` run as one script on 4.0.6 and 3.3.12 (the same printed values on both but the
+ephemeral port), `conformance.md`'s changed fences on both and `async-thread.md`'s blocks once more on
+4.0.6. `main` is `a7cfeb6` before and after this pass; nothing is pushed, and umbrella #29 stays open for
+both.

@@ -273,7 +273,7 @@ MVP gems (`docs/sdk-design-ruby/02-gem-and-workspace-layout.md` §2.1):
 |---|---|---|
 | `dexpace-core` | `Dexpace` | **none** |
 | `dexpace-transport-net_http` | `Dexpace::Transport::NetHTTP` | `dexpace-core`; `net-http` (a default gem) |
-| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core`; `async-http` |
+| `dexpace-transport-async_http` | `Dexpace::Transport::AsyncHTTP` | `dexpace-core`; `async-http ~> 0.104` |
 | `dexpace-serde-json` | `Dexpace::Serde::JSON` | `dexpace-core`; `json >= 2.19.9` |
 | `dexpace-async-thread` | `Dexpace::Async::Thread` | `dexpace-core` |
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |
@@ -1371,7 +1371,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  nineteen checklists written so far, each at implementation; `phase4/`
+  twenty checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's

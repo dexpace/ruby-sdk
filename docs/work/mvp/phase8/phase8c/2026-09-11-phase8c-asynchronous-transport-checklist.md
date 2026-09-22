@@ -16,6 +16,28 @@ document records it. The bundle the whole run used resolved `async-http` **0.105
 `io-event` 1.22.0 and, on every row this gem builds on, `openssl` 4.0.2 — the design's facts were
 measured on 0.104.0 and re-run on these (the *Matrix facts* section).
 
+**Reconciled 2026-09-22.** 8b is the sibling that lands first — its reconciled docs tip
+`5755267` holds, byte for byte, the tree its three squashes put on `main`, which is still `a7cfeb6`
+during this pass — so this phase's three branches were rebased onto that tree by `git rebase
+--onto` with rerere disabled, every 8c commit preserved and none reordered or reworded: code
+`c830725` → `c05ada2` (seven commits), tests `2449b6c` → `a56336e` (four) and docs `13873e5` →
+`6cc9d52` (four) plus the pass's one commit of its own, which carries this note, the roadmap's
+reconciliation paragraph, the `CLAUDE.md` checklist count re-derived to twenty, and the three
+documentation nits review round 3 left (guard
+row 18's status, guard rows 8 and 17's citations, and the roadmap note's 97.55 %). The sentences here
+that count the tree or say what landed first describe **this phase's own base**, `a7cfeb6`, and are
+left as written; on the combined tree the figures are: every one of the six gems real — no phase-0
+skeleton remains — **220** `lib/dexpace/` files beside `version.rb` with 220 `sig/` mirrors and the
+same **nineteen** `private_constant` test-mirror exceptions (this phase adds none in core: its one
+core edit, `configuration/keys.rb`, is an existing public file), **twenty** checklists,
+**twenty-one** as-built pages beside `architecture.md`, eighteen gates, the core manifest
+1 335 → 1 336, this gem's 2 → 25 and `dexpace-async-thread`'s 14 (8b's rows, already on the base);
+a `surface:regenerate` on the rebased tests tip changed nothing. The six files both lanes rewrote —
+`CLAUDE.md`, `README.md`, `docs/README.md`, `docs/sdk-documentation/architecture.md`,
+`docs/first-release.md` and the roadmap — were reconciled inside the replayed 8c commits. Deviation
+40 below is the one sentence here that 8b's presence makes false: it counts nineteen checklists, and
+the combined tree carries twenty.
+
 Legend, verbatim from the roadmap's cross-cutting constraint 3: ✅ implemented and tested ·
 🚫 not built (permanent simplification, named reason) · ⏳ deferred (naming the plan task — phase,
 task number and path — that will do it, or the `docs/first-release.md` entry that owns it) ·
@@ -163,8 +185,8 @@ gem directories).
 
 The reviewer's thirty mutations were run one at a time through a harness that applies the edit, runs
 the owning suites under `ruby -w`, captures the first failure and restores the file — on **4.0.6 and
-3.3.12** (the gem's floor row; 3.2.11 has no bundle for it). **Thirty-three of the thirty-six rows
-they make (the a/b splits counted) are red on both interpreters, and the three equivalent mutants
+3.3.12** (the gem's floor row; 3.2.11 has no bundle for it). **Thirty-four of the thirty-six rows
+they make (the a/b splits counted) are red on both interpreters, and the two equivalent mutants
 are recorded with their measurement.** Five guards the
 first pass found missing were added before the second pass and are what make rows 11, 13a, 13b, 15,
 16, 20 and 27b red rather than surviving or hanging: the mutex scan reaches `build_client`;
@@ -182,7 +204,7 @@ refutes. Review round 2 re-ran every row and seven extras of its own: three caug
 tests (its 45, 48v and 49), one equivalent by measurement (its 46, row 46 below — the
 `CancelledError` wrapped into `Task#cancel(cause:)` is read back by nothing, and its
 documentation was the fix), and three surviving, rows 44, 47v and 51 below, each made red on
-2026-09-21 by the guard its row names — **thirty-nine of forty-three rows red**, four equivalent.
+2026-09-21 by the guard its row names — **forty of forty-three rows red**, three equivalent.
 
 | # | Mutation | Caught by (first failure) | Rows |
 |---|---|---|---|
@@ -194,7 +216,7 @@ documentation was the fix), and three surviving, rows 44, 47v and 51 below, each
 | 5 | a framing drop routed through the policy | `request_mapper_test.rb` "TRANSPORT-11: the ten framing headers are dropped and logged verbose" (`:warn` where `:debug` was expected) | 4.0.6, 3.3.12 |
 | 6 | `FRAMING_HEADERS` loses `host` | "TRANSPORT-11: the drop set is exactly the ten folded names", "a body maps to a RequestBody…; framing is never copied" (a second `host:`) | 4.0.6, 3.3.12 |
 | 7 | `Endpoints.for` through `Endpoint.parse(url.to_s)` | `endpoints_test.rb` "never calls Endpoint.parse or URI.parse anywhere under lib/" (the source scan) | 4.0.6, 3.3.12 |
-| 8 | the default context drops `alpn_protocols` | `endpoints_test.rb` "the adapter-supplied ssl_context offers h2 and http/1.1 by ALPN"; `dispatch_conformance_test.rb` "ASYNC-22 over tls" (HTTP/1.1 negotiated, eight connections not one) | 4.0.6, 3.3.12 |
+| 8 | the default context drops `alpn_protocols` | `endpoints_test.rb` "the adapter-supplied ssl_context offers h2 and http/1.1 by ALPN" — the default context's ALPN is asserted at unit level only, because `dispatch_conformance_test.rb`'s tls variant builds its adapter with the fixture's own caller `ssl_context`, a context that never reaches the default line | 4.0.6, 3.3.12 |
 | 9 | the default context at `VERIFY_NONE` | `endpoints_test.rb` "an https URL always gets an adapter-supplied ssl_context that verifies the peer" | 4.0.6, 3.3.12 |
 | 10 | `retries: 0` dropped from `build_client` | `clients_test.rb` `FetchTest` "every client disables the native retry loop (TRANSPORT-2, 17, 18)" | 4.0.6, 3.3.12 |
 | 11 | the client built inside the mutex | `clients_test.rb` "the client is built outside the mutex: no Endpoints call inside a synchronize block" (the scan now reaches `build_client`; the first pass survived) | 4.0.6, 3.3.12 |
@@ -205,8 +227,8 @@ documentation was the fix), and three surviving, rows 44, 47v and 51 below, each
 | 14 | the exchange spawned with `Async { }` instead of `caller_task.async` | **Equivalent on async 2.46.0**: `Kernel#Async` inside a running task delegates to `Task.current.async`, so the exchange is the supervisor's child either way (`inner.parent.equal?(task)` measured true; `matrix_facts_test.rb` "P8-39 fact: Task#async runs the child eagerly…" and the design's fact 10 corrected in the knowledge note); `parent_cancellation_test.rb` stays green, honestly | measured on 4.0.6, 3.3.12 |
 | 15 | the token hook cancels the exchange directly | `cancellation_test.rb` "a token cancelled from a foreign OS thread still reaches the exchange, promptly" (`NoMethodError: private method 'raise' called for nil` out of the hook on the canceller's thread) — the first pass hung after the error until the body-path read was bounded | 4.0.6, 3.3.12 |
 | 16 | `queue.close` missing from `release_watch` | `parent_cancellation_test.rb` "TRANSPORT-8's pair", `adapter_test.rb` `TimeoutTest` — "the exchange task or its watcher outlived the settlement by 10 turns" (the first pass survived: nothing asserted the watcher's release) | 4.0.6, 3.3.12 |
-| 17 | a cancellation settled through `#fail` | `errors_test.rb` "settle routes a cancelled token to #request_cancel and everything else to #fail" (`Future#cancelled?` false); `cancellation_test.rb`'s `assert_predicate(future, :cancelled?)` | 4.0.6, 3.3.12 |
-| 18 | check-after-resume removed | **Equivalent for the close count, measured**: core's `Completer#fulfil` closes a response handed to an already-settled pivot (`close_quietly` inside `fulfil`, phase 2), so `TRANSPORT-9`'s native body is closed exactly once with or without `Exchange#perform`'s `check!` — the check is a shortcut past the mapping, not the guarantee; the design's step is kept and documented as such | measured on 4.0.6, 3.3.12 |
+| 17 | a cancellation settled through `#fail` | `errors_test.rb` "settle routes a cancelled token to #request_cancel and everything else to #fail" (`Future#cancelled?` false); `adapter_test.rb` "an already-cancelled token settles a CANCELLATION before anything is mapped or sent" (the `check!` raise goes through `#dispatch`'s fence into `Errors.settle`) | 4.0.6, 3.3.12 |
+| 18 | check-after-resume removed | `cancellation_test.rb` "a token cancel in flight while the exchange finishes never raises out of Source#cancel on the canceller's thread, and the future is cancelled" — with the check gone the fake 204 is delivered once the flag is up and the `Dexpace::CancelledError` the test expects is never raised (the second 4.0.6 failure is the knock-on leaked canceller thread); the close count measured separately stands: core's `Completer#fulfil` closes a response handed to an already-settled pivot (`close_quietly` inside `fulfil`, phase 2), so `TRANSPORT-9`'s native body is closed exactly once either way and the check is a shortcut past the mapping, not the guarantee | 4.0.6, 3.3.12 |
 | 19 | the undelivered native body not closed on `finish` | `parent_cancellation_test.rb` `CloseDisciplineTest` "TRANSPORT-22: an adaptation failure after the head closes the native body exactly once" (0), "R13" | 4.0.6, 3.3.12 |
 | 20 | the per-call `with_timeout` removed | `adapter_test.rb` `TimeoutTest` "TRANSPORT-4/TRANSPORT-8's pair" (a `:deadline_expired` cancellation where a `TransportError` was expected), `parent_cancellation_test.rb` "TRANSPORT-8's pair" — the first pass hung until the waits were bounded | 4.0.6, 3.3.12 |
 | 21 | `ResponseBody#each` delegating to the native `#each` | `response_body_test.rb` `PullAndCloseTest`, six failures: the double close, the read-after-close, the release hook's count | 4.0.6, 3.3.12 |
