@@ -12,12 +12,17 @@ Gem::Specification.new do |spec|
   spec.summary = "The asynchronous transport adapter for dexpace, over async-http."
   spec.description = <<~TEXT
     The reference asynchronous transport for the dexpace HTTP-client toolkit, implemented over
-    the async-http gem. It depends on dexpace-core and, once the adapter lands, on async-http
-    and nothing else.
+    the async-http gem. It depends on dexpace-core and on async-http and nothing else.
   TEXT
   spec.homepage = "https://github.com/dexpace/ruby-sdk"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= #{DexpaceVersions.ruby_floor}"
+  # P8-36: narrower than the repository's 3.2 floor, and the one gemspec that reads its OWN
+  # `floor:<gem>` row of VERSIONS rather than the global one. async-http 0.95.0 and async 2.38.0
+  # both raised required_ruby_version to >= 3.3, and the highest release that still admits 3.2 is
+  # eleven minor versions behind the one every fact in this gem's design was verified against. A
+  # floor a gem declares must be a floor it is tested on (8c's R15); the gates read the per-gem
+  # row, and the 3.2 CI row leaves this gem out of the bundle, test:gems and gates:clean_bundle.
+  spec.required_ruby_version = ">= #{DexpaceVersions.ruby_floor("dexpace-transport-async_http")}"
 
   spec.metadata = {
     "homepage_uri" => spec.homepage,
@@ -32,7 +37,10 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "dexpace-core", DexpaceVersions.core_constraint
 
-  # NFR-2: dexpace-core plus at most one third-party gem. The third-party half of this
-  # adapter's budget is declared by the phase that writes the code needing it (design P0-9);
-  # `rake gates:gemspec_audit` enforces the whole budget either way.
+  # NFR-2: dexpace-core plus at most one third-party gem, and this is the one (phase 8c). The
+  # `~>` on a two-segment version admits every 0.x release from 0.104 on (`>= 0.104, < 1`), so
+  # 0.105.0 and a future 0.200.0 alike; the adapter is proven on 0.105.0, whose closure is fifteen
+  # further gems including io-event's C extension and, below Ruby 3.4's default openssl 3.3, an
+  # installed openssl gem -- both stated in docs/first-release.md.
+  spec.add_dependency "async-http", "~> 0.104"
 end

@@ -13,6 +13,8 @@ require_relative "transport_suite/inbound"
 require_relative "transport_suite/streaming"
 require_relative "transport_suite/resilience"
 require_relative "transport_suite/lifecycle"
+require_relative "transport_suite/asynchronous"
+require_relative "transport_suite/header_drops"
 
 module Dexpace
   module Conformance
@@ -26,14 +28,21 @@ module Dexpace
       extend self
 
       # P8-9, printed at the head of every report: what a green run of this suite does NOT prove,
-      # so a third-party adapter author whose adapter passes is not misled about TLS verification
-      # or connect-timeout classification, which live in the adapter's own suite.
+      # so a third-party adapter author whose adapter passes is not misled about TLS verification,
+      # connect-timeout classification, or a runtime-originated cancellation (TRANSPORT-8, whose
+      # antecedent only an adapter's own suite can name -- phase 8c's decision), which live in the
+      # adapter's own suite.
       PREAMBLE = "dexpace-conformance transport suite: the wire fixture speaks plaintext only " \
                  "and exercises no connect timeout, so TLS verification and TRANSPORT-4's " \
                  "open-timeout classification are NOT among the things a green run proves " \
-                 "(P8-9); assert both in the adapter's own suite."
+                 "(P8-9); assert both in the adapter's own suite. Nor is TRANSPORT-8: a " \
+                 "cancellation the native client originates while the SDK future is live can " \
+                 "only be raised by naming the adapter's own runtime, so that pair -- terminal " \
+                 "on the cancellation, retryable on a timeout of the same path -- is the " \
+                 "adapter's own suite's too."
 
-      # The suite's assertions, frozen and ordered: the five groups this phase ships, concatenated.
+      # The suite's assertions, frozen and ordered: phase 8a's five groups and phase 8c's two,
+      # concatenated.
       #
       # @return [Array<Assertion>]
       def assertions
@@ -93,11 +102,13 @@ module Dexpace
         end
       end
 
-      # The five groups, each a private module of its own file (one constant per file, and each
+      # The seven groups, each a private module of its own file (one constant per file, and each
       # under RuboCop's module-length cap), concatenated in the order a reader meets the chapter:
-      # outbound, inbound, streaming, resilience, lifecycle.
+      # outbound, inbound, streaming, resilience, lifecycle, and phase 8c's two -- the
+      # cancellation and delivery rows, then the header-drop rows.
       ASSERTIONS = (Outbound::ASSERTIONS + Inbound::ASSERTIONS + Streaming::ASSERTIONS +
-                    Resilience::ASSERTIONS + Lifecycle::ASSERTIONS).freeze
+                    Resilience::ASSERTIONS + Lifecycle::ASSERTIONS + Asynchronous::ASSERTIONS +
+                    HeaderDrops::ASSERTIONS).freeze
       private_constant :ASSERTIONS
     end
   end

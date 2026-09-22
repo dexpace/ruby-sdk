@@ -1,6 +1,23 @@
 module Dexpace
   module Transport
+    # The reference asynchronous transport over async-http (phase 8c). Nothing from async,
+    # async-http, protocol-http or openssl names a public signature here (NFR-11): `.using`'s
+    # client and `.build`'s `ssl_context:` are untyped, with their YARD blocks saying what each
+    # accepts.
     module AsyncHTTP
+      DEFAULT_TIMEOUT_SECONDS: Float
+      DEFAULT_CONNECTION_LIMIT: Integer
+      MAX_ORIGINS: Integer
+      REGISTRY_KEY: Symbol
+      FRAMING_HEADERS: Array[String]
+      ALPN_PROTOCOLS: Array[String]
+
+      def self?.build: (?timeout: Numeric?, ?logger: Instrumentation::Logger,
+                        ?drop_policy: DropPolicy?, ?connection_limit: Integer?,
+                        ?ssl_context: untyped, ?configuration: Dexpace::Configuration?) -> Adapter
+      def self?.using: (untyped client, ?logger: Instrumentation::Logger,
+                        ?drop_policy: DropPolicy?) -> Adapter
+      def self?.default: () -> Adapter
     end
   end
 end

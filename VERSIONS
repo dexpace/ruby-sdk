@@ -3,6 +3,7 @@
 #   gem   <gem name>   <semver>       read by that gem's gemspec and by tools/versions.rb
 #   tool  <gem name>   <constraint>   read by the root Gemfile
 #   ruby  floor        <version>      required_ruby_version in every gemspec (NFR-10)
+#   ruby  floor:<gem>  <version>      one gem's own floor, when narrower than the global one
 #   ruby  matrix       <versions>     the CI matrix; asserted against .github/workflows/ci.yml
 #   ruby  dev          <version>      the development pin; asserted against .ruby-version
 #
@@ -36,5 +37,9 @@ tool bundler-audit                ~> 0.9
 tool prism                        ~> 1.9
 
 ruby floor                        3.2
+# P8-36 (phase 8c): async-http 0.95.0 and async 2.38.0 raised their floors to 3.3, so this one
+# gem declares 3.3 and is absent from the bundle, test:gems and gates:clean_bundle on the 3.2 row.
+# Colon-joined into the three-token `name` column so the grammar above needs no change.
+ruby floor:dexpace-transport-async_http 3.3
 ruby matrix                       3.2 3.3 3.4 4.0
 ruby dev                          4.0.6

@@ -8,7 +8,8 @@ require "dexpace"
 # name 5b's body-logging wiring reads (LOG_PREVIEW_BYTES, added by phase 5b in the change that
 # reads it -- the eighth constant, and this suite's count grew with it) and the one name phase
 # 8's transport adapters read (REQUEST_TIMEOUT, added by phase 8a in the change that reads it,
-# the ninth; the same rule, the same growth).
+# the ninth; the same rule, the same growth), and the one name phase 8c's asynchronous transport
+# alone reads (TRANSPORT_CONNECTION_LIMIT, the tenth, added in the change that reads it).
 class DexpaceConfigurationKeysTest < DexpaceTestCase
   test "CFG-14: the five well-known keys and the four wiring keys are frozen, non-empty Strings" do
     expected = {
@@ -21,6 +22,7 @@ class DexpaceConfigurationKeysTest < DexpaceTestCase
       MAX_TRACKED_CONTEXTS: "MAX_TRACKED_CONTEXTS",
       LOG_PREVIEW_BYTES: "LOG_PREVIEW_BYTES",
       REQUEST_TIMEOUT: "REQUEST_TIMEOUT",
+      TRANSPORT_CONNECTION_LIMIT: "TRANSPORT_CONNECTION_LIMIT",
     }
 
     assert_equal(expected.keys.sort, Dexpace::Configuration::Keys.constants.sort)

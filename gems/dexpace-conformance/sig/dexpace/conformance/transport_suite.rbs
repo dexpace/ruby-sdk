@@ -5,7 +5,7 @@ module Dexpace
     # runtime check does not have.
     module TransportSuite
       PREAMBLE: String
-      # A private_constant with no visibility in RBS; the five groups, concatenated.
+      # A private_constant with no visibility in RBS; the seven groups, concatenated.
       ASSERTIONS: Array[Assertion]
 
       def self?.assertions: () -> Array[Assertion]

@@ -1,0 +1,46 @@
+# Dexpace::Transport::AsyncHTTP::Exchange is a private_constant and not public API: this
+# declaration exists because the `async_http` Steep target checks every file under lib/ and needs
+# the class declared to type Adapter's call site. RBS has no visibility for a constant, so the
+# privacy lives in lib/dexpace/transport/async_http/exchange.rb alone. The tasks, the client and
+# the native request and response are untyped: nothing from async or async-http may name a
+# signature (NFR-11).
+module Dexpace
+  module Transport
+    module AsyncHTTP
+      class Exchange
+        WATCHER_ANNOTATION: String
+
+        @completer: Dexpace::Async::Completer
+        @cancellation: Dexpace::Cancellation
+        @client: untyped
+        @native_request: untyped
+        @request: Dexpace::Request
+        @deadline: Numeric
+        @logger: Instrumentation::Logger
+        @queue: Thread::Queue
+        @subscription: Dexpace::Cancellation::Subscription?
+        @task: untyped
+        @native: untyped
+        @adapted: Dexpace::Response?
+        @delivered: bool
+        @finishing: bool
+
+        def initialize: (completer: Dexpace::Async::Completer, cancellation: Dexpace::Cancellation,
+                         client: untyped, native_request: untyped, request: Dexpace::Request,
+                         deadline: Numeric, logger: Instrumentation::Logger) -> void
+        def start: (untyped caller_task) -> nil
+
+        private
+
+        def run: (untyped task) -> untyped
+        def perform: () -> bool
+        def subscribe: () -> Dexpace::Async::Completer
+        def signal: (untyped reason) -> nil
+        def net: () -> nil
+        def finish: () { () -> untyped } -> untyped
+        def watch: () -> untyped
+        def release_watch: () -> nil
+      end
+    end
+  end
+end

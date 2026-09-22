@@ -66,9 +66,12 @@ module AdapterFixtures
 
   # Two responses on ONE connection: the first request was read by the fixture, the second is
   # read here, so a client that keeps its connection alive is told apart from one that does not.
+  # The first response says so (`close: false`): since phase 8c every scripted head announces
+  # `Connection: close` by default, because the fixture closes after one exchange and a pooling
+  # client re-used the closed connection otherwise; this is the one script that serves two.
   def keep_alive_twice(first, second)
     lambda do |conn, _head|
-      Dexpace::Conformance::Scripts.write_response(conn, body: first)
+      Dexpace::Conformance::Scripts.write_response(conn, body: first, close: false)
       head = (+"").b
       head << conn.readpartial(4096) until head.include?("\r\n\r\n")
       Dexpace::Conformance::Scripts.write_response(conn, body: second)

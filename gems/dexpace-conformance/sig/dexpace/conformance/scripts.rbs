@@ -23,10 +23,11 @@ module Dexpace
       def self?.sequenced: (*String bodies) -> ^(untyped, Array[String]) -> void
       def self?.echo_path: () -> ^(untyped, Array[String]) -> void
       def self?.write_response: (untyped conn, ?status: String, ?headers: Hash[String, String],
-                                 ?body: String) -> nil
+                                 ?body: String, ?close: bool) -> nil
 
       private
 
+      def head: (*String fields) -> String
       def chunk: (String bytes) -> String
       def drain_until_closed: (untyped conn) -> nil
     end

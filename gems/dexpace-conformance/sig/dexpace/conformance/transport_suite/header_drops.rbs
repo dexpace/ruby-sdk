@@ -1,0 +1,44 @@
+# Dexpace::Conformance::TransportSuite::HeaderDrops is a private_constant and not public API:
+# this declaration exists because the conformance Steep target checks every file under lib/. RBS
+# has no visibility for a constant, so the privacy lives in header_drops.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module HeaderDrops
+        NON_TOKEN: String
+        DISTINCT_NAMES: Integer
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        class RecordingSink
+          @records: Array[[Symbol, untyped]]
+          @mutex: Thread::Mutex
+
+          def initialize: () -> void
+          def debug: (?untyped message) ?{ () -> untyped } -> nil
+          def info: (?untyped message) ?{ () -> untyped } -> nil
+          def warn: (?untyped message) ?{ () -> untyped } -> nil
+          def error: (?untyped message) ?{ () -> untyped } -> nil
+          def debug?: () -> bool
+          def info?: () -> bool
+          def warn?: () -> bool
+          def error?: () -> bool
+          def severities: () -> Array[Symbol]
+
+          private
+
+          def record: (Symbol severity, untyped message) ?{ () -> untyped } -> nil
+        end
+
+        def self?.non_token_name_is_dropped_and_the_rest_dispatched: (TransportCase kase) -> nil
+        def self?.header_drops_are_logged_once_per_name_and_bounded: (TransportCase kase) -> nil
+
+        private
+
+        def vacuous_unless_absent!: (untyped sent) -> nil
+        def vacuous_unless_dropped!: (TransportCase kase, RecordingSink sink) -> nil
+        def check_bounded: (TransportCase kase, untyped transport, RecordingSink sink) -> nil
+      end
+    end
+  end
+end

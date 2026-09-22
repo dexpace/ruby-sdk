@@ -52,6 +52,14 @@ module Dexpace
       # caller who means thirty seconds writes `30s` or `PT30S`. The precedent for a
       # transport-facing key nothing in core reads is HTTP_PROXY/HTTPS_PROXY/NO_PROXY above.
       REQUEST_TIMEOUT = "REQUEST_TIMEOUT"
+
+      # The per-origin connection-pool bound the asynchronous transport reads at construction,
+      # added by phase 8c in the change that reads it: async-http's own pool is unbounded by
+      # default, and an SDK that hands a caller an unbounded file-descriptor budget has decided on
+      # the caller's behalf. Read with `#integer`; genuinely that adapter's alone, because
+      # dexpace-transport-net_http builds a client per call and has no pool to bound. Nothing in
+      # core reads it.
+      TRANSPORT_CONNECTION_LIMIT = "TRANSPORT_CONNECTION_LIMIT"
     end
   end
 end

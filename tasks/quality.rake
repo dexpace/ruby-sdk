@@ -79,13 +79,20 @@ task :bundler_audit do
 end
 
 require_relative "../tools/suite_runner"
+require_relative "../tools/versions"
+
+# The gems whose own VERSIONS floor this interpreter meets (phase 8c's P8-36): on the 3.2 row
+# dexpace-transport-async_http is absent from the bundle, so its suite -- whose smoke test
+# requires the gem in its class body -- cannot load into the one test:gems process there.
+def supported_gem_dirs
+  Dir.glob("gems/*").select { |dir| DexpaceVersions.gem_supported?(File.basename(dir)) }
+end
 
 namespace :test do
   desc "NFR-5/NFR-6/NFR-10: every gem's suite, warnings fatal, coverage floor enforced"
   task :gems do
-    SuiteRunner.run(
-      FileList["gems/*/test/**/*_test.rb"], Dir.glob("gems/*/lib") + %w[test], coverage: true,
-    )
+    files = FileList[supported_gem_dirs.map { |dir| "#{dir}/test/**/*_test.rb" }]
+    SuiteRunner.run(files, Dir.glob("gems/*/lib") + %w[test], coverage: true)
   rescue SuiteRunner::Failure => error
     abort(error.message)
   end

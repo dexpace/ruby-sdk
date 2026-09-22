@@ -18,7 +18,6 @@ module GemspecAudit
   def violations(root)
     versions_path = File.join(root, "VERSIONS")
     expected_constraint = constraint_for(versions_path)
-    expected_floor = ">= #{DexpaceVersions.value("ruby", "floor", versions_path)}"
 
     Dir.glob(File.join(root, "gems/*/*.gemspec")).flat_map do |path|
       spec = Gem::Specification.load(path)
@@ -26,6 +25,10 @@ module GemspecAudit
       # the finding should name the file rather than surface as a NoMethodError on nil.
       next ["#{path}: gemspec did not load."] if spec.nil?
 
+      # NFR-10's floor is per gem since phase 8c (P8-36): a gem with a `floor:<gem>` row in
+      # VERSIONS declares that one, every other gem the global one.
+      gem_name = File.basename(path, ".gemspec")
+      expected_floor = ">= #{DexpaceVersions.ruby_floor(gem_name, versions_path)}"
       check(spec, expected_constraint, expected_floor)
     end
   end

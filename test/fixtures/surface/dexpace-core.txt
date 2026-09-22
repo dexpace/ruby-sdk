@@ -278,6 +278,7 @@ Dexpace::Configuration::Keys::MAX_RETRY_ATTEMPTS : String
 Dexpace::Configuration::Keys::MAX_TRACKED_CONTEXTS : String
 Dexpace::Configuration::Keys::NO_PROXY : String
 Dexpace::Configuration::Keys::REQUEST_TIMEOUT : String
+Dexpace::Configuration::Keys::TRANSPORT_CONNECTION_LIMIT : String
 Dexpace::Configuration::Sources
 Dexpace::Configuration::Sources.from_hash
 Dexpace::Configuration::Sources::ENVIRONMENT : Proc

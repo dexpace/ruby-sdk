@@ -1,0 +1,33 @@
+# Dexpace::Conformance::TransportSuite::Asynchronous is a private_constant and not public API:
+# this declaration exists because the conformance Steep target checks every file under lib/. RBS
+# has no visibility for a constant, so the privacy lives in asynchronous.rb alone.
+module Dexpace
+  module Conformance
+    module TransportSuite
+      module Asynchronous
+        ROWS: Array[[untyped, String, Symbol]]
+        ASSERTIONS: Array[Assertion]
+
+        class RaisingBody
+          include Dexpace::Body
+
+          def content_length: () -> Integer
+          def write_to: (untyped sink) -> Integer
+        end
+
+        def self?.cancelling_the_token_mid_body_releases_the_exchange: (TransportCase kase) -> nil
+        def self?.a_response_arriving_after_cancellation_is_closed_not_delivered: (TransportCase kase) -> nil
+        def self?.an_adaptation_failure_is_delivered_classified: (TransportCase kase) -> nil
+        def self?.a_success_always_carries_a_response: (TransportCase kase) -> nil
+
+        private
+
+        def cancel_when: (Thread::Queue signal, Dexpace::Cancellation::Source source, Symbol reason)
+                         ?{ () -> untyped } -> Thread
+        def gated_answer: (untyped blocked, untyped answer) -> ^(untyped, Array[String]) -> void
+        def expect_terminal_cancellation: (TransportCase kase, Exception? error, String id,
+                                           misclassified: String, unreleased: String) -> nil
+      end
+    end
+  end
+end

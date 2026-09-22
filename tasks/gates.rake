@@ -180,6 +180,8 @@ namespace :gates do
     require "open3"
     require "tmpdir"
 
+    require_relative "../tools/versions"
+
     root = gate_root
     override = ENV.fetch("DEXPACE_CLEAN_BUNDLE_GEM", nil)
     targets =
@@ -189,6 +191,12 @@ namespace :gates do
       else
         CLEAN_BUNDLE_ENTRIES
       end
+    # A gem whose own floor this interpreter does not meet is skipped, not failed: Bundler refuses
+    # a path gem's required_ruby_version at install time, and that refusal would be a red row for
+    # a gem the row is not meant to build (phase 8c's P8-36). The closing count says how many ran.
+    targets = targets.select do |name, _|
+      DexpaceVersions.gem_supported?(name, RUBY_VERSION, File.join(root, "VERSIONS"))
+    end
 
     targets.each do |name, (entry, constant)|
       path = override || File.join(root, "gems", name)

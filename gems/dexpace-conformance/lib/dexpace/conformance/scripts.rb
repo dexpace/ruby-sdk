@@ -13,6 +13,13 @@ module Dexpace
     # socket -- `wait_readable` for a delay, `readpartial` for "until the peer goes away" -- and
     # never on `sleep`, so WireServer#close, which closes every accepted socket, wakes it at once
     # and no handler thread outlives the test that started it.
+    #
+    # Every head a script writes carries `Connection: close` (phase 8c, 2026-09-21): WireServer
+    # closes the socket after one exchange, so the header only says what the server does anyway
+    # -- and without it a client that pools keep-alive connections, async-http, re-used a
+    # connection the server had already closed and read EOF on its next request one time in two
+    # (measured: 12 of 20 immediate sequential GETs), which made every multi-settle assertion a
+    # coin flip against that adapter. Net::HTTP builds a client per call and reads it as nothing.
     module Scripts
       extend self
 
@@ -66,8 +73,7 @@ module Dexpace
       # @return [Proc] the script
       def dribble(first, second, delay_seconds)
         lambda do |conn, _head|
-          conn.write("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n" \
-                     "Transfer-Encoding: chunked\r\n\r\n")
+          conn.write(head("Content-Type: text/plain", "Transfer-Encoding: chunked"))
           conn.write(chunk(first))
           conn.flush
           conn.wait_readable(delay_seconds)
@@ -98,10 +104,8 @@ module Dexpace
       # @return [Proc] the script
       def malformed_headers
         lambda do |conn, _head|
-          conn.write(
-            "HTTP/1.1 200 OK\r\nX-Ctl: a\x01b\r\nX-B\xE9d: y\r\nX-Obs: caf\xE9\r\n" \
-            "Set-Cookie: a=1\r\nSet-Cookie: b=2\r\nContent-Length: 2\r\n\r\nhi".b,
-          )
+          conn.write(head("X-Ctl: a\x01b", "X-B\xE9d: y", "X-Obs: caf\xE9", "Set-Cookie: a=1",
+                          "Set-Cookie: b=2", "Content-Length: 2",).b, "hi",)
         end
       end
 
@@ -111,8 +115,7 @@ module Dexpace
       # @return [Proc] the script
       def malformed_content_length
         lambda do |conn, _head|
-          conn.write("HTTP/1.1 200 OK\r\nContent-Type: not a/;;media type\r\n" \
-                     "Content-Length: abc\r\n\r\nhi")
+          conn.write(head("Content-Type: not a/;;media type", "Content-Length: abc"), "hi")
         end
       end
 
@@ -142,7 +145,7 @@ module Dexpace
       # @return [Proc] the script
       def hang_after_headers(on_headers_written: nil)
         lambda do |conn, _head|
-          conn.write("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n")
+          conn.write(head("Transfer-Encoding: chunked"))
           conn.flush
           on_headers_written&.call
           drain_until_closed(conn)
@@ -172,7 +175,7 @@ module Dexpace
       # @return [Proc] the script
       def truncated(declared_length:, actual_body:)
         lambda do |conn, _head|
-          conn.write("HTTP/1.1 200 OK\r\nContent-Length: #{declared_length}\r\n\r\n#{actual_body}")
+          conn.write(head("Content-Length: #{declared_length}"), actual_body)
         end
       end
 
@@ -198,25 +201,34 @@ module Dexpace
         ->(conn, head) { write_response(conn, body: head.first.to_s.split[1].to_s) }
       end
 
-      # The one write primitive: a status line, the headers plus a computed Content-Length, and
-      # the body. It does not close the connection -- WireServer#handle's ensure does, once, for
-      # every connection whatever its script did.
+      # The one write primitive: a status line, the headers plus a computed Content-Length and
+      # `Connection: close`, and the body. It does not close the connection -- WireServer#handle's
+      # ensure does, once, for every connection whatever its script did -- and the header is what
+      # HTTP says a server that will do that must send (see the module comment). A script that
+      # deliberately serves a SECOND response on the same connection -- a keep-alive proof --
+      # passes `close: false` for every response but its last.
       #
       # @param conn [Object] the accepted socket
       # @param status [String] the status line's code and reason
       # @param headers [Hash{String => String}] response headers
       # @param body [String] the body
+      # @param close [Boolean] whether to announce that this response ends the connection
       # @return [nil]
       def write_response(conn, status: "200 OK", headers: { "Content-Type" => "text/plain" },
-                         body: "")
-        lines = headers.merge("Content-Length" => body.bytesize.to_s)
-          .map { |name, value| "#{name}: #{value}" }.join("\r\n")
+                         body: "", close: true)
+        framing = { "Content-Length" => body.bytesize.to_s }
+        framing["Connection"] = "close" if close
+        lines = headers.merge(framing).map { |name, value| "#{name}: #{value}" }.join("\r\n")
         conn.write("HTTP/1.1 #{status}\r\n#{lines}\r\n\r\n".b, body.b)
         conn.flush
         nil
       end
 
       private
+
+      # A raw 200 head for the scripts that write their own framing: the given fields, then the
+      # `Connection: close` every head here carries (the module comment), then the blank line.
+      def head(*fields) = "HTTP/1.1 200 OK\r\n#{fields.join("\r\n")}\r\nConnection: close\r\n\r\n"
 
       def chunk(bytes)
         "#{bytes.bytesize.to_s(16)}\r\n#{bytes}\r\n"
