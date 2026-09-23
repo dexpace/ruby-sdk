@@ -78,9 +78,13 @@ module Dexpace
         # The source is the driver's to name -- a porter's is not this repository's `VERSIONS`
         # file -- so the assertion is that every unit's PUBLISHED version equals the one that
         # source states for it. With no source supplied it is :vacuous with that reason, never a
-        # pass, because "nobody told us" is not evidence of a single source.
+        # pass, because "nobody told us" is not evidence of a single source. A source naming SOME
+        # units states nothing about the rest, so those are skipped rather than failed -- the
+        # declaration is the driver's, and this assertion checks it rather than inventing one.
         def single_version_source(subject)
           stated = subject.versions
+          raise Vacuous, "no single source of truth was named for any unit" if stated.empty?
+
           mismatched = subject.every_name.filter_map do |name|
             published = subject.spec(name).version.to_s
             want = stated[name]

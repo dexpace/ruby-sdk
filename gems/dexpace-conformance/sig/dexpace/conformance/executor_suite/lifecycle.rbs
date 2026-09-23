@@ -5,10 +5,13 @@ module Dexpace
     module ExecutorSuite
       module Lifecycle
         DRAIN: Integer
+        POST_BOUND: Float
         ROWS: Array[untyped]
         ASSERTIONS: Array[Assertion]
 
         def self?.concurrent_post: (ExecutorCase subject) -> nil
+        def self?.check_posters_returned: (Array[Thread] posters) -> nil
+        def self?.still_running: (Array[Thread] threads, Float budget) -> Integer
         def self?.close_is_latched: (ExecutorCase subject) -> nil
         def self?.borrowed_executor_survives: (ExecutorCase subject) -> nil
         def self?.check_no_shutdown: (ExecutorCase subject) -> nil

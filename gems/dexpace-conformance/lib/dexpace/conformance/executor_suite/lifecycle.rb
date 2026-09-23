@@ -15,6 +15,11 @@ module Dexpace
 
         # How many units the graceful-shutdown assertion posts before it closes.
         DRAIN = 8
+        # Seconds every poster has, in total, to return from `#post`. Submission is not the work:
+        # an executor whose `#post` blocks is the shape that would park this assertion for ever,
+        # so the join is bounded and an expired one is the failure (8a's "every wait carries a
+        # bound" rule, which `await_closed_connection` fixed for this gem).
+        POST_BOUND = 1.0
 
         # SEAM-12 / XCUT-11: "invoke one shared instance from many threads and assert no
         # cross-talk." Sixteen threads each post a distinct value; the assertion is on the
@@ -22,8 +27,10 @@ module Dexpace
         def concurrent_post(subject)
           pool = subject.executor
           seen = ::Thread::Queue.new
-          ::Array.new(ExecutorCase::THREADS) { |i| ::Thread.new { pool.post { seen << i } } }
-            .each(&:join)
+          posters = ::Array.new(ExecutorCase::THREADS) do |index|
+            ::Thread.new { pool.post { seen << index } }
+          end
+          check_posters_returned(posters)
           pool.close
           collected = drain(seen)
 
@@ -31,6 +38,28 @@ module Dexpace
                      "work posted from many threads was lost or duplicated",
                      expected: ExecutorCase::THREADS, actual: collected.size,
                      ids: %w[SEAM-12 XCUT-11],)
+        end
+
+        # The bounded half of `concurrent_post`, kept apart so the assertion reads as one thought.
+        # A poster still running when the budget is spent has a `#post` that blocks, which is a
+        # non-conformance to report and not a run to hang; the whole set shares ONE budget, so
+        # sixteen stuck posters cost one bound and not sixteen.
+        # @return [nil]
+        def check_posters_returned(posters)
+          stuck = still_running(posters, POST_BOUND)
+
+          Check.that(stuck.zero?, "posting work from many threads did not return",
+                     expected: "every #post returns", actual: "#{stuck} still posting",
+                     ids: %w[SEAM-12 XCUT-11],)
+        end
+
+        # @return [Integer] how many of the threads were still alive when the budget ran out
+        def still_running(threads, budget)
+          deadline = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) + budget
+          threads.count do |one|
+            left = deadline - ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
+            one.join(left.positive? ? left : 0).nil?
+          end
         end
 
         # XCUT-13 / ASYNC-15 clauses (a) and (b): close is latched and ownership-aware. Clause

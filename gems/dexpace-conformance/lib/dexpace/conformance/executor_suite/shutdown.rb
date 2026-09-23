@@ -83,9 +83,22 @@ module Dexpace
         end
 
         # The bounded wait ASYNC-3 names, observed through the poster rather than slept on.
+        #
+        # BOTH pops carry the bound, and the ENTRY one is the load-bearing addition. An executor
+        # that REFUSES the post -- ASYNC-2's saturated queue, or a closed pool -- pushes nothing
+        # onto `entered` and the poster rescues the refusal, so an unbounded pop there parks the
+        # whole run for ever. An expired entry pop is :vacuous and not :failed: with no unit
+        # started there is no "blocking task on a worker thread", which is the antecedent
+        # ASYNC-3's own sentence opens with, and a MUST-level vacuity blocks the report anyway.
+        # 8a fixed the rule for this gem with `await_closed_connection`'s `timeout:` -- every wait
+        # carries a bound, so a non-conforming subject fails the assertion instead of hanging.
         # @return [nil]
         def check_release(transport, source)
-          transport.entered.pop
+          if transport.entered.pop(timeout: BLOCKED_WORKER_BOUND).nil?
+            raise Vacuous, "the executor did not start the posted unit within " \
+                           "#{BLOCKED_WORKER_BOUND}s, so no worker was ever blocked to cancel"
+          end
+
           source.cancel(:interrupt_requested)
           freed = transport.released.pop(timeout: BLOCKED_WORKER_BOUND)
 

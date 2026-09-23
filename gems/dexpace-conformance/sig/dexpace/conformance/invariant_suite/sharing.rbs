@@ -7,6 +7,7 @@ module Dexpace
         THREADS: Integer
         FIBERS: Integer
         RESUMES: Integer
+        CALL_BOUND: Float
         ROWS: Array[untyped]
         ASSERTIONS: Array[Assertion]
 
@@ -14,6 +15,7 @@ module Dexpace
         def self?.shared_instances_are_fiber_safe: (InvariantCase subject) -> nil
         def self?.audit_declared: (InvariantCase subject) -> void
         def self?.drive_threads: (untyped step) -> Array[untyped]
+        def self?.check_all_returned: (Array[Thread] callers) -> nil
         def self?.expected_requests: () -> Array[String]
         def self?.fiber: (untyped step, Integer index, Array[untyped] seen) -> untyped
         def self?.resume: (untyped one) -> void

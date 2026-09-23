@@ -20,6 +20,12 @@ module Dexpace
         FIBERS = 2
         # Enough resumes for both fibers to finish, and a bound if one of them never does.
         RESUMES = 4
+        # Seconds every concurrent call has, IN TOTAL, to return. A shared instance that holds a
+        # lock across the call returns on one thread and never on the other fifteen, so the join
+        # is bounded and an expired one is the failure. 8a fixed the rule for this gem with
+        # `await_closed_connection`'s `timeout:`: a non-conforming subject fails the assertion
+        # instead of hanging the run.
+        CALL_BOUND = 1.0
 
         # XCUT-11, clause 1: the structural predicate over every shared instance the DRIVER
         # declares (design R8, P9-9), plus the requirement's own conformance shape -- "invoke one
@@ -73,11 +79,30 @@ module Dexpace
         # @return [Array<String>] the requests the one shared step saw, sorted
         def drive_threads(step)
           results = ::Thread::Queue.new
-          ::Array.new(THREADS) { |i| ::Thread.new { results << step.call("request-#{i}") } }
-            .each(&:join)
+          callers = ::Array.new(THREADS) do |index|
+            ::Thread.new { results << step.call("request-#{index}") }
+          end
+          check_all_returned(callers)
           collected = [] #: Array[untyped]
           collected << results.pop until results.empty?
           collected.map(&:first).sort
+        end
+
+        # The bounded half of `drive_threads`, kept apart so the assertion reads as one thought.
+        # The whole set shares ONE budget, so sixteen stuck callers cost one bound and not sixteen.
+        # @return [nil]
+        def check_all_returned(callers)
+          deadline = ::Process.clock_gettime(::Process::CLOCK_MONOTONIC) + CALL_BOUND
+          stuck = callers.count do |one|
+            left = deadline - ::Process.clock_gettime(::Process::CLOCK_MONOTONIC)
+            one.join(left.positive? ? left : 0).nil?
+          end
+
+          Check.that(stuck.zero?,
+                     "a shared instance did not return on every thread; it serialises or holds " \
+                     "a lock across the call",
+                     expected: "#{THREADS} concurrent calls return",
+                     actual: "#{stuck} still running", ids: ["XCUT-11"],)
         end
 
         # @return [Array<String>] what a step with no cross-talk must have seen
