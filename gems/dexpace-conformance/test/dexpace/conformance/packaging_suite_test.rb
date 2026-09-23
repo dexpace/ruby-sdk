@@ -122,11 +122,23 @@ class DexpaceConformancePackagingSuiteTest < DexpaceTestCase # rubocop:disable M
     assert_equal(:failed, statuses(report)["NFR-14"])
   end
 
+  # R0-2: the assertion's own comment promises this and the first cut passed instead, because an
+  # empty map skipped every unit and nothing mismatched. "Nobody told us" is not evidence of a
+  # single source, and NFR-14 is a SHOULD, so the vacuity is recorded without blocking the report.
   test "with no single source named, NFR-14 is vacuous rather than a pass" do
     report = run_suite(conforming, versions: {})
 
-    assert_equal(:passed, statuses(report)["NFR-14"],
-                 "an empty map states nothing about any unit, so nothing mismatches",)
+    assert_equal(:vacuous, statuses(report)["NFR-14"])
+    assert_includes(report.to_s, "no single source of truth was named for any unit")
+    assert_predicate(report, :passed?, "NFR-14 is a SHOULD, so its vacuity does not block")
+  end
+
+  # The partial case the comment names: a source that states some units states nothing about the
+  # rest, so those are skipped rather than failed -- the declaration is the driver's.
+  test "a single source naming only some units checks those and skips the rest" do
+    report = run_suite(conforming, versions: { CORE => "0.1.0" })
+
+    assert_equal(:passed, statuses(report)["NFR-14"])
   end
 
   test "a runtime version disagreeing with the gemspec fails NFR-15" do
@@ -159,6 +171,20 @@ class DexpaceConformancePackagingSuiteTest < DexpaceTestCase # rubocop:disable M
     report = Suite.run(adapters: [ADAPTER], resolve: ->(_name) {}, constants: CONSTANTS)
 
     assert_equal([:vacuous], report.results.map(&:status).uniq)
+  end
+
+  # R0-4: every other case here supplies its own `resolve:`, so the SHIPPED default -- the one a
+  # real driver gets, and a locked public constant -- ran in no test at all. Its rescue is what
+  # turns "this gem is not installed" into the :vacuous the suite's contract promises rather than
+  # the Gem::MissingSpecError a bare `find_by_name` raises, which Runner would report :error.
+  test "the shipped default resolve answers vacuous for a gem that is not installed" do
+    absent = "dexpace-no-such-gem-#{Process.pid}"
+    adapter = "#{absent}-adapter"
+    report = Suite.run(core: absent, adapters: [adapter],
+                       versions: { absent => "0.0.0", adapter => "0.0.0" },)
+
+    assert_equal([:vacuous], report.results.map(&:status).uniq)
+    assert_includes(report.to_s, "#{absent} is not installed")
   end
 
   test "an unloaded constant is vacuous, never failed" do

@@ -27,6 +27,25 @@ class RequirementLevelsTest < GateCase
     assert_equal(%i[may must should], map.values.uniq.sort)
   end
 
+  # The 19-prefix restriction in ROW is load-bearing and nothing asserted it: loosening ROW to
+  # `[A-Z]+-\d+` left the map at exactly 645 rows over this repository's own appendix C, so the
+  # mutation survived every test in this file (R0-5). A SYNTHETIC table is what discriminates --
+  # the sibling scanner in tools/appendix_b.rb carries the same case, and its mutation was caught.
+  test "the row scanner does not mistake an RFC number or an ISO date for a requirement id" do
+    Dir.mktmpdir do |dir|
+      table = File.join(dir, "appendix.md")
+      File.write(table, <<~TABLE)
+        | HTTP-7 | MUST | a real row |
+        | RFC-7235 | MUST | an RFC number where an id goes |
+        | ISO-8601 | SHOULD | a standard's number, hyphen and digits |
+        | XCUT-11 | MUST | a real row |
+      TABLE
+
+      assert_equal({ "HTTP-7" => :must, "XCUT-11" => :must },
+                   RequirementLevels.parse(Pathname(table)),)
+    end
+  end
+
   # `MUST NOT` is a MUST with a negated predicate, and appendix C holds exactly one.
   test "MUST NOT is a must" do
     assert_equal(:must, RequirementLevels::LEVEL.fetch("MUST NOT"))

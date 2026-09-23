@@ -7,7 +7,7 @@ require "dexpace/conformance"
 # Appendix B.7's lifecycle half and the harness for SEAM-25's lifecycle event, proven against
 # deliberately non-conforming executors.
 # SEAM-12, SEAM-25, ASYNC-3, ASYNC-15, ASYNC-16, ASYNC-17, XCUT-11, XCUT-13, XCUT-22.
-class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase
+class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase # rubocop:disable Metrics/ClassLength -- the non-conforming executors this suite must fail against live beside the tests that drive them, which is what keeps each test readable as one behaviour
   Suite = Dexpace::Conformance::ExecutorSuite
 
   # The one payload every double emits, shaped exactly as Event#emit shapes it: a Hash whose
@@ -98,6 +98,47 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase
     def close = @pool.close
   end
 
+  # ASYNC-2's saturated or closed executor, which this gem exists to be run by third parties
+  # against: `#post` REFUSES rather than blocking, so nothing ever enters the transport and the
+  # ASYNC-3 assertion's entry wait has nobody to wait for.
+  class RefusingPool
+    def post(&) = raise(Dexpace::ClosedError, "this executor refuses work")
+    def close = nil
+  end
+
+  # An executor whose `#post` BLOCKS. Submission is not the work -- the SPI's `#post` returns and
+  # the unit runs elsewhere -- so this is non-conforming, and it is the shape SEAM-12's sixteen
+  # posting threads would have parked on for ever.
+  class BlockingPostPool
+    def initialize(entered:, gate:)
+      @entered = entered
+      @gate = gate
+    end
+
+    def post(&)
+      @entered << Thread.current
+      @gate.pop
+    end
+
+    def close = nil
+  end
+
+  # Releases every thread parked on `gate` and joins each one, so a test driving a blocking double
+  # leaves the thread count where it found it (DexpaceTestCase's teardown).
+  def release(entered, gate)
+    gate.close
+    threads = []
+    loop do
+      one = entered.pop(timeout: 0.5)
+      break if one.nil?
+
+      threads << one
+    end
+    threads.each { |thread| thread.join(2) }
+  end
+
+  def assertion_for(id) = Suite.assertions.find { |one| one.ids.include?(id) }
+
   def statuses(report) = report.results.to_h { |r| [r.assertion.ids.first, r.status] }
 
   # ASYNC-3 is waived by ID here for the same reason a first-party driver waives it: no executor
@@ -136,6 +177,40 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase
 
     assert_equal(:failed, statuses(report)["ASYNC-3"])
     assert_match(/still blocked/, report.failures.first.detail)
+  end
+
+  # R0-1: the entry wait carried no bound, so an executor that refuses the post parked the run for
+  # ever -- no unit entered, nothing was pushed, and the ensure that frees the gate and closes the
+  # pool was never reached. :vacuous and not :failed, because with no unit started there is no
+  # "blocking task on a worker thread", which is the antecedent ASYNC-3's own sentence opens with.
+  # Driven as ONE assertion: an executor that refuses every post is non-conforming in several ways
+  # and this test is about the bound.
+  test "an executor that refuses the post makes ASYNC-3 vacuous rather than hanging the run" do
+    subject = Dexpace::Conformance::ExecutorCase.new(build: ->(**_kw) { RefusingPool.new })
+
+    error = assert_raises(Dexpace::Conformance::Vacuous) do
+      assertion_for("ASYNC-3").call(subject)
+    end
+
+    assert_match(/did not start the posted unit/, error.reason)
+  end
+
+  # The same rule at SEAM-12's sixteen posting threads: `#post` must RETURN, so the joins carry one
+  # shared budget and an expired one is the failure.
+  test "an executor whose post blocks fails SEAM-12 rather than hanging the run" do
+    entered = Thread::Queue.new
+    gate = Thread::Queue.new
+    subject = Dexpace::Conformance::ExecutorCase.new(
+      build: ->(**_kw) { BlockingPostPool.new(entered: entered, gate: gate) },
+    )
+
+    error = assert_raises(Dexpace::Conformance::Failure) do
+      assertion_for("SEAM-12").call(subject)
+    end
+
+    assert_match(/did not return/, error.message)
+  ensure
+    release(entered, gate)
   end
 
   test "an unlatched close fails XCUT-13 and SEAM-25" do

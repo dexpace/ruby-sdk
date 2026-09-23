@@ -93,6 +93,33 @@ class DexpaceConformanceInvariantSuiteTest < DexpaceTestCase # rubocop:disable M
     end
   end
 
+  # A shared instance whose #call never returns. XCUT-11's first clause spawns sixteen callers, so
+  # without a bound on the joins the assertion parks the whole run against it (R0-1). Not a
+  # subclass of LatchedSeam: a seam that blocks on EVERY call blocks assertions this one does not
+  # own, so the test drives the single assertion and the double needs nothing else.
+  class BlockingCallSeam
+    attr_reader :release_count
+
+    def initialize(entered:, gate:, client: nil)
+      @entered = entered
+      @gate = gate
+      @client = client
+      @release_count = 0
+    end
+
+    def call(request)
+      @entered << Thread.current
+      [request, @gate.pop]
+    end
+
+    def close
+      @release_count += 1
+      nil
+    end
+  end
+
+  BLOCKING_DECLARED = %i[@entered @gate @client @release_count].freeze
+
   DECLARED = %i[@client @owned @closed @release_count @lock].freeze
 
   # ---- bounded maps ----
@@ -315,6 +342,41 @@ class DexpaceConformanceInvariantSuiteTest < DexpaceTestCase # rubocop:disable M
 
     assert_equal(%i[failed passed], statuses(report)["XCUT-11"].sort,
                  "a deadlock must be reported :failed; :error reads as a broken harness",)
+  end
+
+  # R0-1: the sixteen callers were joined with no bound, so a shared instance that never returns
+  # parked the run instead of failing the clause. 8a's rule for this gem is the opposite -- every
+  # wait carries a bound, so a non-conforming subject fails the assertion.
+  test "a shared instance whose call never returns fails XCUT-11 rather than hanging the run" do
+    entered = Thread::Queue.new
+    gate = Thread::Queue.new
+    assertion = Suite.assertions.find { |one| one.name.include?("holds no per-call state") }
+    subject = Dexpace::Conformance::InvariantCase.new(
+      core: ::Dexpace, mutable: BLOCKING_DECLARED,
+      seam: lambda { |client: nil|
+        BlockingCallSeam.new(entered: entered, gate: gate, client: client)
+      },
+    )
+
+    error = assert_raises(Dexpace::Conformance::Failure) { assertion.call(subject) }
+
+    assert_match(/did not return on every thread/, error.message)
+  ensure
+    release(entered, gate)
+  end
+
+  # Releases every caller parked on `gate` and joins each one, so a test driving a blocking double
+  # leaves the thread count where it found it (DexpaceTestCase's teardown).
+  def release(entered, gate)
+    gate.close
+    callers = []
+    loop do
+      one = entered.pop(timeout: 0.5)
+      break if one.nil?
+
+      callers << one
+    end
+    callers.each { |thread| thread.join(2) }
   end
 
   test "a shared instance the driver declares is audited too, and names itself on failure" do

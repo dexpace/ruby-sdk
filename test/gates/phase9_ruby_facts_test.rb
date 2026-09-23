@@ -65,6 +65,10 @@ class Phase9RubyFactsTest < GateCase
 
   # $VERBOSE = false silences only the -w class: a duplicated hash key warns whatever $VERBOSE is
   # and would still raise under FatalWarnings, so the window AstScan.parse opens is nil, not false.
+  #
+  # PRESENCE and not a count: the same source emits ONE warning on 3.3.12 and later and TWO on the
+  # 3.2 floor, which also reports `unused literal ignored`. The fact this test exists for is which
+  # $VERBOSE value silences the class, and a count made the floor red for no property (R0-3).
   test "$VERBOSE = nil silences both warning classes, and the window closes behind it" do
     armed = $VERBOSE
     unused = capture_warnings { quietly { ::RubyVM::AbstractSyntaxTree.parse_file(WARNS_UNUSED) } }
@@ -72,7 +76,8 @@ class Phase9RubyFactsTest < GateCase
     silenced = capture_warnings { quietly { ::RubyVM::AbstractSyntaxTree.parse("{a: 1, a: 2}") } }
 
     assert_empty(unused)
-    assert_equal(1, duplicated.size, "a duplicated key warns whatever $VERBOSE is")
+    assert(duplicated.any? { |message, _| message.include?("is duplicated") },
+           "a duplicated key warns whatever $VERBOSE is",)
     assert_empty(silenced)
     assert_equal(armed, $VERBOSE, "the gate stays armed outside the window")
   end
