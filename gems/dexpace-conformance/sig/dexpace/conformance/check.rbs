@@ -1,0 +1,9 @@
+module Dexpace
+  module Conformance
+    # The one assertion primitive every phase-9 suite body uses.
+    module Check
+      def self?.that: (untyped condition, String message, expected: untyped, actual: untyped,
+                       ids: Array[String]) -> nil
+    end
+  end
+end

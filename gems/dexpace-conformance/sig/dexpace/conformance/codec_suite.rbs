@@ -1,0 +1,15 @@
+module Dexpace
+  module Conformance
+    # Appendix B.3's seam half: SEAM-20 with SERDE-3, and SERDE-9.
+    module CodecSuite
+      PREAMBLE: String
+      # A private_constant with no visibility in RBS.
+      ASSERTIONS: Array[Assertion]
+
+      def self?.assertions: () -> Array[Assertion]
+      def self?.run: (build: untyped, witness: untyped, source: untyped, ?waive: Array[String],
+                      ?around: untyped, ?accepted_vacuous: Hash[String, String],
+                      ?would_fail: Array[String]) -> Report
+    end
+  end
+end

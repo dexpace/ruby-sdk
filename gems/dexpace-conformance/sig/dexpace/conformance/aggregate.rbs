@@ -1,0 +1,19 @@
+module Dexpace
+  module Conformance
+    # One report over every suite in a run; the caller 8a deferred Report#to_h for.
+    module Aggregate
+      PREAMBLE: Array[String]
+
+      def self?.run: (Array[Report] reports, ?accepted_vacuous: Hash[String, String],
+                      ?would_fail: Array[String]) -> Report
+      def self?.render: (Report report) -> String
+      def self?.by_requirement_id: (Array[untyped] suites,
+                                    ?statuses: Report?) -> Hash[String, Array[untyped]]
+
+      private
+
+      def add_rows: (untyped suite, Hash[String, Symbol] observed,
+                     Hash[String, Array[untyped]] map) -> void
+    end
+  end
+end

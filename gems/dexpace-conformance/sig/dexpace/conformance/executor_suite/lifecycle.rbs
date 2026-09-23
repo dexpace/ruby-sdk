@@ -1,0 +1,22 @@
+# Dexpace::Conformance::ExecutorSuite::Lifecycle is a private_constant (see lifecycle.rb);
+# declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module ExecutorSuite
+      module Lifecycle
+        DRAIN: Integer
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.concurrent_post: (ExecutorCase subject) -> nil
+        def self?.close_is_latched: (ExecutorCase subject) -> nil
+        def self?.borrowed_executor_survives: (ExecutorCase subject) -> nil
+        def self?.check_no_shutdown: (ExecutorCase subject) -> nil
+        def self?.graceful_shutdown: (ExecutorCase subject) -> nil
+        def self?.check_refusal: (untyped pool, Thread::Queue done) -> nil
+        def self?.drain: (Thread::Queue queue) -> Array[untyped]
+        def self?.outcome_of: (untyped callable) -> untyped
+      end
+    end
+  end
+end

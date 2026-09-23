@@ -24,6 +24,9 @@ DEFAULT_GATES = %w[
   gates:gemspec_audit
   gates:require_allowlist
   gates:serde_boundary
+  gates:cause_walk
+  gates:bounded_map
+  gates:seam_names
   gates:clean_bundle
   gates:rbs_surface
   gates:sig_diff

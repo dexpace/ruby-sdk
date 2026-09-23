@@ -1,0 +1,23 @@
+# Dexpace::Conformance::InvariantSuite::Sharing is a private_constant (see sharing.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Sharing
+        THREADS: Integer
+        FIBERS: Integer
+        RESUMES: Integer
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.shared_instances_are_concurrent_safe: (InvariantCase subject) -> nil
+        def self?.shared_instances_are_fiber_safe: (InvariantCase subject) -> nil
+        def self?.audit_declared: (InvariantCase subject) -> void
+        def self?.drive_threads: (untyped step) -> Array[untyped]
+        def self?.expected_requests: () -> Array[String]
+        def self?.fiber: (untyped step, Integer index, Array[untyped] seen) -> untyped
+        def self?.resume: (untyped one) -> void
+      end
+    end
+  end
+end

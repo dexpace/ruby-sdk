@@ -10,7 +10,9 @@ module Dexpace
 
       def self?.assertions: () -> Array[Assertion]
       def self?.run: (build: untyped, ?borrow: untyped, ?waive: Array[String], ?around: untyped,
-                      ?settle: untyped, ?wire: untyped, ?assertions: Array[Assertion]) -> Report
+                      ?settle: untyped, ?wire: untyped, ?assertions: Array[Assertion],
+                      ?accepted_vacuous: Hash[String, String],
+                      ?would_fail: Array[String]) -> Report
 
       private
 

@@ -1,4 +1,9 @@
 Dexpace::Conformance
+Dexpace::Conformance::Aggregate
+Dexpace::Conformance::Aggregate#by_requirement_id
+Dexpace::Conformance::Aggregate#render
+Dexpace::Conformance::Aggregate#run
+Dexpace::Conformance::Aggregate::PREAMBLE : Array
 Dexpace::Conformance::Allocations
 Dexpace::Conformance::Allocations#delta
 Dexpace::Conformance::Allocations::ATTEMPTS : Integer
@@ -13,15 +18,77 @@ Dexpace::Conformance::BorrowedPair#probe
 Dexpace::Conformance::BorrowedPair#still_usable?
 Dexpace::Conformance::BorrowedPair#transport
 Dexpace::Conformance::BorrowedPair.build
+Dexpace::Conformance::Check
+Dexpace::Conformance::Check#that
+Dexpace::Conformance::CodecCase
+Dexpace::Conformance::CodecCase#codec
+Dexpace::Conformance::CodecCase#sink
+Dexpace::Conformance::CodecCase#source
+Dexpace::Conformance::CodecCase#witness
+Dexpace::Conformance::CodecSuite
+Dexpace::Conformance::CodecSuite#assertions
+Dexpace::Conformance::CodecSuite#run
+Dexpace::Conformance::CodecSuite::PREAMBLE : String
+Dexpace::Conformance::ExecutorCase
+Dexpace::Conformance::ExecutorCase#borrowed
+Dexpace::Conformance::ExecutorCase#borrowed?
+Dexpace::Conformance::ExecutorCase#events?
+Dexpace::Conformance::ExecutorCase#executor
+Dexpace::Conformance::ExecutorCase#functional
+Dexpace::Conformance::ExecutorCase#functional?
+Dexpace::Conformance::ExecutorCase#shutdowns
+Dexpace::Conformance::ExecutorCase::THREADS : Integer
+Dexpace::Conformance::ExecutorSuite
+Dexpace::Conformance::ExecutorSuite#assertions
+Dexpace::Conformance::ExecutorSuite#run
+Dexpace::Conformance::ExecutorSuite::PREAMBLE : String
 Dexpace::Conformance::Failure
 Dexpace::Conformance::Failure#actual
 Dexpace::Conformance::Failure#expected
 Dexpace::Conformance::Failure#requirement_ids
+Dexpace::Conformance::InvariantCase
+Dexpace::Conformance::InvariantCase#bounded_map
+Dexpace::Conformance::InvariantCase#bounded_map_store
+Dexpace::Conformance::InvariantCase#cnonce?
+Dexpace::Conformance::InvariantCase#core
+Dexpace::Conformance::InvariantCase#credential_hop
+Dexpace::Conformance::InvariantCase#draw_cnonce
+Dexpace::Conformance::InvariantCase#mutable
+Dexpace::Conformance::InvariantCase#probe!
+Dexpace::Conformance::InvariantCase#redirect_hop
+Dexpace::Conformance::InvariantCase#seam
+Dexpace::Conformance::InvariantCase#seam?
+Dexpace::Conformance::InvariantCase#shared_instances
+Dexpace::Conformance::InvariantCase#transport
+Dexpace::Conformance::InvariantCase#transport?
+Dexpace::Conformance::InvariantSuite
+Dexpace::Conformance::InvariantSuite#assertions
+Dexpace::Conformance::InvariantSuite#run
+Dexpace::Conformance::InvariantSuite::PREAMBLE : String
+Dexpace::Conformance::Levels
+Dexpace::Conformance::Levels.known?
+Dexpace::Conformance::Levels.must?
+Dexpace::Conformance::Levels.of
+Dexpace::Conformance::Levels::OF : Hash
 Dexpace::Conformance::MinitestDriver
 Dexpace::Conformance::MinitestDriver#conformance
 Dexpace::Conformance::MinitestDriver.build_case
 Dexpace::Conformance::MinitestDriver.drive
 Dexpace::Conformance::MinitestDriver.method_name_for
+Dexpace::Conformance::PackagingCase
+Dexpace::Conformance::PackagingCase#adapter_names
+Dexpace::Conformance::PackagingCase#core_name
+Dexpace::Conformance::PackagingCase#every_name
+Dexpace::Conformance::PackagingCase#runtime_version
+Dexpace::Conformance::PackagingCase#shipped_rbs_without_header
+Dexpace::Conformance::PackagingCase#sig_root
+Dexpace::Conformance::PackagingCase#spec
+Dexpace::Conformance::PackagingCase#versions
+Dexpace::Conformance::PackagingCase::DEFAULT_RESOLVE : Proc
+Dexpace::Conformance::PackagingSuite
+Dexpace::Conformance::PackagingSuite#assertions
+Dexpace::Conformance::PackagingSuite#run
+Dexpace::Conformance::PackagingSuite::PREAMBLE : String
 Dexpace::Conformance::RecordingSpan
 Dexpace::Conformance::RecordingSpan#add_event
 Dexpace::Conformance::RecordingSpan#attributes
@@ -36,20 +103,31 @@ Dexpace::Conformance::RecordingSpan#set_attribute
 Dexpace::Conformance::RecordingSpan#status
 Dexpace::Conformance::RecordingSpan#status=
 Dexpace::Conformance::Report
+Dexpace::Conformance::Report#accepted_vacuities
+Dexpace::Conformance::Report#accepted_vacuous
+Dexpace::Conformance::Report#blocking_vacuities
 Dexpace::Conformance::Report#errors
 Dexpace::Conformance::Report#failures
+Dexpace::Conformance::Report#passed
 Dexpace::Conformance::Report#passed?
 Dexpace::Conformance::Report#preamble
 Dexpace::Conformance::Report#results
+Dexpace::Conformance::Report#to_h
 Dexpace::Conformance::Report#to_s
+Dexpace::Conformance::Report#unknown_ids
 Dexpace::Conformance::Report#vacuous
 Dexpace::Conformance::Report#waived
+Dexpace::Conformance::Report#would_fail
+Dexpace::Conformance::Report.merge
 Dexpace::Conformance::Result
 Dexpace::Conformance::Result#assertion
 Dexpace::Conformance::Result#detail
 Dexpace::Conformance::Result#status
 Dexpace::Conformance::Result.build
 Dexpace::Conformance::Result::STATUSES : Array
+Dexpace::Conformance::Runner
+Dexpace::Conformance::Runner#registry
+Dexpace::Conformance::Runner#run
 Dexpace::Conformance::Scripts
 Dexpace::Conformance::Scripts#dribble
 Dexpace::Conformance::Scripts#echo_path
@@ -66,6 +144,8 @@ Dexpace::Conformance::Scripts#sequenced
 Dexpace::Conformance::Scripts#truncated
 Dexpace::Conformance::Scripts#vendor_status
 Dexpace::Conformance::Scripts#write_response
+Dexpace::Conformance::SharedInstance
+Dexpace::Conformance::SharedInstance#audit
 Dexpace::Conformance::TransportCase
 Dexpace::Conformance::TransportCase#borrowed_transport
 Dexpace::Conformance::TransportCase#request

@@ -1,0 +1,18 @@
+# Dexpace::Conformance::InvariantSuite::Security is a private_constant (see security.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Security
+        SECRET_URL: String
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.credentials_require_https: (InvariantCase subject) -> nil
+        def self?.redaction_is_default_deny: (InvariantCase subject) -> nil
+        def self?.observability_never_throws: (InvariantCase subject) -> nil
+        def self?.credential_reveals_nothing: (InvariantCase subject) -> nil
+      end
+    end
+  end
+end

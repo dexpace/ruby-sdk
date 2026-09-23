@@ -63,9 +63,17 @@ module Dexpace
       # @param wire [#call, nil] clause 11's fixture factory; nil takes WireServer
       # @param assertions [Array<Assertion>] the assertions to run, the suite's own by default --
       #   a keyword so the suite's own tests hand in three of theirs without stubbing anything
+      # @param accepted_vacuous [Hash{String => String}] MUST-level IDs whose vacuity the port has
+      #   sanctioned, each with its citation. Added by phase 9: `Report#passed?` is false while an
+      #   un-waived MUST-level vacuity stands (design R3), and this is how a driver names one it
+      #   has an argument for. A keyword with a default, so every existing call is unchanged.
+      # @param would_fail [Array<String>] waived IDs whose assertion WOULD have failed, rendered
+      #   `waived (would fail): ID` (design R5). This adapter's two waivers are NOT of that kind --
+      #   the native client refuses the head before a response exists -- so the default is empty
+      #   and 8a's plain `waived:` rendering stands.
       # @return [Report]
       def run(build:, borrow: nil, waive: [], around: nil, settle: nil, wire: nil,
-              assertions: self.assertions)
+              assertions: self.assertions, accepted_vacuous: {}, would_fail: [])
         results = assertions.map do |assertion|
           if assertion.ids.intersect?(waive)
             Result.build(assertion: assertion, status: :waived)
@@ -74,7 +82,8 @@ module Dexpace
                                wire: wire,)
           end
         end
-        Report.new(results, preamble: PREAMBLE)
+        Report.new(results, preamble: PREAMBLE, accepted_vacuous: accepted_vacuous,
+                            would_fail: would_fail,)
       end
 
       private

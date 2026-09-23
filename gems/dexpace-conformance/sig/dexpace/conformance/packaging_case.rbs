@@ -1,0 +1,35 @@
+module Dexpace
+  module Conformance
+    # What a PackagingSuite assertion receives: gem NAMES resolved through RubyGems, which is
+    # what NFR-1's "published dependency metadata" names (design P9-2).
+    class PackagingCase
+      DEFAULT_RESOLVE: ^(String name) -> untyped
+
+      @core_name: String
+      @adapter_names: Array[String]
+      @resolve: untyped
+      @constants: Hash[String, String]
+      @versions: Hash[String, String]
+      @sig_roots: Hash[String, String]
+
+      attr_reader core_name: String
+      attr_reader adapter_names: Array[String]
+      attr_reader versions: Hash[String, String]
+
+      def initialize: (core_name: String, adapter_names: Array[String], ?resolve: untyped,
+                       ?constants: Hash[String, String], ?versions: Hash[String, String],
+                       ?sig_roots: Hash[String, String]) -> void
+      def spec: (String name) -> untyped
+      def every_name: () -> Array[String]
+      def runtime_version: (String name) -> String
+      def shipped_rbs_without_header: () -> Array[String]
+      def sig_root: (String name) -> String?
+
+      private
+
+      def unheadered: (String? root) -> Array[String]
+      def resolve_constant: (String path) -> Module
+      def default_constant_path: (String name) -> String
+    end
+  end
+end

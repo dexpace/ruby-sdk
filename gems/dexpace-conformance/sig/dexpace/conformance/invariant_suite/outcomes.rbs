@@ -1,0 +1,14 @@
+# Dexpace::Conformance::InvariantSuite::Outcomes is a private_constant (see outcomes.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Outcomes
+        def self?.raised_class: (untyped callable) -> Class?
+        def self?.raised_by: (untyped callable) -> StandardError?
+        def self?.refused?: (untyped callable) -> bool
+        def self?.outcome_of: (untyped callable) -> untyped
+      end
+    end
+  end
+end

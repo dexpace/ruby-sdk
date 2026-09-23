@@ -1,0 +1,9 @@
+module Dexpace
+  module Conformance
+    # XCUT-11's structural predicate (design R8, P9-9): frozen, or every ivar declared by the
+    # driver.
+    module SharedInstance
+      def self?.audit: (untyped object, ?mutable: Array[Symbol], ?ids: Array[String]) -> nil
+    end
+  end
+end

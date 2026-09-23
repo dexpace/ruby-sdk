@@ -1,0 +1,33 @@
+# Dexpace::Conformance::InvariantSuite::Resolution is a private_constant (see resolution.rb);
+# declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Resolution
+        RACERS: Integer
+        JOIN_SECONDS: Float
+        INSTALLER: String
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.single_flight_credential_cache: (InvariantCase subject) -> nil
+        def self?.seam_resolution_is_deterministic: (InvariantCase subject) -> nil
+        def self?.all_parked?: (Array[Thread] threads, ?bound: Float) -> bool
+        def self?.failure_of: (untyped registry) -> untyped
+        def self?.blank_request: (InvariantCase subject) -> untyped
+
+        class CountingProvider
+          @token_type: untyped
+          @gate: Thread::Queue
+          @fetches: Integer
+          @lock: Thread::Mutex
+
+          def initialize: (untyped token_type) -> void
+          def release: () -> void
+          def fetches: () -> Integer
+          def fetch: () -> untyped
+        end
+      end
+    end
+  end
+end

@@ -1,0 +1,52 @@
+module Dexpace
+  module Conformance
+    # What an ExecutorSuite assertion receives: an executor factory, an optional borrowing entry
+    # point, an optional resource-free implementation, and this case's own event recorder.
+    class ExecutorCase
+      THREADS: Integer
+
+      class EventRecorder
+        @payloads: Array[untyped]
+        @mutex: Thread::Mutex
+
+        def initialize: () -> void
+        def entries: () -> Array[untyped]
+        def debug: (?untyped message) { () -> untyped } -> nil
+                 | (?untyped message) -> nil
+        def info: (?untyped message) { () -> untyped } -> nil
+                | (?untyped message) -> nil
+        def warn: (?untyped message) { () -> untyped } -> nil
+                | (?untyped message) -> nil
+        def error: (?untyped message) { () -> untyped } -> nil
+                 | (?untyped message) -> nil
+        def debug?: () -> bool
+        def info?: () -> bool
+        def warn?: () -> bool
+        def error?: () -> bool
+
+        private
+
+        def record: (untyped message) ?{ () -> untyped } -> nil
+      end
+
+      @build: untyped
+      @borrow: untyped
+      @functional: untyped
+      @recorder: EventRecorder?
+
+      def initialize: (build: untyped, ?borrow: untyped, ?functional: untyped,
+                       ?record_events: bool) -> void
+      def executor: () -> untyped
+      def borrowed?: () -> bool
+      def borrowed: (untyped pool) -> untyped
+      def functional?: () -> bool
+      def functional: () -> untyped
+      def events?: () -> bool
+      def shutdowns: () -> Integer
+
+      private
+
+      def shutdown?: (untyped payload) -> bool
+    end
+  end
+end

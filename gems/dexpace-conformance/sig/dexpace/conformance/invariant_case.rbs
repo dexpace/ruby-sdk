@@ -1,0 +1,42 @@
+module Dexpace
+  module Conformance
+    # What an InvariantSuite assertion receives: the loaded core module and the driver's factories
+    # for what the suite cannot reach itself (design R3, P9-9).
+    class InvariantCase
+      @core: untyped
+      @seam: untyped
+      @transport: untyped
+      @mutable: Array[Symbol]
+      @shared: Array[untyped]
+      @bounded_map: untyped
+      @bounded_map_store: untyped
+      @cnonce: untyped
+      @redirect_hops: untyped
+      @credential_hop: untyped
+
+      attr_reader core: untyped
+      attr_reader mutable: Array[Symbol]
+
+      def initialize: (core: untyped, ?seam: untyped, ?transport: untyped,
+                       ?mutable: Array[Symbol], ?shared: Array[untyped], ?bounded_map: untyped,
+                       ?bounded_map_store: untyped, ?cnonce: untyped, ?redirect_hops: untyped,
+                       ?credential_hop: untyped) -> void
+      def shared_instances: () -> Array[untyped]
+      def probe!: (Symbol name, String promised_by, ?method: bool) -> nil
+      def seam?: () -> bool
+      def seam: (?client: untyped) -> untyped
+      def transport?: () -> bool
+      def transport: () -> untyped
+      def bounded_map: (cap: Integer) -> untyped
+      def bounded_map_store: (untyped map) -> untyped
+      def cnonce?: () -> bool
+      def draw_cnonce: (untyped source) -> untyped
+      def redirect_hop: (from: String, to: String, headers: Hash[String, untyped]) -> untyped
+      def credential_hop: (url: String, ?cross_origin: bool) -> untyped
+
+      private
+
+      def required!: (untyped factory, String reason) -> untyped
+    end
+  end
+end
