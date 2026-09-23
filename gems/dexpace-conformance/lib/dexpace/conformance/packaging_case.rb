@@ -26,9 +26,16 @@ module Dexpace
     # dexpace-core and nothing else.
     class PackagingCase
       # Resolves a gem name to its installed specification, or nil when it is not installed.
+      #
+      # `Gem::LoadError` is named explicitly and is the WHOLE point of the rescue: RubyGems raises
+      # `Gem::MissingSpecError` for a name it cannot resolve, and that descends from `Gem::LoadError
+      # < LoadError < ScriptError`, so it is NOT a `StandardError` and a bare `rescue
+      # ::StandardError` lets it past. It then escapes `Runner`'s own bare rescue too and aborts
+      # the whole run, where the suite's contract is one :vacuous result naming the absent unit.
+      # Measured 2026-09-23 on 4.0.6; the case is now driven in packaging_suite_test.rb.
       DEFAULT_RESOLVE = lambda do |name|
         ::Gem::Specification.find_by_name(name)
-      rescue ::StandardError
+      rescue ::Gem::LoadError, ::StandardError
         nil
       end
 
