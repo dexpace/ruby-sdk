@@ -211,8 +211,14 @@ and 15 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-cont
 runner and its report with vacuous and waived rows that stay visible, the two thin drivers and the
 three keywords that are the asynchronous adapter's contract, the case an assertion receives and
 the guard on its transport, the plaintext wire fixture with its fifteen scripts and bounded waits,
-and the two observability doubles. Written against the gem phase 8a shipped and the two groups
-phase 8c appended; derives from `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.3.
+and the two observability doubles — and, in its last section, **phase 9's four further suites**:
+the twenty-eight-assertion invariant suite over all twenty-four `XCUT` IDs, the packaging suite
+over eight `NFR`s read from published gem metadata, the two portable codec assertions, the seven
+executor ones with `ASYNC-3` written so it fails, the generated level map that makes a MUST-level
+vacuity a report blocker, `XCUT-11`'s structural predicate, and the aggregate whose preamble
+prints what a green run does not prove. Written against the gem phase 8a shipped, the two groups
+phase 8c appended and the four suites phase 9 added; derives from
+`docs/sdk-design-ruby/09-toolchain-and-quality-gates.md` §9.3.
 
 [async-thread.md](./async-thread.md) — the async-runtime adapter: the fixed-size thread pool
 over a bounded queue and the one required keyword, `#post` as the executor duck type that never
@@ -226,7 +232,9 @@ not do. Written against the adapter phase 8b shipped; derives from
 entries 3, 4 and 5 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
-and how to run it locally. Written against the build phase 0 shipped; derives from
+and how to run it locally; twenty-one of them, and the table says which fixture turns each red.
+Written against the build phase 0 shipped, extended by phase 7b's `gates:serde_boundary` and by
+phase 9's three repository-wide invariant scans; derives from
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
 
 write-a-transport.md — implementing the `Transport` seam, and proving an implementation against

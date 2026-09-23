@@ -132,8 +132,9 @@ stated in the release notes rather than discovered at `bundle install`.
       operation projection carrying a descriptor**. Until that event: either the release notes state that the
       tier resolver has no carrier and only the client tier is reachable end to end, or a carrier is built
       before the tag
-- [ ] **`gates:bounded_map` green: `dexpace-transport-async_http`'s `Clients` is an uncapped
-      per-origin client cache, which `XCUT-14` (MUST) forbids.** Found 2026-09-13 by phase 9's planning, and
+- [x] **`gates:bounded_map` green: `dexpace-transport-async_http`'s `Clients` is an uncapped
+      per-origin client cache, which `XCUT-14` (MUST) forbids.** — **CLOSED 2026-09-23 by phase 9's
+      `gates:bounded_map` run.** Found 2026-09-13 by phase 9's planning, and
       the **one true positive** of six `gates:bounded_map` reports over 222 filed Ruby fences at 184 distinct
       `gems/*/lib/**/*.rb` paths, measured identically on 3.2.11, 3.3.12, 3.4.10 and 4.0.6. The map is
       instance-lived and lives as long as the client, its key space is chosen by caller URLs and by a server's
@@ -152,7 +153,17 @@ stated in the release notes rather than discovered at `bundle install`.
       evicted first, every evicted client's pool retired and closed — proven by the three `XCUT-14`
       cases in `gems/dexpace-transport-async_http/test/dexpace/transport/async_http/clients_test.rb`;
       the gate itself does not exist yet, so the line stays open for phase 9's `gates:bounded_map` run
-      and nothing else
+      and nothing else. **Closed 2026-09-23**: phase 9 built the gate and ran it. `gates:bounded_map`
+      is **green over all 307 files in the six gems' `lib/` trees**, with six adjudicated exceptions,
+      none of them this one. `clients.rb` is on the allowlist as a **verified false positive of the
+      scan**, not as a silenced defect — the scan sees a Hash assigned to an instance variable and
+      cannot see a cap, and the reason recorded beside the entry is the reading of the file: `#fetch`
+      inserts with `||=` and calls `#drain` inside the SAME `@mutex.synchronize` as the insert, and
+      `#drain` is a loop, `evicted << @by_key.delete(@by_key.keys.first) while @by_key.size >
+      MAX_ORIGINS`, with closed reactors evicted first, which is `XCUT-14`'s drain clause exactly.
+      The as-built ivar is `@by_key` and not `@by_origin`, which is why a check against the planning
+      note's name would have missed it. `XCUT-14`'s checklist row is ✅ and no phase-10 repair is
+      filed
 - [ ] **Before release, `docs/sdk-documentation/` carries one worked end-to-end example** — a
       generated-style client over `dexpace-core` + `dexpace-transport-net_http` + `dexpace-serde-json`:
       operation descriptor, request assembly, pipeline with an AUTH step, decode, typed error, one

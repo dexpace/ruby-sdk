@@ -2761,6 +2761,52 @@ design.
   `RawWireTransport` proof, so it is conformance-gem work for the phase that next touches the suite,
   not a fix round's. Touches `TRANSPORT-7` and nothing normative in the code. Recorded by phase 8c's
   review round 1 on its docs branch; referred to by date and content, never by ordinal.
+- **`Dexpace::Registry#resolve`'s discovery loop has no bound.** Found 2026-09-23 by phase 9's
+  implementation while cutting a mutation for `XCUT-23`: `#resolve` is `loop do … end` over
+  `take_or_join_claim`/`wait_on`, and a change that makes the `return hand_out(resolved)` guard
+  conditional on anything else turns it into an unbounded spin with no progress — the mutation ran for
+  six minutes and was killed. **The shipped code is correct**; what is missing is a bound or a
+  structural argument that the loop terminates, which phase 2 states nowhere. **Code half: a bound on
+  the loop, or a comment that argues the termination and a test that would catch its loss.** Touches
+  `SEAM-5`, `XCUT-23`. Referred to by date and content, never by ordinal.
+- **`XCUT-12`'s fiber-scheduler form is unasserted, and the checklist row says so.** Phase 9's design
+  already routed this (its "Work phase 9 postponed" table names the thread form only), and the built
+  assertion repeats it in `invariant_suite/resolution.rb`: the single-flight refresh is proven for
+  sixteen THREADS and never for two fibers under a reactor, because a credential path running under a
+  scheduler is a composition no first-party suite assembles. **Code half: the fiber form of the
+  assertion, or a stated decision that it stays out of v1.** Touches `XCUT-12`, `AUTH-34`, `AUTH-37`.
+  Verified still owned on 2026-09-23 rather than re-filed.
+- **`XCUT-9`'s cycle assertion has two stated residues, and `gates:cause_walk` proves neither absent.**
+  A collect-then-yield cause walk never returns a step to count, so a step-bounded drive cannot end it;
+  and a depth cap of exactly three passes a three-node cycle, because a black-box test over one finite
+  input cannot tell a counter from a visited set. Both are written into
+  `invariant_suite/classification.rb` above the assertion. **Code half: a second input of a different
+  length, or a source-shape check over the walk's own file.** Touches `XCUT-9`. Found 2026-09-23 by
+  phase 9's implementation.
+- **7a's `SEAM-21` evidence lives inside another assertion's body and is declared in no ID-keyed map.**
+  Phase 9's `P9-22` re-derived `CodecSuite`'s two portable assertions rather than lifting 7a's, exactly
+  so `assert_closes_nothing`'s `SEAM-21` type-token clause would keep its home — but that clause is
+  still a branch inside a helper, not an assertion with `ids: ["SEAM-21"]`, so
+  `Aggregate.by_requirement_id` cannot see it and `APPENDIX_B.md`'s `B.3` rows point at a file rather
+  than at a check. **Code half: split the clause into its own assertion in `dexpace-serde-json`'s
+  suite, or state in the map that the row is a file reference.** Touches `SEAM-21`, `SERDE-3`. Found
+  2026-09-23 by phase 9's implementation.
+- **`tools/surface.rb` cannot see a `private_constant` module, so a group that became public would be
+  invisible to `gates:surface_snapshot` until one of its methods leaked.** The walk is
+  `Module#constants(false)`, which omits a private constant entirely — which is what lets phase 8a's
+  and phase 9's group modules stay out of the manifest, and equally what hides the transition. Phase 9
+  found two real public-surface leaks (`Aggregate#add_rows` and `CodecSuite`'s two assertion factories)
+  by reading the regenerated manifest row by row, not by a gate. **Code half: have the walk record a
+  private constant's NAME with a marker, so the manifest shows the transition without exporting the
+  contents.** Touches `NFR-4`. Found 2026-09-23 by phase 9's implementation.
+- **`Dexpace::Conformance::PackagingCase`'s default gem-name → constant-path rule covers none of this
+  port's exceptional four.** The rule is segment-for-segment (`dexpace-transport-net_http` →
+  `Dexpace::Transport::NetHttp`), and the port's own names need `Dexpace` for `dexpace-core` and
+  acronym casing for `NetHTTP`, `AsyncHTTP` and `JSON`, so four of six gems need the `constants:`
+  override a driver supplies. A driver that omits it gets a `:vacuous` result with an actionable
+  message and never a wrong answer, which is why this is a repair and not a defect. **Code half: a
+  default that covers a root-namespaced gem and a known-acronym leaf, with the override kept for
+  everything else.** Touches `NFR-15`. Found 2026-09-23 by phase 9's aggregate run.
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -5044,3 +5090,97 @@ knowledge-structure verifier and both process-tooling suites, with every `ruby` 
 ephemeral port), `conformance.md`'s changed fences on both and `async-thread.md`'s blocks once more on
 4.0.6. `main` is `a7cfeb6` before and after this pass; nothing is pushed, and umbrella #29 stays open for
 both.
+
+**2026-09-23** — **Phase 9 implemented**, as three stacked branches against issue #33: code
+(`9-phase-9-cross-cutting-invariants-and-conformance`), tests (`…-tests`) and documentation
+(`…-docs`), each targeting the one below and the first targeting `main` at `582e33a`, which holds every
+phase through 8. Nothing is pushed. **This is the audit phase, and it repaired nothing it found**:
+design `R6` makes the repair phase 10's, and the file list the plan fixed held exactly —
+`gems/dexpace-conformance/`, `tasks/`, `tools/`, `test/`, `.github/workflows/` and the root `Rakefile`,
+plus each adapter gem's `test/` tree. **No `lib/` or `sig/` file outside `gems/dexpace-conformance/`
+was touched, in any gem.**
+
+**What it built.** Four suites beside phase 8a's transport one, all over one shared `Runner` so the
+five statuses are decided in one place — `InvariantSuite` (28 assertions over all twenty-four `XCUT`
+ids, in ten `private_constant` groups), `PackagingSuite` (8 over `NFR-1`, `2`, `3`, `10`, `11`, `13`,
+`14` and `15`, read from **published** `Gem::Specification` metadata rather than a source gemspec),
+`CodecSuite` (2, re-derived from the requirement text rather than lifted, so `dexpace-serde-json`'s
+files stay byte-identical and keep the three properties a lift would have dropped) and `ExecutorSuite`
+(7, `SEAM-25`'s harness half among them) — with `Levels` (645 ids generated from appendix C) making a
+MUST-level vacuity a report blocker, `SharedInstance` as `XCUT-11`'s structural predicate, `Aggregate`
+giving a whole run one verdict and a preamble that prints what green does not prove, and
+`APPENDIX_B.md`'s 61-row coverage map. Three repository-wide invariant scans became blocking gates over
+one `RubyVM::AbstractSyntaxTree` walker — `gates:cause_walk`, `gates:bounded_map`, `gates:seam_names` —
+taking the set to **twenty-one**, all in `DEFAULT_GATES` and all in `ci.yml`'s `gates` job. Three
+first-party drivers, one per suite with a subject in this repository.
+
+**The audit's verdict.** The aggregate run over all four suites with the real subjects — 8a's adapter
+as `transport:`, so `XCUT-18`'s call-site assertion runs against a real dispatch path — is **43 passed,
+1 failed, 0 vacuous, 1 waived, 0 errored**. `PackagingSuite` was run a second time the way design
+`P9-2` asks, against the six gems **built and installed outside the bundle**: **7 passed, 1 failed, 0
+vacuous**. The one failure both times is `NFR-13`: **307 of 307 shipped `.rbs` files carry no SPDX
+header**, in all six gems, because a RuboCop cop parses Ruby and cannot reach `.rbs`. That is already
+phase 10's by name — its design addendum `A8` and inbound row 8 plan `gates:spdx_rbs` and say "phase
+9's presence assertion turns green" — so it is verified still owned and **not** re-filed. The one
+waiver is `ASYNC-3`, printed `waived (would fail)`, with a second test that runs it unwaived and
+requires the failure, so the waiver cannot outlive the limitation.
+
+**One `docs/first-release.md` blocker closes.** `gates:bounded_map` is green over all 307 files in the
+six gems' `lib/` trees. `dexpace-transport-async_http`'s `Clients` is on the allowlist as a **verified
+false positive of the scan** and not as a silenced defect: the as-built ivar is `@by_key`, not the
+`@by_origin` the planning note named, and `#fetch` calls `#drain` inside the same `@mutex.synchronize`
+as the insert with `#drain` a loop — `XCUT-14`'s drain clause exactly. So `XCUT-14`'s row is ✅, no
+phase-10 repair is filed for that cache, and the plan's one expected red run did not happen.
+
+**Four things earlier phases postponed here have landed.** *(a)* The **conformance assertion
+protocol**'s second half — 8a said the protocol landed; the remaining suites are these four, plus
+`Runner`, `Check`, `SharedInstance`, `Levels`, `Aggregate` and `Report#to_h`. *(b)* The **portable
+wire-boundary assertion** phase 1 named for this phase: a forged `Request` that never met a builder is
+driven at a transport factory and refusal is asserted before any wire activity, with a listener the
+assertion owns as the witness. *(c)* **`SEAM-25`'s harness half**, and this is a **correction to a
+committed record, not a restatement of one**: 8b's design assigned that half to 8a, 8a wrote no
+executor suite, so it was unwritten after phase 8 and phase 9 writes it. *(d)* The **MUST-level vacuity
+blocker** phase 9 itself postponed on 2026-09-13, landed before the disposition run.
+
+**Six findings routed and none repaired**, each by date and content on phase 10's inbound list above:
+`Registry#resolve`'s unbounded discovery loop, `XCUT-12`'s unasserted fiber-scheduler form, `XCUT-9`'s
+two stated residues, 7a's `SEAM-21` evidence living inside another assertion's body,
+`tools/surface.rb`'s blindness to a `private_constant` module, and `PackagingCase`'s default
+constant-path rule.
+
+**Guards.** Forty-four mutations were run one at a time through a harness that applies the edit, runs
+the owning suite, captures the first failure and restores the file — **every one red**, each recorded
+in the checklist with the message it produced. Six shapes were re-cut: one spun forever and was killed
+rather than counted, which is itself the `Registry#resolve` finding below, and five went green — and
+**two of those five were not bad mutations but real non-discrimination in this phase's own
+assertions**: `XCUT-3`'s cancel could beat the waiter into the wait, and `XCUT-12`'s sixteen racers
+could finish one at a time. Both now assert a parking barrier as a `Check` of its own, so a run that
+could not have discriminated reports `:failed`. The reviewer's own mutation list did not survive this
+session's context compaction and the set run is therefore **this phase's**, re-derived from the
+design's testing strategy — recorded as `P9-32` rather than passed off as the list it replaces. Two
+further defects were found by building the failing fixtures this repository requires of every gate, and
+both are fixed because both are phase 9's own code: the three new gates' `DEXPACE_GATE_ROOT` route
+opened every file relative to the process's CWD and could never have been shown to reject anything, and
+`gates:serde_boundary`'s abort branch and `--check`'s failing exit had no test at all.
+
+**Proofs.** The **code tip** is green on **every one of the twenty-one gates run individually** on
+4.0.6 — the coverage floor included: the new `lib/` arrives there with no tests and the aggregate
+figure is still 91.09 % — and on the five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3
+skips, 11,100 of 12,185 lines). The **tests tip** is green on the whole default task on 4.0.6
+(**4,184 runs, 74,555 assertions, 0 failures, 0 errors, 9 skips** and **99.80 % line coverage,
+12,300 of 12,324**; `cops:test` 129 runs and 412 assertions; `test:gates` 192 runs and 876 assertions
+with no skip; the honest RuboCop run over 776 files clean) and on the matrix set on 3.4.10 (4,184 /
+74,555 / 9 skips), 3.3.12 (the same, 12,154 of 12,178 lines) and 3.2.11 (3,996 / 73,779 / **5** skips,
+96.07 % — the four `async_http` skips are absent because that gem's 3.3 floor excludes it from the 3.2
+row). **Every skip is named**: the seven phase-8 drivers' — `net_http`'s three and `async_http`'s four
+— plus this phase's two, `XCUT-18`'s call-site assertion in core's driver (vacuous there because core
+ships no adapter, and real in the aggregate run) and `ASYNC-3` in the pool's (waived by id, and proven
+to fail by a test of its own). The **docs tip** is green on the default task (the same figures),
+the honest RuboCop run over 776 files, `ruby .claude/skills/housekeeping/probe.rb` (exit 0, no drift)
+and `ruby scripts/verify_knowledge_structure.rb` (2,166 harvested entries, 71 notes, every cited key
+live), with every `ruby` fence of `conformance.md`'s new section run verbatim on 4.0.6 and 3.2.11 —
+the same printed values on both. Beside the gates: the aggregate run over all four suites with the
+real subjects, and `PackagingSuite` a second time against the six gems built and installed outside the
+bundle.
+
+`main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.

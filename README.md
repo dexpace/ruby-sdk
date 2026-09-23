@@ -100,7 +100,10 @@ response body, HTTP/2 by ALPN over TLS, and a Ruby floor of 3.3 that this gem al
 (`docs/sdk-documentation/transport-async_http.md`) — and `dexpace-conformance` carries the
 conformance suite: the assertion protocol, the thirty-four-assertion transport suite with its
 vacuous and waived rows, the plaintext wire fixture, the Minitest and RSpec drivers and the two
-observability doubles, proven by both transports as its two drivers
+observability doubles, proven by both transports as its two drivers — and, since phase 9, four
+further suites: twenty-eight assertions over every cross-cutting invariant, eight over the
+packaging requirements, two over any wire codec and seven over an async-runtime adapter, with one
+aggregate report that states what a green run does not prove
 (`docs/sdk-documentation/conformance.md`). `dexpace-async-thread` carries the
 async-runtime adapter — the first executor on the async path: a fixed-size thread pool over a
 bounded queue whose `#post` never blocks, the bridge that makes a blocking transport asynchronous

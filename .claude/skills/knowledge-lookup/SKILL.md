@@ -205,6 +205,7 @@ gives no hint. Never take the entry count as the prefix's ID count.
 | Resilience: retry, redirect and authentication | `--topic retry-and-resilience,redirect-handling,authentication,cancellation-and-timeouts --section rules --brief` and `--prefix RETRY,REDIR,AUTH --section rules --brief` | `--prefix-info RETRY`, `--gaps RETRY,REDIR,AUTH,RECOV` | live |
 | Serialization, SSE and pagination | `--topic serde,sse-streaming,pagination --section rules,constraints,conclusions --brief` and `--prefix SERDE,SSE,PAGE --section rules,constraints,conclusions --brief` (a `--section rules` reading alone misses `SERDE-17`, `SERDE-24`, `SERDE-25` and `SERDE-30`, filed under Constraints and Conclusions; phase 7a's finding) | `--prefix-info SERDE`, `--gaps SERDE,SSE,PAGE` | live |
 | Transport and async-runtime adapters | `--topic transport-adapter,cancellation-and-timeouts,concurrency-and-async --section rules --brief` and `--prefix TRANSPORT,ASYNC --section rules --brief` | `--prefix-info TRANSPORT`, `--gaps TRANSPORT,ASYNC` | live |
+| Cross-cutting invariants and the quality bar | `--topic cross-cutting-invariants,tooling-and-quality-gates,resource-management --section rules --brief` and `--prefix XCUT,NFR --section rules --brief` | `--prefix-info XCUT`, `--prefix-info NFR`, `--gaps XCUT,NFR` | live |
 | Styleguide-vs-design conflicts | `--section conflicts --brief` | resolve via a note under notes/ | live |
 
 A regex with an alternation cannot live in a Markdown cell without an escape that would be copied

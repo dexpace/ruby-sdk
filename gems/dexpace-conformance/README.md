@@ -3,15 +3,22 @@
 Part of the [dexpace Ruby SDK](../../README.md): an HTTP-client toolkit, not an HTTP client.
 This gem is the conformance suite every adapter -- shipped or third-party -- is proven against.
 
-**Status: `0.0.0`, unpublished; the transport suite is built.** `lib/` holds phase 8a's
+**Status: `0.0.0`, unpublished; five suites are built.** `lib/` holds phase 8a's
 `Dexpace::Conformance`: the assertion protocol phase 0 postponed -- `Failure`, `Vacuous`,
 `Assertion`, `Result` with its five `STATUSES`, and `Report` -- the twenty-eight-assertion
 `TransportSuite` over twenty-two `TRANSPORT` IDs, `HTTP-17`, `HTTP-18`, `XCUT-18` and `PAGE-36`,
 the `TransportCase` an assertion receives and the `BorrowedPair` a borrowing construction
 supplies, the plaintext `WireServer` fixture with its `RecordedRequest`s and fifteen named
 `Scripts`, the two thin drivers `MinitestDriver` and `RSpecDriver`, and the two observability
-doubles `RecordingSpan` and `Allocations`. Phase 9 adds the remaining suites beside the
-transport one.
+doubles `RecordingSpan` and `Allocations` -- and phase 9's four further suites beside it:
+`InvariantSuite` (28 assertions over all twenty-four `XCUT` IDs), `PackagingSuite` (8 over
+`NFR-1`, `2`, `3`, `10`, `11`, `13`, `14` and `15`, read from published gem metadata),
+`CodecSuite` (2 portable seam properties any wire codec must have) and `ExecutorSuite` (7 over an
+async-runtime adapter's lifecycle), over the shared `Runner`, `Check` and `SharedInstance`, with
+`Levels` -- every requirement ID's normative level, generated from the specification's own index --
+making a MUST-level vacuity a report blocker, and `Aggregate` giving a whole run one verdict and one
+preamble stating what it does not prove. The 61-row appendix-B coverage map is `APPENDIX_B.md`,
+shipped beside this file.
 
 ## Install
 
@@ -52,7 +59,8 @@ consumer. `socket` and `tempfile` are stdlib that stays stdlib on every supporte
 ## Where to read next
 
 - `docs/sdk-documentation/conformance.md` -- the as-built page: what a green run proves and does
-  not, the runner and its report, the drivers, the case, the fixture and the doubles.
+  not, the runner and its report, the drivers, the case, the fixture and the doubles, and the four
+  suites phase 9 added with a runnable example of each mechanism.
 - `docs/sdk-documentation/transport-net_http.md` -- the reference adapter this suite is run
   against first.
 - `docs/sdk-documentation/architecture.md` -- how the gems compose and which one to install.
