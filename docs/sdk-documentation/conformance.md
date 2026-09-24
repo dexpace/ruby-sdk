@@ -469,7 +469,8 @@ four — so a driver for one of phase 9's suites calls `.run` (or drives `suite.
 asserts on the `Report`:
 
 - `gems/dexpace-core/test/dexpace/cross_cutting_invariants_test.rb` — `InvariantSuite` against core,
-  with the fifteen shared instances it declares and the six factories the suite cannot build.
+  with every shared instance core publishes (twenty at this tip) and the six factories the suite
+  cannot build.
 - `gems/dexpace-serde-json/test/dexpace/serde/json/conformance_test.rb` — `CodecSuite`, driven again
   under every option the adapter accepts.
 - `gems/dexpace-async-thread/test/dexpace/async/thread/conformance_test.rb` — `ExecutorSuite`, with

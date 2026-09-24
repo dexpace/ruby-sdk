@@ -5153,12 +5153,13 @@ two stated residues, 7a's `SEAM-21` evidence living inside another assertion's b
 `tools/surface.rb`'s blindness to a `private_constant` module, and `PackagingCase`'s default
 constant-path rule.
 
-**Guards.** Sixty mutations were run one at a time through a harness that applies the edit, runs
+**Guards.** Sixty-two mutations were run one at a time through a harness that applies the edit, runs
 the owning suite, captures the first failure and restores the file — **every one red**, each recorded
 in the checklist with the message it produced: forty-four at implementation, seven in review round 1,
-two in review round 2 — shapes that SURVIVED round 1 rather than shapes newly thought of — and seven
+two in review round 2 — shapes that SURVIVED round 1 rather than shapes newly thought of — seven
 in review round 3, which neutralise one of this phase's OWN assertions whole rather than mutating a
-subject, the only shape that proves a committed double can report `:failed`. The checklist's earlier
+subject, the only shape that proves a committed double can report `:failed`, and two in review round 4
+for the last assertion that had none. The checklist's earlier
 claim of "one mutation per assertion" was simply untrue and is corrected there with the rows that were
 missing. Six shapes were re-cut: one spun forever and was killed
 rather than counted, which is itself the `Registry#resolve` finding below, and five went green — and
@@ -5246,5 +5247,17 @@ controls were missing. `XCUT-3` and `XCUT-12` are still without one, deliberatel
 double for either would have to stay in the wait past the assertion's own bound, which leaks the
 thread the base case's teardown counts. Beside it the round recorded `R6`'s one sanctioned exception,
 which the tree had carried since implementation and no document named (`P9-40`).
+
+**Review round 4** closed the last of that class. Round 3's sweep neutralised all forty-five assertion
+bodies in the four suites one at a time and left four green; three were accounted for by the checklist
+or are a private clause helper whose parent assertion is caught, and the fourth — `XCUT-18`'s
+model-layer `header_syntax_validation` — was named nowhere and could be neutralised whole with the
+whole of `rake test:gems` green. The claim that covered it counted **rows**, and `XCUT-18` carries two
+assertions, so the row was covered on one of them; the checklist's evidence paragraph now counts
+assertions and names the sweep as what makes it checkable. Two defective cores drive it — a permissive
+validator, and one applying the NAME rule to outbound values as well, so the name/value asymmetry has a
+control of its own (`P9-42`, rows 62–63). The round also corrected two counts in the record: the core
+driver declares **twenty** shared instances, not fifteen, in the checklist's `XCUT-11` row and in
+`docs/sdk-documentation/conformance.md`; design `R8`'s nine is a different list and stands.
 
 `main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.
