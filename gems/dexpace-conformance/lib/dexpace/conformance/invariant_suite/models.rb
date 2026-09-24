@@ -63,9 +63,12 @@ module Dexpace
         end
 
         # XCUT-22: "build a transport around a caller-supplied client, close the transport, then
-        # reuse the client -> it still works." Both halves: the resource is not closed, AND it is
-        # still usable, because a component that merely forgot to call #close while tearing the
-        # resource down another way would pass the first alone.
+        # reuse the client -> it still works." Both halves, and the second is INDEPENDENT of the
+        # first: `Borrowed` is torn down by `#finish` as well as by `#close`, so a component that
+        # never called `#close` while shutting the resource down another way passes the first Check
+        # and fails the second. A double whose `usable?` were merely the negation of its `closed?`
+        # would make this Check unfalsifiable -- measured, in review round 2, by replacing its
+        # condition with a literal `true` and finding the whole suite still green.
         def only_closes_what_it_created(subject)
           borrowed = Borrowed.new
           seam = subject.seam(client: borrowed)
@@ -79,13 +82,32 @@ module Dexpace
         end
 
         # The caller-supplied resource XCUT-22 is about, with the two observations the requirement
-        # names: it was not closed, and it still works.
+        # names on two INDEPENDENT routes: it was not closed, and it still works.
+        #
+        # `#finish` is the second route, and it is what makes the second observation worth making:
+        # a holder can shut a borrowed resource down without ever calling `#close` -- `Net::HTTP`
+        # spells that teardown `#finish`, a pooled client spells it "retire", and an adapter that
+        # tore down a caller's SOCKET rather than the caller's client would leave `closed?` false.
+        # Deriving `usable?` from `@closed` alone would make the second Check the negation of the
+        # first and it could then never fail on its own.
         class Borrowed
-          def initialize = (@closed = false)
-          # @return [Boolean] the latch this double flips, which is the whole observation
+          def initialize
+            @closed = false
+            @torn = false
+          end
+
+          # @return [Boolean] the latch a holder flips when it closes what it borrowed
           def close = (@closed = true)
           def closed? = @closed
-          def usable? = !@closed
+
+          # The adapter-side teardown reached WITHOUT going through `#close`.
+          # @return [Boolean]
+          def finish = (@torn = true)
+
+          # "then reuse the client -> it still works", asked of the resource rather than derived
+          # from the latch the first Check already reads.
+          # @return [Boolean]
+          def usable? = !(@closed || @torn)
         end
         private_constant :Borrowed
 

@@ -16,10 +16,12 @@ module Dexpace
 
         class Borrowed
           @closed: bool
+          @torn: bool
 
           def initialize: () -> void
           def close: () -> bool
           def closed?: () -> bool
+          def finish: () -> bool
           def usable?: () -> bool
         end
       end
