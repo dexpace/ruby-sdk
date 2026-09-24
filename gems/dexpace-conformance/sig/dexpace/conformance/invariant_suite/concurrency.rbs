@@ -1,0 +1,21 @@
+# Dexpace::Conformance::InvariantSuite::Concurrency is a private_constant (see concurrency.rb);
+# declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Concurrency
+        WAKE_BOUND_SECONDS: Float
+        WAIT_SECONDS: Float
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.cancellation_is_terminal: (InvariantCase subject) -> nil
+        def self?.timeout_is_retryable_and_distinct: (InvariantCase subject) -> nil
+        def self?.interruptible_waits: (InvariantCase subject) -> nil
+        def self?.wait_and_cancel: (InvariantCase subject, untyped source) -> [untyped, Float, bool]
+        def self?.parked?: (Thread thread, ?bound: Float) -> bool
+        def self?.wrap: (untyped inner) -> untyped
+      end
+    end
+  end
+end

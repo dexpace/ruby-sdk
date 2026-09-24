@@ -1,0 +1,36 @@
+# Dexpace::Conformance::ExecutorSuite::Shutdown is a private_constant (see shutdown.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module ExecutorSuite
+      module Shutdown
+        BLOCKED_WORKER_BOUND: Float
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        class BlockingTransport
+          @gate: Thread::Queue
+          @entered: Thread::Queue
+          @released: Thread::Queue
+
+          attr_reader entered: Thread::Queue
+          attr_reader released: Thread::Queue
+
+          def initialize: (gate: Thread::Queue) -> void
+          def call: (untyped request, untyped options, untyped cancellation) -> untyped
+
+          class Closeable
+            def close: () -> nil
+          end
+        end
+
+        def self?.default_close_is_a_no_op: (ExecutorCase subject) -> nil
+        def self?.one_shutdown_event: (ExecutorCase subject) -> nil
+        def self?.blocked_worker_is_released_on_cancel: (ExecutorCase subject) -> untyped
+        def self?.check_release: (untyped transport, untyped source) -> nil
+        def self?.probe!: () -> nil
+        def self?.dispatch: (untyped transport, untyped pool, untyped source) -> Thread
+      end
+    end
+  end
+end

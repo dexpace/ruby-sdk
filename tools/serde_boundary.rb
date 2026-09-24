@@ -74,8 +74,27 @@ module SerdeBoundary
   end
 
   # The PENDING rows with how many files each currently matches, for the task to print.
-  def pending(root)
-    PENDING.map { |glob, reason| [glob, reason, Dir.glob(File.join(root, glob)).size] }
+  # `list:` is a one-line widening phase 9 added so the gate's own test can drive a NON-empty
+  # pending list and watch the emptiness assertion fail: `PENDING` is a frozen constant and
+  # reading it directly gave the fixture nothing to inject. The default is that constant, so
+  # every caller outside the test is unchanged.
+  #
+  # @param root [String] the repository root, or a fixture standing in for it
+  # @param list [Array<Array(String, String)>] glob and reason pairs
+  # @return [Array<Array(String, String, Integer)>] glob, reason, how many files match today
+  def pending(root, list: PENDING)
+    list.map { |glob, reason| [glob, reason, Dir.glob(File.join(root, glob)).size] }
+  end
+
+  # The abort message for a non-empty PENDING list.
+  #
+  # @param pending [Array<Array(String, String, Integer)>]
+  # @return [String]
+  def pending_message(pending)
+    rows = pending.map { |glob, reason, _| "  #{glob} -- #{reason}" }
+    "SerdeBoundary::PENDING is not empty, and SSE-37's handed-forward clause asks that it be " \
+      "by the end of phase 7:\n#{rows.join("\n")}\nMove each row to GUARDED in the change " \
+      "that lands its files, or delete it."
   end
 
   # One file's violations. A Ruby file that does not parse is a violation in itself: a file the

@@ -1,0 +1,22 @@
+# Dexpace::Conformance::InvariantSuite::Taxonomy is a private_constant (see taxonomy.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Taxonomy
+        CLASSIFIER_CASES: Hash[Integer, bool]
+        WIDENED: Array[Integer]
+        NARROWED: Array[Integer]
+        DEFAULT_SET: Array[Integer]
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.two_branch_taxonomy: (InvariantCase subject) -> nil
+        def self?.one_shared_status_classifier: (InvariantCase subject) -> nil
+        def self?.open_capability_query: (InvariantCase subject) -> nil
+        def self?.configurable_status_set_is_authoritative: (InvariantCase subject) -> nil
+        def self?.declaring: (bool retryable) -> ::StandardError
+      end
+    end
+  end
+end

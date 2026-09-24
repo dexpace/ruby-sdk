@@ -1,0 +1,25 @@
+# Dexpace::Conformance::InvariantSuite::Classification is a private_constant (see
+# classification.rb); declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Classification
+        CYCLE_NODES: Integer
+        MAX_STEPS: Integer
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.error_factory_refuses_non_error_status: (InvariantCase subject) -> nil
+        def self?.cycle_safe_cause_walk: (InvariantCase subject) -> nil
+        def self?.retry_safety_is_uniform: (InvariantCase subject) -> nil
+        def self?.cycle: () -> untyped
+        def self?.drive: (untyped enumerator) -> Array[untyped]
+        def self?.collect: (untyped enumerator, Array[untyped] walked) -> nil
+        def self?.response: (InvariantCase subject, Integer code) -> untyped
+        def self?.safety_request: (InvariantCase subject, String verb, untyped body) -> untyped
+        def self?.replayable_post: (InvariantCase subject) -> untyped
+        def self?.streaming_post: (InvariantCase subject) -> untyped
+      end
+    end
+  end
+end

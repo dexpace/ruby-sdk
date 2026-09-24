@@ -1,0 +1,19 @@
+# Dexpace::Conformance::CodecSuite::Seam is a private_constant (see seam.rb); declared because the
+# conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module CodecSuite
+      module Seam
+        SAMPLE: Hash[String, Integer]
+        MALFORMED: String
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.never_closes_its_target: (CodecCase subject) -> nil
+        def self?.no_library_type_escapes: (CodecCase subject) -> nil
+        def self?.capture_failure: (CodecCase subject) -> untyped
+        def self?.serde_error?: (untyped error) -> bool
+      end
+    end
+  end
+end

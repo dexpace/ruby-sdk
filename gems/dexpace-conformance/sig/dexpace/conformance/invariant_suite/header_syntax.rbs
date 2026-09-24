@@ -1,0 +1,23 @@
+# Dexpace::Conformance::InvariantSuite::HeaderSyntax is a private_constant (see header_syntax.rb);
+# declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module HeaderSyntax
+        NAME_REJECTS: Hash[String, String]
+        VALUE_REJECTS: Hash[String, String]
+        FORGED_NAME: String
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.header_syntax_validation: (InvariantCase subject) -> nil
+        def self?.forged_request_is_refused_at_dispatch: (InvariantCase subject) -> untyped
+        def self?.check_values: (untyped syntax) -> void
+        def self?.check_dispatch: (InvariantCase subject, untyped listener) -> nil
+        def self?.listen: () -> untyped
+        def self?.forge: (untyped core, String url) -> [untyped, String]
+        def self?.duck: (untyped verb, untyped url, untyped headers) -> untyped
+      end
+    end
+  end
+end

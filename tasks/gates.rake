@@ -334,9 +334,65 @@ namespace :gates do
     found = SerdeBoundary.violations(root)
     abort(found.join("\n")) unless found.empty?
 
-    SerdeBoundary.pending(root).each do |glob, reason, matched|
+    pending = SerdeBoundary.pending(root)
+    pending.each do |glob, reason, matched|
       puts "gates:serde_boundary: PENDING #{glob} (#{matched} file(s) today) -- #{reason}"
     end
-    puts "gates:serde_boundary: #{SerdeBoundary::GUARDED.size} guarded globs clean."
+    # SSE-37's handed-forward clause: 7b asked for "the repository-wide check that its PENDING
+    # list is empty by the end of phase 7", which it could not assert while phase 7 was still
+    # running. Phase 9 asserts it.
+    abort(SerdeBoundary.pending_message(pending)) unless pending.empty?
+    puts "gates:serde_boundary: #{SerdeBoundary::GUARDED.size} guarded globs clean; the " \
+         "pending list is empty (SSE-37)."
+  end
+
+  # The three repository-wide invariant scans phase 9 adds (design R4). Each is a scan of THIS
+  # repository's source tree, which is why it is a gate and not a portable assertion: a scan of
+  # `gems/*/lib/` would be meaningless in a consumer's process.
+  # Dir.glob sorts its own result on every supported Ruby, so neither reader sorts again.
+  #
+  # The scan reads ABSOLUTE paths and the message is made relative afterwards. The other
+  # direction -- handing the scanner paths relative to `root` -- reads them relative to the
+  # process's CWD instead, which is the same directory only when DEXPACE_GATE_ROOT is unset; with
+  # a fixture root every open raised Errno::ENOENT, so the gate could never have been driven
+  # against the deliberately failing fixture this repository requires of every gate. Both
+  # allowlists are joined to the same root for the same reason: an entry that no longer matches a
+  # scanned path silences nothing and is invisible.
+  def invariant_files(root) = Dir.glob(File.join(root, "gems/*/lib/**/*.rb"))
+  def core_files(root) = Dir.glob(File.join(root, "gems/dexpace-core/lib/**/*.rb"))
+  def under(root, paths) = paths.map { |path| File.join(root, path) }
+  def relative_to(root, lines) = lines.map { |line| line.delete_prefix("#{root}/") }
+
+  desc "XCUT-9: Dexpace.each_cause is the only walk of an error's cause chain"
+  task :cause_walk do
+    require_relative "../tools/invariant_gates"
+    root = gate_root
+    found = InvariantGates.cause_walk(invariant_files(root),
+                                      allowed: under(root, InvariantGates::CAUSE_WALK_ALLOWED),)
+    abort(relative_to(root, found).join("\n")) unless found.empty?
+
+    puts "gates:cause_walk: #{invariant_files(root).size} files; one cause walk (XCUT-9)."
+  end
+
+  desc "XCUT-14: only Dexpace::BoundedMap holds a caller- or server-keyed map"
+  task :bounded_map do
+    require_relative "../tools/invariant_gates"
+    root = gate_root
+    allowed = InvariantGates::BOUNDED_MAP_ALLOWED.transform_keys { |key| File.join(root, key) }
+    found = InvariantGates.bounded_map(invariant_files(root), allowed: allowed)
+    abort(relative_to(root, found).join("\n")) unless found.empty?
+
+    puts "gates:bounded_map: #{invariant_files(root).size} files; " \
+         "#{InvariantGates::BOUNDED_MAP_ALLOWED.size} adjudicated exceptions (XCUT-14)."
+  end
+
+  desc "SEAM-2: core never names a concrete seam implementation"
+  task :seam_names do
+    require_relative "../tools/invariant_gates"
+    root = gate_root
+    found = InvariantGates.seam_names(core_files(root))
+    abort(relative_to(root, found).join("\n")) unless found.empty?
+
+    puts "gates:seam_names: #{core_files(root).size} core files name no adapter (SEAM-2)."
   end
 end

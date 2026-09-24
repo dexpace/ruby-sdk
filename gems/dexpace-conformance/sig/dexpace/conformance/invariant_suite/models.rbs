@@ -1,0 +1,30 @@
+# Dexpace::Conformance::InvariantSuite::Models is a private_constant and not public API: this
+# declaration exists because the conformance Steep target checks every file under lib/. RBS has no
+# visibility for a constant, so the privacy lives in models.rb alone.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Models
+        CLOSE_BOUND_SECONDS: Float
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.immutable_models: (InvariantCase subject) -> nil
+        def self?.idempotent_close: (InvariantCase subject) -> nil
+        def self?.non_blocking_close: (InvariantCase subject) -> nil
+        def self?.only_closes_what_it_created: (InvariantCase subject) -> nil
+
+        class Borrowed
+          @closed: bool
+          @torn: bool
+
+          def initialize: () -> void
+          def close: () -> bool
+          def closed?: () -> bool
+          def finish: () -> bool
+          def usable?: () -> bool
+        end
+      end
+    end
+  end
+end

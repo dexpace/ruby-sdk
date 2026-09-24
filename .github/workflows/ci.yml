@@ -29,6 +29,9 @@ jobs:
       - run: bundle exec rake steep
       - run: bundle exec rake test:gates
       - run: bundle exec rake gates:serde_boundary
+      - run: bundle exec rake gates:cause_walk
+      - run: bundle exec rake gates:bounded_map
+      - run: bundle exec rake gates:seam_names
       - run: bundle exec rake gates:rbs_surface
       - run: bundle exec rake gates:sig_diff
       - run: bundle exec rake gates:surface_snapshot

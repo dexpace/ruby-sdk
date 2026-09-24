@@ -1,0 +1,30 @@
+module Dexpace
+  module Conformance
+    # What a CodecSuite assertion receives: a codec factory, the driver's witness and its source
+    # factory, since phase 2's contract is `#load(source, witness)` with no witness-less overload.
+    class CodecCase
+      class CountingSink
+        @bytes: String
+        @close_count: Integer
+
+        attr_reader bytes: String
+        attr_reader close_count: Integer
+
+        def initialize: () -> void
+        def write: (String chunk) -> Integer
+        def close: () -> Integer
+      end
+
+      @build: untyped
+      @witness: untyped
+      @source: untyped
+
+      attr_reader witness: untyped
+
+      def initialize: (build: untyped, witness: untyped, source: untyped) -> void
+      def codec: () -> untyped
+      def sink: () -> CountingSink
+      def source: (String text) -> untyped
+    end
+  end
+end

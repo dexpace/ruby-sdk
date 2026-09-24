@@ -1,27 +1,53 @@
 module Dexpace
   module Conformance
-    # A frozen list of Results with the one renderer this phase ships; the waived IDs and the
-    # suite's preamble print on every run (design §9.3, P8-9).
+    # A frozen list of Results with the renderer 8a shipped and the structured form it deferred;
+    # the waived IDs, the suite's preamble and the MUST-level vacuity blockers print on every run
+    # (design §9.3, P8-9, R3).
     class Report
       @results: Array[Result]
       @preamble: String?
+      @accepted_vacuous: Hash[String, String]
+      @would_fail: Array[String]
 
       attr_reader results: Array[Result]
       attr_reader preamble: String?
+      attr_reader accepted_vacuous: Hash[String, String]
+      attr_reader would_fail: Array[String]
 
-      def initialize: (untyped results, ?preamble: String?) -> void
+      def self.merge: (Array[Report] reports, ?preamble: String?,
+                       ?accepted_vacuous: Hash[String, String],
+                       ?would_fail: Array[String]) -> Report
+
+      def initialize: (untyped results, ?preamble: String?,
+                       ?accepted_vacuous: Hash[String, String],
+                       ?would_fail: Array[String]) -> void
       def passed?: () -> bool
+      def passed: () -> Array[Result]
       def failures: () -> Array[Result]
       def vacuous: () -> Array[Result]
       def waived: () -> Array[Result]
       def errors: () -> Array[Result]
+      def blocking_vacuities: () -> Array[Result]
+      def accepted_vacuities: () -> Array[Result]
+      def unknown_ids: () -> Array[String]
       def to_s: () -> String
+      def to_h: () -> Hash[Symbol, untyped]
 
       private
 
+      def validate_citation!: (String id, untyped citation) -> void
       def by_status: (Symbol status) -> Array[Result]
+      def must_level_vacuities: () -> Array[Result]
+      def must_level?: (Result result) -> bool
+      def accepted?: (Result result) -> bool
+      def citation_for: (Result result) -> String
+      def counts: () -> Hash[Symbol, Integer]
       def counts_line: () -> String
       def waived_lines: () -> Array[String]
+      def accepted_lines: () -> Array[String]
+      def vacuous_lines: () -> Array[String]
+      def blocking_lines: () -> Array[String]
+      def blocked_line: () -> String?
       def detail_lines: () -> Array[String]
       def ids: (Result result) -> String
     end

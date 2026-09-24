@@ -1,0 +1,23 @@
+# Dexpace::Conformance::InvariantSuite::Memory is a private_constant (see memory.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module InvariantSuite
+      module Memory
+        CAP: Integer
+        OVERSHOOT: Integer
+        BURST: Integer
+        PREVIEW_BYTES: Integer
+        SNAPSHOT_CAP: Integer
+        PAYLOAD_BYTES: Integer
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.bounded_maps: (InvariantCase subject) -> nil
+        def self?.bounded_map_drains: (InvariantCase subject) -> nil
+        def self?.capped_non_consuming_preview: (InvariantCase subject) -> nil
+        def self?.payload: (InvariantCase subject) -> untyped
+      end
+    end
+  end
+end

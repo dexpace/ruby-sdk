@@ -1,0 +1,24 @@
+# Dexpace::Conformance::PackagingSuite::Surface is a private_constant (see surface.rb); declared
+# because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module PackagingSuite
+      module Surface
+        ASYNC_FRAMEWORKS: Array[String]
+        LEAK: Regexp
+        COMMENT: Regexp
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.explicit_typed_surface: (PackagingCase subject) -> nil
+        def self?.check_mirror: (PackagingCase subject, String name) -> nil
+        def self?.no_async_framework_type_in_the_core_surface: (PackagingCase subject) -> nil
+        def self?.spdx_header_coverage: (PackagingCase subject) -> nil
+        def self?.leaks_in: (String? root) -> Array[String]?
+        def self?.leaks_in_file: (String file) -> Array[String]
+        def self?.trees: (PackagingCase subject, String name) -> [Array[String]?, Array[String]?]
+        def self?.relative: (String root, String extension) -> Array[String]?
+      end
+    end
+  end
+end

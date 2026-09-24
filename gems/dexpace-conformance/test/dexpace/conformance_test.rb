@@ -33,10 +33,21 @@ class ConformanceTest < DexpaceTestCase
   # Minitest driver, the two observability doubles and the borrowed pair. RSpecDriver is defined
   # by a file the entry point deliberately does NOT require (an RSpec-only consumer opts in), so
   # it is absent here and its own test loads it.
-  PUBLIC = %i[
+  PHASE_8A = %i[
     VERSION Failure Vacuous Assertion Result Report Scripts WireServer BorrowedPair TransportCase
     TransportSuite MinitestDriver RecordingSpan Allocations
   ].freeze
+
+  # Phase 9's additions: the shared instrument (the assertion primitive, the status loop, the
+  # generated requirement-level map and XCUT-11's structural predicate), the four suites it ships
+  # with the case each hands its assertions, and the one aggregate over every suite in a run.
+  PHASE_9 = %i[
+    Check Runner Levels SharedInstance Aggregate
+    InvariantCase InvariantSuite PackagingCase PackagingSuite
+    CodecCase CodecSuite ExecutorCase ExecutorSuite
+  ].freeze
+
+  PUBLIC = (PHASE_8A + PHASE_9).freeze
 
   test "defines a semver VERSION string" do
     assert_match(/\A\d+\.\d+\.\d+\z/, Dexpace::Conformance::VERSION)

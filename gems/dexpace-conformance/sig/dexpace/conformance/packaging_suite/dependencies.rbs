@@ -1,0 +1,20 @@
+# Dexpace::Conformance::PackagingSuite::Dependencies is a private_constant (see dependencies.rb);
+# declared because the conformance Steep target checks every file under lib/.
+module Dexpace
+  module Conformance
+    module PackagingSuite
+      module Dependencies
+        ROWS: Array[untyped]
+        ASSERTIONS: Array[Assertion]
+
+        def self?.core_has_no_runtime_dependencies: (PackagingCase subject) -> nil
+        def self?.adapter_budget: (PackagingCase subject) -> nil
+        def self?.declared_runtime_floor: (PackagingCase subject) -> nil
+        def self?.check_isolation: (PackagingCase subject, Hash[String, untyped] floors) -> nil
+        def self?.single_version_source: (PackagingCase subject) -> nil
+        def self?.version_matches_the_gemspec: (PackagingCase subject) -> nil
+        def self?.declared?: (untyped floor) -> bool
+      end
+    end
+  end
+end

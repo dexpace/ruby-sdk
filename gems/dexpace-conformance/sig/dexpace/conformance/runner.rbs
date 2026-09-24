@@ -1,0 +1,19 @@
+module Dexpace
+  module Conformance
+    # The one loop every phase-9 suite's `.run` delegates to; the five statuses decided in one
+    # place (design P9-10).
+    module Runner
+      def self?.run: (Array[Assertion] assertions, ?waive: Array[String], ?around: untyped,
+                      ?accepted_vacuous: Hash[String, String], ?would_fail: Array[String],
+                      ?preamble: String?) { () -> untyped } -> Report
+      def self?.registry: (Module group, Array[untyped] rows) -> Array[Assertion]
+
+      private
+
+      def one: (Assertion assertion, Array[String] waive, untyped around, untyped subject) -> Result
+      def waived?: (Assertion assertion, Array[String] waive) -> bool
+      def detail_for: (Failure error) -> String
+      def invoke: (Assertion assertion, untyped around, untyped subject) -> untyped
+    end
+  end
+end

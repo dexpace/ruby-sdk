@@ -1,0 +1,17 @@
+module Dexpace
+  module Conformance
+    # Appendix B.9's portable half: the eight NFRs whose subject is a UNIT (design R2).
+    module PackagingSuite
+      PREAMBLE: String
+      # A private_constant with no visibility in RBS; the two groups, concatenated.
+      ASSERTIONS: Array[Assertion]
+
+      def self?.assertions: () -> Array[Assertion]
+      def self?.run: (?core: String, ?adapters: Array[String], ?resolve: untyped,
+                      ?constants: Hash[String, String], ?versions: Hash[String, String],
+                      ?sig_roots: Hash[String, String], ?waive: Array[String], ?around: untyped,
+                      ?accepted_vacuous: Hash[String, String],
+                      ?would_fail: Array[String]) -> Report
+    end
+  end
+end

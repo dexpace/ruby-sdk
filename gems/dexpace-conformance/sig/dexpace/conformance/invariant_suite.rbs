@@ -1,0 +1,18 @@
+module Dexpace
+  module Conformance
+    # Appendix B.8: twenty-eight assertions over all twenty-four XCUT IDs (design P9-8).
+    module InvariantSuite
+      PREAMBLE: String
+      # A private_constant with no visibility in RBS; the eight groups, concatenated.
+      ASSERTIONS: Array[Assertion]
+
+      def self?.assertions: () -> Array[Assertion]
+      def self?.run: (?core: untyped, ?seam: untyped, ?transport: untyped, ?mutable: Array[Symbol],
+                      ?shared: Array[untyped], ?bounded_map: untyped, ?bounded_map_store: untyped,
+                      ?cnonce: untyped, ?redirect_hops: untyped, ?credential_hop: untyped,
+                      ?waive: Array[String], ?around: untyped,
+                      ?accepted_vacuous: Hash[String, String],
+                      ?would_fail: Array[String]) -> Report
+    end
+  end
+end
