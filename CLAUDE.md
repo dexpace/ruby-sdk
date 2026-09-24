@@ -13,11 +13,12 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b and 8c are built — the whole of
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b, 8c and 9 are built — the whole of
 phase 6, the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
 order, 7a last (umbrella #25 closes by hand), and the whole of phase 8, whose three sub-phases were built
 8a first, off the same base as phase 7's and reconciled onto the tree that holds all three, then 8b and 8c
-concurrently off the tree that holds 8a, 8c landing second; the domain model, the seam layer, the
+concurrently off the tree that holds 8a, 8c landing second, and phase 9, the audit phase, which ships no
+`lib/` code outside `dexpace-conformance` and repairs nothing it finds; the domain model, the seam layer, the
 byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
 configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry layer,
 the authentication layer, the redirect layer, the server-sent-events layer, the pagination layer, the
@@ -254,9 +255,11 @@ the synchronous transport is the first thing here that talks to a socket, and th
 on the async path — the two meet in `dexpace-async-thread`'s composed suite over a real socket. Both
 transports talk to a socket; the async one needs a running reactor on the calling thread and creates none. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
-the eighteen blocking gates — phase 0's seventeen
-(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`) and phase 7b's
-`gates:serde_boundary`.
+the twenty-one blocking gates — phase 0's seventeen
+(`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`), phase 7b's
+`gates:serde_boundary` and phase 9's three repository-wide invariant scans, `gates:cause_walk`,
+`gates:bounded_map` and `gates:seam_names`, over one `RubyVM::AbstractSyntaxTree` walker in
+`tools/ast_scan.rb`.
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
 `docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec but one, asserted by
 `gates:versions`; `dexpace-transport-async_http` alone declares **>= 3.3**, read from `VERSIONS`' per-gem
@@ -299,8 +302,8 @@ makes an older Bundler try to install Bundler 4.
 
 ```bash
 bundle install
-bundle exec rake                                  # the default task: all eighteen gates, in order (NFR-17)
-bundle exec rake gates:list                       # the eighteen names, in the order CI and `rake` both use
+bundle exec rake                                  # the default task: all twenty-one gates, in order (NFR-17)
+bundle exec rake gates:list                       # the twenty-one names, in the order CI and `rake` both use
 bundle exec rake rubocop                          # NFR-7, findings fatal, no autocorrection
 bundle exec rake rubocop:fix                      # safe autocorrections only, never the gate
 bundle exec rake cops:test                        # the custom cops' own suite (.rubocop/test/)
@@ -310,6 +313,9 @@ bundle exec rake test:gates                       # the repository's gate suites
 bundle exec rake gates:gemspec_audit              # SEAM-1, NFR-1, NFR-2
 bundle exec rake gates:require_allowlist          # SEAM-1, SEAM-2: the allowlist and the denylist
 bundle exec rake gates:serde_boundary             # SSE-37, spec-forced boundary 5: no serde under lib/dexpace/{sse,page}/**
+bundle exec rake gates:cause_walk                 # XCUT-9: Dexpace.each_cause is the only walk of a cause chain
+bundle exec rake gates:bounded_map                # XCUT-14: only Dexpace::BoundedMap holds a caller-keyed map
+bundle exec rake gates:seam_names                 # SEAM-2: core never names a concrete seam implementation
 bundle exec rake gates:clean_bundle               # the scratch-Gemfile isolation run, all six gems
 bundle exec rake gates:rbs_surface                # NFR-11
 bundle exec rake gates:sig_diff                   # NFR-4, RBS half (vacuous until the first v* tag)
@@ -1358,10 +1364,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   `pool.rb` and `timer.rb`, the last a `private_constant`, every one mirrored in `sig/` and the two public
   ones in `test/` (`timer.rb` is proven through `pool_delay_test.rb` and `pool_test.rb`'s source scans) —
   and its gemspec declares `dexpace-core` alone, by design: the gem spends none of its `NFR-2` budget;
-  `dexpace-conformance`'s holds the phase-8a conformance suite with phase 8c's two groups — twenty-five
-  files beside phase 0's `version.rb`, nine of them `private_constant`s, every one mirrored in `sig/` and
-  every one but `transport_suite/checks.rb`, `wire_server/recorded_request.rb` and
-  `wire_server/request_reader.rb` mirrored in `test/` — and its gemspec declares `dexpace-core` alone, its
+  `dexpace-conformance`'s holds the phase-8a conformance suite with phase 8c's two groups and phase 9's
+  four further suites — **fifty-four** files beside phase 0's `version.rb`, twenty-five of them
+  `private_constant`s, every one mirrored in `sig/` and every public one but `check.rb`, `levels.rb`,
+  the four `*_case.rb` files and `wire_server/recorded_request.rb` mirrored in `test/` (each of those six
+  is driven through the suite it serves, and `levels.rb` through `test/gates/requirement_levels_test.rb`)
+  — and its gemspec declares `dexpace-core` alone, its
   `socket` and `tempfile` requires carried by the allowlist's exceptions. Every gem under `gems/` is real:
   no phase-0 skeleton remains, and the third-party half of each `NFR-2` budget arrived with the phase that
   wrote the code needing it — 7a's, 8a's and 8c's (8b's spends none).
@@ -1371,7 +1379,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  twenty checklists written so far, each at implementation; `phase4/`
+  twenty-one checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1410,9 +1418,11 @@ probe compares each against the live tree, and a count written anywhere else in 
   gemspec, version and first release phase 8 owns. Its three sub-phases are independent, so
   their order is convenience; one task is phase-level because it lands in `dexpace-core`, which
   none of the three ships.
-  `phase9/` carries **no segmentation design and no sub-phase** — it holds its design and its
-  plan directly, `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`
-  and `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md`. The
+  `phase9/` carries **no segmentation design and no sub-phase** — it holds its design, its plan
+  and its checklist directly, `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`,
+  `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance.md` and
+  `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-checklist.md`,
+  the last written at implementation on 2026-09-23. The
   roadmap's segmentation rule reaches build phases 1 through 8 and leaves phases 9 and 10 to
   segment "only if their own design finds it necessary"; phase 9's design finds it does not, at
   41 IDs (`XCUT-1`–`24`, `NFR-1`–`17`) against phase 1's 42 unsegmented rows, and one gem rather
@@ -1447,5 +1457,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
   phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's, phase 7a's, phase 8a's, phase 8b's and phase 8c's is still to be written at execution time.
+  phase 7c's, phase 7a's, phase 8a's, phase 8b's, phase 8c's and phase 9's is still to be written at
+  execution time — which leaves phase 10's alone.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

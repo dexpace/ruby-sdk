@@ -153,7 +153,11 @@ transport and the conformance suite are what phase 8a built — the first code o
 [`sdk-documentation/async-thread.md`](./sdk-documentation/async-thread.md), because the thread pool
 that is the async path's first executor is what phase 8b built, and
 [`sdk-documentation/transport-async_http.md`](./sdk-documentation/transport-async_http.md), because
-the asynchronous transport, the suite's second driver, is what phase 8c built.
+the asynchronous transport, the suite's second driver, is what phase 8c built. Phase 9 added no page
+of its own: it ships no gem, and what it built extended two that already existed —
+[`sdk-documentation/conformance.md`](./sdk-documentation/conformance.md) gains a section on its four
+suites and [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md) three rows,
+one per repository-wide invariant scan.
 
 ## Keeping this file true
 
