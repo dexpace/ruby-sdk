@@ -67,6 +67,18 @@ class DexpaceConformanceInvariantSuiteTest < DexpaceTestCase # rubocop:disable M
     end
   end
 
+  # XCUT-22's SECOND clause, broken on its own: it leaves the borrowed resource's `#close` alone
+  # and tears it down through the teardown beside it, which is exactly the shape the first clause
+  # cannot see. Without this double the second Check could not fail against any subject the suite
+  # can build, and review round 2 measured that: replacing its condition with a literal `true`
+  # left the whole gem's suite green.
+  class TearingSeam < LatchedSeam
+    def close
+      super
+      @client&.finish
+    end
+  end
+
   # XCUT-11, broken: per-call state on the shared instance, and one call's request in another's.
   class CrossTalkingSeam < LatchedSeam
     def initialize(client: nil)
@@ -257,6 +269,17 @@ class DexpaceConformanceInvariantSuiteTest < DexpaceTestCase # rubocop:disable M
     report = run_suite(seam: ->(client: nil) { OverreachingSeam.new(client: client) })
 
     assert_equal([:failed], statuses(report)["XCUT-22"])
+    assert_match(/closed a resource it did not create/, report.failures.first.detail)
+  end
+
+  # The second clause, driven on its own: `closed?` is still false, so the first Check passes and
+  # only the second can report this. A `usable?` derived from the latch the first Check reads
+  # would leave this subject green.
+  test "a holder that tears a borrowed resource down without closing it fails XCUT-22" do
+    report = run_suite(seam: ->(client: nil) { TearingSeam.new(client: client) })
+
+    assert_equal([:failed], statuses(report)["XCUT-22"])
+    assert_match(/stopped working/, report.failures.first.detail)
   end
 
   # ---- bounded memory ----

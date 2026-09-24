@@ -55,6 +55,24 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase # rubocop:disable Me
     end
   end
 
+  # A conforming executor that also uses the sink it was handed for something OTHER than its
+  # shutdown -- one event payload under a different name and one bare String message, both emitted
+  # at construction. Nothing in the SPI forbids it and a real adapter's logger carries plenty
+  # besides its shutdown, so `ExecutorCase#shutdowns` must match the payload's `Keys::EVENT` entry
+  # rather than count the sink's writes. Every other double here emits the shutdown payload and
+  # nothing else, which is why review round 2 could replace that match with a bare
+  # `entries.count` and leave the whole suite green.
+  class ChattyPool < FakePool
+    STARTUP = { Dexpace::Instrumentation::Keys::EVENT =>
+                  Dexpace::Instrumentation::Events::INSTRUMENTATION_HOOK }.freeze
+
+    def initialize(events: nil, owned: true)
+      super
+      events&.info { STARTUP }
+      events&.info("a bare message, which is not a payload Hash at all")
+    end
+  end
+
   # XCUT-13's non-conforming twin: no latch, so every close runs the shutdown again.
   class UnlatchedPool < FakePool
     def close
@@ -211,6 +229,19 @@ class DexpaceConformanceExecutorSuiteTest < DexpaceTestCase # rubocop:disable Me
     assert_match(/did not return/, error.message)
   ensure
     release(entered, gate)
+  end
+
+  # SEAM-25 is "exactly one shutdown EVENT", not "exactly one sink write": the recorder is a sink
+  # and a conforming executor may log anything else through it. Three assertions read that count --
+  # SEAM-25, XCUT-13's second half and XCUT-22's no-shutdown half -- and all three stay green here,
+  # while a count that ignored the event name reddens every one of them.
+  test "a payload that is not a shutdown event is not counted as one" do
+    report = conforming(build: ->(events: nil, **_kw) { ChattyPool.new(events: events) })
+
+    assert_equal({ "SEAM-12" => :passed, "XCUT-13" => :passed, "XCUT-22" => :passed,
+                   "ASYNC-16" => :passed, "ASYNC-17" => :passed, "SEAM-25" => :passed,
+                   "ASYNC-3" => :waived, },
+                 statuses(report),)
   end
 
   test "an unlatched close fails XCUT-13 and SEAM-25" do
