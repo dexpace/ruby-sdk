@@ -11,7 +11,10 @@ require "dexpace/conformance"
 # Every ID here is one this file really drives: XCUT-1, XCUT-2, XCUT-4, XCUT-5, XCUT-6, XCUT-7,
 # XCUT-8, XCUT-9, XCUT-10, XCUT-16, XCUT-18, XCUT-19, XCUT-20, XCUT-21, XCUT-23 and XCUT-24. The
 # list is kept honest deliberately: it named XCUT-6, XCUT-7 and XCUT-10 before any double for them
-# existed, and a header claiming a double nobody wrote is what review round 2 caught.
+# existed, and a header claiming a double nobody wrote is what review round 2 caught. An ID in that
+# list says nothing about how many ASSERTIONS carry it: XCUT-18 carries two, and review round 3
+# found the model-layer one still had no double while the call-site one had two, with the whole of
+# `rake test:gems` green. Both are driven here now.
 # XCUT-3 and XCUT-12 have no double here and their checklist rows say so: either would need a
 # subject that parks a thread past the assertion's own bound, which leaks the thread the base
 # case's teardown counts. Their guards are subject mutations 22 and 23.
@@ -420,6 +423,53 @@ class DexpaceConformanceInvariantSuiteCoreTest < DexpaceTestCase # rubocop:disab
     end
 
     assert_equal([:passed], statuses(x21(core))["XCUT-21"])
+  end
+
+  # ---- XCUT-18's model layer ----
+
+  # @return [String, nil] the detail of the failed result for `id`, so a clause is read off its
+  #   own assertion rather than off whichever failure happens to be first in the report.
+  def failure_detail(report, id)
+    report.results.find { |r| r.assertion.ids.first == id && r.status == :failed }&.detail
+  end
+
+  # One double per half of XCUT-18's asymmetry. The second is what keeps the asymmetry itself
+  # falsifiable: a port that refuses HTAB everywhere satisfies every other clause in the
+  # assertion, so without it the HTAB check is carried by the real subject alone.
+
+  test "a validator that refuses nothing fails XCUT-18's model-layer assertion" do
+    permissive = Module.new do
+      def self.validate_name!(name) = name || raise(::ArgumentError, "name is required")
+
+      def self.validate_outbound_value!(value, name:)
+        raise ::ArgumentError, "name is required" if name.nil?
+
+        value
+      end
+    end
+    report = Suite.run(core: patched(HeaderSyntax: permissive))
+
+    assert_equal(%i[failed vacuous], statuses(report)["XCUT-18"],
+                 "the call-site assertion is vacuous with no transport factory supplied; the " \
+                 "model-layer one is the subject here",)
+    assert_match(/header NAME containing CR was accepted/, failure_detail(report, "XCUT-18"))
+  end
+
+  test "an outbound-value rule identical to the NAME rule fails XCUT-18's HTAB clause" do
+    symmetric = Module.new do
+      real = ::Dexpace::HeaderSyntax
+      define_singleton_method(:validate_name!) { |name| real.validate_name!(name) }
+      define_singleton_method(:validate_outbound_value!) do |value, name:|
+        real.validate_outbound_value!(value, name: name)
+        real.validate_name!(value) # the defect: one rule for both, so HTAB is refused everywhere
+      end
+    end
+    report = Suite.run(core: patched(HeaderSyntax: symmetric))
+
+    assert_equal(%i[failed vacuous], statuses(report)["XCUT-18"],
+                 "every NAME clause and every other VALUE clause passes against this double, so " \
+                 "the asymmetry is the only clause left to fail",)
+    assert_match(/VALUE containing HTAB was rejected/, failure_detail(report, "XCUT-18"))
   end
 
   # ---- XCUT-18's call-site assertion ----
