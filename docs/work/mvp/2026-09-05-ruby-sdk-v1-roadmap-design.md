@@ -1922,7 +1922,23 @@ evidence the work was done.
   moot when `8c` lands and phase 10 to find nothing to repair. It stays on this list until a green
   `gates:bounded_map` run says so. What made the difference is only that `8c` had **not** in fact already
   run when phase 9's audit read its plan, which is the premise the phase-10 routing rested on. Touches `XCUT-14`,
-  `TRANSPORT-13`, `NFR-17`.
+  `TRANSPORT-13`, `NFR-17`. [2026-09-24, phase 9: **premise false on the tree, and the map this bullet names
+  does not exist under that name.** The as-built ivar is `@by_key`, not `@by_origin` — `Clients` keys by
+  `(reactor, origin)` and not by origin alone
+  (`gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb:56`, the `Key` at :28) — so
+  a search for the name this bullet gives finds nothing. Nor is it uncapped: `Clients#fetch` inserts with
+  `||=` and calls `#drain` inside the **same** `@mutex.synchronize` as the insert (:79-82), and `#drain` is a
+  loop back to `MAX_ORIGINS` (32, `async_http.rb:55`) that evicts clients whose reactor has closed first and
+  then the oldest by insertion order (:126-131), with every evicted client's pool retired outside the lock
+  (:83) — which is `XCUT-14`'s drain clause exactly, so a concurrent insert burst converges to the bound
+  rather than overshooting it permanently. `gates:bounded_map` is **green over the whole tree** — 307 files,
+  six adjudicated exceptions, exit 0, re-run 2026-09-24 on 4.0.6 — so this bullet's own eviction condition,
+  "it stays on this list until a green `gates:bounded_map` run says so", is met. `clients.rb` is one of the
+  six exceptions, carried on `InvariantGates::BOUNDED_MAP_ALLOWED` (`tools/invariant_gates.rb:69-79`) as a
+  **verified false positive of the scan** and never as a silenced defect: the scan sees a Hash assigned to an
+  instance variable and cannot see a cap, and the reason recorded beside the entry is the reading of the
+  file. The `docs/first-release.md` blocker is ticked and closed 2026-09-23, `XCUT-14`'s checklist row is ✅,
+  and **no phase-10 repair is owed** — the fix this bullet specifies had already landed with `8c`.]
 - **~~8a's `Adapter#dispatch` leaves its rescue variable unused~~ — first half CLOSED 2026-09-13 — and every
   repository tool that parses a filed source carries the same exposure.** As filed, this bullet reported that
   `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
