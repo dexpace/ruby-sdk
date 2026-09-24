@@ -5095,10 +5095,15 @@ both.
 (`9-phase-9-cross-cutting-invariants-and-conformance`), tests (`…-tests`) and documentation
 (`…-docs`), each targeting the one below and the first targeting `main` at `582e33a`, which holds every
 phase through 8. Nothing is pushed. **This is the audit phase, and it repaired nothing it found**:
-design `R6` makes the repair phase 10's, and the file list the plan fixed held exactly —
-`gems/dexpace-conformance/`, `tasks/`, `tools/`, `test/`, `.github/workflows/` and the root `Rakefile`,
-plus each adapter gem's `test/` tree. **No `lib/` or `sig/` file outside `gems/dexpace-conformance/`
-was touched, in any gem.**
+design `R6` makes the repair phase 10's, and the file list the plan fixed held with one named
+bend — `gems/dexpace-conformance/`, `tasks/`, `tools/`, `test/`, `.github/workflows/` and the root
+`Rakefile`, plus each adapter gem's `test/` tree, **plus exactly one ADDED file under
+`gems/dexpace-core/test/`**, the first-party `InvariantSuite` driver, with no existing core file
+modified, renamed or deleted. That is the one place the file list bends, it is the sentence the
+design's own `P9-9` needs and its Module layout denies, and `P9-40` records the contradiction rather
+than editing either away. **No `lib/` or `sig/` file outside `gems/dexpace-conformance/`
+was touched, in any gem**, and `git diff --name-status main..<the docs tip> -- gems/dexpace-core` is
+that one path, status `A`.
 
 **What it built.** Four suites beside phase 8a's transport one, all over one shared `Runner` so the
 five statuses are decided in one place — `InvariantSuite` (28 assertions over all twenty-four `XCUT`
@@ -5148,11 +5153,14 @@ two stated residues, 7a's `SEAM-21` evidence living inside another assertion's b
 `tools/surface.rb`'s blindness to a `private_constant` module, and `PackagingCase`'s default
 constant-path rule.
 
-**Guards.** Fifty-three mutations were run one at a time through a harness that applies the edit, runs
+**Guards.** Sixty mutations were run one at a time through a harness that applies the edit, runs
 the owning suite, captures the first failure and restores the file — **every one red**, each recorded
-in the checklist with the message it produced: forty-four at implementation, seven in review round 1
-and two in review round 2, the last pair being shapes that SURVIVED round 1 rather than shapes newly
-thought of. Six shapes were re-cut: one spun forever and was killed
+in the checklist with the message it produced: forty-four at implementation, seven in review round 1,
+two in review round 2 — shapes that SURVIVED round 1 rather than shapes newly thought of — and seven
+in review round 3, which neutralise one of this phase's OWN assertions whole rather than mutating a
+subject, the only shape that proves a committed double can report `:failed`. The checklist's earlier
+claim of "one mutation per assertion" was simply untrue and is corrected there with the rows that were
+missing. Six shapes were re-cut: one spun forever and was killed
 rather than counted, which is itself the `Registry#resolve` finding below, and five went green — and
 **two of those five were not bad mutations but real non-discrimination in this phase's own
 assertions**: `XCUT-3`'s cancel could beat the waiter into the wait, and `XCUT-12`'s sixteen racers
@@ -5165,22 +5173,22 @@ both are fixed because both are phase 9's own code: the three new gates' `DEXPAC
 opened every file relative to the process's CWD and could never have been shown to reject anything, and
 `gates:serde_boundary`'s abort branch and `--check`'s failing exit had no test at all.
 
-**Proofs**, re-measured at review round 2's tips on 2026-09-24; the run counts and the coverage
-denominators both moved, because the round added two tests and three lines of `lib/`. The **code
-tip** is green on **every one of the twenty-one gates run individually** on 4.0.6, the coverage floor
+**Proofs**, re-measured at review round 3's tips on 2026-09-24; the run counts moved again, because
+that round added thirteen tests, and the coverage denominators did NOT, because it added no `lib/`.
+The **code tip** is green on **every one of the twenty-one gates run individually** on 4.0.6, the coverage floor
 included — **4,020 runs, 74,125 assertions, 0 failures, 0 errors, 7 skips** and **94.65 % line
 coverage, 11,689 of 12,349** — the one red the layering rule tolerates was not needed, because the
 floor is met there even though the suites that raise the figure are the branch above's — `test:gates`
 145 runs and 703 assertions with no skip, and the honest RuboCop run over 758 files clean; and on the
 five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3 skips, 11,106 of 12,210 lines,
 **90.95 %**), where the three new gates report the same 307, 307 and 222 files they do on 4.0.6. The
-**tests tip** is green on the whole default task on 4.0.6 (**4,191 runs, 74,584 assertions, 0
+**tests tip** is green on the whole default task on 4.0.6 (**4,204 runs, 74,610 assertions, 0
 failures, 0 errors, 9 skips** and **99.82 % line coverage, 12,327 of 12,349**; `cops:test` 129 runs
 and 412 assertions; `test:gates` 193 runs and 877 assertions with no skip; the honest RuboCop run
-over 776 files clean) and on the matrix set on 3.4.10 (4,191 / 74,584 / 9 skips, the same 99.82 %),
-3.3.12 (the same runs, 12,181 of 12,203 lines) and 3.2.11 (4,003 / 73,808 / **5** skips, 96.09 % —
+over 776 files clean) and on the matrix set on 3.4.10 (4,204 / 74,610 / 9 skips, the same 99.82 %),
+3.3.12 (the same runs, 12,181 of 12,203 lines) and 3.2.11 (4,016 / 73,834 / **5** skips, 96.09 % —
 the four `async_http` skips are absent because that gem's 3.3 floor excludes it from the 3.2 row).
-Three explicit seeds — 1, 99991 and 424242 — give the same 4,191 / 74,584 / 9 on 4.0.6, and the four
+Three explicit seeds — 1, 99991 and 424242 — give the same 4,204 / 74,610 / 9 on 4.0.6, and the four
 timing-sensitive files run ten times each under a shell `timeout` with identical counts every time.
 The two coverage figures are not interchangeable and were once transposed here: 90.95 % is the
 **3.2.11** row and 94.65 % the 4.0.6 one. **Every skip is named**: the seven phase-8 drivers' —
@@ -5220,5 +5228,23 @@ pool now logs something besides its shutdown (`P9-39`). Beside them the checklis
 Task 15 Step 3 asks for in as many words — the three `NFR` marks where the design's ⏳ prediction was
 WRONG, named as wrong (`P9-36`) — and the `gates:bounded_map` allowlist re-adjudication got the
 ledger row its reasons belonged in (`P9-37`).
+
+**Review round 3, 2026-09-24.** The same failure mode again, and at its widest: **seven of
+`InvariantSuite`'s twenty-eight assertions had no committed non-conforming double**, and five of them
+— `XCUT-1`, `XCUT-2`, `XCUT-6`, `XCUT-7` and `XCUT-10` — could be neutralised WHOLE with the entire
+`rake test:gems` green. Nothing in the repository drove a subject that made any of their clauses fail,
+so each reported `:passed` because it could not report anything else, while the checklist told a
+reader that every `XCUT` row had been driven against a deliberately non-conforming double and
+`invariant_suite_core_test.rb`'s own header named three of those IDs among the ones it drove. In an
+audit phase that is `R3`'s failure one level up: `R3` stops an assertion passing because its subject
+was never built, and this was an assertion passing because its own falsifiability was never built.
+Thirteen defective stand-in cores now drive all seven — the five plus `XCUT-19` and `XCUT-24`, whose
+apparent coverage was an artefact of `-w` raising on a local the mutation orphaned — and neutralising
+each assertion whole and warning-free reddens exactly the new tests for it (`P9-41`, rows 55–61). No
+first-party code changed and none should have: the assertions were right and only the negative
+controls were missing. `XCUT-3` and `XCUT-12` are still without one, deliberately and by name: a
+double for either would have to stay in the wait past the assertion's own bound, which leaks the
+thread the base case's teardown counts. Beside it the round recorded `R6`'s one sanctioned exception,
+which the tree had carried since implementation and no document named (`P9-40`).
 
 `main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.

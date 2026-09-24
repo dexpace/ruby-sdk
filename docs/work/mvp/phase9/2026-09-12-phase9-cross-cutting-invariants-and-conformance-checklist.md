@@ -9,7 +9,12 @@ disagree the tree wins and this document records it.
 
 **Phase 9 reports; phase 10 repairs (design `R6`).** Nothing outside `gems/dexpace-conformance/`,
 `tasks/`, `tools/`, `test/`, `.github/workflows/`, each adapter gem's `test/` tree and the root `Rakefile`
-was changed, and no `lib/` or `sig/` file outside `gems/dexpace-conformance/` was touched at all. Every
+was changed — **plus exactly one ADDED file under `gems/dexpace-core/test/`**, the first-party
+`InvariantSuite` driver, with no existing core file modified, renamed or deleted. That is the one place
+`R6`'s file list bends and it is recorded rather than left to be discovered: deviation 14 below, `P9-40`,
+and the design's As-built addendum, which names the two sentences that cannot both hold. No `lib/` or
+`sig/` file outside `gems/dexpace-conformance/` was touched at all, in any gem, and
+`git diff --name-status main..<the docs tip> -- gems/dexpace-core` is that one path, status `A`. Every
 defect this phase found in another phase's code is routed with its evidence and left unrepaired —
 "Findings routed" below — because a phase that repairs what it found destroys the evidence that it was
 ever there.
@@ -23,7 +28,7 @@ Plan: `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-confo
 are that plan's — seventeen numbered tasks plus Task 12a, eighteen headings. Design:
 `docs/work/mvp/phase9/2026-09-12-phase9-cross-cutting-invariants-and-conformance-design.md`, whose
 Deviation Ledger carries `P9-1`–`P9-10` and whose As-built addendum, written with this checklist, adds
-**`P9-21`–`P9-39`** (the band starts at `P9-21`; `P9-11`–`P9-20` are left free and nothing is renumbered).
+**`P9-21`–`P9-41`** (the band starts at `P9-21`; `P9-11`–`P9-20` are left free and nothing is renumbered).
 Test files are named with their gem: `conformance/…` is
 `gems/dexpace-conformance/test/dexpace/conformance/`, `core/…` is `gems/dexpace-core/test/dexpace/`,
 `gates/…` is `test/gates/`, `serde_json/…` is `gems/dexpace-serde-json/test/dexpace/serde/json/` and
@@ -94,32 +99,42 @@ proves the assertion can fail at all; and **(c)** the same assertion driven agai
 `core/cross_cutting_invariants_test.rb`, the first-party driver. A row naming a mutation names one from
 "Guards run red" below, run against the real subject through (c).
 
+**(b) holds for every `XCUT` row but two, and the two are named here rather than left to be found.**
+`XCUT-3` and `XCUT-12` carry no committed non-conforming double: either would need a subject that stays
+in the wait past the assertion's own half-second bound, which leaks a thread `DexpaceTestCase`'s
+teardown counts, so their evidence is (a) + (c) + a hand-run SUBJECT mutation — 22 and 23 below.
+**Thirteen doubles were added in review round 3** to make the sentence true of the other twenty-two
+rows. Until then seven assertions had no (b) at all — `XCUT-1`, `XCUT-2`, `XCUT-6`, `XCUT-7`, `XCUT-10`,
+`XCUT-19` and `XCUT-24` — and five of the seven could be neutralised WHOLE with `rake test:gems` green,
+which is the difference between an assertion that holds and one that cannot report anything else
+(deviation 15; `P9-41`).
+
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
-| `XCUT-1` | MUST | ✅ | 8, 16 | "a cancellation is terminal and never retried": the token's `#check!` surfaces `Dexpace::CancelledError`, `Policy.throwable_retryable?` answers false for it, and `Policy.cancellation?` still recognises it when an adapter's own retryable error wraps it — the third clause is the one a check reading only the outermost error would miss. Mutations 12 and 13 |
-| `XCUT-2` | MUST | ✅ | 8, 16 | "a timeout is retryable and told apart from a cancellation by state": a `TransportError(phase: :read)` classifies retryable, the ambient flag stays clear, and a SUBTYPE of `CancelledError` is still recognised as a cancellation — the subtype clause is what makes "by the type, never by a message string" real |
-| `XCUT-3` | MUST | ✅ | 8, 16 | "a pending inter-attempt wait is promptly cancellable": a thirty-second `Clock::SYSTEM#sleep` cancelled from another thread surfaces `CancelledError` inside half a second. The waiter must be **parked** when the cancel is issued, and that is asserted rather than assumed — without the barrier the cancel could beat the waiter into the wait and an implementation ignoring the token passed (`P9-28`). Mutation 22 |
+| `XCUT-1` | MUST | ✅ | 8, 16 | "a cancellation is terminal and never retried": the token's `#check!` surfaces `Dexpace::CancelledError`, `Policy.throwable_retryable?` answers false for it, and `Policy.cancellation?` still recognises it when an adapter's own retryable error wraps it — the third clause is the one a check reading only the outermost error would miss. Two defective stand-in `Policy` cores — one reading only the outermost error, one calling a cancellation retryable. Mutations 12, 13 and 55 |
+| `XCUT-2` | MUST | ✅ | 8, 16 | "a timeout is retryable and told apart from a cancellation by state": a `TransportError(phase: :read)` classifies retryable, the ambient flag stays clear, and a SUBTYPE of `CancelledError` is still recognised as a cancellation — the subtype clause is what makes "by the type, never by a message string" real. Two defective cores — one matching the cancellation type EXACTLY, so a subtype escapes, and one telling a timeout apart by its message. Mutation 56 |
+| `XCUT-3` | MUST | ✅ | 8, 16 | "a pending inter-attempt wait is promptly cancellable": a thirty-second `Clock::SYSTEM#sleep` cancelled from another thread surfaces `CancelledError` inside half a second. The waiter must be **parked** when the cancel is issued, and that is asserted rather than assumed — without the barrier the cancel could beat the waiter into the wait and an implementation ignoring the token passed (`P9-28`). **No committed non-conforming double**, for the reason the evidence paragraph gives — a subject that stays in the wait leaks its thread — so the guard is mutation 22, run against the real `Clock` |
 | `XCUT-4` | MUST | ✅ | 6, 16 | "the error taxonomy has two branches and a transport error is I/O-family": `ProtocolError` carries a status and `TransportError < ::IOError` does not, and `Dexpace::Error` is a MODULE both reach through `Module#===` |
 | `XCUT-5` | MUST | ✅ | 6, 16 | "one shared status classifier decides the baked retryability flag": `Retryability.retryable_status?` is the one classifier and `ProtocolError#retryable_by_status?` reads it — never `#retryable?`, which is `XCUT-6`'s open capability (6a's `P6-10`) |
-| `XCUT-6` | MUST | ✅ | 6, 16 | "a custom error's retryability capability is queried, not its type": `Policy.throwable_retryable?` probes `#retryable?` over every cause and never a class list, so a caller's own error type is honoured |
-| `XCUT-7` | MUST | ✅ | 6, 16 | "the configured retryable-status set is authoritative and can widen or narrow": a set admitting 404 admits it and one refusing 408 refuses it, and the default set is the six `RETRY-13` fixes |
+| `XCUT-6` | MUST | ✅ | 6, 16 | "a custom error's retryability capability is queried, not its type": `Policy.throwable_retryable?` probes `#retryable?` over every cause and never a class list, so a caller's own error type is honoured. Two defective cores — one reading only the outermost error, one matching a concrete TYPE. Mutation 57 |
+| `XCUT-7` | MUST | ✅ | 6, 16 | "the configured retryable-status set is authoritative and can widen or narrow": a set admitting 404 admits it and one refusing 408 refuses it, and the default set is the six `RETRY-13` fixes. Two defective cores — a set ANDed with the baked classifier, which passes the narrowing half and fails the widening one, and a wrong default set. Mutation 58 |
 | `XCUT-8` | MUST | ✅ | 6, 16 | "the status-to-exception factory refuses a non-error status": `ProtocolError.for` raises `InvalidArgumentError` on a 200, `.for_or_nil` answers nil, and the same factory still maps a 503 — both forms in one assertion |
 | `XCUT-9` | MUST | ✅ | 6, 13, 16 | "the cause walk terminates on a cyclic chain, tracking by reference identity": a THREE-node cycle (two is indistinguishable from a depth-2 walk) driven through `Enumerator#next` under a step bound, so a non-terminating walk reports `:failed` rather than hanging. Beside it `gates:cause_walk`, the parsed scan that keeps the walk in one file. Mutation 24 |
-| `XCUT-10` | MUST | ✅ | 6, 16 | "retry safety is decided from the request alone, uniformly": all four cases `XCUT-10` enumerates, plus the structural half — `Resend.eligible?`'s parameter list is exactly `[[:req, :request]]`, so there is no failure parameter to special-case on |
+| `XCUT-10` | MUST | ✅ | 6, 16 | "retry safety is decided from the request alone, uniformly": all four cases `XCUT-10` enumerates, plus the structural half — `Resend.eligible?`'s parameter list is exactly `[[:req, :request]]`, so there is no failure parameter to special-case on. Two defective cores — a gate that re-sends a bare POST, and one taking a failure parameter. Mutation 59 |
 | `XCUT-11` | MUST | ✅ | 4, 8, 11, 16 | Two assertions plus a third in `ExecutorSuite`. Clause 1 is `SharedInstance.audit` over every shared instance the DRIVER declares (design `R8`, `P9-9`) and sixteen threads through one shared step with distinct requests; clause 2 is TWO FIBERS ON ONE THREAD, the only shape a lock held across a suspension point is visible in — Ruby's `Mutex` is per-fiber and non-reentrant — with the resulting `ThreadError` converted to a `Failure` so the status is `:failed` and not `:error`. The driver declares fifteen first-party shared instances and their ivars (`core/cross_cutting_invariants_test.rb`, "every shared instance core publishes"). Mutations 34, 35 and 44 |
-| `XCUT-12` | SHOULD | ✅ | 8, 16 | "a credential cache's refresh is single-flight": sixteen threads race one `BearerStamper` over a parked provider and exactly one fetch happens. Every racer must be parked before the gate opens, asserted rather than assumed — without the barrier the first thread finished alone and a per-caller stamper passed (`P9-29`). Mutation 23. The FIBER-scheduler form is out: it needs a credential path under a reactor, which no first-party suite assembles — stated in the assertion and on phase 10's inbound list |
+| `XCUT-12` | SHOULD | ✅ | 8, 16 | "a credential cache's refresh is single-flight": sixteen threads race one `BearerStamper` over a parked provider and exactly one fetch happens. Every racer must be parked before the gate opens, asserted rather than assumed — without the barrier the first thread finished alone and a per-caller stamper passed (`P9-29`). Mutation 23. The FIBER-scheduler form is out: it needs a credential path under a reactor, which no first-party suite assembles — stated in the assertion and on phase 10's inbound list. **No committed non-conforming double**, for the same reason as `XCUT-3`: sixteen racers that never finish leak sixteen threads. The guard is mutation 23, run against the real `BearerStamper` |
 | `XCUT-13` | MUST | ✅ | 5, 11, 16 | Two assertions plus `ExecutorSuite`'s: the latch is counted AT THE RESOURCE (`Closeable#close` answers nil on the winning and the losing call alike, so a return value proves nothing), and the close is bounded by elapsed monotonic time on BOTH calls — never by an interrupt, which §8.3 bans outright. Appendix C's third clause, "preserves the ambient interrupt/cancel flag as-is", is **scoped out with its reason** in `executor_suite/lifecycle.rb`'s own comment and asserted nowhere: §8.3 bans every primitive that could arrange a pending interrupt, so the clause holds by the flag never being touched and there is nothing observable to assert. Mutations 2 and 36 |
 | `XCUT-14` | MUST | ✅ | 7, 13, 16 | Two assertions plus `gates:bounded_map`. The cap clause reads the size after EVERY insert across 320 of them, so an implementation that overshoots and trims is caught; the DRAIN clause fills the backing store to cap + 5 — the state a concurrent overshoot leaves, arranged without a thread — and performs one `#set`: a drain loop ends at the cap, a check-then-evict at cap + 5, on every interpreter. Mutations 6 and 7 |
 | `XCUT-15` | MUST | ✅ | 5, 16 | "public wire models retain no external-mutable alias": the mutation is on the INNER array of the `values:` Hash, because a port that dup'd only the outer Hash passes a top-level check. Mutation 1 |
 | `XCUT-16` | MUST | ✅ | 7, 16 | All three clauses: the plaintext refusal is `Auth::HTTPSRequiredError` BY CLASS, an HTTPS request really is stamped (so the refusal is about the scheme and not a broken path), and a marker-suppressed cross-origin re-issue proceeds over `http` carrying no credential. Mutations 19 and 20 |
 | `XCUT-17` | MUST | ✅ | 7, 16 | All four clauses in one assertion, because a port can satisfy any three: `Authorization` stripped on a SAME-origin re-issue, all three origin-scoped headers on a cross-origin one, the `Location`'s userinfo gone, and an HTTPS→HTTP downgrade refused. Mutations 15–18 |
 | `XCUT-18` | MUST | ✅ | 7, 16 | Two assertions. The model layer asserts the ASYMMETRY — HTAB refused in a name and admitted in a value — which a port applying one rule to both passes with a single case. The call-site assertion drives a forged request (built through `send(:new)`, or a duck if that fails) at a real adapter and OBSERVES wire activity through a listener it owns: one accepted connection is the failure. Mutations 4 and 5. **Vacuous in the core driver, real in the aggregate run**: core ships no adapter, so `transport:` is nil there and the vacuity is accepted with its citation; Task 16's run supplies `Dexpace::Transport::NetHTTP.build` and the assertion passes for real |
-| `XCUT-19` | MUST | ✅ | 7, 16 | Clauses (a)–(d): userinfo, a query value and a fragment token all gone from one URL while host and path survive; the header allow-list is default-DENY; and a credential reveals nothing in `#to_s`, `#inspect` or — checked STRUCTURALLY, because `pp` is outside this gem's require allowlist — `#pretty_print`, whose owner must be the credential's own class (`pp.rb` never consults an `#inspect` override on a `Data`). Appendix C's clause (e), "full request/response BODY logging MUST be OFF by default", is asserted nowhere in `InvariantSuite` and is **5b's own**, proven there: `HTTPLogging::DEFAULT` is `NONE`, and `Instrumentation::Step` constructs the two phase-3b logging wrappers at `HTTPLogging::BODY` alone — 5b's checklist carries it as clause (e) of its own `XCUT-19` cross-reference row, over the `OBS-34` row's subject (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`). `invariant_suite/security.rb` says so in place. Mutations 9 and 10 |
+| `XCUT-19` | MUST | ✅ | 7, 16 | Clauses (a)–(d): userinfo, a query value and a fragment token all gone from one URL while host and path survive; the header allow-list is default-DENY; and a credential reveals nothing in `#to_s`, `#inspect` or — checked STRUCTURALLY, because `pp` is outside this gem's require allowlist — `#pretty_print`, whose owner must be the credential's own class (`pp.rb` never consults an `#inspect` override on a `Data`). Appendix C's clause (e), "full request/response BODY logging MUST be OFF by default", is asserted nowhere in `InvariantSuite` and is **5b's own**, proven there: `HTTPLogging::DEFAULT` is `NONE`, and `Instrumentation::Step` constructs the two phase-3b logging wrappers at `HTTPLogging::BODY` alone — 5b's checklist carries it as clause (e) of its own `XCUT-19` cross-reference row, over the `OBS-34` row's subject (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`). `invariant_suite/security.rb` says so in place. Two defective cores — a redactor forwarding the URL's userinfo, and a default-ALLOW header list. Mutations 9, 10 and 60 |
 | `XCUT-20` | MUST | ✅ | 7, 16 | Scoped exactly as 5c handed it forward and no wider: `Instrumentation.contain` swallows and reports, `Redactor#url` substitutes its marker for a malformed input, `#header_value` always answers a String, and `Preview.render` survives undecodable bytes. NOT extended to a foreign tracer or meter callback, which `OBS-20` carves out — a `rescue` there is a guard this suite must not demand. Mutation 11 |
 | `XCUT-21` | MUST | ✅ | 7, 16 | Two observations and no character count: the handler takes an injectable `cnonce_source:` (so its randomness can be audited at all), and bytes are DRAWN from the injected recorder and CARRIED into the rendering — each drawn byte flipped in turn, and at least sixteen must change the output. A character count would call a truncated 128-bit draw conforming. Mutation 21 |
 | `XCUT-22` | MUST | ✅ | 5, 11, 16 | Both halves, on two INDEPENDENT routes: the caller-supplied resource is not closed AND it still works, because a component that tore it down another way would pass the first alone. That second route is `Borrowed#finish`, added in review round 2 — until then `usable?` was the negation of the `closed?` the first Check reads, so the second could not fail on its own (`P9-38`). `ExecutorSuite`'s twin asserts the same over a real pool behind `Transport.async_over`, and posts work to it, which is an independent observation of its own. Mutations 3, 40 and 54 |
 | `XCUT-23` | MUST | ✅ | 8, 16 | Three ordered rules and the ORDERING is the content: zero candidates fail loudly, two candidates fail loudly, an explicit install beats a discovered one, and a single candidate is discovered. "Loud" is checked for its own reason — the message must name the explicit-install entry point. Mutations 21b and 25 |
-| `XCUT-24` | SHOULD | ✅ | 7, 16 | Both subjects, because the halves live in different objects: 4b's error-body snapshot is the cap and 3b's logging tap is the non-consumption. A preview that capped but drained would pass the first alone. Mutation 8 |
+| `XCUT-24` | SHOULD | ✅ | 7, 16 | Both subjects, because the halves live in different objects: 4b's error-body snapshot is the cap and 3b's logging tap is the non-consumption. A preview that capped but drained would pass the first alone. One defective core — a snapshot that multiplies its cap. Mutations 8 and 61 |
 | `NFR-1` | MUST | ✅ | 9, 15 | Asserted TWICE against two subjects (`P9-2`): phase 0's `gates:gemspec_audit` over the source gemspec, and `PackagingSuite`'s "core declares zero runtime dependencies" over the resolved `Gem::Specification` a consumer actually gets. `gates:require_allowlist` and `gates:clean_bundle` are the same claim's other two mechanisms and all four are green on every matrix row |
 | `NFR-2` | SHOULD | ✅ | 9, 15 | `PackagingSuite`'s "each adapter declares the core plus at most one library": `net_http` spends `net-http`, `async_http` spends `async-http`, `serde-json` spends `json`; `async-thread` and `conformance` spend none. Green against the built `.gem` files outside the bundle |
 | `NFR-3` | SHOULD | ✅ | 9, 15 | `PackagingSuite`'s "every shipped implementation file has a signature beside it" — the `sig/` mirror as a property of the PACKAGED gem, not of the repository — beside `rbs validate` and `steep check` over six targets, both green with no relaxation added by this phase |
@@ -182,7 +197,8 @@ first-party drivers.
 - **Three gates** — `gates:cause_walk`, `gates:bounded_map`, `gates:seam_names`, over
   `tools/ast_scan.rb`'s `RubyVM::AbstractSyntaxTree` walker. Twenty-one blocking gates in all.
 - **`APPENDIX_B.md`** — the 61-row coverage map, generated and hand-annotated.
-- **Three drivers** — `core/cross_cutting_invariants_test.rb`,
+- **Three drivers** — `core/cross_cutting_invariants_test.rb` (the ONE file this phase adds under
+  `gems/dexpace-core/`, and the one place `R6`'s file list bends; `P9-40`),
   `serde_json/conformance_test.rb`, `async_thread/conformance_test.rb`.
 
 ---
@@ -191,13 +207,18 @@ first-party drivers.
 
 The reviewer's mutation list could not be recovered verbatim after this session's context was compacted
 (`P9-32`), so the set below was re-derived from the design's testing strategy and the plan's own
-"non-conforming double first" rule, one mutation per assertion, per gate and per piece of shared
-machinery. **Fifty-three mutations, every one red** — forty-four at implementation, seven in **review
-round 1** (rows 46–52) and two in **review round 2** (rows 53–54) — run one at a time through a harness
-that applies the edit, runs the owning suite, captures the first failure and restores the file, on
+"non-conforming double first" rule. **It was NOT one mutation per assertion, and saying so was this
+document's own error**: review round 2 measured that `XCUT-2`, `XCUT-6`, `XCUT-7` and `XCUT-10` had no
+row in this table at all and `XCUT-1` only subject rows, and review round 3's seven (rows 55–61) are
+what close that. **Sixty mutations, every one red** — forty-four at implementation, seven in **review
+round 1** (rows 46–52), two in **review round 2** (rows 53–54) and seven in **review round 3**
+(rows 55–61) — run one at a time through a harness that applies the edit, runs the owning suite,
+captures the first failure and restores the file, on
 **4.0.6** (row 52 on **3.2.11**, the row whose parser the fact differs on). The table below numbers
-fifty-four slots because two are placeholders for a mutation that was re-cut rather than a mutation of
-their own. Rows 53 and 54 are the two shapes that SURVIVED review round 1: they are recorded as what
+sixty-one slots because two are placeholders for a mutation that was re-cut rather than a mutation of
+their own. Rows 53 and 54 are the two shapes that SURVIVED review round 1, and rows 55–61 neutralise
+one of this phase's OWN assertions whole rather than mutating a subject — the only shape that proves a
+committed double can report `:failed`. All nine are recorded as what
 they were, a gap in this phase's own guards and not a gap in the code those guards watch.
 
 Six shapes were re-cut: one spun forever and was killed rather than counted (a finding in its own
@@ -264,6 +285,13 @@ pass is worth its cost.
 | 52 | the duplicated-key capture is taken INSIDE the `$VERBOSE` window | `a duplicated key warns whatever $VERBOSE is` (3.2.11) | `XCUT-9`, `XCUT-14`, `SEAM-2` |
 | 53 | `ExecutorCase#shutdowns` counts every recorder payload instead of matching `Keys::EVENT` | `XCUT-13 => :failed, XCUT-22 => :failed, SEAM-25 => :failed` against the chatty-but-conforming pool | `SEAM-25`, `XCUT-13`, `XCUT-22` |
 | 54 | `Models#only_closes_what_it_created`'s second `Check` takes a literal `true` | `a holder that tears a borrowed resource down without closing it fails XCUT-22 / Expected: [:failed], Actual: [:passed]` | `XCUT-22` |
+| 55 | `Concurrency#cancellation_is_terminal` neutralised WHOLE — `return nil if subject` as the body's first line, so no local is orphaned and the `-w` hook cannot mask the result | both new `XCUT-1` doubles: `a cancellation classifier that reads only the outermost error fails XCUT-1` and `a classifier that calls a cancellation retryable fails XCUT-1`, `Expected: [:failed]` | `XCUT-1` |
+| 56 | `Concurrency#timeout_is_retryable_and_distinct` neutralised whole | both new `XCUT-2` doubles: the EXACT-type match and the message-matching classifier, `Expected: [:failed]` | `XCUT-2` |
+| 57 | `Taxonomy#open_capability_query` neutralised whole | both new `XCUT-6` doubles: the outermost-only query and the concrete-type match, `Expected: [:failed]` | `XCUT-6` |
+| 58 | `Taxonomy#configurable_status_set_is_authoritative` neutralised whole | both new `XCUT-7` doubles: the ANDed set and the wrong default, `Expected: [:failed]` | `XCUT-7` |
+| 59 | `Classification#retry_safety_is_uniform` neutralised whole | both new `XCUT-10` doubles: the re-sent bare POST and the failure parameter, `Expected: [:failed]` | `XCUT-10` |
+| 60 | `Security#redaction_is_default_deny` neutralised whole | both new `XCUT-19` doubles: the userinfo-forwarding redactor and the default-ALLOW header list, `Expected: [:failed]` | `XCUT-19` |
+| 61 | `Memory#capped_non_consuming_preview` neutralised whole | the new `XCUT-24` double: a snapshot that multiplies its cap, `Expected: [:failed]` | `XCUT-24` |
 
 One more shape was cut and then **killed rather than counted**: conditioning `Registry#resolve`'s
 `return hand_out(resolved)` guard on anything else turns its `loop do … end` into an unbounded spin with
@@ -315,7 +343,7 @@ none roll-up only, so nothing here had to be read out of the specification inste
 ## Deviations from the plan
 
 Departures from the plan's text, each with its reason. None lowers, disables or narrows a gate. The
-corresponding ledger rows are `P9-21`–`P9-39` in the design's As-built addendum.
+corresponding ledger rows are `P9-21`–`P9-41` in the design's As-built addendum.
 
 1. **`dexpace-serde-json`'s and `dexpace-core`'s existing files are byte-identical** — the plan's Task 10
    removes `assert_closes_nothing`'s and `assert_failure_model`'s portable halves from 7a's
@@ -417,6 +445,33 @@ the brief's own minimum mutation list that review round 1 measured as SURVIVING.
     conforming and which nothing in the SPI forbids; the mutation now reddens `XCUT-13`, `XCUT-22` and
     `SEAM-25` together. No code changed: the code was right and only the guard was missing. Row 53.
     `P9-39`.
+
+### Review round 3, 2026-09-24
+
+Two departures, one of them a document repair and the other the same class of defect rounds 1 and 2
+found: a guard this phase wrote that could not go red.
+
+14. **`R6`'s one sanctioned exception was recorded nowhere, and two sentences could not both hold.**
+    The driver for `InvariantSuite` is `gems/dexpace-core/test/dexpace/cross_cutting_invariants_test.rb`
+    — one ADDED file, no existing core file modified, renamed or deleted — and that is what design
+    `P9-9` means by "the driver is `dexpace-core`'s own suite and knows which ivar is which". The
+    design's Module layout says the opposite in as many words ("no file in `gems/dexpace-core/` at
+    all"), and this checklist's and the roadmap's boundary sentences enumerated the trees phase 9
+    changed without naming it. All three now name the file and the narrow bend it is, and `P9-40`
+    records the contradiction by pointing at both sentences. Nothing in the tree changed: the boundary
+    was always one added test file, and a reader could only learn that by running
+    `git diff --name-status`. `P9-40`.
+15. **Seven `XCUT` assertions had no committed non-conforming double, and five could be neutralised
+    WHOLE with the suite green.** `XCUT-1`, `XCUT-2`, `XCUT-6`, `XCUT-7`, `XCUT-10`, `XCUT-19` and
+    `XCUT-24`: nothing in the repository drove a subject that made any clause of the first five fail,
+    so each reported `:passed` because it could not report anything else, and the evidence paragraph
+    above and the Guards preamble both claimed otherwise. `invariant_suite_core_test.rb`'s own header
+    made it worse by naming `XCUT-6`, `XCUT-7` and `XCUT-10` among the IDs it drove. Thirteen defective
+    stand-in cores now drive all seven, in the shape that file already used — a patched `Resilience`
+    whose `const_missing` falls through, so one test changes one subject. Measured: neutralising each
+    of the seven assertions whole and warning-free reddens exactly the new tests for it, thirteen
+    across the seven (rows 55–61). No first-party code changed: the assertions were right and only the
+    negative controls were missing. `P9-41`.
 
 ---
 
