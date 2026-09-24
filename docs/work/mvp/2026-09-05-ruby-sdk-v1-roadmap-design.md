@@ -5148,10 +5148,11 @@ two stated residues, 7a's `SEAM-21` evidence living inside another assertion's b
 `tools/surface.rb`'s blindness to a `private_constant` module, and `PackagingCase`'s default
 constant-path rule.
 
-**Guards.** Fifty-one mutations were run one at a time through a harness that applies the edit, runs
+**Guards.** Fifty-three mutations were run one at a time through a harness that applies the edit, runs
 the owning suite, captures the first failure and restores the file — **every one red**, each recorded
-in the checklist with the message it produced: forty-four at implementation and seven more in review
-round 1. Six shapes were re-cut: one spun forever and was killed
+in the checklist with the message it produced: forty-four at implementation, seven in review round 1
+and two in review round 2, the last pair being shapes that SURVIVED round 1 rather than shapes newly
+thought of. Six shapes were re-cut: one spun forever and was killed
 rather than counted, which is itself the `Registry#resolve` finding below, and five went green — and
 **two of those five were not bad mutations but real non-discrimination in this phase's own
 assertions**: `XCUT-3`'s cancel could beat the waiter into the wait, and `XCUT-12`'s sixteen racers
@@ -5201,5 +5202,19 @@ descendant — escaped it and `Runner`'s bare rescue both, aborting a whole run 
 one `:vacuous` naming the absent unit (`P9-35`). Both were found by writing the tests round 0 asked
 for. Four documents were corrected against measurement rather than restated, the coverage
 transposition above among them.
+
+**Review round 2, 2026-09-24.** Two guards this phase wrote could not fail, and both were in the
+instrument rather than in what it measures — which is the failure mode an audit phase has to take
+most seriously, because a green assertion that cannot go red is indistinguishable from a property
+that holds. `InvariantSuite`'s `XCUT-22` made a second `Check` whose `usable?` was the negation of
+the `closed?` the first already read, so the second could not fail on its own; `Borrowed` now carries
+`#finish`, the adapter-side teardown reached without going through `#close`, and a holder using it
+passes the first and fails the second (`P9-38`). `ExecutorCase#shutdowns` matched the payload's event
+name, but every double emitted the shutdown payload and nothing else, so nothing separated "one
+shutdown event" from "one sink write" while four assertions read that count; a chatty-but-conforming
+pool now logs something besides its shutdown (`P9-39`). Beside them the checklist gained what plan
+Task 15 Step 3 asks for in as many words — the three `NFR` marks where the design's ⏳ prediction was
+WRONG, named as wrong (`P9-36`) — and the `gates:bounded_map` allowlist re-adjudication got the
+ledger row its reasons belonged in (`P9-37`).
 
 `main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.
