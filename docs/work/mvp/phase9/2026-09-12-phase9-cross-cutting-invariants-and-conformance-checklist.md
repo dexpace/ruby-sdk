@@ -84,13 +84,13 @@ proves the assertion can fail at all; and **(c)** the same assertion driven agai
 | `XCUT-10` | MUST | ✅ | 6, 16 | "retry safety is decided from the request alone, uniformly": all four cases `XCUT-10` enumerates, plus the structural half — `Resend.eligible?`'s parameter list is exactly `[[:req, :request]]`, so there is no failure parameter to special-case on |
 | `XCUT-11` | MUST | ✅ | 4, 8, 11, 16 | Two assertions plus a third in `ExecutorSuite`. Clause 1 is `SharedInstance.audit` over every shared instance the DRIVER declares (design `R8`, `P9-9`) and sixteen threads through one shared step with distinct requests; clause 2 is TWO FIBERS ON ONE THREAD, the only shape a lock held across a suspension point is visible in — Ruby's `Mutex` is per-fiber and non-reentrant — with the resulting `ThreadError` converted to a `Failure` so the status is `:failed` and not `:error`. The driver declares fifteen first-party shared instances and their ivars (`core/cross_cutting_invariants_test.rb`, "every shared instance core publishes"). Mutations 34, 35 and 44 |
 | `XCUT-12` | SHOULD | ✅ | 8, 16 | "a credential cache's refresh is single-flight": sixteen threads race one `BearerStamper` over a parked provider and exactly one fetch happens. Every racer must be parked before the gate opens, asserted rather than assumed — without the barrier the first thread finished alone and a per-caller stamper passed (`P9-29`). Mutation 23. The FIBER-scheduler form is out: it needs a credential path under a reactor, which no first-party suite assembles — stated in the assertion and on phase 10's inbound list |
-| `XCUT-13` | MUST | ✅ | 5, 11, 16 | Two assertions plus `ExecutorSuite`'s: the latch is counted AT THE RESOURCE (`Closeable#close` answers nil on the winning and the losing call alike, so a return value proves nothing), and the close is bounded by elapsed monotonic time on BOTH calls — never by an interrupt, which §8.3 bans outright. Mutations 2 and 36 |
+| `XCUT-13` | MUST | ✅ | 5, 11, 16 | Two assertions plus `ExecutorSuite`'s: the latch is counted AT THE RESOURCE (`Closeable#close` answers nil on the winning and the losing call alike, so a return value proves nothing), and the close is bounded by elapsed monotonic time on BOTH calls — never by an interrupt, which §8.3 bans outright. Appendix C's third clause, "preserves the ambient interrupt/cancel flag as-is", is **scoped out with its reason** in `executor_suite/lifecycle.rb`'s own comment and asserted nowhere: §8.3 bans every primitive that could arrange a pending interrupt, so the clause holds by the flag never being touched and there is nothing observable to assert. Mutations 2 and 36 |
 | `XCUT-14` | MUST | ✅ | 7, 13, 16 | Two assertions plus `gates:bounded_map`. The cap clause reads the size after EVERY insert across 320 of them, so an implementation that overshoots and trims is caught; the DRAIN clause fills the backing store to cap + 5 — the state a concurrent overshoot leaves, arranged without a thread — and performs one `#set`: a drain loop ends at the cap, a check-then-evict at cap + 5, on every interpreter. Mutations 6 and 7 |
 | `XCUT-15` | MUST | ✅ | 5, 16 | "public wire models retain no external-mutable alias": the mutation is on the INNER array of the `values:` Hash, because a port that dup'd only the outer Hash passes a top-level check. Mutation 1 |
 | `XCUT-16` | MUST | ✅ | 7, 16 | All three clauses: the plaintext refusal is `Auth::HTTPSRequiredError` BY CLASS, an HTTPS request really is stamped (so the refusal is about the scheme and not a broken path), and a marker-suppressed cross-origin re-issue proceeds over `http` carrying no credential. Mutations 19 and 20 |
 | `XCUT-17` | MUST | ✅ | 7, 16 | All four clauses in one assertion, because a port can satisfy any three: `Authorization` stripped on a SAME-origin re-issue, all three origin-scoped headers on a cross-origin one, the `Location`'s userinfo gone, and an HTTPS→HTTP downgrade refused. Mutations 15–18 |
 | `XCUT-18` | MUST | ✅ | 7, 16 | Two assertions. The model layer asserts the ASYMMETRY — HTAB refused in a name and admitted in a value — which a port applying one rule to both passes with a single case. The call-site assertion drives a forged request (built through `send(:new)`, or a duck if that fails) at a real adapter and OBSERVES wire activity through a listener it owns: one accepted connection is the failure. Mutations 4 and 5. **Vacuous in the core driver, real in the aggregate run**: core ships no adapter, so `transport:` is nil there and the vacuity is accepted with its citation; Task 16's run supplies `Dexpace::Transport::NetHTTP.build` and the assertion passes for real |
-| `XCUT-19` | MUST | ✅ | 7, 16 | Clauses (a)–(d): userinfo, a query value and a fragment token all gone from one URL while host and path survive; the header allow-list is default-DENY; and a credential reveals nothing in `#to_s`, `#inspect` or — checked STRUCTURALLY, because `pp` is outside this gem's require allowlist — `#pretty_print`, whose owner must be the credential's own class (`pp.rb` never consults an `#inspect` override on a `Data`). Mutations 9 and 10 |
+| `XCUT-19` | MUST | ✅ | 7, 16 | Clauses (a)–(d): userinfo, a query value and a fragment token all gone from one URL while host and path survive; the header allow-list is default-DENY; and a credential reveals nothing in `#to_s`, `#inspect` or — checked STRUCTURALLY, because `pp` is outside this gem's require allowlist — `#pretty_print`, whose owner must be the credential's own class (`pp.rb` never consults an `#inspect` override on a `Data`). Appendix C's clause (e), "full request/response BODY logging MUST be OFF by default", is asserted nowhere in `InvariantSuite` and is **5b's own**, proven there: `HTTPLogging::DEFAULT` is `NONE`, and `Instrumentation::Step` constructs the two phase-3b logging wrappers at `HTTPLogging::BODY` alone — 5b's checklist carries it as clause (e) of its own `XCUT-19` cross-reference row, over the `OBS-34` row's subject (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`). `invariant_suite/security.rb` says so in place. Mutations 9 and 10 |
 | `XCUT-20` | MUST | ✅ | 7, 16 | Scoped exactly as 5c handed it forward and no wider: `Instrumentation.contain` swallows and reports, `Redactor#url` substitutes its marker for a malformed input, `#header_value` always answers a String, and `Preview.render` survives undecodable bytes. NOT extended to a foreign tracer or meter callback, which `OBS-20` carves out — a `rescue` there is a guard this suite must not demand. Mutation 11 |
 | `XCUT-21` | MUST | ✅ | 7, 16 | Two observations and no character count: the handler takes an injectable `cnonce_source:` (so its randomness can be audited at all), and bytes are DRAWN from the injected recorder and CARRIED into the rendering — each drawn byte flipped in turn, and at least sixteen must change the output. A character count would call a truncated 128-bit draw conforming. Mutation 21 |
 | `XCUT-22` | MUST | ✅ | 5, 11, 16 | Both halves: the caller-supplied resource is not closed AND it still works, because a component that tore it down another way would pass the first alone. `ExecutorSuite`'s twin asserts the same over a real pool behind `Transport.async_over`. Mutations 3 and 40 |
@@ -168,11 +168,13 @@ first-party drivers.
 The reviewer's mutation list could not be recovered verbatim after this session's context was compacted
 (`P9-32`), so the set below was re-derived from the design's testing strategy and the plan's own
 "non-conforming double first" rule, one mutation per assertion, per gate and per piece of shared
-machinery. **Forty-four mutations, every one red**, run one at a time through a harness that applies the
-edit, runs the owning suite, captures the first failure and restores the file, on **4.0.6**. The table
-below numbers forty-five slots because two are placeholders for a mutation that was re-cut rather than a
-mutation of their own. Six shapes were re-cut: one spun forever and was killed rather than counted (a
-finding in its own right, routed below), and five went green; **two of those five were not bad mutations but real
+machinery. **Fifty-one mutations, every one red** — forty-four at implementation and seven more in
+**review round 1** (rows 46–52) — run one at a time through a harness that applies the edit, runs the
+owning suite, captures the first failure and restores the file, on **4.0.6** (row 52 on **3.2.11**, the
+row whose parser the fact differs on). The table below numbers fifty-two slots because two are
+placeholders for a mutation that was re-cut rather than a mutation of their own. Six shapes were re-cut:
+one spun forever and was killed rather than counted (a finding in its own right, routed below), and five
+went green; **two of those five were not bad mutations but real
 non-discrimination in this phase's own assertions**, and both were repaired before the mutation was
 re-run — `XCUT-3`'s cancel could beat the waiter into the wait, and `XCUT-12`'s sixteen racers could
 finish one at a time. Those two repairs are `P9-28` and `P9-29`, and they are the reason the mutation
@@ -207,11 +209,6 @@ pass is worth its cost.
 | 24 | `Dexpace.each_cause` drops its visited test | `XCUT-9: the cause walk did not terminate after visiting the cycle once` | `XCUT-9` |
 | 25 | `Registry#sole_key` picks the first of several candidates | `XCUT-23: two registered candidates with no explicit install did not fail loudly` | `XCUT-23` |
 | 26 | *(the zero-candidate branch is the same method; covered by 25 and 21b)* | | |
-
-A twenty-first shape was cut and then **killed rather than counted**: conditioning `Registry#resolve`'s
-`return hand_out(resolved)` guard on anything else turns its `loop do … end` into an unbounded spin with
-no progress, and it ran for six minutes before it was stopped. That is not a guard going red; it is the
-finding routed below, and the two mutations that replaced it — 21b and 25 — are what prove `XCUT-23`.
 | 27 | `Runner#one` rescues `StandardError` before `Vacuous` | `Expected: :vacuous / Actual: :error` | `NFR-17` |
 | 28 | `Runner#waived?` matches the assertion NAME | `the preamble, the acceptances and the would-fail declarations reach the Report` | `NFR-17` |
 | 29 | `Report#passed?` drops the blocking-vacuity term | `an acceptance naming one of two MUST ids still blocks, because accepted? is all?` | `NFR-17` |
@@ -231,6 +228,27 @@ finding routed below, and the two mutations that replaced it — 21b and 25 — 
 | 43 | one row deleted from `APPENDIX_B.md` | `every row's ID column equals the set parsed from that item's own text` | `NFR-17` |
 | 44 | `Sharing` skips the driver's declared shared instances | `a shared instance the driver declares is audited too` | `XCUT-11` |
 | 45 | `AstScan.parse` leaves `$VERBOSE` armed | `AstScan.parse's $VERBOSE window did not hold` | `XCUT-9`, `XCUT-14`, `SEAM-2` |
+| 46 | `Shutdown#check_release`'s expired entry pop raises nothing | `[Vacuous] exception expected, not Failure: a worker blocked in an uninterruptible call was not released after cancel` | `ASYNC-3` |
+| 47 | `check_posters_returned` keeps its bounded join and drops its `Check` | `Expected /did not return/ to match "work posted from many threads was lost or duplicated"` | `SEAM-12`, `XCUT-11` |
+| 48 | `check_all_returned` keeps its bounded join and drops its `Check` | `Expected /did not return on every thread/ to match "a shared step crossed one call's request into another's"` | `XCUT-11` |
+| 49 | `Dependencies#single_version_source` stops raising its vacuity | `with no single source named, NFR-14 is vacuous rather than a pass / Expected: :vacuous, Actual: :passed` | `NFR-14` |
+| 50 | `PackagingCase::DEFAULT_RESOLVE` drops `::Gem::LoadError` | `Gem::MissingSpecError: Could not find 'dexpace-no-such-gem-…'` — 1 error, not 8 vacuities | `NFR-1`, `NFR-2`, `NFR-10`, `NFR-14`, `NFR-15` |
+| 51 | `RequirementLevels::ROW` loses its nineteen-prefix restriction | `{"HTTP-7"…, "RFC-7235" => :must, "ISO-8601" => :should, …}` against a synthetic table | `NFR-17` |
+| 52 | the duplicated-key capture is taken INSIDE the `$VERBOSE` window | `a duplicated key warns whatever $VERBOSE is` (3.2.11) | `XCUT-9`, `XCUT-14`, `SEAM-2` |
+
+One more shape was cut and then **killed rather than counted**: conditioning `Registry#resolve`'s
+`return hand_out(resolved)` guard on anything else turns its `loop do … end` into an unbounded spin with
+no progress, and it ran for six minutes before it was stopped. That is not a guard going red; it is the
+finding routed below, and the two mutations that replaced it — 21b and 25 — are what prove `XCUT-23`.
+
+A second shape is recorded the same way, and for the same reason. Restoring `Shutdown#check_release`'s
+entry pop to the unbounded `transport.entered.pop` review round 0 found there — row 46's mutation taken
+one step further — leaves the refusing-executor test with nothing to return to: the run was still
+parked when `timeout 90` killed it, and the same removal at the two join sites is caught instead, by
+Ruby's own deadlock detector, as `fatal: No live threads left. Deadlock?`. That asymmetry is why rows
+47 and 48 drop the `Check` and keep the bounded join: a mutation the interpreter aborts proves the join
+runs, not that an expired one is reported. The hang itself is the defect `P9-34` fixes, demonstrated; it
+is not a guard going red and it is not counted among the fifty-one.
 
 Beside the mutations, the three new gates are each driven against a deliberately failing **fixture
 workspace** through `DEXPACE_GATE_ROOT` (`test/fixtures/gates/invariants/workspace/`), and
@@ -259,7 +277,7 @@ none roll-up only, so nothing here had to be read out of the specification inste
 | Public API surface | Every new group module is a `private_constant`, so `tools/surface.rb`'s `Module#constants(false)` walk does not see it — 8a's `TransportSuite` precedent. Each suite's public surface is exactly `assertions`, `run` and `PREAMBLE`; two leaks found by reading the regenerated manifest row by row were closed rather than accepted (`P9-25`) |
 | Gem layout, zero-dependency core | `dexpace-conformance` still declares `dexpace-core` alone; the new files add no require outside the allowlist; `gates:clean_bundle` green on every row |
 | RBS / Steep typing | Every new `lib/` file has a `sig/` mirror, the `private_constant`s carrying `hooks.rbs`'s comment; both targets green with no relaxation added. One signature is deliberately INCOMPLETE and says so: `invariant_suite/credentials.rbs` omits `include ::Random::Formatter`, because `tools/rbs_surface.rb`'s `STDLIB_ALLOWED` does not carry `Random` and widening a gate's allowlist for a test double is lowering the gate (`P9-26`) |
-| Minitest conventions | Every suite subclasses `DexpaceTestCase` or `GateCase`; no `.stub`; mutable fixtures built fresh per test; no `sleep` in any new test — every wait is a queue pop with a timeout, a bounded join or a bounded `Thread.pass` spin on `Thread#status` |
+| Minitest conventions | Every suite subclasses `DexpaceTestCase` or `GateCase`; no `.stub`; mutable fixtures built fresh per test. No `sleep` anywhere in the suites' own logic or in any assertion — every wait there is a queue pop with a timeout, a bounded join or a bounded `Thread.pass` spin on `Thread#status`. **One deliberate `Kernel.sleep` exists, in a non-conforming DOUBLE**: `invariant_suite_test.rb`'s `BlockingCloseSeam#close` sleeps `0.6` on its first close, past `XCUT-13`'s half-second bound, because a double whose whole job is to block past a bound has no other way to do it — and without it that clause would pass against every subject the suite can build |
 | Fiber scheduler, thread safety | The two-fibers-on-one-thread assertion is the shape 8b handed forward; the barriers added in `P9-28` and `P9-29` use `Thread#status` and never a sleep |
 | Observability, configuration and redaction | `XCUT-19`'s and `XCUT-20`'s assertions are scoped to what 5b and 5c own and are not widened to a foreign callback |
 
@@ -311,13 +329,40 @@ corresponding ledger rows are `P9-21`–`P9-33` in the design's As-built addendu
    always exit 0, both left every test green. A `RUBYOPT` prelude fixture drives the first; an optional
    path argument on `--check` drives the second. `P9-30`, `P9-31`.
 8. **The reviewer's mutation list is not quoted here.** It was in this run's opening brief and did not
-   survive the session's context compaction. The forty-four mutations above were re-derived from the
-   design's testing strategy and the plan's per-task "non-conforming double" rule; the count exceeds the
+   survive the session's context compaction. The forty-four mutations run at implementation were
+   re-derived from the design's testing strategy and the plan's per-task "non-conforming double" rule;
+   the count exceeds the
    thirty-five the brief named as a minimum, but the SET is this phase's and not the reviewer's, and a
    reviewer re-running the original list should expect to find it covered rather than assume it. `P9-32`.
 9. **`SEAM-25`'s harness half is recorded as a correction to a committed record.** 8b's design said the
    harness half was 8a's; 8a wrote no executor suite. Phase 9 writes it, and says so out loud rather than
    restating the earlier record as though it had been right. `P9-21`.
+
+### Review round 1, 2026-09-24
+
+Two further departures, both repairs to **this phase's own gem** — `R6` bars phase 9 from repairing what
+it AUDITS, and `dexpace-conformance`'s new code is what it wrote, the same standing `P9-27` has.
+
+10. **Three waits in the new suites carried no bound, and one of them hung.** `Shutdown#check_release`
+    opened with an unbounded `transport.entered.pop`; against an executor that REFUSES the post —
+    `ASYNC-2`'s saturated queue, or a closed pool — nothing is ever pushed, the poster rescues the
+    refusal, and the run never returns, with the `ensure` that frees the gate and closes the pool never
+    reached. Demonstrated, not argued: with the bound removed the refusing-executor test was still
+    parked when `timeout 90` killed it, and the reviewer's own probe — the same assertion on a thread
+    joined at eight seconds — reported `:HUNG` where it now answers
+    `[:vacuous, "the executor did not start the posted unit within 1.0s …"]`. The two `.each(&:join)`
+    sites — `concurrent_post` and
+    `drive_threads` — had the same shape against a subject whose submission or whose shared call never
+    returns. All three now carry a bound, 8a's own rule for this gem
+    (`await_closed_connection`'s `timeout:`), and the expired entry wait is `:vacuous` with its reason
+    rather than `:failed`, because with no unit started there is no blocking worker to cancel.
+    Rows 46–48. `P9-34`.
+11. **`PackagingCase::DEFAULT_RESOLVE` never caught the error it exists to catch**, and writing the test
+    review round 0 asked for is what found it: every case in `packaging_suite_test.rb` supplied its own
+    `resolve:`, so the SHIPPED lambda had never run. `Gem::MissingSpecError` descends from
+    `Gem::LoadError < LoadError < ScriptError` and is **not** a `StandardError`, so `rescue
+    ::StandardError` let it past — and past `Runner`'s bare rescue too, aborting the whole run where the
+    contract is one `:vacuous` naming the absent unit. Row 50. `P9-35`.
 
 ---
 

@@ -385,7 +385,14 @@ report = C::CodecSuite.run(build: -> { Dexpace::Serde::JSON.default }, witness: 
 ```
 
 A factory left `nil` makes its assertions report `:vacuous` **with a reason**, never `:passed` — which is
-what stops "not supplied" from reading as "conforming".
+what stops "not supplied" from reading as "conforming". `PackagingSuite`'s `NFR-14` is the same rule
+applied to a declaration rather than a factory: with no `versions:` naming the single source of truth it
+is `:vacuous`, because "nobody told us" is not evidence that one exists.
+
+**Every wait a suite performs carries a bound**, so a subject that never answers fails or vacuates its
+assertion rather than parking the run — an executor that refuses the post, one whose `#post` blocks, a
+shared instance that never returns from `#call`, a connection an adapter never releases. That is the rule
+8a fixed for `TransportSuite` with `await_closed_connection`'s `timeout:`, and it holds across all five.
 
 ### A MUST-level vacuity is a report blocker
 

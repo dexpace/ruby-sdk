@@ -1457,5 +1457,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
   phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's, phase 7a's, phase 8a's, phase 8b's and phase 8c's is still to be written at execution time.
+  phase 7c's, phase 7a's, phase 8a's, phase 8b's, phase 8c's and phase 9's is still to be written at
+  execution time — which leaves phase 10's alone.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

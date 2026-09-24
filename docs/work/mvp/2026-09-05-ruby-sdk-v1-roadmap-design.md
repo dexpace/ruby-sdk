@@ -5148,9 +5148,10 @@ two stated residues, 7a's `SEAM-21` evidence living inside another assertion's b
 `tools/surface.rb`'s blindness to a `private_constant` module, and `PackagingCase`'s default
 constant-path rule.
 
-**Guards.** Forty-four mutations were run one at a time through a harness that applies the edit, runs
+**Guards.** Fifty-one mutations were run one at a time through a harness that applies the edit, runs
 the owning suite, captures the first failure and restores the file — **every one red**, each recorded
-in the checklist with the message it produced. Six shapes were re-cut: one spun forever and was killed
+in the checklist with the message it produced: forty-four at implementation and seven more in review
+round 1. Six shapes were re-cut: one spun forever and was killed
 rather than counted, which is itself the `Registry#resolve` finding below, and five went green — and
 **two of those five were not bad mutations but real non-discrimination in this phase's own
 assertions**: `XCUT-3`'s cancel could beat the waiter into the wait, and `XCUT-12`'s sixteen racers
@@ -5163,24 +5164,42 @@ both are fixed because both are phase 9's own code: the three new gates' `DEXPAC
 opened every file relative to the process's CWD and could never have been shown to reject anything, and
 `gates:serde_boundary`'s abort branch and `--check`'s failing exit had no test at all.
 
-**Proofs.** The **code tip** is green on **every one of the twenty-one gates run individually** on
-4.0.6 — the coverage floor included: the new `lib/` arrives there with no tests and the aggregate
-figure is still 91.09 % — and on the five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3
-skips, 11,100 of 12,185 lines). The **tests tip** is green on the whole default task on 4.0.6
-(**4,184 runs, 74,555 assertions, 0 failures, 0 errors, 9 skips** and **99.80 % line coverage,
-12,300 of 12,324**; `cops:test` 129 runs and 412 assertions; `test:gates` 192 runs and 876 assertions
-with no skip; the honest RuboCop run over 776 files clean) and on the matrix set on 3.4.10 (4,184 /
-74,555 / 9 skips), 3.3.12 (the same, 12,154 of 12,178 lines) and 3.2.11 (3,996 / 73,779 / **5** skips,
-96.07 % — the four `async_http` skips are absent because that gem's 3.3 floor excludes it from the 3.2
-row). **Every skip is named**: the seven phase-8 drivers' — `net_http`'s three and `async_http`'s four
-— plus this phase's two, `XCUT-18`'s call-site assertion in core's driver (vacuous there because core
-ships no adapter, and real in the aggregate run) and `ASYNC-3` in the pool's (waived by id, and proven
-to fail by a test of its own). The **docs tip** is green on the default task (the same figures),
-the honest RuboCop run over 776 files, `ruby .claude/skills/housekeeping/probe.rb` (exit 0, no drift)
-and `ruby scripts/verify_knowledge_structure.rb` (2,166 harvested entries, 71 notes, every cited key
-live), with every `ruby` fence of `conformance.md`'s new section run verbatim on 4.0.6 and 3.2.11 —
-the same printed values on both. Beside the gates: the aggregate run over all four suites with the
-real subjects, and `PackagingSuite` a second time against the six gems built and installed outside the
-bundle.
+**Proofs**, re-measured at review round 1's tips on 2026-09-24. The **code tip** is green on
+**every one of the twenty-one gates run individually** on 4.0.6, the coverage floor included —
+**4,020 runs, 74,125 assertions, 0 failures, 0 errors, 7 skips** and **94.67 % line coverage,
+11,688 of 12,346** — the one red the layering rule tolerates was not needed, because the floor is met
+there even though the suites that raise the figure are the branch above's — `test:gates` 145 runs and
+703 assertions with no skip, and the honest RuboCop run over 758 files clean; and on the five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3 skips, 11,105 of
+12,207 lines, **90.97 %**), where the three new gates report the same 307, 307 and 222 files they do
+on 4.0.6. The **tests tip** is green on the whole default task on 4.0.6 (**4,189 runs, 74,576
+assertions, 0 failures, 0 errors, 9 skips** and **99.82 % line coverage, 12,324 of 12,346**;
+`cops:test` 129 runs and 412 assertions; `test:gates` 193 runs and 877 assertions with no skip; the
+honest RuboCop run over 776 files clean) and on the matrix set on 3.4.10 (4,189 / 74,576 / 9 skips,
+the same 99.82 %), 3.3.12 (the same runs, 12,178 of 12,200 lines) and 3.2.11 (4,001 / 73,800 / **5**
+skips, 96.10 % — the four `async_http` skips are absent because that gem's 3.3 floor excludes it from
+the 3.2 row). The two coverage figures are not interchangeable and were once transposed here: 90.97 %
+is the **3.2.11** row and 94.67 % the 4.0.6 one. **Every skip is named**: the seven phase-8 drivers' —
+`net_http`'s three and `async_http`'s four — plus this phase's two, `XCUT-18`'s call-site assertion in
+core's driver (`vacuous: no transport factory supplied to InvariantSuite.run`, and real in the
+aggregate run) and `ASYNC-3` in the pool's (`waived: ASYNC-3`, and proven to fail by a test of its
+own). The **docs tip** is green on the default task (the same figures), the honest RuboCop run,
+`ruby .claude/skills/housekeeping/probe.rb` (exit 0, no drift) and
+`ruby scripts/verify_knowledge_structure.rb`, with every `ruby` fence of `conformance.md`'s new
+section run verbatim on 4.0.6 and 3.2.11 — the same printed values on both. Beside the gates: the
+aggregate run over all four suites with the real subjects, reproduced at these tips and unchanged at
+43 / 1 / 0 / 1, and `PackagingSuite` a second time against the six gems built and installed outside
+the bundle.
+
+**Review round 1, 2026-09-24.** Two defects in this phase's own gem were repaired — `R6` bars phase 9
+from repairing what it AUDITS, and `dexpace-conformance` is what it wrote. Three waits in the new
+suites carried no bound, and one of them HUNG rather than failing: `ExecutorSuite`'s `ASYNC-3`
+assertion parked for ever against an executor that refuses the post, which is `ASYNC-2`'s saturated
+queue and this gem exists to be run by third parties against theirs. All three now carry 8a's own
+`await_closed_connection` rule (`P9-34`). And `PackagingCase::DEFAULT_RESOLVE` rescued
+`::StandardError` alone, so the `Gem::MissingSpecError` it exists to catch — a `ScriptError`
+descendant — escaped it and `Runner`'s bare rescue both, aborting a whole run where the contract is
+one `:vacuous` naming the absent unit (`P9-35`). Both were found by writing the tests round 0 asked
+for. Four documents were corrected against measurement rather than restated, the coverage
+transposition above among them.
 
 `main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.

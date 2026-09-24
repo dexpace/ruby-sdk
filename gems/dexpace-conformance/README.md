@@ -5,8 +5,9 @@ This gem is the conformance suite every adapter -- shipped or third-party -- is 
 
 **Status: `0.0.0`, unpublished; five suites are built.** `lib/` holds phase 8a's
 `Dexpace::Conformance`: the assertion protocol phase 0 postponed -- `Failure`, `Vacuous`,
-`Assertion`, `Result` with its five `STATUSES`, and `Report` -- the twenty-eight-assertion
-`TransportSuite` over twenty-two `TRANSPORT` IDs, `HTTP-17`, `HTTP-18`, `XCUT-18` and `PAGE-36`,
+`Assertion`, `Result` with its five `STATUSES`, and `Report` -- the **thirty-four**-assertion
+`TransportSuite` over twenty-eight `TRANSPORT` IDs, `HTTP-17`, `HTTP-18`, `XCUT-18` and `PAGE-36`
+(twenty-eight over twenty-two at 8a; phase 8c's two groups are the rest),
 the `TransportCase` an assertion receives and the `BorrowedPair` a borrowing construction
 supplies, the plaintext `WireServer` fixture with its `RecordedRequest`s and fifteen named
 `Scripts`, the two thin drivers `MinitestDriver` and `RSpecDriver`, and the two observability
