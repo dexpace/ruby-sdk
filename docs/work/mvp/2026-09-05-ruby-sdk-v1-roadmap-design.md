@@ -5165,21 +5165,25 @@ both are fixed because both are phase 9's own code: the three new gates' `DEXPAC
 opened every file relative to the process's CWD and could never have been shown to reject anything, and
 `gates:serde_boundary`'s abort branch and `--check`'s failing exit had no test at all.
 
-**Proofs**, re-measured at review round 1's tips on 2026-09-24. The **code tip** is green on
-**every one of the twenty-one gates run individually** on 4.0.6, the coverage floor included —
-**4,020 runs, 74,125 assertions, 0 failures, 0 errors, 7 skips** and **94.67 % line coverage,
-11,688 of 12,346** — the one red the layering rule tolerates was not needed, because the floor is met
-there even though the suites that raise the figure are the branch above's — `test:gates` 145 runs and
-703 assertions with no skip, and the honest RuboCop run over 758 files clean; and on the five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3 skips, 11,105 of
-12,207 lines, **90.97 %**), where the three new gates report the same 307, 307 and 222 files they do
-on 4.0.6. The **tests tip** is green on the whole default task on 4.0.6 (**4,189 runs, 74,576
-assertions, 0 failures, 0 errors, 9 skips** and **99.82 % line coverage, 12,324 of 12,346**;
-`cops:test` 129 runs and 412 assertions; `test:gates` 193 runs and 877 assertions with no skip; the
-honest RuboCop run over 776 files clean) and on the matrix set on 3.4.10 (4,189 / 74,576 / 9 skips,
-the same 99.82 %), 3.3.12 (the same runs, 12,178 of 12,200 lines) and 3.2.11 (4,001 / 73,800 / **5**
-skips, 96.10 % — the four `async_http` skips are absent because that gem's 3.3 floor excludes it from
-the 3.2 row). The two coverage figures are not interchangeable and were once transposed here: 90.97 %
-is the **3.2.11** row and 94.67 % the 4.0.6 one. **Every skip is named**: the seven phase-8 drivers' —
+**Proofs**, re-measured at review round 2's tips on 2026-09-24; the run counts and the coverage
+denominators both moved, because the round added two tests and three lines of `lib/`. The **code
+tip** is green on **every one of the twenty-one gates run individually** on 4.0.6, the coverage floor
+included — **4,020 runs, 74,125 assertions, 0 failures, 0 errors, 7 skips** and **94.65 % line
+coverage, 11,689 of 12,349** — the one red the layering rule tolerates was not needed, because the
+floor is met there even though the suites that raise the figure are the branch above's — `test:gates`
+145 runs and 703 assertions with no skip, and the honest RuboCop run over 758 files clean; and on the
+five matrix gates on 3.2.11 (3,832 runs, 73,349 assertions, 3 skips, 11,106 of 12,210 lines,
+**90.95 %**), where the three new gates report the same 307, 307 and 222 files they do on 4.0.6. The
+**tests tip** is green on the whole default task on 4.0.6 (**4,191 runs, 74,584 assertions, 0
+failures, 0 errors, 9 skips** and **99.82 % line coverage, 12,327 of 12,349**; `cops:test` 129 runs
+and 412 assertions; `test:gates` 193 runs and 877 assertions with no skip; the honest RuboCop run
+over 776 files clean) and on the matrix set on 3.4.10 (4,191 / 74,584 / 9 skips, the same 99.82 %),
+3.3.12 (the same runs, 12,181 of 12,203 lines) and 3.2.11 (4,003 / 73,808 / **5** skips, 96.09 % —
+the four `async_http` skips are absent because that gem's 3.3 floor excludes it from the 3.2 row).
+Three explicit seeds — 1, 99991 and 424242 — give the same 4,191 / 74,584 / 9 on 4.0.6, and the four
+timing-sensitive files run ten times each under a shell `timeout` with identical counts every time.
+The two coverage figures are not interchangeable and were once transposed here: 90.95 % is the
+**3.2.11** row and 94.65 % the 4.0.6 one. **Every skip is named**: the seven phase-8 drivers' —
 `net_http`'s three and `async_http`'s four — plus this phase's two, `XCUT-18`'s call-site assertion in
 core's driver (`vacuous: no transport factory supplied to InvariantSuite.run`, and real in the
 aggregate run) and `ASYNC-3` in the pool's (`waived: ASYNC-3`, and proven to fail by a test of its
