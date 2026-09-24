@@ -1824,7 +1824,11 @@ audit-only**, and **2 were fixed on the spot in this pass** because they were in
 substituted proxy IDs and phase 8a's half-stale `TRANSPORT-30` forward row. Bullets whose repair is expected to
 be **moot** — the uncapped `Clients#@by_origin`, which `8c`'s plan Task 8 now bounds at planning time — stay
 below unchanged, because a green `gates:bounded_map` run is what closes them and a sentence in a plan is not
-evidence the work was done.
+evidence the work was done. [2026-09-24, phase 9: **that condition is now met and this paragraph's one example
+has been discharged.** The green run happened on 2026-09-23 and the bullet below carries the measurement in
+place; the name `@by_origin` was itself wrong on the tree, so the example reads as an unfound defect until the
+bullet's own correction is read beside it. The rule the paragraph states — a sentence in a plan is not evidence
+the work was done — is what the discharge confirms, and it stands.]
 
 **From the reconciliation.**
 

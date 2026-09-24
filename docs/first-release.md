@@ -7,8 +7,9 @@ the same day, on the same rule — a finding is routed to its owner when it is f
 and four of its items came here: two blockers before first publish (documenting the `include Dexpace`
 constant shadow, and the `AuthDescriptor` carrier decision), `CFG-20`'s cancel-with-interrupt clause
 under the unsatisfied MUSTs, and the `CTX-7`/`CTX-8` drain proof under the post-release triggers. Two
-more left a second home here beside their primary owner: the Minitest 6 trigger, and the red
-`gates:bounded_map` blocker phase 10's repair clears. **Nothing has been published.** Since phase 0 landed
+more left a second home here beside their primary owner: the Minitest 6 trigger, and the
+`gates:bounded_map` blocker — which was filed red and expecting a phase-10 repair, and was closed on
+2026-09-23 by phase 9's own green run against a cap `8c` had already shipped, with no repair owed. **Nothing has been published.** Since phase 0 landed
 (2026-09-14) `gems/` holds the six gems, since phase 1 (2026-09-15) `dexpace-core` carries the HTTP domain
 model, and since phase 2 (2026-09-15) the seam layer as well; there is still no tag, and no version beyond the
 `0.0.0` every gem starts at.
