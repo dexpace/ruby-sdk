@@ -99,7 +99,7 @@ confirms the matrix, and the five floor-straddling facts carry the consequence o
 
 The following were re-run on 3.4.10 while writing this plan, because each decides a code fence:
 1. `Fiber[]=` writes and reads without a warning; `Fiber#storage=` warns on every call with `:experimental` category and
-   rejects `String` keys with `TypeError`. `Fiber[:a] = nil` deletes the key (`Fiber.current.storage.key?(:a)` is `false`).
+   rejects `String` keys with `TypeError`. `Fiber[:a] = nil` deletes the key (`Fiber.current.storage.key?(:a)` is `false`). [2026-09-25, phase 10: a fact of 3.3 and later, not of the range -- on the 3.2 floor `Fiber[:k] = nil` RETAINS the key with a nil value, and `Fiber["k"]` raises TypeError on 3.2 and 3.3 (5c's `P5-72`, `docs/knowledge/notes/observability.md`); every reader that skips nulls reads the two as the same.]
 2. `Fiber.current.storage` returns a fresh, unfrozen `Hash` on every call. In a fiber created with `Fiber.new(storage: nil)`,
    `Fiber.current.storage` is `nil`, not `{}`.
 3. The per-key union restore `(prior.keys | snapshot.keys).each { |k| Fiber[k] = prior[k] }` is exact. A prior key holding

@@ -41,7 +41,7 @@ ruby .claude/skills/housekeeping/probe.rb --warn-only
 Findings are grouped by check and printed as `path:line: [severity] message`, followed by a
 summary line. `act` is drift to fix; `note` is a judgement call.
 
-Eight checks. Each is a small class with a `name` and a `run(repo)`, and each derives the
+Nine checks. Each is a small class with a `name` and a `run(repo)`, and each derives the
 repository fact **once, from the repository**, then compares every document that states it
 against that one derivation — never one document against another.
 
@@ -54,6 +54,7 @@ against that one derivation — never one document against another.
 | `links` | Broken relative links in `docs/**/*.md`, `README.md`, `CLAUDE.md` and `gems/*/README.md`. `http(s)://`, `mailto:` and anchor-only targets are skipped. Also a **backticked** chapter of a normative tree — `docs/product-spec/NN-….md`, `docs/sdk-design-ruby/NN-….md` — that does not resolve: this repository writes chapter references in backticks, not link syntax, so nothing else reads them. Scoped to those two complete trees, so a `gems/…` path a later phase creates is not reported; a wildcard or an elided path is not a claim about one file and is skipped |
 | `registers` | An aggregate `## Open Findings` / `## Deferred Items` / `## Open Items` section living inside a spec, design or plan document. No find-list register exists any more: a finding belongs with its owner — the numbered plan task whose scope it falls in, phase 10's inbound list in the roadmap, or a `docs/first-release.md` entry |
 | `citations` | Two namespaces, and both prefixes are now **retired**: every `DEF-<n>` and every `OI-<n>` citation, anywhere. `docs/deferred-items.md` and `docs/open-items.md` were both retired on 2026-09-13 with every row resolved — a finding is no longer registered, it is routed to its owner when it is found: a numbered plan task, phase 10's inbound list, a `docs/first-release.md` entry, or simply the fix. A retired prefix never no-ops, because a missing file is exactly what would hide the leftovers; if either old file itself lingers, that is one finding, not one per row. The **live** half of the check stays — a register resolves only against its own file, and no-ops when that file does not exist — because a future register is one entry in `REGISTERS`. A **backticked** ID counts, and so does one on a 4-space-indented continuation line — this repository's ID convention backticks every ID, and a 4-space indent here is list-item continuation, not code. Only a ``` fence is an example, and only a fence is blanked |
+| `chapters` | A requirement ID a document attributes to a `docs/product-spec/NN-….md` chapter that does not carry it (phase 10's Task 7). The unit is a clause: a line is split at `;`, each ID pairs with the nearest preceding chapter reference in its clause, a range is expanded whether or not its endpoints are backticked, and a two-line window carrying a negation ("appears nowhere", "is not in", …) is skipped. Appendix C is exempt as a target, and phase 10's own documents, which quote the pre-correction lines on purpose, are exempt as sources. Two blind spots are stated in `Chapters::GAPS`: a chapter reference on the preceding line, and a chapter named by an ellipsis or a variable |
 | `guard` | The frozen list and the writable surface overlapping, a path the guard has quietly stopped refusing, or a frozen entry that has become a symlink — the three ways the apply stage could eat a normative document |
 
 The `claims` check is a **declarative table**: file, a pattern whose first capture is the
@@ -187,12 +188,14 @@ checks rot. No case count is written here on purpose; `test/run.rb` reports it.
 .claude/skills/housekeeping/
   SKILL.md              this file
   guard.rb              the frozen-path guard; every write site goes through it
-  probe.rb              stage 1 — eight read-only checks
+  probe.rb              stage 1 — nine read-only checks
+  chapters.rb           the ninth check, `chapters`, in its own file
   apply.rb              stage 2 — git mv only, guarded, dry by default
   test/
     fixture.rb          builds the throwaway repositories the tests probe
     guard_test.rb       prefix, traversal, absolute, symlink, and the pinned list
     probe_test.rb       every check has a fixture it fires on, plus the CLI
+    chapters_test.rb    the clause rule, the ranges, the negations, the two regression fixtures
     apply_test.rb       the target mapping, every batch refusal, and the CLI
     run.rb              the whole suite
 ```

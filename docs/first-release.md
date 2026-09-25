@@ -92,7 +92,13 @@ stated in the release notes rather than discovered at `bundle install`.
       beside what a green run proves; the box ticks when 8c's waiver is stated beside them. **Ticked
       2026-09-21**: the preamble names a third omission, `TRANSPORT-8`, whose antecedent only an
       adapter's own suite can originate, and `conformance.md` states 8c's two waivers (`TRANSPORT-14`
-      and `TRANSPORT-27`, both by id, both this adapter's alone) beside the three omissions
+      and `TRANSPORT-27`, both by id, both this adapter's alone) beside the three omissions. **Narrowed
+      2026-09-25 by phase 10 (`R11`)**: the two waivers were re-measured -- `conformance_test.rb`'s "the two
+      waived clauses are unreachable here: protocol-http1 refuses both heads out of the read" still passes
+      on 3.3.12, 3.4.10 and 4.0.6, so both still state the truth -- and the page must add the largest
+      thing a green run does not prove: `gems/dexpace-conformance/APPENDIX_B.md`'s rows dispositioned
+      **by reference**, where the evidence is another gem's test file and the row proves the ID is claimed,
+      never that the behaviour is asserted (`Aggregate::PREAMBLE` already prints it)
 - [ ] **Before release, `docs/sdk-documentation/` must document the `include Dexpace` constant-shadow
       hazard.** Filed 2026-09-08 by phase 3a's design; recorded here 2026-09-13. Phase 1 measured
       `Dexpace::Method` shadowing `::Method` and concluded "**verified inert outside core**"; the observation
@@ -178,8 +184,12 @@ stated in the release notes rather than discovered at `bundle install`.
       nothing here. The same pass discharges the three narrow obligations this file already carries
       against that tree: the conformance-run caveat, the `include Dexpace` constant shadow, and
       `Dexpace::IO::MAX_MATERIALIZED_BYTES`. Cites `SEAM-26`, `SEAM-27`, `SERDE-28`, `RECOV-15`,
-      `PIPE-39`
-- [ ] **The fourteen recorded corrections to `docs/sdk-design-ruby/` §3, §4, §5, §8, §9, §10, §11, §12 and to
+      `PIPE-39`. **Narrowed 2026-09-25 by phase 10 (`R7`, `P10-7`): the example must also show the
+      correlation chain** -- constructing a `Dexpace::DispatchContext`, promoting it with
+      `#promote_to_request` and `#promote_to_exchange`, and where the operation name goes -- because no
+      phase builds a call path that does it and this is the one place a generated client's author meets
+      it (`CTX-16`, `CTX-14`, `SEAM-28`; the *Behavioural asymmetries* entry below)
+- [ ] **The eighteen recorded corrections (fourteen until phase 10 completed the set on 2026-09-25) to `docs/sdk-design-ruby/` §3, §4, §5, §8, §9, §10, §11, §12 and to
       appendix C's `SSE-19` row applied — or the release notes stating which design sentences a reader
       should not trust.** Filed 2026-09-13 by phase 10's design. Every one is a place where the **rule**
       is right, the **mechanism sentence** is wrong about Ruby or about a library, and the phase that
@@ -215,14 +225,51 @@ stated in the release notes rather than discovered at `bundle install`.
       `Hooks.notify` hand the helper is a caller's exception, so the trail lives on `Dexpace::Suppressible`,
       which `Dexpace::Error` includes and `Dexpace.attach_suppressed` extends onto anything else (phase 4b's
       design, P4-12; the working code is `gems/dexpace-core/lib/dexpace/suppressible.rb`). Its replacement
-      sentence is written out in 4b's design ledger and awaits the same human hand as the thirteen
+      sentence is written out in 4b's design ledger and awaits the same human hand as the thirteen.
+      **Completed 2026-09-25 by phase 10, which wrote the set out in `docs/deviations.md` § Deviations
+      found outside a phase with every frozen sentence quoted, its replacement, its measurement and its
+      code half verified in as-built source -- `C1`-`C14` plus four the as-built audit added:** `C15`,
+      §10.18's list of platform-constant substitutions omitting 7b's `SSE::MAX_LINE_BYTES` and
+      `MAX_EVENT_BYTES`; `C16`, §9's gate table carrying none of the seven gates phases 7b, 9 and 10 added
+      (`gates:serde_boundary`, phase 9's addenda A4-A7, phase 10's A8-A11) or the probe's ninth check;
+      `C17`, §11.8 naming the third surviving `XCUT-23` instance "executor" where it is the async transport
+      seam (`Dexpace::AsyncTransport::REGISTRY`; there is no executor registry); and `C18`, §10.13 spelling
+      the four encode profiles without the value they encode (`dump_to(value, sink)`, not `dump_to(sink)`).
+      **The same human act owes one thing more, named here so it has an owner: the consolidation of every
+      phase's as-built Deviation Ledger rows -- `P0-…` through `P9-42` and phase 10's `P10-1`-`P10-11` and
+      `P10-21`-`P10-36` -- into design §10.** Each phase's status note ends "consolidation into design §10
+      is a human's"; phase 10 is the last phase and the chapter is frozen to it. **The alternative form holds
+      for this half too**: a release may ship with the ledgers unconsolidated if its notes list the phase
+      ledgers a reader must consult beside §10
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
       accidental breaking change. **Phase 10 is the phase that can**: its plan, Task 5 is the last change
       to `sig/` in every gem, so Task 18 establishes the baseline over a tree nothing else will move —
       **both** baselines, the `sig/**/*.rbs` tree and the runtime surface snapshot, because `rbs`
       describes what someone wrote and not what `Data.define` generates. Establishing a baseline is not
       satisfying `NFR-4`, whose subject is a **diff** against the previous release tag; that stays ⏳
-      until a `v*` tag exists
+      until a `v*` tag exists. **Still open after phase 10, with the reason (2026-09-25, `P10-36`):**
+      `tools/sig_diff.rb` takes its baseline from `git describe --tags --match v*` and reads no committed
+      baseline file, and phase 10 may not tag -- so the `sig/` baseline cannot be established inside this
+      repository's design by any phase. Phase 10 did regenerate the six runtime surface manifests once,
+      deliberately (two rows: `Dexpace::Protocol::HTTP_1_0` and `Dexpace::Status#standard?`), and put the
+      SPDX header on every shipped `.rbs` -- the last change to `sig/` before a tag. The line closes with
+      the first `v*` tag
+- [ ] **The one-time public-surface choices the phases flagged, each decided before `NFR-4` locks it
+      at the first `v*` tag.** Filed 2026-09-25 by phase 10, which is the last phase and cannot hand them
+      forward. Adding a public name later widens (`api-design/1d9e6e0b`); removing or narrowing one after
+      the tag is a break, so each is decided now or deliberately kept. The list, every row read off the
+      tree on 2026-09-25: `BufferedSource.__dexpace_view` as a private class method reached by `send`
+      (3a); `Dexpace::Body`'s identity `#==`/`#eql?`/`#hash` (3b); `ResponseBody.new` requiring `#peek`
+      beside `#read_into` (3b); `Bundle#remote` beside `Bundle#remote?` and `ContextStore#put`/`#[]`
+      with no caller in `lib/` (4a); `Recovery::Orchestrator#call`'s three required positionals (4b);
+      `Pipeline::Stage#with`, a public row whose only behaviour is to raise (4c); `Instrumentation::Scope.build`,
+      public and marked `@api private` (5c); **the body-replayability predicate's three spellings** --
+      `Resilience::Resend.eligible?` and `.replayable_body?` public, `Auth::Step#replayable?` private
+      (6a/6b/6c; the roadmap's 2026-09-18 bullet); the two transports' public `Adapter.owning`/`.borrowing`
+      (8a, 8c); and **the default-port elision at the model boundary** -- `URL.parse!("https://h:443/y").to_s`
+      is `"https://h/y"`, so a caller's explicit default port and a redirect's are both elided and
+      `HTTP-46`'s textual comparison sees none (6b's P6-96; measured again 2026-09-25). None is a defect;
+      each is a choice a release owner signs off. Cites `NFR-4`, `HTTP-46`, `RETRY-5`, `REDIR-6`, `AUTH-31`
 - [ ] `SECURITY.md` contact confirmed reachable and monitored
 - [ ] RubyGems ownership settled for every gem name above, and trusted publishing configured
       (OIDC-based, no long-lived API key committed anywhere)
@@ -526,6 +573,22 @@ MUST state every item here**, for the same reason the section above is stated.
   enumeration. **The recorded consequence**: `ContextStore`'s cap, `CTX-19`'s reachability and `CTX-9`'s
   eviction are exercised only by phase 4a's own tests in v1.
 
+- **Port readings phase 10 left standing, each measured 2026-09-25 and each a behaviour a consumer can
+  meet -- `HTTP-51`, `HTTP-12`, `SSE-11`, `IO-1`.** Added by phase 10, the last phase, which decided not
+  to change them and has nowhere else to put them. *(a)* **A multipart part name or filename must be
+  ASCII**: `MultipartBody`'s part-header sweep is the outbound header grammar, so `"résumé.pdf"` raises
+  `InvalidArgumentError` at write time and the caller percent-encodes first (RFC 7578 §4.2's own advice;
+  browsers send raw UTF-8). Widening the sweep to obs-text is additive and cannot break `NFR-4`; the
+  trigger is the first consumer that needs a raw UTF-8 filename. *(b)* **`Query.parse` drops a trailing
+  NUL** (`"a=b\0"` parses as `"a=b"`), phase 1's review R3-3 -- an HTTP-grammar reading, not a crash;
+  trigger: a server whose query semantics depend on it. *(c)* **A zero-padded `retry:` field longer than
+  ten digits is ignored** -- `00000000005` leaves the hint unset where `0000000005` sets 5 -- by the reader's ten-digit width bound (7b's
+  review R1-2) -- `SSE-11`'s documented cap, read strictly. *(d)* **After a mid-stream failure,
+  `BufferedSource.over`'s enumerator restarts `#each`** (7b's finding): a caller that rescues and reads on
+  re-reads the body's first bytes. The SSE facade closes itself first and never meets it; latching
+  exhaustion on a failure is the one-line alternative, recorded as the pick-up if a consumer reads past
+  a failure. The release notes state all four.
+
 ### Post-v1 gems
 
 Design §2.2 is the authority, and the roadmap's "Post-v1" paragraph already states the rule: these seven
@@ -669,6 +732,17 @@ the trigger, then the one job to do when it fires.
   also the sharpest available argument for `bundle exec`. The pin's owner does not change: phase 0's plan,
   Task 2. Phase 10's plan, Task 1 re-measures both facts at implementation time, because a fact that moved
   once in a day will move again, and its Task 18 carries the numbers here if they have.
+  **Measurement corrected again 2026-09-25 by phase 10's execution, outside the bundle (`RUBYOPT` and
+  `BUNDLE_*` cleared, the stock interpreters):** `Gem::Specification.find_all_by_name("minitest")` is
+  5.27.0 and 5.25.1 on 3.2.11, 5.20.0 on 3.3.12, 6.0.6 and 5.25.4 on 3.4.10, 6.0.0 and 5.27.0 on 4.0.6 --
+  a 5.x copy now sits beside the 6.x one on BOTH top rows, installed on this machine since the last
+  measurement -- and **`require "minitest/mock"` now succeeds on all four** (it activates 5.27.0 / 5.20.0 /
+  5.25.4 / 5.27.0, the newest copy that ships the file). So the 2026-09-13 sentence "still raises
+  `LoadError` on 4.0.6" is no longer true on this machine, and it was never a fact about the
+  interpreter: what a bare `require` resolves depends on what happens to be installed beside it. The
+  pin's reason stands and is sharper for it -- the bundle, pinned `~> 5.25`, is the only resolution that
+  is the same on every row. None of this is asserted in a committed test, deliberately: it is machine
+  state, not interpreter behaviour.
 - **Lifting appendix `B.1`, `B.2` and `B.5` — a second implementation of the pagination engine, the SSE
   reader or the configuration chain exists** → lift their assertions into `dexpace-conformance`. Until
   then a lifted assertion over a single subject is a test with one subject living in a package whose
@@ -687,8 +761,16 @@ the trigger, then the one job to do when it fires.
   rather than four. What fires this: a drain implementation whose non-conformance the cap-and-drain
   observation cannot see — a second eviction path, or an eviction reached only on a branch the
   behavioural test does not drive. Touches `XCUT-14`, `NFR-17`.
-- **`XCUT-12` under a fiber scheduler, the fallback — the post-v1 `dexpace-async-async` reactor-native
-  adapter (above) ships** → run `XCUT-12`'s single-flight assertion under a fiber scheduler, driving
+- ~~**`XCUT-12` under a fiber scheduler, the fallback — the post-v1 `dexpace-async-async` reactor-native
+  adapter (above) ships**~~ — **CLOSED 2026-09-25 by phase 10**: the fiber-scheduler form is asserted in
+  `gems/dexpace-transport-async_http/test/dexpace/transport/async_http/fiber_single_flight_test.rb`, eight
+  fibers of one reactor on one thread against the real `Auth::BearerStamper` and `AsyncBearerStamper`,
+  exactly one fetch, run red against a single-flight guard keyed by thread identity (phase 10's checklist,
+  Guards run red 19). The judgement this entry waited on was made -- as a VERIFICATION rather than the
+  repair the 2026-09-13 annotation below expected: the deadlock that annotation predicts does not happen
+  (a fiber blocking on a `Thread::Mutex` another fiber holds parks on the scheduler), so the shipped code
+  was already single-flight under a reactor, and what the fiber form catches that the thread form cannot
+  is a guard keyed by thread identity (phase 10's `P10-21`). The entry is kept, struck, as the record → run `XCUT-12`'s single-flight assertion under a fiber scheduler, driving
   `6c`'s bearer or digest cache through a reactor via the suite contract's clause 9 `around:` wrapper. The
   primary disposition is phase 10's, on whose inbound list it sits (the roadmap's 2026-09-13 status
   note): judge whether the thread-only form phase 9 ships (Tasks 7–8) suffices, a judgement phase 9 may
@@ -728,4 +810,40 @@ the trigger, then the one job to do when it fires.
   by the check — and closing it needs a sentence-spanning parser over Markdown, which 3 fires at 0 false
   positives does not justify. The gap is printed in the check's own output, so a reader is never told it
   saw something it did not. **What fires this**: a second such instance. One is an anecdote; two are a
-  population. Touches the requirement-ID conventions, `NFR-17`.
+  population. Touches the requirement-ID conventions, `NFR-17`. **Built and re-measured 2026-09-25 by
+  phase 10** (`.claude/skills/housekeeping/chapters.rb`, the probe's ninth check): over the live tree
+  the clause-scoped form fired twice, both true positives -- `SEAM-13` and `SEAM-15` inside a
+  backticked range the phase-8 segmentation design attributed to chapter 03, fixed in place -- and zero
+  false positives once the negation vocabulary was written as a union of phrases (an `/x` pattern had
+  silently deleted the phrases' spaces). The continued-clause blind spot is `Chapters::GAPS` and is
+  asserted by `chapters_test.rb`; it still has one known instance, and this trigger still waits for a
+  second.
+
+- **Residues phase 10 measured and did not repair, each with the event that makes it worth doing**
+  (added 2026-09-25; phase 10 is the last phase and none of these has a phase to go to). *The process
+  tooling outside RuboCop* -- `scripts/**` and `.claude/**` are excluded in `.rubocop.yml` (P0-11,
+  `NFR-7`'s one documented exception); phase 10's file list did not reach `.rubocop.yml` or `scripts/`
+  → when either tree is next changed for its own reasons, run the autocorrect pass and delete the two
+  `Exclude` lines. *The per-byte `#getbyte` cost* -- about 0.9 µs a byte through `BufferedSource#getbyte`,
+  so the SSE line machine parses about 1 MiB/s (7b's baseline) → a consumer streaming SSE at that rate.
+  *`Fiber[:"dexpace.current_span"]` left set on the main fiber across suites* under the one-process
+  `rake test:gems` (8b) → the next suite that reads the main fiber's storage raw. *The portable
+  `TRANSPORT-7` row's race* against a streaming adapter (8c's review R1-1) → the next change to
+  `dexpace-conformance`'s transport suite. *`XCUT-9`'s two stated residues* (a collect-then-yield walk
+  and a depth cap equal to the cycle length pass the black-box assertion; `gates:cause_walk` is the
+  second line) → a second cause walk proposed anywhere. *7a's `SEAM-21` evidence living inside another
+  assertion's body*, declared in no ID-keyed map → the next change to `dexpace-serde-json`'s suite.
+  *`tools/surface.rb` blind to a `private_constant`* (it walks `Module#constants(false)`) → a private
+  group module made public. *The 3.4+ unused-block warning `test:gems` cannot see* (suppressed
+  process-wide once a same-named block-taking method is compiled; `-W:strict_unused_block` would reach
+  it) → a new sink or callback method declared without `&`. *Two spellings of the bare-require child
+  process* (`seam_surface_test.rb`'s helper and `test/support/bare_require.rb`) → the next bare-require
+  pin written. *6a's async pump close-before-schedule order* unpinned (an equivalent mutation) → a change
+  to `AsyncRetryStep`'s pump. *Phase 3a's three `untyped` signature parameters and `TeeSink`'s Float
+  `tap_limit` refusal*, and 7c's non-`Response` duck never closed after a parse → the next change to
+  those files. *The six gate tests that resolve `ruby`/`bundle` from PATH, the category assertion run
+  once, the third-party sub-feature refusal* (phase 0's review R3-4/R3-6/R3-7) → the next gate added.
+  *Phase 9's aggregate run is a hand run*: no committed test calls `Aggregate.run` over the four suites
+  with real subjects, so the 43/1/0/1/0 verdict was not re-run as one report by phase 10 (each suite's
+  driver ran in `rake test:gems`) → the first release's conformance run. *8c's two stale design facts and
+  `async-http`'s server letting a peer's mid-head `EOFError` reach Console* → an upstream report.

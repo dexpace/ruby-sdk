@@ -232,9 +232,10 @@ not do. Written against the adapter phase 8b shipped; derives from
 entries 3, 4 and 5 of `docs/sdk-design-ruby/10-deliberate-deviations-from-the-reference-contract.md`.
 
 [quality-gates.md](./quality-gates.md) — every blocking gate this SDK runs, what each protects,
-and how to run it locally; twenty-one of them, and the table says which fixture turns each red.
-Written against the build phase 0 shipped, extended by phase 7b's `gates:serde_boundary` and by
-phase 9's three repository-wide invariant scans; derives from
+and how to run it locally; twenty-four of them, and the table says which fixture turns each red.
+Written against the build phase 0 shipped, extended by phase 7b's `gates:serde_boundary`, by
+phase 9's three repository-wide invariant scans and by phase 10's three (`gates:ledger_audit`,
+`gates:spdx_rbs`, `gates:sole_parse`); derives from
 `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`.
 
 write-a-transport.md — implementing the `Transport` seam, and proving an implementation against

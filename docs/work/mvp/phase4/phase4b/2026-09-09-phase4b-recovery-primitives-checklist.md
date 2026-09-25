@@ -54,7 +54,7 @@ fifteen ⏳ to phase 6a's recovery-stack retry engine with the charter's twin `R
 | `RECOV-22` | MUST | ⏳ | — | A pacing hint replaces, is still clamped, gains no jitter: phase 6a, Tasks 3 and 4; twin `RETRY-20`, `RETRY-21` |
 | `RECOV-23` | MUST | ⏳ | — | The parser is total, malformed → no hint, past → zero: phase 6a, Task 4; twin `RETRY-16`, `RETRY-17` |
 | `RECOV-24` | MUST | ⏳ | — | The four recognised pacing forms and their precedence: phase 6a, Task 4; twin `RETRY-15`, `RETRY-19`, `RETRY-21` |
-| `RECOV-25` | MUST | ⏳ | — | `X-RateLimit-Reset` positive jitter to [100%, 120%]: phase 6a, Task 4; twin `RETRY-15`'s own last clause |
+| `RECOV-25` | SHOULD | ⏳ | — | `X-RateLimit-Reset` positive jitter to [100%, 120%]: phase 6a, Task 4; twin `RETRY-15`'s own last clause [level corrected 2026-09-25 by phase 10: appendix C gives `RECOV-25` as SHOULD; this row said MUST] |
 | `RECOV-26` | MUST | ⏳ | — | Overflow-safe duration arithmetic and the 365-day clamp: phase 6a, Task 3; twin `RETRY-11`, `RETRY-18` |
 | `RECOV-27` | MUST | ⏳ | — | The cancellable, non-pinning inter-attempt wait: phase 6a, Task 5, behind `CFG-15`'s seam, which is the charter's second forcing argument; twin `RETRY-23`, `RETRY-26`, `XCUT-3`. 4b builds no wait of any kind |
 | `RECOV-28` | MUST | ⏳ | — | The engine is stateless across calls: phase 6a, Task 11; twin `RETRY-42` |

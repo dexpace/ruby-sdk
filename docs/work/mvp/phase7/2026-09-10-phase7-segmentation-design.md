@@ -649,7 +649,7 @@ decide. Item 5 is the one exception and is labelled as such.
     (`data-modeling/5bc538ba` narrows exactly which models are shareable and why).
 24. **Phases 1 through 7 test against an in-memory fake transport.** Roadmap cross-cutting constraint 4
     (`:52-53`). `7c` is the first phase-7 sub-phase with a transport-shaped dependency at all, and it uses
-    phase 2's `SEAM-11`/`SEAM-16` fakes. No `TCPServer` fixture, no socket.
+    phase 2's `SEAM-11`/`SEAM-16` fakes. No `TCPServer` fixture, no socket. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. The shareability claim this passage narrows is not narrowed.]
 
 ---
 

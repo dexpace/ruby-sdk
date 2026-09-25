@@ -326,6 +326,7 @@ CODEC.dump_into({ "a" => 1 }, buffer, offset: 2)      # => 7
 buffer                                                 # => "\x00\x00{\"a\":1}\x00\x00\x00"
 CODEC.dump_into({ "a" => 1 }, ("\0" * 4).b, offset: 0)
 # => IndexError: 7 bytes at offset 0 do not fit a 4-byte buffer
+require "stringio"                                    # StringIO is not loaded by the codec
 sink = StringIO.new(+"".b)
 CODEC.dump_to([1, 2], sink)                            # => 5
 sink.closed?                                           # => false

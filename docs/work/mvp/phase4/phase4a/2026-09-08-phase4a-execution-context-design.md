@@ -188,6 +188,8 @@ Two IDs outside `CTX` fix values 4a must carry, and are quoted because 4a is whe
 | `AUTH-19`'s per-nonce counter store | 6. It reuses 4a's map and adds one operation to it (R4) |
 | Any `Ractor` shareability claim for a context | none. `data-modeling/5bc538ba` already narrows it and a context transitively holds a body holding an `IO` |
 
+[2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. The shareability claim this passage narrows is not narrowed.]
+
 **No segmentation design of its own.** 4a is one spec chapter, one gem, 20 IDs, under a segmentation design
 that already exists at the `phase4/` level.
 

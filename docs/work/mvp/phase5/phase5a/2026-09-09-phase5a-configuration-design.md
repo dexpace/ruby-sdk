@@ -60,7 +60,7 @@ than by taste.
 - **A `Data` holding a callable is not Ractor-shareable, so `Configuration` makes no shareability claim.**
   Verified `Ractor.make_shareable` on a frozen `Data` holding a lambda raises `Ractor::IsolationError`.
   `CFG-11` requires the two sources to be callables, so the claim `data-modeling/5bc538ba` already narrows is
-  narrowed once more, deliberately.
+  narrowed once more, deliberately. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. The shareability claim this passage narrows is not narrowed.]
 
 5a ships no logger, no event, no redactor, no span and no meter. Its whole test surface is value objects, one
 process-wide slot behind a mutex, one bounded wait, and six parsers.
