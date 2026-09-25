@@ -6,34 +6,40 @@ the design document that promises it. Design §10 is frozen (see `docs/README.md
 frozen"); this file is where the routine, ongoing question "has entry N actually landed the way
 §10 says it would?" gets answered and kept current.
 
-**Nothing has been built yet.** Every row below is therefore `design only — not yet built`: the
-argument in §10 is recorded, but there is no shipped code to audit it against. A row moves to
-`as-built: confirmed` (or is flagged otherwise) once a gem implementing it exists and has been
-checked against source, the same way `docs/deviations.md` is used in the sibling Node SDK.
+**Audited 2026-09-25 by phase 10, against the tree at the end of phase 10.** Every row was
+re-derived from as-built source, never from another document: each Status cell names the gem path and
+the constant that is its evidence, and `gates:ledger_audit` (phase 10's plan, Task 2) fails the build if
+a row's IDs stop equalling its entry's, if two rows drift out of their entry's position, or if a verdict
+cites no `gems/…` path that exists or names a `Dexpace::` constant that is not defined. The verdicts are
+phase 10's design `R1`'s four: *confirmed*, *confirmed, narrower* (true, and narrower than the sentence --
+each names the amendment below that carries the narrowing), *contradicted* (none) and *unverifiable*
+(none). The closing note's claim -- nothing unified, both retry stacks, both transport seams and both
+bridges survive -- is confirmed too (`gems/dexpace-core/lib/dexpace/resilience/`, `Dexpace::Bridge::SyncOver`
+and `AsyncOver`), and is phase 10's checklist row `RETRY-28`.
 
 ## The audit
 
 | # | Title | IDs touched | Status |
 |---|---|---|---|
-| 1 | The byte-stream provider seam is retired; its behavioural contract is not | SEAM-3–SEAM-10, IO-1–IO-42, XCUT-23 | design only — not yet built |
-| 2 | The canonical body is a duck type, not a nominal interface | SEAM-3, BODY-1, BODY-35 | design only — not yet built |
-| 3 | The async pivot is a core-owned future rather than an ecosystem primitive | SEAM-1, SEAM-16, SEAM-17, ASYNC-1, ASYNC-2, NFR-11 | design only — not yet built |
-| 4 | Cancellation is cooperative; the orphaned-response close moves to the producer | SEAM-13, SEAM-30, XCUT-1–XCUT-3, CFG-17, CFG-20, CFG-21, RETRY-23, TRANSPORT-3, ASYNC-5 | design only — not yet built |
-| 5 | Two MUSTs are not satisfied, and a third holds vacuously | ASYNC-3, ASYNC-4, PIPE-33 | design only — not yet built |
-| 6 | Suppressed exceptions are a core-owned trail, not a host facility | RECOV-12, PAGE-13, PAGE-15, SSE-29, SSE-30, SSE-36, RETRY-34, XCUT-9 | design only — not yet built |
-| 7 | "Standard library" is narrowed to what is stable across the supported Ruby range | SEAM-1, NFR-1, AUTH-14, OBS-2 | design only — not yet built |
-| 8 | Discovery's substrate is require-time self-registration, not classpath scanning | SEAM-5–SEAM-9, XCUT-23 | design only — not yet built |
-| 9 | SEAM-10's multi-loader de-duplication is vacuous and is replaced by a version-skew guard | SEAM-10 | design only — not yet built |
-| 10 | Runtime encapsulation of models is partially unachievable | HTTP-2/SEAM-29, HTTP-4, HTTP-7, HTTP-17, HTTP-18, IO-28/BODY-37, XCUT-18 | design only — not yet built |
-| 11 | Read-only collection exposure is computed once, not wrapped per access | HTTP-5, XCUT-15 | design only — not yet built |
-| 12 | One stream-ownership rule for bodies, resolving a reference inconsistency | BODY-8, SEAM-3, SEAM-20, SEAM-21 | design only — not yet built |
-| 13 | The serde seam ships four encode profiles, two of which are one Ruby type | SEAM-20 | design only — not yet built |
-| 14 | The serde witness is a class-object-and-combinator protocol, not a reflective type token | SEAM-22, SEAM-23, SERDE-5–SERDE-8, SERDE-16, SERDE-17 | design only — not yet built |
-| 15 | The cross-origin redirect marker lives on the per-hop cursor, not on the request | REDIR-11, AUTH-29, PIPE-16 | design only — not yet built |
-| 16 | The configuration chain keeps four tiers with a substituted third source | CFG-1, CFG-3, CFG-4, CFG-24, CFG-26, OBS-35 | design only — not yet built |
-| 17 | The interruptible sleep is a cancellable queue wait, not `Kernel#sleep` | CFG-15, CFG-17, CFG-18, RETRY-26, XCUT-3, XCUT-13 | design only — not yet built |
-| 18 | Platform-constant substitutions where Ruby has no constant | IO-9, BODY-32, SSE-11, RECOV-34 | design only — not yet built |
-| 19 | The dead-code-survival gate is retargeted, not deleted | NFR-8, NFR-9 | design only — not yet built |
+| 1 | The byte-stream provider seam is retired; its behavioural contract is not | SEAM-3–SEAM-10, IO-1–IO-42, XCUT-23 | as-built: confirmed, narrower -- the apparatus is absent (`gems/dexpace-core/lib/dexpace/io.rb` defines `Dexpace::IO::Buffer`, `BufferedSource`, `BufferedSink`, `TeeSink` and no registration entry point; the only registries are `Dexpace::Transport::REGISTRY`, `Dexpace::AsyncTransport::REGISTRY` and `Dexpace::Serde::REGISTRY`) and the contract is 3a's `gems/dexpace-core/lib/dexpace/io/`; narrower where XCUT-23's third surviving instance is the async transport seam, not an executor (C17) |
+| 2 | The canonical body is a duck type, not a nominal interface | SEAM-3, BODY-1, BODY-35 | as-built: confirmed -- `Dexpace::IO::BufferedSource.over` (`gems/dexpace-core/lib/dexpace/io/buffered_source.rb:91`) takes no ownership, measured: closing the source leaves the upstream open, where `.wrapping` (`:48`) closes it; every body yields BINARY chunks from `#each` (`gems/dexpace-core/lib/dexpace/http/body.rb`) |
+| 3 | The async pivot is a core-owned future rather than an ecosystem primitive | SEAM-1, SEAM-16, SEAM-17, ASYNC-1, ASYNC-2, NFR-11 | as-built: confirmed -- the pivot is `Dexpace::Async::Future`, `Dexpace::Async::Completer` and `Dexpace::Async::Settlement` (`gems/dexpace-core/lib/dexpace/async/future.rb`), core-owned; `gates:rbs_surface` finds no foreign async type in any shipped signature |
+| 4 | Cancellation is cooperative; the orphaned-response close moves to the producer | SEAM-13, SEAM-30, XCUT-1–XCUT-3, CFG-17, CFG-20, CFG-21, RETRY-23, TRANSPORT-3, ASYNC-5 | as-built: confirmed, narrower -- `Dexpace::Async::Completer#fulfil` closes an undelivered result (`gems/dexpace-core/lib/dexpace/async/completer.rb:96`); the socket-closing hooks are the transports' (`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/response_pump.rb:120`, `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/exchange.rb:134`) and the pool owns no socket, so the mitigation names a transport, not an adapter (C12) |
+| 5 | Two MUSTs are not satisfied, and a third holds vacuously | ASYNC-3, ASYNC-4, PIPE-33 | as-built: confirmed as admitted, not re-opened -- `ASYNC-3` waived by ID as would-fail in `gems/dexpace-async-thread/test/dexpace/async/thread/conformance_test.rb`, `PIPE-33`'s interrupt clause unmet, `ASYNC-4` vacuous; the gap is `docs/first-release.md` § Unsatisfied MUSTs |
+| 6 | Suppressed exceptions are a core-owned trail, not a host facility | RECOV-12, PAGE-13, PAGE-15, SSE-29, SSE-30, SSE-36, RETRY-34, XCUT-9 | as-built: confirmed, narrower -- the trail is `Dexpace::Suppressible` (`gems/dexpace-core/lib/dexpace/suppressible.rb:46`), included by `Dexpace::Error` and extended onto any exception by `Dexpace.attach_suppressed`, not a method of `Dexpace::Error` itself (C14); one cycle-safe walk, `Dexpace.each_cause` over `compare_by_identity` (`gems/dexpace-core/lib/dexpace/each_cause.rb:48`), kept alone by `gates:cause_walk` |
+| 7 | "Standard library" is narrowed to what is stable across the supported Ruby range | SEAM-1, NFR-1, AUTH-14, OBS-2 | as-built: confirmed -- `gems/dexpace-core/dexpace-core.gemspec` declares no dependency; Basic is `pack("m0")` (`gems/dexpace-core/lib/dexpace/auth/basic_handler.rb:45`); no `require "logger"` in core; `gates:require_allowlist` and `gates:clean_bundle` green on every row |
+| 8 | Discovery's substrate is require-time self-registration, not classpath scanning | SEAM-5–SEAM-9, XCUT-23 | as-built: confirmed, narrower -- adapters self-register at require time (`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http.rb`) into `Dexpace::Registry`'s five branches (`gems/dexpace-core/lib/dexpace/registry.rb`); the permitted instrumentation auto-activation exists nowhere (`gems/dexpace-core/test/dexpace/seam_surface_test.rb`), so the restriction holds by absence |
+| 9 | SEAM-10's multi-loader de-duplication is vacuous and is replaced by a version-skew guard | SEAM-10 | as-built: confirmed -- vacuous with a replacement: `Dexpace::Registry#register(key, factory, core:)` (`gems/dexpace-core/lib/dexpace/registry.rb:123`) is the version-skew guard; `gates:single_instance` green |
+| 10 | Runtime encapsulation of models is partially unachievable | HTTP-2/SEAM-29, HTTP-4, HTTP-7, HTTP-17, HTTP-18, IO-28/BODY-37, XCUT-18 | as-built: confirmed as admitted -- `Dexpace::Request.send(:new, ...)` reaches the generated constructor (measured); both transports re-validate header names and outbound values at the wire (`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/request_mapper.rb:58`, `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/request_mapper.rb:50`) |
+| 11 | Read-only collection exposure is computed once, not wrapped per access | HTTP-5, XCUT-15 | as-built: confirmed -- `Dexpace::Model.own` (`gems/dexpace-core/lib/dexpace/model.rb`) deep-freezes a copy it owns; a returned header value list refuses mutation (measured); phase 10 repaired its default-proc escape |
+| 12 | One stream-ownership rule for bodies, resolving a reference inconsistency | BODY-8, SEAM-3, SEAM-20, SEAM-21 | as-built: confirmed, narrower -- a body closes only what it opened (`gems/dexpace-core/lib/dexpace/http/body/stream_body.rb`), ownership-on-wrap is `Dexpace::IO::BufferedSource.wrapping`'s, a codec closes nothing (`gems/dexpace-serde-json/lib/dexpace/serde/json/codec.rb`); §10.12 attributes the I/O rule to SEAM-3 where the live ID is IO-6 (C3) |
+| 13 | The serde seam ships four encode profiles, two of which are one Ruby type | SEAM-20 | as-built: confirmed, narrower -- all four profiles ship (`gems/dexpace-serde-json/lib/dexpace/serde/json/codec.rb:145`), `dump_string` tagged UTF-8 and `dump_bytes` ASCII-8BIT (measured); each takes the value first, which §10.13 does not spell (C18) |
+| 14 | The serde witness is a class-object-and-combinator protocol, not a reflective type token | SEAM-22, SEAM-23, SERDE-5–SERDE-8, SERDE-16, SERDE-17 | as-built: confirmed -- `Dexpace::Serde.witness!` over `Dexpace::Serde::WITNESS_METHOD` (`gems/dexpace-core/lib/dexpace/serde/witness.rb:17`); the hierarchy is `Dexpace::Serde::Error` with `Dexpace::Serde::SerializationError` and `Dexpace::Serde::DeserializationError` under it; no compile-time refusal, as admitted |
+| 15 | The cross-origin redirect marker lives on the per-hop cursor, not on the request | REDIR-11, AUTH-29, PIPE-16 | as-built: confirmed -- `cursor.fork(state: { cross_origin: ... })` on every drive (`gems/dexpace-core/lib/dexpace/redirect/step.rb:166`), read only through `cursor.state` (`gems/dexpace-core/lib/dexpace/auth/step.rb:118`); `Dexpace::Pipeline::Cursor` has no state setter |
+| 16 | The configuration chain keeps four tiers with a substituted third source | CFG-1, CFG-3, CFG-4, CFG-24, CFG-26, OBS-35 | as-built: confirmed -- `Dexpace::Configuration#string` (`gems/dexpace-core/lib/dexpace/configuration.rb:115`) reads override, environment, property, default; the property tier is `Dexpace.configure` (`gems/dexpace-core/lib/dexpace/config.rb:43`); `Dexpace::Proxy.resolve` reads the same chain; phase 10 bounded the chain a repeated configure grew |
+| 17 | The interruptible sleep is a cancellable queue wait, not `Kernel#sleep` | CFG-15, CFG-17, CFG-18, RETRY-26, XCUT-3, XCUT-13 | as-built: confirmed -- `Dexpace::Clock#sleep` is a per-call queue pop woken by the token (`gems/dexpace-core/lib/dexpace/clock.rb:113`); phase 10 refused NaN and Complex in its guard and in `Dexpace::Async.delay` |
+| 18 | Platform-constant substitutions where Ruby has no constant | IO-9, BODY-32, SSE-11, RECOV-34 | as-built: confirmed, narrower -- `Dexpace::IO::MAX_MATERIALIZED_BYTES` (`gems/dexpace-core/lib/dexpace/io.rb:27`), `Dexpace::SSE::MAX_RETRY_MS` (`gems/dexpace-core/lib/dexpace/sse.rb:58`), `Dexpace::Resilience::Policy::MAX_DURATION_NANOSECONDS` (`gems/dexpace-core/lib/dexpace/resilience/policy.rb:77`); 7b added `Dexpace::SSE::MAX_LINE_BYTES` and `Dexpace::SSE::MAX_EVENT_BYTES`, which the entry does not list (C15) |
+| 19 | The dead-code-survival gate is retargeted, not deleted | NFR-8, NFR-9 | as-built: confirmed -- vacuous by its own text; retargeted at the require-allowlist audit and the clean-bundle run (`gems/dexpace-core/dexpace-core.gemspec`, `tasks/gates.rake`), both green on every row |
 
 Numbering follows §10's own list order and is not renumbered as entries are confirmed built; a
 row's number is a citation, the same as an item ID in `docs/first-release.md`, the one other register
@@ -112,7 +118,7 @@ of `async-http`'s dependency closure, and appendix C's `SSE-19` row, the first e
 normative specification. Both are below, dated.
 
 **What this section adds up to, because the arithmetic was wrong once and is worth stating: thirteen
-amendments in eleven notes.** Phase 10's design numbers them `C1`–`C13` and its plan, Task 17 writes each
+amendments in eleven notes** (as of 2026-09-13; phase 10's table above completes the set at eighteen). Phase 10's design numbers them `C1`–`C13` and its plan, Task 17 writes each
 one's replacement text; the mapping is fixed here so neither document can drift from the other. Seven of
 the eleven notes below the retirement paragraph carry `C1`, `C3`, `C4`, `C5`, `C6`, `C7` and `C10`; the two
 dated 2026-09-13 carry `C8` and `C11`; and **the two notes above this paragraph, dated 2026-09-12, are
@@ -125,6 +131,39 @@ which is why the retirement paragraph above counts eight corrections in seven no
 condition is the
 `docs/first-release.md` blocker phase 10 files, and that blocker's enumeration names all thirteen — an
 amendment recorded here with no line in that blocker is exactly the outcome this section exists to prevent.
+
+**The amendment set, written out -- phase 10, 2026-09-25. This is the section's closing condition.**
+Phase 10 (its plan, Task 17) verified every code half below in as-built source before writing a
+replacement, so applying each amendment is editorial: quote the sentence, paste the replacement. The set
+is **`C1`-`C18`**: the thirteen of phase 10's design, `C14` (filed by phase 4b in `docs/first-release.md`
+and missing here until now), and four the as-built audit added (`C15`-`C18`). The notes below this table
+stand as each amendment's measured record; `C2`, `C9` and `C14`-`C18` had none and are written in the
+table alone. Its closing condition is the `docs/first-release.md` blocker "The fourteen recorded
+corrections ... applied", which now enumerates all eighteen and names the one further human act this set
+cannot transcribe -- **the consolidation of every phase's as-built Deviation Ledger rows into §10** --
+and whose alternative form is that the release notes name the sentences, and the ledgers, a reader
+should not trust. After that blocker is answered this section is a record, not a holding area.
+
+| # | File and sentence | Replacement | Code half, verified 2026-09-25 |
+|---|---|---|---|
+| C1 | §3.1 (`03-…md:78`): "applies the media type's charset via `String#encode(invalid: :replace, undef: :replace)`" | "retags the BINARY bytes to the media type's charset -- UTF-8 when it is absent or unknown -- and then transcodes with both encodings named, `#encode(target, invalid: :replace, undef: :replace)`" | `Dexpace::Response#body_string` (`gems/dexpace-core/lib/dexpace/http/response.rb`): `MediaType#charset`, `#read_string(encoding)`, then a named-target `#encode` |
+| C2 | §4 (`04-…md:21`): "`Request`, `Response`, `Headers`, `Query`, `RequestOptions` and `Configuration` get real mutable `Builder` classes" | add "and the multipart body (`MultipartBody#new_builder`, `MultipartBody::Builder`), which **HTTP-3** names" | `Dexpace::MultipartBody::Builder` (`gems/dexpace-core/lib/dexpace/http/body/multipart_body.rb`) and its non-aliasing test |
+| C3 | §3.1 (`03-…md:83`): "closes that `IO` (**SEAM-3**)"; §10.12 leans on the same attribution | cite **IO-6** (appendix C its only statement) beside or instead of SEAM-3 | `Dexpace::IO::BufferedSource.wrapping` closes the IO, measured |
+| C4 | §8.1's code block (`08-…md:31`): "`#tag(key, value)`" | delete the method, or name the requirement it serves and its precedence against **OBS-5**'s three sources | `Dexpace::Instrumentation::Event` ships `#field`, `#event`, `#cause`, `#emit` and no `#tag` (5b's P5-18) |
+| C5 | §3.2 (`03-…md:167-172`): the block-scoped `read_body` "satisfied literally" | "a per-response producer `Thread` over a `Thread::SizedQueue(1)`, drained through a `#readpartial`-shaped reader, keeps the body lazy and closable (**SEAM-11**, **TRANSPORT-25**); the block form buffers the body and kills the socket, measured" | `gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/response_pump.rb` (8a's P8-1) |
+| C6 | §3.2 (`03-…md:172-173`), §11.18 and §12's `TRANSPORT` row: `Net::HTTP` "retries nothing on its own", "has no resend hook", TRANSPORT-2 vacuous | "`Net::HTTP#max_retries` defaults to 1 and re-sends idempotent requests; the adapter sets it to 0, so TRANSPORT-2 is satisfied by construction and leaves §12's vacuous count" | `http.max_retries = 0` in `gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/adapter.rb` |
+| C7 | §12's `TRANSPORT` row, both directions | add TRANSPORT-14 to the adapter-scoped list (unreachable on `async-http`); record TRANSPORT-8 as satisfied on the async adapter and drop it from the vacuous count | the named waiver `WAIVED = %w[TRANSPORT-14 TRANSPORT-27]` and the "unreachable here" measurement in `gems/dexpace-transport-async_http/test/dexpace/transport/async_http/conformance_test.rb`; 8c's `Async::Cancel`/`Async::TimeoutError` discrimination |
+| C8 | §8.3 (`08-…md:216`): "forbidden in every gem in this repository" | "forbidden in code this repository writes, which `Dexpace/NoThreadInterrupt` enforces over every gem's `lib/`. A dependency may use them: `net-http`'s connect phase is `Timeout.timeout(@open_timeout, Net::OpenTimeout)` on every supported Ruby (0.9.1 also carries `TCPSocket.open(open_timeout:)`), the first such call starts a process-wide thread a host that counts threads sees once, and the `async-http` closure has no `Timeout.timeout`, seven `Fiber#raise` sites at scheduler checkpoints, one `Thread.current.raise` and one `Thread#kill` on an unreachable helper" | none owed; the cop stands |
+| C9 | §9.3 (`09-…md:71`): "it ships with the interpreter as a default gem" | "it ships with the interpreter as a **bundled** gem, needing an explicit bundle entry under Bundler -- `VERSIONS` carries it, pinned `~> 5.25` -- and the same argument follows" | `VERSIONS`' `tool minitest ~> 5.25` row and its reason beside it (`VERSIONS:22-28`), read by the root `Gemfile` |
+| C10 | §9.3 (`09-…md:111`): the waiver "listing the requirement ID", the report's unit unstated | add "and the report's unit is the same requirement ID: one assertion per ID, an appendix-B item a many-to-one view whose status is the worst of its assertions" | `Dexpace::Conformance::Report`, one `Result` per assertion, and `gems/dexpace-conformance/APPENDIX_B.md` |
+| C11 | appendix C's `SSE-19` and `OBS-29` rows, against their chapters | each row either carries the other's clause or says it is partial -- a recommendation to the specification author, in §11's idiom | 7b's configurable line cap (`Dexpace::SSE::MAX_LINE_BYTES`); 5c's documented `OBS-29` contract and 6a's emitted per-attempt group |
+| C12 | §10.5 (`10-…md:52`): "`Completer#on_cancel` lets an adapter shorten that" | "lets a **transport** shorten that by closing its socket under the read; the thread-pool adapter owns no socket" | the transports' hooks at `net_http/response_pump.rb:120` and `async_http/exchange.rb:134` |
+| C13 | §12's `PAGE` row (`12-…md:36`) | add "`PAGE-15`'s wrapping clause is vacuous by a false antecedent (`7c P7-1`)" beside PAGE-35 | 7c's `P7-1` |
+| C14 | §10 item 6 (`10-…md:60`): "`Dexpace::Error#suppressed` supplies the list"; §5.2's placement | "`Dexpace::Suppressible` supplies the list -- `Dexpace::Error` includes it and `Dexpace.attach_suppressed` extends it onto any other exception" | `gems/dexpace-core/lib/dexpace/suppressible.rb` (4b's P4-12) |
+| C15 | §10 item 18 (`10-…md:119-124`): the named substitutions | add "`SSE::MAX_LINE_BYTES` (1 MiB) and `SSE::MAX_EVENT_BYTES` (8 MiB), SSE-19's two rejecting caps, distinct from SSE-11's `MAX_RETRY_MS`" | `gems/dexpace-core/lib/dexpace/sse.rb:38`, `:48` (7b's P7-21) |
+| C16 | §9's gate table (`09-…md:7-24`) | add the seven gates later phases built -- `gates:serde_boundary` (7b), `gates:cause_walk`, `gates:bounded_map`, `gates:seam_names` (phase 9, A4-A7), `gates:ledger_audit`, `gates:spdx_rbs`, `gates:sole_parse` (phase 10, A8, A9, A11) -- and the probe's `chapters` check (A10); the NFR-13 row gains "and `gates:spdx_rbs` over every shipped `.rbs`" | `DEFAULT_GATES` in the root `Rakefile`, twenty-four names |
+| C17 | §11.8 (`11-…md:32`): XCUT-23's three instances "(transport, serde, executor)" | "(transport, async transport, serde)" -- there is no executor registry | `Dexpace::AsyncTransport::REGISTRY` (`gems/dexpace-core/lib/dexpace/async_transport.rb:22`) |
+| C18 | §10 item 13 (`10-…md:93`): "`#dump_to(sink)` and `#dump_into(buffer, offset:)`" | "`#dump_to(value, sink)` and `#dump_into(value, buffer, offset: 0)`" (and `#dump_string(value)`, `#dump_bytes(value)`) | `gems/dexpace-serde-json/lib/dexpace/serde/json/codec.rb:145-200` |
 
 **2026-09-08 — against design §3.1's decode recipe. Established by phase 3b's design.** The frozen sentence
 fixes one decode boundary as `Response#body_string`, "which applies the media type's charset via
