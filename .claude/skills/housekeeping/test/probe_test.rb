@@ -50,8 +50,8 @@ class ProbeTest < Minitest::Test
     assert_empty on_fixture
   end
 
-  def test_check_names_are_the_eight_the_documentation_states
-    assert_equal %w[inbox root claims readmes links registers citations guard], Probe::NAMES
+  def test_check_names_are_the_nine_the_documentation_states
+    assert_equal %w[inbox root claims readmes links registers citations guard chapters], Probe::NAMES
   end
 
   # --- numerals --------------------------------------------------------------------------

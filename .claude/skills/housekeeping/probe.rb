@@ -202,7 +202,8 @@ module Housekeeping
     end
   end
 
-  # The eight read-only checks. Each is a class with `name` and `run(repo) -> [Finding]`.
+  # The nine read-only checks. Each is a class with `name` and `run(repo) -> [Finding]`. The
+  # ninth, `chapters`, lives in chapters.rb (phase 10): one concern per file, as guard.rb.
   module Checks
     # Base class: supplies `name` from the subclass's `NAME` and a `Finding` factory.
     class Check
@@ -732,11 +733,14 @@ module Housekeeping
     end
   end
 
+  require_relative 'chapters'
+
   # Runs the checks and collects their findings.
   class Probe
     ALL = [
       Checks::Inbox, Checks::Root, Checks::Claims, Checks::Readmes,
-      Checks::Links, Checks::Registers, Checks::Citations, Checks::GuardCheck
+      Checks::Links, Checks::Registers, Checks::Citations, Checks::GuardCheck,
+      Checks::Chapters
     ].freeze
     NAMES = ALL.map { |check| check::NAME }.freeze
 
