@@ -112,9 +112,11 @@ class ChaptersTest < Minitest::Test
 
   # Phase 10's review round 1 (R1-4): the forward binding matched "appear in" inside a negative
   # sentence, so a correct statement that an ID is ABSENT from a chapter fired as a wrong
-  # attribution. Each spelling of the negated verb is a negation, not a binding.
+  # attribution. Each spelling of the negated verb is a negation, not a binding. Round 2 (R2-2)
+  # added the two it still bound forward: 'never appears in' and "doesn't appear in".
   def test_a_negated_appears_in_is_not_an_attribution
-    ['does not appear in', 'do not appear in', 'did not appear in'].each do |verb|
+    ['does not appear in', 'do not appear in', 'did not appear in', 'never appears in',
+     "doesn't appear in", "don't appear in", 'appears nowhere in'].each do |verb|
       document = "`SEAM-15` #{verb} `docs/product-spec/03-pluggable-seams-and-extension-model.md`.\n"
 
       assert_empty run_over(document), verb
