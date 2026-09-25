@@ -1470,8 +1470,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   plus 32 inbound bullets — **52 units** (the list had grown to sixty-five bullets by implementation), the same order as phase 1's 42 unsegmented rows — and it ships
   **no new gem**, so only one of the segmentation rule's three triggers fires. It carries **64
   cross-reference rows** beside the 124, one per ID an inbound bullet touches or a phase-10 repair reaches
-  whose row belongs to an earlier phase, for 188 in all; its checklist carries fifteen more cross-reference
-  rows the as-built list reached, for 203. It is the phase that flips all nineteen rows of `docs/deviations.md`
+  whose row belongs to an earlier phase, for 188 in all; its checklist carries seventeen more cross-reference
+  rows the as-built list reached, for 205. It is the phase that flips all nineteen rows of `docs/deviations.md`
   from `design only — not yet built`, by the method the roadmap fixes for it — **re-deriving every
   claim from as-built source, never from another document** — and the phase that writes the
   frozen-chapter amendments out, the design's thirteen `C1`–`C13`, `C14` reconciled from phase 4b's filing

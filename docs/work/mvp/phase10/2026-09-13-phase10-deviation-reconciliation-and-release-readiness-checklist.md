@@ -40,12 +40,12 @@ Test files are named with their gem: `core/…` is `gems/dexpace-core/test/dexpa
 
 ## Requirement rows
 
-**203 rows: 124 own, 64 cross-reference and 15 added cross-reference.** The 124 own rows are every ID
+**205 rows: 124 own, 64 cross-reference and 17 added cross-reference.** The 124 own rows are every ID
 design §10's nineteen entries name plus `RETRY-28` from its closing note — extracted mechanically by
 `LedgerAudit.ids_in` from the frozen chapter (123 distinct IDs, the same number `gates:ledger_audit`
 asserts row by row) — **108 MUST, 15 SHOULD, 1 MAY**, each level read from appendix C. The 64 are the
-design's cross-reference set (44 MUST, 16 SHOULD, 4 MAY). The 15 added are IDs a phase-10 repair changed
-that neither set carried: `HTTP-10`, `HTTP-33`, `HTTP-47`, `TRANSPORT-22`, `TRANSPORT-24`, `OBS-11`,
+design's cross-reference set (44 MUST, 16 SHOULD, 4 MAY). The 17 added are IDs a phase-10 repair changed
+that neither set carried: `HTTP-10`, `HTTP-19`, `HTTP-33`, `HTTP-47`, `BODY-9`, `TRANSPORT-22`, `TRANSPORT-24`, `OBS-11`,
 `CFG-13`, `NFR-7`, `NFR-15`, `REDIR-23`, `RETRY-42`, `RECOV-28`, `AUTH-34`, `AUTH-37` and `PIPE-39`. An ID
 named by more than one §10 entry has one row naming every entry; the *Task* column is the audit task
 (11–15) for an own row. The *Owner* column is the earlier phase whose checklist first carries the ID; no
@@ -188,7 +188,7 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 
 ### Cross-reference rows
 
-The 64 of the design plus the 15 added. Each names what phase 10 did and the owning phase whose row it
+The 64 of the design plus the 17 added. Each names what phase 10 did and the owning phase whose row it
 cross-references; the owning row is not re-marked. *Status* is the requirement's standing after phase 10,
 with "unchanged" where phase 10 audited or documented and touched no code.
 
@@ -230,7 +230,7 @@ with "unchanged" where phase 10 audited or documented and touched no code.
 | `OBS-28` | SHOULD | ✅ unchanged | 16 | 5c | `HTTPTracer`'s YARD already states the contract |
 | `OBS-29` | MUST | ✅ unchanged (5c's) | 16 | 5c | `R6`: documented contract, wiring a follow-up by its own text; the *Behavioural asymmetries* entry |
 | `OBS-34` | MUST | ✅ unchanged | 16 | 5b | as `OBS-29` |
-| `CFG-22` | MUST | ✅ repaired share | 10b | 5a | the proxy warning's credential belt unanchored: eight spellings of eight leaked on 4.0.6 and 3.2.11 before (5b's review R3-1); review round 0 (R0-4) found a password holding `/`, `?`, `#` or a second `@` still leaking its prefix past the unanchored belt, and the raw value is now scrubbed from the authority's start through the LAST `@` first -- fifteen spellings (the eight and seven more), none leaking, on 4.0.6 and 3.2.11 |
+| `CFG-22` | MUST | ✅ repaired share | 10b | 5a | the proxy warning's credential belt unanchored: eight spellings of eight leaked on 4.0.6 and 3.2.11 before (5b's review R3-1); review round 0 (R0-4) found a password holding `/`, `?`, `#` or a second `@` still leaking its prefix past the unanchored belt, and the raw value is now scrubbed from the authority's start through the LAST `@` first -- fifteen spellings (the eight and seven more), none leaking, on 4.0.6 and 3.2.11; review round 1 (R1-1) added three whose password holds an `@` ahead of a reserved character, which only the through-the-LAST-`@` rule redacts -- eighteen |
 | `CFG-23` | MUST | ✅ unchanged | 17 | 5a | bullet 20's proxy-ID substitution, corrected 2026-09-13 |
 | `CFG-25` | MUST | ✅ unchanged | 17 | 5a | as `CFG-23` |
 | `CFG-27` | MUST | ✅ unchanged | 17 | 5a | as `CFG-23` |
@@ -259,8 +259,10 @@ with "unchanged" where phase 10 audited or documented and touched no code.
 | `NFR-13` | SHOULD | ✅ (was ✅ / ⏳) | 5 | 0 | all 307 shipped `.rbs` carry the header; `gates:spdx_rbs` blocking; phase 9's `PackagingSuite` assertion now passes |
 | `NFR-17` | MUST | ✅ strengthened | 2, 5, 6 | 0 | twenty-four blocking gates; `default_task_test.rb` and `ci_workflow_test.rb` assert the three new names |
 | `HTTP-10` | MUST | ✅ repaired (MUST) | 10b | 1 | `Status` is total over every Integer (only a non-Integer is refused); the protocol range is `Status#standard?`. A first repair stopped at 0..999 and still threw on 1000 and -1, narrower than the MUST; review round 0 (R0-5) widened it |
+| `HTTP-19` | MUST | ✅ repaired share | 10b | 1 | `HeaderSyntax`'s predicates, the lenient inbound one included, answer `false` for a non-String instead of raising `NoMethodError` (phase 1's review R3-4), `core/http/header_syntax_test.rb` "every predicate is total…" (repairs 6, Guards x3) |
 | `HTTP-33` | MUST | ✅ repaired | 10 | 1 | `Protocol` gains `http/1.0` (WIRE_FORMS, ALIASES, `HTTP_1_0`); the negative case holds |
 | `HTTP-47` | SHOULD | ✅ repaired (SHOULD) | 10b | 1 | `URL.parse!` refuses a host-less http-family URL and an unrenderable FTP typecode URI, and wraps every `URI::Error` |
+| `BODY-9` | SHOULD | ✅ repaired share | 10b | 3b | `Body.stream` over an already-closed stream refuses it with `InvalidArgumentError` instead of letting a raw `IOError` escape (phase 3b's review R2-1), `core/http/body/stream_body_test.rb` "rejects an already-closed stream…" (repairs 7, Guards x4) |
 | `TRANSPORT-22` | MUST | ✅ unchanged | 10 | 8a | the adaptation-failure tests now use an `HTTP/1.2` head |
 | `TRANSPORT-24` | MUST | ✅ strengthened | 10b | 8a | a 600 or 999 head maps on both transports |
 | `OBS-11` | MUST | ✅ repaired share | 10b | 5b | as `CFG-22` |
@@ -521,6 +523,8 @@ otherwise. The list is the brief's thirty-one-item minimum where it applies (ite
 | 33 | `Status#initialize` back to the 0..999 range | `core/http/status_test.rb` "maps every Integer code …": `code must be an integer status code between 0 and 999` for `-1` | `HTTP-10` |
 | 34 | The `chapters` check's forward binding removed (`run_target` always the preceding chapter) | `housekeeping/chapters_test.rb`: the phase-5 two-run shape fires `SEAM-13` against chapter 03, and the wrong `appears in` attribution goes silent | — (process tooling) |
 | 35 | `'appears in'` restored to `Chapters::NEGATION` | `housekeeping/chapters_test.rb` "an appears-in attribution binds forward and fires when wrong": `Expected: ["SEAM-15"]` | — (process tooling) |
+| 36 | `ProxyResolution#scrub_userinfo` scrubs through the FIRST `@` (`index` for `rindex`) | `core/instrumentation/downstream_wirings_test.rb` "R0-4 …": `http://user:se@c/ret@proxy.corp`'s warning keeps `c/` -- red on 4.0.6 and 3.2.11 (it survived round 0's spellings; review round 1, R1-1) | `OBS-11`, `CFG-22` |
+| 37 | `"not appear in"`, `"does not appear"` and `"do not appear"` dropped from `Chapters::NEGATION` | `housekeeping/chapters_test.rb` "a negated appears-in is not an attribution": `SEAM-15` fires against chapter 03 -- red on 4.0.6 (review round 1, R1-4) | — (process tooling) |
 | x1 | `Status` guard back to `100..599` (as first cut; the guard is now a type check, R0-5) | `core/http/status_test.rb`: three errors, `code must be an integer status code between 0 and 999` raised from the mutated guard's own message path | `HTTP-10` |
 | x2 | `URL.parse!` rescues `URI::InvalidURIError` only | `core/http/url_test.rb`: `mailto://host. [Dexpace::InvalidArgumentError] exception expected, not Class: <URI::InvalidComponentError>` | `HTTP-47` |
 | x3 | `HeaderSyntax.valid_name?`'s String screen removed | `core/http/header_syntax_test.rb`: `NoMethodError: undefined method 'b' for an instance of Integer` | `HTTP-17` |
@@ -682,6 +686,23 @@ blocking finding, eight to fix and three nits; every one is repaired on the bran
 - **R0-9**: `SEAM-22` carries phase 2's `🚫 mechanism; surviving clause ✅`; the tally is ✅ 107 · 🚫 11.
 - **R0-10**, **R0-11**: the misplaced brackets moved to the end of the sentence or item citing the key,
   their repeated tail reworded; the struck `XCUT-12` trigger's old body struck too.
+
+## Review round 1, repaired 2026-09-25
+
+The review of the round-0 tips (code `0d830c2`, tests `cb69353`, docs `91f0d51`) returned no blocking
+finding, three to fix and two nits; every one is repaired on the branch that owns its file.
+
+- **R1-1**: the R0-4 proxy case gains three spellings whose password holds an `@` ahead of a reserved
+  character, so the through-the-LAST-`@` rule is pinned: a first-`@` scrub now fails it on 4.0.6 and
+  3.2.11 (Guards 36). The shipped code was already right; the gap was the test's.
+- **R1-2**: `HTTP-19` and `BODY-9`, both carried by lib repairs 6 and 7, gain cross-reference rows; the
+  added set is 17 and the total 205.
+- **R1-3**: the one `rubocop:disable` phase 10 added (`tools/ledger_audit.rb`, `Metrics/ParameterLists`)
+  carries its reason.
+- **R1-4**: `Chapters::NEGATION` gains the negated verb (`not appear in`, `does not appear`, `do not
+  appear`), so "`X` does not appear in <chapter>" is no longer read as an attribution (Guards 37).
+- **R1-5**: `docs/first-release.md`'s `dexpace-async-async` entry no longer points at the closed
+  `XCUT-12` trigger as live.
 
 ---
 

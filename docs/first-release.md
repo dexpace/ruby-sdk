@@ -602,8 +602,9 @@ design of 2026-09-05 stated it.
 
 - **`dexpace-async-async`**, bridging the core async pivot to `Async::Task`. Trigger: a
   reactor-native async adapter is needed beyond the thread-pool-backed `dexpace-async-thread`, which is
-  the adapter that proves the pivot. `SEAM-24`'s cancellation bridge (above) and the `XCUT-12`
-  fiber-scheduler trigger (under Post-release triggers, below) ride on it.
+  the adapter that proves the pivot. `SEAM-24`'s cancellation bridge (above) rides on it; the `XCUT-12`
+  fiber-scheduler trigger that once did too was closed on 2026-09-25 by phase 10's fiber verification
+  (under Post-release triggers, below).
 - **`dexpace-async-concurrent_ruby`**, bridging the pivot to `Concurrent::Promises::Future`.
   Trigger: `concurrent-ruby` interop is needed beyond `dexpace-async-thread`.
 - **`dexpace-transport-httpx`**, HTTP/2 without a reactor; a third transport over properties

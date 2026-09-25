@@ -5332,6 +5332,6 @@ real reactor (`P10-21`).
 **18 repaired, 14 verified already fixed, 32 moved to `docs/first-release.md`, 1 withdrawn**, none
 carried forward — and the checklist,
 `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-checklist.md`,
-holds the same sixty-five beside 203 requirement rows, the repairs table and the guards run red.
+holds the same sixty-five beside 205 requirement rows, the repairs table and the guards run red.
 
 `main` is `b242de6` before and after this pass; nothing is pushed, and issue #34 stays open.
