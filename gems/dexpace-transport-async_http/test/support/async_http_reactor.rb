@@ -18,13 +18,41 @@ module AsyncHTTPReactor
   # watcher a defect never released stays for good.
   RELEASE_TURNS = 10
 
+  # The io-event selectors this host can run, in a fixed order. `IO::Event::Selector.new` picks
+  # io_uring wherever liburing was present at build time and EPoll otherwise, so a developer
+  # machine and a hosted CI runner run DIFFERENT selectors under a bare `Sync` -- and they differ
+  # on exactly the property TRANSPORT-7's body path rests on: io_uring's poll notices a
+  # descriptor closed under a parked fiber and epoll silently drops it. A test that names the
+  # selector is what makes that behaviour the same on every host (the CI failure of 2026-09-22 to
+  # 2026-09-25, green here on io_uring and red on every runner's EPoll).
+  SELECTORS = (%i[URing EPoll KQueue Select] & ::IO::Event::Selector.constants).freeze
+
   # @param server [#close] the fixture to close before the reactor drains
+  # @param selector [Symbol, nil] an entry of SELECTORS, or nil for the host's default
   # @yield [Async::Task] the reactor's root task
-  def reactor_over(server)
-    Sync do |task|
+  def reactor_over(server, selector: nil)
+    body = proc do |task|
       yield task
     ensure
       server.close
+    end
+    selector.nil? ? Sync(&body) : reactor_on(selector, &body)
+  end
+
+  # `Sync` over a named selector: the same shape as `Kernel#Sync` with no reactor running, the
+  # selector handed to the reactor instead of chosen by io-event.
+  #
+  # @param selector [Symbol] an entry of SELECTORS
+  # @yield [Async::Task] the reactor's root task
+  def reactor_on(selector, &)
+    ::Fiber.blocking do
+      implementation = ::IO::Event::Selector.const_get(selector)
+      reactor = ::Async::Reactor.new(selector: implementation.new(::Fiber.current))
+      begin
+        reactor.run(finished: false, &).wait
+      ensure
+        ::Fiber.set_scheduler(nil)
+      end
     end
   end
 

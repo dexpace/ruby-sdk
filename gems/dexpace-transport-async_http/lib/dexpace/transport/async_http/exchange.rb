@@ -18,15 +18,17 @@ module Dexpace
       # the Completer whose own hook pushes the reason, and a transient WATCHER task on the
       # caller's task pops the queue -- a scheduler-aware wait from inside the reactor, wakeable
       # from any thread -- and acts ON THE REACTOR'S THREAD: it cancels the exchange task while the
-      # exchange is in flight, and closes the delivered response afterwards, which is what wakes a
-      # consumer blocked in a body read. Closing the native body from the canceller's thread
-      # instead corrupts the reactor's selector (measured: `IOError: stream closed in another
-      # thread` out of the reactor itself). The queue is closed when the exchange ends undelivered
-      # or when the delivered body is released, so the watcher wakes with nil and exits;
-      # `transient: true` keeps a body a caller never closes from holding the caller's `Sync`
-      # block open. A hook can still run after that close -- the source and the completer both
-      # steal their hooks before they notify -- so the push is total over it (#signal) and a cancel
-      # that lost the race against the exchange's own end never raises back into the canceller.
+      # exchange is in flight, and afterwards wakes a consumer blocked in a body read by raising
+      # into that reader's fiber, which then closes the body itself (ResponseBody#cancel_read),
+      # or closes the delivered response when no reader is parked. Closing the native body from
+      # the canceller's thread instead corrupts the reactor's selector (measured: `IOError:
+      # stream closed in another thread` out of the reactor itself). The queue is closed when the
+      # exchange ends undelivered or when the delivered body is released, so the watcher wakes
+      # with nil and exits; `transient: true` keeps a body a caller never closes from holding the
+      # caller's `Sync` block open. A hook can still run after that close -- the source and the
+      # completer both steal their hooks before they notify -- so the push is total over it
+      # (#signal) and a cancel that lost the race against the exchange's own end never raises
+      # back into the canceller.
       #
       # `Async::Cancel` is not a StandardError and leaves this task through the
       # `rescue ::Exception` arm below, which re-raises it unchanged after settling the pivot
@@ -171,8 +173,8 @@ module Dexpace
         # the token, from Future#cancel, or from a pre-dispatch cancellation -- and nil means the
         # exchange ended or the delivered body was released. While the exchange is in flight the
         # task is cancelled, which is what reaches a native call blocked in a read or in the
-        # pool's acquire (TRANSPORT-7); once the response is delivered the response itself is
-        # closed, which is what reaches a consumer blocked in a body read, and never a delivered
+        # pool's acquire (TRANSPORT-7); once the response is delivered a consumer blocked in a
+        # body read is woken and the body closed (#release_delivered), and never a delivered
         # response whose pivot was not cancelled (ASYNC-20). An exchange already in its exit path
         # is left to it: a cancel landing inside a close would leave the pivot to the ensure's net.
         #
@@ -189,9 +191,20 @@ module Dexpace
           return if reason.nil?
 
           if @delivered
-            ::Dexpace.close_quietly(@adapted, logger: @logger)
+            release_delivered
           elsif !@finishing
             @task&.cancel(cause: ::Dexpace::CancelledError.new(reason))
+          end
+        end
+
+        # A delivered response's body is woken rather than closed under its reader
+        # (ResponseBody#cancel_read); a response delivered with no body has released the watch
+        # already, and anything else is closed as it always was.
+        def release_delivered
+          body = @adapted&.body
+          case body
+          when ResponseBody then body.cancel_read
+          else ::Dexpace.close_quietly(@adapted, logger: @logger)
           end
         end
 

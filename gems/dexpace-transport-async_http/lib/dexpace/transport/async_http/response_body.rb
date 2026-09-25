@@ -35,6 +35,10 @@ module Dexpace
         include ::Dexpace::Body
         include ::Dexpace::Closeable
 
+        # The message of the IOError #cancel_read raises into a parked reader: the cause of the
+        # CancelledError that reader surfaces.
+        INTERRUPTED = "the response body was cancelled under a blocked read"
+
         attr_reader :media_type, :content_length
 
         # @param native [Protocol::HTTP::Body::Readable] the native body, owned from here on
@@ -53,6 +57,8 @@ module Dexpace
           @logger = logger
           @on_release = on_release
           @source = nil
+          @reader = nil
+          @reader_scheduler = nil
           initialize_closeable(owned: true)
           initialize_single_use
         end
@@ -91,6 +97,38 @@ module Dexpace
           written
         end
 
+        # The exchange watcher's entry for a cancellation that lands after delivery (TRANSPORT-7's
+        # body path), run on the reactor's thread. A consumer parked inside the native read is
+        # WOKEN, never closed under: the watcher raises an IOError into the reader's fiber through
+        # the scheduler -- a scheduler checkpoint, the fiber provably suspended inside #pull's own
+        # read, which is the mechanism Async::Task#cancel and #with_timeout use -- and the reader's
+        # own #pull closes this body on its own fiber once the native wait has unwound; with no
+        # reader parked the body is closed here. Closing the connection under a parked reader
+        # wakes it only by accident of the selector: io_uring's poll sees the close, but epoll
+        # silently drops a closed descriptor from its interest set, so on the EPoll selector
+        # (io-event's choice wherever liburing is absent -- every hosted CI runner) the reader
+        # stayed parked until something else fired, and on Ruby 4.0 IO#close's own interrupt of
+        # the parked fiber is deferred through Fiber::Scheduler#fiber_interrupt and lands in the
+        # caller's fiber at whatever suspension point it reaches next. A reader on another thread
+        # or another reactor is not this scheduler's to interrupt, and gets the close.
+        #
+        # @return [nil]
+        def cancel_read
+          reader = @reader
+          scheduler = ::Fiber.scheduler
+          if reader&.alive? && !scheduler.nil? && scheduler.equal?(@reader_scheduler)
+            scheduler.raise(reader, ::IOError, INTERRUPTED)
+          else
+            ::Dexpace.close_quietly(self, logger: @logger)
+          end
+          nil
+        rescue ::FiberError
+          # The reader was resumed between the check and the raise; there is nothing parked to
+          # wake, and the close is what a read after this one meets.
+          ::Dexpace.close_quietly(self, logger: @logger)
+          nil
+        end
+
         # The same handle every call (BODY-14), built with `.over`, never `.wrapping`, so no byte
         # is read ahead of demand and no one-byte-per-read defect is inherited (3a's residue).
         #
@@ -104,7 +142,7 @@ module Dexpace
         def pull
           raise ::Dexpace::ClosedError, "the response body is closed" if closed?
 
-          chunk = @native.read
+          chunk = parked { @native.read }
           if @cancellation.cancelled?
             close
             raise ::Dexpace::CancelledError, @cancellation.reason
@@ -115,6 +153,17 @@ module Dexpace
         rescue ::StandardError => error
           ::Dexpace.close_quietly(self, logger: @logger)
           raise Errors.classify_read(error, cancellation: @cancellation)
+        end
+
+        # Records the fiber blocked in the native read, and the scheduler it is blocked under, for
+        # #cancel_read; cleared on every exit, so a recorded reader is always one inside the read.
+        def parked
+          @reader_scheduler = ::Fiber.scheduler
+          @reader = ::Fiber.current
+          yield
+        ensure
+          @reader = nil
+          @reader_scheduler = nil
         end
 
         # BODY-15: releases the native body -- which returns its connection to the pool, or resets

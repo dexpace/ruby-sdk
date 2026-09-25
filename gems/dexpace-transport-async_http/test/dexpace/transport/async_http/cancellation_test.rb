@@ -234,52 +234,87 @@ module DexpaceTransportAsyncHTTPCancellationTests
     end
 
     # A cancel that lands after delivery but through the TOKEN reaches a consumer blocked in a
-    # body read: the watcher closes the response from inside the reactor, the blocked read wakes,
-    # and the token is asked first, so the reader sees the cancellation and not a stream failure.
+    # body read: the watcher wakes the parked reader from inside the reactor, the reader closes
+    # the body, and the token is asked first, so the reader sees the cancellation and not a
+    # stream failure.
     test "TRANSPORT-7 on the body path: a token cancelled under a blocked body read wakes the " \
          "reader with CancelledError and releases the body" do
+      assert_body_read_woken
+    end
+
+    # The same, on every selector this host has. The watcher used to CLOSE the delivered
+    # response under the parked reader and rely on the close to wake it, which io_uring does and
+    # epoll does not: green on a developer machine, red on every hosted runner (whose io-event
+    # has no liburing), and on Ruby 4.0 IO#close's own deferred interrupt landed later in the
+    # fixture's Thread#join. Naming the selector keeps the property host-independent.
+    AsyncHTTPReactor::SELECTORS.each do |selector|
+      test "TRANSPORT-7 on the body path, on the #{selector} selector: the parked reader is " \
+           "woken by the watcher, never by the test's bound" do
+        assert_body_read_woken(selector: selector)
+      end
+    end
+
+    private
+
+    def assert_body_read_woken(selector: nil)
       server = AsyncHTTPHoldingServer.new(hold: :body)
       adapter = AsyncHTTP.build
       source = Dexpace::Cancellation.source
       arrived = ::Thread::Queue.new
-      canceller = ::Thread.new do
-        arrived.pop # the first chunk was yielded: the reader is now blocked on the held second one
-        source.cancel(:reader_cancelled)
-      end
+      canceller = cancel_on(arrived, source)
 
-      reactor_over(server) do |task|
-        response = value_within(adapter.call(request("http://127.0.0.1:#{server.port}/"), nil,
-                                             source.token,))
-        server.wait_for_accept
-        chunks = []
-        # Bounded: a watcher that never closed the delivered response would leave the read blocked
-        # for good. The bound's Async::TimeoutError is a StandardError the token-first classifier
-        # turns into the SAME CancelledError, so the cause is what tells the two wakes apart.
-        error = assert_raises(Dexpace::CancelledError) do
-          task.with_timeout(BOUND) do
-            response.body.each do |chunk|
-              chunks << chunk
-              arrived.push(true)
-            end
-          end
-        end
+      reactor_over(server, selector: selector) do |task|
+        response = held_response(adapter, server, source)
 
-        assert_equal(:reader_cancelled, error.reason)
-        # The wake must be the WATCHER's close and never this test's own bound: with the watcher's
-        # close of the delivered response deleted (the reviewer's mutation 37), the bound fires
-        # inside the native read five seconds later and the classifier still answers
-        # CancelledError(:reader_cancelled) with the body closed -- every assertion around this
-        # one passes. A close under a blocked read surfaces from the library as a bare IOError,
-        # which the classifier saw and Ruby attached; the bound would have attached its own.
-        refute_kind_of(::Async::TimeoutError, error.cause,
-                       "the reader was woken by the test's bound, not by the watcher's close",)
-        assert_equal(["first"], chunks)
-        assert_predicate(response.body, :closed?)
+        assert_woken_by_watcher(response, *read_until_cancelled(task, response, arrived))
       end
       canceller.join
     ensure
       adapter&.close
       server&.close
+    end
+
+    def cancel_on(arrived, source)
+      ::Thread.new do
+        arrived.pop # the first chunk was yielded: the reader is now blocked on the held second one
+        source.cancel(:reader_cancelled)
+      end
+    end
+
+    # The delivered response whose body the holding server keeps open after the first chunk.
+    def held_response(adapter, server, source)
+      url = "http://127.0.0.1:#{server.port}/"
+      value_within(adapter.call(request(url), nil, source.token)).tap { server.wait_for_accept }
+    end
+
+    # Bounded: a watcher that never woke the parked reader would leave the read blocked for good.
+    # The bound's Async::TimeoutError is a StandardError the token-first classifier turns into
+    # the SAME CancelledError, so the cause is what tells the two wakes apart.
+    def read_until_cancelled(task, response, arrived)
+      chunks = []
+      error = assert_raises(Dexpace::CancelledError) do
+        task.with_timeout(BOUND) do
+          response.body.each do |chunk|
+            chunks << chunk
+            arrived.push(true)
+          end
+        end
+      end
+      [error, chunks]
+    end
+
+    def assert_woken_by_watcher(response, error, chunks)
+      assert_equal(:reader_cancelled, error.reason)
+      # The wake must be the WATCHER's and never this test's own bound: with the watcher's wake
+      # of the delivered response deleted (the reviewer's mutation 37), the bound fires inside
+      # the native read five seconds later and the classifier still answers
+      # CancelledError(:reader_cancelled) with the body closed -- every assertion around this one
+      # passes. The watcher's wake is an IOError raised into the parked reader.
+      refute_kind_of(::Async::TimeoutError, error.cause,
+                     "the reader was woken by the test's bound, not by the watcher",)
+      assert_kind_of(::IOError, error.cause)
+      assert_equal(["first"], chunks)
+      assert_predicate(response.body, :closed?)
     end
   end
 end

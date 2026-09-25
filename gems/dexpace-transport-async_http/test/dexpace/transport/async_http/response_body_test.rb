@@ -10,8 +10,9 @@ require "dexpace/transport/async_http"
 # drives the native #read directly and closes through its OWN latch -- one close path, never two
 # racing ones. P3-3: a native failure mid-stream is a Dexpace::StreamError, the token asked first.
 # ASYNC-21's property, asserted on 7b's precedent although the ID is N/A: one native read per
-# yield, nothing read ahead. Two nested classes under Metrics/ClassLength: the pull and the close,
-# and the read surface with its failures.
+# yield, nothing read ahead. Three nested classes under Metrics/ClassLength: the pull and the
+# close, the read surface with its failures, and #cancel_read -- TRANSPORT-7's body path, which
+# wakes a parked reader rather than closing its connection under it.
 module DexpaceTransportAsyncHTTPResponseBodyTest
   # The one constructor both classes share.
   module ResponseBodyTestSupport
@@ -185,6 +186,117 @@ module DexpaceTransportAsyncHTTPResponseBodyTest
       assert_respond_to(subject, :source)
       assert_respond_to(subject, :close)
       refute_predicate(subject, :replayable?)
+    end
+  end
+
+  # TRANSPORT-7's body path, on the watcher's side of the exchange. A native body whose close does
+  # NOT wake a reader parked in its #read -- which is what the EPoll selector does with a
+  # descriptor closed under a parked fiber: epoll drops it from the interest set and says nothing
+  # -- so the only thing that can wake the reader is #cancel_read raising into it. The
+  # regression this pins was green on io_uring (whose poll sees the close) and red on every
+  # hosted CI runner, which has no liburing and so runs EPoll; a double that models the silent
+  # drop makes the test independent of the host's selector.
+  class CancelReadTest < DexpaceTestCase
+    include ResponseBodyTestSupport
+
+    BOUND = 5.0
+
+    # Yields `first`, then parks the next #read on a scheduler-aware queue that only #unpark
+    # feeds. Records whether a close ran while a read was still parked.
+    class ParkingBody < Protocol::HTTP::Body::Readable
+      attr_reader :close_count, :closed_while_parked, :parked
+
+      def initialize(first)
+        super()
+        @chunks = [first]
+        @gate = ::Thread::Queue.new
+        @parked = ::Thread::Queue.new
+        @in_read = false
+        @close_count = 0
+        @closed_while_parked = false
+      end
+
+      def read
+        return @chunks.shift unless @chunks.empty?
+
+        @in_read = true
+        @parked.push(true)
+        @gate.pop
+      ensure
+        @in_read = false
+      end
+
+      def close(error = nil)
+        @close_count += 1
+        @closed_while_parked ||= @in_read
+        super
+      end
+
+      # The test's own release on every path: a reader a defect left parked is fed end of stream,
+      # so its task finishes and the failure is reported instead of holding the reactor open.
+      def unpark = @gate.push(nil)
+    end
+
+    test "#cancel_read with no reader parked closes the body, once" do
+      native = ParkingBody.new("a".b)
+      subject = body(native)
+
+      subject.cancel_read
+      subject.cancel_read
+
+      assert_predicate(subject, :closed?)
+      assert_equal(1, native.close_count)
+    end
+
+    test "TRANSPORT-7: #cancel_read wakes a reader parked in #each with CancelledError, and the " \
+         "reader -- not the canceller -- closes the body once its read has unwound" do
+      chunks = assert_woken(:each) { |subject, seen| subject.each { |chunk| seen << chunk } }
+
+      assert_equal(["a"], chunks)
+    end
+
+    # Response#body_string and every BufferedSource read pull through `.over`'s Enumerator, so
+    # the parked fiber is the enumerator's own and never the consumer's: the one #pull records.
+    test "TRANSPORT-7: #cancel_read wakes a reader parked through #source's enumerator fiber" do
+      assert_woken(:source) { |subject, chunks| chunks << subject.source.read }
+    end
+
+    private
+
+    def assert_woken(path, &)
+      native = ParkingBody.new("a".b)
+      error, subject, chunks = wake_parked_reader(native, &)
+
+      assert_kind_of(Dexpace::CancelledError, error, "the #{path} reader was not woken")
+      assert_equal([:woken, ResponseBody::INTERRUPTED], [error.reason, error.cause&.message])
+      assert_kind_of(::IOError, error.cause)
+      assert_predicate(subject, :closed?)
+      assert_equal(1, native.close_count)
+      refute(native.closed_while_parked, "the body was closed under the parked read")
+      chunks
+    end
+
+    # Parks a reader in a child task, cancels the token and calls #cancel_read from the parent,
+    # and answers what the reader surfaced; bounded, and the gate fed on every path.
+    def wake_parked_reader(native)
+      source = Dexpace::Cancellation.source
+      subject = body(native, cancellation: source.token)
+      chunks = []
+      error = Sync do |task|
+        reader = task.async do
+          yield subject, chunks
+          nil
+        rescue Dexpace::CancelledError => error
+          error
+        end
+        native.parked.pop # the reader has taken "a" and is parked in the second native read
+        source.cancel(:woken)
+        subject.cancel_read
+        task.with_timeout(BOUND) { reader.wait }
+      ensure
+        native.unpark
+      end
+      [error, subject, chunks]
     end
   end
 end

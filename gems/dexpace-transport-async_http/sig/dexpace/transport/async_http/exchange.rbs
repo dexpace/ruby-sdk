@@ -41,6 +41,7 @@ module Dexpace
         def net: () -> nil
         def finish: () { () -> untyped } -> untyped
         def watch: () -> untyped
+        def release_delivered: () -> untyped
         def release_watch: () -> nil
       end
     end
