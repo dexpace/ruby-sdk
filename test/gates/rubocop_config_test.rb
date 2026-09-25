@@ -58,4 +58,14 @@ class RubocopConfigTest < GateCase
     assert_includes(gate, "--fail-level=convention")
     refute_includes(gate, "--autocorrect")
   end
+
+  # Phase 1's implementation found it and phase 10 repairs it (NFR-7): RuboCop takes
+  # AllCops/Exclude from the TOPMOST .rubocop.yml on the path, so in an agent worktree nested
+  # under the parent checkout's .claude/ the parent's `.claude/**/*` line excluded the whole
+  # worktree and the gate inspected 8 files of 126 and reported clean. One flag, the strict way.
+  test "the gate ignores a parent checkout's exclusions, so a nested worktree is inspected" do
+    gate = File.read(File.join(ROOT, "tasks/quality.rake"))[/^task :rubocop do.*?^end$/m]
+
+    assert_includes(gate, "--ignore-parent-exclusion")
+  end
 end

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "../../../test_helper"
+require_relative "../../../support/pinned_ceiling"
 require "dexpace"
 require_relative "../../../support/fake_sink"
 require_relative "../../../support/fake_source"
@@ -181,7 +182,9 @@ class DexpaceResponseBodyTest < DexpaceTestCase
       [ceiling + 1, ceiling * 2, ::Float::INFINITY].each do |cap|
         recorder = CountingStream.new("abc")
 
-        assert_equal("abc".b, over(recorder).preview(cap: cap))
+        preview = PinnedCeiling.with_default_ceiling { over(recorder).preview(cap: cap) }
+
+        assert_equal("abc".b, preview)
         assert_equal(ceiling, recorder.maxlens.first, "cap #{cap}")
       end
     end

@@ -813,8 +813,12 @@ class DexpaceRedirectStepTest < DexpaceTestCase
       assert_equal(["close failed"], Dexpace.suppressed(error).map(&:message))
     end
 
-    test "REDIR-23: a chain of 5,000 hops is followed iteratively -- flat on the stack, in " \
-         "under a few seconds" do
+    # REDIR-23's clause is "iteratively, without unbounded recursion", and the depth comparison
+    # below is the whole proof. The ten-second wall-clock bound this test used to carry was the
+    # "in under a few seconds" gloss, not the requirement, and it was the one load-sensitive
+    # assertion in the suites: 10.6 s and 12.6 s under a load average above 10 while the
+    # flatness half still passed (phase 8a's hand-off; phase 10 dropped the bound).
+    test "REDIR-23: a chain of 5,000 hops is followed iteratively -- flat on the stack" do
       depths = []
       script = Array.new(5_000) { |i| redirect_to("https://h/#{i + 1}") }
       script << lambda { |_r, _o, _c|
@@ -826,14 +830,12 @@ class DexpaceRedirectStepTest < DexpaceTestCase
         redirect_to("https://h/1")
       }
       script[0] = probe
-      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       response, transport = follow(redirect_step(max_hops: 5_000), script,
                                    request: seed_request("https://h/0"),)
 
       assert_equal(200, response.status.code)
       assert_equal(5_001, transport.calls.size)
       assert_equal(depths.first, depths.last) # the 5,000th drive sits at the first drive's depth
-      assert_operator(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 10.0)
     end
   end
 

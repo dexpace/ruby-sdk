@@ -194,6 +194,19 @@ class DexpacePipelineStandardTest < DexpaceTestCase
       refute_empty(sink.payloads)
     end
 
+    # 6b's review R3-1, pinned by phase 10: the async preset builds its retry step on TWO branches
+    # -- with an http_tracer_factory: and without -- and only the first carried a settings:
+    # assertion, so the second could drop `settings:` with the suite green. max_retries: 0 on the
+    # no-factory branch leaves a 503 unretried where the default schedule would retry it.
+    test "PIPE-39: settings: reaches the async retry step on the no-tracer-factory branch too" do
+      transport = ScriptedAsyncTransport.new([response_with(503), response_with(200)])
+      pipeline = Dexpace::AsyncPipeline.standard(transport, redirect: :unsupported,
+                                                            settings: settings(max_retries: 0),)
+
+      assert_equal(503, pipeline.call(seed_request).value.status.code)
+      assert_equal(1, transport.calls.size)
+    end
+
     test "PIPE-39: level: BODY needs preview_bytes:, threaded through both presets" do
       body = Dexpace::Instrumentation::HTTPLogging::BODY
       assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Pipeline.standard(sync_transport, level: body) }

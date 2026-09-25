@@ -97,13 +97,29 @@ class DexpaceResilienceRecoveryRetryTest < DexpaceTestCase
     transport.calls.each { |(sent, _options, _token)| assert_same(request, sent) }
   end
 
+  # Each thread draws from its OWN script (phase 10, phase 8a's review R1): the shared
+  # alternating script handed responses out in call order, so a thread switch between one
+  # thread's 503 and its retry gave that thread a second 503 and spent its one retry -- red two
+  # runs in five under load on 3.2.11, a scheduling outcome rather than a budget leak. Keyed by
+  # thread, the budget invariant is asserted without assuming which response a call draws.
   test "RETRY-42 / RECOV-28: eight concurrent calls through one engine keep their budgets apart" do
-    built, transport = engine(Array.new(16) { |i| retry_response(i.even? ? 503 : 200) },
-                              settings: retry_settings(max_retries: 1),)
-    results = Array.new(8) { ::Thread.new { send_through(built).status.code } }.map(&:value)
+    scripts = ::Hash.new { |hash, thread| hash[thread] = [503, 200] }.compare_by_identity
+    lock = ::Thread::Mutex.new
+    calls = []
+    transport = lambda do |_request, _options, _cancellation|
+      code = lock.synchronize do
+        calls << ::Thread.current
+        scripts[::Thread.current].shift
+      end
+      retry_response(code)
+    end
+    built = RecoveryRetry.build(transport: transport, settings: retry_settings(max_retries: 1))
+    threads = Array.new(8) { ::Thread.new { send_through(built).status.code } }
+    results = threads.map(&:value)
 
-    assert_equal(16, transport.calls.size)
-    assert_equal(8, results.count(200), results.inspect)
+    assert_equal(16, calls.size)
+    assert_equal([2] * 8, threads.map { |thread| calls.count { |caller| caller.equal?(thread) } })
+    assert_equal([200] * 8, results)
   end
 
   # RECOV-17, RECOV-18, RETRY-4, RETRY-25, RETRY-37: the two axes, on this stack.

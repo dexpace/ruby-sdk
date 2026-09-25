@@ -26,6 +26,25 @@ class DexpaceUrlTest < DexpaceTestCase
     assert_kind_of(::URI::InvalidURIError, error.cause)
   end
 
+  # HTTP-47, repaired by phase 10 (phase 2's review R3-1 and R3-2, phase 1's round-3 bullet):
+  # three inputs escaped `rescue Dexpace::Error` or surfaced later as a lower-level error --
+  # `mailto://host` raised URI::InvalidComponentError from the scheme's constructor,
+  # `ftp://h/f;type=x` parsed and then raised FrozenError from every #to_s of the frozen result,
+  # and a host-less `http:` or `http:///p` parsed as an absolute URI::HTTP a transport then
+  # choked on.
+  test "every malformed, unrenderable or host-less http URL fails with the SDK's error" do
+    ["mailto://host", "ftp://h/f;type=x", "http:", "http:///p", "https:"].each do |input|
+      error = assert_raises(Dexpace::InvalidArgumentError, input) { Dexpace::URL.parse!(input) }
+
+      assert_includes(error.message, input.inspect, input)
+    end
+  end
+
+  test "a non-http absolute URL is still admitted: which schemes dispatch is a transport's call" do
+    assert_equal("ftp://h/f", Dexpace::URL.parse!("ftp://h/f").to_s)
+    assert_equal("mailto:x@y", Dexpace::URL.parse!("mailto:x@y").to_s)
+  end
+
   test "rejects a relative URI, naming it" do
     error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::URL.parse!("/relative") }
 

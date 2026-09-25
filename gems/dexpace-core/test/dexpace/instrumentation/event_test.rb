@@ -107,6 +107,13 @@ class DexpaceInstrumentationEventTest < DexpaceTestCase
           event.emit
         end
       end
+      # Every racer PARKED on the gate before it opens, asserted rather than assumed (phase 10,
+      # 5b's review R3-3; phase 9's P9-29 shape): without it the first thread could finish before
+      # the fourth was created, which on 3.2 made the "race" a sequential second call and the
+      # test a copy of the one above.
+      Thread.pass until threads.all? { |thread| thread.status == "sleep" }
+
+      assert_equal(4, gate.num_waiting, "every racer is parked on the gate")
       4.times { gate << true }
       threads.each(&:join)
 

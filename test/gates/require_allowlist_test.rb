@@ -156,3 +156,17 @@ class RequireAllowlistTest < GateCase
       .join("\n")
   end
 end
+
+# Phase 0's review R3-2, repaired by phase 10 (SEAM-1): `reachable?` was
+# `name.start_with?("dexpace/")`, so a feature that climbs back out of the namespace passed as the
+# gem's own path. Its own class so the suite above stays under Metrics/ClassLength.
+class RequireAllowlistDotSegmentTest < GateCase
+  test "refuses a dexpace/ path carrying a dot segment" do
+    path = File.join(ROOT, RequireAllowlistTest::FIXTURES, "dot_segments.rb")
+    found = RequireAllowlist.scan_file(path, permitted: [], lib_root: File.dirname(path), gem: nil)
+      .join("\n")
+
+    assert_includes(found, "dot_segments.rb:6")
+    assert_includes(found, "dot_segments.rb:7")
+  end
+end

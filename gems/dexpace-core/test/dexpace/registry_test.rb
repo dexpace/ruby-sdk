@@ -558,4 +558,56 @@ class DexpaceRegistryTest < DexpaceTestCase
       assert_equal(:real, subject.resolve)
     end
   end
+
+  # SEAM-5, XCUT-23 (phase 10, phase 9's hand-off): #resolve is a `loop do`, and phase 9 found
+  # that conditioning its `return hand_out(resolved)` guard on anything else spins it forever
+  # with no progress. The loop's termination is argued at #resolve; these pin the progress it
+  # rests on -- every state a caller can meet returns in a bounded time -- with the call on its
+  # own thread joined under a bound, so a regression fails here rather than hanging the run.
+  class Termination < DexpaceTestCase
+    include Builds
+
+    def resolve_within(subject, seconds = 2.0)
+      worker = ::Thread.new { subject.resolve }
+
+      assert(worker.join(seconds), "#resolve made no progress within #{seconds}s")
+      worker.value
+    end
+
+    test "an installed provider over a still-registered factory returns without a scan" do
+      subject = registry
+      subject.register(:key, -> { :scanned }, core: CORE)
+      subject.install(:installed)
+
+      assert_equal(:installed, resolve_within(subject))
+    end
+
+    test "a waiter whose claim owner raised retries, takes its own claim and returns" do
+      subject = registry
+      entered = ::Thread::Queue.new
+      release = ::Thread::Queue.new
+      attempts = 0
+      subject.register(:key, lambda {
+        attempts += 1
+        next :built unless attempts == 1
+
+        entered << true
+        release.pop
+        raise ::IOError, "the first build fails"
+      }, core: CORE,)
+      owner = ::Thread.new do
+        subject.resolve
+      rescue ::IOError => error
+        error
+      end
+      entered.pop
+      waiter = ::Thread.new { subject.resolve }
+      Thread.pass until waiter.status == "sleep"
+      release << true
+
+      assert_kind_of(::IOError, owner.value)
+      assert(waiter.join(2.0), "the waiter made no progress after the owner's claim failed")
+      assert_equal(:built, waiter.value)
+    end
+  end
 end

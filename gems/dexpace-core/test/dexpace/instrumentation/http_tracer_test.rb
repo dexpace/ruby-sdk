@@ -115,4 +115,20 @@ class DexpaceInstrumentationHTTPTracerTest < DexpaceTestCase
 
     assert_in_delta(0.0, per_call, 0.0, "the null HTTP tracer allocates per call")
   end
+
+  # Phase 10's R6, pinned: CTX-14's factory on the correlation bundle and OBS-29's HTTP-tracer
+  # factory are two objects. The bundle's is keyed by instrumentation library and shared -- its
+  # no-op answers ONE tracer whatever library asks, which OBS-25's no-allocation rule requires --
+  # and that tracer is a SPAN tracer, not an HTTPTracer; OBS-29's per-operation tracer is the
+  # retry steps' `http_tracer_factory:`. A documentation repair: no signature moved, and this
+  # passed before the YARD was written, so it pins the distinction rather than proving a repair.
+  test "CTX-14, OBS-29: the bundle's factory makes shared span tracers, never an HTTPTracer" do
+    factory = Dexpace::Instrumentation::Bundle::NONE.tracer_factory
+    first = factory.tracer("x", "1")
+
+    assert_same(first, factory.tracer("y", "2"))
+    assert_same(first, factory.tracer(name: "x", version: "1"))
+    refute_kind_of(Dexpace::Instrumentation::HTTPTracer, first)
+    assert_kind_of(Dexpace::Instrumentation::HTTPTracer, NULL)
+  end
 end

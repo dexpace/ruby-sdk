@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "../test_helper"
+require_relative "../support/pinned_ceiling"
 require_relative "../support/recovery_fixtures"
 require "dexpace"
 
@@ -59,7 +60,9 @@ class DexpaceRecoveryTest < DexpaceTestCase
     cap = Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES
     response = build_response(500, body: response_body("x" * (cap + 1)))
 
-    bytes = Dexpace::Recovery.buffer_error_body(response).body_bytes
+    # The default ceiling, pinned: an exported MAX_MATERIALIZED_BYTES below 1 MiB clamps the cap
+    # and turned this red (phase 10, 5b's hand-off).
+    bytes = PinnedCeiling.with_default_ceiling { Dexpace::Recovery.buffer_error_body(response).body_bytes }
 
     assert_equal(cap, bytes.bytesize)
     assert_equal(("x" * cap).b, bytes)

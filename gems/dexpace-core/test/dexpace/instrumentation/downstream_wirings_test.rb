@@ -273,5 +273,64 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
         end
       end
     end
+
+    # Phase 5b's final review (R3-1), repaired by phase 10: CFG-24's belt was anchored at the
+    # start of the redactor's output (`\A[^/?#]*@`), so any spelling that puts a `/` BEFORE the
+    # userinfo -- a scheme with one or three slashes, a leading slash -- reaches the belt with the
+    # credential after the anchor's reach, and the redactor, reading an opaque or path-only URI,
+    # writes it back as given. Measured before the repair on 4.0.6 and 3.2.11: the password in
+    # `Kernel#warn` and in the config sink, eight spellings of eight. The belt is now unanchored
+    # and applied to every `@` a warning shows. OBS-11 ("unconditionally"), CFG-22.
+    test "R3-1, OBS-11, CFG-22: a credential after a slash reaches neither channel" do
+      ["http:/user:secret@proxy.corp:3128", "http:///user:secret@proxy.corp",
+       "/http://user:secret@proxy.corp:3128", "socks5:/user:secret@p:1",
+       "https:///user:secret@proxy.corp:3128", "http:////user:secret@proxy.corp",
+       "x/user:secret@proxy.corp:3128", "http:/a/user:secret@proxy.corp:3128",].each do |url|
+        sink = RecordingSink.new
+
+        warnings = WarningCapture.record do
+          logger = Logger.build(sink: sink)
+
+          assert_nil(Dexpace::Proxy.resolve(chain_with_https_proxy(url), logger: logger), url)
+        end
+
+        assert_equal(1, warnings.size, url)
+        [warnings.first, sink.payloads.inspect].each do |channel|
+          refute_includes(channel, "secret", url)
+          refute_includes(channel, "user:", url)
+        end
+      end
+    end
+
+    # Phase 10's review round 0 (R0-4): the unanchored belt stops at the first `/`, `?` or `#`,
+    # so a password holding one left its prefix in both channels -- `http:/user:pa/ss@h:1` warned
+    # `http:/user:pa/***:***@h:1` -- on 4.0.6 and 3.2.11. The raw value is now scrubbed from the
+    # authority's start through the LAST `@`, before the redactor can split it. Each case names
+    # the password and the prefix a split would have left. The last three put an `@` INSIDE the
+    # password ahead of a reserved character: a scrub through the FIRST `@` leaves `c/`, `b#` and
+    # `y/` in the warning, which only a through-the-LAST-`@` scrub removes (review round 1, R1-1).
+    test "R0-4, OBS-11, CFG-22: a password holding a reserved character leaks no prefix" do
+      [["http:/user:pa/ss@h:1", "pa/"], ["http://user:p/ss@proxy.corp", "p/ss"],
+       ["user:se#cret@proxy.corp:3128", "se#"], ["http://user:p#ss@proxy.corp", "p#"],
+       ["http://user:p?ss@proxy.corp", "p?"], ["http:/user:pa?ss@h:1", "pa?"],
+       ["http://user:se@cret@proxy.corp", "se@"], ["http://user:se@c/ret@proxy.corp", "c/"],
+       ["http://user:a@b#c@proxy.corp:1", "b#"],
+       ["user:x@y/z@proxy.corp:3128", "y/"],].each do |url, prefix|
+        sink = RecordingSink.new
+
+        warnings = WarningCapture.record do
+          logger = Logger.build(sink: sink)
+
+          assert_nil(Dexpace::Proxy.resolve(chain_with_https_proxy(url), logger: logger), url)
+        end
+
+        assert_equal(1, warnings.size, url)
+        [warnings.first, sink.payloads.inspect].each do |channel|
+          refute_includes(channel, prefix, url)
+          refute_includes(channel, "user", url)
+          assert_includes(channel, "***:***@", url)
+        end
+      end
+    end
   end
 end

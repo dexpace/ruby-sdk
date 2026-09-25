@@ -15,6 +15,19 @@ class DexpaceHeaderSyntaxTest < DexpaceTestCase
     assert_equal("X-Trace", Syntax.validate_name!("\tX-Trace\t"))
   end
 
+  # Phase 1's review R3-4, repaired by phase 10: every predicate called `#b` on its argument and
+  # raised NoMethodError for a non-String, outside `rescue Dexpace::Error`. A predicate answers.
+  test "every predicate is total: a non-String is false, and a validator raises the SDK's error" do
+    [42, nil, :accept, ["a"]].each do |odd|
+      refute(Syntax.valid_name?(odd), odd.inspect)
+      refute(Syntax.valid_outbound_value?(odd), odd.inspect)
+      refute(Syntax.valid_inbound_value?(odd), odd.inspect)
+      refute(Syntax.token?(odd), odd.inspect)
+    end
+    assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_name!(42) }
+    assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_outbound_value!(42, name: "X") }
+  end
+
   test "rejects a name whose only content is a NUL that String#strip would remove" do
     assert_raises(Dexpace::InvalidArgumentError) { Syntax.validate_name!("a\0") }
   end
