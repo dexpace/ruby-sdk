@@ -552,9 +552,11 @@ invariants no tool catches.
   `Ractor.make_shareable` deep-freezes but **freezes in place and returns the same object**, so it is applied
   only to a collection the model has already `dup`ed and therefore owns — never to a caller's live hash.
 - **`private_class_method :new` plus a validating `.build`**, and the gap stated honestly (P8): `Req.send(:new,
-  …)` reaches the generated constructor anyway, because `send` bypassing `private` is a documented Ruby feature;
-  and any object responding to `#method`/`#url`/`#headers`/`#body` duck-types past the builder entirely. Neither
-  hole can be closed. Do not build a fake proof that they are.
+  …)` bypasses `.build` because `send` bypassing `private` is a documented Ruby feature — but not validation,
+  because every model's `#initialize` override validates and calls `super`; what stays open is `.allocate`,
+  which yields an instance whose members are all nil, and any object responding to
+  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (phase 10's amendment `C19`).
+  Neither hole can be closed. Do not build a fake proof that they are.
 - **The mitigation that matters is wire-boundary re-validation.** Header name and outbound value validation
   (`HTTP-17`, `HTTP-18`, `XCUT-18`) runs **again** immediately before dispatch, inside every transport adapter,
   so a forged model cannot smuggle a CRLF into a header name even if it never met a builder. That makes the
@@ -1472,11 +1474,12 @@ probe compares each against the live tree, and a count written anywhere else in 
   rows the as-built list reached, for 203. It is the phase that flips all nineteen rows of `docs/deviations.md`
   from `design only — not yet built`, by the method the roadmap fixes for it — **re-deriving every
   claim from as-built source, never from another document** — and the phase that writes the
-  frozen-chapter amendments out, the design's thirteen `C1`–`C13` and five more the as-built audit found,
-  `C14`–`C18`, in `docs/deviations.md`'s amendment set, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
+  frozen-chapter amendments out, the design's thirteen `C1`–`C13`, `C14` reconciled from phase 4b's filing
+  and five the as-built audit found, `C15`–`C19`, in `docs/deviations.md`'s amendment set, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
   frozen and only a human may apply them. It ships repair code in `dexpace-core`,
   `dexpace-transport-async_http` and `dexpace-conformance`, reaches
-  `dexpace-transport-net_http` only through the `sig/` header its `NFR-13` repair adds to every gem,
+  `dexpace-transport-net_http` through the `sig/` header its `NFR-13` repair adds to every gem, two YARD
+  comments in its `lib/` and two tests the `Protocol` repair invalidated, per its design's R1 addendum,
   builds three further blocking gates (`gates:ledger_audit`, `gates:spdx_rbs`,
   `gates:sole_parse`) and a ninth probe check for chapter attribution, dispositions every one of the
   inbound list's sixty-five bullets (repaired, verified already fixed, moved to `docs/first-release.md`,

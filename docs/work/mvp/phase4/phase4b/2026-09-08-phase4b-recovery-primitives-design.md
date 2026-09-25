@@ -1429,7 +1429,7 @@ Boundaries 2, 3, 4, 11, 12, 13, 14, 15 and 16 are 4a's or 4c's and 4b touches no
    a step list is an `Array` of caller-supplied *callables*, and `Ractor.make_shareable(…, copy:
    true)` would attempt to deep-copy a lambda's closure. The chains `dup` the array and `freeze` the
    copy — a shallow copy is what `RECOV-14` asks for, since the requirement is about later mutation
-   of the *list* and not about the steps. **P4-22**, because a reader who knows `Model.own` will ask. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. The shareability claim this passage narrows is not narrowed.]
+   of the *list* and not about the steps. **P4-22**, because a reader who knows `Model.own` will ask. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 
 ## Testing strategy
 

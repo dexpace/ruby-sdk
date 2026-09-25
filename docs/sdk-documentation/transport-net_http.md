@@ -338,14 +338,14 @@ response.body.each { |chunk| chunks << chunk }
 chunks.join                                                  # => "0123456789"  (all of it, never "01234")
 ```
 
-**Not lenient, and stated**: `Dexpace::Protocol` admits `HTTP/1.1` and `HTTP/2` only (`HTTP-33`), so a
-server answering `HTTP/1.0` makes the adapter raise `Dexpace::InvalidArgumentError` after the head, with
-the connection released first (`TRANSPORT-22`). Widening `Protocol::WIRE_FORMS` is a phase-1 surface
-decision on phase 10's inbound list, not an adapter's to take. The status has the same shape: `Status`
-is total over `100`–`599` (`HTTP-10`'s reading, phase 1's), while `Net::HTTP` parses any three digits
-and delivers a `999` or a `600` as an `HTTPUnknownResponse` — such a head raises the same
-`InvalidArgumentError` after the head with the connection released, `599` maps, and whether
-`TRANSPORT-24`'s "any code" reaches `600`–`999` is the same kind of phase-1 question, on the same list.
+**What maps, and what still raises**: `Dexpace::Protocol` admits `HTTP/1.0` (`Protocol::HTTP_1_0`),
+`HTTP/1.1` and `HTTP/2` (`HTTP-33`; phase 10 added the first), so a server answering `HTTP/1.0` maps
+to `http/1.0`. A version the model does not know — an `HTTP/1.2` head — makes the adapter raise
+`Dexpace::InvalidArgumentError` after the head, with the connection released first (`TRANSPORT-22`).
+The status never raises: `Status` is total over every Integer (`HTTP-10`), and `Net::HTTP` parses any
+three digits and delivers a `999` or a `600` as an `HTTPUnknownResponse`, so such a head maps with its
+body readable (`TRANSPORT-24`); `Status#standard?` answers whether the code is inside the protocol's
+`100`–`599` classes, and a `999` answers `false` to it and to every class predicate.
 
 ## TLS and the proxy
 

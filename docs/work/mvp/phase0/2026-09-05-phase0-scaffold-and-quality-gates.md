@@ -905,8 +905,8 @@ Minitest method per row, so a failure still names exactly one case (`testing/fc3
 **Amendment, 2026-09-13 — one more cop, `Dexpace/NoKeywordSplat`, because a `**` splat allocates a
 `Hash` per call even when nothing is passed.** It carries **no ordinal**, deliberately. This task's
 cops were numbered one to five when they were written, phase 2's `Dexpace/QualifiedCoreConstant` is
-"the sixth" and phase 4a's `Dexpace/NoWeakReferences` "the seventh", and renumbering a later phase's [2026-09-25, phase 10: the as-built count is eight -- every as-built document counts `Dexpace/NoKeywordSplat`, `Dexpace/QualifiedCoreConstant` is the seventh and phase 4a's `Dexpace/NoWeakReferences` the eighth (`.rubocop/test/cops_test.rb`'s head comment); this sentence's ordinals are the planning-time count.]
-cop to make room for one added here would falsify every document that already cites those ordinals.
+"the sixth" and phase 4a's `Dexpace/NoWeakReferences` "the seventh", and renumbering a later phase's
+cop to make room for one added here would falsify every document that already cites those ordinals. [2026-09-25, phase 10: the as-built count is eight -- every as-built document counts `Dexpace/NoKeywordSplat`, `Dexpace/QualifiedCoreConstant` is the seventh and phase 4a's `Dexpace/NoWeakReferences` the eighth (`.rubocop/test/cops_test.rb`'s head comment); this sentence's ordinals are the planning-time count.]
 So this one is named and never counted, every ordinal elsewhere in the repository stands as written,
 and where this task's own prose counts it says "the original five and the keyword-splat cop".
 `api-design/1d9e6e0b` requires keyword arguments on every public method and gives its reason as

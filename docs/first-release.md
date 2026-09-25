@@ -234,10 +234,13 @@ stated in the release notes rather than discovered at `bundle install`.
       (`gates:serde_boundary`, phase 9's addenda A4-A7, phase 10's A8-A11) or the probe's ninth check;
       `C17`, §11.8 naming the third surviving `XCUT-23` instance "executor" where it is the async transport
       seam (`Dexpace::AsyncTransport::REGISTRY`; there is no executor registry); and `C18`, §10.13 spelling
-      the four encode profiles without the value they encode (`dump_to(value, sink)`, not `dump_to(sink)`).
+      the four encode profiles without the value they encode (`dump_to(value, sink)`, not `dump_to(sink)`);
+      and `C19`, §4's and §10 item 10's "`send(:new, …)` reaches the generated constructor", where as built
+      `send(:new)` runs the validating `#initialize` and the residual holes are `.allocate` and duck typing
+      (phase 10's review round 0, R0-6).
       **The same human act owes one thing more, named here so it has an owner: the consolidation of every
       phase's as-built Deviation Ledger rows -- `P0-…` through `P9-42` and phase 10's `P10-1`-`P10-11` and
-      `P10-21`-`P10-36` -- into design §10.** Each phase's status note ends "consolidation into design §10
+      `P10-21`-`P10-38` -- into design §10.** Each phase's status note ends "consolidation into design §10
       is a human's"; phase 10 is the last phase and the chapter is frozen to it. **The alternative form holds
       for this half too**: a release may ship with the ledgers unconsolidated if its notes list the phase
       ledgers a reader must consult beside §10
@@ -770,7 +773,8 @@ the trigger, then the one job to do when it fires.
   repair the 2026-09-13 annotation below expected: the deadlock that annotation predicts does not happen
   (a fiber blocking on a `Thread::Mutex` another fiber holds parks on the scheduler), so the shipped code
   was already single-flight under a reactor, and what the fiber form catches that the thread form cannot
-  is a guard keyed by thread identity (phase 10's `P10-21`). The entry is kept, struck, as the record → run `XCUT-12`'s single-flight assertion under a fiber scheduler, driving
+  is a guard keyed by thread identity (phase 10's `P10-21`). The entry is kept, struck, as the record:
+  ~~→ run `XCUT-12`'s single-flight assertion under a fiber scheduler, driving
   `6c`'s bearer or digest cache through a reactor via the suite contract's clause 9 `around:` wrapper. The
   primary disposition is phase 10's, on whose inbound list it sits (the roadmap's 2026-09-13 status
   note): judge whether the thread-only form phase 9 ships (Tasks 7–8) suffices, a judgement phase 9 may
@@ -791,7 +795,7 @@ the trigger, then the one job to do when it fires.
   event that no longer means anything. It stays here until the fiber run is recorded, because a decision
   in a plan is not evidence the work was done. Runs on **3.3.12, 3.4.10 and 4.0.6 only**: `async`,
   `async-http`, `io-event` and `protocol-http1` all declare `required_ruby_version >= 3.3`, re-verified
-  2026-09-13, which is `P8-36` from the other side.
+  2026-09-13, which is `P8-36` from the other side.~~
 
 - **A second continued-clause true positive for the probe's chapter-attribution check — one appears that
   the check cannot see** → write the sentence-spanning form. Recorded 2026-09-13 by phase 10's design.
@@ -815,7 +819,9 @@ the trigger, then the one job to do when it fires.
   the clause-scoped form fired twice, both true positives -- `SEAM-13` and `SEAM-15` inside a
   backticked range the phase-8 segmentation design attributed to chapter 03, fixed in place -- and zero
   false positives once the negation vocabulary was written as a union of phrases (an `/x` pattern had
-  silently deleted the phrases' spaces). The continued-clause blind spot is `Chapters::GAPS` and is
+  silently deleted the phrases' spaces). Review round 0 (R0-8) found `appears in` listed as a negation,
+  which silenced the usual positive attribution; it is now a forward binding (the IDs before it pair with
+  the chapter after it), and the live count is unchanged. The continued-clause blind spot is `Chapters::GAPS` and is
   asserted by `chapters_test.rb`; it still has one known instance, and this trigger still waits for a
   second.
 
@@ -843,6 +849,12 @@ the trigger, then the one job to do when it fires.
   `tap_limit` refusal*, and 7c's non-`Response` duck never closed after a parse → the next change to
   those files. *The six gate tests that resolve `ruby`/`bundle` from PATH, the category assertion run
   once, the third-party sub-feature refusal* (phase 0's review R3-4/R3-6/R3-7) → the next gate added.
+  *The probe's `claims` check does not read `CLAUDE.md`'s spelled-out `lib/` file counts* ("two hundred
+  and twenty … files", 5c's leftover) -- phase 10 counted its own `CLAUDE.md` edit by hand → the next
+  change to `.claude/skills/housekeeping/probe.rb`'s `claims` check, or the first time a spelled count
+  drifts unnoticed. *`docs/sdk-documentation/sse.md`'s `#with` sentence and the fence names it leaves
+  undefined* (7b's review R1-1), not re-measured by phase 10 → the next edit to that page, when the
+  fences are run and the sentence checked against `Dexpace::SSE::Event#with`.
   *Phase 9's aggregate run is a hand run*: no committed test calls `Aggregate.run` over the four suites
   with real subjects, so the 43/1/0/1/0 verdict was not re-run as one report by phase 10 (each suite's
   driver ran in `rake test:gems`) → the first release's conformance run. *8c's two stale design facts and

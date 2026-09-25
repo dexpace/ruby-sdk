@@ -22,7 +22,7 @@ Plan: `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-rel
 tasks plus the "Task 10b" the maintainer added at execution (small repairs). Design:
 `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`, whose
 Deviation Ledger carries `P10-1`–`P10-11` and whose As-built addendum, written with this checklist, adds
-**`P10-21`–`P10-36`** (the band starts at `P10-21`; `P10-12`–`P10-20` are left free and nothing is
+**`P10-21`–`P10-38`** (the band starts at `P10-21`; `P10-12`–`P10-20` are left free and nothing is
 renumbered). The design's `R1` file list was widened by a dated addendum (see Deviations 1).
 
 **Verdict vocabulary** (the design's `R1`): *confirmed*, *confirmed-with-a-narrowing* (true, and narrower
@@ -51,8 +51,8 @@ named by more than one §10 entry has one row naming every entry; the *Task* col
 (11–15) for an own row. The *Owner* column is the earlier phase whose checklist first carries the ID; no
 earlier row moves, except the ten levels corrected in place (Deviations 10).
 
-**Own rows by mark:** ✅ 108 · 🚫 10 (the retired provider apparatus: `SEAM-3`, `SEAM-4`, `IO-30`–`IO-36`,
-`IO-39`) · N/A 4 (`SEAM-10`, `NFR-8`, `NFR-9`, `ASYNC-4`) · ⏳ 2 (`ASYNC-3`, `PIPE-33`, both
+**Own rows by mark:** ✅ 107 · 🚫 11 (the retired provider apparatus: `SEAM-3`, `SEAM-4`, `IO-30`–`IO-36`,
+`IO-39`; and `SEAM-22`'s mechanism, retired by §10.14, its surviving clause ✅ as phase 2 marks it) · N/A 4 (`SEAM-10`, `NFR-8`, `NFR-9`, `ASYNC-4`) · ⏳ 2 (`ASYNC-3`, `PIPE-33`, both
 `docs/first-release.md` § Unsatisfied MUSTs) — `CFG-20` is counted ✅ with its fourth clause ⏳ on the same
 entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-a-narrowing*; nothing is
 *contradicted* and nothing *unverifiable*.
@@ -65,26 +65,26 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 | `SEAM-3` | MUST | 🚫 | 11 | §10.1, §10.2, §10.12 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); retired apparatus (§10.1); its ownership-on-wrap rule lives on as `IO-6`; also named by §10.2 (the duck type) and §10.12 (C3's misattribution) |
 | `SEAM-4` | MUST | 🚫 | 11 | §10.1 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); retired apparatus: provider resolution for a seam that does not exist |
 | `SEAM-5` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); the loud zero/many-candidate branches (`registry.rb`); §10.8's substrate; phase 10 added the termination argument at `#resolve` and `registry_test.rb`'s Termination pins |
-| `SEAM-6` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
-| `SEAM-7` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
-| `SEAM-8` | SHOULD | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
-| `SEAM-9` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
+| `SEAM-6` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); phase 2's `Dexpace::Registry#install` (`gems/dexpace-core/lib/dexpace/registry.rb`): an `equal?` re-install is a silent no-op and a different instance over an explicit install raises `Dexpace::InvalidArgumentError` naming both; phase 2's row and its `registry_test.rb` cases stand. §10.1 names it only as part of the retired I/O seam's apparatus; the rule itself survives on the three registries that remain (§10.8) |
+| `SEAM-7` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); phase 2's `Dexpace::Registry#resolve` (`gems/dexpace-core/lib/dexpace/registry.rb`): a successful resolution memoised process-wide, a failed one memoising nothing; phase 2's row and its `registry_test.rb` cases stand. §10.1 names it only as part of the retired I/O seam's apparatus; the rule survives on the three registries that remain (§10.8) |
+| `SEAM-8` | SHOULD | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); phase 2's `Dexpace::Registry` (`gems/dexpace-core/lib/dexpace/registry.rb`): replacing an already handed-out auto-resolved provider emits one `Kernel#warn`; phase 2's row and its `registry_test.rb` cases stand. §10.1 names it only as part of the retired I/O seam's apparatus; the rule survives on the three registries that remain (§10.8) |
+| `SEAM-9` | MUST | ✅ | 11 | §10.1, §10.8 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); phase 2's `Dexpace::Registry` (`gems/dexpace-core/lib/dexpace/registry.rb`): one frozen `Registry::State` snapshot swapped under a `::Thread::Mutex`, lock-free reads, one factory call across 32 concurrent first accesses; phase 2's row and its `registry_test.rb` cases stand. §10.1 names it only as part of the retired I/O seam's apparatus; the rule survives on the three registries that remain (§10.8) |
 | `SEAM-10` | SHOULD | N/A | 11 | §10.1, §10.9 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); vacuous (one constant namespace), replaced by the `core:` version-skew guard (§10.9). **Level corrected** in phase 2's checklist: appendix C says SHOULD |
 | `SEAM-13` | SHOULD | ✅ | 12 | §10.4 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 4); cooperative cancellation through `Dexpace::Cancellation`; §10.4 |
 | `SEAM-16` | MUST | ✅ | 12 | §10.3 | 2 | confirmed (`docs/deviations.md` row 3); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `SEAM-17` | SHOULD | ✅ | 12 | §10.3 | 2 | confirmed (`docs/deviations.md` row 3); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `SEAM-20` | MUST | ✅ | 14 | §10.12, §10.13 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 12); four profiles (§10.13) and closes-nothing (§10.12) |
 | `SEAM-21` | MUST | ✅ | 14 | §10.12 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 12); residue: 7a's evidence is a branch inside another assertion, declared in no ID-keyed map -- `docs/first-release.md` § Post-release triggers |
-| `SEAM-22` | MUST | ✅ | 14 | §10.14 | 2 | confirmed (`docs/deviations.md` row 14); appendix-C only, read verbatim; the witness is the substitution |
+| `SEAM-22` | MUST | 🚫 mechanism (§10.14); surviving clause ✅ | 14 | §10.14 | 2 | confirmed (`docs/deviations.md` row 14); appendix-C only, read verbatim; the reflective type capture is retired and the witness is the substitution, so the mark is phase 2's own -- the surviving clause, an explicit witness with no witness-less `#load` overload, is phase 2's `serde_test.rb` case |
 | `SEAM-23` | MUST | ✅ | 14 | §10.14 | 2 | confirmed (`docs/deviations.md` row 14); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
-| `SEAM-29` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
+| `SEAM-29` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `SEAM-30` | MUST | ✅ | 12 | §10.4 | 2 | confirmed-with-a-narrowing (`docs/deviations.md` row 4); `Completer#fulfil`'s close of an undelivered response |
-| `HTTP-2` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
-| `HTTP-4` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
+| `HTTP-2` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
+| `HTTP-4` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `HTTP-5` | MUST | ✅ | 14 | §10.11 | 1 | confirmed (`docs/deviations.md` row 11); phase 10 repaired `Model.own`'s default-proc escape (Task 10b) |
-| `HTTP-7` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
-| `HTTP-17` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); re-validated at both wires; phase 10 made every `HeaderSyntax` predicate total over a non-String (Task 10b) |
-| `HTTP-18` | MUST | ✅ | 14 | §10.10 | 1 | confirmed as admitted (`docs/deviations.md` row 10); as `HTTP-17` |
+| `HTTP-7` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
+| `HTTP-17` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); re-validated at both wires; phase 10 made every `HeaderSyntax` predicate total over a non-String (Task 10b) |
+| `HTTP-18` | MUST | ✅ | 14 | §10.10 | 1 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); as `HTTP-17` |
 | `IO-1` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); residue, not repaired: after a mid-stream failure `.over`'s enumerator restarts `#each` (7b's finding) -- `docs/first-release.md` § Post-release triggers |
 | `IO-2` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
 | `IO-3` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
@@ -114,8 +114,8 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 | `IO-27` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
 | `IO-28` | MUST | ✅ | 11 | §10.1, §10.10 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); also §10.10's claim: a duck-typed stream passes the builder, and the wire boundary re-validates headers, not streams |
 | `IO-29` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
-| `IO-30` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
-| `IO-31` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
+| `IO-30` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); retired apparatus: the provider seam's factory operations are removed with the seam (§10.1); the one behavioural clause survives as a property of `Dexpace::IO::BufferedSource.of_bytes` -- the source is an independent copy -- as 3a's row records |
+| `IO-31` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); retired apparatus: provider resolution rules for a seam that does not exist (§10.1); asserted negatively by `Dexpace::IO.constants` holding no registry, factory or installation call (3a's `io_test.rb`), as 3a's row records |
 | `IO-32` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); appendix-C only; the install-idempotence clause whose subject is removed |
 | `IO-33` | MUST | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); appendix-C only; explicit-install-wins, subject removed |
 | `IO-34` | SHOULD | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); appendix-C only; the resolution cache, subject removed. **Level corrected** in 3a's checklist: SHOULD |
@@ -123,7 +123,7 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 | `IO-36` | MAY | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); the provider's own obligations, subject removed. **Level corrected** in 3a's checklist: MAY |
 | `IO-37` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
 | `IO-38` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); tested on CRuby only; the GVL hides a missing lock -- the standing non-CRuby post-release trigger |
-| `IO-39` | SHOULD | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
+| `IO-39` | SHOULD | 🚫 | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); retired apparatus: lock-free reads of a provider registry that does not exist (§10.1); the property survives in phase 2's `Dexpace::Registry` (`SEAM-9`), as 3a's row records |
 | `IO-40` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
 | `IO-41` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
 | `IO-42` | MUST | ✅ | 11 | §10.1 | 3a | confirmed-with-a-narrowing (`docs/deviations.md` row 1); implemented in full by 3a under `gems/dexpace-core/lib/dexpace/io/` -- only the pluggability apparatus is removed; 3a's row stands |
@@ -131,7 +131,7 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 | `BODY-8` | MUST | ✅ | 14 | §10.12 | 3b | confirmed-with-a-narrowing (`docs/deviations.md` row 12); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `BODY-32` | MUST | ✅ | 15 | §10.18 | 3b | confirmed-with-a-narrowing (`docs/deviations.md` row 18); the ceiling BODY-32 shares with `IO-9` |
 | `BODY-35` | MUST | ✅ | 12 | §10.2 | 3b | confirmed (`docs/deviations.md` row 2); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
-| `BODY-37` | MUST | ✅ | 14 | §10.10 | 3b | confirmed as admitted (`docs/deviations.md` row 10); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
+| `BODY-37` | MUST | ✅ | 14 | §10.10 | 3b | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `PIPE-16` | MUST | ✅ | 15 | §10.15 | 4c | confirmed (`docs/deviations.md` row 15); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `PIPE-33` | MUST | ⏳ | 12 | §10.5 | 4c | confirmed as admitted, and not re-opened (roadmap cross-cutting constraint 8) (`docs/deviations.md` row 5); the interrupt clause not satisfied; the non-interrupting half met exactly -- `docs/first-release.md` § Unsatisfied MUSTs |
 | `RECOV-12` | MUST | ✅ | 13 | §10.6 | 4b | confirmed-with-a-narrowing (`docs/deviations.md` row 6); the trail on `Suppressible`; C14 is the §10.6/§5.2 sentence correction |
@@ -179,7 +179,7 @@ entry. **By verdict:** every row's §10 entry is *confirmed* or *confirmed-with-
 | `XCUT-9` | MUST | ✅ | 13 | §10.6 | 4b | confirmed-with-a-narrowing (`docs/deviations.md` row 6); one walk, cycle-safe; residues stated, not repaired -- a collect-then-yield walk and a depth cap equal to the cycle length pass the black-box assertion (`docs/first-release.md` § Post-release triggers) |
 | `XCUT-13` | MUST | ✅ | 15 | §10.17 | 9 | confirmed (`docs/deviations.md` row 17); the requirement stands as its owner's row records it; the entry's verdict and evidence are that row of `docs/deviations.md` |
 | `XCUT-15` | MUST | ✅ | 14 | §10.11 | 9 | confirmed (`docs/deviations.md` row 11); as `HTTP-5` |
-| `XCUT-18` | MUST | ✅ | 14 | §10.10 | 9 | confirmed as admitted (`docs/deviations.md` row 10); the call-site assertion runs for real in the aggregate and is accepted-vacuous in core's own driver |
+| `XCUT-18` | MUST | ✅ | 14 | §10.10 | 9 | confirmed-with-a-narrowing (`docs/deviations.md` row 10; amendment `C19`); the call-site assertion runs for real in the aggregate and is accepted-vacuous in core's own driver |
 | `XCUT-23` | MUST | ✅ | 11 | §10.1, §10.8 | 9 | confirmed-with-a-narrowing (`docs/deviations.md` row 1); three surviving instances -- `Transport::REGISTRY`, `AsyncTransport::REGISTRY`, `Serde::REGISTRY` -- not "transport, serde, executor" as §11.8 says: there is no executor registry (8b's direct version assertion); re-read for §10.8 |
 | `NFR-1` | MUST | ✅ | 13 | §10.7 | 0 | confirmed (`docs/deviations.md` row 7); phase 9's row ✅; the same claim's four mechanisms green |
 | `NFR-8` | MUST | N/A | 13 | §10.19 | 0 | confirmed (`docs/deviations.md` row 19); N/A by its own text ("does not apply"). Phase 0's checklist marks it `🚫 retargeted`, phase 9's N/A; this checklist takes **N/A** as the convention for a retargeted vacuous requirement and records the departure from phase 0's mark (Deviations from the plan, 11) |
@@ -230,7 +230,7 @@ with "unchanged" where phase 10 audited or documented and touched no code.
 | `OBS-28` | SHOULD | ✅ unchanged | 16 | 5c | `HTTPTracer`'s YARD already states the contract |
 | `OBS-29` | MUST | ✅ unchanged (5c's) | 16 | 5c | `R6`: documented contract, wiring a follow-up by its own text; the *Behavioural asymmetries* entry |
 | `OBS-34` | MUST | ✅ unchanged | 16 | 5b | as `OBS-29` |
-| `CFG-22` | MUST | ✅ repaired share | 10b | 5a | the proxy warning's credential belt unanchored: eight spellings of eight leaked on 4.0.6 and 3.2.11 before, none after (5b's review R3-1) |
+| `CFG-22` | MUST | ✅ repaired share | 10b | 5a | the proxy warning's credential belt unanchored: eight spellings of eight leaked on 4.0.6 and 3.2.11 before (5b's review R3-1); review round 0 (R0-4) found a password holding `/`, `?`, `#` or a second `@` still leaking its prefix past the unanchored belt, and the raw value is now scrubbed from the authority's start through the LAST `@` first -- fifteen spellings (the eight and seven more), none leaking, on 4.0.6 and 3.2.11 |
 | `CFG-23` | MUST | ✅ unchanged | 17 | 5a | bullet 20's proxy-ID substitution, corrected 2026-09-13 |
 | `CFG-25` | MUST | ✅ unchanged | 17 | 5a | as `CFG-23` |
 | `CFG-27` | MUST | ✅ unchanged | 17 | 5a | as `CFG-23` |
@@ -258,7 +258,7 @@ with "unchanged" where phase 10 audited or documented and touched no code.
 | `NFR-6` | SHOULD | ✅ strengthened | 6 | 0 | `gates:sole_parse` asserts `AstScan.parse` is the one `RubyVM::AbstractSyntaxTree.parse_file` |
 | `NFR-13` | SHOULD | ✅ (was ✅ / ⏳) | 5 | 0 | all 307 shipped `.rbs` carry the header; `gates:spdx_rbs` blocking; phase 9's `PackagingSuite` assertion now passes |
 | `NFR-17` | MUST | ✅ strengthened | 2, 5, 6 | 0 | twenty-four blocking gates; `default_task_test.rb` and `ci_workflow_test.rb` assert the three new names |
-| `HTTP-10` | MUST | ✅ repaired (MUST) | 10b | 1 | `Status` maps 0..999; the protocol range is `Status#standard?` |
+| `HTTP-10` | MUST | ✅ repaired (MUST) | 10b | 1 | `Status` is total over every Integer (only a non-Integer is refused); the protocol range is `Status#standard?`. A first repair stopped at 0..999 and still threw on 1000 and -1, narrower than the MUST; review round 0 (R0-5) widened it |
 | `HTTP-33` | MUST | ✅ repaired | 10 | 1 | `Protocol` gains `http/1.0` (WIRE_FORMS, ALIASES, `HTTP_1_0`); the negative case holds |
 | `HTTP-47` | SHOULD | ✅ repaired (SHOULD) | 10b | 1 | `URL.parse!` refuses a host-less http-family URL and an unrenderable FTP typecode URI, and wraps every `URI::Error` |
 | `TRANSPORT-22` | MUST | ✅ unchanged | 10 | 8a | the adaptation-failure tests now use an `HTTP/1.2` head |
@@ -306,7 +306,7 @@ the `docs/first-release.md` lines that name them.
   twenty of Task 10b's twenty-six items (its other six are the comment, YARD and document corrections listed
   after the table).
 - **`docs/deviations.md`'s nineteen rows flipped**, each with as-built evidence, and **the amendment set
-  written out as `C1`–`C18`**, with `docs/first-release.md`'s blocker naming all eighteen and the
+  written out as `C1`–`C19`**, with `docs/first-release.md`'s blocker naming all nineteen and the
   ledger-consolidation act beside them.
 - **The fiber single-flight verification** (`async_http/fiber_single_flight_test.rb`) — a verification,
   not the repair `R9` planned (`P10-21`).
@@ -346,6 +346,9 @@ there. A pin whose test PASSED on `main` is a verification, and says so — its 
 | 24 | 10b | `CFG-11` | `core/configuration/builder_test.rb`'s seeded-builder case | red under `K=from-the-host` exported: `Expected "from-the-host" to be nil` |
 | 25 | 16 | `CTX-14`, `OBS-25`, `OBS-29` | `core/instrumentation/http_tracer_test.rb` "the bundle's factory makes shared span tracers, never an HTTPTracer" | **passed** — a documentation repair; no test can go red for a YARD sentence, and this one pins the distinction it states |
 | 26 | 9 | `XCUT-12`, `AUTH-34`, `AUTH-37` | `async_http/fiber_single_flight_test.rb` | **passed** — a verification (`P10-21`); the thread-identity guard mutant turns it red |
+| 27 | review R0-4 | `OBS-11`, `CFG-22` | `core/instrumentation/downstream_wirings_test.rb` "R0-4, OBS-11, CFG-22: a password holding a reserved character leaks no prefix" | against repair 1's tree: `http:/user:pa/ss@h:1` warned `http:/user:pa/***:***@h:1` -- the username and the prefix before the reserved character, in `Kernel#warn` and the config sink, on 4.0.6 and 3.2.11 (the reviewer's measurement; the test's own red run is Guards 32) |
+| 28 | review R0-5 | `HTTP-10`, `TRANSPORT-24` | `core/http/status_test.rb` "maps every Integer code …" and "construction is total over the Integer line"; `core/http/response_test.rb`'s two coercion cases | against the 0..999 tree: `InvalidArgumentError: code must be an integer status code between 0 and 999` for `-1`, `1000` and `2**70` |
+| 29 | review R0-8 | — (process tooling) | `housekeeping/chapters_test.rb` "an appears-in attribution binds forward and fires when wrong", "a second appears-in run does not bind backward" | against the round-0 check: the wrong attribution is silent (`Expected: ["SEAM-15"] Actual: []`) |
 
 Beside these, comment and YARD repairs that no test can observe: `Redactor`'s class YARD names where
 redaction is applied (5b's review R3-4); `Cancellation::Source#off_cancel`'s comment no longer says
@@ -418,7 +421,7 @@ forward.
 | 51 | 2026-09-20 | rbs 4.2.0 types `TCPServer#initialize` as `(?String host, Integer port)` — an optional positional   before a required one — and Steep 2.1.0 … | verified already fixed | the bundle's rbs is still 4.2.0 on every row, so the `untyped` local in `WireServer#initialize` stays; nothing to remove |
 | 52 | 2026-09-20 | Phase 6b's `REDIR-23` proof carries a ten-second wall-clock bound over 5,000 hops, and the bound   fails under machine load while the stack-… | repaired | the ten-second bound is gone; the depth comparison is the proof (`step_test.rb`) |
 | 53 | 2026-09-20 | Phase 6a's `RETRY-42` / `RECOV-28` eight-thread budget test is interleaving-dependent, and errors   under the whole-repository process on a … | repaired | each thread draws from its own script and the invariant is asserted per thread (`recovery_retry_test.rb`) |
-| 54 | 2026-09-20 | `Dexpace::Status` guards `100`–`599` while `Net::HTTP` parses any three-digit code, so a `999` or a   `600` head raises `Dexpace::InvalidArg… | repaired | a MUST repair (`HTTP-10`): `Status` maps 0..999 and the protocol range is `Status#standard?` |
+| 54 | 2026-09-20 | `Dexpace::Status` guards `100`–`599` while `Net::HTTP` parses any three-digit code, so a `999` or a   `600` head raises `Dexpace::InvalidArg… | repaired | a MUST repair (`HTTP-10`): `Status` maps every Integer code and the protocol range is `Status#standard?` |
 | 55 | 2026-09-21 | Two child-process idioms prove one property — `seam_surface_test.rb`'s private   `bare_require_report` and `test/support/bare_require.rb`'s … | `docs/first-release.md` | `docs/first-release.md` § Post-release triggers, the residues line |
 | 56 | 2026-09-21 | Under the one-process `rake test:gems` the main fiber's storage carries 5c's no-op span   (`dexpace.current_span => Instrumentation::NO_SPAN… | `docs/first-release.md` | `docs/first-release.md` § Post-release triggers, the residues line |
 | 57 | 2026-09-21 | Core's two duration guards, `Dexpace::Async.validate_delay` and `Dexpace::Clock::Guard.duration`,   admit a `NaN` and a `Complex`. | repaired | `Async.validate_delay` and `Clock::Guard.duration` refuse NaN and Complex (P8-77's shape), tested in `delay_test.rb` and `clock_test.rb` |
@@ -447,7 +450,7 @@ list. Each is re-measured on the tree before it is dispositioned.
 | 5a R1-1 | `builder_test.rb` reads the host's `K` | yes | **repaired** (repairs 24) |
 | 5c R0-1 | "thirteen cross-reference rows" against eleven rows / fourteen IDs | yes | **repaired**: a dated bracket in 5c's checklist |
 | 5c R0-2 | `Fiber#storage=` in a fact-pin test | yes | not taken: judged no action by 5c; a fact pin, which warns by design |
-| 5c | the probe's `claims` check does not read CLAUDE.md's spelled lib-file count | yes | not taken; counted by hand for this phase's CLAUDE.md edit (the post-release residues line) |
+| 5c | the probe's `claims` check does not read CLAUDE.md's spelled lib-file count | yes | not taken; counted by hand for this phase's CLAUDE.md edit -- `docs/first-release.md`'s post-release residues line, with its pick-up condition |
 | 0 R3-2 | `require_allowlist.rb` accepts `dexpace/../json` | yes | **repaired** (repairs 11) |
 | 0 R3-3 | CLAUDE.md's "32 inbound bullets" | yes | **repaired** in CLAUDE.md |
 | 0 R3-4, R3-6, R3-7 | gate tests resolve `ruby`/`bundle` from PATH; a category assertion run once; a third-party sub-feature refused | yes | `docs/first-release.md` residues line |
@@ -466,7 +469,7 @@ list. Each is re-measured on the tree before it is dispositioned.
 | 7a R2-1 | `serde.md`'s fence lacks `require "stringio"` | yes | **repaired** in `docs/sdk-documentation/serde.md`, the fence run on 4.0.6 and 3.2.11 |
 | 7a R2-2, R2-3 | a CLAUDE.md overstatement; a roadmap count | superseded by this phase's CLAUDE.md and roadmap edits | re-derived, not patched |
 | 7b R1-2 | an 11+-digit zero-padded `retry:` is ignored | yes | `docs/first-release.md` port-readings entry (c) |
-| 7b R1-1 | `sse.md`'s `#with` sentence and fence names | not re-measured | not taken |
+| 7b R1-1 | `sse.md`'s `#with` sentence and fence names | not re-measured | not taken -- `docs/first-release.md`'s post-release residues line, picked up at the next edit to `sse.md` |
 | 7c R2-1 | a non-`Response` duck never closed after a parse | yes | `docs/first-release.md` residues line |
 | 9 | the YARD unknown-tag warning `@decode_content` | yes | **repaired** (YARD), with 3a's `@owned` pair |
 
@@ -513,7 +516,12 @@ otherwise. The list is the brief's thirty-one-item minimum where it applies (ite
 | 29 | The `chapters` check's range pattern disabled | `housekeeping/chapters_test.rb` "the phase8a pre-correction line fires on all three wrong ids" and one more | — (process tooling) |
 | 30 | `Checks::Chapters` dropped from `Probe::ALL` | `housekeeping/probe_test.rb` "check names are the nine the documentation states" | — |
 | 31 | `Bundle#tracer_factory`'s YARD | **no test can go red for a YARD sentence**; `http_tracer_test.rb` pins the distinction it states (repairs 25) | `CTX-14`, `OBS-29` |
-| x1 | `Status` guard back to `100..599` | `core/http/status_test.rb`: three errors, `code must be an integer status code between 0 and 999` raised from the mutated guard's own message path | `HTTP-10` |
+| 32 | `ProxyResolution#scrub_userinfo` returns the raw value (review round 0's R0-4 repair disabled) | `core/instrumentation/downstream_wirings_test.rb` "R0-4 …": the first spelling's warning includes `pa/` -- red on 4.0.6 | `OBS-11`, `CFG-22` |
+| 32a | `AUTHORITY_START` admits a bare `user:` as a scheme (`/+` → `/*`) | **survived, equivalent**: `user:***:***@…` is then reduced to `***:***@…` by the unanchored belt that runs after the redactor, so no channel ever carries the username; recorded, not a gap | `OBS-11` |
+| 33 | `Status#initialize` back to the 0..999 range | `core/http/status_test.rb` "maps every Integer code …": `code must be an integer status code between 0 and 999` for `-1` | `HTTP-10` |
+| 34 | The `chapters` check's forward binding removed (`run_target` always the preceding chapter) | `housekeeping/chapters_test.rb`: the phase-5 two-run shape fires `SEAM-13` against chapter 03, and the wrong `appears in` attribution goes silent | — (process tooling) |
+| 35 | `'appears in'` restored to `Chapters::NEGATION` | `housekeeping/chapters_test.rb` "an appears-in attribution binds forward and fires when wrong": `Expected: ["SEAM-15"]` | — (process tooling) |
+| x1 | `Status` guard back to `100..599` (as first cut; the guard is now a type check, R0-5) | `core/http/status_test.rb`: three errors, `code must be an integer status code between 0 and 999` raised from the mutated guard's own message path | `HTTP-10` |
 | x2 | `URL.parse!` rescues `URI::InvalidURIError` only | `core/http/url_test.rb`: `mailto://host. [Dexpace::InvalidArgumentError] exception expected, not Class: <URI::InvalidComponentError>` | `HTTP-47` |
 | x3 | `HeaderSyntax.valid_name?`'s String screen removed | `core/http/header_syntax_test.rb`: `NoMethodError: undefined method 'b' for an instance of Integer` | `HTTP-17` |
 | x4 | `StreamBody#refuse_closed!` no longer reads `closed?` | `core/http/body/stream_body_test.rb` "rejects an already-closed stream …" | `BODY-9` |
@@ -610,7 +618,7 @@ the report that hands the stack over carries those runs.
 5. **`TransportSuite.run` folds onto `Runner` without widening it** (`P10-25`); two detail pins moved.
 6. **The plan named `HTTP-24`/`HTTP-43` for the `Protocol` repair**; it is `HTTP-33` (`P10-28`).
 7. **Three MUST/SHOULD repairs the plan did not carry**, all under the maintainer's decision 3:
-   `Status.of` over 0..999 with `#standard?` (`HTTP-10`, `P10-27`), `URL.parse!`'s wrapping and host
+   `Status.of` total over every Integer with `#standard?` (`HTTP-10`, `P10-27`), `URL.parse!`'s wrapping and host
    screen (`HTTP-47`, `P10-29`) and `Model.own`'s default proc (`HTTP-5`, `P10-30`). The runtime
    manifest gains exactly two rows, `Dexpace::Protocol::HTTP_1_0` and `Dexpace::Status#standard?`.
 8. **Task 10b** (the maintainer's decision 7) took twenty-six items and stopped at the bound
@@ -620,9 +628,9 @@ the report that hands the stack over carries those runs.
     naming appendix C's level: `SEAM-10` (phase 2), `IO-34`, `IO-36` (3a), `RECOV-25` (4b), `NFR-11`
     (4c, 5a, 5b, 5c), `IO-9` (5a), `BODY-20` (5b). The rows' marks are unchanged.
 11. **`NFR-4` stays ✅** (`P10-35`) and **the RBS baseline line stays open** (`P10-36`).
-12. **The amendment set is `C1`–`C18`**, not `C1`–`C14`: `C14` was reconciled into
+12. **The amendment set is `C1`–`C19`**, not `C1`–`C14`: `C14` was reconciled into
     `docs/deviations.md` (it was filed only in `docs/first-release.md`), and the as-built audit added
-    `C15`–`C18`. The consolidation of every phase's as-built ledger rows into §10 is named inside the
+    `C15`–`C19` (`C19`, §4's and §10.10's `send(:new)` sentence, from the review's R0-6). The consolidation of every phase's as-built ledger rows into §10 is named inside the
     existing frozen-chapter amendment blocker with its alternative, not as a new blocker.
 13. **`docs/deviations.md` rides the code branch** (`P10-33`).
 14. **The probe's `chapters` check exempts phase 10's own documents** and writes its negation vocabulary
@@ -635,9 +643,9 @@ This is the last phase: a finding it does not repair has no phase to go to and b
 
 | Finding | Owner |
 |---|---|
-| The thirteen-plus-five frozen-chapter amendments and the ledger consolidation | `docs/first-release.md`, the frozen-chapter amendment blocker |
+| The thirteen-plus-six frozen-chapter amendments (`C1`–`C19`) and the ledger consolidation | `docs/first-release.md`, the frozen-chapter amendment blocker |
 | The one-time public-surface choices phases 4–8 said to "decide before the first tag" | `docs/first-release.md`, a new blocker enumerating them |
-| `Query.parse`'s trailing NUL; the default-port elision at the model boundary; 7b's zero-padded `retry:`; the `Status#standard?` reading | `docs/first-release.md`, *Behavioural asymmetries* → "Port readings" (a)–(d) |
+| `Query.parse`'s trailing NUL; the default-port elision at the model boundary; 7b's zero-padded `retry:` | `docs/first-release.md`, *Behavioural asymmetries* → "Port readings" (a)–(d) |
 | The process-tooling RuboCop exclusion; the per-byte `#getbyte` cost; the main fiber's leftover span; `.over`'s restart; the phase-0, phase-3a, 6a and 7c residues in the leftovers table above | `docs/first-release.md`, the post-release residues line |
 | The continued-clause blind spot of the `chapters` check | `docs/first-release.md`'s existing trigger, re-measured |
 | The RBS sig-diff baseline | `docs/first-release.md` § Release path, left open (`P10-36`) |
@@ -645,11 +653,35 @@ This is the last phase: a finding it does not repair has no phase to go to and b
 
 ## Work phase 10 postponed
 
-Three things, each owned by a `docs/first-release.md` entry and none by a phase: applying the eighteen
+Three things, each owned by a `docs/first-release.md` entry and none by a phase: applying the nineteen
 frozen-chapter amendments (a human's act; the trees are frozen to every tool), the `chapters` check's
 continued-clause blind spot (a sentence-spanning parser is not justified at two fires), and an `NFR-4`
 diff against a release tag that does not exist. The design's section "Work phase 10 postponed, and who
 owns it now" carries each with its pick-up condition.
+
+## Review round 0, repaired 2026-09-25
+
+The maintainer's review of the three tips (code `e9ddaa9`, tests `2d59890`, docs `2f1451a`) returned one
+blocking finding, eight to fix and three nits; every one is repaired on the branch that owns its file.
+
+- **R0-1** (blocking): seven own rows carried a copied verdict false for their ID -- `SEAM-6`–`SEAM-9`
+  now cite phase 2's `Dexpace::Registry`, and `IO-30`, `IO-31`, `IO-39` say *retired apparatus*, each
+  from its owner's row. A mechanical pass over all 124 own rows against their owners' marks found no
+  other contradiction beyond the deliberate departures each row states (`PIPE-33`, `RECOV-34`, `NFR-8`,
+  `NFR-9`).
+- **R0-2**: `docs/sdk-documentation/{transport-net_http,http,transport-async_http}.md` describe the
+  as-built `Protocol` (`http/1.0` admitted) and `Status` (total, `#standard?`).
+- **R0-3**, **R0-12**: `CLAUDE.md` names net_http's two YARD comments and two tests, and `C14`'s origin.
+- **R0-4**: the proxy warning's residual prefix leak is repaired (repairs 27, Guards 32).
+- **R0-5**: `Status` is total over every Integer (repairs 28, Guards 33); `P10-27` amended.
+- **R0-6**: `docs/deviations.md` row 10 is *confirmed, narrower* and the set gains `C19` (`P10-37`).
+- **R0-7**: 5c's probe-claims item and 7b's `sse.md` item are on `docs/first-release.md`'s residues
+  line, each with its pick-up.
+- **R0-8**: `"appears in"` binds forward rather than negating (repairs 29, Guards 34–35); `P10-31`
+  amended. Live fires over `docs/` stay the two phase-8 lines the phase fixed, now zero.
+- **R0-9**: `SEAM-22` carries phase 2's `🚫 mechanism; surviving clause ✅`; the tally is ✅ 107 · 🚫 11.
+- **R0-10**, **R0-11**: the misplaced brackets moved to the end of the sentence or item citing the key,
+  their repeated tail reworded; the struck `XCUT-12` trigger's old body struck too.
 
 ---
 

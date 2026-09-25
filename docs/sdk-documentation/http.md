@@ -113,15 +113,18 @@ casing, accepted everywhere a `String` name is.
 
 ## The value types
 
-- **`Status`** — total over 100–599: `Status.of(520)` is a status with no canonical name, never an
-  error; `Status.canonical_name(code)` is the separate lookup. Equality is by code alone. Range
-  predicates (`success?`, `error?`, …) are derived, and `Response` delegates the same six.
+- **`Status`** — total over every Integer (`HTTP-10`): `Status.of(520)` and `Status.of(999)` are
+  statuses with no canonical name, never an error, and only a non-Integer is refused;
+  `Status.canonical_name(code)` is the separate lookup. Equality is by code alone. Range predicates
+  (`success?`, `error?`, …) are derived, `#standard?` says whether the code is inside the protocol's
+  `100`–`599` classes, and `Response` delegates the same six class predicates.
 - **`Method`** — an upper-cased RFC 7230 token, so extension methods are representable.
   `Method::IDEMPOTENT` and `#idempotent?` are the single source the retry layer derives from;
   `#body_forbidden?` is the classification the request builder asks. Inside `module Dexpace`,
   `Method` is this class; write `::Method` for Ruby's.
-- **`Protocol`** — `http/1.1` or `http/2`; `Protocol.parse` accepts those and the aliases
-  `HTTP/2` and `HTTP/2.0`, case-insensitively, and raises on anything else.
+- **`Protocol`** — `http/1.0`, `http/1.1` or `http/2` (`HTTP_1_0`, `HTTP_1_1`, `HTTP_2`);
+  `Protocol.parse` accepts those and the alias `HTTP/2.0`, case-insensitively, and raises on anything
+  else — `HTTP/1.2`, `http/0.9`, `spdy/3`.
 - **`MediaType`** — type, subtype and parameter keys folded, parameter values as given;
   `parse` splits parameters respecting quoted-strings and `render` re-quotes, so
   `parse(render(x)) == x`; `#charset` is `nil` for an absent or unknown charset, never a raise;

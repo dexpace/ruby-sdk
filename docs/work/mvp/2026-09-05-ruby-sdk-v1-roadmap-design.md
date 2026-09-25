@@ -2696,7 +2696,7 @@ design.
   `ResponseMapper`'s YARD beside its `HTTP/1.0` sentence, and in the as-built page. Touches `HTTP-10`,
   `TRANSPORT-24`, `TRANSPORT-22`, `NFR-4`. Added after phase 10's planning pass by phase 8a and referred
   to by date and content, never by ordinal; not yet in phase 10's design's disposition table, which
-  dispositions it at execution. [2026-09-25, phase 10 -- repaired: a MUST repair (`HTTP-10`): `Status` maps 0..999 and the protocol range is `Status#standard?`. Row 54 of the inbound table in phase 10's checklist.]
+  dispositions it at execution. [2026-09-25, phase 10 -- repaired: a MUST repair (`HTTP-10`): `Status` maps every Integer code and the protocol range is `Status#standard?` (a first repair to 0..999 was widened by the phase's review round 0, R0-5). Row 54 of the inbound table in phase 10's checklist.]
 - **Two child-process idioms prove one property — `seam_surface_test.rb`'s private
   `bare_require_report` and `test/support/bare_require.rb`'s `BareRequire#bare_require` each spawn a
   `ruby` that requires `dexpace` alone and read a seam registry back — and the tree should carry one.**
@@ -5302,8 +5302,8 @@ roadmap**, so nothing it found could be routed to a later one: what it did not r
 **`docs/deviations.md` is flipped.** All nineteen rows now carry an as-built verdict — every one
 *confirmed* or *confirmed-with-a-narrowing*, none contradicted — each citing a `gems/…` path and
 defined `Dexpace::` constants, re-derived from source and never from another document (`P10-2`). The
-narrowings are the amendment set, **`C1`–`C18`**: the design's thirteen, `C14` reconciled from
-`docs/first-release.md` into the register, and four the as-built audit found. The trees they amend are
+narrowings are the amendment set, **`C1`–`C19`**: the design's thirteen, `C14` reconciled from
+`docs/first-release.md` into the register, and five the as-built audit found. The trees they amend are
 frozen, so applying them — and consolidating every phase's as-built ledger rows into §10 — stays a
 human's act, named inside the existing `docs/first-release.md` blocker.
 
@@ -5315,8 +5315,9 @@ SPDX header on every shipped `.rbs` (phase 9's one `:failed` audit, `NFR-13`, re
 misattributions in the phase-8 segmentation design and fixed them in place.
 
 **Repairs, every one test-first, each test run red on the untouched base.** The proxy warning's
-credential leak (5b's review R3-1, eight of eight spellings on 4.0.6 and 3.2.11); `Status.of` over
-every three-place code with `#standard?` (`HTTP-10`, a MUST phase 1 recorded as a reading in no ledger
+credential leak (5b's review R3-1, eight of eight spellings on 4.0.6 and 3.2.11, and the password
+prefix a `/`, `?`, `#` or second `@` still left, found by the phase's review round 0); `Status.of` total
+over every Integer with `#standard?` (`HTTP-10`, a MUST phase 1 recorded as a reading in no ledger
 row); `Protocol`'s HTTP/1.0 (`HTTP-33`); `URL.parse!`'s wrapping (`HTTP-47`); `Model.own` over a
 default-proc Hash; `HeaderSyntax`'s total predicates; a closed stream refused at `Body.stream`; the NaN
 and Complex duration guards 8b's P8-77 left to core; the configuration chain's per-configure growth

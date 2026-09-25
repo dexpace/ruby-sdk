@@ -540,7 +540,7 @@ this document, and the substantive entry was located beside the roll-up in every
 | **RuboCop and formatting** | `--topic tooling-and-quality-gates --section rules --brief` | Clean. **5b adds no cop.** The one it would have wanted — a `Dexpace/QualifiedCoreConstant` entry for `Logger` — cannot be written in the cop's current shape, and the plan's Task 10 owns the scoped watch that would replace it rather than leaving a silent omission |
 | **Styleguide-vs-design conflicts** | `--section conflicts --brief` | All six resolved; none open |
 
-[2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. The shareability claim this passage narrows is not narrowed.]
+[2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 
 ### The notes filed against the corpus by this phase
 
