@@ -45,7 +45,7 @@ module Housekeeping
         'carry none', 'no prose chapter', 'appendix-C row', 'unfollowable', 'from appendix C',
         'read out of appendix C', 'read out of **appendix C', 'neither ID appears', 'is not in',
         'are not in', 'not stated in', 'only normative statement', 'only prose home',
-        'not appear in', 'does not appear', 'do not appear'
+        'not appear in', 'does not appear', 'do not appear', 'never appear', "n't appear"
       ).then { |union| Regexp.new(union.source, Regexp::IGNORECASE) }
       # "X appears in <chapter>": the one verb that puts the chapter AFTER the IDs it is about.
       # An ID run followed by it binds FORWARD, to the chapter the verb introduces, instead of to
