@@ -74,7 +74,7 @@ module LedgerAudit
       ["row count #{rows.size} != chapter entry count #{entries.size}"]
     end
 
-    def check(number, entry, row, root, resolve) # rubocop:disable Metrics/ParameterLists
+    def check(number, entry, row, root, resolve) # rubocop:disable Metrics/ParameterLists -- the module keeps no state (`class << self`), so the per-run root and resolver are threaded to every row check rather than held
       drift(number, entry, row) + evidence(number, row[:status], root, resolve)
     end
 
