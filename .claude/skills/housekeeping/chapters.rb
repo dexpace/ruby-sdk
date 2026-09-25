@@ -9,7 +9,8 @@
 # where that chapter does not carry the ID. The unit is a CLAUSE, not a line: "A.md for X, Y;
 # B.md for Z" pairs every ID with every chapter under a same-line rule, which is why a naive rule
 # fires 23 times for 4 real defects (phase 10's Fact 6). So a line is split at `;`, each ID is
-# associated with the NEAREST PRECEDING chapter reference in its clause, a range is expanded
+# associated with the NEAREST PRECEDING chapter reference in its clause -- or, for an ID run
+# followed by "appears in", with the chapter that phrase introduces -- a range is expanded
 # whether or not its endpoints are backticked, and a line whose two-line window carries a negation
 # -- prose whose own subject is that the ID is NOT in that chapter -- is skipped. Appendix C
 # carries every ID and can never be wrong about one, so it is exempt as a target.
@@ -43,9 +44,15 @@ module Housekeeping
         'does not carry', 'do not carry', 'carries neither', 'carries none', 'carries no ',
         'carry none', 'no prose chapter', 'appendix-C row', 'unfollowable', 'from appendix C',
         'read out of appendix C', 'read out of **appendix C', 'neither ID appears', 'is not in',
-        'are not in', 'not stated in', 'only normative statement', 'only prose home',
-        'appears in'
+        'are not in', 'not stated in', 'only normative statement', 'only prose home'
       ).then { |union| Regexp.new(union.source, Regexp::IGNORECASE) }
+      # "X appears in <chapter>": the one verb that puts the chapter AFTER the IDs it is about.
+      # An ID run followed by it binds FORWARD, to the chapter the verb introduces, instead of to
+      # the nearest preceding one. Phase 10's review round 0 (R0-8) found the phrase listed as a
+      # negation, which silenced this -- the usual positive attribution -- to hide one line of the
+      # phase-5 segmentation design (:538-539) whose second run bound backward to the first
+      # run's chapter; binding forward is what that line needed.
+      FORWARD = /\bappears?\s+in\b/i
       EXEMPT_TARGET = 'appendix-c-consolidated-normative-requirement-index.md'
       # Documents that quote the pre-correction attributions ON PURPOSE, as the record of the
       # defect this check exists for: phase 10's own design, plan and checklist.
@@ -65,22 +72,43 @@ module Housekeeping
         line.split(BOUNDARY).flat_map { |clause| clause_pairs(clause) }
       end
 
+      # A run of consecutive IDs binds to the nearest preceding chapter, unless the run is
+      # followed by FORWARD, when it binds to the chapter immediately after the verb (or to
+      # nothing, when the chapter is on the next line: the continued-clause gap).
       def self.clause_pairs(clause)
+        list = tokens(clause)
         chapter = nil
-        tokens(clause).filter_map do |kind, value|
+        pairs = []
+        index = 0
+        while index < list.length
+          kind, value = list[index]
           if kind == :chapter
             chapter = value
-            nil
-          elsif chapter
-            [chapter, value]
+            index += 1
+          elsif kind == :forward
+            index += 1
+          else
+            run_end = index
+            run_end += 1 while run_end < list.length && list[run_end][0] == :id
+            target = run_target(list, run_end, chapter)
+            list[index...run_end].each { |_kind, id| pairs << [target, id] } if target
+            index = run_end
           end
         end
+        pairs
+      end
+
+      def self.run_target(list, after, chapter)
+        return chapter unless list.dig(after, 0) == :forward
+
+        list.dig(after + 1, 0) == :chapter ? list.dig(after + 1, 1) : nil
       end
 
       # Chapters and IDs in textual order, every range expanded in place.
       def self.tokens(clause)
         found = []
         clause.scan(CHAPTER) { found << [Regexp.last_match.begin(0), :chapter, Regexp.last_match[1]] }
+        clause.scan(FORWARD) { found << [Regexp.last_match.begin(0), :forward, nil] }
         covered = []
         clause.scan(RANGE) do
           match = Regexp.last_match

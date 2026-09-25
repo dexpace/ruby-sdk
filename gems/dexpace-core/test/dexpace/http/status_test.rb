@@ -52,16 +52,16 @@ class DexpaceStatusTest < DexpaceTestCase
   # code the server returns, vendor codes included, is surfaced rather than rejected. Net::HTTP
   # delivers a 600 or LinkedIn's 999 as an HTTPUnknownResponse, and before phase 10 this guard
   # refused both, which made both transports raise on a head the requirement says to surface. A
-  # status LINE carries three decimal places, so 0..999 is every code a server can send; an Integer
-  # outside it or a non-Integer is still a caller mistake.
-  test "maps every three-place code, vendor codes past 599 included, and refuses only a non-code" do
-    [0, 99, 600, 999].each do |code|
+  # first repair stopped at 0..999 and still threw on 1000 and -1 (review round 0, R0-5), so the
+  # whole Integer line maps and only a non-Integer -- not a code at all -- is refused.
+  test "maps every Integer code, vendor codes past 599 included, and refuses only a non-code" do
+    [-1, 0, 99, 600, 999, 1000, 2**70].each do |code|
       assert_equal(code, Dexpace::Status.of(code).code)
       assert_nil(Dexpace::Status.of(code).canonical_name)
+      refute_predicate(Dexpace::Status.of(code), :standard?)
     end
-    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Status.of(-1) }
-    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Status.of(1000) }
     assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Status.of("200") }
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Status.of(200.0) }
   end
 
   # The 100-599 guard moved to its own predicate (phase 10), so a caller who wants the protocol's
@@ -86,9 +86,9 @@ class DexpaceStatusTest < DexpaceTestCase
   end
 
   # HTTP-10's totality as a property rather than five examples.
-  test "construction is total over every three-place code" do
+  test "construction is total over the Integer line" do
     sample(count: 256) do |rng|
-      code = rng.rand(0..999)
+      code = rng.rand(-100_000..100_000)
 
       assert_equal(code, Dexpace::Status.of(code).code)
     end

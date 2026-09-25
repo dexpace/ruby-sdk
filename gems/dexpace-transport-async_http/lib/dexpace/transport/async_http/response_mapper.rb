@@ -13,7 +13,7 @@ module Dexpace
       # P8-38, the TRANSPORT-14 waiver) and a non-numeric Content-Length
       # (`Protocol::HTTP1::BadRequest`, the TRANSPORT-27 waiver) -- both wrap as retryable
       # transport failures. Since phase 10 Dexpace::Protocol admits HTTP/1.0 beside HTTP/1.1 and
-      # HTTP/2 (HTTP-33) and Dexpace::Status every code 0..999 (HTTP-10, TRANSPORT-24), so an
+      # HTTP/2 (HTTP-33) and Dexpace::Status every Integer code (HTTP-10, TRANSPORT-24), so an
       # `HTTP/1.0` head and a vendor `999` both map; a version the model does not know still
       # raises Dexpace::InvalidArgumentError here, after the head, with the native body closed by
       # the exchange's own release. A private_constant of AsyncHTTP.

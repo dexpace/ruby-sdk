@@ -71,6 +71,14 @@ module Dexpace
     CREDENTIAL_BEFORE_AT = ::Regexp.new("[^/?#]*@", timeout: 1.0)
     private_constant :CREDENTIAL_BEFORE_AT
 
+    # Where a proxy URL's authority starts: after a `scheme:` that is followed by at least one
+    # `/`, or after any leading run of `/` -- never after a bare `user:`, which is the forgotten-
+    # scheme spelling's username and part of the credential. Anchored, and no class in it admits
+    # the `:` or `/` that ends it, so it cannot backtrack; the per-pattern timeout is the port's
+    # rule all the same.
+    AUTHORITY_START = ::Regexp.new("\\A(?:[A-Za-z][A-Za-z0-9+.\\-]*:/+|/*)", timeout: 1.0)
+    private_constant :AUTHORITY_START
+
     # The header name #shown renders the URL under: `location`, the first of
     # RedactionPolicy::DEFAULT's URL-valued names, which is what makes Redactor#header_value take
     # the URL route rather than pass the value through (OBS-17).
@@ -182,8 +190,26 @@ module Dexpace
     # URL-valued header name, since that entry point is keyed by header name (OBS-16, OBS-17).
     # Then CFG-24's grammar rule, for the credential the redactor cannot know is one.
     def shown(url)
-      redacted = Instrumentation::Redactor::DEFAULT.header_value(SHOWN_AS, url)
+      scrubbed = scrub_userinfo(url)
+      redacted = Instrumentation::Redactor::DEFAULT.header_value(SHOWN_AS, scrubbed)
       redacted.gsub(CREDENTIAL_BEFORE_AT, "#{Instrumentation::Redactor::REDACTED_USERINFO}@")
+    end
+
+    # CFG-24's grammar applied to the RAW value, before the parser or the redactor can split a
+    # password at a `/`, `?` or `#` it contains: in a proxy URL everything from the authority's
+    # start through the LAST `@` is userinfo, so it is replaced whole. The belt above runs on the
+    # redactor's output and stops at the first reserved character, which left the prefix of a
+    # password such as `pa/ss`, `p#ss` or `se#cret` in the warning (phase 10's review round 0,
+    # R0-4); this pass runs first and has no delimiter to stop at. A value with no `@` is
+    # returned unchanged.
+    def scrub_userinfo(url)
+      last = url.rindex("@")
+      return url if last.nil?
+
+      start = AUTHORITY_START.match(url)&.end(0) || 0
+      return url if start > last
+
+      "#{url[0, start]}#{Instrumentation::Redactor::REDACTED_USERINFO}@#{url[(last + 1)..]}"
     end
 
     def url_problem(host, raw_port)

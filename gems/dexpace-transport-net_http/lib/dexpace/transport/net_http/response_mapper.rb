@@ -16,7 +16,7 @@ module Dexpace
       # raises Dexpace::InvalidArgumentError here, after the head and with the connection released
       # (TRANSPORT-22). The status is total over every code a status line can carry: Net::HTTP
       # parses any three decimal places and delivers a 999 or a 600 as an HTTPUnknownResponse,
-      # and Dexpace::Status maps 0..999 (HTTP-10, TRANSPORT-24).
+      # and Dexpace::Status maps every Integer (HTTP-10, TRANSPORT-24).
       # A private_constant of NetHTTP.
       module ResponseMapper
         extend self
