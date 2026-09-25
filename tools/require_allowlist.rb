@@ -71,6 +71,10 @@ module RequireAllowlist
   NO_TRANSPORT = Denial.new(reason: NO_TRANSPORT_REASON, scope: nil)
   NO_SOCKET = Denial.new(reason: NO_TRANSPORT_REASON, scope: %w[dexpace-core dexpace-transport-*])
 
+  # The two path segments that make a `dexpace/`-prefixed feature name something outside the
+  # namespace (`dexpace/../json` is `json`), refused by #reachable?.
+  DOT_SEGMENTS = %w[. ..].freeze
+
   # Names that pass a category test and must still fail. Without this list the gate's message
   # would be "not in the allowlist", which says nothing about why.
   DENIED = {
@@ -157,8 +161,13 @@ module RequireAllowlist
 
   # A declared dependency, or a path inside the gem's own namespace -- including core's entry
   # point itself, which every adapter requires by the name `dexpace` and not `dexpace/...`.
+  #
+  # A dot segment disqualifies the prefix: `dexpace/../json` is `json` to Kernel#require, and a
+  # bare `start_with?` read it as the gem's own path (phase 10, repairing phase 0's review R3-2).
   def reachable?(name, permitted)
-    permitted.include?(name) || name == "dexpace" || name.start_with?("dexpace/")
+    return true if permitted.include?(name) || name == "dexpace"
+
+    name.start_with?("dexpace/") && !name.split("/").intersect?(DOT_SEGMENTS)
   end
 
   # An adapter may require the one third-party gem its own gemspec declares. In phase 0 no

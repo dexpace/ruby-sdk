@@ -27,6 +27,9 @@ DEFAULT_GATES = %w[
   gates:cause_walk
   gates:bounded_map
   gates:seam_names
+  gates:ledger_audit
+  gates:spdx_rbs
+  gates:sole_parse
   gates:clean_bundle
   gates:rbs_surface
   gates:sig_diff

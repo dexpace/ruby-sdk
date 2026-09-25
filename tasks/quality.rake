@@ -13,8 +13,12 @@ require_relative "../tools/interpreter"
 def bundle = Interpreter.executable("bundle")
 
 desc "NFR-7: RuboCop, findings fatal, no autocorrection"
+# `--ignore-parent-exclusion`: RuboCop takes AllCops/Exclude from the topmost .rubocop.yml on the
+# path, so a worktree nested under a parent checkout's `.claude/` inherited that checkout's
+# `.claude/**/*` exclusion and the gate inspected almost nothing (phase 10, phase 1's finding).
 task :rubocop do
-  sh(bundle, "exec", "rubocop", "--fail-level=convention", "--format", "progress")
+  sh(bundle, "exec", "rubocop", "--fail-level=convention", "--ignore-parent-exclusion", "--format",
+     "progress",)
 end
 
 # `--autocorrect` (safe only), never `--autocorrect-all`: `-A` applies unsafe corrections too, and
