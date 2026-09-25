@@ -110,6 +110,17 @@ class ChaptersTest < Minitest::Test
     assert_equal [%w[03-x.md SEAM-11]], Chapters.pairs('`SEAM-11` appears in docs/product-spec/03-x.md')
   end
 
+  # Phase 10's review round 1 (R1-4): the forward binding matched "appear in" inside a negative
+  # sentence, so a correct statement that an ID is ABSENT from a chapter fired as a wrong
+  # attribution. Each spelling of the negated verb is a negation, not a binding.
+  def test_a_negated_appears_in_is_not_an_attribution
+    ['does not appear in', 'do not appear in', 'did not appear in'].each do |verb|
+      document = "`SEAM-15` #{verb} `docs/product-spec/03-pluggable-seams-and-extension-model.md`.\n"
+
+      assert_empty run_over(document), verb
+    end
+  end
+
   def test_appendix_c_is_never_a_target
     document = "`docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for `SEAM-99`.\n"
 

@@ -306,12 +306,16 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
     # so a password holding one left its prefix in both channels -- `http:/user:pa/ss@h:1` warned
     # `http:/user:pa/***:***@h:1` -- on 4.0.6 and 3.2.11. The raw value is now scrubbed from the
     # authority's start through the LAST `@`, before the redactor can split it. Each case names
-    # the password and the prefix a split would have left.
+    # the password and the prefix a split would have left. The last three put an `@` INSIDE the
+    # password ahead of a reserved character: a scrub through the FIRST `@` leaves `c/`, `b#` and
+    # `y/` in the warning, which only a through-the-LAST-`@` scrub removes (review round 1, R1-1).
     test "R0-4, OBS-11, CFG-22: a password holding a reserved character leaks no prefix" do
       [["http:/user:pa/ss@h:1", "pa/"], ["http://user:p/ss@proxy.corp", "p/ss"],
        ["user:se#cret@proxy.corp:3128", "se#"], ["http://user:p#ss@proxy.corp", "p#"],
        ["http://user:p?ss@proxy.corp", "p?"], ["http:/user:pa?ss@h:1", "pa?"],
-       ["http://user:se@cret@proxy.corp", "se@"],].each do |url, prefix|
+       ["http://user:se@cret@proxy.corp", "se@"], ["http://user:se@c/ret@proxy.corp", "c/"],
+       ["http://user:a@b#c@proxy.corp:1", "b#"],
+       ["user:x@y/z@proxy.corp:3128", "y/"],].each do |url, prefix|
         sink = RecordingSink.new
 
         warnings = WarningCapture.record do
