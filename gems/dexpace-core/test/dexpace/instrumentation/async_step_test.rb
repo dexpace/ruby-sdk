@@ -330,6 +330,26 @@ class DexpaceInstrumentationAsyncStepTest < DexpaceTestCase
       assert_equal(8, sink.payloads[1][Keys::HTTP_RESPONSE_BODY_SIZE])
     end
 
+    # 5b's final review (R3-2), repaired by phase 10: at BODY the derivation was registered before
+    # the settlement work, so the derived future's fulfilment -- and every callback the CALLER
+    # had put on it -- ran before the step read the clock, and the recorded duration included the
+    # caller's own continuation. The sync path records before it returns; so must this one.
+    test "OBS-24, OBS-34: at BODY the recorded duration excludes the caller's continuation" do
+      meter = Dexpace::RecordingMeter.new
+      clock = FakeClock.new(monotonic: 10.0)
+      step = async_step(RecordingSink.new, level: HTTPLogging::BODY, preview_bytes: 8, meter: meter,
+                                           clock: clock,)
+      request = build_request
+      transport = FakeAsyncTransport.new(response: build_response(request), settle_later: true)
+
+      future = pipeline(step, transport).call(request)
+      future.on_settle { |_settlement| clock.advance(5.0) } # the caller's continuation
+      clock.advance(0.25)
+      transport.settle
+
+      assert_equal([{ amount: 250.0, attributes: nil }], meter.histograms.first.records)
+    end
+
     test "P5-94: the derived future forwards a failure as the same object and cancel propagates" do
       sink = RecordingSink.new
       step = async_step(sink, level: HTTPLogging::BODY, preview_bytes: 8)

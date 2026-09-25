@@ -19,6 +19,15 @@ module AsyncDelayTest
       assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Async.delay("1") }
     end
 
+    # Phase 10, repairing 8b's review R1-1 in core: `is_a?(Numeric)` plus `negative?` admitted a NaN
+    # (false to both `negative?` and `zero?`, so it reached the scheduler's wait, which never ends)
+    # and raised a bare NoMethodError for a Complex. P8-77's shape, the pool's own guard.
+    test "CFG-18: a NaN or a Complex delay is refused with InvalidArgumentError, unscheduled" do
+      [Float::NAN, Complex(1, 1), Complex(1, 0)].each do |odd|
+        assert_raises(Dexpace::InvalidArgumentError, odd.inspect) { Dexpace::Async.delay(odd) }
+      end
+    end
+
     test "CFG-18: a zero delay returns a future already settled, with no scheduler consulted" do
       assert_nil(Fiber.scheduler)
       future = Dexpace::Async.delay(0)

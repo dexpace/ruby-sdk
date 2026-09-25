@@ -50,6 +50,28 @@ module ConfigTest
       assert_equal("proxy.corp", Dexpace.configuration.raw_property("https.proxyHost"))
     end
 
+    # 5a's review R1-2, repaired by phase 10: every configure that added a property wrapped the
+    # inherited source in one more closure, so a lookup walked one frame per configure ever made
+    # and nothing released them. The base source records how deep below the lookup it was
+    # reached; after 200 configures that depth must equal the depth after 2.
+    test "CFG-13: a lookup's depth does not grow with the number of configures" do
+      depths = []
+      base = lambda do |_key|
+        depths << caller.size
+        nil
+      end
+      Dexpace.configure { |c| c.property_source = base }
+      Dexpace.configure { |c| c.property("a", "1") }
+      Dexpace.configure { |c| c.property("b", "2") }
+      Dexpace.configuration.string("absent")
+      200.times { |i| Dexpace.configure { |c| c.property("k#{i}", i.to_s) } }
+      Dexpace.configuration.string("absent")
+
+      assert_equal(depths.first, depths.last, "the property chain grew with the configure count")
+      assert_equal("1", Dexpace.configuration.string("a"))
+      assert_equal("199", Dexpace.configuration.string("k199"))
+    end
+
     test "CFG-13: reset_config! restores Configuration::EMPTY and returns it" do
       Dexpace.configure { |c| c.override("K", "V") }
 

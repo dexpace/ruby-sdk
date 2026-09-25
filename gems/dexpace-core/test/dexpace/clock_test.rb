@@ -72,6 +72,17 @@ module ClockTest
       assert_raises(Dexpace::InvalidArgumentError) { clock.sleep(1, cancellation: :token) }
     end
 
+    # Phase 10, repairing 8b's review R1-1 in core (P8-77's shape): a NaN passed both checks and
+    # parked in Queue#pop(timeout: NaN) forever on every row -- a sleep no elapsed time ends -- and
+    # a Complex raised a bare NoMethodError from `negative?`. Asserted on deadline_in, which shares
+    # the guard, so no thread is ever parked by this test.
+    test "CFG-15, CFG-17: a NaN or a Complex duration is refused before any wait" do
+      [Float::NAN, Complex(1, 1)].each do |odd|
+        assert_raises(Dexpace::InvalidArgumentError, odd.inspect) { Dexpace::Clock.deadline_in(odd) }
+        assert_raises(Dexpace::InvalidArgumentError, odd.inspect) { Dexpace::Clock::SYSTEM.sleep(odd) }
+      end
+    end
+
     test "CFG-17: a zero duration returns nil promptly, allocating no queue and no subscription" do
       clock = Dexpace::Clock::SYSTEM
       source = Dexpace::Cancellation.source

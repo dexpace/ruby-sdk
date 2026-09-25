@@ -140,6 +140,25 @@ class DexpaceAuthBearerStamperTest < DexpaceTestCase
       assert_equal(4, provider.fetches)
     end
 
+    # 6c's review R4-1, pinned by phase 10: every rejection above starts from a COLD cache, so a
+    # stamper that validated only a first fetch and skipped the check when REFRESHING a cached
+    # token survived three mutations. Each rejection again, from a warm cache past its margin: the
+    # error surfaces, the cached token is left exactly as it was, and the next call refetches.
+    test "AUTH-35: every rejection holds on the REFRESH path too, the warm cache untouched" do
+      [-> {}, -> { Object.new }, "bad\r\ntoken"].each do |rejected|
+        clock = FakeClock.new(now: Time.at(0))
+        warm = BearerToken.build(token: "t1", expiry: Time.at(100))
+        provider = ScriptedBearerProvider.new(warm, rejected, "t3")
+        subject = stamper(provider, clock: clock)
+        subject.call(https_request)
+        clock.advance(80) # inside the 30 s margin: the next call refreshes
+
+        assert_raises(Dexpace::Auth::ProviderError) { subject.call(https_request) }
+        assert_same(warm, subject.instance_variable_get(:@token), "the cache was touched")
+        assert_equal(["Bearer t3"], authorization(subject.call(https_request)))
+      end
+    end
+
     test "AUTH-35, AUTH-11: a raising provider propagates its own error, uncached; next retries" do
       provider = ScriptedBearerProvider.new(RuntimeError.new("boom"), "t2")
       subject = stamper(provider)

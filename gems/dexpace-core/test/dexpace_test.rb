@@ -222,7 +222,7 @@ class DexpaceTest < DexpaceTestCase
   # the way the three phase-4 lanes once did.
   class PhaseSixLayers < DexpaceTestCase
     # A consumer requires "dexpace" and nothing else: the retry layer resolves too (phase 6a) --
-    # the five public Resilience constants, the flat error, and the two private helpers and the
+    # the six public Resilience constants, the flat error, and the two private helpers and the
     # two private per-call classes as unreachable as Dexpace::Hooks. Phase 6b and 6c add their
     # own constants under Resilience beside these.
     test "requiring dexpace alone makes the whole retry layer resolve, its helpers private" do

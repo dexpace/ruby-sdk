@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 require_relative "../../test_helper"
+require_relative "../../support/pinned_ceiling"
 require "dexpace"
 require_relative "../../support/fake_body"
 require_relative "../../support/fake_sink"
@@ -367,7 +368,7 @@ class DexpaceBodyTest < DexpaceTestCase
     test "over a body larger than the cap, stops reading rather than discarding" do
       oversized = OversizedBody.new(2 * Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES)
 
-      copy = Dexpace::Body.buffer_bounded(oversized)
+      copy = PinnedCeiling.with_default_ceiling { Dexpace::Body.buffer_bounded(oversized) }
 
       assert_equal(Dexpace::Body::MAX_BUFFERED_ERROR_BODY_BYTES, copy.content_length)
       assert_operator(oversized.yielded_bytes, :<, oversized.total)
@@ -471,7 +472,7 @@ class DexpaceBodyTest < DexpaceTestCase
       ceiling = Dexpace::IO::MAX_MATERIALIZED_BYTES
       [ceiling + 1, ceiling * 2, ::Float::INFINITY].each do |cap|
         delegate = BufferBoundedTest::SourceDouble.new("body")
-        Dexpace::Body.buffer_bounded(delegate, cap: cap)
+        PinnedCeiling.with_default_ceiling { Dexpace::Body.buffer_bounded(delegate, cap: cap) }
 
         assert_equal(ceiling, delegate.source.calls.first, "cap #{cap}")
       end

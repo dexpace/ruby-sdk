@@ -89,6 +89,28 @@ class DexpaceModelTest < DexpaceTestCase
   end
 
   # XCUT-15: a String the caller still holds is externally-mutable state a model must not alias.
+  # Phase 1's review R3-1, repaired by phase 10 (HTTP-5, XCUT-15, SEAM-29): a Hash built with a
+  # default proc made Ractor.make_shareable raise TypeError ("allocator undefined for Proc") out of
+  # every model that owns a collection -- RequestOptions.build(tags:) among them -- outside `rescue
+  # Dexpace::Error`. The model owns the ENTRIES; the caller's default proc is behaviour and is not
+  # carried, and the caller's Hash keeps it.
+  test "own takes a Hash with a default proc, keeps its entries and drops the proc" do
+    tags = Hash.new { |_hash, _key| 1 }.merge("k" => "v")
+    options = Dexpace::RequestOptions.build(tags: tags, timeout: nil, max_retries: nil)
+
+    assert_equal({ "k" => "v" }, options.tags)
+    assert_nil(options.tags["missing"])
+    assert_nil(options.tags.default_proc)
+    refute_nil(tags.default_proc, "the caller's Hash was changed")
+  end
+
+  test "own refuses a value it cannot make shareable with the SDK's error, never Ruby's" do
+    error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Model.own({ "a" => proc { 1 } }) }
+
+    assert_includes(error.message, "cannot own")
+    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Model.own({ "a" => ::Thread::Mutex.new }) }
+  end
+
   test "frozen_string returns a frozen copy of a mutable string and the same frozen string" do
     mutable = +"Accept"
     copy = Dexpace::Model.frozen_string(mutable)

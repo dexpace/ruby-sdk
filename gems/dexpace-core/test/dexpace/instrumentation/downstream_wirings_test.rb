@@ -273,5 +273,33 @@ class DexpaceInstrumentationDownstreamWiringsTest < DexpaceTestCase
         end
       end
     end
+
+    # Phase 5b's final review (R3-1), repaired by phase 10: CFG-24's belt was anchored at the
+    # start of the redactor's output (`\A[^/?#]*@`), so any spelling that puts a `/` BEFORE the
+    # userinfo -- a scheme with one or three slashes, a leading slash -- reaches the belt with the
+    # credential after the anchor's reach, and the redactor, reading an opaque or path-only URI,
+    # writes it back as given. Measured before the repair on 4.0.6 and 3.2.11: the password in
+    # `Kernel#warn` and in the config sink, eight spellings of eight. The belt is now unanchored
+    # and applied to every `@` a warning shows. OBS-11 ("unconditionally"), CFG-22.
+    test "R3-1, OBS-11, CFG-22: a credential after a slash reaches neither channel" do
+      ["http:/user:secret@proxy.corp:3128", "http:///user:secret@proxy.corp",
+       "/http://user:secret@proxy.corp:3128", "socks5:/user:secret@p:1",
+       "https:///user:secret@proxy.corp:3128", "http:////user:secret@proxy.corp",
+       "x/user:secret@proxy.corp:3128", "http:/a/user:secret@proxy.corp:3128",].each do |url|
+        sink = RecordingSink.new
+
+        warnings = WarningCapture.record do
+          logger = Logger.build(sink: sink)
+
+          assert_nil(Dexpace::Proxy.resolve(chain_with_https_proxy(url), logger: logger), url)
+        end
+
+        assert_equal(1, warnings.size, url)
+        [warnings.first, sink.payloads.inspect].each do |channel|
+          refute_includes(channel, "secret", url)
+          refute_includes(channel, "user:", url)
+        end
+      end
+    end
   end
 end

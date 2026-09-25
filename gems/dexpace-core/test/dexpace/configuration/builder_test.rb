@@ -200,7 +200,11 @@ module Dexpace
 
       assert_equal("1", seeded.string("K"))
       assert_equal(" v ", seeded.string("trim"))
-      assert_nil(Configuration::Builder.new(property_source: nil).build.string("K"))
+      # Hermetic (phase 10, 5a's review R1-1): without env_source: the builder read the HOST's
+      # environment, and a machine exporting K turned this red.
+      assert_nil(Configuration::Builder.new(property_source: nil,
+                                            env_source: Configuration::Sources::NONE,)
+                   .build.string("K"))
     end
 
     test "SEAM-29 / HTTP-3: .new is private, .build validates, #with re-validates through .build" do

@@ -311,6 +311,23 @@ class DexpaceStreamBodyTest < DexpaceTestCase
       assert_includes(error.message, "#readpartial")
     end
 
+    # Phase 3b's review R2-1, repaired by phase 10: the rewind probe read #pos off a closed stream
+    # and a bare IOError ("closed stream") escaped `rescue Dexpace::Error` at construction.
+    test "rejects an already-closed stream with the SDK's error, closed StringIO and File alike" do
+      io = StringIO.new(+"a")
+      io.close
+      file = Tempfile.new("closed")
+      file.close
+
+      [io, file].each do |closed|
+        error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Body.stream(closed) }
+
+        assert_includes(error.message, "already closed")
+      end
+    ensure
+      file&.unlink
+    end
+
     test "rejects a content_length below the -1 sentinel" do
       assert_raises(Dexpace::InvalidArgumentError) do
         Dexpace::Body.stream(StringIO.new(+"a"), content_length: -2)
