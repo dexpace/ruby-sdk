@@ -7,7 +7,8 @@ This gem is the core: the domain model, the pipeline and every seam's contract.
 the body layer, the execution context, the recovery layer, the stage pipeline, the configuration
 layer, the tracing, metrics and logging layers, the retry layer, the authentication layer, the
 redirect layer, the server-sent-events layer, the pagination layer, the serialization layer and
-phase 8a's transport error are built.** `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
+phase 8a's transport error are built** -- the whole of the v1 roadmap's core, audited by phase 9
+and reconciled against its design by phase 10. `lib/` holds phase 1's wire model -- `Dexpace::Request`, `Response`, `Headers`,
 `HeaderName`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, the
 `HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract
 `Dexpace::Model` / `Dexpace::Builder` under the error root `Dexpace::Error` -- phase 2's seam
@@ -97,8 +98,10 @@ itself lives in `dexpace-serde-json`. Phase 8a adds three things to this gem for
 adapters: the flat `Dexpace::TransportError < ::IOError` (`#retryable?` unconditionally true,
 `#phase` one of `:connect` / `:write` / `:read`), `Configuration::Keys::REQUEST_TIMEOUT` and
 `Instrumentation::Events::TRANSPORT_HEADER_DROPPED`.
-Nothing else: every adapter is another gem's -- the JSON codec is `dexpace-serde-json`'s (phase 7a)
-and the synchronous transport `dexpace-transport-net_http`'s (phase 8a) -- the three retry drivers
+Nothing else: every adapter is another gem's -- the JSON codec is `dexpace-serde-json`'s (phase 7a),
+the synchronous transport `dexpace-transport-net_http`'s (phase 8a), the thread-pool executor
+`dexpace-async-thread`'s (phase 8b) and the asynchronous transport `dexpace-transport-async_http`'s
+(phase 8c) -- the three retry drivers
 are the only emitters of the HTTP-tracer vocabulary (its per-attempt group), and no transport ships
 here, so nothing in this gem talks to a socket.
 The as-built pages are
@@ -137,7 +140,7 @@ Every type is frozen at construction, validated in its constructor, and derived 
 `Dexpace::InvalidArgumentError`, which is also an `ArgumentError`.
 
 A transport is any object responding to `#call(request, options, cancellation)`, so the seam
-layer works end to end with a lambda standing in for the adapter phase 8 ships:
+layer works end to end with a lambda standing in for a transport adapter gem:
 
 ```ruby
 operation = Dexpace::Operation.build(
