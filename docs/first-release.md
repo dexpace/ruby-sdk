@@ -248,9 +248,13 @@ stated in the release notes rather than discovered at `bundle install`.
       accidental breaking change. **Phase 10 is the phase that can**: its plan, Task 5 is the last change
       to `sig/` in every gem, so Task 18 establishes the baseline over a tree nothing else will move —
       **both** baselines, the `sig/**/*.rbs` tree and the runtime surface snapshot, because `rbs`
-      describes what someone wrote and not what `Data.define` generates. Establishing a baseline is not
-      satisfying `NFR-4`, whose subject is a **diff** against the previous release tag; that stays ⏳
-      until a `v*` tag exists. **Still open after phase 10, with the reason (2026-09-25, `P10-36`):**
+      describes what someone wrote and not what `Data.define` generates. This line is design §9's
+      release-tag mechanism, not `NFR-4` itself: appendix C's `NFR-4` is "a checked-in,
+      machine-comparable snapshot" with the build failing on drift, which `gates:surface_snapshot` over
+      the six manifests already is, so `NFR-4` is ✅ (phase 9's mark, kept by phase 10's `P10-35`) and
+      what waits for a `v*` tag is `gates:sig_diff`, vacuous until one exists. (Corrected 2026-09-25 by
+      phase 10's review round 2, R2-1: this sentence had read `NFR-4` as a diff against the previous
+      release tag that stayed ⏳ until a tag.) **Still open after phase 10, with the reason (2026-09-25, `P10-36`):**
       `tools/sig_diff.rb` takes its baseline from `git describe --tags --match v*` and reads no committed
       baseline file, and phase 10 may not tag -- so the `sig/` baseline cannot be established inside this
       repository's design by any phase. Phase 10 did regenerate the six runtime surface manifests once,

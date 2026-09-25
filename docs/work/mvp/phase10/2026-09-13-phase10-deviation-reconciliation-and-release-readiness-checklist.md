@@ -525,6 +525,7 @@ otherwise. The list is the brief's thirty-one-item minimum where it applies (ite
 | 35 | `'appears in'` restored to `Chapters::NEGATION` | `housekeeping/chapters_test.rb` "an appears-in attribution binds forward and fires when wrong": `Expected: ["SEAM-15"]` | — (process tooling) |
 | 36 | `ProxyResolution#scrub_userinfo` scrubs through the FIRST `@` (`index` for `rindex`) | `core/instrumentation/downstream_wirings_test.rb` "R0-4 …": `http://user:se@c/ret@proxy.corp`'s warning keeps `c/` -- red on 4.0.6 and 3.2.11 (it survived round 0's spellings; review round 1, R1-1) | `OBS-11`, `CFG-22` |
 | 37 | `"not appear in"`, `"does not appear"` and `"do not appear"` dropped from `Chapters::NEGATION` | `housekeeping/chapters_test.rb` "a negated appears-in is not an attribution": `SEAM-15` fires against chapter 03 -- red on 4.0.6 (review round 1, R1-4) | — (process tooling) |
+| 38 | `'never appear'` and then `"n't appear"` dropped from `Chapters::NEGATION`, one at a time | `housekeeping/chapters_test.rb` "a negated appears-in is not an attribution": red on `never appears in`, then on `doesn't appear in` -- 4.0.6 (review round 2, R2-2) | — (process tooling) |
 | x1 | `Status` guard back to `100..599` (as first cut; the guard is now a type check, R0-5) | `core/http/status_test.rb`: three errors, `code must be an integer status code between 0 and 999` raised from the mutated guard's own message path | `HTTP-10` |
 | x2 | `URL.parse!` rescues `URI::InvalidURIError` only | `core/http/url_test.rb`: `mailto://host. [Dexpace::InvalidArgumentError] exception expected, not Class: <URI::InvalidComponentError>` | `HTTP-47` |
 | x3 | `HeaderSyntax.valid_name?`'s String screen removed | `core/http/header_syntax_test.rb`: `NoMethodError: undefined method 'b' for an instance of Integer` | `HTTP-17` |
@@ -703,6 +704,21 @@ finding, three to fix and two nits; every one is repaired on the branch that own
   appear`), so "`X` does not appear in <chapter>" is no longer read as an attribution (Guards 37).
 - **R1-5**: `docs/first-release.md`'s `dexpace-async-async` entry no longer points at the closed
   `XCUT-12` trigger as live.
+
+## Review round 2, repaired 2026-09-25
+
+The review of the round-1 tips (code `b21031c`, tests `8ec8f16`, docs `795d30a`) returned no blocking
+finding, one to fix and one nit; both are repaired on the branch that owns the file.
+
+- **R2-1**: `docs/first-release.md`'s RBS-baseline entry still read `NFR-4` as a diff against the
+  previous release tag that "stays ⏳ until a `v*` tag exists", against `P10-35` and this checklist's
+  `NFR-4` ✅. The sentence now says the entry is design §9's release-tag mechanism, that `NFR-4` is ✅
+  through `gates:surface_snapshot`, and that what waits for a tag is `gates:sig_diff`. It carries a
+  dated correction note. The entry stays open for `P10-36`'s reason.
+- **R2-2**: `Chapters::NEGATION` gains `never appear` and `n't appear`, so "`X` never appears in
+  <chapter>" and "`X` doesn't appear in <chapter>" are no longer read as attributions. The negated-verb
+  case drives both, plus `don't appear in` and `appears nowhere in` (Guards 38). The probe is clean at
+  the documentation tip.
 
 ---
 
