@@ -18,6 +18,8 @@ module Dexpace
         include Dexpace::Body
         include Dexpace::Closeable
 
+        INTERRUPTED: String
+
         @native: untyped
         @media_type: Dexpace::MediaType?
         @content_length: Integer
@@ -25,6 +27,8 @@ module Dexpace
         @logger: Instrumentation::Logger
         @on_release: _Release?
         @source: Dexpace::IO::BufferedSource?
+        @reader: untyped
+        @reader_scheduler: untyped
 
         attr_reader media_type: Dexpace::MediaType?
         attr_reader content_length: Integer
@@ -36,10 +40,12 @@ module Dexpace
                 | () -> Enumerator[String, nil]
         def write_to: (Dexpace::IO::_Sink sink) -> Integer
         def source: () -> Dexpace::IO::BufferedSource
+        def cancel_read: () -> nil
 
         private
 
         def pull: () -> String?
+        def parked: [T] () { () -> T } -> T
         def release: () -> untyped
       end
     end
