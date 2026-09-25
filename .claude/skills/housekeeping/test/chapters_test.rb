@@ -87,6 +87,29 @@ class ChaptersTest < Minitest::Test
     assert_equal 3, Chapters.pairs('docs/product-spec/03-x.md for SEAM-11–13').size
   end
 
+  # Phase 10's review round 0 (R0-8): "appears in" was listed as a negation, which silenced the
+  # usual positive attribution. It is a FORWARD binding now: the IDs before it belong to the
+  # chapter after it, so a wrong one fires and a right one does not.
+  def test_an_appears_in_attribution_binds_forward_and_fires_when_wrong
+    wrong = "`SEAM-15` appears in `docs/product-spec/03-pluggable-seams-and-extension-model.md`.\n"
+    right = "`SEAM-11` appears in `docs/product-spec/03-pluggable-seams-and-extension-model.md`.\n"
+
+    assert_equal %w[SEAM-15], ids(run_over(wrong))
+    assert_empty run_over(right)
+  end
+
+  # The phase-5 segmentation design's :538-539 shape, the line the negation entry was hiding: a
+  # second run followed by "appears in" and a chapter on the NEXT line must not bind backward to
+  # the first run's chapter (40 false fires under the backward rule).
+  def test_a_second_appears_in_run_does_not_bind_backward
+    document = "every one of `SEAM-11`–`SEAM-12` appears in\n" \
+               "`docs/product-spec/03-pluggable-seams-and-extension-model.md` and every one of `SEAM-13` appears in\n" \
+               "`docs/product-spec/02-architectural-principles.md`.\n"
+
+    assert_empty run_over(document)
+    assert_equal [%w[03-x.md SEAM-11]], Chapters.pairs('`SEAM-11` appears in docs/product-spec/03-x.md')
+  end
+
   def test_appendix_c_is_never_a_target
     document = "`docs/product-spec/appendix-c-consolidated-normative-requirement-index.md` for `SEAM-99`.\n"
 
