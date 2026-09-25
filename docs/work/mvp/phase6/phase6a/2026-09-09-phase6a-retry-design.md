@@ -1262,7 +1262,7 @@ fires on whatever thread or fiber settles that future — not nested inside the 
 `pump.call(attempt)` — so `RETRY-30`'s "N retries MUST NOT build an N-deep chain of future
 continuations or stack frames" holds by the same mechanism phase 2's `Completer#fulfil`/`#on_settle`
 pair already relies on (§3.3's "callbacks run outside the settling mutex, on the calling fiber, and
-a late registration is never lost").
+a late registration is never lost"). [2026-09-25, phase 10: false as written -- `Future#on_settle` runs inline on a settled future, so this sketch overflows at about 1,500 attempts; the built driver is a re-arm trampoline (`P6-54`), recorded in this design's As-built addendum.]
 
 ### `Dexpace::ProtocolError#retryable_by_status?` — `XCUT-5`'s baked flag, postponed by phase 4b
 

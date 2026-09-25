@@ -646,7 +646,7 @@ decide. Item 5 is the one exception and is labelled as such.
 23. **`Ractor` is never load-bearing, and `Data`-based value types are frozen at construction.**
     `SSE-20`/`SSE-21` and `PAGE-2` want immutable values with structural equality; they get them from `Data`
     plus `Dexpace::Model`, with Ractor-shareability a free side effect and no part of the claim
-    (`data-modeling/5bc538ba` narrows exactly which models are shareable and why).
+    (`data-modeling/5bc538ba` narrows exactly which models are shareable and why). [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 24. **Phases 1 through 7 test against an in-memory fake transport.** Roadmap cross-cutting constraint 4
     (`:52-53`). `7c` is the first phase-7 sub-phase with a transport-shaped dependency at all, and it uses
     phase 2's `SEAM-11`/`SEAM-16` fakes. No `TCPServer` fixture, no socket.

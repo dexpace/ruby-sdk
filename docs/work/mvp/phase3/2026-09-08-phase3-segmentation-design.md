@@ -38,7 +38,7 @@ unresolved conflict and owns no conflict decision of its own.
 Two note entries bind this phase directly and are cited rather than restated:
 `concurrency-and-async/f414b864` (core's shared mutable state is one frozen `Data` snapshot swapped under a
 `Thread::Mutex`; `Mutex` is per-fiber-owned and non-reentrant, both re-verified) and `data-modeling/5bc538ba`
-(the wire model is Ractor-shareable except where a member holds a `URI::Generic`).
+(the wire model is Ractor-shareable except where a member holds a `URI::Generic`). [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 
 One audit group from the skill's table was run in full here, **Encoding and binary strings** — `--prefix IO
 --section rules --brief`, then `--topic io-and-byte-streams,serde --section rules --brief` narrowed by

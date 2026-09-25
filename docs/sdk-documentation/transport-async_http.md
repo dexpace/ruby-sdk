@@ -383,8 +383,9 @@ server.requests                                              # => []
 
 ## Lenient inbound mapping, and the two clauses it waives
 
-A vendor status inside `100`–`599` maps with its body readable (`TRANSPORT-24`); an HTTP/2 head maps
-to the model's `http/2`. A header whose **value** carries a control byte is dropped alone and logged
+A vendor status maps with its body readable (`TRANSPORT-24`) — inside `100`–`599` or outside it, a
+`999` included, because `Status` is total over every Integer (`HTTP-10`) and `#standard?` is the range
+test; an HTTP/2 head maps to the model's `http/2` and an HTTP/1.0 head to `http/1.0` (`HTTP-33`). A header whose **value** carries a control byte is dropped alone and logged
 at verbose while obs-text is preserved and a repeated `Set-Cookie` survives as two values
 (`TRANSPORT-14`'s value clauses); a malformed `Content-Type` downgrades to no media type
 (`TRANSPORT-27`'s media-type clause); an absent native length is the `-1` sentinel. Two clauses are

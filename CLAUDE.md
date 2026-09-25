@@ -13,12 +13,14 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b, 8c and 9 are built — the whole of
+**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b, 8c, 9 and 10 are built — the whole of
 phase 6, the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
 order, 7a last (umbrella #25 closes by hand), and the whole of phase 8, whose three sub-phases were built
 8a first, off the same base as phase 7's and reconciled onto the tree that holds all three, then 8b and 8c
 concurrently off the tree that holds 8a, 8c landing second, and phase 9, the audit phase, which ships no
-`lib/` code outside `dexpace-conformance` and repairs nothing it finds; the domain model, the seam layer, the
+`lib/` code outside `dexpace-conformance` and repairs nothing it finds, and phase 10, the reconciliation
+phase, which repairs what phase 9 and every earlier review found, flips `docs/deviations.md` and adds no new
+layer; the domain model, the seam layer, the
 byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
 configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry layer,
 the authentication layer, the redirect layer, the server-sent-events layer, the pagination layer, the
@@ -255,11 +257,13 @@ the synchronous transport is the first thing here that talks to a socket, and th
 on the async path — the two meet in `dexpace-async-thread`'s composed suite over a real socket. Both
 transports talk to a socket; the async one needs a running reactor on the calling thread and creates none. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
-the twenty-one blocking gates — phase 0's seventeen
+the twenty-four blocking gates — phase 0's seventeen
 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`), phase 7b's
-`gates:serde_boundary` and phase 9's three repository-wide invariant scans, `gates:cause_walk`,
+`gates:serde_boundary`, phase 9's three repository-wide invariant scans, `gates:cause_walk`,
 `gates:bounded_map` and `gates:seam_names`, over one `RubyVM::AbstractSyntaxTree` walker in
-`tools/ast_scan.rb`.
+`tools/ast_scan.rb`, and phase 10's three, `gates:ledger_audit` (`docs/deviations.md` against design §10),
+`gates:spdx_rbs` (the SPDX header on every shipped `.rbs`) and `gates:sole_parse` (`AstScan.parse` is the
+one `parse_file`).
 Beyond that, what exists is the specification, the port design, the process tooling and the register,
 `docs/deviations.md`. Ruby **>= 3.2** is the floor (`required_ruby_version` in every gemspec but one, asserted by
 `gates:versions`; `dexpace-transport-async_http` alone declares **>= 3.3**, read from `VERSIONS`' per-gem
@@ -302,8 +306,8 @@ makes an older Bundler try to install Bundler 4.
 
 ```bash
 bundle install
-bundle exec rake                                  # the default task: all twenty-one gates, in order (NFR-17)
-bundle exec rake gates:list                       # the twenty-one names, in the order CI and `rake` both use
+bundle exec rake                                  # the default task: all twenty-four gates, in order (NFR-17)
+bundle exec rake gates:list                       # the twenty-four names, in the order CI and `rake` both use
 bundle exec rake rubocop                          # NFR-7, findings fatal, no autocorrection
 bundle exec rake rubocop:fix                      # safe autocorrections only, never the gate
 bundle exec rake cops:test                        # the custom cops' own suite (.rubocop/test/)
@@ -316,6 +320,9 @@ bundle exec rake gates:serde_boundary             # SSE-37, spec-forced boundary
 bundle exec rake gates:cause_walk                 # XCUT-9: Dexpace.each_cause is the only walk of a cause chain
 bundle exec rake gates:bounded_map                # XCUT-14: only Dexpace::BoundedMap holds a caller-keyed map
 bundle exec rake gates:seam_names                 # SEAM-2: core never names a concrete seam implementation
+bundle exec rake gates:ledger_audit               # NFR-17: docs/deviations.md still describes design §10
+bundle exec rake gates:spdx_rbs                   # NFR-13, NFR-3: every shipped .rbs has the header and declares something
+bundle exec rake gates:sole_parse                 # NFR-6: AstScan.parse is the one RubyVM::AbstractSyntaxTree.parse_file
 bundle exec rake gates:clean_bundle               # the scratch-Gemfile isolation run, all six gems
 bundle exec rake gates:rbs_surface                # NFR-11
 bundle exec rake gates:sig_diff                   # NFR-4, RBS half (vacuous until the first v* tag)
@@ -338,7 +345,7 @@ than a subprocess and a message lives in `tools/` — `gates:clean_bundle` and `
 The process tooling has its own commands and its own tests:
 
 ```bash
-ruby .claude/skills/housekeeping/probe.rb                   # read-only documentation drift. Eight checks.
+ruby .claude/skills/housekeeping/probe.rb                   # read-only documentation drift. Nine checks.
 ruby .claude/skills/housekeeping/probe.rb --only claims,links
 ruby .claude/skills/housekeeping/apply.rb                   # dry run: prints the git mv commands
 ruby .claude/skills/housekeeping/apply.rb --delivery mvp --phase 5a --write
@@ -364,7 +371,9 @@ ruby -w .claude/skills/housekeeping/test/run.rb -n /guard/   # Minitest flags pa
 ```
 
 `scripts/` and `.claude/` are outside the RuboCop gate — `NFR-7`'s one documented exception, with its re-enable
-condition in `.rubocop.yml` and its repair on phase 10's inbound list in the roadmap.
+condition in `.rubocop.yml` and its repair a post-release trigger in `docs/first-release.md` (phase 10's file
+list did not reach either tree). The `rubocop` gate runs with `--ignore-parent-exclusion`, so a worktree nested
+under a checkout whose `.rubocop.yml` excludes `.claude/**` is still linted (phase 10's repairs).
 
 The gate table is `docs/sdk-design-ruby/09-toolchain-and-quality-gates.md`: RuboCop (`rubocop-minitest`,
 `rubocop-performance`, findings fatal), `ruby -w` plus `RUBYOPT=-W:deprecated` with warnings failing the build,
@@ -444,7 +453,9 @@ that lands inside after normalisation, an absolute path, and a symlink whose tar
 **Where a finding goes.** Nothing is registered and looked up later. A finding is **routed to its owner when
 it is found**, and there are four owners. Work that falls inside a phase's scope → a numbered task in that
 phase's plan, cited by path and task number. Audit-or-repair work against a phase that is already planned →
-phase 10's inbound list in `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md`. Anything that belongs to
+phase 10's inbound list in `docs/work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md` — until phase 10 drained it
+on 2026-09-25; phase 10 is the roadmap's last phase, so such work found now takes the release owner below, the
+way phase 10's own unrepaired residues did. Anything that belongs to
 the release — a blocker, something v1 ships without, a step on the release path, a post-release trigger →
 `docs/first-release.md`. And if the thing it reports is in material you may write, it is not a finding at all:
 fix it. Something consciously postponed while building the SDK takes the first or the third of those, and the
@@ -541,9 +552,11 @@ invariants no tool catches.
   `Ractor.make_shareable` deep-freezes but **freezes in place and returns the same object**, so it is applied
   only to a collection the model has already `dup`ed and therefore owns — never to a caller's live hash.
 - **`private_class_method :new` plus a validating `.build`**, and the gap stated honestly (P8): `Req.send(:new,
-  …)` reaches the generated constructor anyway, because `send` bypassing `private` is a documented Ruby feature;
-  and any object responding to `#method`/`#url`/`#headers`/`#body` duck-types past the builder entirely. Neither
-  hole can be closed. Do not build a fake proof that they are.
+  …)` bypasses `.build` because `send` bypassing `private` is a documented Ruby feature — but not validation,
+  because every model's `#initialize` override validates and calls `super`; what stays open is `.allocate`,
+  which yields an instance whose members are all nil, and any object responding to
+  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (phase 10's amendment `C19`).
+  Neither hole can be closed. Do not build a fake proof that they are.
 - **The mitigation that matters is wire-boundary re-validation.** Header name and outbound value validation
   (`HTTP-17`, `HTTP-18`, `XCUT-18`) runs **again** immediately before dispatch, inside every transport adapter,
   so a forged model cannot smuggle a CRLF into a header name even if it never met a builder. That makes the
@@ -620,8 +633,9 @@ Each is one line plus the chapter to read before touching the area.
   charset through `MediaType#charset` (already `nil` for absent or unknown), **retag** the BINARY bytes with
   3a's `#read_string(encoding)`, then transcode with the target **named**,
   `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1's one-step sentence mangles every
-  non-ASCII byte and a target-less `#encode` follows the host's `Encoding.default_internal`; the sentence is on
-  phase 10's inbound list, and the suite's hostile-global tests are what catch a revert (phase 3b's Task 8).
+  non-ASCII byte and a target-less `#encode` follows the host's `Encoding.default_internal`; the sentence's
+  correction is amendment `C1` in `docs/deviations.md`'s amendment set, and the suite's hostile-global tests
+  are what catch a revert (phase 3b's Task 8).
 - **A body closes exactly the sources it opened, and `close: true` at `Body.stream` forces single-use** —
   the body layer's ownership rule (design §10.12, `BODY-8`) is deliberately not the I/O layer's
   wrapping-takes-ownership rule (`IO-6`); a body that closes its stream cannot rewind it, so
@@ -988,10 +1002,11 @@ Each is one line plus the chapter to read before touching the area.
 - **After a mid-stream failure, `BufferedSource.over`'s enumerator RESTARTS `#each`** — `Enumerator#next` on
   a fiber that died by exception starts over, so a second `#getbyte` re-delivers the body's first byte
   rather than nil or a second raise, on every row; the SSE facade never gets there because it closed itself
-  first, and a bare `Reader` driven again after a raise would (phase 3a's residue, on phase 10's inbound
-  list). And the per-byte read path costs ~0.9 µs a byte through `BufferedSource#getbyte` — a mutex
+  first, and a bare `Reader` driven again after a raise would (phase 3a's residue, moved by phase 10 to
+  `docs/first-release.md`). And the per-byte read path costs ~0.9 µs a byte through `BufferedSource#getbyte` — a mutex
   acquisition and a one-byte String per call — against ~0.3 µs through a plain duck, which is why the
-  at-scale cap tests run over `FakeByteSource` and why the bulk path is a phase-10 item.
+  at-scale cap tests run over `FakeByteSource` and why a bulk path is a post-release trigger in
+  `docs/first-release.md`.
 - **A bare `ensure` that closes a page INVERTS `PAGE-13`/`PAGE-32`'s primary, and `$!` cannot repair it** —
   a close raised from an `ensure` replaces the in-flight consumer error as the primary (its `#cause`),
   and `$!` is thread-dynamically scoped, so it is a CALLER's unrelated error inside anything called from
@@ -1198,7 +1213,7 @@ Each is one line plus the chapter to read before touching the area.
   it, `Numeric`'s own protocol — because a NaN answers false to both `negative?` and `zero?`, and one that
   reached the timer's deadline-ordered list killed its thread and turned every later `#delay` into a bare
   `ArgumentError`, while a NaN budget raised one out of `#close` with the latch flipped (P8-77; core's
-  `Async.validate_delay` and `Clock::Guard.duration` share the hole and are phase 10's). Phase 2's
+  `Async.validate_delay` and `Clock::Guard.duration` shared the hole and phase 10 closed it the same way). Phase 2's
   `Bridge::AsyncOver` checks the token BEFORE dispatch as well as after, so a task cancelled while queued
   never reaches the transport — every "window" test gates on the double's `entered` queue before
   cancelling, or it is red three runs in twelve.
@@ -1231,6 +1246,13 @@ Each is one line plus the chapter to read before touching the area.
   second `class MatrixFactsTest` in an adapter gem aborts the whole run at load with "is not a module";
   the pool gem's is `PoolMatrixFactsTest` and its doubles `PoolFakeTransport`, `PoolRecordingSink`,
   `PoolStubClock` and `PoolProbeScheduler` (8a's checklist item 35, widened by 8b).
+- **`docs/deviations.md` is a gate input, not only a register** — `gates:ledger_audit` reads it against
+  design §10 on every `rake`: row N's `IDs touched` must EQUAL the IDs §10 entry N names (a range
+  expanded), and a row carrying a verdict must cite a `gems/…` path that exists and name only
+  `Dexpace::` constants that resolve with core and every floor-admitted adapter loaded — so renaming a
+  constant or moving a file a verdict cites turns the gate red, and a verdict citing only `docs/…` never
+  passes (phase 10's `P10-2`, `P10-33`). A shipped `.rbs` likewise opens with the SPDX line on line 1
+  and declares something (`gates:spdx_rbs`); an `.rbs` file with only comments is an offence.
 
 ## Public API surface
 
@@ -1286,7 +1308,8 @@ all three read the corpus first.
    path or the post-release triggers — and the phase document records the reason and the pick-up condition
    beside that pointer. A finding the phase is not acting on is not registered either: it goes to the plan task
    whose scope it falls in, to phase 10's inbound list in the roadmap when it is audit-or-repair work against an
-   already-planned phase, or to `docs/first-release.md` when it belongs to the release — and when it is in
+   already-planned phase (drained by phase 10; after it, `docs/first-release.md`), or to `docs/first-release.md`
+   when it belongs to the release — and when it is in
    material the phase may write, it is simply fixed. **Never leave an aggregate register section inside the spec
    or the plan.**
 7. **Housekeeping before handover.** Run the probe, fix what it reports, then apply.
@@ -1306,8 +1329,9 @@ ruby .claude/skills/housekeeping/apply.rb --delivery mvp --phase 5a --write
 ```
 
 The probe derives each repository fact **once, from the repository**, then checks every document that states it
-against that one derivation — never one document against another. Eight checks: `inbox`, `root`, `claims`,
-`readmes`, `links`, `registers`, `citations`, `guard`. Exit code is 1 when anything is found.
+against that one derivation — never one document against another. Nine checks: `inbox`, `root`, `claims`,
+`readmes`, `links`, `registers`, `citations`, `guard`, `chapters` — the last, phase 10's, a requirement ID
+attributed to a `docs/product-spec/` chapter that does not carry it. Exit code is 1 when anything is found.
 
 The apply stage does exactly one thing: `git mv` from the inbox into `docs/work/`, so `git log --follow`
 resolves each file across the move. It refuses the **whole batch** if any source or target is under a frozen
@@ -1379,7 +1403,7 @@ probe compares each against the live tree, and a count written anywhere else in 
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
   `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  twenty-one checklists written so far, each at implementation; `phase4/`
+  twenty-two checklists written so far, each at implementation; `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1433,30 +1457,36 @@ probe compares each against the live tree, and a count written anywhere else in 
   phase 9's own suites, `B.3`, `B.4`, `B.6` and `B.7` are lifted, extended or driven, and `B.1`,
   `B.2` and `B.5` are dispositioned by reference to the owning phase's suite with a committed
   61-row coverage map as the artifact. Phase 9 reports and phase 10 repairs.
-  `phase10/` likewise carries **no segmentation design and no sub-phase** — its design and plan sit
-  directly at `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`
-  and `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md`.
+  `phase10/` likewise carries **no segmentation design and no sub-phase** — its design, plan and checklist sit
+  directly at `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-design.md`,
+  `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness.md` and
+  `docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-checklist.md`,
+  the last written at implementation on 2026-09-25.
   Its scope is the largest in the roadmap by ID count and its design argues that the ID is the wrong
   unit: **124 own rows** — every ID design §10's nineteen entries name, plus `RETRY-28` from its
   closing note, 108 MUST / 15 SHOULD / 1 MAY — of which **fifty-one come from §10.1 alone**, whose
   retirement of the byte-stream provider seam names `SEAM-3`–`SEAM-10`, all forty-two `IO` IDs and
-  `XCUT-23` in one argument. Counted by ledger entry the phase is 19 entries plus a closing note plus
-  32 inbound bullets — **52 units**, the same order as phase 1's 42 unsegmented rows — and it ships
+  `XCUT-23` in one argument. Counted by ledger entry the phase was designed at 19 entries plus a closing note
+  plus 32 inbound bullets — **52 units** (the list had grown to sixty-five bullets by implementation), the same order as phase 1's 42 unsegmented rows — and it ships
   **no new gem**, so only one of the segmentation rule's three triggers fires. It carries **64
   cross-reference rows** beside the 124, one per ID an inbound bullet touches or a phase-10 repair reaches
-  whose row belongs to an earlier phase, for 188 in all. It is the phase that flips all nineteen rows of `docs/deviations.md`
+  whose row belongs to an earlier phase, for 188 in all; its checklist carries seventeen more cross-reference
+  rows the as-built list reached, for 205. It is the phase that flips all nineteen rows of `docs/deviations.md`
   from `design only — not yet built`, by the method the roadmap fixes for it — **re-deriving every
-  claim from as-built source, never from another document** — and the phase that writes the thirteen
-  frozen-chapter amendments `C1`–`C13` out, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
+  claim from as-built source, never from another document** — and the phase that writes the
+  frozen-chapter amendments out, the design's thirteen `C1`–`C13`, `C14` reconciled from phase 4b's filing
+  and five the as-built audit found, `C15`–`C19`, in `docs/deviations.md`'s amendment set, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
   frozen and only a human may apply them. It ships repair code in `dexpace-core`,
   `dexpace-transport-async_http` and `dexpace-conformance`, reaches
-  `dexpace-transport-net_http` only through the `sig/` header its `NFR-13` repair adds to every gem,
-  plans three further blocking gates (`gates:ledger_audit`, `gates:spdx_rbs`,
-  `gates:sole_parse`) and a ninth probe check for chapter attribution — none of the four built yet —
-  and closes or narrows five `docs/first-release.md` lines while publishing nothing: every gem stays
-  at `0.0.0`.
+  `dexpace-transport-net_http` through the `sig/` header its `NFR-13` repair adds to every gem, two YARD
+  comments in its `lib/` and two tests the `Protocol` repair invalidated, per its design's R1 addendum,
+  builds three further blocking gates (`gates:ledger_audit`, `gates:spdx_rbs`,
+  `gates:sole_parse`) and a ninth probe check for chapter attribution, dispositions every one of the
+  inbound list's sixty-five bullets (repaired, verified already fixed, moved to `docs/first-release.md`,
+  or withdrawn — none carried forward), and closes or narrows `docs/first-release.md` lines while
+  publishing nothing: every gem stays at `0.0.0`.
   Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
   phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's, phase 7a's, phase 8a's, phase 8b's, phase 8c's and phase 9's is still to be written at
-  execution time — which leaves phase 10's alone.
+  phase 7c's, phase 7a's, phase 8a's, phase 8b's, phase 8c's, phase 9's and phase 10's is still to be
+  written at execution time — which leaves none: every phase of the v1 roadmap has its checklist.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.

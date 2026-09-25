@@ -1830,12 +1830,21 @@ place; the name `@by_origin` was itself wrong on the tree, so the example reads 
 bullet's own correction is read beside it. The rule the paragraph states — a sentence in a plan is not evidence
 the work was done — is what the discharge confirms, and it stands.]
 
+**2026-09-25 — phase 10 executed, and this list is empty by disposition.** The head note above counts
+"all thirty-two"; the list reached **sixty-five** bullets, thirty-three of them added after phase 10's design
+and never in its disposition table. Every one of the sixty-five now carries a dated bracket naming its
+disposition -- repaired here with its test, verified already fixed with the evidence, moved to a named
+`docs/first-release.md` line, or withdrawn -- and
+[`phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-checklist.md`](./phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-checklist.md)'s
+inbound table holds the same sixty-five by date and content. Nothing is carried forward: phase 10 is the last
+phase, and nothing is appended to this list after it.
+
 **From the reconciliation.**
 
 - **The audit of the §10.5 ledger** — cross-cutting constraint 8: `ASYNC-3` and `PIPE-33`'s interrupt clause
   unsatisfied, `ASYNC-4` vacuous, and the trade not re-opened (`docs/first-release.md` § What v1 ships without
   › Unsatisfied MUSTs, which since 2026-09-13 also names `CFG-20`'s cancel-with-interrupt clause as the same
-  unmet clause under a second ID).
+  unmet clause under a second ID). [2026-09-25, phase 10 -- moved to `docs/first-release.md`: §10.5 audited, not re-opened: `docs/deviations.md` row 5 carries the verdict with `ASYNC-3` waived-would-fail in the pool's driver; the gap stays `docs/first-release.md` § Unsatisfied MUSTs. Row 1 of the inbound table in phase 10's checklist.]
 - **`OBS-29`'s surface decision, which is three findings and one decision.** Its two residual halves — the
   operation-lifecycle triple and the transport-milestone group — are **one surface decision**: a
   `PRE_REDIRECT`-adjacent step and/or a deliberate `RequestOptions` widening. *(a) The triple cannot be emitted
@@ -1879,7 +1888,7 @@ the work was done — is what the discharge confirms, and it stands.]
   a shared stateless `NO_TRACER` satisfies both MUSTs — and says nothing about a recording one. **What is
   owed:** the surface decision, and with it the cross-reference that makes the two factories two.
   Touches `CTX-14`, `CTX-20`, `OBS-25`, `OBS-28`, `OBS-29`, `PIPE-2`, `PIPE-11`, `PIPE-37`, `SEAM-11`,
-  `SEAM-16`, `NFR-4`.
+  `SEAM-16`, `NFR-4`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: decided with no surface (`R6`): `OBS-29`'s own follow-up clause; `Bundle#tracer_factory`'s YARD now says it is CTX-14's span-tracer factory and not OBS-29's, pinned by `http_tracer_test.rb`; the unwired groups are a *Behavioural asymmetries* entry. Row 2 of the inbound table in phase 10's checklist.]
 - **The probe's "this ID is stated in chapter X" claim check, which is not built.** Measured 2026-09-13,
   during the register retirement: the `links` check now catches a backticked normative chapter path that does
   not resolve (`Links#span_findings`, built the same day), but the second half — a document asserting that a
@@ -1889,15 +1898,15 @@ the work was done — is what the discharge confirms, and it stands.]
   rule, and most of those are not claims at all** — a chapter and an unrelated ID that merely share a line, and
   appendix C, which carries every ID and so can never be wrong about one. **The job:** a claim grammar ("read
   out of X", "stated in X", an `X §N` adjacency), a vocabulary for ranges and placeholders, and an appendix-C
-  special case, tuned against those roughly forty live candidates before it is allowed to gate anything.
+  special case, tuned against those roughly forty live candidates before it is allowed to gate anything. [2026-09-25, phase 10 -- repaired: built as the probe's ninth check, `chapters` (`.claude/skills/housekeeping/chapters.rb`, `test/chapters_test.rb`); two live true positives fixed in the phase-8 segmentation design. Row 3 of the inbound table in phase 10's checklist.]
 - **The judgement whether the thread-only `XCUT-12` form phase 9 ships in Tasks 7–8 suffices**, with
   `dexpace-async-async`'s reactor adapter as the fallback trigger and `docs/first-release.md` § Post-release
-  triggers as the fallback home.
+  triggers as the fallback home. [2026-09-25, phase 10 -- verified already fixed: judged and verified: the fiber form passes on the untouched tree (no deadlock), now asserted in `fiber_single_flight_test.rb`; the fallback trigger is closed. Row 4 of the inbound table in phase 10's checklist.]
 
 **From phase 9's own hand-offs.**
 
 - **The repairs of every audit phase 9 reports `:failed`**, each earning, for a MUST, a `docs/first-release.md`
-  blocker (`P9-6`).
+  blocker (`P9-6`). [2026-09-25, phase 10 -- verified already fixed: the one `:failed` (`NFR-13`) is repaired by Task 5; `ASYNC-3`'s waiver stands per §10.5; no other `:failed` exists. Row 5 of the inbound table in phase 10's checklist.]
 - **`dexpace-transport-async_http`'s `Clients#@by_origin` is an uncapped per-origin client cache, which
   `XCUT-14` (MUST) forbids.** `gems/dexpace-transport-async_http/lib/dexpace/transport/async_http/clients.rb`
   (8c plan:1683-1756, the ivar at 1715) is a plain `Hash` behind a `Thread::Mutex`, keyed by
@@ -1942,7 +1951,7 @@ the work was done — is what the discharge confirms, and it stands.]
   **verified false positive of the scan** and never as a silenced defect: the scan sees a Hash assigned to an
   instance variable and cannot see a cap, and the reason recorded beside the entry is the reading of the
   file. The `docs/first-release.md` blocker is ticked and closed 2026-09-23, `XCUT-14`'s checklist row is ✅,
-  and **no phase-10 repair is owed** — the fix this bullet specifies had already landed with `8c`.]
+  and **no phase-10 repair is owed** — the fix this bullet specifies had already landed with `8c`.] [2026-09-25, phase 10 -- verified already fixed: already closed by phase 9 (green `gates:bounded_map`, 2026-09-23); the allowlist reason now cites `clients_test.rb`'s three `XCUT-14` cases. Row 6 of the inbound table in phase 10's checklist.]
 - **~~8a's `Adapter#dispatch` leaves its rescue variable unused~~ — first half CLOSED 2026-09-13 — and every
   repository tool that parses a filed source carries the same exposure.** As filed, this bullet reported that
   `docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance.md:4858`
@@ -1964,7 +1973,7 @@ the work was done — is what the discharge confirms, and it stands.]
   no gate asserts that `AstScan.parse` is the only caller of `parse_file` in the repository. Phase 9's own
   exposure is closed (`AstScan.parse` opens a `$VERBOSE = nil` window restored in `ensure`, phase 9
   plan:4285-4292, with Task 13's test at 4219-4227). **What would close the general case:** a check asserting
-  sole use of `AstScan.parse`, or a shared parse helper the gates cannot bypass. Touches `NFR-6`, `NFR-17`.
+  sole use of `AstScan.parse`, or a shared parse helper the gates cannot bypass. Touches `NFR-6`, `NFR-17`. [2026-09-25, phase 10 -- repaired: the general half built as `gates:sole_parse` (`tools/sole_parse.rb`, `test/gates/sole_parse_test.rb`). Row 7 of the inbound table in phase 10's checklist.]
 - **`NFR-13`'s SPDX gate is a RuboCop cop, so it cannot reach `sig/**/*.rbs`, which ships inside every gem.**
   `NFR-13` (SHOULD) is "Every source file SHOULD carry the project's license/SPDX header block" and its
   conformance clause is "scan **all source files** for the required header"; phase 0 mechanises it as
@@ -1978,10 +1987,10 @@ the work was done — is what the discharge confirms, and it stands.]
   small Rake gate over `sig/**/*.rbs` beside the cop — the same three-line assertion over a different glob — or
   a deliberate, stated decision that `NFR-13` covers `lib/` only, put somewhere a reader will find it rather
   than left as the silent consequence of the mechanism phase 0 chose. Phase 9 records the gap in `NFR-13`'s
-  disposition row rather than closing it, per its `P9-6`. Touches `NFR-13`, `NFR-3`, `NFR-17`.
+  disposition row rather than closing it, per its `P9-6`. Touches `NFR-13`, `NFR-3`, `NFR-17`. [2026-09-25, phase 10 -- repaired: the SPDX header on all 307 shipped `.rbs` files plus `gates:spdx_rbs`; `packaging_suite_test.rb`'s `NFR-13` pin flipped to `:passed`. Row 8 of the inbound table in phase 10's checklist.]
 - **The `PAGE-15`/`P7-1` and §10.5 attribution notes in `docs/deviations.md`**, to fold into design §10 —
-  joined on 2026-09-13 by the seven interim notes the frozen-chapter corrections below carry.
-- **Any `gates:bounded_map` that runs red.**
+  joined on 2026-09-13 by the seven interim notes the frozen-chapter corrections below carry. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: written out as amendments `C12` and `C13` in `docs/deviations.md`; applying them is the frozen-chapter blocker's. Row 9 of the inbound table in phase 10's checklist.]
+- **Any `gates:bounded_map` that runs red.** [2026-09-25, phase 10 -- verified already fixed: every run green (`gates:bounded_map`, phase 10's tips). Row 10 of the inbound table in phase 10's checklist.]
 
 **Frozen-chapter corrections.** Each is a sentence in a chapter this repository may not edit; in every case
 the phase that found it shipped the code half already, and what is owed is the corrected sentence the next
@@ -2012,7 +2021,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   **or** unknown-to-this-Ruby charset, so `HTTP-42`'s fallback needs no second validation and `Encoding.find`
   cannot raise), and `docs/knowledge/notes/io-and-byte-streams.md` overrides `io-and-byte-streams/fbcb4d19` so
   the next reader does not repeat the recipe. Not a deviation from the reference contract — `HTTP-42` is
-  satisfied exactly. Interim note in `docs/deviations.md`. Touches `HTTP-42`, `HTTP-24`, `IO-13`, `BODY-16`.
+  satisfied exactly. Interim note in `docs/deviations.md`. Touches `HTTP-42`, `HTTP-24`, `IO-13`, `BODY-16`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C1`, written out; the blocker. Row 11 of the inbound table in phase 10's checklist.]
 - **§4's builder list drops the multipart body, which `HTTP-3` names.**
   `docs/sdk-design-ruby/04-domain-model-construction.md` §4 quotes `HTTP-3`'s own split and then restates the
   builder side as "`Request`, `Response`, `Headers`, `Query`, `RequestOptions` and `Configuration` get real
@@ -2029,7 +2038,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   (its plan, Task 7), and carries `HTTP-3` as a cross-reference row while phase 1 keeps the ID. **The
   addition owed:** the multipart body named in §4's builder sentence. Not a deviation — the port satisfies
   `HTTP-3` in full once 3b lands; only the design's restatement of the requirement is short. Touches
-  `HTTP-3`, `HTTP-51`, `BODY-2`.
+  `HTTP-3`, `HTTP-51`, `BODY-2`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C2`, written out; the blocker. Row 12 of the inbound table in phase 10's checklist.]
 - **§3.1's ownership sentence and §10.12 attribute `IO-6`'s rule to the retired `SEAM-3`.**
   `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.1's "Two ownership rules, deliberately
   different" paragraph reads "At the I/O layer, wrapping takes ownership: closing a `BufferedSource` built over
@@ -2045,7 +2054,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   statement:** §3.1's ownership sentence and §10.12 cite `IO-6` rather than, or alongside, `SEAM-3`. **Code
   half:** 3a reads `IO-6` out of appendix C and implements ownership-on-wrap, and the gap paragraph above now
   names appendix C as its source. The corpus repeats the attribution at `message-bodies/8a1e7a7b`, where a note
-  under `docs/knowledge/notes/message-bodies.md` marks it. Touches `IO-6`, `IO-16`, `SEAM-3`, `BODY-8`.
+  under `docs/knowledge/notes/message-bodies.md` marks it. Touches `IO-6`, `IO-16`, `SEAM-3`, `BODY-8`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C3`, written out; `IO-6` audited on its own row (ownership-on-wrap measured). Row 13 of the inbound table in phase 10's checklist.]
 - **§8.1 names `Event#tag(key, value)` and no requirement in chapter 15 does.**
   `docs/sdk-design-ruby/08-instrumentation-and-configuration.md` §8.1 fixes the event object's surface in a
   code block — `#field(key, value)`, `#tag(key, value)`, `#event(name)`, `#cause(error)`, `#emit`. Four are
@@ -2063,7 +2072,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   relative to `OBS-5`'s three sources, or the line goes. **Code half:** phase 5b ships `#field`, `#event`,
   `#cause` and `#emit` and not `#tag`, recorded as deviation `P5-18` — and not shipping it costs nothing
   before the first release, because adding a method widens. Interim note in `docs/deviations.md`. Touches
-  `OBS-4`, `OBS-5`, `OBS-8`, `NFR-4`.
+  `OBS-4`, `OBS-5`, `OBS-8`, `NFR-4`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C4`, written out; the blocker. Row 14 of the inbound table in phase 10's checklist.]
 - **§3.2's block-scoped `read_body` construction cannot satisfy the two requirements it says it satisfies
   "literally".** `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md:167-171` reads: "Streaming is
   preserved end to end: `dexpace-transport-net_http` issues the request inside
@@ -2085,7 +2094,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   have its body read on the caller's thread, and `TRANSPORT-29`'s "confined to the returned response graph"
   would narrow to "confined to one thread"; the abandoned-`Fiber` `ensure` is real and is *not* what decides
   it. Interim note in `docs/deviations.md`. Touches `SEAM-11`, `TRANSPORT-25`, `TRANSPORT-19`, `TRANSPORT-29`,
-  `IO-41`, `BODY-15`, `HTTP-43`.
+  `IO-41`, `BODY-15`, `HTTP-43`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C5`, written out; the blocker. Row 15 of the inbound table in phase 10's checklist.]
 - **`Net::HTTP` has a built-in automatic retry that is on by default, and §3.2, §11.18 and §12 all record that
   it has none.** §3.2 says "The reference transport disables nothing for **TRANSPORT-1**/**TRANSPORT-2**
   because `Net::HTTP` follows no redirects and retries nothing on its own — those two requirements are vacuous
@@ -2112,7 +2121,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   statement:** §12's `TRANSPORT` row and its MUST-level count stop recording `TRANSPORT-2` as vacuous for this
   adapter, and §3.2's and §11.18's sentences follow. **Code half:** one line, `http.max_retries = 0`, which
   phase 8a writes, its checklist stating the corrected reason. Interim note in `docs/deviations.md`. Touches
-  `TRANSPORT-2`, `TRANSPORT-3`, `TRANSPORT-17`, `TRANSPORT-18`, `RETRY-13`, `PIPE-2`, `XCUT-4`.
+  `TRANSPORT-2`, `TRANSPORT-3`, `TRANSPORT-17`, `TRANSPORT-18`, `RETRY-13`, `PIPE-2`, `XCUT-4`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C6`, written out; the blocker. Row 16 of the inbound table in phase 10's checklist.]
 - **`TRANSPORT-14`'s malformed-inbound-header-*name* clause is unreachable on
   `dexpace-transport-async_http`, and §12 records `TRANSPORT-14` as satisfied without qualification.**
   `TRANSPORT-14` (MUST): "Inbound response headers MUST be copied leniently enough that a single malformed
@@ -2132,7 +2141,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   statement:** §12's `TRANSPORT` row gains `TRANSPORT-14` to its adapter-scoped list. **Code half:** phase 8c
   records deviation `P8-38` and the conformance run carries a **named waiver listing `TRANSPORT-14`** per
   §9.3's mechanism, so the gap is reported rather than restated. Interim note in `docs/deviations.md`. Touches
-  `TRANSPORT-14`, `XCUT-18`, `HTTP-17`, `NFR-8`.
+  `TRANSPORT-14`, `XCUT-18`, `HTTP-17`, `NFR-8`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C7` (first direction), written out; the waiver re-measured green by `conformance_test.rb`. Row 17 of the inbound table in phase 10's checklist.]
 - **`TRANSPORT-8` is satisfiable on `dexpace-transport-async_http`, and §12 counts it among the eight MUSTs
   that hold vacuously — the inverse direction, and equally a defect.**
   `docs/sdk-design-ruby/12-appendix-requirement-coverage-index.md:41` lists "TRANSPORT-1, TRANSPORT-2,
@@ -2153,7 +2162,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   **The correct statement:** §12's `TRANSPORT` row and its MUST-level count record `TRANSPORT-8` as satisfied
   on the async adapter. **Code half:** phase 8c implements and asserts the discrimination, its checklist row
   stating it. Interim note in `docs/deviations.md`. Touches `TRANSPORT-8`, `TRANSPORT-3`, `TRANSPORT-4`,
-  `XCUT-2`, `ASYNC-6`, `NFR-8`.
+  `XCUT-2`, `ASYNC-6`, `NFR-8`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C7` (second direction), written out. Row 18 of the inbound table in phase 10's checklist.]
 - **§8.3's prohibition is absolute and `net-http`'s connect phase uses `Timeout.timeout`, which the cop that
   enforces the ban cannot see.** `/usr/lib/ruby/3.4.0/net/http.rb:1657` is
   `s = Timeout.timeout(@open_timeout, Net::OpenTimeout) { TCPSocket.open(conn_addr, conn_port, @local_host, @local_port) }`.
@@ -2168,7 +2177,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   find nothing, and because the same question is owed of `async-http`'s dependency closure. **The correct
   statement:** §8.3 gains one clause scoping the prohibition to code this repository writes. **Code half:**
   none is owed — the cop and the ban stand as written. Touches `ASYNC-3`, `PIPE-33`, `XCUT-13`,
-  `TRANSPORT-4`, `NFR-2`.
+  `TRANSPORT-4`, `NFR-2`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C8`, written out with the per-row measurement (net-http 0.9.1 carries both the `Timeout.timeout` connect and `TCPSocket.open(open_timeout:)`). Row 19 of the inbound table in phase 10's checklist.]
 - **Phase 5a's exclusions table hands proxy use to phase 8 under two requirement IDs that are about
   something else, and it is the second document to make that substitution** *(added 2026-09-13, phase 8a
   review)*. The row reads "`TRANSPORT-3`, `TRANSPORT-8` — proxy *use* and header-drop reporting on a real
@@ -2187,7 +2196,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   already owned** — phase 8a's `R17` and its plan Task 19b implement proxy use, wire
   `Dexpace::Proxy.resolve` into the per-call client and disposition `TRANSPORT-30`, so nothing waits on
   this row; what is wrong is only the pointer a later audit would follow. Touches `TRANSPORT-3`,
-  `TRANSPORT-8`, `TRANSPORT-13`, `TRANSPORT-30`, `CFG-22`–`CFG-28`, `OBS-19`.
+  `TRANSPORT-8`, `TRANSPORT-13`, `TRANSPORT-30`, `CFG-22`–`CFG-28`, `OBS-19`. [2026-09-25, phase 10 -- verified already fixed: fixed in place on 2026-09-13 by phase 10's planning; re-read 2026-09-25. Row 20 of the inbound table in phase 10's checklist.]
 - **§9.3 calls Minitest a default gem; it is a bundled gem, and §2.4 is built on exactly that
   distinction.** §9.3's argument for choosing Minitest over RSpec is that "**it ships with the interpreter as
   a default gem**, so the same argument §2.4 makes about `base64` and `logger` applies to the test
@@ -2201,7 +2210,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   drivers reference `::Minitest` and `::RSpec` at call time and `require` neither. **The correct statement:**
   §9.3 calls Minitest a bundled gem and draws the same conclusion from it. **Code half:** phase 0's plan
   Task 2 carries the root `Gemfile`'s explicit `minitest` line — and, since 2026-09-13, its `~> 5.25` pin,
-  which the Minitest-6 measurement forced. Touches `NFR-2`, `NFR-17`, `SEAM-1`.
+  which the Minitest-6 measurement forced. Touches `NFR-2`, `NFR-17`, `SEAM-1`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C9`, written out. Row 21 of the inbound table in phase 10's checklist.]
 - **§9.3 fixes the requirement ID as the *waiver's* unit and leaves the *report's* unit unstated, and an
   appendix-B item cannot be it.** §9.3 reads: "A failing **item** that the port has decided not to satisfy is
   reported as a failure by the suite and suppressed in the port's own build through a named waiver listing
@@ -2218,7 +2227,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   requirement ID; an appendix-B item is a many-to-one view over them, and its status in the coverage map is
   the worst among its assertions with every contributing status listed — and the 61-row map phase 9 commits is
   the only place the real mapping is written down, which is why a porter reading §9.3 alone still builds the
-  wrong granularity. Interim note in `docs/deviations.md`. Touches `NFR-17`, `ASYNC-3`, `ASYNC-4`.
+  wrong granularity. Interim note in `docs/deviations.md`. Touches `NFR-17`, `ASYNC-3`, `ASYNC-4`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C10`, written out. Row 22 of the inbound table in phase 10's checklist.]
 - **Nothing in the MVP constructs or promotes an execution context, so `CTX-16`'s operation name never
   reaches the tracing seam it is defined to label.** Phase 4a ships the whole promotion chain — 20 `CTX` IDs,
   three flavours, the bounded store — and `CTX-16` makes the operation name "a schema-defined operation id
@@ -2245,7 +2254,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   `Pipeline#call` threaded into `Instrumentation::Step`), or whether driving the chain is documented as the
   SDK author's job in `docs/sdk-documentation/`. **Code half:** none written; phase 6a, Task 8 is the file
   and the widening shape either answer extends (`api-design/1d9e6e0b`, so `NFR-4` permits it). Touches
-  `CTX-14`, `CTX-16`, `SEAM-28`, `OBS-34`, `PIPE-11`, `NFR-4`.
+  `CTX-14`, `CTX-16`, `SEAM-28`, `OBS-34`, `PIPE-11`, `NFR-4`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: decided with no surface (`R7`); the correlation chain joins the worked-example blocker and the *Behavioural asymmetries* entry. Row 23 of the inbound table in phase 10's checklist.]
 - **`PAGE-14` and `SSE-26`/`SSE-40` guard the identical single-use latch with two different error families,
   and the divergence has to be settled before `NFR-4` locks either.** Phase 7's own segmentation design pairs
   them — "**`PAGE-14` and `SSE-26`'s single-use guards are two flags on two objects**"
@@ -2264,7 +2273,7 @@ then; the two against §12's `TRANSPORT` row share one note.
   error family for the single-use latch across both subsystems — the `SSE-26`-shaped state error, with
   `PAGE-14` raising it too, or one shared core type both namespaces use. **Code half:** one `raise` line in
   each sub-phase's view task — `7c`'s is Task 12 — plus its `sig/`, and it is cheap only before the `NFR-4`
-  diff records two families. Touches `PAGE-14`, `SSE-26`, `SSE-40`, `NFR-4`, `SEAM-29`.
+  diff records two families. Touches `PAGE-14`, `SSE-26`, `SSE-40`, `NFR-4`, `SEAM-29`. [2026-09-25, phase 10 -- verified already fixed: the premise is gone: 7c raises `Page::PageStateError < ::StandardError` (`page/page_state_error.rb:17`), refuted as an ArgumentError by `page_state_error_test.rb`; `R8` not carried out (`P10-22`). Row 24 of the inbound table in phase 10's checklist.]
 
 **From phase 10's own planning read** *(all eight added 2026-09-13)*. Phase 10's design ran the sweep this
 list was built from rather than trusting the list, `grep -rn -i -e 'phase 10' -e 'phase-10' docs/work/`, and
@@ -2283,7 +2292,7 @@ design.
   statement of `SSE-19` and nothing says so.** This is the first correction on this list against the
   **normative** specification rather than the design, so it is also a recommendation to the specification
   author in §11's own idiom. **Code half: already shipped** — 7b's configurable cap, `P7-21`. Interim note in
-  `docs/deviations.md`. Touches `SSE-19`, `SSE-11`, `SSE-12`.
+  `docs/deviations.md`. Touches `SSE-19`, `SSE-11`, `SSE-12`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C11`, written out; also a recommendation to the specification author. Row 25 of the inbound table in phase 10's checklist.]
 - **Phase 2's three other declared-and-unwritten `sig/` files, which no gate can see.** Handed forward by 7a,
   which settled one clause of one of them. `docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations.md:4899-4900`
   (Step 6, "Write the four `sig/` mirrors", header at :4897)
@@ -2301,7 +2310,7 @@ design.
   subclasses; 7a edited `_Codec` in place (`#media_type` to `(Dexpace::MediaType | String)`, `#load` over
   `Dexpace::Serde::_Witness`, `#dump_to` to `Integer`) rather than writing a second one, so there is no
   empty declaration to find and the "no gate can see it" hazard has no instance here; no action for
-  phase 10.]
+  phase 10.] [2026-09-25, phase 10 -- withdrawn: withdrawn by 7a on 2026-09-20 (premise false on the tree); `gates:spdx_rbs`'s empty-declarations check finds 0 of 307. Row 26 of the inbound table in phase 10's checklist.]
 - **`Dexpace::Protocol.parse` has no alias for `"http/1.0"`, so a real `HTTP/1.0` response makes
   `ResponseMapper` raise.** Handed forward by 8a, measured at its plan `:233` and restated at `:4323`. Only
   `http/1.1`, `http/2` and `http/2.0` fold into a recognised wire form, so `native.http_version` produces
@@ -2309,13 +2318,13 @@ design.
   plan answers `HTTP/1.1`, so the suite never exercises it — and any real server can reach it. 8a routed it
   here rather than fixing it because widening `Protocol::WIRE_FORMS` is a **phase-1 surface decision no
   sub-phase should take alone**; the widening is additive, so `NFR-4` permits it. **Code half: none** — 8a
-  records one sentence in `ResponseMapper`'s YARD. Touches `HTTP-24`, `HTTP-43`, `NFR-4`.
+  records one sentence in `ResponseMapper`'s YARD. Touches `HTTP-24`, `HTTP-43`, `NFR-4`. [2026-09-25, phase 10 -- repaired: `Protocol` gains `http/1.0` in `WIRE_FORMS` and `ALIASES` and `Protocol::HTTP_1_0` (`HTTP-33`); both adapters map an HTTP/1.0 head. Row 27 of the inbound table in phase 10's checklist.]
 - **8a's forward-obligations row for the two declined `TRANSPORT` SHOULDs is half stale.** Handed forward by
   8a at its design `:2219`, the only literal `| **Phase 10**, …` row in any phase document, naming
   `TRANSPORT-28`'s third clause **and `TRANSPORT-30`**. `TRANSPORT-30` is no longer declined: 8a's own `R17`
   and plan Task 19b implement proxy use, and `docs/first-release.md` narrowed it out of the ships-without
   entry on 2026-09-13. A forward row handing a later phase a decision already taken spends the audit budget
-  on rediscovery. **Fixed in this pass**, dated, in 8a's design. Touches `TRANSPORT-28`, `TRANSPORT-30`.
+  on rediscovery. **Fixed in this pass**, dated, in 8a's design. Touches `TRANSPORT-28`, `TRANSPORT-30`. [2026-09-25, phase 10 -- verified already fixed: fixed in place on 2026-09-13 by phase 10's planning. Row 28 of the inbound table in phase 10's checklist.]
 - **`APPENDIX_B.md`'s check 2 is weaker than the prose that specifies it.** Found by reading phase 9's plan
   against phase 9's design. The design settles on **per-row ID-set equality** against the set parsed from each
   appendix-B item's own text — "decidable, strictly stronger, and it makes the distinct-ID coverage check hold
@@ -2326,24 +2335,24 @@ design.
   equality check needs**, per section and index, plus the assertion — and because `generate` carries
   hand-written rows over verbatim (:5726), the drift the check would catch is confined to those. Both the
   line citation and the size of the claim corrected 2026-09-13. So the 61-row map documents a check it does not perform, in the artifact that is "the only place
-  the real mapping is written down". **Code half: none** — the accessor does not exist. Touches `NFR-17`.
+  the real mapping is written down". **Code half: none** — the accessor does not exist. Touches `NFR-17`. [2026-09-25, phase 10 -- verified already fixed: already done by phase 9: `tools/appendix_b.rb` and `test/gates/appendix_b_test.rb`'s set-equality test. Row 29 of the inbound table in phase 10's checklist.]
 - **`TransportSuite` is not on `Runner`, leaving two status-deciding paths in one gem.** Phase 9's `P9-10`
   records it and its reason: phase 8 owns that file, so phase 9 deliberately did not refactor it, and "a
   future change to the five statuses must be made twice." Phase 10 is the first phase that owns every gem, so
-  the reason has expired. **Code half: none.** Touches `NFR-17`, `NFR-4`.
+  the reason has expired. **Code half: none.** Touches `NFR-17`, `NFR-4`. [2026-09-25, phase 10 -- repaired: `TransportSuite.run` delegates to `Runner.run` with the teardown supplied through `around:`; the five-status invariant test in `transport_suite_test.rb`. Row 30 of the inbound table in phase 10's checklist.]
 - **A design document that promised a shape the code did not take is phase 10's doc repair.** Phase 9's `R3`
   (its design:536-542) fixes the rule for the requirement half — assert against what arrived, record both
   shapes — and routes the document half here: "a document the next reader will trust wrongly". It is a
   **method rather than a subject**, which is why it is written out: phase 10's audit tasks each route their
   own instances, and a bullet that named none would read as though none existed. Touches every `XCUT`/`NFR`
-  subject phase 9 probed.
+  subject phase 9 probed. [2026-09-25, phase 10 -- verified already fixed: a method, applied: each audit row names its as-built evidence (`docs/deviations.md`), and every design found wrong is bracket-corrected in place. Row 31 of the inbound table in phase 10's checklist.]
 - **The `minitest` pin's ownership.** Phase 9's own open question 1: the pin is phase 0's artifact and `R6`
   makes a repair to phase 0's tree phase 10's, so "the decision may not be phase 9's at all". Phase 10
   re-measured and the answer is that **the pin is right and its owner does not change** — what is owed is the
   corrected measurement, because two of the three per-interpreter versions phase 9 recorded are stale and the
   3.4 row is now affected in a different way from the 4.0 row. Carried to
   `docs/first-release.md` § Post-release triggers, the Minitest 6 entry, dated. Touches `NFR-6`, `NFR-17`,
-  `NFR-10`, `NFR-2`.
+  `NFR-10`, `NFR-2`. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: re-measured 2026-09-25; the Minitest trigger's numbers corrected in `docs/first-release.md`; the pin stays phase 0's. Row 32 of the inbound table in phase 10's checklist.]
 - **The process tooling is outside the RuboCop baseline.** Found by phase 0's implementation on 2026-09-14,
   the first time `rubocop --fail-level=convention` ran against the whole tree: 303 of the 310 findings were in
   the four pre-existing files under `scripts/` — the knowledge CLI, its structure and drift verifiers and their
@@ -2357,7 +2366,7 @@ design.
   `Dexpace/NoKeywordSplat` hits — reviewed as such, after which the two `Exclude` lines are deleted.
   **Code half: the two lines and the four files.** Touches `NFR-7`, `NFR-13`. Added after phase 10's
   planning pass, so it is the thirty-third bullet and is not yet in its design's disposition table; phase 10
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line: `.rubocop.yml` and `scripts/` stayed outside phase 10's file list. Row 33 of the inbound table in phase 10's checklist.]
 - **`rake rubocop` passes vacuously in a worktree nested under the parent checkout's `.claude/`.** Found by
   phase 1's implementation on 2026-09-14, the first time the gate ran from such a worktree: RuboCop takes
   `AllCops/Exclude` from the topmost `.rubocop.yml` on the path — here the parent checkout's, whose
@@ -2369,7 +2378,7 @@ design.
   with `test/gates/rubocop_config_test.rb` asserting it — and it is a change to a phase-0 gate, so it is
   phase 10's. **Code half: the one flag and its assertion.** Touches `NFR-7`, `NFR-17`. Added after phase
   10's planning pass, so it is the thirty-fourth bullet and is not yet in its design's disposition table;
-  phase 10 dispositions it at execution.
+  phase 10 dispositions it at execution. [2026-09-25, phase 10 -- repaired: `--ignore-parent-exclusion` on the gate's command, asserted by `rubocop_config_test.rb`. Row 34 of the inbound table in phase 10's checklist.]
 - **Nine later-phase design documents cite a retired corpus key, `data-modeling/5bc538ba`, as narrowing the
   wire model's Ractor-shareability claim.** The phase 3, 4, 5 and 7 segmentation designs and the 4a, 4b, 5a,
   5b and 8a designs each lean on that note — "`data-modeling/5bc538ba` narrows the shareability claim" — and
@@ -2381,7 +2390,7 @@ design.
   documents, which is audit work against planned phases and therefore phase 10's. **Documentation half only:
   repoint each citation and reword each sentence to the as-built claim.** Touches `HTTP-1`, `XCUT-15`. Added
   after phase 10's planning pass, so it is the thirty-fifth bullet and is not yet in its design's disposition
-  table; phase 10 dispositions it at execution.
+  table; phase 10 dispositions it at execution. [2026-09-25, phase 10 -- repaired: each of the eight designs carries a dated bracket naming the retired key and `P1-13`. Row 35 of the inbound table in phase 10's checklist.]
 - **`Dexpace::URL.parse!` accepts a host-less `http:` and any absolute non-HTTP URI, so a `Request` can carry a
   URL no transport can dispatch, and nothing owns the rejection.** Found by the round-3 review of phase 1's
   stack on 2026-09-15: `URI::Generic#absolute?` is only "a scheme is present", so `URL.parse!("http:")`
@@ -2398,7 +2407,7 @@ design.
   **Code half: one check in one of those two places, with its negative tests; documentation half: the
   choice, in the owning phase's checklist row.** Touches `HTTP-47`. Added after phase 10's
   planning pass, so it is the thirty-sixth bullet and is not yet in its design's disposition table; phase 10
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- repaired: `URL.parse!` refuses a host-less http-family URL and wraps every `URI::Error` (`HTTP-47`); which other schemes dispatch stays the transport's call. Row 36 of the inbound table in phase 10's checklist.]
 - **`MultipartBody` refuses a non-ASCII part name or filename, because its part-header sweep is the outbound
   header grammar.** Found by phase 3b's implementation on 2026-09-16. Phase 3b's design has every assembled
   part-header line swept by phase 1's `HeaderSyntax.valid_outbound_value?` "as a second, whole-line sweep",
@@ -2412,7 +2421,7 @@ design.
   `MultipartBody#sweep!` with a non-ASCII filename test; documentation half: `docs/sdk-documentation/body.md`'s
   multipart section and 3b's checklist row.** Touches `HTTP-51`. Added after phase 10's planning pass, so it
   is the thirty-seventh bullet and is not yet in its design's disposition table; phase 10 dispositions it at
-  execution.
+  execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: not taken: `docs/first-release.md` § Behavioural asymmetries, the port-readings entry (a). Row 37 of the inbound table in phase 10's checklist.]
 - **Phase 0's plan says the keyword-splat cop "carries no ordinal" and that phase 4a's cop is "the seventh";
   every as-built document counts it and calls phase 4a's the eighth.** Found 2026-09-16 by phase 4a's
   implementation. Phase 0's plan, Task 4 amendment of 2026-09-13 numbers the original five, calls phase 2's
@@ -2425,7 +2434,7 @@ design.
   rewrites them; the one true count is eight, and phase 0's two sentences should say so or say why the
   ordinal is retired. Touches no requirement ID. Added after phase 10's planning pass, so it is the
   thirty-eighth bullet and is not yet in its design's disposition table; phase 10 dispositions it at
-  execution.
+  execution. [2026-09-25, phase 10 -- repaired: phase 0's plan carries a dated bracket with the as-built count (eight). Row 38 of the inbound table in phase 10's checklist.]
 - **`Fiber[:k] = nil` retains the key with a `nil` value on Ruby 3.2, and `Fiber["k"]` raises `TypeError`
   on 3.2 and 3.3 — two carrier facts the phase-5 documents and phase 8b's plan state as facts of the
   range that are facts of 3.3+ and 3.4+ respectively.** Found 2026-09-17 by phase 5c's implementation,
@@ -2445,7 +2454,7 @@ design.
   misled at execution. **Documentation half only: the two plans' sentences and the charter's fact 1, to
   the as-built range.** Touches `OBS-10`, `OBS-23`, `OBS-24`, `ASYNC-9`, `ASYNC-11`. Added after phase
   10's planning pass, so it is the thirty-ninth bullet and is not yet in its design's disposition table;
-  phase 10 dispositions it at execution.
+  phase 10 dispositions it at execution. [2026-09-25, phase 10 -- repaired: 5b's plan, 8b's plan and the phase-5 charter carry a dated bracket naming the floor facts. Row 39 of the inbound table in phase 10's checklist.]
 - **Phase 5b's design states two verified facts that the as-built code no longer rests on: fact 6's
   rebuild route (`u.userinfo = "***:***"` and `#to_s`) and fact 13's "`Async::Future` offers `#on_settle`
   and no combinator".** Found 2026-09-17 by phase 5b's implementation. Measured on 3.2.11, 3.3.12, 3.4.10
@@ -2461,7 +2470,7 @@ design.
   addendum records both beside the facts they correct. **Documentation half only: the two facts and
   `P5-27`'s mechanism sentence, to the as-built route.** Touches `OBS-14`, `OBS-15`, `OBS-36`. Added
   after phase 10's planning pass, so it is the fortieth bullet and is not yet in its design's disposition
-  table; phase 10 dispositions it at execution.
+  table; phase 10 dispositions it at execution. [2026-09-25, phase 10 -- verified already fixed: already corrected in 5b's design As-built addendum; a dated bracket at the fact now points there. Row 40 of the inbound table in phase 10's checklist.]
 - **The warnings-fatal gate runs every gem suite in one process, and Ruby 3.4+'s unused-block warning
   is suppressed process-wide once any same-named method that takes a block has been compiled — so the
   gate cannot see the warning on a method that declares no block and is called with one.** Found
@@ -2477,7 +2486,7 @@ design.
   `-W:strict_unused_block` added to `RUBYOPT`, or run each suite file in its own process, and either
   is a change to phase 0's gate that `test/gates/` would have to prove against a fixture. Touches
   `NFR-6`, `OBS-1`. Added after phase 10's planning pass, so it is the forty-first bullet and is not
-  yet in its design's disposition table; phase 10 dispositions it at execution.
+  yet in its design's disposition table; phase 10 dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line (`-W:strict_unused_block`). Row 41 of the inbound table in phase 10's checklist.]
 - **Four phase-3b and phase-4b tests assert the default materialisation ceiling and read the live one,
   so an exported `MAX_MATERIALIZED_BYTES` fails them.** Found 2026-09-17 by phase 5b's implementation,
   running the whole core suite with the configuration environment exported to hostile values
@@ -2492,7 +2501,7 @@ design.
   it, or pin the slot with `Dexpace.configure` inside the test — and is audit work against phases 3b
   and 4b. Every phase-5b suite is hermetic under the same environment. Touches `IO-9`, `BODY-19`,
   `BODY-22`, `BODY-30`, `RECOV-16`, `CFG-11`. Added after phase 10's planning pass, so it is the forty-second
-  bullet and is not yet in its design's disposition table; phase 10 dispositions it at execution.
+  bullet and is not yet in its design's disposition table; phase 10 dispositions it at execution. [2026-09-25, phase 10 -- repaired: the four tests pin the default ceiling at the override tier (`test/support/pinned_ceiling.rb`); red under `MAX_MATERIALIZED_BYTES=4096` before, green after. Row 42 of the inbound table in phase 10's checklist.]
 - **Phase 6a's design describes an async retry pump that recurses, and states the opposite.** Found
   2026-09-18 by phase 6a's implementation. The design's `AsyncRetryStep` sketch re-arms by calling
   `pump.call(attempt + 1)` from inside the delay future's `on_settle` callback and its `RETRY-30`
@@ -2506,7 +2515,7 @@ design.
   design's `R2` paragraph right for the wrong reason: `Async.delay`'s `SeamError` is raised synchronously
   and is caught by the fence around the *caller*, never by a callback's rescue. Touches `RETRY-30`,
   `RETRY-31`, `RETRY-33`. Added after phase 10's planning pass, so it is the forty-third bullet and is not
-  yet in its design's disposition table; phase 10 dispositions it at execution.
+  yet in its design's disposition table; phase 10 dispositions it at execution. [2026-09-25, phase 10 -- verified already fixed: already corrected in 6a's design As-built addendum (`P6-54`); a dated bracket at the sketch now points there. Row 43 of the inbound table in phase 10's checklist.]
 - **After phase 6 the body-replayability predicate has three spellings, two of them public and
   `NFR-4`-locked.** Found 2026-09-18 by phase 6c's implementation, reading the three sub-phase designs
   side by side: 6a's plan writes `Dexpace::Resilience::Resend.eligible?(request)` for `RETRY-5`'s
@@ -2521,7 +2530,7 @@ design.
   Touches `RETRY-5`, `REDIR-6`, `AUTH-31`, `NFR-4`. Added after phase 10's planning pass by phase 6c
   and referred to by date and content, never by ordinal, because phase 6a's lane is adding bullets to
   this list at the same time; it is not yet in phase 10's design's disposition table, and phase 10
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: not unified: the one-time surface-choices blocker in `docs/first-release.md` names the three spellings. Row 44 of the inbound table in phase 10's checklist.]
 - **An explicit scheme-default port is elided at phase 1's model boundary, and a redirect target
   inherits it.** Found 2026-09-19 by phase 6b's implementation, re-running its `Location` facts on every
   interpreter: `URI#to_s` drops an explicit `:443` on `https` and `:80` on `http` on every supported
@@ -2537,7 +2546,7 @@ design.
   since the answer changes what a caller's request renders and not only a redirect's. Touches
   `REDIR-13`, `HTTP-46`, `HTTP-47`, `XCUT-15`. Recorded as 6b's P6-96; added after phase 10's planning
   pass and referred to by date and content, never by ordinal; not yet in phase 10's design's disposition
-  table, which dispositions it at execution.
+  table, which dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: recorded as a port reading: the one-time surface-choices blocker names the default-port elision (`HTTP-46`). Row 45 of the inbound table in phase 10's checklist.]
 - **After a mid-stream failure, `BufferedSource.over`'s enumerator restarts `#each` from its first
   chunk, so a further read re-delivers the body's first bytes rather than nil or a second failure.**
   Found 2026-09-20 by phase 7b's implementation, re-running its facts on every interpreter against a
@@ -2554,7 +2563,7 @@ design.
   exhausted" read literally, is phase 10's `IO` audit to decide, since it changes what every `.over`
   consumer sees and not only the SSE reader's. Touches `IO-1`, `IO-16`, `IO-22`, `SSE-27`, `SSE-29`.
   Routed by 7b's checklist; referred to by date and content, never by ordinal; not in phase 10's design's
-  disposition table, which dispositions it at execution.
+  disposition table, which dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Behavioural asymmetries, port-readings entry (d). Row 46 of the inbound table in phase 10's checklist.]
 - **The per-byte read path through `BufferedSource#getbyte` costs about 0.9 µs a byte, so the SSE line
   machine parses at roughly 1 MiB/s on 4.0.6.** Found 2026-09-20 by phase 7b's implementation, timing
   its at-scale cap battery: every `#getbyte` pays a `Closeable#closed?` mutex acquisition (`IO-38`,
@@ -2568,7 +2577,7 @@ design.
   a performance decision across 3a and 7b, for phase 10's `IO` audit, with the numbers above as the
   baseline. Touches `IO-11`, `IO-38`, `SSE-2`, `SSE-39`. Routed by 7b's checklist; referred to by date
   and content, never by ordinal; not in phase 10's design's disposition table, which dispositions it at
-  execution.
+  execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 47 of the inbound table in phase 10's checklist.]
 - **`gates:clean_bundle` installs into the interpreter's own gem directory, and the first adapter with a
   third-party dependency makes that a network fetch on two matrix rows.** Found 2026-09-20 by phase 7a's
   implementation, the first to run the gate against a gem whose gemspec declares a third-party gem
@@ -2587,7 +2596,7 @@ design.
   and content, never by ordinal. [closed by 8a's Task 23 on this tree, 2026-09-21: `clean_bundle_check`
   sets `BUNDLE_PATH` to a `vendor/` directory beside the scratch `Gemfile`, so the fetch lands inside the
   run's own `Dir.mktmpdir` and nothing outside it changes — run green for all six gems on 3.2.11, 3.3.12,
-  3.4.10 and 4.0.6 by the reconciliation that landed 8a after phase 7]
+  3.4.10 and 4.0.6 by the reconciliation that landed 8a after phase 7] [2026-09-25, phase 10 -- verified already fixed: closed by 8a's Task 23 on 2026-09-21 (its own bracket). Row 48 of the inbound table in phase 10's checklist.]
 - **`rbs_collection.yaml`'s header comment is stale: "json arrives with dexpace-serde-json's codec in
   phase 7", and phase 7a added no row.** Found 2026-09-20 by phase 7a's implementation and routed here
   by its review round 0 (R0-1): `json`'s signatures are rbs's own stdlib set — `rbs collection install`
@@ -2597,7 +2606,7 @@ design.
   first row (`net-http`), so 7a's correction of the sentence was dropped rather than merged ahead of
   that row; whichever lane adds the first row rewrites the sentence and closes this bullet, and if none
   does before phase 10, the repair is a one-comment edit. No gate reads the comment. Touches nothing
-  normative. Recorded by 7a on its docs branch; referred to by date and content, never by ordinal.
+  normative. Recorded by 7a on its docs branch; referred to by date and content, never by ordinal. [2026-09-25, phase 10 -- repaired: `rbs_collection.yaml`'s header rewritten to what the file holds. Row 49 of the inbound table in phase 10's checklist.]
 - **`net-http`'s connect-phase `Timeout.timeout` has an observable: the first connection in a process
   starts Ruby's process-wide `Timeout` thread, on the 3.2, 3.3 and 3.4 rows and not on 4.0.** Found
   2026-09-20 by phase 8a's implementation, running its adapter suite on every interpreter: below
@@ -2615,7 +2624,7 @@ design.
   thread behind, which a host that counts threads will see once and never again. Touches `NFR-6`,
   `XCUT-11`, `XCUT-13`. Added after phase 10's planning pass by phase 8a and referred to by date and
   content, never by ordinal, because phases 7a, 7b and 7c are adding bullets to this list at the same
-  time; not yet in phase 10's design's disposition table, which dispositions it at execution.
+  time; not yet in phase 10's design's disposition table, which dispositions it at execution. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: amendment `C8` carries the clause; the warm-up stays. Row 50 of the inbound table in phase 10's checklist.]
 - **rbs 4.2.0 types `TCPServer#initialize` as `(?String host, Integer port)` — an optional positional
   before a required one — and Steep 2.1.0 refuses the two-argument call Ruby accepts.** Found 2026-09-20
   by phase 8a's implementation, running `steep check` over the conformance target for the first time:
@@ -2628,7 +2637,7 @@ design.
   tcp_server.rbs`, and removes the local when it has, or records the workaround in `docs/knowledge/notes/type-system.md`
   when it has not. Touches `NFR-3`. Added after phase 10's planning pass by phase 8a and referred to by
   date and content, never by ordinal; not yet in phase 10's design's disposition table, which
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- verified already fixed: the bundle's rbs is still 4.2.0 on every row, so the `untyped` local in `WireServer#initialize` stays; nothing to remove. Row 51 of the inbound table in phase 10's checklist.]
 - **Phase 6b's `REDIR-23` proof carries a ten-second wall-clock bound over 5,000 hops, and the bound
   fails under machine load while the stack-flatness half still passes.** Found 2026-09-20 by phase 8a's
   implementation, running `test:gems` on 4.0.6 while three other lanes ran their own gates on the same
@@ -2645,7 +2654,7 @@ design.
   a per-hop budget measured against a warm-up drive, and apply the same reading to any wall-clock
   assertion its `NFR-6` audit finds. Touches `REDIR-23`, `NFR-6`. Added after phase 10's planning pass
   by phase 8a and referred to by date and content, never by ordinal; not yet in phase 10's design's
-  disposition table, which dispositions it at execution.
+  disposition table, which dispositions it at execution. [2026-09-25, phase 10 -- repaired: the ten-second bound is gone; the depth comparison is the proof (`step_test.rb`). Row 52 of the inbound table in phase 10's checklist.]
 - **Phase 6a's `RETRY-42` / `RECOV-28` eight-thread budget test is interleaving-dependent, and errors
   under the whole-repository process on a loaded machine.** Found 2026-09-20 by phase 8a's review round 1,
   on the same machine and under the same three concurrent lanes as the `REDIR-23` bullet above:
@@ -2664,7 +2673,7 @@ design.
   draws, and read this together with the `REDIR-23` bullet as the same `NFR-6` class. Touches
   `RETRY-42`, `RECOV-28`, `NFR-6`. Added after phase 10's planning pass by phase 8a and referred to by
   date and content, never by ordinal; not yet in phase 10's design's disposition table, which
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- repaired: each thread draws from its own script and the invariant is asserted per thread (`recovery_retry_test.rb`). Row 53 of the inbound table in phase 10's checklist.]
 - **`Dexpace::Status` guards `100`–`599` while `Net::HTTP` parses any three-digit code, so a `999` or a
   `600` head raises `Dexpace::InvalidArgumentError` out of the net-http adapter — a phase-1 model question
   in the shape of the `"http/1.0"` bullet above.** Found 2026-09-20 by phase 8a's review round 2 (R2-2),
@@ -2687,7 +2696,7 @@ design.
   `ResponseMapper`'s YARD beside its `HTTP/1.0` sentence, and in the as-built page. Touches `HTTP-10`,
   `TRANSPORT-24`, `TRANSPORT-22`, `NFR-4`. Added after phase 10's planning pass by phase 8a and referred
   to by date and content, never by ordinal; not yet in phase 10's design's disposition table, which
-  dispositions it at execution.
+  dispositions it at execution. [2026-09-25, phase 10 -- repaired: a MUST repair (`HTTP-10`): `Status` maps every Integer code and the protocol range is `Status#standard?` (a first repair to 0..999 was widened by the phase's review round 0, R0-5). Row 54 of the inbound table in phase 10's checklist.]
 - **Two child-process idioms prove one property — `seam_surface_test.rb`'s private
   `bare_require_report` and `test/support/bare_require.rb`'s `BareRequire#bare_require` each spawn a
   `ruby` that requires `dexpace` alone and read a seam registry back — and the tree should carry one.**
@@ -2710,7 +2719,7 @@ design.
   property has one spelling in `test/support/` and the next adapter's pins (8b's and 8c's, on
   `AsyncTransport`) inherit it. Touches `SEAM-1`, `SEAM-2`, `SEAM-6` (the IDs both spellings
   assert) and nothing normative in the code. Recorded by the 8a reconciliation on its docs branch;
-  referred to by date and content, never by ordinal.
+  referred to by date and content, never by ordinal. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 55 of the inbound table in phase 10's checklist.]
 - **Under the one-process `rake test:gems` the main fiber's storage carries 5c's no-op span
   (`dexpace.current_span => Instrumentation::NO_SPAN`) into suites that never activated one, and the
   shared test case asserts nothing about fiber storage at `teardown`.** Found 2026-09-21 by phase 8b's
@@ -2726,7 +2735,7 @@ design.
   beside its thread count, which is the same class of cross-suite leak `NFR-6` already guards for
   threads. Touches `OBS-23`, `OBS-24` and the 5c-owned `dexpace.current_span` carrier, and nothing
   normative in the code. Recorded by phase 8b on its docs branch; referred to by date and content,
-  never by ordinal.
+  never by ordinal. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 56 of the inbound table in phase 10's checklist.]
 - **Core's two duration guards, `Dexpace::Async.validate_delay` and `Dexpace::Clock::Guard.duration`,
   admit a `NaN` and a `Complex`.** Found 2026-09-21 by phase 8b's review round 1 (R1-1), which found the
   same shape — `is_a?(::Numeric)` and `negative?` — in `Pool#delay`, where a `NaN` duration killed the
@@ -2740,7 +2749,7 @@ design.
   did, with the same three tests, and decide whether `Future#value(deadline:)` and `Completer#await`'s
   deadline arithmetic want the same screen. Touches `CFG-15`, `CFG-17`, `CFG-18` and `XCUT-11`, and
   nothing normative beyond the messages. Recorded by phase 8b's review round 1 on its docs branch;
-  referred to by date and content, never by ordinal.
+  referred to by date and content, never by ordinal. [2026-09-25, phase 10 -- repaired: `Async.validate_delay` and `Clock::Guard.duration` refuse NaN and Complex (P8-77's shape), tested in `delay_test.rb` and `clock_test.rb`. Row 57 of the inbound table in phase 10's checklist.]
 - **Two of phase 8c's design facts are stale on `async` 2.46.0, and `async-http`'s server lets a
   peer's mid-head `EOFError` reach Console.** Found 2026-09-21 by phase 8c's implementation against
   the bundle's `async` 2.46.0 / `async-http` 0.105.0, where the design measured 0.104.0. Verified fact 8
@@ -2761,7 +2770,7 @@ design.
   worked around in the test fixture (`AsyncHTTPServerFixture::QuietServer`), and worth an upstream
   report rather than an SDK change. Touches `TRANSPORT-8`, `ASYNC-6` and nothing normative in the
   code. Recorded by phase 8c on its docs branch; referred to by date and content, never by ordinal,
-  because 8b's lane is writing to the same list.
+  because 8b's lane is writing to the same list. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: read in 8c's As-built addendum; the Console report is an upstream matter -- the residues line. Row 58 of the inbound table in phase 10's checklist.]
 - **The portable `TRANSPORT-7` row proves its delivered-body clause by chance against a streaming
   adapter.** Found 2026-09-21 by phase 8c's review round 1 (R1-1), measured by the fix round: the row
   cancels the token on a second thread the moment the server has written the head, and against a
@@ -2780,7 +2789,7 @@ design.
   through a short transport timeout — changes what the row asserts on 8a's driver and 8a's own
   `RawWireTransport` proof, so it is conformance-gem work for the phase that next touches the suite,
   not a fix round's. Touches `TRANSPORT-7` and nothing normative in the code. Recorded by phase 8c's
-  review round 1 on its docs branch; referred to by date and content, never by ordinal.
+  review round 1 on its docs branch; referred to by date and content, never by ordinal. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 59 of the inbound table in phase 10's checklist.]
 - **`Dexpace::Registry#resolve`'s discovery loop has no bound.** Found 2026-09-23 by phase 9's
   implementation while cutting a mutation for `XCUT-23`: `#resolve` is `loop do … end` over
   `take_or_join_claim`/`wait_on`, and a change that makes the `return hand_out(resolved)` guard
@@ -2788,21 +2797,21 @@ design.
   six minutes and was killed. **The shipped code is correct**; what is missing is a bound or a
   structural argument that the loop terminates, which phase 2 states nowhere. **Code half: a bound on
   the loop, or a comment that argues the termination and a test that would catch its loss.** Touches
-  `SEAM-5`, `XCUT-23`. Referred to by date and content, never by ordinal.
+  `SEAM-5`, `XCUT-23`. Referred to by date and content, never by ordinal. [2026-09-25, phase 10 -- repaired: a termination argument at `Registry#resolve` and `registry_test.rb`'s Termination suite, which phase 9's spin mutation turns red. Row 60 of the inbound table in phase 10's checklist.]
 - **`XCUT-12`'s fiber-scheduler form is unasserted, and the checklist row says so.** Phase 9's design
   already routed this (its "Work phase 9 postponed" table names the thread form only), and the built
   assertion repeats it in `invariant_suite/resolution.rb`: the single-flight refresh is proven for
   sixteen THREADS and never for two fibers under a reactor, because a credential path running under a
   scheduler is a composition no first-party suite assembles. **Code half: the fiber form of the
   assertion, or a stated decision that it stays out of v1.** Touches `XCUT-12`, `AUTH-34`, `AUTH-37`.
-  Verified still owned on 2026-09-23 rather than re-filed.
+  Verified still owned on 2026-09-23 rather than re-filed. [2026-09-25, phase 10 -- verified already fixed: verified as `XCUT-12`'s fiber form (`fiber_single_flight_test.rb`). Row 61 of the inbound table in phase 10's checklist.]
 - **`XCUT-9`'s cycle assertion has two stated residues, and `gates:cause_walk` proves neither absent.**
   A collect-then-yield cause walk never returns a step to count, so a step-bounded drive cannot end it;
   and a depth cap of exactly three passes a three-node cycle, because a black-box test over one finite
   input cannot tell a counter from a visited set. Both are written into
   `invariant_suite/classification.rb` above the assertion. **Code half: a second input of a different
   length, or a source-shape check over the walk's own file.** Touches `XCUT-9`. Found 2026-09-23 by
-  phase 9's implementation.
+  phase 9's implementation. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 62 of the inbound table in phase 10's checklist.]
 - **7a's `SEAM-21` evidence lives inside another assertion's body and is declared in no ID-keyed map.**
   Phase 9's `P9-22` re-derived `CodecSuite`'s two portable assertions rather than lifting 7a's, exactly
   so `assert_closes_nothing`'s `SEAM-21` type-token clause would keep its home — but that clause is
@@ -2810,7 +2819,7 @@ design.
   `Aggregate.by_requirement_id` cannot see it and `APPENDIX_B.md`'s `B.3` rows point at a file rather
   than at a check. **Code half: split the clause into its own assertion in `dexpace-serde-json`'s
   suite, or state in the map that the row is a file reference.** Touches `SEAM-21`, `SERDE-3`. Found
-  2026-09-23 by phase 9's implementation.
+  2026-09-23 by phase 9's implementation. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 63 of the inbound table in phase 10's checklist.]
 - **`tools/surface.rb` cannot see a `private_constant` module, so a group that became public would be
   invisible to `gates:surface_snapshot` until one of its methods leaked.** The walk is
   `Module#constants(false)`, which omits a private constant entirely — which is what lets phase 8a's
@@ -2818,7 +2827,7 @@ design.
   found two real public-surface leaks (`Aggregate#add_rows` and `CodecSuite`'s two assertion factories)
   by reading the regenerated manifest row by row, not by a gate. **Code half: have the walk record a
   private constant's NAME with a marker, so the manifest shows the transition without exporting the
-  contents.** Touches `NFR-4`. Found 2026-09-23 by phase 9's implementation.
+  contents.** Touches `NFR-4`. Found 2026-09-23 by phase 9's implementation. [2026-09-25, phase 10 -- moved to `docs/first-release.md`: `docs/first-release.md` § Post-release triggers, the residues line. Row 64 of the inbound table in phase 10's checklist.]
 - **`Dexpace::Conformance::PackagingCase`'s default gem-name → constant-path rule covers none of this
   port's exceptional four.** The rule is segment-for-segment (`dexpace-transport-net_http` →
   `Dexpace::Transport::NetHttp`), and the port's own names need `Dexpace` for `dexpace-core` and
@@ -2826,7 +2835,7 @@ design.
   override a driver supplies. A driver that omits it gets a `:vacuous` result with an actionable
   message and never a wrong answer, which is why this is a repair and not a defect. **Code half: a
   default that covers a root-namespaced gem and a known-acronym leaf, with the override kept for
-  everything else.** Touches `NFR-15`. Found 2026-09-23 by phase 9's aggregate run.
+  everything else.** Touches `NFR-15`. Found 2026-09-23 by phase 9's aggregate run. [2026-09-25, phase 10 -- repaired: `PackagingCase`'s default rule covers all six gems (`-core` is the root, `http`/`json` are acronyms), tested in `packaging_suite_test.rb`. Row 65 of the inbound table in phase 10's checklist.]
 
 **2026-09-13** — **Execution order amended by the roadmap-level generator-fitness review, which read the
 plan end to end against one question: will a generated OpenAPI client be able to use this?** No cell of
@@ -5281,3 +5290,48 @@ driver declares **twenty** shared instances, not fifteen, in the checklist's `XC
 `docs/sdk-documentation/conformance.md`; design `R8`'s nine is a different list and stands.
 
 `main` is `582e33a` before and after this pass; nothing is pushed, and issue #33 stays open.
+
+**2026-09-25** — **Phase 10 implemented**, as three stacked branches against issue #34: code
+(`10-phase-10-deviation-reconciliation-and-release-readiness`), tests (`…-tests`) and documentation
+(`…-docs`), each targeting the one below and the first targeting `main` at `b242de6`, which holds every
+phase through 9 and was green under all twenty-one gates before a line changed. Nothing is pushed, and
+nothing is published: every gem stays at `0.0.0` and no tag is cut. **This is the last phase of the
+roadmap**, so nothing it found could be routed to a later one: what it did not repair is a dated
+`docs/first-release.md` line.
+
+**`docs/deviations.md` is flipped.** All nineteen rows now carry an as-built verdict — every one
+*confirmed* or *confirmed-with-a-narrowing*, none contradicted — each citing a `gems/…` path and
+defined `Dexpace::` constants, re-derived from source and never from another document (`P10-2`). The
+narrowings are the amendment set, **`C1`–`C19`**: the design's thirteen, `C14` reconciled from
+`docs/first-release.md` into the register, and five the as-built audit found. The trees they amend are
+frozen, so applying them — and consolidating every phase's as-built ledger rows into §10 — stays a
+human's act, named inside the existing `docs/first-release.md` blocker.
+
+**Three blocking gates and a ninth probe check.** `gates:ledger_audit` keeps the register tied to
+§10 (row subject, the EQUAL ID set, and resolvable evidence for a verdict), `gates:spdx_rbs` keeps the
+SPDX header on every shipped `.rbs` (phase 9's one `:failed` audit, `NFR-13`, repaired on all 307) and
+`gates:sole_parse` keeps `AstScan.parse` the one `parse_file` — **twenty-four** in all, in
+`DEFAULT_GATES` and in `ci.yml`'s `gates` job. The probe's `chapters` check found two live
+misattributions in the phase-8 segmentation design and fixed them in place.
+
+**Repairs, every one test-first, each test run red on the untouched base.** The proxy warning's
+credential leak (5b's review R3-1, eight of eight spellings on 4.0.6 and 3.2.11, and the password
+prefix a `/`, `?`, `#` or second `@` still left, found by the phase's review round 0); `Status.of` total
+over every Integer with `#standard?` (`HTTP-10`, a MUST phase 1 recorded as a reading in no ledger
+row); `Protocol`'s HTTP/1.0 (`HTTP-33`); `URL.parse!`'s wrapping (`HTTP-47`); `Model.own` over a
+default-proc Hash; `HeaderSyntax`'s total predicates; a closed stream refused at `Body.stream`; the NaN
+and Complex duration guards 8b's P8-77 left to core; the configuration chain's per-configure growth
+(`CFG-13`); the async logging step counting the caller's continuation (`OBS-24`); the require
+allowlist's dot segments; RuboCop's parent-exclusion hole; `PackagingCase`'s gem-name rule;
+`TransportSuite.run` onto `Runner`; and five flaky or environment-reading tests made deterministic. `R8`
+was not carried out — its defect was absent (`P10-22`) — and `R9` became a verification: two fibers of
+one reactor on one mutex park rather than deadlock, and the fiber race test proves single-flight under a
+real reactor (`P10-21`).
+
+**This list is empty by disposition.** Every one of its sixty-five bullets carries a dated bracket —
+**18 repaired, 14 verified already fixed, 32 moved to `docs/first-release.md`, 1 withdrawn**, none
+carried forward — and the checklist,
+`docs/work/mvp/phase10/2026-09-13-phase10-deviation-reconciliation-and-release-readiness-checklist.md`,
+holds the same sixty-five beside 205 requirement rows, the repairs table and the guards run red.
+
+`main` is `b242de6` before and after this pass; nothing is pushed, and issue #34 stays open.

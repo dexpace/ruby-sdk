@@ -335,7 +335,7 @@ The design's six open questions, resolved with a concrete decision each.
 6. **The three-interpreter re-run.** *Decision:* Task 1 installs `ruby@3.2.11` and `ruby@4.0.6` and
    re-runs every fact this plan's `R8`/`R9` decisions are conditional on — specifically, that
    `Fiber[:k] = nil` deletes the key and that a pooled worker created before a key was set sees
-   nothing set afterward — on both, before any implementation task begins. A failure on either is a
+   nothing set afterward — on both, before any implementation task begins. [2026-09-25, phase 10: a fact of 3.3 and later, not of the range -- on the 3.2 floor `Fiber[:k] = nil` RETAINS the key with a nil value, and `Fiber["k"]` raises TypeError on 3.2 and 3.3 (5c's `P5-72`, `docs/knowledge/notes/observability.md`); every reader that skips nulls reads the two as the same.] A failure on either is a
    **finding, not a silent blocker**: it is recorded in Task 1's own step rather than causing the
    plan to improvise a different mechanism, because `observability/65191069`'s single-interpreter
    caveat is a phase-8 obligation this plan is the one place that can close it, and closing it means

@@ -706,7 +706,7 @@ mitigation that row itself carries.
    claim for the same reason.
 9. **An `Enumerator` abandoned mid-`#next` never runs its `ensure`.** `OBS-22`'s scope handle and `OBS-24`'s
    snapshot bridge are both `begin/ensure` around a block, never an enumerator, and no resource is acquired
-   inside any block phase 5 yields from.
+   inside any block phase 5 yields from. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 
 ---
 
@@ -770,7 +770,7 @@ claimed across a range that was not run.
 1. **`Fiber[:k] = v` emits no warning; `Fiber#storage=` warns on every call.** Two `Fiber[]=` writes and one
    read-back produce zero warnings; two `Fiber#storage=` calls produce two, category `:experimental`, text
    `Fiber#storage= is experimental and may be removed in the future!`. **And `Fiber[:k] = nil` deletes the
-   key** — `Fiber.current.storage.key?(:k)` is `false` afterwards, not `true` with a `nil` value. *What it
+   key** — `Fiber.current.storage.key?(:k)` is `false` afterwards, not `true` with a `nil` value. [2026-09-25, phase 10: a fact of 3.3 and later, not of the range -- on the 3.2 floor `Fiber[:k] = nil` RETAINS the key with a nil value, and `Fiber["k"]` raises TypeError on 3.2 and 3.3 (5c's `P5-72`, `docs/knowledge/notes/observability.md`); every reader that skips nulls reads the two as the same.] *What it
    licenses:* `OBS-23`'s whole contract — "push the trace id and span id … for the scope's lifetime, and MUST
    restore each key to its prior value (**or remove it if previously unset**) on close" — is expressible with
    `Fiber[]=` alone, per key, with no warning and no gate problem. *What it does not license:* any claim about

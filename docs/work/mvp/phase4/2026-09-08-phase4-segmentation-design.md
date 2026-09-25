@@ -650,7 +650,7 @@ them; it is recorded here so a `4b` or `4c` designer meeting either does not re-
    LOGGING pillar — that stage is a slot, and the sink is a duck type (§8.1).
 7. **`Ractor` is never load-bearing.** `data-modeling/5bc538ba` already narrows the shareability claim; a
    context holds a `Response` holding a body holding an `IO`, so no shareability claim is made for the
-   promotion chain at all, despite every link being a frozen `Data`.
+   promotion chain at all, despite every link being a frozen `Data`. [2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
 
 ---
 

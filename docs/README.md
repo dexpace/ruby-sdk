@@ -80,8 +80,9 @@ not a find-list, and nothing else here is one either.
 
 A finding is **not registered; it is routed to its owner when it is found**. Work that falls
 inside a phase's scope becomes a numbered task in that phase's plan, cited by path and task
-number. Audit-or-repair work against a phase that is already planned goes to phase 10's inbound
-list in [the roadmap](./work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md). Anything belonging to
+number. Audit-or-repair work against a phase that is already planned went to phase 10's inbound
+list in [the roadmap](./work/mvp/2026-09-05-ruby-sdk-v1-roadmap-design.md) until phase 10, the
+roadmap's last phase, drained it on 2026-09-25; such work now goes to the release register below. Anything belonging to
 the release — a blocker, something v1 ships without, a step on the release path, a post-release
 trigger — goes to [`first-release.md`](./first-release.md). And when the thing reported is in
 material you may write, it is not routed anywhere: it is fixed. Work consciously postponed
@@ -157,7 +158,9 @@ the asynchronous transport, the suite's second driver, is what phase 8c built. P
 of its own: it ships no gem, and what it built extended two that already existed —
 [`sdk-documentation/conformance.md`](./sdk-documentation/conformance.md) gains a section on its four
 suites and [`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md) three rows,
-one per repository-wide invariant scan.
+one per repository-wide invariant scan. Phase 10 added no page either:
+[`sdk-documentation/quality-gates.md`](./sdk-documentation/quality-gates.md) gains three more rows,
+one per gate it built, and the pages whose worked examples it re-ran were corrected in place.
 
 ## Keeping this file true
 
@@ -167,6 +170,7 @@ ruby .claude/skills/housekeeping/probe.rb
 
 The [`housekeeping`](../.claude/skills/housekeeping/SKILL.md) skill probes every claim here
 against the repository — the gem count, the phase-directory count, the harvested-topic count,
-a README on every gem, broken relative links, register text in the wrong document, and a
-citation that resolves to nothing. It is a hand-run tool, not a CI step. Run it before
+a README on every gem, broken relative links, register text in the wrong document, a
+citation that resolves to nothing, and a requirement ID attributed to a specification chapter
+that does not carry it. It is a hand-run tool, not a CI step. Run it before
 claiming the documentation is current.

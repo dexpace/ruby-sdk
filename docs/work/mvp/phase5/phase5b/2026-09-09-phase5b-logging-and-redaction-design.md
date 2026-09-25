@@ -540,6 +540,8 @@ this document, and the substantive entry was located beside the roll-up in every
 | **RuboCop and formatting** | `--topic tooling-and-quality-gates --section rules --brief` | Clean. **5b adds no cop.** The one it would have wanted — a `Dexpace/QualifiedCoreConstant` entry for `Logger` — cannot be written in the cop's current shape, and the plan's Task 10 owns the scoped watch that would replace it rather than leaving a silent omission |
 | **Styleguide-vs-design conflicts** | `--section conflicts --brief` | All six resolved; none open |
 
+[2026-09-25, phase 10: `data-modeling/5bc538ba` is retired and resolves to nothing -- phase 1's build found `Request` and `Response` Ractor-shareable as built (`P1-13`, retiring `P1-9`), and the note is rewritten as built under `## Conflicts` in `docs/knowledge/notes/data-modeling.md`. Only the key's citation is stale; the passage stands as its phase's record.]
+
 ### The notes filed against the corpus by this phase
 
 **One, filed at reconciliation rather than by this document, and one declined.**
@@ -837,7 +839,7 @@ is an asymmetry with `query=` worth knowing and irrelevant to a redactor that wr
 `api-version`. What **does** raise is assigning any component to an **opaque** URI — `mailto:`, `urn:`,
 `data:` — with `URI::InvalidURIError: cannot set user with opaque` and `query conflicts with opaque`. Those
 parse cleanly with a non-`nil` scheme, so they reach `OBS-16`'s "parseable absolute" branch, and a
-`Location: mailto:support@example.com` header is not hypothetical.
+`Location: mailto:support@example.com` header is not hypothetical. [2026-09-25, phase 10: the as-built redactor takes a different route -- it reassembles from `RFC3986_PARSER.split` and assigns no component (`P5-91`), because `URI#to_s` drops a default port; this fact and fact 13 are corrected in this design's As-built addendum, and read there.]
 
 **The rule that makes it unreachable is `P5-27`: the redactor never assigns a component that was absent.**
 `userinfo=` runs only when `#userinfo` is non-`nil`; `query=` runs only when `#query` is non-`nil`;

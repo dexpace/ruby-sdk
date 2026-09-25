@@ -58,7 +58,7 @@ no substantive corpus entry. Both chapters were read in full anyway (51 and 46 l
   52 appears in its own prose chapter with a `*Conformance:*` clause appendix C drops, and several of
   those clauses are load-bearing (named in the scope tables below).
 - `docs/product-spec/03-pluggable-seams-and-extension-model.md` for `SEAM-11`–`SEAM-18`, `SEAM-24`,
-  `SEAM-25` and `SEAM-30` — the seams phase 8's gems implement and phase 2 built.
+  `SEAM-25` and `SEAM-30` — the seams phase 8's gems implement and phase 2 built. [2026-09-25, phase 10's `chapters` probe check: that chapter does not carry `SEAM-13` or `SEAM-15` of the range; `SEAM-13`'s prose home is `docs/product-spec/02-architectural-principles.md` and appendix C is `SEAM-15`'s only normative statement. The other eight IDs check out.]
 - `docs/sdk-design-ruby/03-seam-by-seam-idiomatic-mapping.md` §3.2 (`:155-188`, the sync transport seam
   as a duck-typed `#call`), §3.3 (`:189-294`, the async seam, the core-owned pivot, the
   check-after-resume rule, cancellation and deadlines end to end) and §3.7 (`:452-518`, the close

@@ -123,8 +123,9 @@ idempotent bounded close that emits the lifecycle event phase 2 postponed
 | `dexpace-conformance` | `Dexpace::Conformance` | `dexpace-core` |
 
 What phase 0 does ship is the gate set every later phase is written under: seventeen blocking
-checks in one `bundle exec rake` — eighteen since phase 7b added `gates:serde_boundary` — each proven
-by a deliberately failing input, and a CI matrix that runs the real suite on Ruby 3.2, 3.3, 3.4 and
+checks in one `bundle exec rake` — eighteen since phase 7b added `gates:serde_boundary`, twenty-one
+since phase 9's three invariant scans and twenty-four since phase 10's `gates:ledger_audit`,
+`gates:spdx_rbs` and `gates:sole_parse` — each proven by a deliberately failing input, and a CI matrix that runs the real suite on Ruby 3.2, 3.3, 3.4 and
 4.0 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`).
 
 ## Working in the repository

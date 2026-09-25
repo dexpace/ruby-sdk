@@ -36,7 +36,7 @@ honours from its side), `XCUT-11` and `XCUT-20` (phase 9's audits), `NFR-11` (th
 `ASYNC-9`/`ASYNC-11` (the floor finding routed forward). **Eleven ✅** — `OBS-29` ✅ with its unwired
 half named in the row, `OBS-30` ✅ by construction — **one ⏳** (`OBS-32`, post-v1), nothing 🚫,
 nothing N/A. `OBS-24` and `OBS-34` are `5b`'s and appear only as cross-reference rows, so a reader who
-arrives looking for either finds the answer here.
+arrives looking for either finds the answer here. [2026-09-25, phase 10, counting the table below: eleven cross-reference ROWS naming fourteen IDs -- `CTX-14`, `CTX-15`, `CTX-20`, `SEAM-28`, `XCUT-21`, `OBS-10`, `OBS-24`, `OBS-34`, `OBS-20`, `XCUT-11`, `XCUT-20`, `NFR-11`, `ASYNC-9`, `ASYNC-11`; "thirteen" is neither count (5c's review R0-1).]
 
 | ID | Level | Status | Task(s) | What was built, and where it is proven |
 |---|---|---|---|---|
@@ -61,7 +61,7 @@ arrives looking for either finds the answer here.
 | `OBS-20` | MUST | ✅ boundary | 6, 9 | Cross-reference, 5b's ID: "the runtime does NOT defensively wrap tracer or metrics calls" is 5c's side of boundary 2 — no `rescue` on any tracer or meter path, and a raise propagates with the slots restored (the `OBS-30` row). 5b may not stop wrapping and 5c did not start |
 | `XCUT-11` | MUST | ✅ share | 3–9 | Cross-reference, phase 9's ID: eight frozen stateless singletons — `NO_SPAN`, `NO_TRACER`, `NO_TRACER_FACTORY`, `NO_SCOPE`, `NULL`, `NO_METER` and its two instruments — are the audited shared instances, with no lock and no state; per-call state lives on the call's own stack in `Scope`'s three ivars, and the one `Fiber[]` slot holds only an immutable span reference. Identity is asserted across sixteen threads for four of them |
 | `XCUT-20` | MUST | ✅ scoped | 3–9 | Cross-reference, phase 9's ID: no method 5c writes can raise on any input it owns — `.current_span` never returns `nil`, `NULL` defines all eleven, `#finish` accepts a second call, the histogram takes NaN — and the guarantee is deliberately not extended to a foreign callback, which `OBS-20` forbids. Phase 9 audits that sentence |
-| `NFR-11` | MUST | ✅ share | 3–9 | Cross-reference, phase 9's ID: seven interfaces have a named home — `_Span` and `_Tracer` widened in place, `_TracerFactory` unchanged, `_Scope`, `_Meter`, `_Counter` and `_Histogram` new — every name in them a `Dexpace::` constant or stdlib; `gates:rbs_surface` reports no foreign constant over the 110 mirrors, and `_HTTPTracer` is deliberately not declared |
+| `NFR-11` | SHOULD | ✅ share | 3–9 | Cross-reference, phase 9's ID: seven interfaces have a named home — `_Span` and `_Tracer` widened in place, `_TracerFactory` unchanged, `_Scope`, `_Meter`, `_Counter` and `_Histogram` new — every name in them a `Dexpace::` constant or stdlib; `gates:rbs_surface` reports no foreign constant over the 110 mirrors, and `_HTTPTracer` is deliberately not declared [level corrected 2026-09-25 by phase 10: appendix C gives `NFR-11` as SHOULD; this row said MUST] |
 | `ASYNC-9`, `ASYNC-11` | MUST | ⏳ finding routed | 1 | Cross-reference, phase 8b's IDs, touched by no code here: the floor finding — `Fiber[:k] = nil` retains a nil-valued key on 3.2 — reaches 8b's pooled-worker restore and 5b's union restore, both planned on the 3.4.10 fact. Routed as the roadmap's thirty-ninth inbound bullet and the corpus note (marker `sha:manual-phase5c-fiber-nil-and-string-key-floor`); neither plan is edited from 5c |
 
 ## What was built
