@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Transport
     # The reference synchronous transport over net/http (phase 8a). Nothing from net/http names

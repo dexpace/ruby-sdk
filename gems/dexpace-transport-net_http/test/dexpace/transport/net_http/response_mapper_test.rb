@@ -120,8 +120,18 @@ module DexpaceTransportNetHttpResponseMapperTest
       assert_equal(%w[a=1 b=2], response.headers["Set-Cookie"])
     end
 
-    test "an HTTP/1.0 head raises InvalidArgumentError: Protocol admits 1.1 and 2 only (HTTP-33)" do
+    # HTTP-33, TRANSPORT-24: phase 10 added http/1.0 to Protocol's wire forms. Until then this head
+    # raised Dexpace::InvalidArgumentError out of the mapper, and a real HTTP/1.0 server could
+    # reach it; the pin that asserted the raise is this test, inverted.
+    test "an HTTP/1.0 head maps, carrying Protocol::HTTP_1_0 (HTTP-33)" do
       native = ::Net::HTTPOK.new("1.0", "200", "OK")
+      native["Content-Length"] = "0"
+
+      assert_equal("http/1.0", build(native).protocol.wire)
+    end
+
+    test "a version Protocol does not know still raises InvalidArgumentError (HTTP-33)" do
+      native = ::Net::HTTPOK.new("1.2", "200", "OK")
       native["Content-Length"] = "0"
 
       assert_raises(Dexpace::InvalidArgumentError) { build(native) }

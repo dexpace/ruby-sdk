@@ -148,7 +148,8 @@ module DexpaceTransportAsyncHTTPParentCancellationTest
       end
     end
 
-    # TRANSPORT-22's adaptation-failure half: a head phase 1's model refuses -- a 999 status --
+    # TRANSPORT-22's adaptation-failure half: a head phase 1's model refuses -- an HTTP/1.2 version,
+    # a 999 status until phase 10 widened Status --
     # raises InvalidArgumentError through the future, and the native body the exchange was holding
     # is closed exactly once before the future settles.
     test "TRANSPORT-22: an adaptation failure after the head closes the native body exactly once " \
@@ -158,7 +159,7 @@ module DexpaceTransportAsyncHTTPParentCancellationTest
       client.define_singleton_method(:retries) { 0 }
       client.define_singleton_method(:pool) { Object.new.tap { |pool| def pool.close = nil } }
       client.define_singleton_method(:call) do |_native|
-        ::Protocol::HTTP::Response.new("HTTP/1.1", 999, ::Protocol::HTTP::Headers.new, native)
+        ::Protocol::HTTP::Response.new("HTTP/1.2", 200, ::Protocol::HTTP::Headers.new, native)
       end
       adapter = AsyncHTTP.using(client)
 
@@ -187,7 +188,7 @@ module DexpaceTransportAsyncHTTPParentCancellationTest
       client.define_singleton_method(:retries) { 0 }
       client.define_singleton_method(:pool) { Object.new.tap { |pool| def pool.close = nil } }
       client.define_singleton_method(:call) do |_native|
-        ::Protocol::HTTP::Response.new("HTTP/1.1", 999, ::Protocol::HTTP::Headers.new, native)
+        ::Protocol::HTTP::Response.new("HTTP/1.2", 200, ::Protocol::HTTP::Headers.new, native)
       end
       adapter = AsyncHTTP.using(client)
 

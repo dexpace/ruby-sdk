@@ -74,7 +74,7 @@ module Dexpace
         end
 
         # P8-3: the switch is `#[]=`, never `#add_field`, because only `#[]=` flips
-        # @decode_content off as a side effect. Re-assigning the caller's own value preserves it
+        # `@decode_content` off as a side effect. Re-assigning the caller's own value preserves it
         # while still tripping the flip; assigning then deleting leaves the flag off and the
         # header absent when the caller set none.
         def suppress_decode_content(native)

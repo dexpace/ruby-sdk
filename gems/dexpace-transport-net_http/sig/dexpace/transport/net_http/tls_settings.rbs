@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Transport::NetHTTP::TLSSettings is a private_constant and not public API: this
 # declaration exists because the `net_http` Steep target checks every file under lib/ and needs
 # the module and its two functions declared to type NetHTTP.build's and Adapter's call sites.

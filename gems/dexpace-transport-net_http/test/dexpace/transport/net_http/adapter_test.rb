@@ -375,14 +375,16 @@ module DexpaceTransportNetHttpAdapterTest
       assert_equal(1, server.await_closed_connection(timeout: 2))
     end
 
-    # The body is UNDRAINABLE -- a hundred bytes declared, two sent, the connection held -- so
+    # The head is an HTTP/1.2 status line, which Net::HTTP parses and Dexpace::Protocol refuses
+    # (HTTP-33) -- an HTTP/1.0 head until phase 10 added that wire form. The body is UNDRAINABLE
+    # -- a hundred bytes declared, two sent, the connection held -- so
     # only the adapter's own close in Adapter#dispatch's rescue can release it: with that guard
     # removed the producer stays blocked in read_body on the 98 bytes that never come, the server
     # never sees the peer close, and the bound below elapses. A two-byte body drained itself and
     # released the connection whether or not the guard existed (review round 0's mutation H).
     test "TRANSPORT-22: an adaptation failure after the head releases the connection and raises" do
       server = wire(lambda do |conn, _head|
-        conn.write("HTTP/1.0 200 OK\r\nContent-Length: 100\r\n\r\nok")
+        conn.write("HTTP/1.2 200 OK\r\nContent-Length: 100\r\n\r\nok")
         conn.read # holds the connection, and the 98 undelivered bytes, until the peer closes it
       end)
 

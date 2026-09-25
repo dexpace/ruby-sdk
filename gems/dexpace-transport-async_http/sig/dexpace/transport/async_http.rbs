@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Transport
     # The reference asynchronous transport over async-http (phase 8c). Nothing from async,

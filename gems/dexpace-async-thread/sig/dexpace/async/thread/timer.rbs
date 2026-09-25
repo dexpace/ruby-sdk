@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Async::Thread::Timer is a private_constant and not public API: this declaration exists
 # because the `async_thread` Steep target checks every file under lib/ and needs the class
 # declared to type Pool#delay's and #release's call sites. RBS has no visibility for a constant,
