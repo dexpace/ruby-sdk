@@ -73,11 +73,22 @@ module Dexpace
       unless duration.is_a?(::Numeric)
         raise InvalidArgumentError, "duration must be a number of seconds, got #{duration.class}"
       end
+      # Phase 10, P8-77's shape: `real?` first (a Complex has no `negative?`), and NaN refused
+      # (it answers false to both `negative?` and `zero?`, and the scheduler's wait it reached
+      # never ends). The same screen as Clock::Guard.duration.
+      unless duration.real?
+        raise InvalidArgumentError, "duration must be a real number, got #{duration.inspect}"
+      end
       if duration.negative?
         raise InvalidArgumentError, "duration must be non-negative, got #{duration}"
       end
 
       seconds = duration #: untyped
+      if seconds.respond_to?(:nan?) && seconds.nan?
+        raise InvalidArgumentError,
+              "duration must be a number, got NaN"
+      end
+
       seconds.to_f
     end
     private_class_method :validate_delay

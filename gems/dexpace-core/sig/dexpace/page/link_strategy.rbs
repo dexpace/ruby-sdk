@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-18..PAGE-20: the Link-header strategy over a caller-supplied `#call(response) -> items`

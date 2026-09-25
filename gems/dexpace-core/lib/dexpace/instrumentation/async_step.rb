@@ -103,10 +103,17 @@ module Dexpace
       # response event and the derived future's fulfilment, then the finish; a meter that raises
       # there is collected by Hooks.notify, which still runs every later callback, and re-raised
       # into the producer once the list has run.
+      #
+      # The clock is read in a callback registered BEFORE the derivation (phase 10, 5b's review
+      # R3-2): the derived future's fulfilment runs every callback the CALLER put on it, and with
+      # the clock read in the finish that follows, the recorded duration included the caller's own
+      # continuation. The sync path records before it returns; this records at settlement.
       def attach(future, pending)
         if body?
+          ended = nil #: Float?
+          future.on_settle { |_settlement| ended = @clock.monotonic }
           derived = future.then { |response| settle_response(pending, wrap_response(response)) }
-          future.on_settle { |settlement| settle(pending, settlement) }
+          future.on_settle { |settlement| settle(pending, settlement, ended) }
           derived
         else
           future.on_settle do |settlement|
@@ -123,12 +130,12 @@ module Dexpace
       end
 
       # The failure event, bridged, then the tracer and meter work.
-      def settle(pending, settlement)
+      def settle(pending, settlement, ended = nil)
         error = settlement.error
         unless error.nil?
           bridged(pending.snapshot) { log_failure(pending.request, error, pending.started) }
         end
-        finish(pending.span, pending.started)
+        finish(pending.span, pending.started, ended)
       end
 
       # OBS-24's bridge around a log emission; nothing to bridge when nothing is logged.

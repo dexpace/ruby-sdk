@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-6..PAGE-10, PAGE-36: the blocking engine, a frozen Data of immutable configuration.

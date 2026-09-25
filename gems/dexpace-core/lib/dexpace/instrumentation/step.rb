@@ -164,13 +164,15 @@ module Dexpace
       # two, OBS-32's conventions are post-v1, and an inline Hash literal here would allocate
       # per request to carry a vocabulary nothing has chosen. The histogram takes milliseconds,
       # the same figure the log field carries.
-      def finish(span, started)
+      # `ended` is the settlement's own reading when the async step took one (phase 10); nil reads
+      # the clock now, which is the sync path's moment.
+      def finish(span, started, ended = nil)
         span.finish
         @counter.add(1)
-        @histogram.record(elapsed_ms(started))
+        @histogram.record(elapsed_ms(started, ended))
       end
 
-      def elapsed_ms(started) = (@clock.monotonic - started) * 1000.0
+      def elapsed_ms(started, ended = nil) = ((ended || @clock.monotonic) - started) * 1000.0
 
       def logged? = @level.at_least?(HTTPLogging::HEADERS)
       def body? = @level.at_least?(HTTPLogging::BODY)

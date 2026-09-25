@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-4's PageInfo: items plus the next request, whose nil is the one end-of-stream signal.

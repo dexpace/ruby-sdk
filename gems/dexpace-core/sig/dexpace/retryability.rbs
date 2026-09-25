@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # What .retryable_status? accepts beside an Integer: a Dexpace::Status, or anything answering
   # #code with one.

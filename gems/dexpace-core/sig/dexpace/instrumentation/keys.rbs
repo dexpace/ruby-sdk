@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-39: the emitted field-key vocabulary, sixteen frozen Strings.

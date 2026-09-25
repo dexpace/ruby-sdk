@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::DeepValue is a private_constant and not public API (R4): this declaration exists
 # because the strict `core` Steep target checks every file under lib/, and a later
 # dexpace-conformance suite reaches it by bare name from inside `module Dexpace`. RBS has no

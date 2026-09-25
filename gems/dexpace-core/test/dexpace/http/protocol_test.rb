@@ -23,7 +23,22 @@ class DexpaceProtocolTest < DexpaceTestCase
     error = assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Protocol.parse("spdy/3") }
 
     assert_includes(error.message, "spdy/3")
-    assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Protocol.parse("http/1.0") }
+    # The negative half of phase 10's repair: widening the table by one form must not turn a
+    # loud failure into a silent one for every other version.
+    ["http/0.9", "HTTP/3", "http/1", "http/1.10"].each do |text|
+      assert_raises(Dexpace::InvalidArgumentError, text) { Dexpace::Protocol.parse(text) }
+    end
+  end
+
+  # HTTP-33 names http/1.1 and http/2 as EXAMPLES of the canonical form; a real HTTP/1.0 status
+  # line is one any server may send, and both adapters feed their native version straight here, so
+  # before phase 10 an HTTP/1.0 response made both ResponseMappers raise (8a's hand-forward).
+  test "parses HTTP/1.0 to its own canonical form, and build accepts exactly that form" do
+    ["HTTP/1.0", "http/1.0"].each do |text|
+      assert_equal("http/1.0", Dexpace::Protocol.parse(text).wire)
+    end
+    assert_equal(Dexpace::Protocol::HTTP_1_0, Dexpace::Protocol.parse("HTTP/1.0"))
+    assert_equal(Dexpace::Protocol::HTTP_1_0, Dexpace::Protocol.build(wire: "http/1.0"))
   end
 
   test "requires an identifier, naming the field" do

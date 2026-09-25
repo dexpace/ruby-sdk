@@ -864,6 +864,7 @@ Dexpace::Protocol#wire
 Dexpace::Protocol.build
 Dexpace::Protocol.parse
 Dexpace::Protocol::ALIASES : Hash
+Dexpace::Protocol::HTTP_1_0 : Dexpace::Protocol
 Dexpace::Protocol::HTTP_1_1 : Dexpace::Protocol
 Dexpace::Protocol::HTTP_2 : Dexpace::Protocol
 Dexpace::Protocol::WIRE_FORMS : Array
@@ -1274,6 +1275,7 @@ Dexpace::Status#error?
 Dexpace::Status#informational?
 Dexpace::Status#redirect?
 Dexpace::Status#server_error?
+Dexpace::Status#standard?
 Dexpace::Status#success?
 Dexpace::Status.build
 Dexpace::Status.canonical_name

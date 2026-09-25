@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # What an object that includes Model must be: a Data, so `to_h` yields its members, whose class
   # carries a validating `.build` taking those members as keywords. That factory's keyword list

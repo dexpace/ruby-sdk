@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The three-state PATCH type (SERDE-14–SERDE-20, SERDE-30): a module included by ABSENT, NULL

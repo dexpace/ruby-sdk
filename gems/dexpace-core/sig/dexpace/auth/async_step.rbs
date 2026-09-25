@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-27 through AUTH-38 on the async runtime: Step over 4c's _AsyncStep. Exchange is a

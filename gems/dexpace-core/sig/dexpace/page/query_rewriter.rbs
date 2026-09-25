@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-21..PAGE-24: the verbatim query splice over the raw query substring.

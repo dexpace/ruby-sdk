@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # Differs from _Transport in exactly one position, the return type -- the whole of what
   # .conforms? cannot check and the reason both interfaces are declared at all.

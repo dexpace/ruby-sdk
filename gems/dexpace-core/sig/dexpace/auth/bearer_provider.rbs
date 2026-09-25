@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-11: the provider duck type -- #fetch, and optionally #fetch_async.

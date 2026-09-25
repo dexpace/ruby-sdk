@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # The resource-owning single-pass streaming facade (SSE-23 through SSE-32, SSE-39, SSE-40).

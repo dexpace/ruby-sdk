@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Resilience
     # The one shared retry policy core (RETRY-13, RECOV-30, R5). `random` is untyped on the two

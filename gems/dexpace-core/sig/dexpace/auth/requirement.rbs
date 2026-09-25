@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-2: one scheme bound to its own scopes and params, deep-frozen once.

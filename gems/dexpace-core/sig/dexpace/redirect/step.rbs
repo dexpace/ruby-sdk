@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The redirect layer: chapter 10's synchronous pillar step and its vocabulary.
   module Redirect

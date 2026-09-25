@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-37, AUTH-36 (async half), AUTH-11: the three-zone async bearer stamper.

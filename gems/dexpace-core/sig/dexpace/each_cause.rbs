@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   def self.each_cause: (::Exception error) -> Enumerator[::Exception, nil]
                      | (::Exception error) { (::Exception) -> void } -> nil

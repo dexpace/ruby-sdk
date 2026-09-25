@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-1 / PAGE-8 / PAGE-11: the re-iterable item-level view, one fresh walk per #each, every

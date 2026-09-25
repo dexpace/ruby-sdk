@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Resilience::PacingParsers is a private_constant and not public API (P6-11): this
 # declaration exists because the strict `core` Steep target types Policy.pacing_delay's calls into
 # it. RBS has no visibility for a constant, so the privacy lives in

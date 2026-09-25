@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-28: the HTTPS guard's refusal, naming the step and the scheme.

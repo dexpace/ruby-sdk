@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-25's tracer protocol, as phase 5c fixed it (phase 4a declared this empty on purpose and

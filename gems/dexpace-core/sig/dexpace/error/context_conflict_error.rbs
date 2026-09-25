@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class ContextConflictError < ::StandardError
     include Dexpace::Error

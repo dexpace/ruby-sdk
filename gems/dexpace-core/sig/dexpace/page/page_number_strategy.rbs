@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-17: the page-number strategy over a caller-supplied `#call(response) -> items` extractor.

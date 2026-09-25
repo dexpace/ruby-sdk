@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # The immutable five-field event value (SSE-20, SSE-21, SSE-22).

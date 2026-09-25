@@ -85,8 +85,12 @@ module Dexpace
 
       # Withdraws a hook a token registered, so a bounded wait retains nothing on an unbounded
       # source. Called by Cancellation::Subscription#detach and by nothing else. Idempotent, and a
-      # no-op once #cancel has taken the list. Array#delete compares with ==, which for a Proc is
-      # object identity, so one registration is removed and an identical-looking one is not.
+      # no-op once #cancel has taken the list. Array#delete compares with ==, and Proc#== is NOT
+      # object identity: a Proc's #dup answers == to it on 3.2.11 through 4.0.6 (measured by phase
+      # 10, correcting this comment -- phase 2's review R3-3), while two Procs made separately from
+      # one literal do not. The hooks this list holds are made fresh per registration and never
+      # duplicated, so removing one never removes another; a caller that registered a Proc and its
+      # own #dup would see both go.
       #
       # @return [self]
       def off_cancel(hook)

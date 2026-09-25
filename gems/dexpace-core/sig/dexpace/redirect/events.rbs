@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Redirect
     # REDIR-28's event names, the redirect layer's own vocabulary.

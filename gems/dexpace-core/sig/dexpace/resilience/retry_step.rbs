@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Resilience
     # The synchronous stage-based retry step at Stages::RETRY (RETRY-1..45's stage half). The

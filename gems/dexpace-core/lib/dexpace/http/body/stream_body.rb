@@ -25,6 +25,7 @@ module Dexpace
         raise Dexpace::InvalidArgumentError,
               "a stream body's io must respond to #readpartial or #read, got #{io.class}"
       end
+      refuse_closed!(io)
       unless content_length.is_a?(::Integer) && content_length >= -1
         raise Dexpace::InvalidArgumentError,
               "content_length must be an Integer of -1 or more, got #{content_length.inspect}"
@@ -85,6 +86,14 @@ module Dexpace
     # Errno::ESPIPE is a SystemCallError and NOT an IOError, so a bare `rescue IOError` would not
     # catch it. Guarded by respond_to? on both methods first, because the factory accepts any
     # #read-shaped object and a bare probe would raise NoMethodError out of a question.
+    # A stream already closed can never be written, and its #pos raised a bare IOError out of the
+    # probe below, outside `rescue Dexpace::Error` (phase 10, phase 3b's review R2-1).
+    def refuse_closed!(io)
+      return unless io.respond_to?(:closed?) && io.closed?
+
+      raise Dexpace::InvalidArgumentError, "a stream body's io is already closed"
+    end
+
     def probe_rewindability(io)
       return [0, false] unless io.respond_to?(:pos) && io.respond_to?(:seek)
 

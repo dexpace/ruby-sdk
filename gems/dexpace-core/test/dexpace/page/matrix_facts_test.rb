@@ -186,7 +186,8 @@ class DexpacePageMatrixFactsTest < DexpaceTestCase
 
       refute_same(element, owned.first)
       assert_predicate(owned.first, :frozen?)
-      assert_raises(TypeError) { Dexpace::Model.own([proc {}]) }
+      # Phase 10: the SDK's own error now, never Ruby's TypeError (phase 1's review R3-1).
+      assert_raises(Dexpace::InvalidArgumentError) { Dexpace::Model.own([proc {}]) }
       assert_empty(Data.define(:a).new(a: 1).instance_variables)
     end
 

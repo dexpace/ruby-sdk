@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-34, OBS-36, OBS-39, OBS-20: the instrumentation step at Stages::LOGGING. The two slots
@@ -34,8 +36,8 @@ module Dexpace
       # untyped: a _Span is what the tracer returns and `_Span & Object` is what Tracing takes
       # (5c's identity device); the step passes one straight to the other.
       def open_span: (Dexpace::Request request, Bundle bundle) -> untyped
-      def finish: (untyped span, Float started) -> void
-      def elapsed_ms: (Float started) -> Float
+      def finish: (untyped span, Float started, ?Float? ended) -> void
+      def elapsed_ms: (Float started, ?Float? ended) -> Float
       def logged?: () -> bool
       def body?: () -> bool
       def prepare: (Dexpace::Request request) -> Dexpace::Request

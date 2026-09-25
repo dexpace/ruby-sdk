@@ -104,7 +104,8 @@ class DexpaceResponseTest < DexpaceTestCase
   end
 
   test "with re-validates, so a derived response cannot carry a status outside the range" do
-    assert_raises(Dexpace::InvalidArgumentError) { response.with(status: 600) }
+    # 1000 and not 600: phase 10 widened Status to every code a status line can carry (HTTP-10).
+    assert_raises(Dexpace::InvalidArgumentError) { response.with(status: 1000) }
     assert_raises(Dexpace::InvalidArgumentError) { response.with(protocol: nil) }
     assert_equal(Dexpace::Status::NOT_FOUND, response.with(status: 404).status)
   end
@@ -159,7 +160,7 @@ class DexpaceResponseTest < DexpaceTestCase
     end
 
     test "build rejects a protocol, a status, a request and headers it cannot coerce" do
-      assert_raises(Dexpace::InvalidArgumentError) { response(status: 99) }
+      assert_raises(Dexpace::InvalidArgumentError) { response(status: -1) } # 0..999 map (phase 10)
       builder = Dexpace::Response.builder
       builder.request = request
       builder.protocol = "spdy/3"

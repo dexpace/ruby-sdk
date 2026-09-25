@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-1 / PAGE-12 / PAGE-14 / PAGE-15: the single-use, auto-closing page-level view over one

@@ -58,9 +58,17 @@ module Dexpace
     # a value with no `//`, which RFC 3986 reads as an opaque URI with no userinfo and the
     # redactor therefore writes back as given (P5-100). Applied to the redactor's form of the
     # URL before it is shown, so `user:secret@proxy.corp:3128` -- the scheme forgotten -- shows
-    # as `***:***@proxy.corp:3128`. Anchored, one bounded class and one literal; the per-pattern
-    # timeout is the port's rule.
-    CREDENTIAL_BEFORE_AT = ::Regexp.new('\A[^/?#]*@', timeout: 1.0)
+    # as `***:***@proxy.corp:3128`. One bounded class and one literal; the per-pattern timeout is
+    # the port's rule.
+    #
+    # UNANCHORED, and applied with `gsub` to every `@` the shown form carries (phase 10, repairing
+    # phase 5b's R3-1). Anchored at `\A`, the belt reached only a credential in the value's FIRST
+    # slash-free run, and a spelling that puts a slash before the userinfo -- `http:/u:p@h:1`,
+    # `http:///u:p@h`, `/http://u:p@h:1`, `socks5:/u:p@h:1` -- is read by the parser as a path
+    # the redactor keeps verbatim (OBS-14), so the password reached Kernel#warn and the config sink
+    # on eight spellings of eight on 4.0.6 and 3.2.11. Over-redacting an `@` that sits in a path is
+    # the safe direction in a warning: OBS-11's userinfo rule is "unconditional".
+    CREDENTIAL_BEFORE_AT = ::Regexp.new("[^/?#]*@", timeout: 1.0)
     private_constant :CREDENTIAL_BEFORE_AT
 
     # The header name #shown renders the URL under: `location`, the first of
@@ -175,7 +183,7 @@ module Dexpace
     # Then CFG-24's grammar rule, for the credential the redactor cannot know is one.
     def shown(url)
       redacted = Instrumentation::Redactor::DEFAULT.header_value(SHOWN_AS, url)
-      redacted.sub(CREDENTIAL_BEFORE_AT, "#{Instrumentation::Redactor::REDACTED_USERINFO}@")
+      redacted.gsub(CREDENTIAL_BEFORE_AT, "#{Instrumentation::Redactor::REDACTED_USERINFO}@")
     end
 
     def url_problem(host, raw_port)

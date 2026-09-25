@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The ISO-8601 instant witness (SERDE-24): the decode half parses, the encode half renders at

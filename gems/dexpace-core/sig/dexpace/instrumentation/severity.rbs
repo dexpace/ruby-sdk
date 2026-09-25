@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-2: a closed set of four. .new and .[] are both private, and #with always raises, so the

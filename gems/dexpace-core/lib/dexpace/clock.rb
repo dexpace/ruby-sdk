@@ -34,13 +34,26 @@ module Dexpace
         unless value.is_a?(::Numeric)
           raise InvalidArgumentError, "duration must be a number of seconds, got #{value.class}"
         end
+        # Phase 10, P8-77's shape (8b's review R1-1): `real?` before `negative?`, because a Complex
+        # is a Numeric with no order and `negative?` was a bare NoMethodError; and a NaN answers
+        # false to `negative?` AND `zero?`, so it reached `Queue#pop(timeout: NaN)`, which parks
+        # forever on every supported row -- a sleep no elapsed time ends. Infinity stays admitted:
+        # an unbounded wait only the token ends is a caller's legitimate choice here.
+        unless value.real?
+          raise InvalidArgumentError,
+                "duration must be a real number, got #{value.inspect}"
+        end
         raise InvalidArgumentError, "duration must be non-negative, got #{value}" if value.negative?
+        raise InvalidArgumentError, "duration must be a number, got NaN" if Guard.nan?(value)
 
         # rbs's Numeric declares no #to_f (its subclasses do), so the conversion reads the value
         # untyped after the check above has done the typing.
         seconds = value #: untyped
         seconds.to_f
       end
+
+      # Numeric's own protocol: Float and BigDecimal answer #nan?, Integer and Rational do not.
+      def nan?(value) = value.respond_to?(:nan?) && value.nan?
 
       # @return [Dexpace::Cancellation, nil] nil for no token or the never-cancelled one
       def token(cancellation)

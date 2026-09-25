@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # Design §8.1's bus adapter over one `#call(name, payload)` object; the eleven overrides

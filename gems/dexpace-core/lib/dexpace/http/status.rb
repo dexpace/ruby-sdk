@@ -4,7 +4,7 @@
 require_relative "../model"
 
 module Dexpace
-  # An HTTP status code, total over the protocol's range (HTTP-10 - HTTP-12).
+  # An HTTP status code, total over every code a status line can carry (HTTP-10 - HTTP-12).
   #
   # ONE member, and that is HTTP-12 rather than minimalism: two Status values must be equal iff
   # their codes are equal, with the name taking no part. A Data.define(:code, :name) would generate
@@ -54,18 +54,24 @@ module Dexpace
       CANONICAL_NAMES[code]
     end
 
-    # HTTP-10 says construction is total over "any code"; the 100-599 guard is the port's reading
-    # and not a narrowing of it. A vendor code such as nginx's 499 or Cloudflare's 520-526 and 530
-    # is inside the range and constructs cleanly with no name, which is the requirement's own
-    # rationale; an Integer outside the protocol's range is a caller mistake, not a vendor code.
+    # HTTP-10 says construction is total over "any code", and TRANSPORT-24 that any code a server
+    # returns is surfaced rather than rejected. A status line carries three decimal places, so
+    # 0..999 is every code a server can send; phase 1's 100-599 guard refused a 600 or LinkedIn's
+    # 999, which Net::HTTP delivers as an HTTPUnknownResponse, and made both transports raise on a
+    # head the requirement says to surface (phase 10, 8a's R2-2). The protocol's own range is now
+    # the #standard? predicate; an Integer no status line can carry is still a caller mistake.
     def initialize(code:)
       Model.required!("code", code)
-      unless code.is_a?(Integer) && code.between?(100, 599)
-        raise InvalidArgumentError, "code must be an integer status code between 100 and 599"
+      unless code.is_a?(Integer) && code.between?(0, 999)
+        raise InvalidArgumentError, "code must be an integer status code between 0 and 999"
       end
 
       super
     end
+
+    # 100-599: the classes HTTP-11 names. A vendor code outside them (a 999) is a Status all the
+    # same and answers false to every class predicate below.
+    def standard? = code.between?(100, 599)
 
     # The reason phrase for a recognised code; nil for a vendor code (HTTP-10).
     def canonical_name

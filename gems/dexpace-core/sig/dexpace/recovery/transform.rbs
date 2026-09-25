@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Recovery
     # The static half of R8's contract -- what phase 4c's generic adapter names at its parameter.

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-11, AUTH-34, AUTH-35, AUTH-36: the sync bearer stamper.

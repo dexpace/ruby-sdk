@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # OBS-24's "immutable snapshot": what Diagnostics.with installs -- a frozen Hash from
   # Diagnostics.capture, or anything else that yields Symbol-keyed pairs and names its keys.

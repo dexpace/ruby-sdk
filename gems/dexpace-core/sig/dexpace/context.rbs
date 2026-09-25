@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # What an includer of Context must be beyond a Model: a Data whose members include the store
   # #close releases through and the key it is registered under. The store is `untyped` because

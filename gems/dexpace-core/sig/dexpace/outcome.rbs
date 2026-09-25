@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The closed sum type both variants include; `t` is the union every fold site is checked
   # against.

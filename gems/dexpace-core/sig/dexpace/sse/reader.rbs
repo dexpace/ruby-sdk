@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # SSE-1's field state machine over LineReader: SSE-3 through SSE-18, SSE-19's event cap.

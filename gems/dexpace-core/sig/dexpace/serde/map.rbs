@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The Hash combinator (SERDE-6): a witness for Hash[key, value], built by value from a key

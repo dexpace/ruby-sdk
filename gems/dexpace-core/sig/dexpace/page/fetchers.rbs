@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Page
     # PAGE-34 / PAGE-35: the fetcher-based front-end, a frozen Data over two caller callables and
