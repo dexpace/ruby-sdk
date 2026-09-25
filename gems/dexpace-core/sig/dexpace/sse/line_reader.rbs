@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # SSE-2's line machine over a _ByteSource#getbyte (P7-20), with SSE-19's line cap.

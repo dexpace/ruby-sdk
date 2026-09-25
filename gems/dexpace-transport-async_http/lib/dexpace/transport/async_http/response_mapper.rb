@@ -12,11 +12,11 @@ module Dexpace
       # response object exists: a malformed inbound header NAME (`Protocol::HTTP1::BadHeader`,
       # P8-38, the TRANSPORT-14 waiver) and a non-numeric Content-Length
       # (`Protocol::HTTP1::BadRequest`, the TRANSPORT-27 waiver) -- both wrap as retryable
-      # transport failures. Dexpace::Protocol admits HTTP/1.1 and HTTP/2 only (HTTP-33) and
-      # Dexpace::Status 100-599 (HTTP-10's reading), so an `HTTP/1.0` head and a `999` status each
-      # raise Dexpace::InvalidArgumentError here, after the head, with the native body closed by
-      # the exchange's own release -- the disposition dexpace-transport-net_http records, and the
-      # two phase-1 questions on phase 10's inbound list. A private_constant of AsyncHTTP.
+      # transport failures. Since phase 10 Dexpace::Protocol admits HTTP/1.0 beside HTTP/1.1 and
+      # HTTP/2 (HTTP-33) and Dexpace::Status every Integer code (HTTP-10, TRANSPORT-24), so an
+      # `HTTP/1.0` head and a vendor `999` both map; a version the model does not know still
+      # raises Dexpace::InvalidArgumentError here, after the head, with the native body closed by
+      # the exchange's own release. A private_constant of AsyncHTTP.
       module ResponseMapper
         extend self
 

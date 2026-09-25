@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # AUTH-6's resolution failure, flat under Dexpace in phase 2's error shape.
   class AuthResolutionError < ::StandardError

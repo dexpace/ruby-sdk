@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::CallKey is a private_constant and not public API (design P4-3): this declaration
 # exists because the strict `core` Steep target checks every file under lib/ and needs the module
 # and its one method declared to type the three .build call sites, exactly as hooks.rbs does for

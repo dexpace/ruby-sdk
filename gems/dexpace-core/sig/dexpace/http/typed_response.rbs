@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class TypedResponse
     attr_reader response: Dexpace::Response

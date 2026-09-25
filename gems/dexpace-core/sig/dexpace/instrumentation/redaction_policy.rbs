@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-12, OBS-17, OBS-18: three folded Sets and one boolean, no member for userinfo (OBS-11 is

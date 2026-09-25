@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Resilience
     # The recovery-chain retry engine (RECOV-17..30, RECOV-34), a Dexpace::Transport decorator

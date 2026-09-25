@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Resilience
     # RETRY-5 through RETRY-8, RECOV-18: the re-sendability gate (R5), and REDIR-6's body-only

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Pipeline::AsyncDriver is a private_constant and not public API (design P2-15): this
 # declaration exists because the strict `core` Steep target checks every file under lib/ and
 # needs the class and its methods declared to type its call sites in Cursor, Builder and

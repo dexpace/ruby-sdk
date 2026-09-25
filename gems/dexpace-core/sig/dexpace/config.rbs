@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   self.@config_mutex: Thread::Mutex
   self.@configuration: Configuration

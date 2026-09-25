@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Appendix B.8: twenty-eight assertions over all twenty-four XCUT IDs (design P9-8).

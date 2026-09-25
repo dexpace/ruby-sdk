@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # The current-span slot key: a private_constant shared by Scope and Tracing, declared here

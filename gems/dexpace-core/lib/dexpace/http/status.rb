@@ -4,7 +4,7 @@
 require_relative "../model"
 
 module Dexpace
-  # An HTTP status code, total over the protocol's range (HTTP-10 - HTTP-12).
+  # An HTTP status code, total over every Integer code (HTTP-10 - HTTP-12).
   #
   # ONE member, and that is HTTP-12 rather than minimalism: two Status values must be equal iff
   # their codes are equal, with the name taking no part. A Data.define(:code, :name) would generate
@@ -16,7 +16,7 @@ module Dexpace
 
     private_class_method :new
 
-    # The recognised codes and their reason phrases; every other code in range is a vendor code.
+    # The recognised codes and their reason phrases; every other code is a vendor code.
     CANONICAL_NAMES = {
       100 => "Continue", 101 => "Switching Protocols",
       200 => "OK", 201 => "Created", 202 => "Accepted", 204 => "No Content",
@@ -54,18 +54,25 @@ module Dexpace
       CANONICAL_NAMES[code]
     end
 
-    # HTTP-10 says construction is total over "any code"; the 100-599 guard is the port's reading
-    # and not a narrowing of it. A vendor code such as nginx's 499 or Cloudflare's 520-526 and 530
-    # is inside the range and constructs cleanly with no name, which is the requirement's own
-    # rationale; an Integer outside the protocol's range is a caller mistake, not a vendor code.
+    # HTTP-10 says construction is total over "any code" -- "mapping any code MUST return a
+    # Status (never throw)" -- and TRANSPORT-24 that any code a server returns is surfaced rather
+    # than rejected. Phase 1's 100-599 guard refused a 600 or LinkedIn's 999, which Net::HTTP
+    # delivers as an HTTPUnknownResponse, and made both transports raise on a head the
+    # requirement says to surface (phase 10, 8a's R2-2); a first repair to 0..999 -- "every code a
+    # status line can carry" -- still threw on 1000 and -1, a port reading narrower than the
+    # MUST (phase 10's review round 0, R0-5). So every Integer is a code, and the protocol's own
+    # range is the #standard? predicate; only a non-Integer is refused, because it is not a code
+    # at all (HTTP-4's type check, not a range).
     def initialize(code:)
       Model.required!("code", code)
-      unless code.is_a?(Integer) && code.between?(100, 599)
-        raise InvalidArgumentError, "code must be an integer status code between 100 and 599"
-      end
+      raise InvalidArgumentError, "code must be an Integer status code" unless code.is_a?(Integer)
 
       super
     end
+
+    # 100-599: the classes HTTP-11 names. A vendor code outside them (a 999) is a Status all the
+    # same and answers false to every class predicate below.
+    def standard? = code.between?(100, 599)
 
     # The reason phrase for a recognised code; nil for a vendor code (HTTP-10).
     def canonical_name

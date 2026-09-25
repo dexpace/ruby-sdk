@@ -27,10 +27,7 @@ module Dexpace
     # still holds is externally-mutable state XCUT-15 forbids a model from aliasing. Parsing
     # yields components this method owns, which it can then freeze without touching the caller's.
     def parse!(input)
-      Model.required!("url", input)
-      unless input.is_a?(String) || input.is_a?(::URI::Generic)
-        raise InvalidArgumentError, "url must be a String or a URI, got #{input.class}"
-      end
+      string_or_uri!(input)
 
       # rbs's stdlib signatures declare URI::RFC3986_Parser as an empty class, so its #parse is
       # invisible to Steep; the annotation is local to this one call rather than a reopened
@@ -41,10 +38,15 @@ module Dexpace
         raise InvalidArgumentError, "url #{input.to_s.inspect} is not an absolute URI (HTTP-47)"
       end
 
-      own(uri)
-    rescue ::URI::InvalidURIError => error
+      refuse_hostless!(uri, input)
+
+      renderable!(own(uri), input)
+    rescue ::URI::Error => error
       # The Task 1 rule: a stdlib exception raised because of the argument is re-raised as the
-      # SDK's argument error, naming the input, with the original left as the cause.
+      # SDK's argument error, naming the input, with the original left as the cause. URI::Error,
+      # not only InvalidURIError: `mailto://host` raises URI::InvalidComponentError from the
+      # scheme's own constructor, which escaped `rescue Dexpace::Error` until phase 10 (phase 2's
+      # review R3-1).
       raise InvalidArgumentError, "url #{input.to_s.inspect} is malformed: #{error.message}"
     end
 
@@ -92,6 +94,37 @@ module Dexpace
     end
 
     private
+
+    def string_or_uri!(input)
+      Model.required!("url", input)
+      return if input.is_a?(String) || input.is_a?(::URI::Generic)
+
+      raise InvalidArgumentError, "url must be a String or a URI, got #{input.class}"
+    end
+
+    # HTTP-47's rationale is failing at construction "rather than surfacing a lower-level or
+    # transport-specific error later", and `URI::Generic#absolute?` is only "a scheme is present":
+    # `http:` and `http:///p` parse as absolute URI::HTTPs with no host, which surfaced as whatever
+    # the transport raised on a nil host. The http family is this SDK's own; which OTHER schemes a
+    # transport dispatches stays the transport's knowledge (phase 1's reading), so only the http
+    # family is screened for a host here (phase 10, phase 1's review round 3).
+    def refuse_hostless!(uri, input)
+      return unless uri.is_a?(::URI::HTTP) && (uri.host.nil? || uri.host.empty?)
+
+      raise InvalidArgumentError, "url #{input.to_s.inspect} has no host (HTTP-47)"
+    end
+
+    # A URI whose own #to_s mutates it cannot be held frozen: URI::FTP with a `;type=` code
+    # rewrites @path inside #to_s, so the frozen result raised FrozenError from every later
+    # rendering -- a lower-level error, later, which is what HTTP-47 exists to prevent (phase 2's
+    # review R3-2). Refused here, at construction, with the SDK's own error.
+    def renderable!(uri, input)
+      uri.to_s
+      uri
+    rescue ::FrozenError
+      raise InvalidArgumentError,
+            "url #{input.to_s.inspect} cannot be held as an immutable URI (HTTP-47)", cause: nil
+    end
 
     # Freezes the URI's String components, then the URI. Only Strings: a URI also references
     # its parser, a process-global object this method leaves alone -- the uri gem freezes

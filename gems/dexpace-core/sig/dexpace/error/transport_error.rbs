@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # TRANSPORT-20 and XCUT-4 branch (b): the always-retryable transport failure, a sibling of
   # StreamError inside ::IOError (P3-3). Phase 8's phase-level task, landed by 8a.

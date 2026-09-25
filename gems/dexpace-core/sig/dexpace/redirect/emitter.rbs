@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Redirect::Emitter is a private_constant and not public API: this declaration exists
 # because the strict `core` Steep target checks every file under lib/ and needs the class and
 # its four writers declared to type Step. RBS has no visibility for a constant, so the privacy

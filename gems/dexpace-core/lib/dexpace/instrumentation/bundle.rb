@@ -25,6 +25,11 @@ module Dexpace
     # made a bundle reachable by a pipeline step through Pipeline::Cursor#bundle, seeded per
     # call by the `bundle:` keyword on Pipeline#call and AsyncPipeline#call (its Task 8).
     #
+    # Two factories, not one (phase 10, R6): the member `tracer_factory` makes SPAN tracers
+    # (OBS-21 - OBS-25) and is legitimately shared and cached; OBS-29's HTTP-tracer factory makes
+    # one Instrumentation::HTTPTracer per operation and lives on the retry steps'
+    # `http_tracer_factory:`, never here.
+    #
     # trace_state is a list of pairs, not a Hash: OBS-26 says "a vendor trace-state list" and W3C
     # tracestate is ordered, most recent vendor first, which a Hash would lose. trace_flags stays
     # the two-hex-char wire form OBS-26 fixes; phase 5c added the #sampled? predicate over it,
@@ -60,8 +65,13 @@ module Dexpace
       # @param trace_state [Array<Array(String, String)>] the vendor trace-state list, in order
       # @param remote [Boolean] whether the trace context arrived from another service
       # @param span [Object] the active span; NO_SPAN when tracing is off
-      # @param tracer_factory [#tracer] the per-operation tracer factory; NO_TRACER_FACTORY when
-      #   tracing is off
+      # @param tracer_factory [#tracer] CTX-14's SPAN-tracer factory, keyed by instrumentation
+      #   library name and version (opentelemetry-api's TracerProvider shape, 4a's P4-8) and shared
+      #   across operations; NO_TRACER_FACTORY when tracing is off. It is NOT OBS-29's
+      #   per-operation HTTP-tracer factory, which the retry steps take as `http_tracer_factory:`
+      #   and call once per operation (6a's P6-7): OBS-25's no-op factory must answer the same
+      #   object on every call, the opposite of one instance per operation, so the two are two
+      #   objects (phase 10, R6)
       # @return [Bundle]
       def self.build(trace_id:, span_id:, flavour:, trace_flags: "00", trace_state: [],
                      remote: false, span: NO_SPAN, tracer_factory: NO_TRACER_FACTORY)

@@ -61,7 +61,12 @@ module Dexpace
 
     # HTTP-17: no C0 control, no DEL, no byte >= 0x80, not blank. Every byte below 0x21 is
     # rejected, which covers the controls, SP and HTAB -- a header name has no interior space.
+    #
+    # Every predicate here is TOTAL: a non-String answers false rather than raising NoMethodError
+    # from `#b`, which escaped `rescue Dexpace::Error` (phase 10, phase 1's review R3-4).
     def valid_name?(name)
+      return false unless name.is_a?(::String)
+
       trimmed = trim(name)
       return false if trimmed.empty?
 
@@ -70,6 +75,8 @@ module Dexpace
 
     # HTTP-18: HTAB plus printable ASCII 0x20-0x7E, and nothing else.
     def valid_outbound_value?(value)
+      return false unless value.is_a?(::String)
+
       value.b.each_byte.all? { |byte| byte == HTAB || (byte >= SPACE && byte < DEL) }
     end
 
@@ -77,6 +84,8 @@ module Dexpace
     # in a field value and applying the outbound grammar to a response would silently drop a
     # legitimate Latin-1 Content-Disposition.
     def valid_inbound_value?(value)
+      return false unless value.is_a?(::String)
+
       value.b.each_byte.all? { |byte| byte == HTAB || (byte >= SPACE && byte != DEL) }
     end
 
@@ -132,6 +141,8 @@ module Dexpace
     # String carrying invalid UTF-8, and an ArgumentError raised from inside Ruby escapes
     # `rescue Dexpace::Error` -- a validator that crashes has not rejected its input.
     def token?(text)
+      return false unless text.is_a?(::String)
+
       bytes = text.b
       !bytes.empty? && bytes.each_byte.all? { |byte| TCHAR.include?(byte) }
     end

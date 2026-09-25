@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # What an InvariantSuite assertion receives: the loaded core module and the driver's factories

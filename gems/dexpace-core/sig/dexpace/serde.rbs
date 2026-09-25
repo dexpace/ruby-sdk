@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The static half of the codec seam: the six methods, typed. `value` is untyped because a
   # codec's value space is its own. Phase 7a settled the three clauses phase 2 left loose:

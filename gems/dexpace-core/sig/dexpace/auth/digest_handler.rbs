@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # A hash function the handler drives: what ::Digest::MD5 and ::Digest::SHA256 answer.

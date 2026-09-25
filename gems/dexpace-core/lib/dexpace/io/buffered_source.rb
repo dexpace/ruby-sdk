@@ -12,8 +12,8 @@ module Dexpace
     # representation, because it responds to #each yielding BINARY chunks.
     #
     # Ownership is two frozen construction-time facts, never a close-time judgement. Closeable's
-    # @owned is always true -- a source always owns its own buffer -- and a separate frozen
-    # @dexpace_owns_upstream decides whether #release also closes the upstream. The factory names
+    # `@owned` is always true -- a source always owns its own buffer -- and a separate frozen
+    # `@dexpace_owns_upstream` decides whether #release also closes the upstream. The factory names
     # carry it: .wrapping owns (IO-6), .of_bytes and .over own nothing. IO-6 is read out of
     # appendix C, and cited with design §10.12; SEAM-3, which the older statements of the rule
     # cite, is retired (docs/knowledge/notes/message-bodies.md).

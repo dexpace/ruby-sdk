@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Conformance::InvariantSuite::Resolution is a private_constant (see resolution.rb);
 # declared because the conformance Steep target checks every file under lib/.
 module Dexpace

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Async
     # Async::Deadline is a private_constant and not public API: declared because the strict

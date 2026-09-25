@@ -60,12 +60,16 @@ module DexpaceTransportAsyncHTTPResponseMapperTest
       assert_equal("http/2", response.protocol.wire)
     end
 
-    # Phase 1's Status guards 100-599 and Protocol admits HTTP/1.1 and HTTP/2: a head outside either
-    # is InvalidArgumentError after the head, the disposition 8a records and phase 10 decides.
-    test "a status outside 100-599 or an HTTP/1.0 head raises InvalidArgumentError from the " \
-         "model" do
-      assert_raises(Dexpace::InvalidArgumentError) { map(native_response(status: 999)) }
-      assert_raises(Dexpace::InvalidArgumentError) { map(native_response(version: "HTTP/1.0")) }
+    # HTTP-10, HTTP-33, TRANSPORT-24: phase 10 widened Status to every code a status line can carry
+    # and Protocol by HTTP/1.0, the two phase-1 questions 8a routed. Until then this test asserted
+    # both heads raised; it is that pin, inverted.
+    test "a vendor 999 status and an HTTP/1.0 head both map" do
+      assert_equal(999, map(native_response(status: 999)).status.code)
+      assert_equal("http/1.0", map(native_response(version: "HTTP/1.0")).protocol.wire)
+    end
+
+    test "a version the model does not know is InvalidArgumentError after the head (HTTP-33)" do
+      assert_raises(Dexpace::InvalidArgumentError) { map(native_response(version: "HTTP/1.2")) }
     end
 
     test "TRANSPORT-14: a control byte in an inbound value is dropped, that header only, and " \

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Conformance::InvariantSuite::Outcomes is a private_constant (see outcomes.rb); declared
 # because the conformance Steep target checks every file under lib/.
 module Dexpace

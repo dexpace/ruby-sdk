@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # SSE-34's two non-value outcomes, as a closed two-instance type (P7-23).

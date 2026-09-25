@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The time seam a fake satisfies and what Future#value(clock:) types against: exactly the three
   # operations CFG-15 declares.
@@ -13,6 +15,7 @@ module Dexpace
     module Guard
       def self?.duration: (untyped value) -> Float
       def self?.token: (untyped cancellation) -> Dexpace::Cancellation?
+      def self?.nan?: (untyped value) -> bool
     end
 
     SYSTEM: Clock

@@ -75,7 +75,11 @@ module InvariantGates
       "to the bound instead of overshooting permanently, which is XCUT-14's drain clause " \
       "exactly; every evicted client's pool is retired outside the lock. Phase 9's planning " \
       "adjudicated this as the one TRUE positive of six, against 8c's filed plan fence rather " \
-      "than its code, and 8c shipped the bound its Task 8 promised",
+      "than its code, and 8c shipped the bound its Task 8 promised. The MECHANISM behind this " \
+      "reading (phase 10, 2026-09-25): clients_test.rb's three XCUT-14 cases -- 'the map is " \
+      "bounded at MAX_ORIGINS and drains back to the cap after each insert', 'an evicted " \
+      "client's pool is retired and closed, never merely dropped' and 'a client whose reactor " \
+      "has closed is evicted before a live one' -- go red if the cap, the loop or the close goes",
   }.freeze
 
   extend self

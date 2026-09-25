@@ -395,4 +395,49 @@ namespace :gates do
 
     puts "gates:seam_names: #{core_files(root).size} core files name no adapter (SEAM-2)."
   end
+
+  # Phase 10's three gates (design addenda A8, A9, A11). Each reads absolute paths joined to
+  # gate_root and relativises only its message -- P9-27's lesson, applied from the first line.
+  #
+  # gates:ledger_audit's third assertion resolves every `Dexpace::` constant a verdict row names, so
+  # the task loads core and every adapter whose Ruby floor this interpreter meets; a gem it cannot
+  # load leaves its constants unresolvable and the row an offence, which is the safe direction. The
+  # gate runs in CI's `gates` job, on the development Ruby.
+  desc "P10-2: docs/deviations.md still matches design section 10, every verdict citing real code"
+  task :ledger_audit do
+    require_relative "../tools/ledger_audit"
+    require_relative "../tools/versions"
+    CLEAN_BUNDLE_ENTRIES.each do |name, (feature, _constant)|
+      next unless DexpaceVersions.gem_supported?(name)
+
+      require feature
+    end
+    found = LedgerAudit.offences(root: gate_root)
+    abort(found.join("\n")) unless found.empty?
+
+    puts "gates:ledger_audit: every register row matches its design section 10 entry, " \
+         "and every verdict cites resolvable as-built evidence."
+  end
+
+  desc "NFR-13, NFR-3: every shipped signature carries the SPDX header and declares something"
+  task :spdx_rbs do
+    require_relative "../tools/spdx_rbs"
+    root = gate_root
+    paths = Dir.glob(File.join(root, SpdxRbs::GLOB))
+    found = SpdxRbs.offences(root: root, paths: paths)
+    abort(relative_to(root, found).join("\n")) unless found.empty?
+
+    puts "gates:spdx_rbs: #{paths.size} shipped signatures carry the header and declare something."
+  end
+
+  desc "NFR-6: AstScan.parse is the only RubyVM::AbstractSyntaxTree.parse_file in the tooling"
+  task :sole_parse do
+    require_relative "../tools/sole_parse"
+    root = gate_root
+    found = SoleParse.offences(root: root)
+    abort(relative_to(root, found).join("\n")) unless found.empty?
+
+    puts "gates:sole_parse: AstScan.parse is the one parse_file; " \
+         "#{SoleParse::ALLOWED.size} deliberate test contrasts allowlisted with reasons."
+  end
 end

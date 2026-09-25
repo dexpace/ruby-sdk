@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # What a CodecSuite assertion receives: a codec factory, the driver's witness and its source

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-34, OBS-35: a closed set of three. .new and .[] are both private and #with always

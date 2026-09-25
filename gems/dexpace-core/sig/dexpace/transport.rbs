@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The static half of the seam -- what a consumer's own `steep check` sees at a parameter -- and
   # the artifact that replaces the styleguide's Sorbet abstract module

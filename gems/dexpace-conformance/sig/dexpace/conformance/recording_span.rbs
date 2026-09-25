@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # OBS-21's recording span double, over phase 5c's _Span protocol.

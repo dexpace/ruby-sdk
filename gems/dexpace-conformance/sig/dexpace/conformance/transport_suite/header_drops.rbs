@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Conformance::TransportSuite::HeaderDrops is a private_constant and not public API:
 # this declaration exists because the conformance Steep target checks every file under lib/. RBS
 # has no visibility for a constant, so the privacy lives in header_drops.rb alone.

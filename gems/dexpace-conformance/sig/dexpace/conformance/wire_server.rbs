@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Design §9.3's plaintext TCPServer fixture. The listener, the sockets and the accepted

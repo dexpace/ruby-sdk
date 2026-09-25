@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # The self-type is ::Exception because #detailed_message calls `super`, and every includer and
   # every object Dexpace.attach_suppressed extends is one. The keywords Ruby's printer passes

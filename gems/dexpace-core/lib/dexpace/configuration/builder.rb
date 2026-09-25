@@ -121,17 +121,47 @@ module Dexpace
                             property_source: composed_source,)
       end
 
+      # A property source this builder composed: its own entries shadowing one base source.
+      # Frozen, and never nested -- composing over a Layered merges into a new one over the same
+      # base (phase 10).
+      class Layered
+        attr_reader :entries, :base
+
+        def initialize(entries, base)
+          @entries = entries.to_h { |key, value| [key.to_s, value.to_s] }.freeze
+          @base = base
+          freeze
+        end
+
+        # This layer's own entry for the key, else the base source's answer (CFG-13's
+        # last-write-wins at the key level).
+        #
+        # @param key [String]
+        # @return [String, nil]
+        def call(key) = @entries.fetch(key.to_s) { @base.call(key) }
+      end
+      private_constant :Layered
+
       private
 
+      # Phase 10, repairing 5a's review R1-2: each `Dexpace.configure` that added a property over
+      # an inherited source wrapped it in one more closure, so N configures built an N-deep chain
+      # every property lookup walked, and none was ever released. A layer this builder made is now
+      # FLATTENED -- its entries merged under the new ones, over the same base -- so the chain is
+      # at most one layer over the base whatever the configure count. Last-write-wins per key
+      # (CFG-13) and an untouched inherited seam passed through by reference (CFG-9) both hold.
       def composed_source
-        inherited = @property_source
+        inherited = @property_source #: untyped
         return inherited || Sources::NONE if @property_source_explicit || @properties.empty?
 
         added = Sources.from_hash(@properties)
-        return added unless inherited
-        return added if Sources::NONE.equal?(inherited)
+        return added if inherited.nil? || Sources::NONE.equal?(inherited)
+        if inherited.is_a?(Layered)
+          return Layered.new(inherited.entries.merge(@properties),
+                             inherited.base,)
+        end
 
-        ->(key) { added.call(key) || inherited.call(key) }.freeze
+        Layered.new(@properties, inherited)
       end
 
       def key!(key)

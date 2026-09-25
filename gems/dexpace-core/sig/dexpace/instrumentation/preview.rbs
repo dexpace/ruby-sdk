@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-38: charset-aware text and binary-safe preview rendering, total.

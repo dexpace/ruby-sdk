@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The witness protocol (design §7.3, §10.14): any object answering .dexpace_load(parsed, ctx).

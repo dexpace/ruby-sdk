@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # PAGE-2 / PAGE-3: one page of a paginated walk, owning exactly one live Response behind
   # Dexpace::Closeable's latch; also the namespace of the pagination subsystem (P7-2). The three

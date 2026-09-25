@@ -1,8 +1,11 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # What a PackagingSuite assertion receives: gem NAMES resolved through RubyGems, which is
     # what NFR-1's "published dependency metadata" names (design P9-2).
     class PackagingCase
+      ACRONYMS: Array[String]
       DEFAULT_RESOLVE: ^(String name) -> untyped
 
       @core_name: String
@@ -30,6 +33,7 @@ module Dexpace
       def unheadered: (String? root) -> Array[String]
       def resolve_constant: (String path) -> Module
       def default_constant_path: (String name) -> String
+      def constant_word: (String word) -> String
     end
   end
 end

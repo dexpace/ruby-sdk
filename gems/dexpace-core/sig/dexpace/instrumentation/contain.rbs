@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-20, XCUT-20: the one containment primitive, a module function (P5-37). Returns nil

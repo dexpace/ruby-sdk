@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-8, AUTH-9, AUTH-10: the bearer token, redacted in every rendering.

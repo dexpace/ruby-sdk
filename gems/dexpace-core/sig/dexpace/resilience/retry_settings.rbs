@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Resilience
     # RECOV-34, RETRY-12: the one retry configuration both stacks build from. `random` is untyped

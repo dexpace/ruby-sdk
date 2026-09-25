@@ -177,6 +177,19 @@ module Dexpace
     # scenario as the motivation for replacing it, so trading a loud error for a silent wedge would
     # be a straight regression. The claim is released by #complete_resolution's ensure on this path
     # exactly as on any other, so the registry stays re-evaluable for everyone else.
+    #
+    # **Why the loop terminates** (phase 10, answering phase 9's finding that nothing stated it).
+    # Every pass ends in one of four ways, and only the last repeats. (1) A resolved slot returns
+    # at once. (2) A fresh claim runs #complete_resolution, which returns or raises -- it never
+    # loops. (3) The claim swap answers nil only when a provider was resolved between the two
+    # reads, so the next pass is (1). (4) A claim owned by another fiber is waited on, and its gate
+    # is closed in that owner's `ensure` whether the build succeeded or raised, and a pop on a
+    # closed queue returns at once; the owner's slot is cleared in the same `ensure`, so the next
+    # pass meets (1) when the owner succeeded or takes a fresh claim, (2), when it failed. So a
+    # caller repeats at most once per concurrent claim that FAILED ahead of it, each of which is a
+    # real exception raised to that claim's owner. The argument rests on the guard in (1) being
+    # unconditional: phase 9 made it conditional on anything else and the loop span forever with
+    # no progress. `registry_test.rb`'s Termination suite pins every state under a bounded join.
     def resolve
       loop do
         resolved = @state.resolved

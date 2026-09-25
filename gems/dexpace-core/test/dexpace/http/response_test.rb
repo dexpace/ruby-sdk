@@ -103,8 +103,9 @@ class DexpaceResponseTest < DexpaceTestCase
     assert_equal(["1"], derived.build.headers["X-A"])
   end
 
-  test "with re-validates, so a derived response cannot carry a status outside the range" do
-    assert_raises(Dexpace::InvalidArgumentError) { response.with(status: 600) }
+  test "with re-validates, so a derived response cannot carry a status that is not a code" do
+    # A String and not 600 or 1000: phase 10 made Status total over every Integer (HTTP-10).
+    assert_raises(Dexpace::InvalidArgumentError) { response.with(status: "404") }
     assert_raises(Dexpace::InvalidArgumentError) { response.with(protocol: nil) }
     assert_equal(Dexpace::Status::NOT_FOUND, response.with(status: 404).status)
   end
@@ -159,7 +160,7 @@ class DexpaceResponseTest < DexpaceTestCase
     end
 
     test "build rejects a protocol, a status, a request and headers it cannot coerce" do
-      assert_raises(Dexpace::InvalidArgumentError) { response(status: 99) }
+      assert_raises(Dexpace::InvalidArgumentError) { response(status: "200") } # every Integer maps
       builder = Dexpace::Response.builder
       builder.request = request
       builder.protocol = "spdy/3"

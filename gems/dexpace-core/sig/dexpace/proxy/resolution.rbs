@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::ProxyResolution is a private_constant and not public API (P2-15): this declaration
 # exists because the strict `core` Steep target checks every file under lib/ and needs the module
 # and its one entry point declared to type Proxy.resolve. RBS has no visibility for a constant, so
@@ -9,6 +11,7 @@ module Dexpace
     CRED_PASS: String
     NON_PROXY_PROP: String
     CREDENTIAL_BEFORE_AT: Regexp
+    AUTHORITY_START: Regexp
     SHOWN_AS: String
 
     def self?.resolve: (Configuration configuration, Instrumentation::Logger logger) -> Proxy?
@@ -24,6 +27,7 @@ module Dexpace
                     username: String?, password: String?) -> Proxy?
     def split_url: (String url, Instrumentation::Logger logger) -> Array[untyped]
     def shown: (String url) -> String
+    def scrub_userinfo: (String url) -> String
     def url_problem: (String? host, String? raw_port) -> String?
     def scheme_type: (String? scheme) -> Proxy::Type
     def credentials: (String? userinfo) -> Array[String?]

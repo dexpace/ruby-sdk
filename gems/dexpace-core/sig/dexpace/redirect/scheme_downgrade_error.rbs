@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Redirect
     # REDIR-15: an HTTPS -> HTTP hop refused because the caller did not opt in.

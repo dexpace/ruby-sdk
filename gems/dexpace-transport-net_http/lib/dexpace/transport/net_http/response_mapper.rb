@@ -11,13 +11,12 @@ module Dexpace
       # connection-close framing takes over instead of Net::HTTPResponse#content_length raising
       # Net::HTTPHeaderSyntaxError. Headers come from `#to_hash` and nothing else: `#[]` joins
       # with ", " and `#each_capitalized` re-cases, both of which would corrupt a multi-valued
-      # Set-Cookie. Dexpace::Protocol admits HTTP/1.1 and HTTP/2 only (HTTP-33), so an HTTP/1.0
-      # response raises Dexpace::InvalidArgumentError here; no TRANSPORT ID asks for 1.0 and the
-      # gap is phase 1's to widen. The status is total over 100-599, phase 1's Status guard
-      # (HTTP-10's reading): Net::HTTP parses any three digits and delivers a 999 or a 600 as an
-      # HTTPUnknownResponse, and such a head raises Dexpace::InvalidArgumentError here the same
-      # way, after the head and with the connection released (TRANSPORT-22); whether TRANSPORT-24's
-      # "any code" reaches 600-999 is a phase-1 model question on phase 10's inbound list.
+      # Set-Cookie. Since phase 10 Dexpace::Protocol admits HTTP/1.0 beside HTTP/1.1 and HTTP/2
+      # (HTTP-33), so an HTTP/1.0 response maps; a version it does not know (HTTP/1.2) still
+      # raises Dexpace::InvalidArgumentError here, after the head and with the connection released
+      # (TRANSPORT-22). The status is total over every code a status line can carry: Net::HTTP
+      # parses any three decimal places and delivers a 999 or a 600 as an HTTPUnknownResponse,
+      # and Dexpace::Status maps every Integer (HTTP-10, TRANSPORT-24).
       # A private_constant of NetHTTP.
       module ResponseMapper
         extend self

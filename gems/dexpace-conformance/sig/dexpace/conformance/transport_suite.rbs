@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # The transport suite's runner (8a's R7, R16). `build:` and `borrow:` are untyped callables:
@@ -16,8 +18,7 @@ module Dexpace
 
       private
 
-      def run_one: (Assertion assertion, build: untyped, borrow: untyped, around: untyped,
-                    settle: untyped, wire: untyped) -> Result
+      def tearing_down: (untyped around, Array[TransportCase] cases) -> untyped
     end
   end
 end

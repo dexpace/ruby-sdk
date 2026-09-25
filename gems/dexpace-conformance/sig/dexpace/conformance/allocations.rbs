@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # OBS-25's per-call allocation measurement, two loops agreeing twice (5b's R8).

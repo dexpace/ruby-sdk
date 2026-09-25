@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module SSE
     # SSE-26's second view and SSE-27's post-close request: an illegal-state error.

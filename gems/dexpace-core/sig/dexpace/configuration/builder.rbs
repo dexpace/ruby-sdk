@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Configuration
     class Builder
@@ -11,6 +13,16 @@ module Dexpace
       def property_source=: (_ConfigSource source) -> void
       def env_source=: (_ConfigSource source) -> void
       def build: () -> Configuration
+
+      # Builder::Layered is a private_constant and not public API: declared because the strict
+      # `core` Steep target types #composed_source.
+      class Layered
+        attr_reader entries: Hash[String, String]
+        attr_reader base: _ConfigSource
+
+        def initialize: (Hash[untyped, untyped] entries, _ConfigSource base) -> void
+        def call: (String key) -> String?
+      end
 
       private
 

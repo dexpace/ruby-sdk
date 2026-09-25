@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # A private_constant with no visibility in RBS; declared because the strict `core` Steep

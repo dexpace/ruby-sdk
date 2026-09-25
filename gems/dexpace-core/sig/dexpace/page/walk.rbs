@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Page::Walk is a private_constant and not public API: this declaration exists because
 # the strict `core` Steep target checks every file under lib/ and needs the class, its ivars and
 # its readers declared to type the two views and the two engines. RBS has no visibility for a

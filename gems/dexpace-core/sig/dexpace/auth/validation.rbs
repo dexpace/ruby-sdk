@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Auth::Validation is a private_constant and not public API: this declaration exists
 # because the strict `core` Steep target checks every file under lib/ and needs the module and
 # its one method declared to type the credential constructors, exactly as hooks.rbs does for

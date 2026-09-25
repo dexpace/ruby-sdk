@@ -40,6 +40,13 @@ module Dexpace
     # common case never reaches the rescue, because the name is folded through `#scrub` first;
     # the rescue is the totality backstop XCUT-20 asks for.
     #
+    # WHERE it is applied, which a caller wiring a sink needs to know (phase 10, 5b's review R3-4):
+    # on the way INTO the record, by the field's name, and never at the sink. Event#field routes
+    # every reserved URL and header key through here; Logger.build scrubs the global context once;
+    # Event#emit scrubs the folded diagnostic context -- OBS-5's three sources, one table
+    # (ReservedKeys). A sink therefore receives already-redacted values and is never trusted to
+    # redact; a value written under an unreserved key is not a URL or a header and passes as given.
+    #
     # Frozen, holding a frozen policy, with every intermediate a method local: XCUT-11's shared
     # instance by construction. Redactor::DEFAULT is the one over RedactionPolicy::DEFAULT.
     #

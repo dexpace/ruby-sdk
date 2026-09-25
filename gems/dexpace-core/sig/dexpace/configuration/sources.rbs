@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # CFG-11's seam: a callable from key name to String?. What a fake satisfies and what every
   # Configuration member and builder writer types against.

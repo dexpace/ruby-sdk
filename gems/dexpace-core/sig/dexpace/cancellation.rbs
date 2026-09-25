@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Cancellation
     # A private_constant with no visibility in RBS; declared so Steep can type .none.

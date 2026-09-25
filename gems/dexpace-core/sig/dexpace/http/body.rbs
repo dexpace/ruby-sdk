@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # HTTP-44/HTTP-45's handler contract (R7): any object responding to #call(response). It names
   # Dexpace::Response and nothing of phase 7's, so NFR-11's scan stays clean and phase 7 supplies

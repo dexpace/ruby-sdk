@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   # OBS-1, OBS-2, design §8.1: the sink duck type -- the stdlib Logger surface as a structural
   # subset, so a consumer's Logger drops in and core never requires `logger`. A signature typed

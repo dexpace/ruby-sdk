@@ -25,8 +25,23 @@ module Dexpace
     # copy: true the caller's object graph is untouched and the returned copy is deep-frozen,
     # which is what lets every accessor return the same frozen reference with no per-access
     # wrapper (design §4, §10.11).
+    #
+    # Two things make_shareable cannot copy, both answered here rather than escaping as Ruby's own
+    # error outside `rescue Dexpace::Error` (phase 10, phase 1's review R3-1). A Hash's DEFAULT PROC
+    # is behaviour, not data -- `Hash.new { ... }` made make_shareable raise TypeError ("allocator
+    # undefined for Proc") on every supported Ruby -- so a model's copy drops it: what the model
+    # owns is the entries the caller handed it, and a lookup miss on the model answers nil, as on
+    # any other model collection. Anything else that cannot be made shareable (a Proc or a Mutex
+    # among the values) is the SDK's argument error naming what was refused.
     def self.own(collection)
-      Ractor.make_shareable(collection, copy: true)
+      owned = collection #: untyped
+      if owned.is_a?(::Hash) && owned.default_proc
+        owned = owned.dup
+        owned.default_proc = nil
+      end
+      Ractor.make_shareable(owned, copy: true)
+    rescue ::TypeError, ::Ractor::Error => error
+      raise InvalidArgumentError, "a model cannot own this collection: #{error.message}"
     end
 
     # A String a caller still holds a reference to is externally-mutable state XCUT-15 forbids a

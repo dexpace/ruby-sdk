@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 # Dexpace::Conformance::PackagingSuite::Dependencies is a private_constant (see dependencies.rb);
 # declared because the conformance Steep target checks every file under lib/.
 module Dexpace

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-11..OBS-18, XCUT-19, XCUT-20: two total entry points over one frozen policy (P5-25).

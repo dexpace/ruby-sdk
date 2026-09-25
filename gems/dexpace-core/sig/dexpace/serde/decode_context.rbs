@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The `ctx` a witness receives: the path from the document root, the decode's target type

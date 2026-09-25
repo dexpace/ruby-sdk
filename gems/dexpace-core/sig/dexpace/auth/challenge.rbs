@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-12: one parsed challenge, folded once at construction.

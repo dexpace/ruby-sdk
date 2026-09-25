@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class StreamBody
     include Dexpace::Body
@@ -21,6 +23,7 @@ module Dexpace
     @close: bool
     @rewindable: bool
 
+    def refuse_closed!: (untyped io) -> void
     def probe_rewindability: (untyped io) -> [Integer, bool]
     def write_once: (Dexpace::IO::_Sink sink) -> Integer
     def write_replayable: (Dexpace::IO::_Sink sink) -> Integer

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # The reference wire codec over Ruby's json: the floor it asserts (P7-7), the core constraint

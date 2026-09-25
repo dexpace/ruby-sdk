@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Serde
     # SERDE-27's response-decoding handler, a Dexpace::_ResponseHandler supplied into

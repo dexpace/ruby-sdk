@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # A frozen list of Results with the renderer 8a shipped and the structured form it deferred;

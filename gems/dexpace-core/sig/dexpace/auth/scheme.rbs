@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-1: the closed five-member set, in Pipeline::Stage's shape (P4-32, P4-56): both

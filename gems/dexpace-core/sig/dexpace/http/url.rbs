@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module URL
     def self?.parse!: (String | URI::Generic input) -> URI::Generic
@@ -7,5 +9,8 @@ module Dexpace
     private
 
     def own: (URI::Generic uri) -> URI::Generic
+    def string_or_uri!: (untyped input) -> void
+    def refuse_hostless!: (URI::Generic uri, String | URI::Generic input) -> void
+    def renderable!: (URI::Generic uri, String | URI::Generic input) -> URI::Generic
   end
 end

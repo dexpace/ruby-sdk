@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Auth
     # AUTH-14: Basic, preemptive through #call and challenge-answered through

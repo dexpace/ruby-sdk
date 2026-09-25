@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Instrumentation
     # OBS-1, OBS-2, OBS-9, OBS-10, OBS-40: the facade. Frozen after .build; NULL is the one over

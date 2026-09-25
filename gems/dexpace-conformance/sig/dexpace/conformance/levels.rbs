@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Generated from appendix C by tools/requirement_levels.rb; what lets a Report tell a

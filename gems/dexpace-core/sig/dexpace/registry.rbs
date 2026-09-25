@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   class Registry
     # Two private_constants with no visibility in RBS, declared so Steep can type the snapshot
