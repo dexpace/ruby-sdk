@@ -15,14 +15,28 @@ set locally, so a gate cannot be an opt-in job nobody runs.
 | Concurrency-model agnosticism (**NFR-11**) | An RBS scan asserting that no constant outside `Dexpace::` and a fixed stdlib allowlist appears in any public signature under `sig/` — which is what mechanises "leaks no async-framework types into the core public surface" and is why the pivot of §3.3 had to be core-owned |
 | Single-instance guarantee (§2.4) | A test asserting `$LOADED_FEATURES` holds exactly one resolved path per core file and that `Dexpace::VERSION` matches the loaded gemspec, plus the registration-time version assertion each adapter runs — the auditable form of a claim §2.4 otherwise argues structurally |
 | Shrink-survival guard (**NFR-8**, **NFR-9**) | Retargeted at the require graph and stdlib drift (§9.2) |
-| Runtime-floor discipline (**NFR-10**) | `required_ruby_version = ">= 3.2"` in every gemspec; CI matrix 3.2 / 3.3 / 3.4 / 4.0 running the real suite |
+| Runtime-floor discipline (**NFR-10**) | `required_ruby_version = ">= 3.2"` in every gemspec but `dexpace-transport-async_http`'s, which isolates `async-http`'s higher floor as `>= 3.3` read from `VERSIONS`' per-gem `floor:` row — **NFR-10**'s isolated unit, never a dependency of core; CI matrix 3.2 / 3.3 / 3.4 / 4.0 running the real suite, the 3.2 row over the other five gems. [Amended 2026-09-25, `C25` of `docs/deviations.md`: the row read "in every gemspec"; phase 8c's `P8-36`, as built in `gems/dexpace-transport-async_http/dexpace-transport-async_http.gemspec`] |
 | Version/coordinate single source (**NFR-14**) | Root `VERSIONS` file read by every gemspec; one root `Gemfile` |
 | Reproducible artifacts (**NFR-12**) | `SOURCE_DATE_EPOCH` honoured by `gem build`; `spec.files` sorted deterministically |
-| License headers (**NFR-13**) | SPDX header per file, checked by a RuboCop custom cop |
+| License headers (**NFR-13**) | SPDX header per file, checked by a RuboCop custom cop, and `gates:spdx_rbs` over every shipped `.rbs` |
 | Runtime version metadata (**NFR-15**) | `Dexpace::VERSION` is the gemspec's own source; the User-Agent reads it, never a placeholder |
 | Signed publications (**NFR-16**) | Signed `gem push` on the release path only, optional locally |
 | Dependency CVE scanning | `bundler-audit` in CI, which is what enforces §3.4's `json >= 2.19.9` floor over time |
 | API documentation | YARD, with an undocumented-public-method gate |
+| Serde independence of streaming and paging (**SSE-37**) | `gates:serde_boundary`: a parsed scan of `lib/dexpace/sse/**`, `lib/dexpace/page/**` and their `sig/` mirrors for any serialization dependency |
+| One cycle-safe cause walk (**XCUT-9**) | `gates:cause_walk`: `Dexpace.each_cause` is the only walk of a cause chain in any gem's `lib/` |
+| Bounded caller-keyed state (**XCUT-14**) | `gates:bounded_map`: only `Dexpace::BoundedMap` holds a caller- or server-keyed map |
+| Core names no concrete seam implementation (**SEAM-2**) | `gates:seam_names` |
+| The deviation ledger stays tied to this chapter | `gates:ledger_audit`: `docs/deviations.md`'s rows match §10's entries by subject, position and ID set, and every verdict cites real code |
+| One parse in the tooling (**NFR-6**) | `gates:sole_parse`: `AstScan.parse` is the only `RubyVM::AbstractSyntaxTree.parse_file` in `tools/` |
+
+[Amended 2026-09-25, `C16` of `docs/deviations.md`: the table carried none of the seven gates later phases built
+— `gates:serde_boundary` (phase 7b), `gates:cause_walk`, `gates:bounded_map` and `gates:seam_names` (phase 9) and
+`gates:ledger_audit`, `gates:spdx_rbs` and `gates:sole_parse` (phase 10) — the last three rows above plus the
+`NFR-13` row's second half. As built, the root `Rakefile`'s `DEFAULT_GATES` names twenty-four gates, each
+described in `tasks/gates.rake`. Beside them the hand-run documentation probe gained a ninth check, `chapters`
+(`.claude/skills/housekeeping/chapters.rb`), which reports a requirement ID attributed to a specification chapter
+that does not carry it; it is not a build gate.]
 
 ### 9.1 API-surface lock, and the honest limits of RBS
 
@@ -68,8 +82,11 @@ only actually running the suite on 3.2 catches it — which is why the matrix ru
 widely used framework in the Ruby application world and has the richer matcher library, the better failure output
 on complex expectations, and shared-example groups that would express the conformance suite's per-adapter
 parametrisation more naturally than Minitest's module-inclusion idiom. Minitest wins for one reason that outranks
-all of that here: **it ships with the interpreter as a default gem**, so the same argument §2.4 makes about
-`base64` and `logger` applies to the test framework — a first-party suite that runs with nothing installed is a
+all of that here: **it ships with the interpreter as a bundled gem**, needing an explicit bundle entry under
+Bundler — `VERSIONS` carries it, pinned `~> 5.25` — and the same argument §2.4 makes about `base64` and `logger`
+applies to the test framework [Amended 2026-09-25, `C9` of `docs/deviations.md`: this read "as a default gem".
+Minitest is a bundled gem on every supported Ruby; as built, `VERSIONS`' `tool minitest ~> 5.25` row, read by the
+root `Gemfile`, is the entry, with its reason beside it] — a first-party suite that runs with nothing installed is a
 suite an adapter author can run, and one that needs a third-party assertion DSL is a dependency this project would
 be imposing on every adapter author who would rather not have it. That reason applies with real force only to
 `dexpace-conformance`, which is why the gem takes it further: **its assertions are plain assertion objects** —
@@ -109,5 +126,9 @@ against the pivot, **ASYNC-8**–**ASYNC-12** against fiber storage, and **ASYNC
 **B.9** is exercised as §9's table, with NFR-8/NFR-9 inapplicable by their own text and replaced by §9.2. A failing
 item that the port has decided not to satisfy is reported as a failure by the suite and suppressed in the port's
 own build through a named waiver listing the requirement ID, so the gap stays visible rather than disappearing into
-a restated item.
+a restated item; and the report's unit is the same requirement ID — one assertion per ID, an appendix-B item a
+many-to-one view whose status is the worst of its assertions. [Amended 2026-09-25, `C10` of `docs/deviations.md`:
+the report's unit was unstated, and it cannot be the item, since B.7's second item is vacuous for **ASYNC-4** and
+failing for **ASYNC-3** at once. As built, `Dexpace::Conformance::Report` carries one `Result` per assertion and
+`gems/dexpace-conformance/APPENDIX_B.md` is the committed many-to-one map (phase 9's `P9-8`).]
 

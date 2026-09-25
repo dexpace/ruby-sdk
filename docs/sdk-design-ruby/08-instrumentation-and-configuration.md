@@ -28,9 +28,15 @@ on a `sink.info { }` call, and two SHOULDs hang off the same object. So core def
 
 ```
 Dexpace::Instrumentation::Event                # obtained from Logger#event(severity), never constructed directly
-  #field(key, value)   #tag(key, value)   #event(name)   #cause(error)   #emit
+  #field(key, value)   #event(name)   #cause(error)   #emit
 Dexpace::Instrumentation::Event::INERT         # the frozen shared singleton returned when the severity is disabled
 ```
+
+[Amended 2026-09-25, `C4` of `docs/deviations.md`: the block listed a fifth builder, `#tag(key, value)`, which no
+requirement names — **OBS-4**'s one reserved tag is what `#event(name)` writes, and **OBS-5**'s precedence rule
+enumerates exactly three contributing sources, so a fourth keyed channel would have no precedence and no collision
+rule. As built, `Dexpace::Instrumentation::Event` (`gems/dexpace-core/lib/dexpace/instrumentation/event.rb`) and
+`Event::INERT` define `#field`, `#event`, `#cause` and `#emit` and no `#tag` (phase 5b's `P5-18`).]
 
 Every builder method returns `self` so chains compose, and `INERT` is a frozen instance whose builder methods
 return `self` and whose `#emit` does nothing. `Logger#event` performs the enabled check **once**, at that call, and
@@ -213,7 +219,18 @@ hazard the requirement targets. `Process.clock_gettime(Process::CLOCK_MONOTONIC)
 Both are behind the injectable seam so tests control them (**CFG-15**).
 
 **The prohibition, stated once and enforced by lint.** `Timeout.timeout`, `Thread#raise` and `Thread#kill` are
-forbidden in every gem in this repository. `Timeout.timeout` schedules an asynchronous interrupt that can land on
+forbidden in code this repository writes, which `Dexpace/NoThreadInterrupt` enforces over every gem's `lib/`. A
+dependency may use them: `net-http`'s connect phase is `Timeout.timeout(@open_timeout, Net::OpenTimeout)` on every
+supported Ruby, and the first such call starts a process-wide thread a host that counts threads sees once; the
+interrupt can land only inside `TCPSocket.open`, before any SDK object holds a socket, and arrives as a typed
+`Net::OpenTimeout`. The `async-http` closure calls no `Timeout.timeout`; it has seven `Fiber#raise` sites, each
+resuming a fiber at a scheduler checkpoint, one `Thread.current.raise` (an ordinary raise on the calling thread in
+`io-event`'s pure-Ruby selector), and one `Thread#kill` on a `Process::Status.wait` helper thread no SDK path
+reaches. [Amended 2026-09-25, `C8` of `docs/deviations.md`: this sentence read "forbidden in every gem in this
+repository", which a dependency's use falsified while the repository's own code honoured it. Re-measured
+2026-09-25 against the bundle this tree resolves: `net/http.rb:1601` on 3.2.11 and 3.3.12, `:1657` on 3.4.10 and
+`net-http` 0.9.1's `:1791`; `async` 2.46.0, `async-http` 0.105.0 and `io-event` 1.22.1 carry the sites counted
+above. The cop and the ban stand as written.] `Timeout.timeout` schedules an asynchronous interrupt that can land on
 *any* bytecode instruction — including inside an `ensure` block that is releasing a pooled connection, or between a
 socket read and the bookkeeping that records it — which is precisely how a connection pool acquires a corrupt
 entry that fails a later, unrelated request. Deadlines are instead propagated as explicit values to

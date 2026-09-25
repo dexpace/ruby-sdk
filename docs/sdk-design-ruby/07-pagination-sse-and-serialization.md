@@ -48,10 +48,13 @@ defaults to inline on the settling thread with an executor mode for blocking con
 ### 7.2 Server-Sent Events
 
 Ruby ships no SSE client, so there is no native implementation to argue against; the WHATWG line and field grammar
-(**SSE-1**–**SSE-15**) is a small synchronous state machine over §3.1's line-reading primitive — which is exactly
-why that primitive was hand-written rather than delegated to `IO#gets`, since **SSE-2** requires LF, CR and CRLF
-all recognised with a lone CR terminating alone and **SSE-14** requires an unterminated final line returned as
-content. **SSE-12**'s single leading BOM is consumed through a non-consuming lookahead (§3.1's peek), so a
+(**SSE-1**–**SSE-15**) is a small synchronous state machine over its own byte-level line reader — hand-written
+rather than delegated to `IO#gets`, since **SSE-2** requires LF, CR and CRLF all recognised with a lone CR
+terminating alone and **SSE-14** requires an unterminated final line returned as content. [Amended 2026-09-25, `C24`
+of `docs/deviations.md`: this read "over §3.1's line-reading primitive — which is exactly why that primitive was
+hand-written". §3.1's primitive keeps a lone CR as content under **IO-14**, which **SSE-2** forbids, so as built
+`Dexpace::SSE::LineReader` (`gems/dexpace-core/lib/dexpace/sse/line_reader.rb`) reads `#getbyte` and recognises the
+three terminators itself with a one-byte pushback (phase 7b's `P7-20`).] **SSE-12**'s single leading BOM is consumed through a non-consuming lookahead (§3.1's peek), so a
 mid-stream BOM survives as data. **SSE-11**'s "The representable maximum is runtime-specific (signed 64-bit ms in
 the reference); a port MUST pick a documented cap and reject beyond it rather than wrap" is spec-sanctioned
 latitude, and it needs exercising because Ruby integers are arbitrary-precision and cannot overflow: the port
@@ -164,10 +167,13 @@ array-element degradation is a three-line branch in the combinator.
 Three closing notes. **SERDE-21**/**SERDE-22**'s strict coercion policy is satisfied *by the codec doing nothing*:
 `JSON.parse` performs no coercion, so `"5"` never silently becomes `5`; the strictness burden moves into the
 witness, where each field asserts its expected class and raises a `DeserializationError` naming the target type on
-mismatch — which is also how **SERDE-13** is enforced. **SERDE-26**'s "private copy of the codec engine" is close
-to vacuous for a stateless `JSON` module and is satisfied by holding configuration in a frozen options hash owned
-by the `Serde` instance; the requirement's own fallback clause covers this and the behaviour is documented rather
-than silent. **SERDE-9**–**SERDE-12**'s failure model is a `Dexpace::Serde::Error` root with `SerializationError`
+mismatch — which is also how **SERDE-13** is enforced. **SERDE-26**'s "private copy of the codec engine" is
+satisfied literally: each codec instance owns a private `::JSON::Coder` built from options, and no caller-supplied
+engine is ever accepted, so there is nothing of the caller's to mutate and the fallback clause is never invoked.
+[Amended 2026-09-25, `C23` of `docs/deviations.md`: this read "close to vacuous for a stateless `JSON` module and is
+satisfied by holding configuration in a frozen options hash … the requirement's own fallback clause covers this",
+written against json 2.9.1, which has no `JSON::Coder`; as built at the 2.19.9 floor,
+`Dexpace::Serde::JSON::Codec` (`gems/dexpace-serde-json/lib/dexpace/serde/json/codec.rb`) is phase 7a's `P7-4`.] **SERDE-9**–**SERDE-12**'s failure model is a `Dexpace::Serde::Error` root with `SerializationError`
 and `DeserializationError` subtypes, adapters catching the backing library's exceptions and re-raising inside the
 `rescue` so Ruby sets `#cause` automatically, and a genuine stream `IOError` propagating unwrapped (**SERDE-12**)
 rather than being reclassified — which is also the failure half of **SEAM-20** and **SEAM-21** (§3.4), satisfied
