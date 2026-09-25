@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # The thin Minitest driver: extended into a consumer's test class, whose `define_method`,

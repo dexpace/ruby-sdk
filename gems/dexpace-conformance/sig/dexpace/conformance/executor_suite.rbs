@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Appendix B.7's lifecycle half, and the harness half of SEAM-25's lifecycle event.

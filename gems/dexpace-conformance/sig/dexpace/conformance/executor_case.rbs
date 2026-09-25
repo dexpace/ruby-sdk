@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # What an ExecutorSuite assertion receives: an executor factory, an optional borrowing entry

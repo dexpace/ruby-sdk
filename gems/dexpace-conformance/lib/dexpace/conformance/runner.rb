@@ -13,9 +13,9 @@ module Dexpace
     # one place. Four suites would otherwise carry four copies of one status loop, which is
     # §11.12's "four reference sync/async drifts" reappearing inside the port's own suite.
     #
-    # TransportSuite (phase 8a) predates this and is deliberately NOT refactored onto it: phase 8
-    # owns that file and phase 9 reports rather than refactors (design R6, P9-10). The residue is
-    # real -- two status-deciding paths in one gem -- and is stated rather than hidden.
+    # TransportSuite (phase 8a) predates this and phase 9 deliberately left it on its own loop
+    # (design R6, P9-10); phase 10, the first phase owning every gem, folded it onto this one, so
+    # every suite in the gem now decides the five statuses here.
     module Runner
       extend self
 

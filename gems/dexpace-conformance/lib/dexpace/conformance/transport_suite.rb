@@ -6,6 +6,7 @@ require_relative "vacuous"
 require_relative "assertion"
 require_relative "result"
 require_relative "report"
+require_relative "runner"
 require_relative "transport_case"
 require_relative "transport_suite/checks"
 require_relative "transport_suite/outbound"
@@ -72,42 +73,36 @@ module Dexpace
       #   the native client refuses the head before a response exists -- so the default is empty
       #   and 8a's plain `waived:` rendering stands.
       # @return [Report]
+      #
+      # Phase 10 folded this onto Runner (P9-10's residue: "a future change to the five statuses
+      # must be made twice"), so the five statuses are decided in one place for every suite in
+      # the gem. What Runner had no seam for is the per-assertion teardown, and it is supplied
+      # here without widening Runner: the fresh TransportCase is built inside the invocation, and
+      # the `around` Runner is handed tears it down in an `ensure` after the driver's own wrapper
+      # returns -- clause 9 unchanged, the reactor an async driver opens still enclosing the whole
+      # assertion. One observable change, recorded: a :failed detail now carries Runner's
+      # "(expected …, got …)" suffix after the message.
       def run(build:, borrow: nil, waive: [], around: nil, settle: nil, wire: nil,
               assertions: self.assertions, accepted_vacuous: {}, would_fail: [])
-        results = assertions.map do |assertion|
-          if assertion.ids.intersect?(waive)
-            Result.build(assertion: assertion, status: :waived)
-          else
-            run_one(assertion, build: build, borrow: borrow, around: around, settle: settle,
-                               wire: wire,)
-          end
+        cases = [] #: Array[TransportCase]
+        subject = lambda do
+          TransportCase.new(build: build, borrow: borrow,
+                            settle: settle || TransportCase::DEFAULT_SETTLE,
+                            wire: wire || TransportCase::DEFAULT_WIRE,).tap { |kase| cases << kase }
         end
-        Report.new(results, preamble: PREAMBLE, accepted_vacuous: accepted_vacuous,
-                            would_fail: would_fail,)
+        Runner.run(assertions, waive: waive, around: tearing_down(around, cases),
+                               preamble: PREAMBLE, accepted_vacuous: accepted_vacuous,
+                               would_fail: would_fail, &subject)
       end
 
       private
 
-      def run_one(assertion, build:, borrow:, around:, settle:, wire:)
-        kase = TransportCase.new(
-          build: build, borrow: borrow,
-          settle: settle || TransportCase::DEFAULT_SETTLE, wire: wire || TransportCase::DEFAULT_WIRE,
-        )
-        begin
-          # Clause 9: the runner INVOKES the assertion, so `around` can put a block around the
-          # whole of it -- the reactor an async driver opens here is the one the body reads a
-          # streamed response inside.
-          around ? around.call { assertion.call(kase) } : assertion.call(kase)
-          Result.build(assertion: assertion, status: :passed)
-        rescue Vacuous => error
-          Result.build(assertion: assertion, status: :vacuous, detail: error.reason)
-        rescue Failure => error
-          Result.build(assertion: assertion, status: :failed, detail: error.message)
-        rescue ::StandardError => error
-          Result.build(assertion: assertion, status: :error,
-                       detail: "#{error.class}: #{error.message}",)
+      # Clause 9's wrapper, with every case built inside it torn down afterwards whatever happened.
+      def tearing_down(around, cases)
+        lambda do |&invocation|
+          around.nil? ? invocation.call : around.call(&invocation)
         ensure
-          kase.teardown
+          cases.pop&.teardown until cases.empty?
         end
       end
 

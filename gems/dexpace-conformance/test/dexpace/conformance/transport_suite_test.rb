@@ -53,7 +53,9 @@ module DexpaceConformanceTransportSuiteTest
       report = run_suite(failing, vacuous, erroring)
 
       assert_equal(%i[failed vacuous error], report.results.map(&:status))
-      assert_equal(["x", "no antecedent", "RuntimeError: boom"], report.results.map(&:detail))
+      # Since phase 10 the statuses are Runner's, whose :failed detail carries the expectation.
+      assert_equal(["x (expected 1, got 2)", "no antecedent", "RuntimeError: boom"],
+                   report.results.map(&:detail),)
       refute_predicate(report, :passed?)
     end
 
@@ -96,7 +98,7 @@ module DexpaceConformanceTransportSuiteTest
       }, assertions: [checks_close],)
 
       assert_equal(1, report.failures.size, "the suite must DETECT the defect, not merely run")
-      assert_equal("closed? did not flip", report.failures.first.detail)
+      assert_equal("closed? did not flip (expected true, got false)", report.failures.first.detail)
     end
 
     test "every assertion gets a FRESH case, torn down after it, whatever it raised" do
@@ -179,6 +181,38 @@ module DexpaceConformanceTransportSuiteTest
       assert_predicate(report, :passed?, report.to_s)
       assert_equal([:settled, %i[wired s]], seen)
       assert_raises(ArgumentError) { kase_seen.transport.call(:r, :o, :c) }
+    end
+  end
+
+  # Phase 10's invariant for the fold onto Runner, in a class of its own under
+  # Metrics/ClassLength.
+  class RunnerFoldTest < DexpaceTestCase
+    include Running
+
+    # Phase 10's invariant for folding TransportSuite.run onto Runner (P9-10's residue, inbound
+    # bullet 30): one run over five assertions yields exactly the five statuses, in order, and
+    # every case that was built is torn down -- the one behaviour Runner lacked a seam for.
+    test "one run yields all five statuses in order, and every built case is torn down" do
+      torn = []
+      build = lambda do |**_|
+        transport = Object.new
+        transport.define_singleton_method(:close) { torn << :closed }
+        transport
+      end
+      assertions = [
+        assertion("P", &:transport),
+        assertion("F") do |_|
+          raise Failure.new("f", expected: 1, actual: 2, requirement_ids: ["F"])
+        end,
+        assertion("V") { |kase| kase.transport && raise(Vacuous, "v") },
+        assertion("W") { |_| raise "never runs" },
+        assertion("E") { |kase| kase.transport && raise("e") },
+      ]
+
+      report = TransportSuite.run(build: build, assertions: assertions, waive: ["W"])
+
+      assert_equal(%i[passed failed vacuous waived error], report.results.map(&:status))
+      assert_equal(3, torn.size, "each case that built a transport closed it at teardown")
     end
   end
 end

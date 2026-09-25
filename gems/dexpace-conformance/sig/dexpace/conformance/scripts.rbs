@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # The named response scripts a WireServer runs; each returns a callable taking the accepted

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # The thin RSpec driver, opted into by requiring its file; `::RSpec` is resolved at call time

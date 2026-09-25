@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # The one loop every phase-9 suite's `.run` delegates to; the five statuses decided in one

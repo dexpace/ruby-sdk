@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Suite contract 4a: the borrowing transport and the adapter's own "still usable?" probe.

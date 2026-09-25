@@ -25,6 +25,11 @@ module Dexpace
     # available without one -- which is what keeps this gem's declared dependency set at
     # dexpace-core and nothing else.
     class PackagingCase
+      # Words a gem name spells lower-case that its constant path spells as an acronym, the two
+      # this port's own gems use (NetHTTP, AsyncHTTP, Serde::JSON).
+      ACRONYMS = %w[http json].freeze
+      private_constant :ACRONYMS
+
       # Resolves a gem name to its installed specification, or nil when it is not installed.
       #
       # `Gem::LoadError` is named explicitly and is the WHOLE point of the rescue: RubyGems raises
@@ -146,9 +151,19 @@ module Dexpace
         end
       end
 
+      # The gem-name -> constant-path rule, segment for segment, with the two exceptions this
+      # port's own six gems need (phase 10, phase 9's aggregate-run finding): a `-core` gem is its
+      # root namespace (`dexpace-core` -> `Dexpace`), and a word in ACRONYMS is upper-cased
+      # (`net_http` -> `NetHTTP`, `json` -> `JSON`). Before it, four of the six needed the
+      # `constants:` override; a gem this rule still misses keeps that override.
       def default_constant_path(name)
-        name.split("-").map { |segment| segment.split("_").map(&:capitalize).join }.join("::")
+        segments = name.split("-")
+        segments = segments.first(1) if segments.size == 2 && segments.last == "core"
+        segments.map { |segment| segment.split("_").map { |word| constant_word(word) }.join }
+          .join("::")
       end
+
+      def constant_word(word) = ACRONYMS.include?(word) ? word.upcase : word.capitalize
     end
   end
 end

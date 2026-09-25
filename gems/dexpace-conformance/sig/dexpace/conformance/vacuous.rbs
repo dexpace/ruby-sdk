@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Raised from inside an assertion whose antecedent is absent on the subject (design §12).

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 module Dexpace
   module Conformance
     # Suite contract 11: a fixture is whatever answers this -- WireServer's own surface -- so 8c's

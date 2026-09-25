@@ -264,14 +264,33 @@ class DexpaceConformancePackagingSuiteTest < DexpaceTestCase # rubocop:disable M
     assert_equal(:passed, statuses(report)["NFR-13"])
   end
 
-  # The assertion must discriminate against the REAL tree too, not only against a fixture: 278
-  # shipped .rbs files carry no header today, which is the gap phase 10's inbound list owns.
-  test "NFR-13 against this repository's own shipped signatures reports the real gap" do
+  # The assertion runs against the REAL tree too, not only against a fixture. Phase 9 pinned it
+  # :failed -- 307 of 307 shipped .rbs files carried no header on 2026-09-23 -- and phase 10's
+  # NFR-13 repair put the header on every one and flipped this pin, which is "the direction a gate
+  # should move under its own repair". The fixture cases above keep the :failed branch proven.
+  test "NFR-13 against this repository's own shipped signatures passes" do
     root = File.expand_path("../../../..", __dir__)
     report = run_suite(conforming, adapters: [],
                                    sig_roots: { CORE => File.join(root, "dexpace-core", "sig") },)
 
-    assert_equal(:failed, statuses(report)["NFR-13"],
+    assert_equal(:passed, statuses(report)["NFR-13"],
                  "an unconditional vacuity here would check nothing for anyone",)
+  end
+
+  # NFR-15 (phase 10, phase 9's aggregate-run finding): the default name rule was segment for
+  # segment, so four of this port's six gems needed the `constants:` override -- `Dexpace::Core`
+  # is not loaded, and NetHttp, AsyncHttp and Json are not the constants. The rule now covers all
+  # six; the override stays for a name it still misses.
+  test "the default gem-name rule reaches all six of this port's namespaces" do
+    kase = Dexpace::Conformance::PackagingCase.new(core_name: CORE, adapter_names: [])
+    expected = {
+      "dexpace-core" => "Dexpace", "dexpace-transport-net_http" => "Dexpace::Transport::NetHTTP",
+      "dexpace-transport-async_http" => "Dexpace::Transport::AsyncHTTP",
+      "dexpace-serde-json" => "Dexpace::Serde::JSON", "dexpace-async-thread" => "Dexpace::Async::Thread",
+      "dexpace-conformance" => "Dexpace::Conformance",
+    }
+
+    expected.each { |name, path| assert_equal(path, kase.send(:default_constant_path, name), name) }
+    assert_equal(Dexpace::VERSION, kase.runtime_version(CORE), "no override was supplied")
   end
 end
