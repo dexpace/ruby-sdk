@@ -3,7 +3,7 @@
 One owner per entry, one job per entry, and nothing written by two things. This file is the
 index and the contract; the rule is that nothing in `docs/` is unowned.
 
-Entries marked **(planned)** do not exist yet. They are listed anyway, because an ownership
+An entry is listed here before it exists, marked **(planned)** (none is today), because an ownership
 table that only describes what already exists is a table that gets edited after the fact —
 and the entries below are frozen the moment they appear, not the moment someone remembers.
 
@@ -11,8 +11,8 @@ and the entries below are frozen the moment they appear, not the moment someone 
 |---|---|---|---|
 | [`product-spec/`](./product-spec/) + [`product-spec.md`](./product-spec.md) | **Normative.** The numbered requirements — `HTTP-7`, `SEAM-1`, `RETRY-13`, `NFR-5`, … — that the code exists to satisfy. The `.md` is its table of contents | A human, deliberately | **No — frozen** |
 | [`sdk-design-ruby/`](./sdk-design-ruby/) + [`sdk-design-ruby.md`](./sdk-design-ruby.md) | How each spec area maps to idiomatic Ruby. Non-normative but binding by convention. §10 is the **normative deviation ledger** | A human, deliberately | **No — frozen** |
-| `knowledge/harvested/` **(planned)** | Harvested styleguide and spec knowledge, topic-indexed. Generated; **never hand-edited** | The `knowledge-harvest` skill | **No — frozen** |
-| `knowledge/notes/` **(planned)** | What the implementation found, overriding a harvested entry. Hand-written, role `review` | A human | **No — frozen** |
+| [`knowledge/harvested/`](./knowledge/harvested/) | Harvested styleguide and spec knowledge, topic-indexed. Generated; **never hand-edited** | The `knowledge-harvest` skill | **No — frozen** |
+| [`knowledge/notes/`](./knowledge/notes/) | What the implementation found, overriding a harvested entry. Hand-written, role `review` | A human | **No — frozen** |
 | [`sdk-documentation/`](./sdk-documentation/) | **As-built.** How the gems compose, which one to install, worked cross-gem examples | A human, or a skill on request | Yes |
 | [`work/`](./work/) | Process records: per-(sub)phase design, plan and checklist, one directory per phase under a unit of delivery | The phase that produced them; **collected** here by the `housekeeping` skill | Yes — `git mv` only |
 | [`superpowers/`](./superpowers/README.md) | Nothing, for long. The **inbox** the Superpowers skills write into | `brainstorming`, `writing-plans` | Yes — it drains it |

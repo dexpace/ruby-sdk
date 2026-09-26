@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in a dexpace gem behaves differently from its documentation or a requirement.
+title: "bug: "
+labels: ["type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security vulnerabilities do not belong here** — follow SECURITY.md
+        and report them privately instead.
+  - type: dropdown
+    id: gem
+    attributes:
+      label: Affected gem
+      multiple: true
+      options:
+        - dexpace-core
+        - dexpace-transport-net_http
+        - dexpace-transport-async_http
+        - dexpace-serde-json
+        - dexpace-async-thread
+        - dexpace-conformance
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Nothing is published yet, so give the commit SHA you reproduced against.
+      placeholder: 91d48c5
+    validations:
+      required: true
+  - type: input
+    id: ruby
+    attributes:
+      label: Ruby version
+      description: The output of `ruby -v`. Supported Ruby is 3.2–4.0 (3.3+ for dexpace-transport-async_http).
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest script or test that shows it. Redact any credential.
+      render: ruby
+    validations:
+      required: true
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement IDs
+      description: >-
+        The docs/product-spec/ requirement(s) the behaviour violates, if you know them
+        (for example HTTP-7, RETRY-13). Appendix C is the index.
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Logs (redacted), the transport and executor in use, the dependency versions.

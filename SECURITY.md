@@ -2,16 +2,16 @@
 
 ## Supported versions
 
-Nothing has shipped yet: there is no `gems/` directory in this repository yet, and once it exists
-every gem in it will start at `0.0.0` with nothing published to RubyGems. There is therefore no
-released version to support and no patched release to point at. Until the first release, the
-supported revision is the tip of `main` — report against a commit SHA.
+Nothing has been published yet. The six gems under `gems/` are built, but every one is at `0.0.0`
+and none is on RubyGems, so there is no released version to support and no patched release to
+point at. Until the first release, the supported revision is the tip of `main` — report against a
+commit SHA. Once a version is published, this section will name the supported release lines.
 
 ## Reporting a vulnerability
 
-Please **do not** open a public issue for security vulnerabilities.
+Please **do not** open a public issue, pull request or discussion for a security vulnerability.
 
-Instead, report privately by email to
+Report it privately by email to
 [oaljarrah@dexpace.org](mailto:oaljarrah@dexpace.org) with `[SECURITY]` in
 the subject line.
 
@@ -24,14 +24,24 @@ Include what you can of the following:
 You can expect an acknowledgement within a few days. Please allow time for
 a fix to land and be released before disclosing publicly.
 
-## Scope notes
+## Scope
 
-- The SDK is a **toolkit**, not a service: `dexpace-core` will execute no network I/O of its own.
-  Transport-level vulnerabilities (TLS, connection handling, message parsing) belong to whatever
-  sits behind the `Transport` seam — `net-http` for `dexpace-transport-net_http`, or `async-http`
-  for `dexpace-transport-async_http` — report those upstream.
-- In scope here, once it exists: credential handling and challenge parsing, header/URL redaction
-  in logging, redirect safety (`Authorization` stripped on every re-issue, `Cookie` and
-  `Proxy-Authorization` cross-origin), and body capture. See
-  `docs/sdk-design-ruby/06-retry-redirect-and-authentication.md` and
-  `docs/sdk-design-ruby/04-domain-model-construction.md` for where these will live once built.
+The SDK is a **toolkit**: `dexpace-core` performs no network I/O of its own. In scope here:
+
+- **Credential handling** — the Basic, Digest, API-key and bearer-token credentials and stampers,
+  RFC 7235 challenge parsing, and any path by which a credential reaches a log, an exception
+  message, `#inspect` or `pp` output.
+- **Redaction** — URL, query and header redaction in logging and tracing, including a credential
+  surviving in userinfo or in a header outside the allow-list.
+- **Redirect safety** — `Authorization` stripped before every re-issue, `Cookie` and
+  `Proxy-Authorization` stripped cross-origin, the HTTPS guard on credentials, and scheme
+  downgrades.
+- **Request integrity** — header-name and header-value validation at the wire boundary (CRLF or
+  request-splitting), and URL handling.
+- **Resource exhaustion** — the SDK's own bounded buffers, stream line and event caps, pagination
+  caps, and bounded maps.
+- **The two transport adapters** — `dexpace-transport-net_http` and
+  `dexpace-transport-async_http` — as far as their own mapping, TLS settings and cancellation go.
+
+Vulnerabilities in `net-http`, `async-http` or `json` themselves belong upstream; report them there,
+and tell us if the SDK needs a dependency floor raised.

@@ -1,0 +1,55 @@
+name: Feature or requirement request
+description: Propose a feature, a new adapter, or a change against a spec requirement.
+title: "feat: "
+labels: ["type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The SDK is **an HTTP-client toolkit, not an HTTP client**, and its work is spec-driven:
+        every behaviour traces to a numbered requirement in `docs/product-spec/`. A request that names
+        the requirement it adds to, changes or finds missing is the easiest one to act on.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of request
+      options:
+        - A new capability within an existing gem
+        - A new adapter gem (transport, codec, executor, instrumentation)
+        - A requirement the implementation does not satisfy (a spec gap)
+        - A change to a requirement or to a documented deviation
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: gem
+    attributes:
+      label: Gem
+      multiple: true
+      options:
+        - dexpace-core
+        - dexpace-transport-net_http
+        - dexpace-transport-async_http
+        - dexpace-serde-json
+        - dexpace-async-thread
+        - dexpace-conformance
+        - a new gem
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement IDs
+      description: The requirement(s) this touches, for example PAGE-19 or SSE-11. Leave empty if none exists yet.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are building and what the SDK makes hard or impossible today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What you would like, and the alternatives you considered.
+    validations:
+      required: true

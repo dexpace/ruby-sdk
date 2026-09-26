@@ -13,249 +13,46 @@ three-state PATCH — solved exactly once, and it deliberately does not compete 
 Work here is **spec-driven, not feature-driven**. `docs/product-spec/` is normative: 645 numbered requirements
 across 19 prefixes. Before implementing anything, find the requirement IDs it must satisfy.
 
-**Phases 0, 1, 2, 3a, 3b, 4a, 4b, 4c, 5a, 5b, 5c, 6a, 6b, 6c, 7b, 7c, 7a, 8a, 8b, 8c, 9 and 10 are built — the whole of
-phase 6, the whole of phase 7, whose three sub-phases were built concurrently off one base and landed in that
-order, 7a last (umbrella #25 closes by hand), and the whole of phase 8, whose three sub-phases were built
-8a first, off the same base as phase 7's and reconciled onto the tree that holds all three, then 8b and 8c
-concurrently off the tree that holds 8a, 8c landing second, and phase 9, the audit phase, which ships no
-`lib/` code outside `dexpace-conformance` and repairs nothing it finds, and phase 10, the reconciliation
-phase, which repairs what phase 9 and every earlier review found, flips `docs/deviations.md` and adds no new
-layer; the domain model, the seam layer, the
-byte-streaming layer, the body layer, the execution context, the recovery layer, the stage pipeline, the
-configuration layer, the tracing and metrics layer, the logging facade with its redaction, the retry layer,
-the authentication layer, the redirect layer, the server-sent-events layer, the pagination layer, the
-serialization layer, the synchronous transport, the conformance suite, the thread-pool executor and the
-asynchronous transport are the only domain code.** Six gems exist under `gems/`, every one at `0.0.0`. `dexpace-core` carries the HTTP domain model — `Dexpace::Request`,
-`Response`, `Headers`, `Status`, `Method`, `Protocol`, `MediaType`, `Query`, `RequestOptions`, `HeaderName`, the
-`HeaderSyntax`, `PercentEncoding` and `URL` function modules, and the construction contract `Dexpace::Model` /
-`Dexpace::Builder` under one error root, `Dexpace::Error`
-(`docs/work/mvp/phase1/2026-09-05-phase1-core-http-domain-model-checklist.md`) — and the seam layer: the
-provider registry `Dexpace::Registry`, the three seams `Dexpace::Transport`, `Dexpace::AsyncTransport` and
-`Dexpace::Serde` with their `.conforms?` predicates and RBS interfaces, the two `SEAM-18` bridges under
-`Dexpace::Bridge`, the core-owned async pivot `Dexpace::Async::Future` / `Completer` / `Settlement`, the
-cooperative `Dexpace::Cancellation` token and its `Source`, `Dexpace::Closeable` with `Dexpace.close_quietly`,
-the seam failure types `SeamError` / `ClosedError` / `CancelledError` and the `Serde::Error` hierarchy, and the
-operation projection `Dexpace::Operation`
-(`docs/work/mvp/phase2/2026-09-07-phase2-seam-foundations-checklist.md`) — and the byte-streaming layer under
-`Dexpace::IO`: the FIFO `Buffer`, `BufferedSource` and `BufferedSink` with the `TypedReads` and `TypedWrites`
-vocabularies, `TeeSink`, `MAX_MATERIALIZED_BYTES`, the three RBS interfaces `_Source`/`_Sink`/`_Chunked`, and the
-two failure types `Dexpace::StreamError < ::IOError` and `Dexpace::EndOfStreamError < ::EOFError`
-(`docs/work/mvp/phase3/phase3a/2026-09-08-phase3a-io-contracts-checklist.md`) — and the body layer, flat under
-`Dexpace::` and filed under `lib/dexpace/http/`: the contract and factory home `Dexpace::Body` with
-`MAX_BUFFERED_ERROR_BODY_BYTES` and `.buffer_bounded`, the seven request-body variants `BytesBody`,
-`BufferBody`, `StreamBody`, `ChunkedBody`, `FormBody`, `FileBody` and `MultipartBody` (with its `Part` and
-`Builder`), the single-use `ResponseBody`, the two logging wrappers `RequestLoggingBody` and
-`ResponseLoggingBody`, the lazy `TypedResponse` over the RBS interface `_ResponseHandler`, the form encoder
-beside the RFC 3986 one in `PercentEncoding`, and `Response#close` / `#body_string` / `#body_bytes` — the one
-decode boundary (`docs/work/mvp/phase3/phase3b/2026-09-08-phase3b-body-lifecycle-checklist.md`) — and the
-execution context, flat under `Dexpace::` and filed under `lib/dexpace/context/`: the module `Dexpace::Context`
-the three flavours `DispatchContext`, `RequestContext` and `ExchangeContext` include, the one-way promotion
-chain `#promote_to_request` / `#promote_to_exchange`, the bounded process-wide `Dexpace::ContextStore` over the
-`private_constant` `Dexpace::BoundedMap` with `MAX_TRACKED_CONTEXTS`, `.default`, `#set`, `#put`, `#[]`,
-`#release` and `#size`, the `private_constant` key generator `Dexpace::CallKey`, the fourth phase-2-shaped error
-`Dexpace::ContextConflictError`, and the instrumentation subsystem `Dexpace::Instrumentation`: `Bundle` with
-`NONE` and `INVALID_SPAN_ID`, `TraceIdFlavour` with `NONE`/`W3C`/`DATADOG`, the three no-op singletons
-`NO_SPAN`, `NO_TRACER` and `NO_TRACER_FACTORY`, and the RBS interfaces `_Span`, `_Tracer`, `_TracerFactory` and
-`_ContextHost` (`docs/work/mvp/phase4/phase4a/2026-09-08-phase4a-execution-context-checklist.md`) — and the
-recovery layer, §8.2's resilience primitives: the closed two-variant outcome `Dexpace::Outcome::Success` /
-`Failure`, the `Dexpace::Recovery` namespace holding `RequestChain`, `ResponseChain`, the `Orchestrator` that
-lets no throwable past it, the `Transform` contract with the three shipped steps `IdempotencyKeyStep`,
-`ClientIdentityStep` and `ErrorMappingStep`, the private `Ownership` helper and `Recovery.buffer_error_body`,
-the two flat errors `Dexpace::ProtocolError` and `Dexpace::OutcomeError`, and the three error primitives every
-later phase uses — the suppressed-exception trail `Dexpace::Suppressible` (which `Dexpace::Error` includes) with
-`Dexpace.attach_suppressed` / `Dexpace.suppressed`, and the cycle-safe `Dexpace.each_cause`
-(`docs/work/mvp/phase4/phase4b/2026-09-09-phase4b-recovery-primitives-checklist.md`) — and the stage
-pipeline, §8.1's dispatch runtime: `Dexpace::Pipeline` with its nested vocabulary — the sixteen
-`Stage` constants on `Pipeline::Stages` with `ALL`, `PILLARS` and `.of`, the `Step` protocol with its
-`_Step` / `_AsyncStep` interfaces, `Entry`, the forward-only `Cursor` with its pillar-only `#fork` and
-`(stage, key)` state, the one `Builder` both runtimes share, the `TransformStep` adapter over 4b's
-`Transform`, and the two private drivers — beside the flat `Dexpace::AsyncPipeline` with
-`.map_response` and the one error `Dexpace::PipelineError`; the two `SEAM-18` bridges are the
-pipeline's bridges and it ships none of its own
-(`docs/work/mvp/phase4/phase4c/2026-09-09-phase4c-stage-pipeline-checklist.md`) — and the
-configuration layer, §10's four-tier chain and §8.3's clock: the frozen `Dexpace::Configuration`
-`Data` with its `Builder`, `Keys`, `Sources` (`ENVIRONMENT`, `NONE`, `.from_hash`) and the private
-`ConfigParsers`, the process-wide slot `Dexpace.configure` / `.configuration` / `.reset_config!`
-over `Configuration::EMPTY`, the private structural comparator `Dexpace::DeepValue`, the injectable
-`Dexpace::Clock` with `SYSTEM`, `.deadline_in` and the RBS interface `_Clock`, the
-scheduler-conditional `Dexpace::Async.delay` beside the `deadline:` / `clock:` keywords on
-`Future#wait` / `#value` and `Completer#await`, the proxy model `Dexpace::Proxy` with its closed
-`Type` set, `HostPattern` and the private `ProxyResolution` behind `Proxy.resolve`, the RFC 1123
-pair `Dexpace::HTTPDate.format` / `.parse`, the v4 `Dexpace::UUID.generate`,
-`Dexpace::Retryability.retryable_status?` and the static `Dexpace::BuildInfo` constants — plus two
-wirings into earlier layers: `ContextStore.default` reads `Keys::MAX_TRACKED_CONTEXTS` on its first
-call, and the five readers of `IO::MAX_MATERIALIZED_BYTES` read `Dexpace::IO.max_materialized_bytes`
-per call (`docs/work/mvp/phase5/phase5a/2026-09-09-phase5a-configuration-checklist.md`) — and the tracing
-and metrics layer, §8.1's tracing half, all of it under `Dexpace::Instrumentation`: the span, tracer
-and tracer-factory protocols phase 4a postponed, given to the three no-op singletons' private classes
-in place (`NO_SPAN`'s seven methods, `NO_TRACER`'s `#start_span` and `#in_span`, the factory's `#tracer`
-unchanged) with `_Span` and `_Tracer` filled; the current-span carrier `Tracing` with `.current_span`,
-`.activate`, `.with_span`, `.correlate` and `.with_correlated_span` over one `Fiber[]` slot; the
-three-ivar scope handle `Scope` and the cached singleton `NO_SCOPE`; `TraceIdFlavour#generate_trace_id`
-and `Bundle#sampled?`; the eleven-method HTTP-tracer vocabulary `HTTPTracer` with §8.1's `NULL` and
-`CallableAdapter`; the metrics SPI `_Meter` / `_Counter` / `_Histogram` with `NO_METER`; and phase
-5b's `Diagnostics::TRACE_ID`, `::SPAN_ID` and `::DEFAULT_KEYS`, shipped early because `Tracing` reads
-the two keys — nothing in phase 5 emits the HTTP-tracer vocabulary
-(`docs/work/mvp/phase5/phase5c/2026-09-09-phase5c-tracing-and-metrics-checklist.md`) — and the logging
-facade and redaction, §8.1's logging half, also under `Dexpace::Instrumentation`: the closed severity set
-`Severity` (`ERROR`, `WARNING`, `INFO`, `VERBOSE`, `ALL`, `.of`) mapping onto the sink's four methods, the
-field and event vocabularies `Keys` (sixteen) and `Events` (eight), the duck-typed sink `_Sink` with the
-frozen `NULL_SINK`, the accumulating `Event` with `#field` / `#event` / `#cause` / `#emit` and the shared
-inert `Event::INERT`, the facade `Logger` with `.build(sink:, context:, redactor:, diagnostic_keys:)`,
-`#event`, `#enabled?`, `#redactor` and `Logger::NULL`, the containment primitives
-`Instrumentation.contain` and `.diagnostic`, the diagnostic-context bridge on 5c's `Diagnostics` —
-`.capture`, `.with`, `.folded` and `RESERVED_PREFIX` over the `_DiagnosticSnapshot` interface — the frozen
-`RedactionPolicy` with `DEFAULT` and the `Redactor` with `#url`, `#header_value`, `#header_name?`,
-`DEFAULT` and its five markers, the body preview `Preview.render`, the closed level set `HTTPLogging`
-(`NONE`, `HEADERS`, `BODY`, `DEFAULT`, `.parse`, `.resolve`), the two pipeline steps `Step` and
-`AsyncStep` at `Stages::LOGGING` over the private `Emitter`, the private `Render`, the private
-`ReservedKeys` table, and
-`Configuration::Keys::LOG_PREVIEW_BYTES` — plus four wirings into earlier layers: `Dexpace.close_quietly`
-and `Hooks.notify` gain `logger:` and emit an `http.instrumentation.*` diagnostic where they dropped a
-failure, `Proxy.resolve` gains `logger:` and its `Kernel#warn` sites emit the config diagnostic beside the
-warning, and the two phase-3b logging wrappers are constructed by `Step` alone, at `HTTPLogging::BODY`
-alone (`docs/work/mvp/phase5/phase5b/2026-09-09-phase5b-logging-and-redaction-checklist.md`) — and the
-retry layer, chapter 9's two stacks over one policy, under `Dexpace::Resilience`: the shared policy
-core `Policy` with the two-axis classifier consult (`.retry_eligible?` over the configurable set,
-`.throwable_retryable?` as the capability query over `Dexpace.each_cause`, `.cancellation?` as the
-guard in front of both, `.retryable?` dispatching between them), the backoff calculator
-`.backoff_delay`, the total pacing-header parser `.pacing_delay` over the private `PacingParsers`,
-`.effective_max_retries`, the recovery-only `.budget_remaining` and the nine constants (`RETRY-12`'s five defaults, `DEFAULT_RETRYABLE_STATUSES`,
-`DEFAULT_PACING_HEADER_ORDER` and the two ceilings); the re-sendability gate `Resend.eligible?`; the
-one frozen configuration `RetrySettings` both stacks build from, the first reader of
-`Keys::MAX_RETRY_ATTEMPTS`; the stage-based pillar step `RetryStep` and its async twin
-`AsyncRetryStep` at `Stages::RETRY`, sharing the private `RetryStepHelpers`, the async one driven by
-a private per-call `Pump` trampoline; the recovery-chain engine `RecoveryRetry` installed as
-`Recovery::Orchestrator`'s `transport:` with its total-timeout budget; the flat
-`Dexpace::RetryPredicateError`; the RBS interface `_HTTPTracer` beside 5c's module — plus three
-wirings into earlier layers: `ProtocolError#retryable_by_status?` (XCUT-5's baked flag, phase 4b's
-postponement), `Pipeline::Cursor#bundle` seeded by the optional `bundle:` keyword on `Pipeline#call`
-and `AsyncPipeline#call` and read by 5b's `Step#open_span` (the context-bundle widening), and
-`HTTPDate.parse`'s single-digit day; the three drivers emit the HTTP-tracer vocabulary's per-attempt
-group and nothing emits its other two
-(`docs/work/mvp/phase6/phase6a/2026-09-09-phase6a-retry-checklist.md`) — and the
-authentication layer, §6.3's chapter 11, under `Dexpace::Auth`: the closed five-member `Scheme` set with
-`ALL` and `.of`, `Requirement`, `Descriptor` with `#allows_anonymous?` and the pure three-tier `Resolver`
-with the flat `Dexpace::AuthResolutionError`, the four credentials `BearerToken` (with `#expired?`),
-`KeyCredential`, `NamedKeyCredential` and `PasswordCredential` — every one redacting in `#to_s`,
-`#inspect` and, for the two `Data`s, `#pretty_print` — the never-raising RFC 7235 list parser
-`Challenges.parse` over `Challenge` with its one fold point and `TOKEN68`, `BasicHandler` (preemptive
-`#call` and challenge-answering `#authorization_for`), the challenge-only `DigestHandler` with
-`ALGORITHMS`, `DEFAULT_CAP` and its own nonce-count `BoundedMap`, `ChallengeHandlerChain` with
-`#header_name(proxy:)` and `#as_challenge_hook`, the stateless `KeyStamper`, the single-flight
-`BearerStamper` with `DEFAULT_REFRESH_MARGIN` and `#evict_if_matches`, the three-zone
-`AsyncBearerStamper` with `#stamp` and `#stamp_fresh`, `BearerProvider.fetch_async` / `.conforms?` over
-the `_BearerProvider` / `_AsyncBearerProvider` interfaces, the three namespaced errors
-`UnencodableCredentialError`, `HTTPSRequiredError` and `ProviderError`, the pillar `Step` at
-`Stages::AUTH` built through `.build(stamper:, challenge_hook:, logger:)` with `NO_REPLACEMENT` and
-`NO_STAMP`, and `AsyncStep < Step` — plus two wirings into earlier layers:
-`Instrumentation::Events::AUTH_REFRESH`, the ninth event, and `BoundedMap#update`, the read-yield-write
-the nonce counter needs
-(`docs/work/mvp/phase6/phase6c/2026-09-09-phase6c-authentication-checklist.md`) — and the redirect
-layer, §6.2's chapter 10, under `Dexpace::Redirect`: the synchronous pillar `Step` at `Stages::REDIRECT`
-built through `.build(allowed_methods:, follow303:, max_hops:, allow_scheme_downgrade:, predicate:,
-logger:)` with `DEFAULT_ALLOWED_METHODS` (`{GET, HEAD}`, never `Method::IDEMPOTENT`) and
-`DEFAULT_MAX_HOPS`, forking per hop with `{cross_origin: bool}` as cursor state and never a header; the
-predicate's read-only `ConditionSnapshot`; the `Events` (five) and `Keys` (four) vocabularies;
-`SchemeDowngradeError`; the five private per-call helpers `Origin`, `Location`, `Chain`, `Emitter` and
-`Reissue`; the flat `Dexpace::NotReplayableError`; `Resilience::Resend.replayable_body?` beside 6a's
-`.eligible?`; and — the phase-level work phase 4c postponed — `Pipeline.standard` and
-`AsyncPipeline.standard` over `Builder#install_preset`, the async one taking a required
-`redirect: :unsupported` (`docs/work/mvp/phase6/phase6b/2026-09-09-phase6b-redirect-checklist.md`) — and the
-server-sent-events layer, chapter 13, under `Dexpace::SSE`: the three limits `MAX_LINE_BYTES` (1 MiB),
-`MAX_EVENT_BYTES` (8 MiB) and `MAX_RETRY_MS` (2^31 − 1) beside the two frozen `Sentinel` singletons `SKIP` and
-`DONE`; the byte-level `LineReader` over `BufferedSource#getbyte` (never `#read_line_utf8`) with its one-byte
-pushback; the immutable five-field `Event` (`Data` plus `Model`, `.build`, `#empty?`); the field machine
-`Reader` whose one persistent state is the BOM flag; the resource-owning single-pass facade `Stream` (built
-through `.open(response)`, `.owning(source, resource:)` and `.borrowing(…)` — never `.over` — with `#each`,
-`#events` and `#typed`, `Closeable`'s latch, and `logger:` on every factory); the typed adapter `TypedStream`
-(`#each`, `#values`, delegating `#close`); the two namespaced errors `LimitExceededError` and
-`StreamStateError`; the RBS interface `_ByteSource`; and, the mechanism spec-forced boundary 5 asked for,
-the eighteenth gate `gates:serde_boundary` over `tools/serde_boundary.rb`, a parsed scan of `lib/dexpace/sse/**`,
-`lib/dexpace/page/**` and their `sig/` mirrors for any serialization dependency — the pagination rows sat
-on its printed `PENDING` list while the two lanes were built one base apart and moved to `GUARDED` when
-7c was reconciled onto the same tree on 2026-09-20
-(`docs/work/mvp/phase7/phase7b/2026-09-10-phase7b-server-sent-events-checklist.md`) — and the
-pagination layer, §7.1's chapter 12, under `Dexpace::Page`, a class that is also the namespace: the page
-value owning one live response behind `Closeable`'s latch, with `.build` and the public resolution branch
-`.next_request_from` (same-document — blank or fragment-only — unresolvable and non-dispatchable targets
-all end-of-stream); `Info`, whose nil `next_request` is the one end-of-stream signal, with `.terminal`;
-the raw-query splice `QueryRewriter` (`.get`, `.set`, `.rewrite_url`) over phase 1's `PercentEncoding`,
-never `Query`; the three frozen `Data`
-strategies `CursorStrategy`, `PageNumberStrategy` and `LinkStrategy`, every one over a caller-supplied
-`#call(response)` extractor and never a codec; the private RFC 8288 state machine `LinkHeader`; the
-private lifetime owner `Walk` — the one drive routine, the cap, the exhaustion latch and the two page slots
-— over a private per-walk drive, and the private `Closing` disciplines both views share; the re-iterable,
-eager-closing `Items` and the single-use, look-ahead `Pages` (`#more?`, `#close`), both `Enumerable`; the
-frozen engines `Paginator` (`#items`, `#pages`, `#each_item`, `#each_page`) and `AsyncPaginator` (`#walk`,
-`#walk_pages`, a re-arm trampoline over `Future#on_settle` with an optional `#post` executor); the
-fetcher front-end `Fetchers`; the state error `PageStateError`; the three RBS interfaces `_Strategy`,
-`_Extractor` and `_Executor` in `page.rbs`; and one widening of phase 1, `Dexpace::URL.resolve`, the
-RFC 3986 reference resolution beside `.parse!`
-(`docs/work/mvp/phase7/phase7c/2026-09-10-phase7c-pagination-checklist.md`) — and the
-serialization layer, chapter 14, under `Dexpace::Serde` beside phase 2's seam: the witness protocol design
-§10.14 substituted for the reference's reflective type token — `Serde.witness!` / `.witness?` over
-`WITNESS_METHOD` / `DUMP_METHOD`, the frozen `DecodeContext` with its RFC 6901 `#pointer`, its eight `!`
-methods and its one raise site `#error!`, the three container combinators `List`, `Map` and `Nullable`
-with `.of` over the private scalar table `Scalars` and the named witness `BOOLEAN`, and the ISO-8601
-witness `Instant` (`P7-8`'s microsecond domain); the three-state PATCH type `Tristate` with `ABSENT`,
-`NULL`, `Present` and its private `Combinator` behind `Tristate.of` (`#dexpace_load_field` for the
-in-object case); the encode walk `Native.of` and the `OMIT` sentinel that make `SERDE-15`/`19`/`20`
-structural (`P7-9`); the two `_ResponseHandler`s phase 3b's `TypedResponse` was built to take,
-`DecodingHandler` and `StatusAwareHandler` with its `factory:`; the ninth body factory
-`Body.serialized(value, serde:)`; and `interface _Codec` settled in place (`#media_type` a `MediaType` or
-a `String`, `#load` over `_Witness`) — plus the workspace's second real gem, **`dexpace-serde-json`**:
-`Dexpace::Serde::JSON::Codec` over one private `::JSON::Coder` per instance (`P7-4`), `.default` a fresh
-instance per call, `.build` over a five-key option allowlist, `MINIMUM_JSON_VERSION` asserted at require
-time (`P7-7`), `REQUIRED_CORE` on the registration, and the `json >= 2.19.9` line in its gemspec — the
-first `NFR-2` third-party half spent, and the first gate run against it
-(`docs/work/mvp/phase7/phase7a/2026-09-10-phase7a-serialization-checklist.md`) — plus
-phase 8a's three additions to core: the flat `Dexpace::TransportError < ::IOError` (`XCUT-4`'s retryable
-transport failure, `#retryable?` unconditionally true, `#phase` one of `:connect` / `:write` / `:read`),
-`Configuration::Keys::REQUEST_TIMEOUT` and `Instrumentation::Events::TRANSPORT_HEADER_DROPPED`, the tenth
-event — **and the workspace's third and fourth real gems**, the first two outside `dexpace-core` after 7a's
-codec: the synchronous transport in
-`dexpace-transport-net_http`, `Dexpace::Transport::NetHTTP` — `.build(timeout:, logger:, tls:)` over a
-fresh-per-call `Net::HTTP` and `.using(client, logger:)` over a caller's own, the `Adapter` behind both with
-`.owning` / `.borrowing`, the eight constants `DEFAULT_TIMEOUT_SECONDS`, `MIN_TIMEOUT_SECONDS`,
-`JOIN_DEADLINE_SECONDS`, `REGISTRY_KEY`, `TLS_SETTINGS`, `MANAGED_HEADERS`, `DEFAULT_CONTENT_TYPE` and
-`PROXY_LIMITATION_EVENT`, the seven `private_constant`s `Deadline`, `Failures`, `RequestMapper`,
-`ResponseMapper`, `ResponsePump`, `TLSSettings` and `ProxyRoute`, the RBS interface `_MonotonicClock`, and
-the require-time `Transport.register(:net_http, …)` — and the conformance suite in `dexpace-conformance`,
-`Dexpace::Conformance`: the assertion protocol `Failure`, `Vacuous`, `Assertion`, `Result` (with `STATUSES`)
-and `Report`, the twenty-eight-assertion `TransportSuite` with `PREAMBLE` over its five private groups and
-the private `Checks`, `TransportCase` (with `DEFAULT_SETTLE`, `DEFAULT_WIRE` and the private `SettleOnly`
-guard), `BorrowedPair`, the `WireServer` fixture with `RecordedRequest`, `JOIN_DEADLINE_SECONDS` and the
-private `RequestReader`, the fifteen `Scripts`, `MinitestDriver` and the opt-in `RSpecDriver`, and the two
-observability doubles `RecordingSpan` and `Allocations` (with `ATTEMPTS`), over the RBS interface `_Wire`
-(`docs/work/mvp/phase8/phase8a/2026-09-11-phase8a-synchronous-transport-and-conformance-checklist.md`) —
-**and the workspace's fifth real gem**, the async-runtime adapter in `dexpace-async-thread`,
-`Dexpace::Async::Thread`: the fixed-size `Pool` over a bounded `::Thread::SizedQueue` — `.build(size:,
-queue_limit:, shutdown_timeout:, name:, logger:, clock:)` with `size:` required and no default, `#post`
-(`Dexpace::Page::_Executor` exactly, never blocking, `RejectedError` on a full queue and `ClosedError` on a
-closed pool), `#delay` (a `Dexpace::Async::Future` settled with `true` on one lazily created timer thread),
-`#size`, `#queue_limit`, `#name`, the three constants `QUEUE_DEPTH_PER_WORKER`, `DEFAULT_SHUTDOWN_TIMEOUT`
-and `DEFAULT_NAME`, and `Dexpace::Closeable`'s latched `#close` that drains within one budget and emits
-`Events::INSTRUMENTATION_SHUTDOWN` once — the `private_constant` `Timer` with its `Entry`, `Pool::Job`,
-the two private field keys, `RejectedError`, `REQUIRED_CORE` and the require-time version-skew assertion
-made directly because there is no executor registry
-(`docs/work/mvp/phase8/phase8b/2026-09-11-phase8b-async-runtime-adapter-checklist.md`); plus phase 8c's one
-addition to core, `Configuration::Keys::TRANSPORT_CONNECTION_LIMIT`, the tenth key, **and the workspace's
-sixth real gem**, the asynchronous transport in `dexpace-transport-async_http`,
-`Dexpace::Transport::AsyncHTTP` — `.build(timeout:, logger:, drop_policy:, connection_limit:, ssl_context:,
-configuration:)` over a client map the adapter owns, one `Async::HTTP::Client` per (reactor, origin) bounded at
-`MAX_ORIGINS`, and `.using(client, logger:, drop_policy:)` over a caller's own, the `Adapter` behind both with
-`.owning` / `.borrowing` and `REACTOR_MESSAGE`, the public `DropPolicy` with `MAX_TRACKED_NAMES`, `EVERY`,
-`ONCE_PER_NAME`, `QUIET` and `MODES`, the six constants `DEFAULT_TIMEOUT_SECONDS`, `DEFAULT_CONNECTION_LIMIT`,
-`MAX_ORIGINS`, `REGISTRY_KEY`, `FRAMING_HEADERS` and `ALPN_PROTOCOLS`, the eight `private_constant`s `Clients`,
-`Endpoints`, `Errors`, `Exchange`, `RequestBody`, `RequestMapper`, `ResponseBody` and `ResponseMapper`, the RBS
-interface `_Release`, and the require-time `AsyncTransport.register(:async_http, …)` — and, in
-`dexpace-conformance`, the two private groups `Asynchronous` and `HeaderDrops` that make the suite thirty-four
-assertions in seven, with `PREAMBLE` naming `TRANSPORT-8` and `Scripts.write_response` taking `close:`
-(`docs/work/mvp/phase8/phase8c/2026-09-11-phase8c-asynchronous-transport-checklist.md`);
-the synchronous transport is the first thing here that talks to a socket, and the pool is the first executor
-on the async path — the two meet in `dexpace-async-thread`'s composed suite over a real socket. Both
-transports talk to a socket; the async one needs a running reactor on the calling thread and creates none. The workspace root
+**The v1 roadmap is complete, and nothing is published.** All eleven phases are built and merged — 0 through
+10, with phases 3 to 8 each split into sub-phases (3a/3b, 4a–4c, 5a–5c, 6a–6c, 7a–7c, 8a–8c); phase 9
+audited the tree and repaired nothing, and phase 10 repaired what phase 9 and every review found, re-derived
+design §10 from as-built source into `docs/deviations.md`, and emptied the roadmap's inbound list. Six gems
+exist under `gems/`, every one at `0.0.0`, with no tag cut. **The next step is the release path in
+`docs/first-release.md`** — its blockers before first publish, what v1 ships without, and the post-release
+triggers; work found now is routed there (see "Where a finding goes" below), because there is no later phase.
+
+What each gem carries, with the as-built page under `docs/sdk-documentation/` and the checklist under
+`docs/work/mvp/` that maps every requirement ID to the task that satisfied it:
+
+| Gem | Layer (phase) | As-built page |
+|---|---|---|
+| `dexpace-core` | HTTP domain model — `Request`, `Response`, `Headers`, the `Data` value types, `Model` / `Builder`, the `Dexpace::Error` root (1) | `http.md` |
+| | seam layer — `Registry`, the `Transport` / `AsyncTransport` / `Serde` seams, the `SEAM-18` bridges, the async pivot `Async::Future`, `Cancellation`, `Closeable`, `Operation` (2) | `seams.md` |
+| | byte streaming under `Dexpace::IO` — `Buffer`, `BufferedSource`, `BufferedSink`, `TeeSink` (3a) | `io.md` |
+| | body layer — `Body` and its request variants, `ResponseBody`, the logging wrappers, `TypedResponse`, the one decode boundary (3b) | `body.md` |
+| | execution context — the three context flavours, `ContextStore`, `Instrumentation::Bundle` (4a) | `execution-context.md` |
+| | recovery layer — `Outcome`, `Recovery` chains and `Orchestrator`, `ProtocolError`, `Suppressible`, `Dexpace.each_cause` (4b) | `recovery.md` |
+| | stage pipeline — `Pipeline` with its sixteen `Stages`, `Cursor`, `Builder`, and `AsyncPipeline` (4c) | `pipelines.md` |
+| | configuration — `Configuration`, `Dexpace.configure`, `Clock`, `Proxy`, `HTTPDate`, `UUID` (5a) | `configuration.md` |
+| | logging facade and redaction — `Instrumentation::Logger`, `Redactor`, `HTTPLogging`, the logging `Step` / `AsyncStep` (5b) | `logging-and-redaction.md` |
+| | tracing and metrics — `Tracing`, `Scope`, `HTTPTracer`, the meter SPI and the no-op singletons (5c) | `tracing-and-metrics.md` |
+| | retry — `Resilience::Policy`, `Resend`, `RetrySettings`, `RetryStep` / `AsyncRetryStep`, `RecoveryRetry` (6a) | `retry.md` |
+| | redirect — `Redirect::Step`, `Pipeline.standard` / `AsyncPipeline.standard` (6b) | `redirect.md` |
+| | authentication — `Auth`'s credentials, challenge parser, Basic / Digest handlers, key and bearer stampers, `Auth::Step` (6c) | `auth.md` |
+| | serialization — the witness protocol, `DecodeContext`, `Tristate`, `Native`, the two response handlers, `Body.serialized` (7a) | `serde.md` |
+| | server-sent events — `SSE::LineReader`, `Reader`, `Event`, `Stream`, `TypedStream` (7b) | `sse.md` |
+| | pagination — `Page`, its three strategies, `Items` / `Pages`, `Paginator` / `AsyncPaginator`, `URL.resolve` (7c) | `pagination.md` |
+| | `TransportError` and the transport configuration keys (8a, 8c) | `transport-net_http.md` |
+| `dexpace-serde-json` | `Serde::JSON::Codec` over one private `::JSON::Coder` per instance, registered under `:json` (7a) | `serde.md` |
+| `dexpace-transport-net_http` | the synchronous transport over a fresh-per-call or a borrowed `Net::HTTP` (8a) | `transport-net_http.md` |
+| `dexpace-async-thread` | `Async::Thread::Pool`, the fixed-size executor over a bounded queue, with its timer (8b) | `async-thread.md` |
+| `dexpace-transport-async_http` | the asynchronous transport over `async-http`, needing a running reactor on the calling thread and creating none (8c) | `transport-async_http.md` |
+| `dexpace-conformance` | `TransportSuite` (34 assertions, 8a and 8c), and `InvariantSuite`, `PackagingSuite`, `CodecSuite` and `ExecutorSuite` (9) | `conformance.md` |
+
+The checklists are one per (sub)phase, `docs/work/mvp/phaseN[/phaseNx]/…-checklist.md`; a constant named in
+this file and not in the table is in its owning checklist and its gem's `sig/`. The synchronous transport is
+the first thing here that talks to a socket and the pool the first executor on the async path; the two meet in
+`dexpace-async-thread`'s composed suite over a real socket. The workspace root
 carries the `Gemfile`, `Rakefile`, `Steepfile`, `rbs_collection.yaml`, `.rubocop.yml`, `.yardopts`, `VERSIONS` and
 the twenty-four blocking gates — phase 0's seventeen
 (`docs/work/mvp/phase0/2026-09-05-phase0-scaffold-and-quality-gates-checklist.md`), phase 7b's
@@ -428,15 +225,15 @@ nowhere else — being able to state that floor at all is half the reason the co
 ## Documentation hierarchy
 
 `docs/README.md` is the index and the contract; this is the working summary, and it must not diverge from it.
-Entries marked **(planned)** do not exist yet and are frozen the moment they appear, not the moment someone
-remembers.
+An entry is listed before it exists, marked **(planned)**, and is frozen the moment it appears, not the moment
+someone remembers; every entry below exists today.
 
 | Entry | Owns | Written by | Housekeeping may write? |
 |---|---|---|---|
 | `docs/product-spec/` + `docs/product-spec.md` | **Normative.** The numbered requirements — `HTTP-7`, `SEAM-1`, `RETRY-13`, `NFR-5`, … — the code exists to satisfy. The `.md` is its table of contents | A human, deliberately | **frozen** |
 | `docs/sdk-design-ruby/` + `docs/sdk-design-ruby.md` | How each spec area maps to idiomatic Ruby. Non-normative but binding by convention. §10 is the **normative deviation ledger** | A human, deliberately | **frozen** |
-| `docs/knowledge/harvested/` **(planned)** | Harvested styleguide and spec knowledge, topic-indexed. Generated; **never hand-edited** | The `knowledge-harvest` skill | **frozen** |
-| `docs/knowledge/notes/` **(planned)** | What the implementation found, overriding a harvested entry. Role `review` | A human | **frozen** |
+| `docs/knowledge/harvested/` | Harvested styleguide and spec knowledge, topic-indexed. Generated; **never hand-edited** | The `knowledge-harvest` skill | **frozen** |
+| `docs/knowledge/notes/` | What the implementation found, overriding a harvested entry. Role `review` | A human | **frozen** |
 | `docs/sdk-documentation/` | **As-built.** How the gems compose, which one to install, worked cross-gem examples. `architecture.md` is the front door, and is a stub | A human, or a skill on request | yes |
 | `docs/work/<delivery>/phaseN[/phaseNx]/` | Process records: per-(sub)phase design, plan and checklist | The phase that produced them; **collected** by `housekeeping` | yes — `git mv` only |
 | `docs/superpowers/` | Nothing, for long. The **inbox** the Superpowers skills write into; never a citation target | `brainstorming`, `writing-plans` | yes — it drains it |
@@ -553,9 +350,11 @@ invariants no tool catches.
   only to a collection the model has already `dup`ed and therefore owns — never to a caller's live hash.
 - **`private_class_method :new` plus a validating `.build`**, and the gap stated honestly (P8): `Req.send(:new,
   …)` bypasses `.build` because `send` bypassing `private` is a documented Ruby feature — but not validation,
-  because every model's `#initialize` override validates and calls `super`; what stays open is `.allocate`,
-  which yields an instance whose members are all nil, and any object responding to
-  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (phase 10's amendment `C19`).
+  because every HTTP domain model's `#initialize` override validates and calls `super` (the one exception is
+  `Dexpace::Pipeline::Entry`, a pipeline value whose validation lives in `.build` alone); what stays open is
+  `.allocate`, which yields an instance whose members are all nil, and any object responding to
+  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (amendment `C19`, applied to
+  §4 and §10.10 on 2026-09-25).
   Neither hole can be closed. Do not build a fake proof that they are.
 - **The mitigation that matters is wire-boundary re-validation.** Header name and outbound value validation
   (`HTTP-17`, `HTTP-18`, `XCUT-18`) runs **again** immediately before dispatch, inside every transport adapter,
@@ -578,12 +377,17 @@ invariants no tool catches.
 
 Each is one line plus the chapter to read before touching the area.
 
-- **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden in every gem here** — an async interrupt
-  can land on any bytecode instruction, including inside an `ensure` releasing a pooled connection (§8.3).
+- **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden in code this repository writes** — an async
+  interrupt can land on any bytecode instruction, including inside an `ensure` releasing a pooled connection
+  (§8.3); `Dexpace/NoThreadInterrupt` enforces it over every gem's `lib/`, while a dependency may still use them
+  (`net-http`'s connect phase, the async closure — amendment `C8`).
 - **Deadlines are explicit values, not ambient interrupts** — propagated to
   `open_timeout`/`read_timeout`/`write_timeout` on the sync path and to the task's own timeout on the async path,
-  where they interrupt only at a scheduler checkpoint (§8.3, §3.3). This is the direct cause of the port's three
-  unsatisfied MUSTs (`ASYNC-3`, `ASYNC-4`, `PIPE-33`); §10.5 splits them, do not silently re-open the trade.
+  where they interrupt only at a scheduler checkpoint (§8.3, §3.3). This is the direct cause of two unmet MUSTs
+  (`ASYNC-3`, `PIPE-33`'s interrupt clause) and one held vacuously (`ASYNC-4`); §10.5 splits them, do not
+  silently re-open the trade. Design §10 also records three MUST clauses unmet on a stated domain, each admitted
+  rather than argued away: `SERDE-27`'s no-materialisation clause in the JSON codec, `TRANSPORT-14` on the
+  async transport, and `HTTP-45` for a second fiber on one thread with no scheduler (§10.20–§10.22).
 - **`Thread::Mutex` ownership is per-fiber, not per-thread, and it is non-reentrant** — hold it across the flag
   flip only and never across a drain, a parse or any suspension point, or two fibers deadlock (§3.1, §3.7, §7.2).
 - **An `Enumerator` abandoned mid-`#next` never runs its `ensure`** — verified, and GC is not a cleanup hook. So
@@ -632,10 +436,10 @@ Each is one line plus the chapter to read before touching the area.
 - **`Response#body_string` is the SDK's one decode boundary, and it is three steps, not one** — resolve the
   charset through `MediaType#charset` (already `nil` for absent or unknown), **retag** the BINARY bytes with
   3a's `#read_string(encoding)`, then transcode with the target **named**,
-  `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1's one-step sentence mangles every
-  non-ASCII byte and a target-less `#encode` follows the host's `Encoding.default_internal`; the sentence's
-  correction is amendment `C1` in `docs/deviations.md`'s amendment set, and the suite's hostile-global tests
-  are what catch a revert (phase 3b's Task 8).
+  `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1 once stated this as one step, which
+  mangles every non-ASCII byte, and a target-less `#encode` follows the host's `Encoding.default_internal`;
+  amendment `C1` corrected §3.1 on 2026-09-25, and the suite's hostile-global tests are what catch a revert
+  (phase 3b's Task 8).
 - **A body closes exactly the sources it opened, and `close: true` at `Body.stream` forces single-use** —
   the body layer's ownership rule (design §10.12, `BODY-8`) is deliberately not the I/O layer's
   wrapping-takes-ownership rule (`IO-6`); a body that closes its stream cannot rewind it, so
@@ -1282,6 +1086,10 @@ The roadmap under `docs/work/mvp/` is an **index of phases, not a design** — i
 its requirement prefixes, and nothing else. The real work is per-phase: **brainstorm → plan → implement**, and
 all three read the corpus first.
 
+Every phase of the `mvp` delivery followed it, and the roadmap is done; a post-v1 delivery — one of §2.2's later
+gems, say — follows it again under its own `docs/work/<delivery>/`, while release work and anything found
+against the built tree go to `docs/first-release.md`.
+
 1. **Start with what is already known.** Invoke the `knowledge-lookup` skill at the start of every phase and
    every numbered task, before writing a design doc, a plan or code. Its phase-start pair —
    `--origin note --brief` and `--section conflicts --brief` — is not optional: a plan that assumes an open
@@ -1402,8 +1210,8 @@ probe compares each against the live tree, and a count written anywhere else in 
   `phase1/`, `phase2/`, `phase3/`, `phase4/`, `phase5/`, `phase6/`, `phase7/`, `phase8/`, `phase9/` and `phase10/`. `phase0/`, `phase1/` and `phase2/` each
   carry that phase's design, plan and checklist; `phase3/` carries its segmentation design,
   `docs/work/mvp/phase3/2026-09-08-phase3-segmentation-design.md`, and two sub-phase directories —
-  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist —
-  twenty-two checklists written so far, each at implementation; `phase4/`
+  `phase3/phase3a/` and `phase3/phase3b/`, each holding that sub-phase's design, plan and checklist;
+  `phase4/`
   carries its segmentation design,
   `docs/work/mvp/phase4/2026-09-08-phase4-segmentation-design.md`, and three sub-phase
   directories — `phase4/phase4a/`, `phase4/phase4b/` and `phase4/phase4c/`; each holds that sub-phase's
@@ -1476,7 +1284,10 @@ probe compares each against the live tree, and a count written anywhere else in 
   claim from as-built source, never from another document** — and the phase that writes the
   frozen-chapter amendments out, the design's thirteen `C1`–`C13`, `C14` reconciled from phase 4b's filing
   and five the as-built audit found, `C15`–`C19`, in `docs/deviations.md`'s amendment set, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
-  frozen and only a human may apply them. It ships repair code in `dexpace-core`,
+  frozen to every maintenance tool and only a human may apply them — which the maintainer then did on
+  2026-09-25, applying `C1`–`C19` plus six further corrections the reconciliation found (`C20`–`C25`) and
+  consolidating every phase's ledger rows into design §10, which now carries 38 entries matched row for row
+  by `docs/deviations.md`. It ships repair code in `dexpace-core`,
   `dexpace-transport-async_http` and `dexpace-conformance`, reaches
   `dexpace-transport-net_http` through the `sig/` header its `NFR-13` repair adds to every gem, two YARD
   comments in its `lib/` and two tests the `Protocol` repair invalidated, per its design's R1 addendum,
@@ -1485,8 +1296,6 @@ probe compares each against the live tree, and a count written anywhere else in 
   inbound list's sixty-five bullets (repaired, verified already fixed, moved to `docs/first-release.md`,
   or withdrawn — none carried forward), and closes or narrows `docs/first-release.md` lines while
   publishing nothing: every gem stays at `0.0.0`.
-  Every checklist but phase 0's, phase 1's, phase 2's, phase 3a's, phase 3b's, phase 4a's, phase 4b's,
-  phase 4c's, phase 5a's, phase 5b's, phase 5c's, phase 6a's, phase 6b's, phase 6c's, phase 7b's,
-  phase 7c's, phase 7a's, phase 8a's, phase 8b's, phase 8c's, phase 9's and phase 10's is still to be
-  written at execution time — which leaves none: every phase of the v1 roadmap has its checklist.
+  Every phase and sub-phase of the v1 roadmap has its checklist — twenty-two, each written at
+  implementation from what was built, not from the plan.
 - There are 40 harvested topics under `docs/knowledge/harvested/`; the harvest ran here on 2026-09-05.
