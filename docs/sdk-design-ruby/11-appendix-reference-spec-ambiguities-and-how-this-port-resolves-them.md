@@ -29,7 +29,11 @@ than worked around silently, so a future reader can tell a deliberate reading fr
    non-reentrant (both verified), so holding it across a suspension point would deadlock two fibers of one thread.
    The general lesson applied reflexively: port the requirement, not the reference's mechanism.
 8. **XCUT-23's resolution rule needs at least one instance after a seam retires.** *Resolved:* it has three here
-   (transport, serde, executor), satisfied by §3.6, so the conformance item is accounted for.
+   (transport, async transport, serde), satisfied by §3.6, so the conformance item is accounted for. [Amended
+   2026-09-25, `C17` of `docs/deviations.md`: the third instance read "executor". There is no executor registry;
+   the three registries are `Dexpace::Transport`'s, `Dexpace::AsyncTransport`'s
+   (`gems/dexpace-core/lib/dexpace/async_transport.rb:22`) and `Dexpace::Serde`'s, and `dexpace-async-thread`
+   asserts its version skew directly at require time because it has none to register with.]
 9. **Appendix B covers only nine of nineteen prefixes.** *Resolved:* §9.3 states that Appendix B conformance is a
    strictly weaker claim than full conformance, and `dexpace-conformance` adds suites for the other ten.
 10. **RETRY-38's modal tag contradicts its prose** (tagged SHOULD, body says "MAY stamp"): treated as SHOULD per
@@ -57,9 +61,16 @@ than worked around silently, so a future reader can tell a deliberate reading fr
     the deviations are replicated — they are the specified behaviour, and interoperability with the reference
     matters more than WHATWG parity — and no strict mode ships in the MVP.
 18. **SERDE-26 presumes a mutable codec engine; TRANSPORT-18 presumes a re-subscribable body producer.** Both are
-    near-vacuous for the MVP adapters (`JSON` is stateless, `Net::HTTP` has no resend hook) and both are stated as
-    conditional obligations on any future adapter whose library has them, per the specification's own
-    per-transport scoping.
+    near-vacuous for the MVP adapters (the JSON codec accepts no caller-supplied engine and builds a private
+    `::JSON::Coder` per instance; `Net::HTTP`'s one resend path, its default-on `#max_retries`, is switched off by
+    the adapter) and both are stated as conditional obligations on any future
+    adapter whose library has them, per the specification's own per-transport scoping. [Amended 2026-09-25, `C6`
+    of `docs/deviations.md`: the parenthetical read "`Net::HTTP` has no resend hook". `Net::HTTP#max_retries`
+    defaults to 1 and re-runs `req.exec`, re-writing the body, for an idempotent method; as built,
+    `Dexpace::Transport::NetHTTP::Adapter` sets `max_retries = 0`
+    (`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/adapter.rb:154`), so no native resend
+    re-reads a body. Amended the same day, `C23`: the JSON half read "`JSON` is stateless", written against json
+    2.9.1; at the 2.19.9 floor, phase 7a's `P7-4`.]
 19. **The retry-unification sanction is stated twice with different scopes.** `09-retry-and-resilience.md` binds "a
     port that unifies **the stacks**"; `08-execution-pipelines.md` binds "a port unifying **retry entry points**."
     A port that unified only the entry points would escape the first and be caught by the second, which is

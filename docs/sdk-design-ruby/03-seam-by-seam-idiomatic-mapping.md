@@ -75,12 +75,23 @@ always downstream of something that already owns the response.
 **Encoding, stated once.** Bytes read from or written to a socket are always `Encoding::BINARY` (verified the same
 object as `ASCII_8BIT`); `String#b` is the idiom for "these bytes, untagged"; `force_encoding` is a *retag* used
 only where the bytes are known to conform; and there is exactly one decode boundary, `Response#body_string`, which
-applies the media type's charset via `String#encode(invalid: :replace, undef: :replace)` and falls back to UTF-8
-when absent or unknown (**HTTP-42**). The port never trusts a transport's tagging — `Net::HTTP` returns bodies
+retags the BINARY bytes to the media type's charset -- UTF-8 when it is absent or unknown -- and then transcodes
+with both encodings named, `#encode(target, invalid: :replace, undef: :replace)` (**HTTP-42**). [Amended
+2026-09-25, `C1` of `docs/deviations.md`: this sentence read "applies the media type's charset via
+`String#encode(invalid: :replace, undef: :replace)` and falls back to UTF-8 when absent or unknown". Over bytes
+already retagged BINARY that recipe replaces every byte at or above `0x80`, and a target-less `#encode` follows the
+host's `Encoding.default_internal`. As built, `Dexpace::Response#body_string`
+(`gems/dexpace-core/lib/dexpace/http/response.rb:113`) resolves the charset through `MediaType#charset`, retags with
+`#read_string(encoding)` and transcodes with the target named.] The port never trusts a transport's tagging — `Net::HTTP` returns bodies
 tagged `ASCII-8BIT` regardless of the declared charset — and always retags to BINARY on ingress.
 
 **Two ownership rules, deliberately different.** At the I/O layer, wrapping takes ownership: closing a
-`BufferedSource` built over a caller's `IO` closes that `IO` (**SEAM-3**). At the body layer the rule is inverted
+`BufferedSource` built over a caller's `IO` closes that `IO` (**IO-6**). [Amended 2026-09-25, `C3` of
+`docs/deviations.md`: this citation read **SEAM-3**, the ID §10 item 1 retires with the provider seam; the live
+statement of ownership-on-wrap is **IO-6**, whose only normative text is appendix C's row. As built,
+`Dexpace::IO::BufferedSource.wrapping` (`gems/dexpace-core/lib/dexpace/io/buffered_source.rb:48`) constructs with
+`owns_upstream: true` and closing it closes the wrapped stream, asserted under the `IO-6` heading of
+`gems/dexpace-core/test/dexpace/io/buffered_source_test.rb`.] At the body layer the rule is inverted
 and uniform: **a body closes exactly the sources it opened itself** — a file-backed body opens and closes a fresh
 handle per write (**BODY-11**), a body over a caller-supplied `IO` or `Enumerator` never closes it, and transfer is
 opted into explicitly at the factory. Conflating the two is the trap **BODY-8** names ("A port MUST decide its
@@ -165,15 +176,31 @@ transport, a `Dexpace::Pipeline` can stand in wherever a transport is expected (
 declare conformance it structurally already has (P14). Core ships a `Dexpace::Transport` module with a
 `.conforms?` predicate and no implementation, satisfying **SEAM-2**'s "core never names a concrete implementation."
 
-Streaming is preserved end to end: `dexpace-transport-net_http` issues the request inside
-`Net::HTTP#request(req) { |res| ... }` and exposes the response body as a `BufferedSource` over the block-scoped
-`Net::HTTPResponse#read_body` stream, so **SEAM-11**'s no-pre-buffering clause and **TRANSPORT-25**'s "lazily-read
-stream, not pre-buffered ... closing the SDK response cascades to close the native body and release the connection"
-are satisfied literally. The reference transport disables nothing for **TRANSPORT-1**/**TRANSPORT-2** because
-`Net::HTTP` follows no redirects and retries nothing on its own — those two requirements are vacuous for this
-adapter and load-bearing for a future Faraday-stack or `httpx` adapter, which is exactly the per-transport scoping
-the specification's own §17 preamble anticipates ("Where a behavior exists in only one reference transport ... the
-requirement is scoped accordingly").
+Streaming is preserved end to end: `dexpace-transport-net_http` runs the whole `Net::HTTP` exchange on a
+per-response producer `Thread` over a `Thread::SizedQueue(1)`, whose `read_body` block pushes each chunk, and the
+caller drains it through a `#readpartial`-shaped reader that a `BufferedSource` owns; that keeps the body lazy and
+closable, so **SEAM-11**'s no-pre-buffering clause and **TRANSPORT-25**'s "lazily-read stream, not pre-buffered ...
+closing the SDK response cascades to close the native body and release the connection" are satisfied. [Amended
+2026-09-25, `C5` of `docs/deviations.md`: this sentence read that the adapter issues the request inside
+`Net::HTTP#request(req) { |res| ... }` and exposes the body over the block-scoped `read_body` stream, satisfying
+both clauses "literally". Measured on `net-http` 0.6.0 under 3.4.10, the block form with a block that does not read
+returns with the body already buffered and the socket nilled, and a later `read_body` raises
+`IOError: ... read_body called twice`; a `Fiber` in the thread's place is refused by `FiberError: fiber called
+across threads`. As built, `Dexpace::Transport::NetHTTP::ResponsePump`
+(`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/response_pump.rb`) is that producer and reader
+(phase 8a's `P8-1`).] `Net::HTTP` follows no redirects, so **TRANSPORT-1** is vacuous for this adapter; but
+`Net::HTTP#max_retries` defaults to 1 and re-sends an idempotent request on its own, so the adapter sets it to 0
+on every client it builds and refuses a borrowed client whose value is not 0, and **TRANSPORT-2** is satisfied by
+construction rather than vacuous. Both stay load-bearing for a future Faraday-stack or `httpx` adapter, which is
+exactly the per-transport scoping the specification's own §17 preamble anticipates ("Where a behavior exists in only
+one reference transport ... the requirement is scoped accordingly"). [Amended 2026-09-25, `C6` of
+`docs/deviations.md`: this sentence read "The reference transport disables nothing for **TRANSPORT-1**/**TRANSPORT-2**
+because `Net::HTTP` follows no redirects and retries nothing on its own — those two requirements are vacuous for this
+adapter". Measured on `net-http` 0.6.0, `#transport_request` retries GET, HEAD, PUT, DELETE, OPTIONS and TRACE on
+nine error classes including `IOError`, and at the default a call whose connection another thread closed returned
+`200`. As built, `http.max_retries = 0` in `Dexpace::Transport::NetHTTP::Adapter`
+(`gems/dexpace-transport-net_http/lib/dexpace/transport/net_http/adapter.rb:154`), and `.using` asserts it at
+`:38`.]
 
 Per-call options (**SEAM-11**, **TRANSPORT-5**, **ASYNC-19**) are threaded as an immutable
 `Dexpace::RequestOptions` value and applied to a *per-call* `Net::HTTP` instance's `open_timeout`, `read_timeout`
@@ -341,11 +368,18 @@ explicit witness (§7.3); there is no witness-less overload to fall into.
 Two adapter defaults are fixed here rather than left to the JSON gem's own. The adapter's default encoder
 configuration renders date and time values as ISO-8601 strings, never epoch numbers, and the corresponding witness
 parses that form back to the same instant, so the round-trip **SERDE-24** requires holds by construction rather
-than by the caller matching two independent conventions. And `Dexpace::Serde::JSON.default` is a *factory*: every
+than by the caller matching two independent conventions — for every `Time` whose sub-second part is a whole number
+of microseconds. [Amended 2026-09-25, `C22` of `docs/deviations.md`: "by construction" was unqualified. As built,
+`Dexpace::Serde::Instant` (`gems/dexpace-core/lib/dexpace/serde/instant.rb`) encodes through `Time#iso8601(6)`,
+which truncates, so a float-derived `0.123456` second encodes as `.123455`; every `Time` the SDK constructs or
+decodes lies inside the domain (phase 7a's `P7-8`, §10 entry 36).] And `Dexpace::Serde::JSON.default` is a *factory*: every
 call returns a fresh, independently configured adapter instance rather than a shared one, so an application that
 reconfigures the codec it was handed cannot change the codec another part of the process is using (**SERDE-25**).
-Both are cheap here — `JSON` itself is stateless and the configuration is a frozen options hash (§7.3) — which is
-precisely why there is no reason to skip them. **SERDE-23**'s tolerant decode of unknown fields is the witness's
+Both are cheap here — each codec instance owns one private `::JSON::Coder` built from its own options (§7.3) —
+which is precisely why there is no reason to skip them. [Amended 2026-09-25, `C23` of `docs/deviations.md`: this
+read "`JSON` itself is stateless and the configuration is a frozen options hash", which described json 2.9.1; the
+2.19.9 floor ships `JSON::Coder`, and `Dexpace::Serde::JSON::Codec`
+(`gems/dexpace-serde-json/lib/dexpace/serde/json/codec.rb`) builds one per instance (phase 7a's `P7-4`).] **SERDE-23**'s tolerant decode of unknown fields is the witness's
 default: a witness reads the keys it declares and ignores the rest, so backward-compatible server additions do not
 break a deployed client, and strictness is opt-in per witness.
 
@@ -494,7 +528,12 @@ real constraint: `dexpace-async-thread`'s close signals its queue and returns, i
 `Kernel#sleep` or an unbounded `Thread#join`. **ASYNC-16**'s graceful shutdown — stop accepting work, let in-flight
 tasks finish — is a **SHOULD** and is what the adapter does by default, with the wait itself performed through
 §8.3's cancellable queue wait and a bounded deadline, so a caller who closes inside a cancelled scope is not
-parked. **SEAM-15** is a **MAY** and the port takes it explicitly: **a send after close raises
+parked. [Amended 2026-09-25, `C21` of `docs/deviations.md`: the wait is bounded, not cancellable. As built,
+`Dexpace::Async::Thread::Pool#close` takes no arguments — `Dexpace.close_quietly` calls it with none — and drains
+within its construction-time `shutdown_timeout`
+(`gems/dexpace-async-thread/lib/dexpace/async/thread/pool.rb`); no close path waits through `Clock#sleep`, so a
+caller in a cancelled scope waits at most that budget (phase 8b's `P8-24`, §10 entry 17).] **SEAM-15** is a
+**MAY** and the port takes it explicitly: **a send after close raises
 `Dexpace::ClosedError`**, documented rather than left undefined, because "undefined" in Ruby means whatever
 `NoMethodError` the internals happen to produce.
 

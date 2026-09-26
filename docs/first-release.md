@@ -189,7 +189,7 @@ stated in the release notes rather than discovered at `bundle install`.
       `#promote_to_request` and `#promote_to_exchange`, and where the operation name goes -- because no
       phase builds a call path that does it and this is the one place a generated client's author meets
       it (`CTX-16`, `CTX-14`, `SEAM-28`; the *Behavioural asymmetries* entry below)
-- [ ] **The eighteen recorded corrections (fourteen until phase 10 completed the set on 2026-09-25) to `docs/sdk-design-ruby/` §3, §4, §5, §8, §9, §10, §11, §12 and to
+- [x] **The eighteen recorded corrections (fourteen until phase 10 completed the set on 2026-09-25) to `docs/sdk-design-ruby/` §3, §4, §5, §8, §9, §10, §11, §12 and to
       appendix C's `SSE-19` row applied — or the release notes stating which design sentences a reader
       should not trust.** Filed 2026-09-13 by phase 10's design. Every one is a place where the **rule**
       is right, the **mechanism sentence** is wrong about Ruby or about a library, and the phase that
@@ -243,7 +243,16 @@ stated in the release notes rather than discovered at `bundle install`.
       `P10-21`-`P10-38` -- into design §10.** Each phase's status note ends "consolidation into design §10
       is a human's"; phase 10 is the last phase and the chapter is frozen to it. **The alternative form holds
       for this half too**: a release may ship with the ledgers unconsolidated if its notes list the phase
-      ledgers a reader must consult beside §10
+      ledgers a reader must consult beside §10. **Ticked 2026-09-25, both halves, by a human.** `C1`-`C19`
+      were each re-verified against as-built source and applied in place, with a dated, bracketed note quoting
+      the sentence replaced and citing its code half — `C11` as a recommendation note on appendix C's two rows,
+      the only edit to `docs/product-spec/`; six more of the same kind the reconciliation found, `C20`-`C25`,
+      were applied the same way and are written out in `docs/deviations.md`'s amendment set. The consolidation
+      is done: every phase's ledger rows were triaged against the reference contract, the genuine deviations
+      §10 did not carry became entries 20-38 (or dated clauses on entries 1, 2, 4, 6, 9, 13, 15, 17 and 18),
+      and the rows that record only a departure from the design or the plan, with the specification met, were
+      excluded. `gates:ledger_audit` holds the 38 rows of `docs/deviations.md` to the 38 entries. No release
+      note needs to list a sentence a reader should not trust on this account
 - [ ] An RBS sig-diff baseline established, so a later release can be checked against it for an
       accidental breaking change. **Phase 10 is the phase that can**: its plan, Task 5 is the last change
       to `sig/` in every gem, so Task 18 establishes the baseline over a tree nothing else will move —
@@ -413,6 +422,21 @@ find it in a design document.
   audited by `docs/deviations.md`; as built, the codec drains through 3a's `#read_utf8` and the ceiling
   it reads is the configured `Dexpace::IO.max_materialized_bytes`. Cites `SERDE-27`, `SEAM-21`, `IO-9`,
   `BODY-32`.
+
+- **Two MUST clauses unmet on a stated domain, recorded in §10 on 2026-09-25 when the phase ledgers were
+  consolidated.** Neither is a new finding — each was a phase ledger row — but neither had reached this
+  section. **`HTTP-45`'s no-pinning clause (and `BODY-22`'s once-drain)** holds for threads and not for a
+  second fiber of the same thread with no `Fiber.scheduler` installed: `Thread::Mutex` and
+  `Thread::ConditionVariable` defer to an installed scheduler and otherwise park the carrier thread, so such a
+  fiber arriving mid-parse blocks the thread, and deadlocks if the parsing fiber is never resumed (3b's
+  `P3-27`, design §10 entry 22, `gems/dexpace-core/lib/dexpace/http/typed_response.rb`). Ruby has no
+  scheduler-independent primitive that serialises without parking; the pick-up trigger is a consumer that
+  drives one response's typed value from two fibers of one thread without a scheduler. **`TRANSPORT-14`'s
+  header-name clause (with `TRANSPORT-27`'s SHOULD `Content-Length` half)** is unreachable on
+  `dexpace-transport-async_http`, where `protocol-http1` refuses the head out of the read, so the whole
+  response fails as a retryable `Dexpace::TransportError` (8c's `P8-38`, design §10 entry 21); the waiver and
+  its disclosure are the conformance entry above. Its trigger is an `async-http`/`protocol-http1` release
+  that tolerates such a header.
 
 ### SHOULD- and MAY-level requirements declined for v1
 

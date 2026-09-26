@@ -19,6 +19,12 @@ layer; it specifies only the runtime primitives a generator would target (§3.5)
 protocol beyond HTTP/1.1 for the reference transport, nor does it design the service-client surface a generator
 would emit on top of it.
 
+**Reconciled 2026-09-25 against the as-built tree.** The chapters below were written before the code and are kept
+as written, except where the shipped code proved a sentence wrong: each such sentence is corrected in place with a
+dated, bracketed note quoting what it replaced and citing its amendment in `docs/deviations.md` (`C1`–`C25`), and
+§10 — the deviation ledger — gains entries 20–38, consolidating every deviation from the reference contract the
+phases' own ledgers recorded and the chapter did not. §12 is brought into line with both.
+
 ---
 
 ## Table of Contents

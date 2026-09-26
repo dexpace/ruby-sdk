@@ -19,7 +19,11 @@ models from "value types with no builder (media type, status, typed header name,
 [which] derive via re-construction through factories." The port follows that split exactly: `MediaType`, `Status`,
 `Protocol`, `Method`, `HeaderName` and the conditional-request helpers are `Data` types with `parse`/`of`
 factories and `#with`; `Request`, `Response`, `Headers`, `Query`, `RequestOptions` and `Configuration` get real
-mutable `Builder` classes, because their validation is cross-field (**HTTP-7** rejects a body on
+mutable `Builder` classes, and so does the multipart body (`MultipartBody#new_builder`, `MultipartBody::Builder`),
+which **HTTP-3** names in its builder-based list [Amended 2026-09-25, `C2` of `docs/deviations.md`: the list
+omitted the multipart body. As built, `Dexpace::MultipartBody::Builder`
+(`gems/dexpace-core/lib/dexpace/http/body/multipart_body.rb`) is pre-filled by `#new_builder`, which `dup`s the
+parts list, and `gems/dexpace-core/test/dexpace/http/body/multipart_body_test.rb` asserts the non-aliasing], because their validation is cross-field (**HTTP-7** rejects a body on
 GET/HEAD/TRACE/CONNECT; **HTTP-8** defaults the method to GET only when there is no body) and cannot be expressed
 as per-member checks. `#new_builder` returns a builder pre-filled from the instance that `dup`s every collection
 rather than aliasing it (**HTTP-3**), so later builder mutation cannot reach back into the source model.
@@ -42,8 +46,17 @@ without Ractor being a load-bearing mechanism (§9's runtime floor keeps it out 
 **The encapsulation gap, stated honestly (P8).** Ruby cannot close **HTTP-2**/**SEAM-29**'s "no public field-wise
 constructor" the way a language with enforced constructor privacy can, and there are two independent holes.
 *(i) Construction privacy is advisory.* `private_class_method :new` on a `Data` subclass works, and a validating
-`.build` funnels all legitimate construction — but verified: `Req.send(:new, ...)` reaches the generated
-constructor anyway, because `send` bypassing `private` is a deliberate, documented Ruby feature, not an oversight.
+`.build` funnels all legitimate construction — but `send` bypassing `private` is a deliberate, documented Ruby
+feature, not an oversight, so `Req.send(:new, ...)` bypasses `.build`. It does not bypass validation: every HTTP domain model's
+`#initialize` override validates and calls `super`, so a `send(:new, ...)` re-runs **HTTP-4**, **HTTP-7** and the
+member type checks. What remains open is `.allocate`, which yields an instance whose members are all `nil`.
+[Amended 2026-09-25, `C19` of `docs/deviations.md`: this sentence read "verified: `Req.send(:new, ...)` reaches the
+generated constructor anyway". As built, `Dexpace::Request#initialize`
+(`gems/dexpace-core/lib/dexpace/http/request.rb:51`) validates before `super`; `Request.send(:new, ...)` with a GET
+and a body raises the HTTP-7 `InvalidArgumentError`, and `Request.allocate` answers `nil` for all four members,
+measured on 4.0.6 and 3.2.11. Re-derived 2026-09-25 over every class that includes `Dexpace::Model`: all but
+one define their own `#initialize`; the exception is `Dexpace::Pipeline::Entry`, a pipeline value and not an
+**HTTP-2** domain model, whose validation lives in `.build` alone.]
 *(ii) Duck typing admits impersonation.* Any object responding to `#method`, `#url`, `#headers` and `#body`
 satisfies every structural expectation a pipeline step has of a `Request`, entirely bypassing builder validation.
 Neither hole can be closed. The mitigation is threefold and is deliberately not a fake proof: the official
