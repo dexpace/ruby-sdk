@@ -350,9 +350,11 @@ invariants no tool catches.
   only to a collection the model has already `dup`ed and therefore owns — never to a caller's live hash.
 - **`private_class_method :new` plus a validating `.build`**, and the gap stated honestly (P8): `Req.send(:new,
   …)` bypasses `.build` because `send` bypassing `private` is a documented Ruby feature — but not validation,
-  because every model's `#initialize` override validates and calls `super`; what stays open is `.allocate`,
-  which yields an instance whose members are all nil, and any object responding to
-  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (phase 10's amendment `C19`).
+  because every HTTP domain model's `#initialize` override validates and calls `super` (the one exception is
+  `Dexpace::Pipeline::Entry`, a pipeline value whose validation lives in `.build` alone); what stays open is
+  `.allocate`, which yields an instance whose members are all nil, and any object responding to
+  `#method`/`#url`/`#headers`/`#body`, which duck-types past the builder entirely (amendment `C19`, applied to
+  §4 and §10.10 on 2026-09-25).
   Neither hole can be closed. Do not build a fake proof that they are.
 - **The mitigation that matters is wire-boundary re-validation.** Header name and outbound value validation
   (`HTTP-17`, `HTTP-18`, `XCUT-18`) runs **again** immediately before dispatch, inside every transport adapter,
@@ -375,12 +377,17 @@ invariants no tool catches.
 
 Each is one line plus the chapter to read before touching the area.
 
-- **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden in every gem here** — an async interrupt
-  can land on any bytecode instruction, including inside an `ensure` releasing a pooled connection (§8.3).
+- **`Timeout.timeout`, `Thread#raise` and `Thread#kill` are forbidden in code this repository writes** — an async
+  interrupt can land on any bytecode instruction, including inside an `ensure` releasing a pooled connection
+  (§8.3); `Dexpace/NoThreadInterrupt` enforces it over every gem's `lib/`, while a dependency may still use them
+  (`net-http`'s connect phase, the async closure — amendment `C8`).
 - **Deadlines are explicit values, not ambient interrupts** — propagated to
   `open_timeout`/`read_timeout`/`write_timeout` on the sync path and to the task's own timeout on the async path,
-  where they interrupt only at a scheduler checkpoint (§8.3, §3.3). This is the direct cause of the port's three
-  unsatisfied MUSTs (`ASYNC-3`, `ASYNC-4`, `PIPE-33`); §10.5 splits them, do not silently re-open the trade.
+  where they interrupt only at a scheduler checkpoint (§8.3, §3.3). This is the direct cause of two unmet MUSTs
+  (`ASYNC-3`, `PIPE-33`'s interrupt clause) and one held vacuously (`ASYNC-4`); §10.5 splits them, do not
+  silently re-open the trade. Design §10 also records three MUST clauses unmet on a stated domain, each admitted
+  rather than argued away: `SERDE-27`'s no-materialisation clause in the JSON codec, `TRANSPORT-14` on the
+  async transport, and `HTTP-45` for a second fiber on one thread with no scheduler (§10.20–§10.22).
 - **`Thread::Mutex` ownership is per-fiber, not per-thread, and it is non-reentrant** — hold it across the flag
   flip only and never across a drain, a parse or any suspension point, or two fibers deadlock (§3.1, §3.7, §7.2).
 - **An `Enumerator` abandoned mid-`#next` never runs its `ensure`** — verified, and GC is not a cleanup hook. So
@@ -429,10 +436,10 @@ Each is one line plus the chapter to read before touching the area.
 - **`Response#body_string` is the SDK's one decode boundary, and it is three steps, not one** — resolve the
   charset through `MediaType#charset` (already `nil` for absent or unknown), **retag** the BINARY bytes with
   3a's `#read_string(encoding)`, then transcode with the target **named**,
-  `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1's one-step sentence mangles every
-  non-ASCII byte and a target-less `#encode` follows the host's `Encoding.default_internal`; the sentence's
-  correction is amendment `C1` in `docs/deviations.md`'s amendment set, and the suite's hostile-global tests
-  are what catch a revert (phase 3b's Task 8).
+  `encode(encoding, invalid: :replace, undef: :replace)`. Design §3.1 once stated this as one step, which
+  mangles every non-ASCII byte, and a target-less `#encode` follows the host's `Encoding.default_internal`;
+  amendment `C1` corrected §3.1 on 2026-09-25, and the suite's hostile-global tests are what catch a revert
+  (phase 3b's Task 8).
 - **A body closes exactly the sources it opened, and `close: true` at `Body.stream` forces single-use** —
   the body layer's ownership rule (design §10.12, `BODY-8`) is deliberately not the I/O layer's
   wrapping-takes-ownership rule (`IO-6`); a body that closes its stream cannot rewind it, so
@@ -1277,7 +1284,10 @@ probe compares each against the live tree, and a count written anywhere else in 
   claim from as-built source, never from another document** — and the phase that writes the
   frozen-chapter amendments out, the design's thirteen `C1`–`C13`, `C14` reconciled from phase 4b's filing
   and five the as-built audit found, `C15`–`C19`, in `docs/deviations.md`'s amendment set, because `docs/sdk-design-ruby/` and `docs/product-spec/` are
-  frozen and only a human may apply them. It ships repair code in `dexpace-core`,
+  frozen to every maintenance tool and only a human may apply them — which the maintainer then did on
+  2026-09-25, applying `C1`–`C19` plus six further corrections the reconciliation found (`C20`–`C25`) and
+  consolidating every phase's ledger rows into design §10, which now carries 38 entries matched row for row
+  by `docs/deviations.md`. It ships repair code in `dexpace-core`,
   `dexpace-transport-async_http` and `dexpace-conformance`, reaches
   `dexpace-transport-net_http` through the `sig/` header its `NFR-13` repair adds to every gem, two YARD
   comments in its `lib/` and two tests the `Protocol` repair invalidated, per its design's R1 addendum,
